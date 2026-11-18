@@ -82,12 +82,14 @@ export async function secretRequest(ctx: Ctx, run: Run, a: Args<'secret_request'
         refuse(
           `${name} 由发起人的个人 Skill ${declared.name} 声明，本团队还没有这个定义；请发起人在群输入框上方的密钥提示里填写，填写时会一并创建`,
         )
-      const layer = targetLayer(declared, teamId, run.groupId)
+      const spec = declared.secretSpecs.find((x) => x.name === name)!
+      const layer = targetLayer(declared, spec, teamId, run.groupId)
       if (!layer)
         refuse(`${name} 由平台 Skill ${declared.name} 声明，本群还没有定义；请平台管理员在设置里添加`)
-      const entry = define.get(declared.name) ?? { skill: declared, specs: [], layer: layer! }
-      entry.specs.push(declared.secretSpecs.find((x) => x.name === name)!)
-      define.set(declared.name, entry)
+      const key = `${declared.name}/${layer!.scope}`
+      const entry = define.get(key) ?? { skill: declared, specs: [], layer: layer! }
+      entry.specs.push(spec)
+      define.set(key, entry)
     }
   }
   const force = a.forceNewSession ?? false

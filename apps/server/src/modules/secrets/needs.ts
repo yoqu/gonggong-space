@@ -20,23 +20,26 @@ import { createSecret, setPersonal } from './service.js'
 type Read = Pick<Db, 'select'>
 export type EffectiveSkill = Awaited<ReturnType<typeof enabledSkills>>[number]
 
+/** Personal installs only ever get a per-member definition (plan §8.1). */
+const targetMode = (skill: Pick<EffectiveSkill, 'scope'>, spec: SecretRequirement): SecretMode =>
+  skill.scope === 'user' ? 'personal' : spec.mode
+
 /**
- * Where a missing definition of a skill's secret goes (plan Skill密钥声明 §5): the layer the skill was installed or
- * written into, a repo's team for repo installs, the group's team for personal installs; null for platform skills.
+ * Where a missing definition of a skill's secret goes (plan Skill密钥声明 §5): per-member ones in the team, since
+ * members' values are kept per team and one definition serves all its groups; shared ones in the layer the skill was
+ * installed or written into (a repo's are its team's); null for shared ones of platform skills.
  */
 export function targetLayer(
   skill: Pick<EffectiveSkill, 'scope'>,
+  spec: SecretRequirement,
   teamId: string,
   groupId: string,
 ): Layer | null {
+  if (targetMode(skill, spec) === 'personal') return { scope: 'team', teamId, groupId: null }
   if (skill.scope === 'group') return { scope: 'group', teamId, groupId }
   if (skill.scope === 'platform') return null
   return { scope: 'team', teamId, groupId: null }
 }
-
-/** Personal installs only ever get a per-member definition (plan §8.1). */
-const targetMode = (skill: Pick<EffectiveSkill, 'scope'>, spec: SecretRequirement): SecretMode =>
-  skill.scope === 'user' ? 'personal' : spec.mode
 
 /** The most specific definition of `name`, whatever its state. */
 const nearest = (rows: SecretRow[], name: string) =>
@@ -165,7 +168,7 @@ export async function memberNeeds(ctx: Ctx, groupId: string, userId: string): Pr
           out.push({ ...base, status: 'blocked', reason, def: defRef(any), action: null })
           continue
         }
-        const target = targetLayer(skill, teamId, groupId)
+        const target = targetLayer(skill, spec, teamId, groupId)
         const mode = targetMode(skill, spec)
         const action =
           skill.scope === 'user' ? 'fill_new' : target && (await canAdmin(target)) ? 'create' : null

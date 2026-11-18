@@ -130,9 +130,17 @@ describe('skill secret declarations', () => {
       ['DW_TEST_KEY', 'missing_def', null],
       ['DW_SHARED', 'missing_def', null],
     ])
+    // Per-member definitions go in the team (one for all its groups): Li runs the group, Wang the team.
     const admin = await w.needs('li')
-    expect(brief(admin).map((n) => n[2])).toEqual(['create', 'create', 'create'])
-    expect(admin[0]!.target).toMatchObject({ scope: 'group', groupId: w.group.id, mode: 'personal' })
+    expect(brief(admin).map((n) => n[2])).toEqual([null, null, 'create'])
+    expect(admin[0]!.target).toMatchObject({
+      scope: 'team',
+      teamId: w.group.teamId,
+      groupId: null,
+      mode: 'personal',
+    })
+    expect(admin[2]!.target).toMatchObject({ scope: 'group', groupId: w.group.id, mode: 'shared' })
+    expect(brief(await w.needs('wang')).map((n) => n[2])).toEqual(['create', 'create', null])
 
     const groupUrl = `/api/groups/${w.group.id}/secrets`
     await w.api.li.post(groupUrl, { name: 'DW_KEY', mode: 'personal' })
@@ -306,18 +314,24 @@ describe('secret_request for declared secrets', () => {
     expect(define!.card).toMatchObject({
       audience: 'define',
       names: ['DW_KEY'],
-      define: { skill: 'dw', layer: { scope: 'group', groupId: w.group.id }, admins: ['李建国'] },
+      define: {
+        skill: 'dw',
+        layer: { scope: 'team', teamId: w.group.teamId, groupId: null },
+        admins: ['王磊'],
+      },
     })
     expect(await t.db.select().from(secrets)).toEqual([])
 
     const url = `/api/secret-requests/${define!.card.id}`
     expect((await w.api.zhao.post(url, { values: {} })).status).toBe(403)
-    expect((await w.api.li.post<SecretCard>(url, { values: {} })).body).toMatchObject({ filled: true })
-    expect((await w.api.li.post(url, { values: {} })).status).toBe(409)
+    expect((await w.api.li.post(url, { values: {} })).status).toBe(403)
+    expect((await w.api.wang.post<SecretCard>(url, { values: {} })).body).toMatchObject({ filled: true })
+    expect((await w.api.wang.post(url, { values: {} })).status).toBe(409)
     const [def] = await t.db.select().from(secrets)
     expect(def).toMatchObject({
-      scope: 'group',
-      groupId: w.group.id,
+      scope: 'team',
+      teamId: w.group.teamId,
+      groupId: null,
       name: 'DW_KEY',
       mode: 'personal',
       description: '数仓 Key（正式）：在 Manager 个人中心签发',
@@ -341,7 +355,7 @@ describe('secret_request for declared secrets', () => {
     const call = await w.runOf(w.wang)
     await call('secret_request', { names: ['DW_KEY'] })
     const [define] = await cards()
-    await w.api.li.post(`/api/secret-requests/${define!.card.id}`, { values: {} })
+    await w.api.wang.post(`/api/secret-requests/${define!.card.id}`, { values: {} })
     expect((await cards()).length).toBe(1)
     expect((await w.needs('wang'))[0]).toMatchObject({ status: 'ok', action: null })
   })
@@ -367,20 +381,28 @@ describe('secret_request for declared secrets', () => {
     await w.api.li.patch(`/api/groups/${w.group.id}/skills/${made.body.id}`, {
       files: skill('dw', `${DW}# v2\n`),
     })
-    const upgraded = await w.api.li.post(`/api/secret-requests/${first!.card.id}`, { values: {} })
+    const upgraded = await w.api.wang.post(`/api/secret-requests/${first!.card.id}`, { values: {} })
     expect(upgraded.status).toBe(409)
     expect(upgraded.body).toMatchObject({ message: expect.stringContaining('Skill dw 已升级或移除') })
   })
 
-  it('refuses names of personal and platform skills with where they get filled', async () => {
+  it("asks the team for a platform skill's per-member secret, the platform admins for its shared one", async () => {
     const w = await world()
     const root = await t.seed.user({ name: '根', role: 'sysadmin' })
     const sys = await client(t, await t.seed.cookie(root.id))
     await sys.post('/api/admin/skills', { files: skill('dw', DW) })
     const call = await w.runOf(w.zhao)
-    const r = await call('secret_request', { names: ['DW_KEY'] })
+    const r = await call('secret_request', { names: ['DW_SHARED'] })
     expect(r).toMatchObject({ isError: true })
     expect(JSON.stringify(r)).toContain('请平台管理员在设置里添加')
+    expect((await call('secret_request', { names: ['DW_KEY'] })).text).toContain(
+      '请管理员按 Skill dw 的声明创建：DW_KEY',
+    )
+    expect((await cards())[0]!.card.define?.layer).toEqual({
+      scope: 'team',
+      teamId: w.group.teamId,
+      groupId: null,
+    })
   })
 })
 

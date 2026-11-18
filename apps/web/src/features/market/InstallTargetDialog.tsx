@@ -23,6 +23,8 @@ interface Target {
   base: string
   /** The install scope's id, to tell where the listing already is. */
   scopeId: string
+  /** The team it belongs to: per-member secret definitions go there. */
+  teamId: string | null
   label: string
   /** Set where I am not an admin: 申请引入 asks the admins of this scope instead. */
   ask?: Pick<InstallRequestReq, 'scope' | 'scopeId'>
@@ -42,6 +44,7 @@ function useRepos(teams: { id: string; name: string; role: string }[]) {
           (r): Target => ({
             base: `/teams/${team.id}/repos/${r.id}`,
             scopeId: r.id,
+            teamId: team.id,
             label: `${team.name} / ${r.name}`,
             ask: team.role === 'member' ? { scope: 'repo', scopeId: r.id } : undefined,
           }),
@@ -96,11 +99,12 @@ export function InstallTargetDialog({
   const [error, setError] = useState('')
   const targets: Target[] | null =
     kind === 'me'
-      ? [{ base: PERSONAL_BASE, scopeId: me ?? '', label: t('我的 Skill') }]
+      ? [{ base: PERSONAL_BASE, scopeId: me ?? '', teamId: null, label: t('我的 Skill') }]
       : kind === 'group'
         ? groups.map((g) => ({
             base: `/groups/${g.id}`,
             scopeId: g.id,
+            teamId: g.teamId,
             label: g.name,
             ask: isGroupAdmin(g, me) ? undefined : { scope: 'group', scopeId: g.id },
           }))
@@ -108,6 +112,7 @@ export function InstallTargetDialog({
           ? teams.map((x) => ({
               base: `/teams/${x.id}`,
               scopeId: x.id,
+              teamId: x.id,
               label: x.name,
               ask: x.role === 'member' ? { scope: 'team', scopeId: x.id } : undefined,
             }))
@@ -123,7 +128,11 @@ export function InstallTargetDialog({
   const ask = target?.ask
   const pinVersionId = policy === 'pin' ? listing.listedVersionId : null
   // Only who installs directly makes definitions: they administer the layer.
-  const secrets = useSecretPlan(listing.secretSpecs, target && !ask ? secretsBaseOf(target.base) : null)
+  const secrets = useSecretPlan(
+    listing.secretSpecs,
+    target && !ask ? secretsBaseOf(target.base) : null,
+    target?.teamId ?? null,
+  )
   const submit = async () => {
     if (!target) return
     if (!ask && secrets.invalid) return setError(secrets.invalid)

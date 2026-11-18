@@ -6,6 +6,7 @@ import {
   type SecretScope,
 } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { ApiError } from '../../lib/api'
 import { toastError } from '../../lib/errors'
@@ -84,6 +85,10 @@ interface Choice {
 }
 interface Item {
   spec: SecretRequirement
+  /** Where a new definition goes: per-member ones in the team, whatever the install target (plan §5). */
+  layer: SecretScope
+  /** Whether I may make it there: a group admin may not administer the team. */
+  canCreate: boolean
   /** A same-named definition on the target layer. */
   own?: SecretDto
   /** …or above it (a group install over a team or platform one). */
@@ -99,6 +104,8 @@ export const secretsBaseOf = (base: string) =>
 
 const layerOf = (secretsBase: string): SecretScope => (secretsBase.startsWith('/groups/') ? 'group' : 'team')
 
+const RANK: Record<SecretScope, number> = { platform: 0, team: 1, group: 2 }
+
 const differs = (spec: SecretRequirement, def: SecretDto) =>
   def.mode !== spec.mode ||
   def.description.trim() !== [spec.title, spec.description].filter(Boolean).join('：')
@@ -107,28 +114,35 @@ const differs = (spec: SecretRequirement, def: SecretDto) =>
  * The declared secrets against the target layer's definitions (plan Skill密钥声明 §5), and what to make there once the
  * install went through. `secretsBase` null (personal installs, requests) leaves it all out.
  */
-export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | null) {
+export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | null, teamId: string | null) {
   const base = specs.length ? secretsBase : null
   const { data, error } = useGet<SecretDto[]>(base)
   const [edits, setEdits] = useState<Record<string, Partial<Choice>>>({})
+  const sysadmin = useSession((s) => s.user?.role === 'sysadmin')
+  const teamAdmin = useSession(
+    (s) => sysadmin || !!s.tenancy?.teams.some((x) => x.id === teamId && x.role !== 'member'),
+  )
   const layer = base ? layerOf(base) : 'team'
+  const layerFor = (mode: SecretMode): SecretScope => (mode === 'personal' ? 'team' : layer)
   const items: Item[] | null =
     base && data
       ? specs.map((spec) => {
-          const own = data.find((s) => s.name === spec.name && s.scope === layer)
-          // The nearest layer above: a team definition hides a platform one.
-          const upper = own
-            ? undefined
-            : (data.find((s) => s.name === spec.name && s.scope === 'team' && layer !== 'team') ??
-              data.find((s) => s.name === spec.name && s.scope === 'platform'))
+          const target = layerFor(spec.mode)
+          // The nearest same-named definition: at or below where a new one would go it is shared, above it reused.
+          const near = data
+            .filter((s) => s.name === spec.name)
+            .sort((a, b) => RANK[b.scope] - RANK[a.scope])[0]
+          const own = near && RANK[near.scope] >= RANK[target] ? near : undefined
+          const upper = own ? undefined : near
+          const canCreate = target === layer || teamAdmin
           const choice: Choice = {
-            action: own || upper ? 'reuse' : 'create',
+            action: own || upper ? 'reuse' : canCreate ? 'create' : 'skip',
             description: [spec.title, spec.description].filter(Boolean).join('：'),
             mode: spec.mode,
             value: '',
             ...edits[`${base}|${spec.name}`],
           }
-          return { spec, own, upper, choice }
+          return { spec, layer: target, canCreate, own, upper, choice }
         })
       : null
   const set = (name: string, c: Partial<Choice>) =>
@@ -142,8 +156,9 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
     if (!base) return
     for (const { spec, choice } of creating) {
       const shared = choice.mode !== 'personal' && choice.value
+      const where = layerFor(choice.mode) === layer || !teamId ? base : `/teams/${teamId}/secrets`
       try {
-        await secretsApi.create(base, {
+        await secretsApi.create(where, {
           name: spec.name,
           description: choice.description.trim(),
           mode: choice.mode,
@@ -160,6 +175,7 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
   return {
     base,
     layer,
+    layerFor,
     items,
     error,
     set,
@@ -183,10 +199,11 @@ export function InstallSecrets({ plan }: { plan: SecretPlan }) {
       ) : !plan.items ? (
         <Spinner />
       ) : (
-        plan.items.map(({ spec, own, upper, choice }) => {
+        plan.items.map(({ spec, own, upper, choice, canCreate }) => {
           const def = own ?? upper
           const above = upper ? SCOPE_LABEL[upper.scope] : ''
           const set = (c: Partial<Choice>) => plan.set(spec.name, c)
+          const inGroup = plan.layerFor(choice.mode) === 'group'
           return (
             <div key={spec.name} className="mkt-secret">
               <SpecLabel spec={spec} />
@@ -222,27 +239,36 @@ export function InstallSecrets({ plan }: { plan: SecretPlan }) {
                               value: 'reuse',
                               label: t('复用{layer}现有定义', { layer: above }),
                             },
-                            {
-                              value: 'create',
-                              label:
-                                plan.layer === 'group'
-                                  ? t('在本群新建同名定义（仅本群生效，覆盖{layer}）', {
-                                      layer: above,
-                                    })
-                                  : t('在本团队新建同名定义（仅本团队生效，覆盖{layer}）', {
-                                      layer: above,
-                                    }),
-                            },
+                            ...(canCreate
+                              ? [
+                                  {
+                                    value: 'create' as const,
+                                    label: inGroup
+                                      ? t('在本群新建同名定义（仅本群生效，覆盖{layer}）', {
+                                          layer: above,
+                                        })
+                                      : t('在本团队新建同名定义（仅本团队生效，覆盖{layer}）', {
+                                          layer: above,
+                                        }),
+                                  },
+                                ]
+                              : []),
                           ]
                     }
                   />
                 </>
-              ) : (
+              ) : canCreate ? (
                 <Checkbox
-                  label={plan.layer === 'group' ? t('在本群创建定义') : t('在本团队创建定义')}
+                  label={inGroup ? t('在本群创建定义') : t('在本团队创建定义')}
                   checked={choice.action === 'create'}
                   onChange={(on) => set({ action: on ? 'create' : 'skip' })}
                 />
+              ) : (
+                <div className="cfg__hint">
+                  {t(
+                    '每人自填的密钥建在团队层，一个团队只建一次；需团队管理员创建，成员用到时会提醒团队管理员。',
+                  )}
+                </div>
               )}
               {choice.action === 'create' ? (
                 <div className="mkt-secret__form">

@@ -171,7 +171,7 @@ Once it is brought in:
 
 - **Above the group's input box**, 「本群有 N 个密钥待你配置」 ("N secrets here need your setup") counts only required entries and appears only to people who need to act: members who fill their own value, and admins who fill a shared value or create a definition. Click 「去配置」 (Set up) to fill them in by Skill, each with its purpose, apply link and format hint; optional entries sit under 「可选配置」 (Optional). Click × to stop the reminder for 24 hours; it comes back right away when the missing set changes (say, a Skill upgrade adds one) or a Bot sends you a card for it.
 - **Group settings → Secrets** always has 「配置密钥」 (Set up secrets).
-- Your own values are kept per team, you and name: fill one once and other groups of the team using the same name stop asking.
+- Definitions of "personal" secrets live at the team level, made once per team (by a team admin); your own values are kept per team, you and name: fill one once and other groups of the team using the same name stop asking.
 - For a Skill you brought in for yourself whose secret the team doesn't define yet, your first fill also creates a "personal" definition at the team level — only the definition; everyone else still fills their own.
 
 At run time the Bot knows from the start which required secrets its Skills are missing. When the group has no definition of one yet, the Bot's request first posts a 「按声明创建」 (Create as declared) card to that level's admins, naming who can handle it; once an admin clicks 「创建」 (Create), the definition is made from the declaration and the fill card follows. If the Skill is upgraded or removed, or someone creates a secret of the same name meanwhile, the old card stops working; just ask the Bot again.

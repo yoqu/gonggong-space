@@ -124,23 +124,26 @@ describe('需要的密钥', () => {
     expect(link.getAttribute('href')).toBe('https://manager.example.com/keys')
   })
 
-  it('creates the missing definitions in the target group after installing', async () => {
+  it('creates the missing definitions after installing: per-member ones in the team, shared ones in the group', async () => {
     const calls = mockApi({
       'GET /teams/t1/repos': [],
       'GET /groups/g1/secrets': [],
       'PUT /groups/g1/installs/l1': {},
-      'POST /groups/g1/secrets': apiError(409, 'conflict'),
+      'POST /teams/t1/secrets': apiError(409, 'conflict'),
+      'POST /groups/g1/secrets': {},
     })
     const dialog = openDialog()
     fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    await within(dialog).findAllByRole('checkbox', { name: '在本群创建定义' })
-    const boxes = within(dialog).getAllByRole('checkbox', { name: '在本群创建定义' }) as HTMLInputElement[]
-    expect(boxes.map((b) => b.checked)).toEqual([true, true])
-    fireEvent.click(boxes[1]!)
+    const team = (await within(dialog).findByRole('checkbox', {
+      name: '在本团队创建定义',
+    })) as HTMLInputElement
+    const group = within(dialog).getByRole('checkbox', { name: '在本群创建定义' }) as HTMLInputElement
+    expect([team.checked, group.checked]).toEqual([true, true])
+    fireEvent.click(group)
     fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
     const posts = calls.filter((c) => c.method === 'POST')
-    expect(posts.map((c) => c.path)).toEqual(['/groups/g1/secrets'])
+    expect(posts.map((c) => c.path)).toEqual(['/teams/t1/secrets'])
     expect(posts[0]!.body).toEqual({
       name: 'DW_KEY',
       description: '数仓 Key：个人中心签发',
@@ -157,7 +160,7 @@ describe('需要的密钥', () => {
   it('offers reusing a team definition, flagging a different purpose', async () => {
     const calls = mockApi({
       'GET /teams/t1/repos': [],
-      'GET /groups/g1/secrets': [def({ description: '别的用途', mode: 'shared' })],
+      'GET /groups/g1/secrets': [def({ name: 'DW_TEST_KEY', description: '别的用途', mode: 'shared' })],
       'PUT /groups/g1/installs/l1': {},
       'POST /groups/g1/secrets': {},
     })
@@ -169,10 +172,32 @@ describe('需要的密钥', () => {
     expect(within(dialog).getByText('用途可能不一致')).toBeTruthy()
     expect(within(dialog).getByText('别的用途')).toBeTruthy()
     expect(reuse.getAttribute('aria-checked') ?? String(reuse.checked)).toBe('true')
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: '在本群创建定义' }))
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: '在本团队创建定义' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+
+  it('leaves per-member definitions to team admins when I only run the group', async () => {
+    useSession.setState({
+      tenancy: {
+        ...useSession.getState().tenancy!,
+        teams: [{ id: 't1', name: '支付组', role: 'member' } as TeamDto],
+      },
+    })
+    const calls = mockApi({
+      'GET /teams/t1/repos': [],
+      'GET /groups/g1/secrets': [],
+      'PUT /groups/g1/installs/l1': {},
+      'POST /groups/g1/secrets': {},
+    })
+    const dialog = openDialog()
+    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
+    expect(await within(dialog).findByText(/每人自填的密钥建在团队层，一个团队只建一次/)).toBeTruthy()
+    expect(within(dialog).queryByRole('checkbox', { name: '在本团队创建定义' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/groups/g1/secrets'])
   })
 
   it('disables installing when the same-layer definition is answered with 取消引入', async () => {

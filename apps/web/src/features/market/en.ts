@@ -217,4 +217,6 @@ export default {
   '统一值，可稍后填写': 'Shared value; can be filled later',
   'r{n} 新增必需密钥：{names}，升级后需建好定义并填写':
     'r{n} adds required secrets: {names}; define and fill them after upgrading',
+  '每人自填的密钥建在团队层，一个团队只建一次；需团队管理员创建，成员用到时会提醒团队管理员。':
+    "Per-member secrets are defined once per team; a team admin creates it, and members' use reminds the team admins.",
 }
