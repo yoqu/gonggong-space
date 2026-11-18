@@ -671,7 +671,20 @@
     return true
   }
   let sticky = false
-  const anchors = () =>
+  const anchors = () => {
+    const out = liveAnchors()
+    // A script shows these later (a dialog cloned from a template): there, hidden until it does.
+    const seen = new Set(out.map((a) => a.anchor))
+    for (const t of document.querySelectorAll('template'))
+      for (const el of t.content.querySelectorAll('[data-gg-anchor]')) {
+        const anchor = anchorOf(el)
+        if (!anchor || seen.has(anchor) || out.length >= 500) continue
+        seen.add(anchor)
+        out.push({ anchor, ggId: ggIdOf(el), rect: { x: 0, y: 0, w: 0, h: 0 }, hidden: true })
+      }
+    return out
+  }
+  const liveAnchors = () =>
     [...document.querySelectorAll('[data-gg-anchor]')].slice(0, 500).flatMap((el) => {
       const anchor = anchorOf(el)
       if (!anchor) return []
@@ -786,6 +799,21 @@
       report()
       drawMarkBoxes()
     }).observe(document.documentElement)
+  // What scripts add or show (a dialog opening, a tab switching) moves anchors and links without resizing the page.
+  let domFrame = 0
+  new MutationObserver(() => {
+    if (domFrame) return
+    domFrame = requestAnimationFrame(() => {
+      domFrame = 0
+      pinnedEls = null
+      report()
+    })
+  }).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['open', 'hidden', 'class', 'style'],
+  })
   // A box scrolling inside the page (the document's own scroll is `scroll` above) moves the hotspots in it.
   // Every frame it scrolls: the outline, and the layout (its anchors and links move with it).
   let boxFrame = 0

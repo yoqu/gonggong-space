@@ -213,6 +213,44 @@ describe('gg-bridge', () => {
     ])
   })
 
+  it('reports anchors a script shows later (a dialog from a template): hidden in the template, shown once inserted', async () => {
+    const s = screen(`<!doctype html><html><head></head><body><dialog id="d"></dialog>
+<template id="tpl"><section data-gg-anchor="occupancy">占用</section></template></body></html>`)
+    const frame = () => new Promise((r) => s.w.requestAnimationFrame(() => r(null)))
+    const anchors = () => {
+      const d = s.posts
+        .map((p) => p.data)
+        .filter((m) => m.type === 'ready' || m.type === 'size')
+        .at(-1)
+      return (
+        BridgeFromShell.parse(d) as { anchors: { anchor: string; ggId: string | null; hidden?: true }[] }
+      ).anchors
+    }
+    const inTemplate = (s.$('#tpl') as HTMLTemplateElement).content.querySelector('section')
+    expect(anchors()).toEqual([
+      {
+        anchor: 'occupancy',
+        ggId: inTemplate?.getAttribute('data-gg-id'),
+        rect: { x: 0, y: 0, w: 0, h: 0 },
+        hidden: true,
+      },
+    ])
+    const shown = (s.$('#tpl') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment
+    const section = shown.querySelector('section') as HTMLElement
+    section.getBoundingClientRect = () => ({ left: 10, top: 20, width: 300, height: 80 }) as DOMRect
+    s.$('#d').setAttribute('open', '')
+    s.$('#d').append(shown)
+    await frame()
+    await frame()
+    expect(anchors()).toEqual([
+      {
+        anchor: 'occupancy',
+        ggId: inTemplate?.getAttribute('data-gg-id'),
+        rect: { x: 10, y: 20, w: 300, h: 80 },
+      },
+    ])
+  })
+
   it('brings an element into view by scrolling its own boxes and the page only, the least it takes', () => {
     const s = screen(`<!doctype html><html><head></head><body>
 <div id="row" style="overflow-x: auto"><b id="c" data-gg-anchor="c">C</b><b id="d">D</b></div>
