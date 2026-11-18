@@ -182,6 +182,41 @@ describe('shell screen states', () => {
   })
 })
 
+describe('shell overview screen states', () => {
+  const chips = (w: JSDOM['window'], i: number) =>
+    [...(w.document.querySelectorAll('.frame')[i]?.querySelectorAll('.label select') ?? [])].map((el) => {
+      const s = el as HTMLSelectElement
+      return [s.title, s.value]
+    })
+
+  it('marks a screen with states by its dims, opens #canvas?<state> in that state, a screen’s own dims as <screen>.<dim>', async () => {
+    const s = openShell('#canvas?role=guest&detail.order=refunded')
+    await tick()
+    expect(chips(s.w, 0)).toEqual([])
+    expect(chips(s.w, 1)).toEqual([
+      ['角色：会员 / 游客', 'guest'],
+      ['订单状态：待付款 / 已退款', 'refunded'],
+    ])
+    expect(s.w.location.hash).toBe('#canvas?role=guest&detail.order=refunded')
+  })
+
+  it('switches a screen in place, and the address follows', async () => {
+    const s = openShell('#canvas')
+    await tick()
+    expect(s.w.location.hash).toBe('#canvas')
+    const select = s.w.document
+      .querySelectorAll('.frame')[1]
+      ?.querySelectorAll('.label select')[1] as HTMLSelectElement
+    select.value = 'refunded'
+    select.dispatchEvent(new s.w.Event('change'))
+    expect(s.w.location.hash).toBe('#canvas?detail.order=refunded')
+    expect(s.$('[data-view="canvas"]').getAttribute('aria-pressed')).toBe('true')
+    // 预览 of that screen plays it in the state chosen here.
+    ;(s.w.document.querySelectorAll('.label button')[1] as HTMLButtonElement).click()
+    expect(s.src()).toBe('screens/detail.html?role=member&order=refunded')
+  })
+})
+
 describe('lint of screen states', () => {
   const manifest = GgArtifactManifest.parse(MANIFEST)
   it('names malformed conditions, dims or values the screen does not have, and dims it never uses', () => {

@@ -154,6 +154,11 @@
     font-size: 18px; font-weight: 600; color: var(--label-secondary); white-space: nowrap;
   }
   .label span { overflow: hidden; text-overflow: ellipsis; }
+  .label select {
+    flex: none; max-width: 180px; height: 22px; padding: 0 8px; border: 0; border-radius: 999px; background: var(--control-fill);
+    color: var(--label); font: inherit; font-size: 12px; font-weight: 400; cursor: pointer; box-shadow: var(--shadow-control);
+  }
+  .label select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .label button {
     flex: none; border: 0; border-radius: 999px; padding: 2px 10px; background: var(--control-fill); color: var(--label);
     font-size: 12px; line-height: 18px; cursor: pointer; box-shadow: var(--shadow-control);
@@ -349,12 +354,32 @@
         return [d.id, d.values.some((x) => x.id === v) ? v : d.values[0].id]
       }),
     )
+  // Only a value the dim has: links and addresses can name anything.
   const choose = (s, set) => {
     for (const [k, v] of Object.entries(set ?? {})) {
-      if (typeof v !== 'string') continue
+      const d = (globals.has(k) ? manifest.dims : s.dims ?? []).find((x) => x.id === k)
+      if (!d?.values.some((x) => x.id === v)) continue
       if (globals.has(k)) chosen.all[k] = v
       else chosen.screen.set(s.id, { ...chosen.screen.get(s.id), [k]: v })
     }
+  }
+  // The overview's address: the global choices, then each screen's own as <screen>.<dim>.
+  const canvasHash = () => {
+    const q = new URLSearchParams(chosen.all)
+    for (const [id, own] of chosen.screen) for (const [k, v] of Object.entries(own)) q.set(`${id}.${k}`, v)
+    return `#canvas${q.size ? `?${q}` : ''}`
+  }
+  const dimSelect = (s, d, text, onChange) => {
+    const select = document.createElement('select')
+    select.dataset.dim = d.id
+    select.title = `${d.label}：${d.values.map((v) => v.label).join(' / ')}`
+    for (const v of d.values) select.add(new Option(text(v), v.id))
+    select.value = stateOf(s)[d.id]
+    select.onchange = () => {
+      choose(s, { [d.id]: select.value })
+      onChange()
+    }
+    return select
   }
   const query = (s) => (dimsOf(s).length ? `?${new URLSearchParams(stateOf(s))}` : '')
   const srcOf = (s) => s.file + query(s)
@@ -389,12 +414,14 @@
     play.type = 'button'
     play.textContent = '预览'
     play.onclick = () => openScreen(s.id)
-    label.append(name, play)
+    // A screen with states shows its dims; switching one reloads the screens it changes, here in the overview.
+    const selects = dimsOf(s).map((d) => dimSelect(s, d, (v) => `${d.label}：${v.label}`, refreshCanvas))
+    label.append(name, ...selects, play)
     const { el, iframe } = makeDevice(s, false)
     el.onclick = () => { if (!moved) openScreen(s.id) }
     frame.append(label, el)
     world.append(frame)
-    const n = { s, frame, el, iframe, x: 0, y: 0, h: device.h, state: 'idle' }
+    const n = { s, frame, label, el, iframe, x: 0, y: 0, h: device.h, state: 'idle' }
     iframe.addEventListener('load', () => {
       n.state = 'loaded'
       measure(n)
@@ -404,6 +431,16 @@
     })
     return n
   })
+  function refreshCanvas() {
+    for (const n of nodes) {
+      if (n.state !== 'idle' && n.iframe.getAttribute('src') !== srcOf(n.s)) {
+        n.state = 'loading'
+        loadInto(n.el, n.iframe, srcOf(n.s))
+      }
+      for (const select of n.label.querySelectorAll('select')) select.value = stateOf(n.s)[select.dataset.dim]
+    }
+    history.replaceState(null, '', canvasHash())
+  }
   function measure(n) {
     let h
     try { h = n.iframe.contentDocument?.documentElement.scrollHeight } catch { return }
@@ -536,7 +573,7 @@
   }, { passive: false })
   let drag = null, moved = false
   canvas.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button')) return
+    if (e.target.closest('button, select')) return
     drag = { id: e.pointerId, x: e.clientX - view.x, y: e.clientY - view.y, sx: e.clientX, sy: e.clientY }
     moved = false
   })
@@ -677,14 +714,7 @@
         const label = document.createElement('label')
         const name = document.createElement('span')
         name.textContent = d.label
-        const select = document.createElement('select')
-        for (const v of d.values) select.add(new Option(v.label, v.id))
-        select.value = stateOf(s)[d.id]
-        select.onchange = () => {
-          choose(s, { [d.id]: select.value })
-          show(s.id)
-        }
-        label.append(name, select)
+        label.append(name, dimSelect(s, d, (v) => v.label, () => show(s.id)))
         return label
       }),
     )
@@ -728,7 +758,7 @@
     $('.stage .status').hidden = !device.status || compact()
     if (v === 'canvas') {
       openList(false)
-      history.replaceState(null, '', '#canvas')
+      refreshCanvas()
       fit()
     } else {
       fitStage()
@@ -775,7 +805,13 @@
   layout()
   // A link opens to play; #canvas to the overview; #play:<id>?<state> to that screen in that state.
   const hash = decodeURIComponent(location.hash.slice(1))
-  if (hash === 'canvas') setView('canvas')
+  if (hash === 'canvas' || hash.startsWith('canvas?')) {
+    for (const [k, v] of new URLSearchParams(hash.slice(7))) {
+      const [id, dim] = k.includes('.') ? k.split('.') : [null, k]
+      choose(screens.get(id) ?? { id: '', dims: [] }, { [dim]: v })
+    }
+    setView('canvas')
+  }
   else {
     const [at, q = ''] = hash.startsWith('play:') ? hash.slice(5).split('?') : [entry]
     const id = screens.has(at) ? at : entry
