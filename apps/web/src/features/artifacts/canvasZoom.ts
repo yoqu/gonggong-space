@@ -1,11 +1,13 @@
-/** One wheel event zooms by at most this much in log scale: a mouse notch (|deltaY| ≈ 100) was a 2.7× jump. */
-const WHEEL_ZOOM_MAX = 0.1
+/** Log-scale zoom per wheel pixel: 0.01 felt coarse on pinches and made a mouse notch (|deltaY| ≈ 100) a 2.7× jump. */
+const WHEEL_ZOOM_DIVISOR = 300
+/** One wheel event zooms by at most this much in log scale: about 3.4% per mouse notch. */
+const WHEEL_ZOOM_MAX = 0.1 / 3
 const LINE_PX = 16
 
 /** The zoom factor for a ⌘/Ctrl wheel or trackpad pinch: smooth for small pinch deltas, capped for mouse notches. */
 export function wheelZoomFactor(e: Pick<WheelEvent, 'deltaY' | 'deltaMode'>) {
   const dy = e.deltaMode === 1 ? e.deltaY * LINE_PX : e.deltaY
-  return Math.exp(Math.max(-WHEEL_ZOOM_MAX, Math.min(WHEEL_ZOOM_MAX, -dy * 0.01)))
+  return Math.exp(Math.max(-WHEEL_ZOOM_MAX, Math.min(WHEEL_ZOOM_MAX, -dy / WHEEL_ZOOM_DIVISOR)))
 }
 
 /**

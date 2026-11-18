@@ -443,9 +443,30 @@ describe('gg-bridge', () => {
     expect(gesture('gesturestart', 1)).toBe(true)
     expect(gesture('gesturechange', 2)).toBe(true)
     expect(zooms().map((d) => BridgeFromShell.parse(d))).toEqual([
-      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(-0.1), x: 30, y: 40 },
-      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(0.1), x: 30, y: 40 },
-      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(-0.04), x: 30, y: 40 },
+      {
+        source: 'gg-bridge',
+        type: 'zoom',
+        file: 'screens/home.html',
+        factor: Math.exp(-0.1 / 3),
+        x: 30,
+        y: 40,
+      },
+      {
+        source: 'gg-bridge',
+        type: 'zoom',
+        file: 'screens/home.html',
+        factor: Math.exp(0.1 / 3),
+        x: 30,
+        y: 40,
+      },
+      {
+        source: 'gg-bridge',
+        type: 'zoom',
+        file: 'screens/home.html',
+        factor: Math.exp(-4 / 300),
+        x: 30,
+        y: 40,
+      },
       { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 1.25, x: 200, y: 400 },
       { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 0.8, x: 200, y: 400 },
       { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 2, x: 5, y: 6 },

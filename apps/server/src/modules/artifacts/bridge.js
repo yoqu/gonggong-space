@@ -585,7 +585,7 @@
       e.preventDefault()
       // Same as the main site's wheelZoomFactor: capped so a mouse notch is a small step, not a 2.7× jump.
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      zoom(Math.exp(Math.max(-0.1, Math.min(0.1, -dy * 0.01))), e.clientX, e.clientY)
+      zoom(Math.exp(Math.max(-0.1 / 3, Math.min(0.1 / 3, -dy / 300))), e.clientX, e.clientY)
     },
     { passive: false },
   )
