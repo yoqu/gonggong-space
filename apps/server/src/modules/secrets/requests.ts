@@ -119,14 +119,16 @@ export async function postSecretCard(
 
 /**
  * Fill cards for the names the run resolves, one per audience: personal and overridable names ask the originator
- * for their own value, shared names the admins of each definition's layer. Names it does not resolve are skipped.
+ * for their own value, shared names the admins of each definition's layer. Names it does not resolve, or already
+ * gets a value of, are skipped.
  */
 export async function askValues(ctx: Ctx, run: RunRef, names: string[], force: boolean) {
   const { states } = await resolveSecrets(ctx.db, run, ctx.now())
   const by: Record<Audience, SecretState[]> = { origin: [], admins: [] }
   for (const name of names) {
     const s = states.find((x) => x.def.name === name)
-    if (s) by[s.def.mode === 'shared' ? 'admins' : 'origin'].push(s)
+    // A value the run already gets (e.g. the member's own, kept per team) is not asked for again.
+    if (s && s.value === null) by[s.def.mode === 'shared' ? 'admins' : 'origin'].push(s)
   }
   const posted: { audience: Audience; names: string[]; id: string }[] = []
   for (const audience of ['origin', 'admins'] as const) {

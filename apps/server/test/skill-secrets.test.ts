@@ -20,6 +20,7 @@ import {
   secrets,
   teamMembers,
 } from '../src/db/schema.js'
+import { seal } from '../src/lib/seal.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { runNeeds, runNeedsNote } from '../src/modules/secrets/needs.js'
 import { resolveSecrets } from '../src/modules/secrets/resolve.js'
@@ -324,6 +325,25 @@ describe('secret_request for declared secrets', () => {
     const fill = (await cards())[1]!
     expect(fill.body).toBe('Claude 请 赵敏 填写自己的密钥：DW_KEY')
     expect(fill.card).toMatchObject({ audience: 'origin', defs: { DW_KEY: def!.id } })
+  })
+
+  it('does not ask again for a value the originator already filled in the team', async () => {
+    const w = await world()
+    await w.api.li.post(`/api/groups/${w.group.id}/skills`, { files: skill('dw', DW) })
+    // Wang's own value from another group of the team; the bot runs on his machine.
+    await t.db.insert(personalSecrets).values({
+      userId: w.wang.id,
+      teamId: w.group.teamId,
+      name: 'DW_KEY',
+      value: seal('wang-dw-key-1234'),
+      last4: '1234',
+    })
+    const call = await w.runOf(w.wang)
+    await call('secret_request', { names: ['DW_KEY'] })
+    const [define] = await cards()
+    await w.api.li.post(`/api/secret-requests/${define!.card.id}`, { values: {} })
+    expect((await cards()).length).toBe(1)
+    expect((await w.needs('wang'))[0]).toMatchObject({ status: 'ok', action: null })
   })
 
   it('lets a define card go stale when the skill changes or the name appears meanwhile', async () => {
