@@ -4,6 +4,5 @@
   "title": "pnpm test",
   "toolKind": "execute",
   "detail": "pnpm test",
-  "source": "rule",
-  "review": null
+  "source": "rule"
 }

@@ -85,7 +85,6 @@ const bot: BotDto = {
   allowlist: [],
   alwaysAllow: [],
   aiReview: false,
-  reviewModel: null,
   model: null,
   effort: null,
   catalog: null,

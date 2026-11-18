@@ -143,7 +143,7 @@ Located in `crates/gonggong/src/`. `main.rs` is the `gg` command-line entry poin
 | `adapters.rs` | Adapters declared by the built-in Agent plugin manifests (Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI), with manifests compiled into the binary |
 | `session.rs` | A single (group, Bot) session: adapter process, ACP session, and turns |
 | `turn.rs` | Pure per-turn logic: building prompts, mapping ACP updates to run events, permission tier policy |
-| `review.rs` | AI pre-review for 「帮我审批」 (Review for me) |
+| `local/trust.rs`, `local/shell.rs` | The rules 「帮我审批」 (Review for me) allows by, and the shell state of command-line parsing |
 | `ledger.rs` | Estimates what makes up a session's context (the 「上下文」 (Context) tab in run details) |
 | `web_call.rs` | Recognizes web searches and web fetches in a run |
 | `ask.rs` | The built-in `gonggong` MCP server (local loopback, per-session URL): asking group members, forwarding server tools, answering daemon tools |

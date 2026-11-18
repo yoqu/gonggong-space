@@ -13,7 +13,7 @@ The card shows:
 - The title 「权限请求 · 类型」 (Permission request · type). Types include: 执行命令 (Run command), 访问网络 (Network access), 写入文件 (Write file), 删除文件 (Delete file), 移动文件 (Move file), 读取文件 (Read file), 搜索 (Search), and 其他操作 (Other action).
 - The **full command** or the target of the operation. Anything longer than 400 characters or 8 lines is collapsed; click 「展开全部（N 字）」 (Show all (N characters)) to see all of it.
 - An explanation line with the reason first, then the countdown, e.g. 「需要写入或修改文件 · 29:41 后自动拒绝，agent 自行绕路」 ("File write or modification required · rejected automatically in 29:41, the agent works around it"). The countdown ring turns orange in the last 30 seconds.
-- When AI pre-review is on, a risk label (低风险 / 中风险 / 高风险 / 极高风险 — Low / Medium / High / Critical risk) and 「AI 预审：理由」 ("AI pre-review: reasoning").
+- From older clients with AI pre-review on, a risk label (低风险 / 中风险 / 高风险 / 极高风险 — Low / Medium / High / Critical risk) and 「AI 预审：理由」 ("AI pre-review: reasoning"); newer clients no longer have AI pre-review.
 - When the Agent sent several requests at once, 「还有 N 个请求在等待：」 ("N requests are waiting too:") is listed below, and you can 「全部批准（N）」 (Approve all (N)) in one go.
 
 The possible reasons are:
@@ -26,7 +26,7 @@ The possible reasons are:
 | 需要写入或修改文件 (File write or modification required) | Writing, deleting, or moving files |
 | 命令较复杂，无法确认是否只读 (Complex command; read-only behavior could not be confirmed) | The command couldn't be parsed |
 | 未被只读规则或已保存的允许规则覆盖 (Not covered by read-only or saved allow rules) | Any other command that wasn't allowed |
-| AI 预审认为有风险 / AI 预审超时 / AI 预审没有给出结论 / AI 预审未能运行 (The AI pre-review flagged a risk / timed out / gave no verdict / could not run) | AI pre-review is on, but it didn't allow the request |
+| AI 预审认为有风险 / AI 预审超时 / AI 预审没有给出结论 / AI 预审未能运行 (The AI pre-review flagged a risk / timed out / gave no verdict / could not run) | Older clients only: AI pre-review is on, but it didn't allow the request |
 
 ### Who can approve
 
@@ -91,7 +91,7 @@ Which operations need approval is decided by the Bot's 「审批方式」 (Appro
 | Approval | Description |
 | --- | --- |
 | 每次问我 (Ask me every time) | Read-only commands are allowed automatically; everything else gets an approval card |
-| 帮我审批 (Review for me) | Builds, tests, lint, formatting, local git, and file changes inside the workspace are allowed directly; everything else gets an approval card, assessed by AI first if AI pre-review is on |
+| 帮我审批 (Review for me) | Builds, tests, lint, formatting, git, viewing files, and reading or writing inside the workspace and the temporary directory (`/tmp`) are allowed directly; everything else gets an approval card |
 | 完全允许 (Allow everything) | Never asks; the Bot can perform any operation |
 
 Bots set to 「只读」 (Read-only) in earlier versions still show 「只读」 (Read-only): the Bot can only read, and everything else needs approval.
@@ -110,33 +110,36 @@ With 「完全允许」 (Allow everything), tasks started by anyone who can trig
 
 1. Gonggong Space's built-in tools (such as asking group members a question or reading group messages) are always allowed.
 2. If the approval setting is 「完全允许」 (Allow everything) — including 「本次运行免审批」 (No approvals this run): allowed automatically.
-3. If it hits the hard floor or might push to a protected base branch: the Bot owner is asked to approve (AI pre-review is skipped).
-4. If all paths of a read or search tool are inside the workspace or its additional directories: allowed automatically; symlinks pointing outside still require approval.
-5. If the whole command consists only of read-only commands (such as `cat`, `ls`, `rg`, `git status`, `sed` used for reading, `find` without deletion or execution, `jq`, `ps`, `diff`, `stat`, `du`, `which`) and `cd` within the workspace, and reads no path outside the workspace: allowed automatically.
+3. If it hits the hard floor or might push to a protected base branch: the Bot owner is asked to approve.
+4. If all paths of a read or search tool are inside the workspace, its additional directories or the temporary directory (under 「帮我审批」 (Review for me), also anywhere outside the workspace except secrets and private folders): allowed automatically; symlinks pointing outside still require approval.
+5. If the whole command consists only of read-only commands (such as `cat`, `ls`, `rg`, `git status`, `git log`, `sed` used for reading, `awk`, `find` without deletion or execution, `jq`, `ps`, `diff`, `stat`, `du`, `which`), `cd`, variable assignments and control structures such as `for`/`if`, and reads no path outside the workspace and the temporary directory: allowed automatically.
 6. If it matches the rules in 「已允许的命令」 (Allowed commands) or 「本次会话不再问」 (Don't ask again this session): approved automatically.
-7. If the approval setting is 「帮我审批」 (Review for me) and it's a common development command or a file change inside the workspace: approved automatically.
-8. If AI pre-review is on: the AI assesses it first; if it allows it, it's approved automatically, otherwise it goes to the Bot owner.
-9. Otherwise, the Bot owner is asked to approve.
+7. If the approval setting is 「帮我审批」 (Review for me) and it's one of the routine operations listed below: approved automatically.
+8. Otherwise, the Bot owner is asked to approve.
 
 Automatically approved commands show in the process as 「已按命令审批规则自动批准」 ("Automatically approved by command approval rules"); several are combined into 「自动批准 N 条命令」 ("Auto-approved N commands").
 
 ### Review for me
 
-The common development commands allowed directly under 「帮我审批」 (Review for me) include: `npm`, `pnpm`, `yarn`, and `bun` running project scripts and tests; `cargo build` / `test` / `clippy` / `fmt` and the like; `go build` / `test` / `vet` and the like; `make`; common formatting, lint, and test tools; and local git operations. This amounts to trusting the scripts in the repository, so the following are not allowed directly:
+「帮我审批」 (Review for me) allows routine operations by rule, without calling an AI or spending tokens. The rules come from requests Bot owners actually approved:
 
-- Commands with paths outside the workspace, or arguments that load external config, plugins, or hooks;
-- Once this turn has changed files that affect build and test commands (such as script configs), subsequent development commands need approval again;
-- Writing files inside the `.git` directory.
+- **Common development commands**: `npm`, `pnpm`, `yarn`, and `bun` running project scripts and tests; `cargo build` / `test` / `clippy` / `fmt` and the like; `go build` / `test` / `vet` and the like; `make`, `mvn`, `gradle`; common formatting, lint, test, and build tools (including those under `node_modules/.bin/`).
+- **File changes inside the workspace**, including in-place substitutions such as `sed -i` and `perl -pi -e 's/…/…/'`.
+- **The temporary directory** (`/tmp`, `/private/tmp`, `$TMPDIR`): reading, writing, `mkdir`, `cp`, `mv`, `rm -rf` of subdirectories, and extracting archives are allowed directly; `rm -rf /tmp` itself still needs approval.
+- **Reading files outside the workspace**, except secrets and private folders. Secrets include `~/.ssh`, `~/.aws`, `~/.config`, `.env`, `~/.claude.json`, certificate and key files, and the `~/.gonggong` config; private folders include `~/Downloads`, `~/Desktop`, `~/Pictures`, and the like.
+- **git**: viewing history and remotes (`git log`, `git grep`, `git rev-list`, `git ls-remote`, and so on), local work (`add`, `commit`, `fetch`, `pull`, `merge`, `rebase`, `cherry-pick`, `worktree`, `stash`, and so on), and pushing to **feature branches**. Pushing to base branches such as `main`, `master`, `develop`, `release…`, or `prod…`, or pushing tags, still needs approval.
+- **Scripts**: for `python3 - <<EOF`, `python3 -c`, `node -e`, `bash -c`, and script files in the workspace, Gonggong reads the script: one that runs no other program, makes no network request, deletes nothing, and writes only inside the workspace and the temporary directory is allowed directly. Scripts in the temporary directory (a script file under `/tmp`, or `python3 - <<EOF`, `node -e`, `./q.sh` after `cd /tmp`) may also reach the network and run other programs, for querying APIs and one-off data processing; reading secrets or deleting files outside the workspace still needs approval.
+- **Read-only commands of team CLIs**: queries, lists, views, and `--help` of `lark-cli`, `meegle`, `aliyun`, `gh`, `kubectl`, `docker`, `npm view`, and the like. Create, update, and delete operations (such as Base's `+record-upsert`) still need approval. The same goes for skills' query scripts: a script under `.claude/skills`, `.codex/skills`, `~/.gonggong/skill-sets`, and the like, run with a query subcommand (such as `sls.sh search` or `prom.sh alerts`), is allowed directly.
+- **Downloads**: `curl` / `wget` GET requests with no request body or upload, saving inside the workspace or the temporary directory; arguments with `$(…)` or variables need approval (they could carry file contents out).
 
-**Built-in review**: With Claude Code's official login or Codex's official ChatGPT login, 「帮我审批」 (Review for me) hands off to the Agent's own automatic review (Claude uses auto mode, Codex uses agent mode). Gonggong no longer pre-reviews, so you'll hardly be disturbed; operations it blocks make the Agent try another way, with no card. Third-party providers and unsupported models can't use the built-in review and are approved by Gonggong's rules. The start of the run notes who reviews it this time, e.g. 「审批由 Claude 内置审核（auto 模式）把关」 ("Approvals handled by Claude's built-in review (auto mode)") or 「第三方供应商用不了内置审核，审批由共工规则把关」 ("Third-party providers can't use the built-in review; approvals handled by Gonggong's rules").
+The following are not allowed directly:
 
-**AI pre-review**: Off by default. The Bot owner turns it on by picking a model in 「AI 预审」 (AI pre-review) in the Bot settings. From then on, requests the rules didn't allow and the built-in review didn't take are first assessed by that model:
+- Commands with write paths outside the workspace, or arguments that load external config, plugins, or hooks;
+- Once this turn has changed files that affect build and test commands (such as script configs, git hooks, or agent settings), subsequent development commands, operations that run git hooks (`commit`, `pull`, `merge`, `rebase`, `checkout`, `push`, and so on), and skills' query scripts need approval again;
+- Writing files inside the `.git` directory;
+- After a `cd` outside the workspace, only read-only commands; in the temporary directory, no development commands (that isn't a repository you trust). For a Bot that often works across repositories, add them under 「附加目录」 (Additional directories).
 
-- The AI can only allow; anything it's unsure about goes to you with the risk and reasoning, and the card shows a risk label and 「AI 预审：理由」 ("AI pre-review: reasoning").
-- If the AI already allowed the same command earlier in this turn, it's approved directly when it comes up again.
-- The hard floor, protected base branches, and client releases never go to the AI.
-- Every assessment costs tokens, so pick a small model (such as haiku, mini, or flash). Assessments run in a stripped-down session in an empty directory with no tools, a few thousand tokens each.
-- It can't be turned on until the Bot's machine has reported its available models.
+**Built-in review**: With Claude Code's official login or Codex's official ChatGPT login, 「帮我审批」 (Review for me) hands off to the Agent's own automatic review (Claude uses auto mode, Codex uses agent mode), so you'll hardly be disturbed; operations it blocks make the Agent try another way, with no card. Third-party providers and unsupported models can't use the built-in review and are approved by Gonggong's rules. The start of the run notes who reviews it this time, e.g. 「审批由 Claude 内置审核（auto 模式）把关」 ("Approvals handled by Claude's built-in review (auto mode)") or 「第三方供应商用不了内置审核，审批由共工规则把关」 ("Third-party providers can't use the built-in review; approvals handled by Gonggong's rules").
 
 ### Hard floor
 

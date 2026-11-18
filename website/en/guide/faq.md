@@ -108,7 +108,7 @@ See [Agent tools and providers](/en/user/agents-providers).
 
 ### Too many approval cards
 
-In the Bot settings, change the 「审批方式」 (Approval) from 「每次问我」 (Ask me every time) to 「帮我审批」 (Review for me): builds, tests, local git, editing files inside the workspace, and the like go through directly, and only the rest comes to you. You can also turn on 「AI 预审」 (AI pre-review) to filter further. For a large one-off job, choose 「本次运行免审批」 (No approvals this run) on an approval card. See [Approvals and questions](/en/user/approvals).
+In the Bot settings, change the 「审批方式」 (Approval) from 「每次问我」 (Ask me every time) to 「帮我审批」 (Review for me): routine operations such as builds, tests, git, viewing files, and reading or writing inside the workspace and the temporary directory go through by rule, and only the rest comes to you. For a large one-off job, choose 「本次运行免审批」 (No approvals this run) on an approval card. See [Approvals and questions](/en/user/approvals).
 
 ## Connections and networking
 

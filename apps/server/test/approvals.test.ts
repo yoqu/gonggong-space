@@ -381,7 +381,7 @@ describe('approvals', () => {
     expect(bot!.rules).toEqual([])
   })
 
-  it('sends the bot AI 预审 switch with run.start', async () => {
+  it('sends the bot 帮我审批 switch with run.start', async () => {
     const w = await world()
     await t.db.update(bots).set({ aiReview: true }).where(eq(bots.id, w.bot.id))
     const [m] = await t.db

@@ -108,7 +108,7 @@ Besides people @ing a Bot, a run can also be started by a **scheduled task** at 
 
 - **Approvals**: when a Bot wants to do something that needs a check (such as running a command or pushing code), it's handled according to the Bot's approval mode:
   - 「每次问我」 (Ask me every time): read-only commands go through automatically; everything else gets an approval card.
-  - 「帮我审批」 (Review for me): builds, tests, local git, editing files inside the workspace, and the like go through directly; everything else gets a card. With an official sign-in, Claude Code and Codex instead rely on the Agent's built-in review. You can also turn on 「AI 预审」 (AI pre-review) so a small model screens requests first and only risky ones reach you.
+  - 「帮我审批」 (Review for me): routine operations such as builds, tests, git, viewing files, and reading or writing inside the workspace and the temporary directory go through by rule; everything else gets a card. With an official sign-in, Claude Code and Codex instead rely on the Agent's built-in review.
   - 「完全允许」 (Allow everything): never asks; only people on the trigger list can trigger it.
 
   High-risk commands, pushes to a protected base branch, and the like always need confirmation. **Only the Bot owner** can approve or deny an approval card; it waits 30 minutes by default, and a timeout counts as a denial.

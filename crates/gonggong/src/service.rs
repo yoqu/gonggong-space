@@ -576,7 +576,6 @@ mod tests {
                 options: Vec::new(),
                 remember: Vec::new(),
                 remember_session: Vec::new(),
-                review: None,
                 mcp: None,
             }),
             DaemonToServer::QuestionWithdraw { run_id: "r1".into(), request_id: "q1".into() },

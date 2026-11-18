@@ -27,6 +27,7 @@ const count = (v: unknown) => (Array.isArray(v) ? v.length : 0)
 
 const APPROVAL: Record<string, MessageKey> = {
   approved: '批准 {bot} 执行 {title}',
+  // Old daemons' AI pre-review.
   ai_approved: 'AI 预审批准 {bot} 执行 {title}',
   rule_approved: '按规则自动批准 {bot} 执行 {title}',
   rejected: '拒绝 {bot} 执行 {title}',

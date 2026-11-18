@@ -76,7 +76,6 @@ fn start(run_id: &str, text: &str) -> RunStart {
             allowlist: vec![],
             always_allow: vec![],
             ai_review: false,
-            review_model: None,
             git: None,
             agent_settings: Default::default(),
         },
@@ -223,7 +222,6 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
             ],
             remember: vec!["tool:Write hello.txt".into()],
             remember_session: vec!["tool:Write hello.txt".into()],
-            review: None,
             mcp: None,
         }
     );
@@ -1695,99 +1693,29 @@ async fn cancelling_a_queued_turn_interrupts_it_while_the_directory_is_busy() {
     assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
 }
 
-fn reviewed(run_id: &str, command: &str) -> RunStart {
+fn helped(run_id: &str, command: &str) -> RunStart {
     let mut s = start(run_id, &format!("mock:exec {command}"));
     s.bot.ai_review = true;
-    s.bot.review_model = Some("haiku".into());
     s
 }
 
 #[tokio::test]
-async fn ai_pre_review_is_off_until_the_owner_picks_its_model() {
+async fn what_the_rules_leave_goes_straight_to_the_owner() {
     let mut r = rig(Duration::from_secs(60));
-    let mut s = reviewed("r1", "node ok.js mock-review-allow");
-    s.bot.review_model = None;
-    r.run(s);
+    r.run(helped("r1", "node ok.js"));
     let (events, approval) = until_approval(&mut r).await;
-    assert!(!steps(&events).iter().any(|s| s.starts_with("AI 预审")));
-    assert_eq!((approval.reason, &approval.review), (ApprovalReason::NotAllowed, &None));
+    assert!(!steps(&events).iter().any(|s| s.contains("预审")));
+    assert_eq!(approval.reason, ApprovalReason::NotAllowed);
     decide(&r, &approval, Some("allow"));
     assert_eq!(r.finish("r1").await.1.reply, "ran");
 }
 
 #[tokio::test]
-async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
+async fn the_floor_goes_to_the_owner_with_its_reason() {
     let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "node ok.js mock-review-allow"));
-    let mut events = vec![];
-    let audited = loop {
-        match r.next().await {
-            DaemonToServer::RunEvent { event, .. } => events.push(event),
-            DaemonToServer::ApprovalAiApproved(a) => break a,
-            other => panic!("unexpected {other:?}"),
-        }
-    };
-    assert_eq!(
-        audited,
-        ApprovalAiApproved {
-            run_id: "r1".into(),
-            title: "node ok.js mock-review-allow".into(),
-            tool_kind: "execute".into(),
-            detail: "$ node ok.js mock-review-allow".into(),
-            source: AutoSource::Ai,
-            review: Some(AiReview { risk: ReviewRisk::Low, rationale: "用户要求的只读命令".into() }),
-        }
-    );
-    let (rest, done) = r.finish("r1").await;
-    events.extend(rest);
-    let steps: Vec<_> = events
-        .iter()
-        .filter_map(|e| match e {
-            RunEvent::Status { step, .. } => Some(step.as_str()),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        steps,
-        [
-            "内置审核不可用（模式 acceptEdits），审批由共工规则把关",
-            "AI 预审中：node ok.js mock-review-allow",
-            "AI 预审已批准：node ok.js mock-review-allow（用户要求的只读命令）"
-        ]
-    );
-    assert_eq!(done.reply, "ran");
-}
-
-#[tokio::test]
-async fn ai_pre_review_leaves_the_rest_to_the_owner_with_its_assessment() {
-    let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "node a.js"));
-    let (events, approval) = until_approval(&mut r).await;
-    assert!(events.contains(&RunEvent::Status { status: RunStatus::Running, step: "AI 预审中：node a.js".into() }));
-    assert_eq!(
-        events.last(),
-        Some(&RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：node a.js".into() })
-    );
-    assert_eq!(approval.review, Some(AiReview { risk: ReviewRisk::High, rationale: "用户没有要求改动文件".into() }));
-    assert_eq!(approval.reason, ApprovalReason::AiDenied);
-    decide(&r, &approval, Some("allow"));
-    assert_eq!(r.finish("r1").await.1.reply, "ran");
-
-    // No verdict: the owner decides, without an assessment.
-    r.run(reviewed("r2", "node b.js mock-review-garbage"));
+    r.run(helped("r1", "sudo ls"));
     let (_, approval) = until_approval(&mut r).await;
-    assert_eq!((&approval.review, approval.reason), (&None, ApprovalReason::AiUnparsed));
-    decide(&r, &approval, Some("reject"));
-    assert_eq!(r.finish("r2").await.1.reply, "denied");
-}
-
-#[tokio::test]
-async fn the_floor_never_goes_to_the_ai_pre_review() {
-    let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "sudo ls mock-review-allow"));
-    let (events, approval) = until_approval(&mut r).await;
-    assert!(!events.iter().any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("AI 预审"))));
-    assert_eq!((approval.reason, &approval.review), (ApprovalReason::HighRisk, &None));
+    assert_eq!(approval.reason, ApprovalReason::HighRisk);
     decide(&r, &approval, Some("reject"));
     r.finish("r1").await;
 }
@@ -1796,7 +1724,6 @@ async fn the_floor_never_goes_to_the_ai_pre_review() {
 fn builtin(run_id: &str, text: &str, auto: &str) -> RunStart {
     let mut s = start(run_id, text);
     s.bot.ai_review = true;
-    s.bot.review_model = Some("haiku".into());
     s.env.0.insert("MOCK_AUTO".into(), auto.into());
     s
 }
@@ -1809,17 +1736,16 @@ fn steps(events: &[RunEvent]) -> Vec<&str> {
 }
 
 #[tokio::test]
-async fn review_goes_to_claudes_auto_mode_when_offered_without_our_pre_review() {
+async fn review_goes_to_claudes_auto_mode_when_offered() {
     let mut r = rig(Duration::from_secs(60));
     r.run(builtin("r1", "mock:echo", "1"));
     let (events, done) = r.finish("r1").await;
     assert_eq!(echo(&done)["mode"], "auto");
     assert!(steps(&events).contains(&"审批由 Claude 内置审核（auto 模式）把关"));
-    // What still reaches us (an ask rule, the classifier giving up) goes to the owner, not to our AI pre-review.
-    r.run(builtin("r2", "mock:exec node a.js mock-review-allow", "1"));
-    let (events, approval) = until_approval(&mut r).await;
-    assert!(!steps(&events).iter().any(|s| s.starts_with("AI 预审")));
-    assert_eq!(approval.review, None);
+    // What still reaches us (an ask rule, the classifier giving up) goes to the owner.
+    r.run(builtin("r2", "mock:exec node a.js", "1"));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.reason, ApprovalReason::NotAllowed);
     decide(&r, &approval, Some("allow"));
     assert_eq!(r.finish("r2").await.1.reply, "ran");
 }
@@ -1832,9 +1758,8 @@ async fn review_falls_back_to_our_rules_when_auto_does_not_take() {
     assert_eq!(echo(&done)["mode"], "acceptEdits");
     assert!(steps(&events).contains(&"内置审核不可用（模式 acceptEdits），审批由共工规则把关"));
     r.run(builtin("r2", "mock:exec node a.js", "fallback"));
-    let (events, approval) = until_approval(&mut r).await;
-    assert!(steps(&events).contains(&"AI 预审中：node a.js"));
-    assert_eq!(approval.reason, ApprovalReason::AiDenied);
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.reason, ApprovalReason::NotAllowed);
     decide(&r, &approval, Some("reject"));
     r.finish("r2").await;
     // 每次问我 keeps `acceptEdits` and says nothing about reviewers.
@@ -1867,73 +1792,17 @@ async fn auto_mode_sends_pushes_back_to_us_when_the_base_branch_is_protected() {
 }
 
 #[tokio::test]
-async fn ai_pre_review_runs_cheap_on_the_owners_model_without_tools_or_project_instructions() {
-    let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "node ok.js mock-review-echo"));
-    let review = loop {
-        match r.next().await {
-            DaemonToServer::ApprovalAiApproved(a) => break a.review.unwrap(),
-            DaemonToServer::RunEvent { .. } => {}
-            other => panic!("unexpected {other:?}"),
-        }
-    };
-    let setup: serde_json::Value = serde_json::from_str(&review.rationale).unwrap();
-    assert_eq!(
-        setup,
-        serde_json::json!({
-            "model": "haiku",
-            "effort": null,
-            "system": gonggong::review::SYSTEM,
-            "tools": [],
-            "sources": ["user"],
-            "cwd": "gonggong-review",
-        })
-    );
-    assert_eq!(r.finish("r1").await.1.reply, "ran");
-}
-
-#[tokio::test]
-async fn ai_pre_review_runs_once_per_kind_of_command_in_a_run() {
-    let mut r = rig(Duration::from_secs(60));
-    let mut s = start("r1", "mock:exec-twice node ok.js mock-review-allow");
-    s.bot.ai_review = true;
-    s.bot.review_model = Some("haiku".into());
-    r.run(s);
-    let (events, done) = r.finish("r1").await;
-    let steps: Vec<_> = events
-        .iter()
-        .filter_map(|e| match e {
-            RunEvent::Status { step, .. } => Some(step.as_str()),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        steps,
-        [
-            "内置审核不可用（模式 acceptEdits），审批由共工规则把关",
-            "AI 预审中：node ok.js mock-review-allow",
-            "AI 预审已批准：node ok.js mock-review-allow（用户要求的只读命令）",
-            "同类命令本次运行已由 AI 预审批准：node ok.js mock-review-allow",
-        ]
-    );
-    assert_eq!(done.reply, "ran");
-}
-
-#[tokio::test]
 async fn the_dev_pack_is_allowed_by_rule_and_recorded() {
     let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "rtk pnpm test"));
+    r.run(helped("r1", "rtk pnpm test"));
     let audited = loop {
         match r.next().await {
             DaemonToServer::ApprovalAiApproved(a) => break a,
-            DaemonToServer::RunEvent { event: RunEvent::Status { step, .. }, .. } => {
-                assert!(!step.starts_with("AI 预审"), "{step}")
-            }
             DaemonToServer::RunEvent { .. } => {}
             other => panic!("unexpected {other:?}"),
         }
     };
-    assert_eq!((audited.source, audited.review, audited.detail.as_str()), (AutoSource::Rule, None, "rtk pnpm test"));
+    assert_eq!((audited.source, audited.detail.as_str()), (AutoSource::Rule, "rtk pnpm test"));
     assert_eq!(r.finish("r1").await.1.reply, "ran");
 }
 
@@ -1968,18 +1837,15 @@ async fn changing_a_build_file_in_the_run_sends_the_dev_pack_back_to_review() {
     let mut r = rig(Duration::from_secs(60));
     let mut s = start("r1", "mock:edit-then-exec package.json pnpm test");
     s.bot.ai_review = true;
-    s.bot.review_model = Some("haiku".into());
     r.run(s);
-    let (events, approval) = until_approval(&mut r).await;
-    assert!(events.contains(&running("AI 预审中：pnpm test")));
-    assert_eq!(approval.reason, ApprovalReason::AiDenied);
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.reason, ApprovalReason::NotAllowed);
     decide(&r, &approval, Some("reject"));
     r.finish("r1").await;
 
     // A run that changed nothing such keeps it.
     let mut s = start("r2", "mock:edit-then-exec src/a.ts pnpm test");
     s.bot.ai_review = true;
-    s.bot.review_model = Some("haiku".into());
     r.run(s);
     let (events, done) = r.finish("r2").await;
     assert!(events.contains(&running("已按命令审批规则自动批准：pnpm test")));

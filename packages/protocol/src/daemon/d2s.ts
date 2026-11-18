@@ -198,14 +198,14 @@ export const ApprovalRequest = z.object({
   remember: z.array(z.string()).default([]),
   /** Rules a 本次会话不再问 answer trusts until the agent session ends; empty → don't offer it. */
   rememberSession: z.array(z.string()).default([]),
-  /** The AI pre-review's assessment when it did not allow the request; null = no review (off, floor, or it failed). */
+  /** The AI pre-review's assessment: only daemons before its removal send one (and the `ai_*` reasons). */
   review: AiReview.nullable().default(null),
   /** Set when the request is an MCP tool call; older daemons omit it. */
   mcp: ApprovalMcp.nullable().default(null),
 })
 export type ApprovalRequest = z.infer<typeof ApprovalRequest>
 
-/** A request allowed without asking the owner, by the AI pre-review or the bot's rules: recorded in the audit log. */
+/** A request the bot's rules allowed without asking the owner (or, from older daemons, their AI pre-review): audited. */
 export const ApprovalAiApproved = z.object({
   t: z.literal('approval.ai_approved'),
   runId: z.string(),

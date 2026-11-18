@@ -491,8 +491,6 @@ export const UpdateBotReq = z.object({
   /** Bot owner only. */
   alwaysAllow: Allowlist.optional(),
   aiReview: z.boolean().optional(),
-  /** Bot owner only; null = AI 预审 off. */
-  reviewModel: z.string().trim().min(1).max(200).nullable().optional(),
   /** Bot owner only; null = default. */
   gitName: z.string().trim().min(1).max(80).nullable().optional(),
   gitEmail: z.email().max(200).nullable().optional(),

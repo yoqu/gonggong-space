@@ -36,11 +36,11 @@ describe('bot approval settings', () => {
     expect(res.body).toMatchObject({
       tier: 'workspace',
       aiReview: true,
-      reviewModel: null,
       approval: 'ask',
       allowlist: [],
       alwaysAllow: [],
     })
+    expect(res.body).not.toHaveProperty('reviewModel')
   })
 
   it('the owner edits alwaysAllow, normalized, and the change is audited', async () => {
@@ -77,8 +77,8 @@ describe('bot approval settings', () => {
       detail: {
         botId: w.bot.id,
         name: 'cc',
-        from: { alwaysAllow: [], aiReview: true, reviewModel: null },
-        to: { alwaysAllow: [], aiReview: false, reviewModel: null },
+        from: { alwaysAllow: [], aiReview: true },
+        to: { alwaysAllow: [], aiReview: false },
       },
     })
   })
@@ -91,7 +91,7 @@ describe('bot approval settings', () => {
 
   it('a sysadmin cannot change the approval settings of another bot, but can change the rest', async () => {
     const w = await world()
-    for (const body of [{ alwaysAllow: ['ls'] }, { aiReview: false }, { reviewModel: 'haiku' }]) {
+    for (const body of [{ alwaysAllow: ['ls'] }, { aiReview: false }]) {
       const res = await w.admins.patch(`/api/bots/${w.bot.id}`, body)
       expect(res.status).toBe(403)
       expect(res.body.error).toBe('forbidden')
@@ -113,11 +113,11 @@ describe('bot approval settings', () => {
     expect(res.body).toMatchObject({ approval: 'ask', allowlist: [], aiReview: true })
   })
 
-  it('run.start carries the bot alwaysAllow, 帮我审批 and the AI 预审 model, approval always ask', async () => {
+  it('run.start carries the bot alwaysAllow and 帮我审批, approval always ask, no AI 预审 model', async () => {
     const w = await world()
     await w.owners.patch(`/api/bots/${w.bot.id}`, { alwaysAllow: ['npm test'], aiReview: false })
-    // Off until the machine reports the agent's models: AI 预审 runs on one of them.
-    expect((await w.owners.patch(`/api/bots/${w.bot.id}`, { reviewModel: 'haiku' })).status).toBe(400)
+    // Older clients may still send the removed AI 预审 model: ignored.
+    expect((await w.owners.patch(`/api/bots/${w.bot.id}`, { reviewModel: 'haiku' })).status).toBe(200)
 
     const ws = t.ws('/ws/daemon')
     const box = inbox(ws)
@@ -135,9 +135,6 @@ describe('bot approval settings', () => {
       }),
     )
     expect(await box.next()).toMatchObject({ t: 'welcome' })
-    expect((await w.owners.patch(`/api/bots/${w.bot.id}`, { reviewModel: 'gpt-x' })).status).toBe(400)
-    const picked = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, { reviewModel: 'haiku' })
-    expect(picked.body.reviewModel).toBe('haiku')
     const g = await t.seed.group({ createdBy: w.owner.id, botIds: [w.bot.id] })
     const [m] = await t.db
       .insert(messages)
@@ -157,8 +154,8 @@ describe('bot approval settings', () => {
       allowlist: [],
       alwaysAllow: ['npm test'],
       aiReview: false,
-      reviewModel: 'haiku',
     })
+    expect(start.bot).not.toHaveProperty('reviewModel')
     ws.close()
   })
 })

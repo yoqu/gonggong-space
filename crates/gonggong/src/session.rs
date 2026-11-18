@@ -13,13 +13,12 @@ use crate::ledger::Ledger;
 use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
-    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalMcp, ApprovalReason, ApprovalRequest,
+    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalMcp, ApprovalRequest,
     Attachment, AutoSource, CacheUsage, Choice, DaemonToServer, McpCall, McpServer, ModelChoice, Question, RunDone,
     RunEvent, RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
-use crate::review;
 use crate::service::Outbox;
 use crate::skills;
 use crate::t;
@@ -39,7 +38,7 @@ use agent_client_protocol::schema::v1::{
     SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
 use agent_client_protocol::{
-    AcpAgent, AcpAgentConfig, Agent, Client, ConnectionTo, Handled, JsonRpcRequest, UntypedMessage,
+    AcpAgent, Agent, Client, ConnectionTo, Handled, JsonRpcRequest, UntypedMessage,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -213,10 +212,6 @@ struct Active {
     /// Set when this is the agent going on by itself between turns, not a prompt.
     continuation: Option<Cont>,
     hidden_tools: Vec<String>,
-    /// What the agent was asked (`review::request_of`), shown to the AI pre-review.
-    request: String,
-    /// Requests the AI pre-review allowed in this run (`review_key`): the same one is not reviewed again.
-    reviewed: Vec<String>,
     /// The run's MCP servers (plugins' included), whose tools' own descriptions approval cards show.
     mcp: Vec<McpServer>,
 }
@@ -243,7 +238,6 @@ struct Prev {
     compact: Option<CompactPolicy>,
     session: Option<SessionId>,
     hidden_tools: Vec<String>,
-    request: String,
     mcp: Vec<McpServer>,
 }
 
@@ -261,7 +255,6 @@ impl Prev {
             compact: a.turn.compact,
             session,
             hidden_tools: a.hidden_tools.clone(),
-            request: a.request.clone(),
             mcp: a.mcp.clone(),
         }
     }
@@ -316,41 +309,12 @@ struct State {
     tasks: HashMap<String, Task>,
     prev: Option<Prev>,
     adopting: Option<Adopting>,
-    /// The adapter process's launch config and agent while it lives: AI pre-reviews run on a copy of it.
-    reviewer: Option<Reviewer>,
     /// The latest `current_mode_update`: an adapter reports the mode it fell back to (Claude `auto` → `acceptEdits`).
     mode_update: Option<String>,
     /// What each ACP session's context is made of, as far as we saw it.
     ledgers: HashMap<String, Ledger>,
     /// A live snapshot of the active turn's context is due (`LIVE_EVERY`).
     live_due: bool,
-}
-
-/// How to start an AI pre-review (`review::ask`): the bot's adapter and, for Claude, the session `_meta` keeping its
-/// provider routing but dropping Claude Code's prompt, tools and the user's instructions.
-#[derive(Clone)]
-struct Reviewer {
-    config: AcpAgentConfig,
-    kind: AgentKind,
-    meta: Option<Meta>,
-}
-
-impl Reviewer {
-    fn new(config: AcpAgentConfig, kind: AgentKind, launch: Option<&inject::ClaudeLaunch>) -> Self {
-        let meta = (kind == AgentKind::Claude).then(|| {
-            let mut options = claude_options(launch, &Default::default(), &Default::default());
-            options.insert("tools".into(), serde_json::json!([]));
-            // The user's settings may route the CLI (its own provider config); user instructions come with them.
-            let isolated = launch.is_some_and(|l| !l.inherit_cli);
-            let sources = if isolated { serde_json::json!([]) } else { serde_json::json!(["user"]) };
-            options.insert("settingSources".into(), sources);
-            let mut meta = Meta::new();
-            meta.insert("systemPrompt".into(), review::SYSTEM.into());
-            meta.insert("claudeCode".into(), serde_json::json!({ "options": options }));
-            meta
-        });
-        Self { config, kind, meta }
-    }
 }
 
 struct Task {
@@ -378,8 +342,6 @@ enum Reply {
 
 struct Approval {
     title: String,
-    /// What the AI pre-review allowing it trusts for the rest of the run (`review_key`).
-    key: String,
     /// What allow_always trusts from now on (`local::remember`).
     remember: Vec<String>,
     /// What 本次会话不再问 trusts until the session ends (`local::remember_session`).
@@ -490,13 +452,6 @@ impl Shared {
 
     fn take_mode_update(&self) -> Option<String> {
         self.0.lock().unwrap().mode_update.take()
-    }
-
-    /// Whether the agent's own reviewer is in effect for the active turn (no AI pre-review of ours).
-    fn set_builtin(&self, on: bool) {
-        if let Some(a) = self.0.lock().unwrap().active.as_mut() {
-            a.rules.builtin = on;
-        }
     }
 
     /// Next prompt of the active turn after the current one ended: the queued appends, unless it was stopped.
@@ -654,52 +609,6 @@ impl Shared {
         true
     }
 
-    /// The AI pre-review of `wire` is in: an approving verdict allows it (and the same kind of command for the rest of
-    /// the run), anything else asks the owner with the reason (`Err`: why there is no verdict). Nothing to do once the
-    /// request was settled meanwhile (tier raised to full, turn ended).
-    fn reviewed(&self, mut wire: ApprovalRequest, verdict: Result<review::Verdict, ApprovalReason>) {
-        let mut guard = self.0.lock().unwrap();
-        let s = &mut *guard;
-        let Some(a) = s.active.as_mut().filter(|a| a.run_id == wire.run_id) else { return };
-        let out = a.out.clone();
-        if !s.approvals.contains_key(&wire.request_id) {
-            return;
-        }
-        match verdict {
-            Ok(v)
-                if v.approves()
-                    && let Some(allow) = auto_allow(&s.approvals[&wire.request_id].options) =>
-            {
-                let p = s.approvals.remove(&wire.request_id).expect("checked above");
-                if !a.reviewed.contains(&p.key) {
-                    a.reviewed.push(p.key.clone());
-                }
-                let review = v.review();
-                let step = t!("AI 预审已批准：{title}（{rationale}）", title = p.title, rationale = review.rationale);
-                let event = RunEvent::Status { status: RunStatus::Running, step };
-                out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
-                out.send(DaemonToServer::ApprovalAiApproved(ApprovalAiApproved {
-                    run_id: wire.run_id,
-                    title: wire.title,
-                    tool_kind: wire.tool_kind,
-                    detail: wire.detail,
-                    source: AutoSource::Ai,
-                    review: Some(review),
-                }));
-                let _ = p.tx.send(Some(allow));
-            }
-            Ok(v) => {
-                wire.review = Some(v.review());
-                wire.reason = ApprovalReason::AiDenied;
-                ask_owner(&out, wire);
-            }
-            Err(reason) => {
-                wire.reason = reason;
-                ask_owner(&out, wire);
-            }
-        }
-    }
-
     /// A new agent session starts: what the owner allowed for the session ends with the old one.
     fn new_session(&self) {
         self.0.lock().unwrap().always.clear();
@@ -740,8 +649,6 @@ impl Shared {
             kind: if req.start.workspace.cd_path.is_none() { WorkspaceKind::Managed } else { WorkspaceKind::Cd },
             continuation: None,
             hidden_tools: req.start.hidden_tools.clone(),
-            request: review::request_of(&req.start.prompt),
-            reviewed: vec![],
             mcp: req.start.mcp_servers.clone(),
         });
         crate::mcp_tools::prefetch(&req.start.mcp_servers, &req.cwd);
@@ -854,15 +761,13 @@ impl Shared {
             kind: prev.kind,
             continuation: Some(Cont { session, last: Instant::now(), concluding: false }),
             hidden_tools: prev.hidden_tools,
-            request: prev.request,
-            reviewed: vec![],
             mcp: prev.mcp,
         });
         for held in w.held {
             match held {
                 Held::Update(n) => self.update_in(s, n),
                 Held::Ext(session, ext) => ext_in(s, &session, ext),
-                Held::Permission(req, tx) => match permission_in(self, s, req) {
+                Held::Permission(req, tx) => match permission_in(s, req) {
                     Permission::Now(choice) => {
                         let _ = tx.send(choice);
                     }
@@ -1131,7 +1036,7 @@ impl Shared {
         let mut guard = self.0.lock().unwrap();
         let s = &mut *guard;
         if s.active.is_some() {
-            return permission_in(self, s, req);
+            return permission_in(s, req);
         }
         if s.adopting.is_none() && s.prev.is_none() {
             return Permission::Now(None);
@@ -1244,7 +1149,7 @@ fn ext_in(s: &mut State, session: &str, ext: ExtUpdate) {
 }
 
 /// A permission request of the active turn.
-fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermissionRequest) -> Permission {
+fn permission_in(s: &mut State, mut req: RequestPermissionRequest) -> Permission {
     s.requests += 1;
     let n = s.requests;
     let Some(a) = s.active.as_mut() else { return Permission::Now(None) };
@@ -1286,9 +1191,6 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         && matches!(tool_kind.as_str(), "edit" | "delete" | "move")
         && a.rules.writes_within(&read_paths, &a.cwd);
     let decision = a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always);
-    // The same command the AI pre-review already allowed in this run (the whole line: a prefix would trust more).
-    let key = review_key(command.as_deref(), &title);
-    let reviewed = decision == Decision::Ask && a.reviewed.contains(&key);
     // What this command changes steers the build and test commands run after it.
     if edits_steering || command.as_deref().is_some_and(local::steers) {
         a.rules.tampered = true;
@@ -1296,15 +1198,11 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     if decision == Decision::Full || read_only_tool {
         return Permission::Now(auto_allow(&req.options));
     }
-    if (decision == Decision::Local || workspace_write || reviewed)
+    if (decision == Decision::Local || workspace_write)
         && let Some(allow) = auto_allow(&req.options)
     {
         let shown = command.clone().unwrap_or_else(|| title.clone());
-        let (step, source) = if reviewed {
-            (t!("同类命令本次运行已由 AI 预审批准：{command}", command = shown), AutoSource::Ai)
-        } else {
-            (t!("已按命令审批规则自动批准：{command}", command = shown), AutoSource::Rule)
-        };
+        let step = t!("已按命令审批规则自动批准：{command}", command = shown);
         let action = command.clone().or_else(|| detail.clone()).unwrap_or(shown);
         let event = RunEvent::Status { status: RunStatus::Running, step };
         a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
@@ -1313,8 +1211,7 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
             title,
             tool_kind,
             detail: action,
-            source,
-            review: None,
+            source: AutoSource::Rule,
         }));
         return Permission::Now(Some(allow));
     }
@@ -1322,13 +1219,6 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     let remember = a.rules.remember(command.as_deref(), &title, &a.cwd);
     let remember_session = a.rules.remember_session(command.as_deref(), &title, &a.cwd);
     let reason = a.rules.reason(command.as_deref(), &tool_kind, &a.cwd);
-    // The floor, the protected base branch and client releases are the owner's alone.
-    let reviewer = s
-        .reviewer
-        .clone()
-        .filter(|_| a.rules.ai_review && !a.rules.builtin && release.is_none())
-        .zip(a.rules.review_model.clone())
-        .filter(|_| !matches!(reason, ApprovalReason::HighRisk | ApprovalReason::ProtectedBase));
     // The whole command, not the run timeline's clipped line: the owner approves what runs.
     let detail = match (release, &command) {
         (Some(r), _) => r,
@@ -1338,13 +1228,6 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         }
         (None, None) => detail.unwrap_or_else(|| title.clone()),
     };
-    let reviewer = reviewer.map(|(r, model)| {
-        let action = command.as_deref().unwrap_or(&detail);
-        let outside = command.as_deref().map(|c| a.rules.outside_paths(c, &a.cwd)).unwrap_or_default();
-        let input =
-            review::Input { request: &a.request, tool_kind: &tool_kind, action, cwd: &a.cwd, outside: &outside };
-        (r, model, review::prompt(&input))
-    });
     let wire = ApprovalRequest {
         run_id: a.run_id.clone(),
         request_id: request_id.clone(),
@@ -1355,33 +1238,11 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         options: wire_options(&req.options),
         remember: remember.clone(),
         remember_session: remember_session.clone(),
-        review: None,
         mcp: mcp.map(|m| approval_mcp(&a.mcp, m, raw_input.as_ref())),
     };
     let (tx, rx) = oneshot::channel();
-    s.approvals.insert(request_id, Approval { title, key, remember, remember_session, options: req.options, tx });
-    match reviewer {
-        Some((r, model, prompt)) => {
-            let event =
-                RunEvent::Status { status: RunStatus::Running, step: t!("AI 预审中：{title}", title = wire.title) };
-            a.out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
-            let shared = shared.clone();
-            tokio::spawn(async move {
-                let ask = review::ask(AcpAgent::new(r.config), r.kind, r.meta, &model, prompt);
-                let reply = tokio::time::timeout(review::TIMEOUT, ask);
-                let verdict = match reply.await {
-                    Ok(Ok(text)) => review::parse(&text).ok_or(ApprovalReason::AiUnparsed),
-                    Ok(Err(e)) => {
-                        tracing::warn!("AI pre-review failed: {e}");
-                        Err(ApprovalReason::AiError)
-                    }
-                    Err(_) => Err(ApprovalReason::AiTimeout),
-                };
-                shared.reviewed(wire, verdict);
-            });
-        }
-        None => ask_owner(&a.out, wire),
-    }
+    s.approvals.insert(request_id, Approval { title, remember, remember_session, options: req.options, tx });
+    ask_owner(&a.out, wire);
     Permission::Ask(rx)
 }
 
@@ -1402,11 +1263,6 @@ fn approval_mcp(servers: &[McpServer], call: McpCall, raw_input: Option<&serde_j
     let input = args.map(|a| clip_detail(a.to_string())).or(call.input);
     let info = crate::mcp_tools::lookup(servers, &call.server, &call.tool).unwrap_or_default();
     ApprovalMcp { server: call.server, tool: call.tool, input, info }
-}
-
-/// What makes two permission requests the same for the AI pre-review: the whole command, else the tool call's title.
-fn review_key(command: Option<&str>, title: &str) -> String {
-    command.map_or_else(|| format!("tool:{title}"), |c| c.split_whitespace().collect::<Vec<_>>().join(" "))
 }
 
 /// Long enough for any command an agent writes; past it, the card says so.
@@ -1793,18 +1649,13 @@ pub(crate) async fn run(
             ask: Some(&ask),
         };
         let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env, &process).await {
-            Ok(config) => {
-                let reviewer = Reviewer::new(config.clone(), s.bot.agent_kind, turn.launch.as_ref());
-                shared.0.lock().unwrap().reviewer = Some(reviewer);
-                connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await
-            }
+            Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await,
             Err(e) => Err(format!("{e:#}")),
         };
         // Its background tasks went with the adapter process.
         {
             let mut s = shared.0.lock().unwrap();
             s.agent = None;
-            s.reviewer = None;
             s.tasks.clear();
             s.adopting = None;
         }
@@ -2055,7 +1906,6 @@ impl Conversation<'_> {
         if !on && let Some(fallback) = fallback {
             self.switch(&session, fallback).await;
         }
-        self.shared.set_builtin(on);
         if builtin_mode(s.bot.agent_kind, s.bot.tier, s.bot.ai_review, true).is_some() {
             let step = match (on, s.bot.agent_kind) {
                 (true, AgentKind::Claude) => t!("审批由 Claude 内置审核（auto 模式）把关").to_string(),

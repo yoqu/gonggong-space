@@ -296,7 +296,6 @@ describe('群设置 · 飞书', () => {
       alwaysAllow: [],
       allowlist: [],
       aiReview: false,
-      reviewModel: null,
       model: null,
       effort: null,
       catalog: null,

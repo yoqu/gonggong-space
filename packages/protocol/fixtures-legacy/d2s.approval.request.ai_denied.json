@@ -1,0 +1,32 @@
+{
+  "t": "approval.request",
+  "runId": "r1",
+  "requestId": "p1",
+  "title": "go build ./...",
+  "toolKind": "execute",
+  "detail": "go build ./... && go vet ./server/refund/...",
+  "reason": "ai_denied",
+  "options": [
+    {
+      "optionId": "allow",
+      "name": "Allow",
+      "kind": "allow_once"
+    },
+    {
+      "optionId": "always",
+      "name": "Always Allow",
+      "kind": "allow_always"
+    },
+    {
+      "optionId": "reject",
+      "name": "Reject",
+      "kind": "reject_once"
+    }
+  ],
+  "remember": ["go build", "go vet"],
+  "rememberSession": ["go build", "go vet"],
+  "review": {
+    "risk": "medium",
+    "rationale": "go vet was not asked for by the user"
+  }
+}

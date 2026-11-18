@@ -299,12 +299,9 @@ pub struct RunBot {
     /// Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode: command prefixes or `tool:<title>`.
     #[serde(default)]
     pub always_allow: Vec<String>,
-    /// AI 预审: requests the rules leave to the owner are first reviewed by a tool-less session of the bot's agent.
+    /// 帮我审批: the rules trust more on their own (`local::Rules`), or the agent's own reviewer decides.
     #[serde(default)]
     pub ai_review: bool,
-    /// The model AI 预审 runs on; `None` = no AI pre-review (the agent's own reviewer or the owner decide).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub review_model: Option<String>,
     /// Author and committer of the agent's git commits; `None` = the machine's git config.
     #[serde(default)]
     pub git: Option<GitIdentity>,

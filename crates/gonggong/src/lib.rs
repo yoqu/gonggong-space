@@ -48,7 +48,6 @@ pub mod providers;
 pub mod providers_migrate;
 mod replicas;
 pub mod repo;
-pub mod review;
 pub mod revoke;
 pub mod service;
 mod session;

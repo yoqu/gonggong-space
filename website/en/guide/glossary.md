@@ -59,8 +59,7 @@ This page lists common Gonggong Space terms by topic, with the English name used
 | --- | --- | --- | --- |
 | 触发范围 | trigger scope | trigger scope | Who can @ this Bot: any group member (all) / specified list (list) / owner only (self) |
 | 审批方式 | approval mode | approval mode | Ask me every time (ask) / Review for me (review) / Allow everything (full); can be set per group |
-| 帮我审批 | Review for me | review | Routine development actions go through directly; the rest goes to the Agent's built-in review, the AI pre-review, or the Bot owner |
-| AI 预审 | AI pre-review | AI review | Under Review for me, a chosen small model screens requests first and only hands risky ones to a person; off by default |
+| 帮我审批 | Review for me | review | Routine development actions go through by rule; the rest goes to the Agent's built-in review or the Bot owner |
 | 权限档位 | permission tier | tier | The tier behind the approval mode: read-only / workspace / full |
 | 已允许的命令 | allowed commands | always allow | Command prefixes recorded by 「批准，不再询问」 (Approve, don't ask again) on an approval card; allowed automatically from then on |
 | 审批卡片 | approval card | approval request | The card that appears when a Bot asks for an action that needs a check; the Bot owner approves or denies it |

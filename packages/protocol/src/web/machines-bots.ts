@@ -234,8 +234,6 @@ export const BotDto = z.object({
   alwaysAllow: z.array(z.string()),
   /** 帮我审批 (see RunStart.bot.aiReview). */
   aiReview: z.boolean(),
-  /** AI 预审's model; null = off (see RunStart.bot.reviewModel). */
-  reviewModel: z.string().nullable(),
   /** Git commit identity; null = the bot name / `gitDefaultEmail`. */
   gitName: z.string().nullable(),
   gitEmail: z.string().nullable(),

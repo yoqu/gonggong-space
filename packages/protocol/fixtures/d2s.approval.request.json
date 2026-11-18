@@ -5,7 +5,7 @@
   "title": "go build ./...",
   "toolKind": "execute",
   "detail": "go build ./... && go vet ./server/refund/...",
-  "reason": "ai_denied",
+  "reason": "not_allowed",
   "options": [
     {
       "optionId": "allow",
@@ -24,9 +24,5 @@
     }
   ],
   "remember": ["go build", "go vet"],
-  "rememberSession": ["go build", "go vet"],
-  "review": {
-    "risk": "medium",
-    "rationale": "go vet was not asked for by the user"
-  }
+  "rememberSession": ["go build", "go vet"]
 }

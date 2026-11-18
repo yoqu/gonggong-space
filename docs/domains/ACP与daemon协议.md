@@ -37,7 +37,7 @@
 - 调度以服务端为准（`runs/scheduler.ts` `schedule`）：按 Bot 加 advisory 锁，按触发消息 seq 顺序派发；同一（群, Bot）同时只跑一轮，其余排队；占用并发槽位的状态为 `ACTIVE`（running / awaiting_approval / awaiting_answer）。
 - 不派发的原因写进 `step`：本群上一轮未结束、强制同步挂起、工作区准备中、客户端版本过低、Bot 忙、Bot 离线。
 - 事务内先标 running 再提交后发送 `run.start`；发送失败退回 `offline_wait`，提交后崩溃由下次 hello 对账中断。
-- `RunStart` 携带：bot（agentKind、systemPrompt、tier、model/effort、approval、allowlist、alwaysAllow、aiReview、reviewModel、git 身份、agentSettings）、`workspace`、`resumeSessionId`/`newSessionReason`、prompt（text、context、omitted、fallbackContext、attachments、quote）、`mcpServers`、`skills`、`plugins`、`hiddenTools`、`command`、`sync`、`artifacts`、`env`（密钥，仅内存）。
+- `RunStart` 携带：bot（agentKind、systemPrompt、tier、model/effort、approval、allowlist、alwaysAllow、aiReview、git 身份、agentSettings）、`workspace`、`resumeSessionId`/`newSessionReason`、prompt（text、context、omitted、fallbackContext、attachments、quote）、`mcpServers`、`skills`、`plugins`、`hiddenTools`、`command`、`sync`、`artifacts`、`env`（密钥，仅内存）。
 - 过程以 `run.event` 上报（`RunEvent`：text / thought / tool / status / usage / task / subagent / compaction / plan），服务端按机器串行处理，积压超 32MB 时丢流式片段（`runs/engine.ts`）。
 - `plan`：ACP 标准 `plan` 更新（Claude Code 的 TodoWrite/Task*、Codex 的计划、CodeBuddy 的 TodoWrite 都转成它；Gemini、Pi、DeepSeek 不发）。daemon 只收主 Agent 的、整份替换、与上一份相同不发，最多 100 条、每条 500 字（`turn.rs`）。服务端照常记入 `run_events`，最新一份另存 `runs.plan`（空条目置空）随 `RunDto.plan` 返回，用于运行卡片「计划」块、任务栏圆环和运行页顶部面板；与 `progress_card` 是两套：进度卡由 Bot 主动调用，计划是 Agent 自己的清单，两者并存时进度卡在前、计划折叠。旧服务端会把 `plan` 当无效消息丢弃并记日志，所以服务端先于客户端上线。
 - 结束 `run.done`：`outcome` 为 completed / interrupted / failed，带 `reply`、`usage`、`sessionId`、`newSessionReason`、`git`、`patch`、`repos`、`appendsApplied`、`sync`。
@@ -59,7 +59,7 @@
 
 ## 权限与审批
 - Agent 的 `session/request_permission` 先在 daemon 本机判定（`session.rs` `permission_in`、`local.rs` `decide`）：内置 gonggong 工具直接放行；full 档全部放行（不保留红线）。
-- 非 full 档：红线命令（`floor_hit`）和推送基准分支（`protectBase`）一律问主人；其余按 `approval`（ask / allowlist / all）+ `alwaysAllow` + 工作区内读写规则判定，可本地放行或交 AI 预审。
+- 非 full 档：红线命令（`floor_hit`）和推送基准分支（`protectBase`）一律问主人；其余按 `approval`（ask / allowlist / all）+ `alwaysAllow` + 工作区内读写规则判定，可本地放行（规则见 `local.rs` 与 `local/trust.rs`：临时目录、工作区外只读、脚本内容、团队 CLI 只读、功能分支推送）。AI 预审已移除；`approval.request` 的 `review` 与 `ai_*` 原因只来自旧客户端。
 - 需要人决定时发 `approval.request`（带 `reason`、`options`、`remember`、`rememberSession`、`review`、`mcp`）；本地或 AI 放行的发 `approval.ai_approved` 只记审计。
 - 服务端（`modules/approvals/service.ts`）：脱敏后入库，只有 Bot 主人能决定，过期按 `approvalTimeoutMin` 自动选拒绝；运行结束或 /stop 作废（`voidReason`）；「始终允许」写回 `bots.alwaysAllow`；改到 full 档时自动批准挂起请求。
 - 决定以 `approval.decision` 回 daemon（`optionId` null = 取消，`session: true` = 本会话不再问）；等待决定不阻塞 ACP 消息分发。

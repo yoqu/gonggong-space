@@ -12,7 +12,7 @@ Settings are split into the tabs 「基本信息」 (General), 「运行配置�
 
 ::: info Who can change what
 - The Bot owner and sysadmins can change most settings; anyone else who opens it can only view.
-- Only the Bot owner — not even a sysadmin — can change these: switching between 「帮我审批」 (Review for me) and 「每次问我」 (Ask me every time), 「AI 预审」 (AI pre-review), 「已允许的命令」 (Allowed commands), 「Git 提交身份」 (Git commit identity), 「Agent 设置」 (Agent settings) overrides, 「默认工作区」 (Default workspace), and 「供应商」 (Provider).
+- Only the Bot owner — not even a sysadmin — can change these: switching between 「帮我审批」 (Review for me) and 「每次问我」 (Ask me every time), 「已允许的命令」 (Allowed commands), 「Git 提交身份」 (Git commit identity), 「Agent 设置」 (Agent settings) overrides, 「默认工作区」 (Default workspace), and 「供应商」 (Provider).
 - 「默认工作区」 (Default workspace) and 「供应商」 (Provider) also require the machine to be online.
 :::
 
@@ -76,12 +76,12 @@ Decides what happens when the Bot wants to do something risky. Pick one of three
 | Option | Meaning |
 | --- | --- |
 | 每次问我 (Ask me every time) | Read-only commands are allowed automatically; everything else sends you an approval card |
-| 帮我审批 (Review for me) | Build, test, lint, format, local git, and file edits inside the workspace are allowed directly (which amounts to trusting the scripts in the repository); everything else sends you an approval card. With 「AI 预审」 (AI pre-review) on, AI evaluates first and passes only risky operations to you |
+| 帮我审批 (Review for me) | Build, test, lint, format, git, viewing files, and reading or writing inside the workspace and the temporary directory (`/tmp`) are allowed directly (which amounts to trusting the scripts in the repository); everything else sends you an approval card. Decided by rules alone, spending no tokens; see [Approvals and questions](/en/user/approvals#review-for-me) |
 | 完全允许 (Allow everything) | Never asks; the Bot can do anything |
 
 Under 「每次问我」 (Ask me every time) and 「帮我审批」 (Review for me), high-risk commands (such as `sudo` or `git push --force`), pushes to a protected base branch, and client releases **always need your confirmation**.
 
-**Built-in review**: under 「帮我审批」 (Review for me), Claude Code (official login) and Codex (official OpenAI login) are gated by the agent's own built-in auto-review instead, and Gonggong Space no longer pre-reviews. Operations it blocks make the agent try another approach, without sending a card. Built-in review isn't available with third-party providers or unsupported models; approvals then work as described above, and the run's process notes who reviewed it.
+**Built-in review**: under 「帮我审批」 (Review for me), Claude Code (official login) and Codex (official OpenAI login) are gated by the agent's own built-in auto-review instead. Operations it blocks make the agent try another approach, without sending a card. Built-in review isn't available with third-party providers or unsupported models; approvals then work as described above, and the run's process notes who reviewed it.
 
 ::: danger Allow everything
 With 「完全允许」 (Allow everything), the Bot never asks before running any command, and nothing is blocked for tasks started by anyone who can trigger it — dangerous commands included. That's why it **only allows a specified list to trigger it**: when you choose Allow everything and the trigger scope is 「任何群成员」 (Any group member), it switches automatically to 「指定名单」 (Specified list), and 「任何群成员」 (Any group member) can't be selected. Turn it on only for groups or Bots that you alone use.
@@ -90,12 +90,6 @@ With 「完全允许」 (Allow everything), the Bot never asks before running an
 Older Bots may still be on the 「只读」 (Read-only) tier: the Bot can only read, and everything else sends an approval card. Once you switch to another mode, this option no longer appears.
 
 This is the Bot's default. Each group can also set this Bot's 「本群审批方式」 (Approval in this group) separately in the group info — see [Groups and direct chats](/en/user/groups).
-
-### AI pre-review
-
-After choosing 「帮我审批」 (Review for me), the Bot owner can set 「AI 预审」 (AI pre-review), which defaults to 「关闭」 (Off). Picking a model from the list turns it on: requests that rules didn't allow and built-in review didn't take over are first evaluated by this model. Low-risk requests that are clearly what the user asked for are approved automatically; the rest still go to you, with the risk and reasoning attached to the approval card.
-
-Every evaluation consumes tokens, so pick a small model (such as haiku, mini, or flash). Pre-review runs in an empty directory with a minimal session, costing roughly a few thousand tokens each time. It can't be turned on until the Bot's machine has reported its available models.
 
 ### Allowed commands
 

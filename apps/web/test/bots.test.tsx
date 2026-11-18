@@ -106,7 +106,6 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   allowlist: [],
   alwaysAllow: [],
   aiReview: false,
-  reviewModel: null,
   model: null,
   effort: null,
   catalog: null,
@@ -686,7 +685,7 @@ describe('bot detail', () => {
     expect(within(detail).getByRole('radio', { name: '每次问我' }).getAttribute('aria-checked')).toBe('true')
     expect(within(detail).getByText(/只读命令自动放行/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('radio', { name: '帮我审批' }))
-    expect(within(detail).getByText(/开启 AI 预审后先由 AI 评估/)).toBeTruthy()
+    expect(within(detail).getByText(/工作区和临时目录（\/tmp）里的读写直接放行/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
@@ -696,21 +695,13 @@ describe('bot detail', () => {
     )
   })
 
-  it('AI 预审 is off until the owner picks a model the agent offers', async () => {
+  it('帮我审批 offers no AI 预审 model to pick', async () => {
     routes['GET /api/bots'] = () => [bot({ aiReview: true, catalog: CATALOG })]
-    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
     openTab(detail, '权限')
-    const pick = within(detail).getByRole('button', { name: 'AI 预审' })
-    expect(pick.textContent).toContain('关闭')
-    expect(within(detail).getByText(/每次评估都消耗 token，请选小模型/)).toBeTruthy()
-    fireEvent.click(pick)
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Haiku' }))
-    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({ reviewModel: 'haiku' }),
-    )
+    expect(within(detail).getByRole('radio', { name: '帮我审批' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(detail).queryByRole('button', { name: 'AI 预审' })).toBeNull()
   })
 
   it('says when the machine client is too old for 帮我审批 rules', async () => {
@@ -1173,7 +1164,6 @@ describe('bot page profile', () => {
     triggerScope: 'list',
     triggerList: ['u2'],
     aiReview: true,
-    reviewModel: null,
     alwaysAllow: ['tail'],
     concurrency: 3,
     gitName: 'CC',

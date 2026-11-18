@@ -143,7 +143,7 @@
 | `adapters.rs` | 由内置 Agent 插件清单声明的适配器（Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI），清单编译进二进制 |
 | `session.rs` | 单个（群，Bot）会话：适配器进程、ACP 会话与轮次 |
 | `turn.rs` | 每轮的纯逻辑：拼提示词、ACP 更新到运行事件的映射、权限档位策略 |
-| `review.rs` | 「帮我审批」的 AI 预审 |
+| `local/trust.rs`、`local/shell.rs` | 「帮我审批」放行的规则与命令行解析的 shell 状态 |
 | `ledger.rs` | 估算会话上下文的构成（运行详情的「上下文」页签） |
 | `web_call.rs` | 识别运行里的联网搜索与网页抓取 |
 | `ask.rs` | 内置 `gonggong` MCP 服务（本机回环、每会话独立 URL）：向群成员提问、转发服务器工具、应答 daemon 工具 |

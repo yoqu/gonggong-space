@@ -20,7 +20,6 @@
   ],
   "remember": ["mcp__feishu-project__update_field"],
   "rememberSession": ["mcp__feishu-project__update_field"],
-  "review": null,
   "mcp": {
     "server": "feishu-project",
     "tool": "update_field",

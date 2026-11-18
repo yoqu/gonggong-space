@@ -203,7 +203,6 @@ export function BotDetail({
     tier: bot.tier,
     alwaysAllow: bot.alwaysAllow,
     aiReview: bot.aiReview,
-    reviewModel: bot.reviewModel,
   })
   const tier = approval.tier
   const [gitName, setGitName] = useState(bot.gitName ?? '')
@@ -252,7 +251,6 @@ export function BotDetail({
     // Only the owner may send these (plan J9).
     ...(owner && !sameList(approval.alwaysAllow, bot.alwaysAllow) && { alwaysAllow: approval.alwaysAllow }),
     ...(owner && approval.aiReview !== bot.aiReview && { aiReview: approval.aiReview }),
-    ...(owner && approval.reviewModel !== bot.reviewModel && { reviewModel: approval.reviewModel }),
     ...(owner && (gitName.trim() || null) !== bot.gitName && { gitName: gitName.trim() || null }),
     ...(owner && (gitEmail.trim() || null) !== bot.gitEmail && { gitEmail: gitEmail.trim() || null }),
     ...(owner &&
@@ -449,7 +447,6 @@ export function BotDetail({
         outdated={
           machine && !machine.features.includes('approvalGates') ? (bot.machineName ?? '') : undefined
         }
-        models={catalog?.models ?? null}
         builtin={
           (bot.agentKind === 'claude' || bot.agentKind === 'codex') &&
           !!machine?.features.includes('builtinReview')

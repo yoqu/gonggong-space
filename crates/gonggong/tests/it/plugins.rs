@@ -168,7 +168,6 @@ fn start(t: Turn) -> RunStart {
             allowlist: vec![],
             always_allow: vec![],
             ai_review: false,
-            review_model: None,
             git: None,
             agent_settings: Default::default(),
         },

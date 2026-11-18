@@ -59,8 +59,7 @@
 | --- | --- | --- |
 | 触发范围 | trigger scope | 谁能 @ 这个 Bot：任何群成员（all）/ 指定名单（list）/ 仅本人（self） |
 | 审批方式 | approval mode | 每次问我（ask）/ 帮我审批（review）/ 完全允许（full）；可按群单独设置 |
-| 帮我审批 | review | 常规开发操作直接放行，其余交给 Agent 内置审核、AI 预审或 Bot 主人 |
-| AI 预审 | AI review | 「帮我审批」下由所选小模型先评估请求，只把风险操作交给人，默认关闭 |
+| 帮我审批 | review | 常规开发操作按规则直接放行，其余交给 Agent 内置审核或 Bot 主人 |
 | 权限档位 | tier | 审批方式背后的档位：read-only / workspace / full |
 | 已允许的命令 | always allow | 审批卡片上「批准，不再询问」记下的命令前缀，之后自动放行 |
 | 审批卡片 | approval request | Bot 请求需要把关的操作时出现的卡片，由 Bot 主人批准或拒绝 |

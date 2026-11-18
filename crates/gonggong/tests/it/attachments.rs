@@ -133,7 +133,6 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
             allowlist: vec![],
             always_allow: vec![],
             ai_review: false,
-            review_model: None,
             git: None,
             agent_settings: Default::default(),
         },

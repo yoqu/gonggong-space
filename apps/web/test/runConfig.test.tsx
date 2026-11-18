@@ -98,7 +98,6 @@ const bot: BotDto = {
   allowlist: [],
   alwaysAllow: [],
   aiReview: false,
-  reviewModel: null,
   model: 'sonnet',
   effort: null,
   catalog: CATALOG,
