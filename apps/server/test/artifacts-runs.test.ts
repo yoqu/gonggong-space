@@ -14,7 +14,7 @@ import {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { artifacts, artifactVersions, messages, plugins, runs } from '../src/db/schema.js'
+import { artifacts, artifactVersions, bots, messages, plugins, runs } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { schedule } from '../src/modules/runs/scheduler.js'
@@ -288,6 +288,20 @@ describe('creations', () => {
       status: 'ready',
       issueCount: 0,
     })
+    w.ws.close()
+  })
+
+  it('lets a bot on any agent create, naming the skill as that agent finds it', async () => {
+    const w = await creationWorld(['plugins', 'artifacts', 'gemini'])
+    await t.db.update(bots).set({ agentKind: 'gemini' }).where(eq(bots.id, w.bot.id))
+    const res = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, w.req)
+    expect(res.status).toBe(200)
+    expect(res.body.body).toContain(
+      'Skill：Claude、CodeBuddy 用 web-prototype:web-prototype；其他 Agent 用 web-prototype（目录 .agents/skills/web-prototype-web-prototype）。',
+    )
+    const start = (await w.next()) as RunStart
+    expect(start.plugins.map((p) => p.name)).toEqual(['web-prototype'])
+    expect(start.artifacts).toHaveLength(1)
     w.ws.close()
   })
 

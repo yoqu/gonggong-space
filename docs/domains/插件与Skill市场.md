@@ -14,7 +14,7 @@
 - 同层同名一律 409，不自动覆盖（`market/service.ts` 同名检查）。
 - 仓库层：群主仓库（`group_repos.is_primary`）按 repo key 匹配团队仓库的引入。
 - 个人层：只在本人发起的运行（`runs.origin_user_id`，hand_off 继承、定时任务为创建者）里生效；只能引入 Skill；`visibility=team` 的只在该团队群且本人仍在队时下发；运行只记个数 `runs.personal_skills`。
-- 下发：Claude 每个插件一个本地插件目录（skill 名 `<插件>:<skill>`），团队/市场 Skill 合成 `gonggong-team` 插件；Codex/Gemini 用 `<cwd>/.agents/skills/` 软链并写 `.git/info/exclude`（`crates/gonggong/src/plugins.rs`、`skills.rs`）。名单变化重启 adapter 并接续会话，下一轮生效。
+- 下发：Claude 每个插件一个本地插件目录（skill 名 `<插件>:<skill>`），团队/市场 Skill 合成 `gonggong-team` 插件；CodeBuddy 同样按插件目录加载（`--plugin-dir`）；Codex 和其余 Agent（清单 `skills.via=link`）用 `<cwd>/.agents/skills/` 软链并写 `.git/info/exclude`（`crates/gonggong/src/plugins.rs`、`skills.rs`）。名单变化重启 adapter 并接续会话，下一轮生效。
 - 内置插件 `apps/server/plugins/official/*` 启动时 `syncBuiltinPlugins` 装到平台层：不可删、平台层不可同名覆盖，团队/群层可上传同名替换；仍需群里打开才生效。
 - 只带供应商预设或只带 Agent 的插件不出现在群插件列表。
 

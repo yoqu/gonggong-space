@@ -396,6 +396,13 @@ export function chatCommands(manifests: PluginManifest[]) {
   return [...out.values()]
 }
 
+/**
+ * How the agent finds a plugin's entry skill (agent-facing: not translated). Claude and CodeBuddy load the plugin
+ * folder (`--plugin-dir`), every other agent the link the daemon makes in `.agents/skills/`.
+ */
+export const skillLine = (name: string, entry: string) =>
+  `Skill：Claude、CodeBuddy 用 ${name}:${entry}；其他 Agent 用 ${entry}（目录 .agents/skills/${name}-${entry}）。`
+
 /** The run's prompt for a message invoking a plugin's chat command (`/name args` anywhere in it), else null. */
 export function commandPrompt(body: string, commands: ReturnType<typeof chatCommands>) {
   for (const { manifest: m, command: c } of commands) {
@@ -407,11 +414,7 @@ export function commandPrompt(body: string, commands: ReturnType<typeof chatComm
       '',
       `[插件命令 /${c.name}：插件「${m.title}」（${m.name}）]`,
       c.prompt.replaceAll('{args}', hit[1]!.trim()),
-      ...(m.entry
-        ? [
-            `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness、Antigravity 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
-          ]
-        : []),
+      ...(m.entry ? [skillLine(m.name, m.entry)] : []),
     ].join('\n')
   }
   return null

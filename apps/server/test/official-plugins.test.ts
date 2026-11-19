@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFile
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
+  AgentKind,
   GgArtifactManifest,
   LegacyProviderPreset,
   normalizePresets,
@@ -203,6 +204,10 @@ describe.each(CREATION)('official plugin %s', (name) => {
     expect(manifest.inputs.find((i) => i.id === lead)?.required).toBe(true)
   })
 
+  it('works with every agent: each loads plugin skills and gets the gonggong MCP', () => {
+    expect(manifest.agents).toEqual(AgentKind.options)
+  })
+
   it('has a guide for every template and every preview file', () => {
     for (const t of manifest.templates) {
       expect(existsSync(join(skillDir, 'templates', t.id, 'GUIDE.md')), t.id).toBe(true)
@@ -254,7 +259,7 @@ describe('official plugin web-prototype', () => {
   it('ships the platform kit, the app-screens template and five design systems', () => {
     for (const f of ['index.html', 'gg-kit.css', 'gg-kit.js'])
       expect(existsSync(join(skillDir, 'kit', f)), f).toBe(true)
-    expect(manifest.version).toBe('0.7.1')
+    expect(manifest.version).toBe('0.7.2')
     expect(manifest.templates.map((t) => t.id)).toEqual(['app-screens'])
     expect(manifest.designSystems.map((d) => d.id)).toEqual([
       'luke-plus',

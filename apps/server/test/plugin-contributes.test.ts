@@ -163,7 +163,9 @@ describe('plugin chat commands', () => {
     expect(text).toContain('@助手 /standup 进度风险')
     expect(text).toContain('[插件命令 /standup：插件「团队工具」（team-kit）]')
     expect(text).toContain('按本群今天的消息写站会小结，重点：进度风险')
-    expect(text).toContain('Skill：Claude 用 team-kit:team-kit')
+    expect(text).toContain(
+      'Skill：Claude、CodeBuddy 用 team-kit:team-kit；其他 Agent 用 team-kit（目录 .agents/skills/team-kit-team-kit）。',
+    )
     expect(await send('@助手 /standups 不是它')).toBe('@助手 /standups 不是它')
   })
 })

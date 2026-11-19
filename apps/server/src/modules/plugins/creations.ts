@@ -33,7 +33,7 @@ import {
 } from '../messages/service.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { designSystemDto, findDesignSystem } from './designSystems.js'
-import { botStates, groupPluginList, pluginBlocker, requirePluginsOn } from './service.js'
+import { botStates, groupPluginList, pluginBlocker, requirePluginsOn, skillLine } from './service.js'
 
 /** The picked one of `list`; null only when the plugin offers none. */
 function pick<T extends { id: string }>(
@@ -189,7 +189,7 @@ function instructions(
 ) {
   return [
     `@${card.botName} 请用插件「${m.title}」（${m.name} v${m.version}）创作。`,
-    `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness、Antigravity 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
+    skillLine(m.name, m.entry!),
     ...(card.template ? [`模板：${card.template.title}（${card.template.id}）`] : []),
     ...designLines(m, card, design),
     `先出 2–3 个视觉方向：${card.directions ? '是' : '否'}`,
