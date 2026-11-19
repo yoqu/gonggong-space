@@ -372,6 +372,14 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
         <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
       ) : (
         <div className={`art-main${rail.narrow ? ' art-main--narrow' : ''}`} ref={rail.ref}>
+          {rail.open && rail.narrow ? (
+            <div
+              className="art-rail__backdrop"
+              data-testid="art-rail-backdrop"
+              aria-hidden="true"
+              onClick={() => rail.setOpen(false)}
+            />
+          ) : null}
           {rail.open ? (
             <PageRail
               artifactId={a.id}
@@ -379,6 +387,7 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
               manifest={shownManifest ?? null}
               readOnly={readOnly}
               canEdit={a.access !== 'view'}
+              narrow={rail.narrow}
               refreshKey={`${head}|${a.running ? 1 : 0}`}
               onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
               onClose={() => rail.setOpen(false)}

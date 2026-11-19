@@ -163,8 +163,9 @@ const chatRoutes = (replies: MessageDto[]) => ({
   },
 })
 
-function renderRail(o: { canEdit?: boolean; versionId?: string } = {}) {
+function renderRail(o: { canEdit?: boolean; versionId?: string; narrow?: boolean } = {}) {
   const onPicked = vi.fn()
+  const onClose = vi.fn()
   const onEdit = vi.fn<(ops: ArtifactEditOp[]) => Promise<unknown>>(async () => {})
   render(
     <MemoryRouter>
@@ -174,15 +175,16 @@ function renderRail(o: { canEdit?: boolean; versionId?: string } = {}) {
         manifest={M}
         readOnly={false}
         canEdit={o.canEdit ?? true}
+        narrow={o.narrow}
         refreshKey="v1"
         onEdit={onEdit}
-        onClose={() => {}}
+        onClose={onClose}
         versionId={o.versionId ?? null}
         onPicked={onPicked}
       />
     </MemoryRouter>,
   )
-  return Object.assign(onEdit, { onPicked })
+  return Object.assign(onEdit, { onPicked, onClose })
 }
 
 describe('page rail', () => {
@@ -323,5 +325,15 @@ describe('page rail', () => {
     expect(screen.queryByText('命令记录')).toBeNull()
     expect(screen.queryByRole('button', { name: '新建文件夹' })).toBeNull()
     expect(calls).toEqual([])
+  })
+
+  it('omits the horizontal resize handle and closes on Escape in narrow drawer mode', () => {
+    localStorage.setItem('gg.art.railWidth', '480')
+    const { onClose } = renderRail({ narrow: true })
+    const rail = screen.getByTestId('art-rail')
+    expect(rail.style.width).toBe('')
+    expect(screen.queryByRole('separator', { name: '调整宽度' })).toBeNull()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

@@ -84,7 +84,7 @@ function Lists({
               const showTech = Boolean(expanded[p.id] && tech)
               const web = p.kind === 'http' || p.kind === 'static'
               const menuItems = [
-                ...(p.canManage && service && p.status !== 'stopped'
+                ...(p.canManage && service && p.status === 'online'
                   ? [{ label: t('仅暂停后台进程（保留卡片）'), value: 'pause' }]
                   : []),
                 ...(tech ? [{ label: showTech ? t('收起技术详情') : t('查看技术详情'), value: 'tech' }] : []),
@@ -155,7 +155,13 @@ function Lists({
                                 })
                               }
                             >
-                              {p.serviceId ? t('停止') : web ? t('停止穿透') : t('关闭#close')}
+                              {p.status === 'offline'
+                                ? t('关闭#close')
+                                : p.serviceId
+                                  ? t('停止')
+                                  : web
+                                    ? t('停止穿透')
+                                    : t('关闭#close')}
                             </Button>
                           ) : null}
                         </>
@@ -220,7 +226,7 @@ function Lists({
                         .join(' · ')}
                     </span>
                   </span>
-                  {s.canManage ? (
+                  {s.canManage && (s.status === 'running' || s.status === 'starting') ? (
                     <Button variant="plain" size="small" onClick={() => void act(`/services/${s.id}/stop`)}>
                       {t('停止')}
                     </Button>

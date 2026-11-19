@@ -405,7 +405,7 @@ describe('群设置 · 在线预览', () => {
     )
 
     const offlineRow = screen.getByText('离线页').closest('.pv-item') as HTMLElement
-    fireEvent.click(within(offlineRow).getByRole('button', { name: '停止' }))
+    fireEvent.click(within(offlineRow).getByRole('button', { name: '关闭' }))
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: 'POST',
@@ -413,6 +413,34 @@ describe('群设置 · 在线预览', () => {
         body: { stopService: false },
       }),
     )
+  })
+
+  it('omits pause action on offline bound previews and stop button on exited or failed background services', async () => {
+    mockApi({
+      'GET /groups/g1/previews': list(
+        [preview({ id: 'p2', title: '离线页', status: 'offline', canManage: true, serviceId: 'sv2' })],
+        [
+          service({ id: 'sv2', name: 'web-dev', status: 'running' }),
+          service({ id: 'sv3', name: 'old-worker', status: 'exited', canManage: true }),
+          service({ id: 'sv4', name: 'broken-worker', status: 'failed', canManage: true }),
+          service({ id: 'sv5', name: 'booting-worker', status: 'starting', canManage: true }),
+        ],
+      ),
+    })
+    render(<PreviewsView groupId="g1" />)
+    await screen.findByText('离线页')
+
+    const offlineRow = screen.getByText('离线页').closest('.pv-item') as HTMLElement
+    fireEvent.click(within(offlineRow).getByRole('button', { name: '离线页 的更多操作' }))
+    expect(screen.queryByRole('menuitem', { name: '仅暂停后台进程（保留卡片）' })).toBeNull()
+    expect(screen.getByRole('menuitem', { name: '查看技术详情' })).toBeTruthy()
+
+    const exitedRow = screen.getByText('old-worker').closest('.pv-item') as HTMLElement
+    expect(within(exitedRow).queryByRole('button', { name: '停止' })).toBeNull()
+    const failedRow = screen.getByText('broken-worker').closest('.pv-item') as HTMLElement
+    expect(within(failedRow).queryByRole('button', { name: '停止' })).toBeNull()
+    const startingRow = screen.getByText('booting-worker').closest('.pv-item') as HTMLElement
+    expect(within(startingRow).getByRole('button', { name: '停止' })).toBeTruthy()
   })
 })
 

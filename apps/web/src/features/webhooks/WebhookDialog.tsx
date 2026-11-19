@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { Button, Dialog, TextArea, TextField, toast } from '../../ui'
+import { Button, ConfirmActionDialog, Dialog, Presence, TextArea, TextField, toast } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
 import '../groups/groups.css'
@@ -79,7 +79,7 @@ export function WebhookDialog({
   const [candidates, setCandidates] = useState<string[]>(webhook?.botIds ?? [])
   const [picks, setPicks] = useState<Picks>(webhook?.runOptions ?? {})
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const ready = name.trim().length > 0 && candidates.length <= WEBHOOK_MAX_BOTS
 
@@ -107,70 +107,73 @@ export function WebhookDialog({
     }
   }
 
-  const remove = async () => {
-    if (!webhook || deleting) return
-    setDeleting(true)
-    try {
-      await webhooksApi.remove(webhook)
-      toast({ type: 'success', message: t('已删除 Webhook「{name}」', { name: webhook.name }) })
-      onClose()
-    } catch (e) {
-      toastError(e)
-      setDeleting(false)
-    }
-  }
-
   return (
-    <Dialog
-      open
-      width={540}
-      closeOnBackdrop={false}
-      title={webhook ? t('编辑 Webhook') : t('新建 Webhook')}
-      onClose={onClose}
-      footer={
-        <>
-          {webhook ? (
-            <Button variant="destructive" disabled={saving || deleting} onClick={() => void remove()}>
-              {t('删除')}
+    <>
+      <Dialog
+        open
+        width={540}
+        closeOnBackdrop={false}
+        title={webhook ? t('编辑 Webhook') : t('新建 Webhook')}
+        onClose={onClose}
+        footer={
+          <>
+            {webhook ? (
+              <Button variant="destructive" disabled={saving} onClick={() => setConfirmDelete(true)}>
+                {t('删除')}
+              </Button>
+            ) : null}
+            <span className="spacer" />
+            <Button onClick={onClose}>{t('取消')}</Button>
+            <Button variant="primary" disabled={!ready || saving} onClick={() => void save()}>
+              {webhook ? t('保存') : t('创建')}
             </Button>
-          ) : null}
-          <span className="spacer" />
-          <Button onClick={onClose}>{t('取消')}</Button>
-          <Button variant="primary" disabled={!ready || saving || deleting} onClick={() => void save()}>
-            {webhook ? t('保存') : t('创建')}
-          </Button>
-        </>
-      }
-    >
-      <div className="gs-dialog-form">
-        <TextField
-          label={t('名称')}
-          value={name}
-          maxLength={60}
-          placeholder={t('如：Jenkins 部署')}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <TextArea
-          label={t('触发 Bot 的附加指令（可选）')}
-          value={prompt}
-          maxLength={4000}
-          rows={3}
-          placeholder={t('留空则使用默认排查指令：读取附件日志、定位提交并给出原因或修复')}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-        <CandidateBotPicker
-          scope="webhook"
-          group={group}
-          botIds={botIds}
-          candidates={candidates}
-          onCandidatesChange={setCandidates}
-          picks={picks}
-          onPicksChange={setPicks}
-          max={WEBHOOK_MAX_BOTS}
-          title={t('允许 @ 的候选 Bot（留空则仅发消息不触发 Bot）· 优先选在线且空闲的')}
-          offlineWarning={t('所选候选 Bot 当前全部离线，触发时将跳过 @')}
-        />
-      </div>
-    </Dialog>
+          </>
+        }
+      >
+        <div className="gs-dialog-form">
+          <TextField
+            label={t('名称')}
+            value={name}
+            maxLength={60}
+            placeholder={t('如：Jenkins 部署')}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <TextArea
+            label={t('触发 Bot 的附加指令（可选）')}
+            value={prompt}
+            maxLength={4000}
+            rows={3}
+            placeholder={t('留空则使用默认排查指令：读取附件日志、定位提交并给出原因或修复')}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+          <CandidateBotPicker
+            scope="webhook"
+            group={group}
+            botIds={botIds}
+            candidates={candidates}
+            onCandidatesChange={setCandidates}
+            picks={picks}
+            onPicksChange={setPicks}
+            max={WEBHOOK_MAX_BOTS}
+            title={t('允许 @ 的候选 Bot（留空则仅发消息不触发 Bot）· 优先选在线且空闲的')}
+            offlineWarning={t('所选候选 Bot 当前全部离线，触发时将跳过 @')}
+          />
+        </div>
+      </Dialog>
+      <Presence>
+        {webhook && confirmDelete ? (
+          <ConfirmActionDialog
+            title={t('删除 Webhook「{name}」？', { name: webhook.name })}
+            message={t('此操作不可恢复，外部系统（如 Jenkins）将无法继续通过该地址推送消息。')}
+            consequences={[t('现有调用地址和令牌将立即失效')]}
+            label={t('删除')}
+            done={t('已删除 Webhook「{name}」', { name: webhook.name })}
+            run={() => webhooksApi.remove(webhook)}
+            onDone={onClose}
+            onClose={() => setConfirmDelete(false)}
+          />
+        ) : null}
+      </Presence>
+    </>
   )
 }

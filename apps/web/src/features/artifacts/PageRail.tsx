@@ -4,7 +4,7 @@ import {
   type GgArtifactManifest,
   type GgArtifactScreen,
 } from '@gonggong/protocol'
-import { type DragEvent, type PointerEvent, useCallback, useRef, useState } from 'react'
+import { type DragEvent, type PointerEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
@@ -119,6 +119,7 @@ export function PageRail({
   manifest,
   readOnly,
   canEdit,
+  narrow = false,
   refreshKey,
   onEdit,
   onClose,
@@ -131,6 +132,8 @@ export function PageRail({
   readOnly: boolean
   /** A group member (not a visitor): may edit and read the command log. */
   canEdit: boolean
+  /** Narrow drawer over the canvas: caps width, omits edge resize, closes on Escape. */
+  narrow?: boolean
   refreshKey: string
   onEdit: (ops: ArtifactEditOp[]) => Promise<unknown>
   onClose: () => void
@@ -147,6 +150,17 @@ export function PageRail({
   }
   const [width, setWidth] = useState(readWidth)
   const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!narrow) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [narrow, onClose])
   const resize = (e: PointerEvent<HTMLDivElement>) => {
     const el = box.current
     if (!el) return
@@ -181,18 +195,20 @@ export function PageRail({
       aria-label={t('页面与命令')}
       data-testid="art-rail"
       ref={box}
-      style={{ width }}
+      style={narrow ? undefined : { width }}
     >
-      {/* biome-ignore lint/a11y/useSemanticElements: a draggable splitter, not a static rule */}
-      <div
-        className="art-rail__edge"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t('调整宽度')}
-        aria-valuenow={width}
-        tabIndex={-1}
-        onPointerDown={resizeWidth}
-      />
+      {narrow ? null : (
+        /* biome-ignore lint/a11y/useSemanticElements: a draggable splitter, not a static rule */
+        <div
+          className="art-rail__edge"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('调整宽度')}
+          aria-valuenow={width}
+          tabIndex={-1}
+          onPointerDown={resizeWidth}
+        />
+      )}
       <section className="art-rail__pages" style={{ flexBasis: canEdit ? `${split * 100}%` : '100%' }}>
         <Pages
           artifactId={artifactId}

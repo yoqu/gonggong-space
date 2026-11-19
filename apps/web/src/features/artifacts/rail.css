@@ -44,11 +44,18 @@
   background: var(--accent);
   opacity: 0.4;
 }
-/* Narrow tabs: the rail is a drawer over the canvas. */
+/* Narrow tabs: the rail is a drawer over the canvas with a click-to-close backdrop. */
+.art-rail__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.24);
+}
 .art-main--narrow .art-rail {
   position: absolute;
   inset: 0 auto 0 0;
   z-index: 4;
+  width: min(85%, 300px);
   box-shadow: var(--shadow-glass);
 }
 .art-rail__pages,

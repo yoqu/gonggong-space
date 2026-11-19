@@ -151,3 +151,17 @@
 - P2 市场引入弹窗「声明 vs 现有定义」双列对比在 390px 手机端未折成单列（`market/market.css`）：`.mkt-secret__compare` 固定 `grid-template-columns: 1fr 1fr`，窄屏每列不足 130px 挤成竖条 → `@media (max-width: 640px)` 下改为单列 `1fr`（验收：390px 下声明与现有定义上下堆叠、文字易读）。
 - P3 配置密钥弹窗在本群存在他人电脑上的 Bot 时，默认未勾选「允许在他人电脑上的 Bot 使用」（`secrets/SecretNeeds.tsx`）：与 `FillDialog`（`card.foreign` 默认勾选）不一致，成员经待办条填完个人密钥后 @群内他人 Bot 仍无法读取 → `useForeignBots(groupId)` 非空时默认勾选并保留下方说明（验收：群内有他人 Bot 时打开弹窗默认勾选且明确列出 Bot 名）。
 - P3 配置密钥弹窗输入不足 8 字符时缺少行内红字错误提示（`secrets/SecretNeeds.tsx`）：输入短值后仅「保存」按钮置灰、`SecureField` 仍只显示灰色 `hint` → 当 `value.length > 0 && value.length < SECRET_MIN_LENGTH` 时向 `SecureField` 传 `error={t('至少 8 个字符')}`（验收：输入 3 字符时输入框下方变红提示，满 8 字符恢复）。
+
+## 11-19 第 2 轮（原型画布左栏与独立 AI 对话输入框、群设置 › Webhook 管理、群信息 › 在线预览；桌面 1440 + 分栏 + 全屏 + 深色 + 390 触屏）
+
+已修（3 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 原型画布窄屏/手机端（< 720px）展开左栏抽屉后无宽度上限、无点击遮罩且无法按 Escape 收起：`PageRail` 内联写死 `style={{ width }}`（桌面曾拉宽到 480px 切手机直接顶出视口把收起按钮挤到屏幕外），且无遮罩拦截、点空白无法关闭抽屉（`artifacts/ArtifactTab.tsx`、`PageRail.tsx`、`rail.css`）→ 窄屏下隐藏右边缘拖拽条、抽屉限宽 `max-width: min(85%, 320px)`、补半透明遮罩点击关闭与非输入态 `Escape` 关闭（验收：390px 手机下即使桌面拉宽至 480px 抽屉仍不越界，点遮罩或按 Escape 可收起）。
+- P1 Webhook 编辑弹窗点击「删除」缺少二次确认直接永久删除：`WebhookDialog.tsx` 底部红色实心「删除」按钮直接调用 `webhooksApi.remove(webhook)`，而可恢复的「重置令牌」反而有确认弹窗，极易误删生产 Jenkins Webhook → 点击「删除」改弹统一的 `ConfirmActionDialog` 说明调用地址与令牌将立即失效，确认后再删除（验收：点「删除」先弹出确认框，取消不删，确认后删除并提示）。
+- P1 在线预览面板离线态与已退出后台服务展示非法操作项：`PreviewsView.tsx` 在预览 `offline` 时更多菜单仍展示「仅暂停后台进程（保留卡片）」且主按钮误标「停止」（实际不停止进程仅关闭记录）；独立后台服务 `exited` / `failed` 时仍显示「停止」按钮 → 仅 `online` 预览显示「仅暂停后台进程」，`offline` 预览主按钮显示「关闭」，独立后台服务仅在 `running` / `starting` 时显示「停止」（验收：离线预览更多菜单无暂停项且按钮为「关闭」，已退出服务无「停止」按钮）。
+
+- P2 原型画布左栏文件夹树不支持折叠/展开（`artifacts/PageRail.tsx`）：支持最多 7 级嵌套后所有子文件夹与页面始终全量展开，页面多时列表冗长难以定位 → 为含子项的文件夹行增加小三角折叠/展开按钮（默认展开并记忆折叠态），点箭头仅切折叠、点名称仍切画布视图（验收：点击文件夹左侧箭头可收起/展开其子项且不切换画布）。
+- P2 原型画布左栏「删除文件夹」无安全感反馈，用户易担心误删文件夹内页面（`artifacts/PageRail.tsx`、`en-rail.ts`）：菜单红字「删除文件夹」点下即删且无提示，页面虽自动上移保留但用户不知情 → 删除成功后 Toast 提示「已删除文件夹「{title}」，其中的页面已保留」，非空文件夹菜单项标为「删除文件夹（保留页面）」（验收：删除含页面的文件夹后顶部弹出明确提示）。
+- P2 原型画布输入框占位与「AI 对话」空态方位文案在桌面与手机均与实际布局不符（`artifacts/CanvasChat.tsx`、`chat/MessageComposer.tsx`）：桌面端输入框在画布下方而非左栏下方；手机端左栏默认收起，输入框写「回复显示在左侧『AI 对话』」让用户找不到入口 → 空态改「在画布下方输入框描述要怎么改，AI 的回复显示在这里」，窄屏占位改「描述要怎么改，回复显示在左上角『AI 对话』」（验收：桌面与 390px 手机文案均与实际界面位置一致）。
+- P2 Webhook 一次性令牌弹窗「调用示例」缺一键复制按钮，且手机端列表行长标题被挤成 3 行（`webhooks/WebhookDialog.tsx`、`webhooks.css`、`WebhooksView.tsx`）：`WebhookUrlDialog` 仅地址框有「复制地址」按钮，多行 `curl` 示例需手动拖选；390px 手机端标题+标签+3 个操作同排把长名称压成 3 行竖条 → 示例标题旁加「复制示例」按钮；窄屏下 `.gs-row` 操作区折至第二行右对齐（验收：可一键复制 `curl` 示例；390px 下 Webhook 名称不折成 3 行）。
+- P3 Webhook 列表「待生成令牌」行操作层级不清晰、停用行视觉区分弱（`webhooks/WebhooksView.tsx`）：「生成令牌」与「编辑」同为蓝色纯文字按钮，停用行与启用行标题对比度相同 → `!w.hasToken` 时「生成令牌」使用次级边框按钮突出主操作，停用行标题降低对比度（验收：待激活行首要按钮一眼可见，停用行与启用行一眼可分）。
+- P3 在线预览面板独立后台服务行的长命令在窄侧栏单行截断且无查看完整命令入口（`previews/PreviewsView.tsx`、`previews.css`）：`apps/server$ node di...` 被省略号截断且无 `title` 或展开详情 → 为 `.pv-mono` 补充完整 `title` 属性或提供展开技术详情查看完整目录与命令（验收：悬停或展开可见完整 `cwd` 与 `command`）。

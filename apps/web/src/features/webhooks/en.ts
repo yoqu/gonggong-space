@@ -34,4 +34,8 @@ export default {
   '旧的调用地址将立即失效，需要同步更新 Jenkins 等外部系统的配置。':
     'The old URL stops working immediately; update Jenkins or any external caller with the new one.',
   确认重置: 'Rotate',
+  '删除 Webhook「{name}」？': 'Delete webhook "{name}"?',
+  '此操作不可恢复，外部系统（如 Jenkins）将无法继续通过该地址推送消息。':
+    'This cannot be undone. External callers (such as Jenkins) will no longer be able to post to this URL.',
+  现有调用地址和令牌将立即失效: 'The existing URL and token stop working immediately',
 } as const

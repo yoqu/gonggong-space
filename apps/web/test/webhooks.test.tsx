@@ -209,6 +209,26 @@ describe('WebhooksView', () => {
     rerender(<WebhooksView group={group()} readOnly />)
     expect(screen.queryByRole('button', { name: '新建 Webhook' })).toBeNull()
   })
+
+  it('requires confirmation before permanently deleting a webhook', async () => {
+    const existing = webhook({ id: 'w1', name: 'Jenkins 部署' })
+    const calls = mockApi({
+      'GET /groups/g1/webhooks': { webhooks: [existing] } satisfies GroupWebhooksDto,
+      'DELETE /webhooks/w1': undefined,
+    })
+
+    render(<WebhooksView group={group()} readOnly={false} />)
+    await screen.findByText('Jenkins 部署')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    const confirmDialog = await screen.findByRole('alertdialog', { name: '删除 Webhook「Jenkins 部署」？' })
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '删除' }))
+    await vi.waitFor(() =>
+      expect(calls).toContainEqual({ method: 'DELETE', path: '/webhooks/w1', body: undefined }),
+    )
+  })
 })
 
 describe('Webhook message rendering', () => {
