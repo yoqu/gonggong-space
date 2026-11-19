@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingChat, ShowFloatingChat } from '../src/app/floatingChat'
+import { useCanvasChat } from '../src/features/artifacts/chatRoot'
 import { ComposerDock, type ComposerHud } from '../src/features/chat/ComposerDock'
 
 const dock = (floating: boolean, hud?: ComposerHud | null, onShowChat?: () => void) => (
@@ -13,9 +14,27 @@ const dock = (floating: boolean, hud?: ComposerHud | null, onShowChat?: () => vo
   </FloatingChat.Provider>
 )
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  useCanvasChat.setState({ byGroup: {} })
+})
 
 describe('composer dock', () => {
+  it("does not float the group's composer over a canvas in front, which has its own (画布 AI 对话)", () => {
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    const at = (floating: boolean) => (
+      <FloatingChat.Provider value={floating}>
+        <ComposerDock groupId="g1">
+          <textarea aria-label="输入" />
+        </ComposerDock>
+      </FloatingChat.Provider>
+    )
+    const { rerender } = render(at(true))
+    expect(screen.queryByRole('textbox', { name: '输入' })).toBeNull()
+    rerender(at(false))
+    expect(screen.getByRole('textbox', { name: '输入' })).toBeTruthy()
+  })
+
   it('stays in the chat column with no controls when not floating', () => {
     render(dock(false))
     expect(screen.getByRole('textbox', { name: '输入' })).toBeTruthy()

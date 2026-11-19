@@ -5,8 +5,22 @@
   flex: 1;
   min-height: 0;
 }
-.art-main > .art-canvas {
+.art-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-width: 0;
+  min-height: 0;
+}
+/* The canvas's own input box, under the canvas: an independent design tool, not the group chat. */
+.art-composer {
+  flex: none;
+  border-top: 1px solid var(--separator);
+  background: var(--content-bg);
+}
+.art-composer > .composer {
+  max-width: 760px;
+  margin: 0 auto;
 }
 .art-rail {
   position: relative;

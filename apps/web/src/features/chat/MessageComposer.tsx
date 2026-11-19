@@ -3,14 +3,12 @@ import {
   type KeyboardEvent,
   memo,
   type RefObject,
-  useContext,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react'
-import { FloatingChat } from '../../app/floatingChat'
 import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
@@ -99,6 +97,7 @@ export const MessageComposer = memo(function MessageComposer({
   onSent,
   dropFiles,
   thread,
+  canvasChat,
   lastEditable,
 }: {
   group: GroupDto
@@ -110,18 +109,26 @@ export const MessageComposer = memo(function MessageComposer({
    * composer, so this one leaves them alone.
    */
   thread?: string
+  /**
+   * The canvas's own composer: everything typed here goes to the artifact's 画布 AI 对话 (its bot unless another is
+   * @-ed), never to the group. It owns the canvas selection while the canvas is in front.
+   */
+  canvasChat?: { rootId: string; artifactId: string; botId: string | null }
   /** ↑ in the empty composer edits this message (my latest, while still editable). */
   lastEditable?: () => MessageDto | undefined
 }) {
   const mobile = useIsMobile()
-  const key = draftKey(group.id, thread)
+  /** The conversation this composer writes to: drafts, quotes and @s are per conversation. */
+  const scope = thread ?? canvasChat?.rootId
+  const chatRoot = canvasChat?.rootId
+  const key = draftKey(group.id, scope)
   const [draft, setDraft] = useState(() => loadDraft(key))
   const [alsoSent, setAlsoSent] = useState(false)
-  /** The group's composer-wide stores (cite, canvas…) speak to the main composer only; quotes and @s are per thread. */
-  const main = thread ? '' : group.id
-  // Floating over an artifact's canvas, the main composer talks to its 画布 AI 对话 instead of the group.
-  const floating = useContext(FloatingChat)
-  const chatRoot = useCanvasChat((s) => (main && floating ? s.byGroup[main]?.rootId : undefined))
+  /** The group's composer-wide stores (cite, 正在编辑, 打断并追加) speak to the main composer only. */
+  const main = scope ? '' : group.id
+  /** The canvas selection goes to the canvas's own composer while one is in front, else to the main composer. */
+  const canvasInFront = useCanvasChat((s) => !!s.byGroup[group.id])
+  const canvasScope = canvasChat ? group.id : main && !canvasInFront ? group.id : ''
   const [caret, setCaret] = useState(0)
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState(false)
@@ -139,7 +146,7 @@ export const MessageComposer = memo(function MessageComposer({
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
   const soleDm = group.kind === 'dm' && groupBots.length === 1 && !appending
   const command = draft.trimStart().startsWith('/')
-  const selection = useCanvasContext((s) => (s.context?.groupId === main ? s.context : null))
+  const selection = useCanvasContext((s) => (s.context?.groupId === canvasScope ? s.context : null))
   // 正在编辑: without a canvas selection, the whole artifact goes along with every message.
   const editing = useEditingOf(main)
   const groupArtifacts = useGroupArtifacts(group.id)
@@ -155,14 +162,19 @@ export const MessageComposer = memo(function MessageComposer({
         }
       : null
   const canvas = selection ?? editingContext
-  // …and a plain message sent with the canvas selected goes to the artifact's bot.
+  // …and a plain message sent with the canvas selected (or from the canvas's composer) goes to the artifact's bot.
+  const botOfCanvas = canvas ? canvas.botId : canvasChat ? canvasChat.botId : undefined
   const canvasBot =
-    canvas && !appending && !command && !mentioned.length && !soleDm
-      ? (groupBots.find((b) => b.id === canvas.botId) ?? null)
+    botOfCanvas !== undefined && !appending && !command && !mentioned.length && !soleDm
+      ? (groupBots.find((b) => b.id === botOfCanvas) ?? null)
       : null
   const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
-  const artifact = useArtifactTarget(main, editingContext)
-  const front = useForeground(group.id)
+  const target = useArtifactTarget(canvasChat ? '' : canvasScope, editingContext)
+  const artifact =
+    canvasChat && !selection
+      ? { artifactId: canvasChat.artifactId, botId: canvasChat.botId }
+      : (selection ?? target)
+  const front = useForeground(canvasChat ? '' : group.id)
   /** The foreground artifact the member removed from the next message; another one in front shows again. */
   const [noFront, setNoFront] = useState<string | null>(null)
   const foreground =
@@ -192,7 +204,7 @@ export const MessageComposer = memo(function MessageComposer({
     if (dropFiles) dropFiles.current = uploads.add
   })
   const quote = useQuote((s) =>
-    s.quote?.groupId === group.id && s.quote.threadRootId === thread ? s.quote : null,
+    s.quote?.groupId === group.id && s.quote.threadRootId === scope ? s.quote : null,
   )
   const canvasFocus = useCanvasContext((s) => s.focus)
   const editingFocus = useEditing((s) => s.focus)
@@ -223,16 +235,16 @@ export const MessageComposer = memo(function MessageComposer({
   }, [canvas])
   // 继续对话 hands the focus over; an artifact deleted meanwhile ends its 正在编辑.
   useEffect(() => {
-    if (editingFocus && !thread) input.current?.focus()
-  }, [editingFocus, thread])
+    if (editingFocus && main) input.current?.focus()
+  }, [editingFocus, main])
   useEffect(() => {
     if (editing && groupArtifacts.length && !edited) setEditing(main, null)
   }, [editing, groupArtifacts, edited, main])
   // Add to Chat (⌘L) hands the focus over.
   useEffect(() => {
-    if (canvasFocus && !thread && useCanvasContext.getState().context?.groupId === group.id)
+    if (canvasFocus && canvasScope && useCanvasContext.getState().context?.groupId === canvasScope)
       input.current?.focus()
-  }, [canvasFocus, group.id, thread])
+  }, [canvasFocus, canvasScope])
 
   useLayoutEffect(() => {
     const pos = pendingCaret.current
@@ -248,7 +260,7 @@ export const MessageComposer = memo(function MessageComposer({
     sections,
     items: candidates,
     empty,
-  } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates, !!thread)
+  } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates, !!scope)
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
 
@@ -274,7 +286,7 @@ export const MessageComposer = memo(function MessageComposer({
   }, [cited])
 
   const mention = useMention((s) =>
-    s.pending?.groupId === group.id && s.pending.threadRootId === thread ? s.pending : null,
+    s.pending?.groupId === group.id && s.pending.threadRootId === scope ? s.pending : null,
   )
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over name, onto the draft it was rendered with
   useEffect(() => {
@@ -288,7 +300,7 @@ export const MessageComposer = memo(function MessageComposer({
   }, [mention])
 
   const recalled = useRecalled((s) =>
-    s.pending?.groupId === group.id && s.pending.threadRootId === thread ? s.pending : null,
+    s.pending?.groupId === group.id && s.pending.threadRootId === scope ? s.pending : null,
   )
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over message, onto the draft it was rendered with
   useEffect(() => {
@@ -300,9 +312,7 @@ export const MessageComposer = memo(function MessageComposer({
   }, [recalled])
 
   const rejected = usePending((s) =>
-    s.rejected?.groupId === group.id && s.rejected.req.threadRootId === (thread ?? chatRoot)
-      ? s.rejected
-      : null,
+    s.rejected?.groupId === group.id && s.rejected.req.threadRootId === scope ? s.rejected : null,
   )
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per refused message, onto the draft it was rendered with
   useEffect(() => {
@@ -424,7 +434,7 @@ export const MessageComposer = memo(function MessageComposer({
     if (sending.current || uploads.uploading || (!body.trim() && !attachmentIds.length)) return
     const q = quote && { kind: quote.kind, id: quote.id }
     const target = useAppend.getState().target
-    const appendTo = !thread && !chatRoot && target?.groupId === group.id ? target.runId : null
+    const appendTo = main && target?.groupId === main ? target.runId : null
     const runOptions: Picks = {}
     for (const b of targets) {
       const pick = picks[b.id]
@@ -486,8 +496,10 @@ export const MessageComposer = memo(function MessageComposer({
         placeholder={
           thread
             ? t('回复话题，@ 触发 Bot')
-            : chatRoot && !variations && !canvasBot
-              ? t('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+            : chatRoot && !variations
+              ? canvasBot
+                ? t('描述要怎么改，发给 @{name}，回复显示在左侧「AI 对话」', { name: canvasBot.name })
+                : t('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
               : variations
                 ? t('描述变体方向，生成 {n} 个变体', { n: variations })
                 : canvasBot

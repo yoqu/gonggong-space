@@ -5,7 +5,7 @@ import { api } from '../../lib/api'
 
 /**
  * 画布 AI 对话 (ArtifactChatDto): per group, the artifact whose canvas is in front and its conversation's root. While
- * it is set, the composer floating over the canvas posts there instead of to the group.
+ * it is set, the canvas's own composer has the canvas selection and the group's composer stops floating over it.
  */
 export const useCanvasChat = create<{ byGroup: Record<string, { artifactId: string; rootId: string }> }>()(
   () => ({ byGroup: {} }),
@@ -41,7 +41,7 @@ export function useArtifactChatRoot(artifactId: string | null) {
   return root && root.artifactId === artifactId ? root.rootId : null
 }
 
-/** While `on` (the artifact's tab is in front and the member may edit), its canvas takes the group's composer. */
+/** While `on` (the artifact's tab is in front and the member may edit), its canvas has its own composer. */
 export function useFrontCanvasChat(groupId: string, artifactId: string, on: boolean) {
   const rootId = useArtifactChatRoot(on ? artifactId : null)
   useEffect(() => {

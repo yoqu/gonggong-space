@@ -19,6 +19,7 @@ import type { TabMeta, TabProps } from '../workbench/types'
 import { ActivityNote } from './ActivityLayer'
 import { useGroupBots } from './actions'
 import { Canvas, type CanvasRequest } from './Canvas'
+import { CanvasComposer } from './CanvasChat'
 import { useFrontCanvasChat } from './chatRoot'
 import { useDesignSystem } from './DesignSystemPanel'
 import { downloadUrl, exportZipUrl } from './ExportPanel'
@@ -161,8 +162,12 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   }
 
   const rail = useRail()
-  // In front, the composer floating over the canvas talks to its AI 对话 instead of the group.
-  useFrontCanvasChat(a?.groupId ?? '', tab.artifactId, active && !!a && a.access !== 'view')
+  // In front, the canvas has its own composer, talking to its AI 对话 and never to the group.
+  const chatRoot = useFrontCanvasChat(
+    a?.groupId ?? '',
+    tab.artifactId,
+    active && !proto && !!a && a.access !== 'view',
+  )
 
   if (!entry) return <Spinner />
   if (!a)
@@ -381,40 +386,48 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
               onPicked={() => rail.narrow && rail.setOpen(false)}
             />
           ) : null}
-          <Canvas
-            artifactId={a.id}
-            groupId={a.groupId}
-            botId={a.botId}
-            title={a.title}
-            manifest={shownManifest}
-            tokens={design.tokens}
-            links={detail?.id === shown ? (detail.links ?? []) : []}
-            favourites={a.favorites ?? []}
-            preview={preview}
-            versionKey={shown ?? ''}
-            readOnly={readOnly}
-            undo={undo}
-            redo={redo}
-            onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
-            onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
-            onPresent={present}
-            readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
-            fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
-            screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
-            changedScreens={detail?.id === shown ? (detail.changedScreens ?? []) : []}
-            files={detail?.id === shown ? detail.files : null}
-            dir={a.dir}
-            designMd={design.md}
-            designPanel={design.panel}
-            guardDesign={design.guard}
-            request={request}
-            onRequestHandled={() => setRequest((r) => r && { ...r, handled: true })}
-            versions={entry.versions}
-            onViewVersion={(id) => setViewing(id === head ? null : id)}
-            onPrototypeAsked={() => {
-              awaitProto.current = a.running ? 'running' : 'asked'
-            }}
-          />
+          <div className="art-stage">
+            <Canvas
+              artifactId={a.id}
+              groupId={a.groupId}
+              botId={a.botId}
+              title={a.title}
+              manifest={shownManifest}
+              tokens={design.tokens}
+              links={detail?.id === shown ? (detail.links ?? []) : []}
+              favourites={a.favorites ?? []}
+              preview={preview}
+              versionKey={shown ?? ''}
+              readOnly={readOnly}
+              undo={undo}
+              redo={redo}
+              onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
+              onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
+              onPresent={present}
+              readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
+              fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
+              screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
+              changedScreens={detail?.id === shown ? (detail.changedScreens ?? []) : []}
+              files={detail?.id === shown ? detail.files : null}
+              dir={a.dir}
+              designMd={design.md}
+              designPanel={design.panel}
+              guardDesign={design.guard}
+              request={request}
+              onRequestHandled={() => setRequest((r) => r && { ...r, handled: true })}
+              versions={entry.versions}
+              onViewVersion={(id) => setViewing(id === head ? null : id)}
+              onPrototypeAsked={() => {
+                awaitProto.current = a.running ? 'running' : 'asked'
+              }}
+            />
+            {chatRoot ? (
+              <CanvasComposer
+                groupId={a.groupId}
+                chat={{ rootId: chatRoot, artifactId: a.id, botId: a.botId }}
+              />
+            ) : null}
+          </div>
         </div>
       )}
       {design.dialog}

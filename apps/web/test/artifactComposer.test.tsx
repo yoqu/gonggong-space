@@ -62,16 +62,14 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('the composer floating over a canvas (画布 AI 对话)', () => {
-  it("posts to the artifact's AI 对话 instead of the group; docked beside the chat it posts to the group", async () => {
+describe("the canvas's own composer (画布 AI 对话)", () => {
+  const chat = { rootId: 'root1', artifactId: 'a1', botId: 'b1' }
+
+  it("always posts to the artifact's AI 对话, to its bot, carrying the canvas selection", async () => {
     const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
     useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
-    const { unmount } = render(
-      <FloatingChat.Provider value>
-        <MessageComposer group={group} onSent={() => {}} />
-      </FloatingChat.Provider>,
-    )
-    expect(input().placeholder).toBe('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+    render(<MessageComposer group={group} onSent={() => {}} canvasChat={chat} />)
+    expect(input().placeholder).toBe('描述要怎么改，发给 @设计助手，回复显示在左侧「AI 对话」')
     type('首页改成深色')
     fireEvent.keyDown(input(), { key: 'Enter' })
     await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
@@ -79,13 +77,37 @@ describe('the composer floating over a canvas (画布 AI 对话)', () => {
       body: '首页改成深色',
       threadRootId: 'root1',
     })
-    unmount()
+    expect(posts(calls, '/groups/g1/messages')[0]).not.toHaveProperty('alsoSent')
 
-    render(<MessageComposer group={group} onSent={() => {}} />)
-    type('大家看看')
+    setCanvas()
+    type('标题加粗')
     fireEvent.keyDown(input(), { key: 'Enter' })
     await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(2))
-    expect(posts(calls, '/groups/g1/messages')[1]).not.toHaveProperty('threadRootId')
+    expect(posts(calls, '/groups/g1/messages')[1]).toMatchObject({
+      threadRootId: 'root1',
+      artifactContext: { artifactId: 'a1' },
+    })
+  })
+
+  it('leaves the group composer to the group, 全屏 or not, and keeps the canvas selection out of it', async () => {
+    const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    setCanvas()
+    for (const floating of [true, false]) {
+      const { unmount } = render(
+        <FloatingChat.Provider value={floating}>
+          <MessageComposer group={group} onSent={() => {}} />
+        </FloatingChat.Provider>,
+      )
+      expect(screen.queryByTestId('composer-chips')).toBeNull()
+      type('大家看看')
+      fireEvent.keyDown(input(), { key: 'Enter' })
+      await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(floating ? 1 : 2))
+      const sent = posts(calls, '/groups/g1/messages').at(-1)
+      expect(sent).not.toHaveProperty('threadRootId')
+      expect(sent).not.toHaveProperty('artifactContext')
+      unmount()
+    }
   })
 })
 

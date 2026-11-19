@@ -14,6 +14,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Icon } from '../../ui'
+import { useCanvasChat } from '../artifacts/chatRoot'
 import { stepText, toolTitle } from '../runs/mcp'
 import { hudOffset, ORB } from './composerDockHud'
 import { usePending } from './pending'
@@ -193,25 +194,30 @@ function useAutoHud(
   }, [floating, runs, bots, sending, flash, onLocate])
 }
 
-/**
- * The composer's place. Normally it stays in the chat column (layout-neutral); while the workbench is 全屏 it floats
- * over the workbench as a glass bar, and hides into a draggable edge-snapping glass orb (⌘J both ways).
- */
-export function ComposerDock({
-  children,
-  groupId,
-  runs,
-  messages,
-  onLocate,
-  hud: customHud,
-}: {
+type DockProps = {
   children: ReactNode
   groupId?: string
   runs?: RunDto[]
   messages?: HudMessage[]
   onLocate?: (run: RunDto, pendingId?: string) => void
   hud?: ComposerHud | null
-}) {
+}
+
+/**
+ * 全屏 with an artifact's canvas in front, the canvas has its own composer (画布 AI 对话); the group's would float over
+ * it, so it stays out of the way until the chat is opened.
+ */
+export function ComposerDock(props: DockProps) {
+  const floating = useContext(FloatingChat)
+  const canvasInFront = useCanvasChat((s) => !!props.groupId && !!s.byGroup[props.groupId])
+  return floating && canvasInFront ? null : <Dock {...props} />
+}
+
+/**
+ * The composer's place. Normally it stays in the chat column (layout-neutral); while the workbench is 全屏 it floats
+ * over the workbench as a glass bar, and hides into a draggable edge-snapping glass orb (⌘J both ways).
+ */
+function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: DockProps) {
   const floating = useContext(FloatingChat)
   const showChat = useContext(ShowFloatingChat)
   const [phase, setPhase] = useState<Phase>(() => (stored() ? 'closed' : 'open'))
