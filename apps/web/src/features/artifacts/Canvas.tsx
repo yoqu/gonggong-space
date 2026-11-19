@@ -70,7 +70,7 @@ import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
 import { ActivityLayer, FloatMenu, RenameField, ToolButton } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
-import { framePoint, onPinch, wheelZoomFactor } from './canvasZoom'
+import { framePoint } from './canvasZoom'
 import {
   dropSelectionContext,
   elementItem,
@@ -156,6 +156,7 @@ import {
 } from './menus'
 import { PageEmpty } from './PageRail'
 import { setArtifactPage, useShownPage } from './page'
+import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
 import { connectOps } from './prototype'
 import { RefNode } from './RefNode'
@@ -637,31 +638,6 @@ export function Canvas({
   }, [tip])
   // Screens gone from the manifest leave the selection.
   useEffect(() => setSelected((s) => s.filter((id) => nodes.some((n) => n.id === id))), [nodes])
-
-  // React's wheel listener is passive; zooming must keep the page from scrolling or zooming itself.
-  useEffect(() => {
-    const el = plane.current
-    if (!el) return
-    const wheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const box = el.getBoundingClientRect()
-      // ctrlKey is also how trackpads report a pinch.
-      auto.current = false
-      if (e.ctrlKey || e.metaKey)
-        setView((v) => zoomAt(v, v.z * wheelZoomFactor(e), e.clientX - box.left, e.clientY - box.top))
-      else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
-    }
-    const pinch = onPinch(el, (f, cx, cy) => {
-      const box = el.getBoundingClientRect()
-      auto.current = false
-      setView((v) => zoomAt(v, v.z * f, cx - box.left, cy - box.top))
-    })
-    el.addEventListener('wheel', wheel, { passive: false })
-    return () => {
-      el.removeEventListener('wheel', wheel)
-      pinch()
-    }
-  }, [])
 
   // The design-system and DESIGN.md cards are as tall as their content.
   const measureSystem = useCallback((el: HTMLDivElement | null) => {
@@ -1273,6 +1249,14 @@ export function Canvas({
   }
   const panned = () => !!press.current?.moved
 
+  const gestures = usePlaneGestures(plane, setView, auto, () => {
+    setMoving(null)
+    setMarquee(null)
+    setDragging(false)
+    // Not a pan, and the click after the pinch selects nothing.
+    press.current = { id: -1, x: 0, y: 0, vx: 0, vy: 0, moved: true, kind: 'pan' }
+  })
+
   const pick = (id: string, shift: boolean) => {
     if (panned() || panning || zoomHold) return
     setSelected((s) => (shift ? (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]) : [id]))
@@ -1664,6 +1648,7 @@ export function Canvas({
             backgroundPosition: `${view.x}px ${view.y}px`,
             backgroundSize: `${dot}px ${dot}px`,
           }}
+          {...gestures}
           onPointerDown={pointerDown}
           onPointerMove={pointerMove}
           onPointerUp={pointerUp}

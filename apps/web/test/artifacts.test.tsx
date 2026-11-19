@@ -178,6 +178,22 @@ describe('artifact tab', () => {
     expect(zoomLabel()).toBe('100%')
   })
 
+  it('pinches with two fingers on a touch screen', async () => {
+    mockApi(routes())
+    renderTab()
+    await screen.findByTitle('首页')
+    const plane = screen.getByTestId('art-plane')
+    const touch = (type: 'pointerDown' | 'pointerMove' | 'pointerUp', id: number, x: number) =>
+      fireEvent[type](plane, { pointerId: id, pointerType: 'touch', button: 0, clientX: x, clientY: 100 })
+    touch('pointerDown', 1, 90)
+    touch('pointerDown', 2, 110)
+    touch('pointerMove', 2, 130)
+    expect(zoomLabel()).toBe('200%')
+    touch('pointerUp', 1, 90)
+    touch('pointerUp', 2, 130)
+    expect(zoomLabel()).toBe('200%')
+  })
+
   it('selects screens: click, shift-click, ⌘A and Esc', async () => {
     mockApi(routes())
     renderTab()

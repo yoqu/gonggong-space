@@ -608,6 +608,30 @@
     zoom(e.scale / pinch, e.clientX, e.clientY)
     pinch = e.scale
   })
+  // Two fingers on a phone: Safari also sends the gesture events above, so they count only where it does not (Android).
+  let span = 0
+  const fingers = (e) => {
+    const [a, b] = e.touches
+    return {
+      d: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
+      x: (a.clientX + b.clientX) / 2,
+      y: (a.clientY + b.clientY) / 2,
+    }
+  }
+  window.addEventListener('touchstart', (e) => {
+    span = e.touches.length === 2 ? fingers(e).d : 0
+  })
+  window.addEventListener(
+    'touchmove',
+    (e) => {
+      if (e.touches.length !== 2 || !span) return
+      e.preventDefault()
+      const f = fingers(e)
+      if (!('ongesturechange' in window) && f.d) zoom(f.d / span, f.x, f.y)
+      span = f.d || span
+    },
+    { passive: false },
+  )
   document.documentElement.addEventListener('mouseleave', () => {
     if (picking()) setHover(null)
   })

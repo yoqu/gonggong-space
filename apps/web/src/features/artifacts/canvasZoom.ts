@@ -1,3 +1,5 @@
+import { type View, zoomAt } from './geometry'
+
 /** Log-scale zoom per wheel pixel: 1/300 felt sluggish; 0.01 made a mouse notch (|deltaY| ≈ 100) a 2.7× jump. */
 const WHEEL_ZOOM_DIVISOR = 150
 /** One wheel event zooms by at most this much in log scale: about 7% per mouse notch. */
@@ -42,4 +44,19 @@ export function framePoint(frame: HTMLIFrameElement, x: number, y: number) {
   const r = frame.getBoundingClientRect()
   const k = r.width / frame.offsetWidth
   return { x: r.left + x * k, y: r.top + y * k }
+}
+
+type Point = { x: number; y: number }
+
+/** Two fingers moved from `from` to `to` (plane pixels): the view pans with their midpoint and zooms about it. */
+export function pinchView(view: View, from: [Point, Point], to: [Point, Point]): View {
+  const d0 = Math.hypot(from[1].x - from[0].x, from[1].y - from[0].y)
+  const d1 = Math.hypot(to[1].x - to[0].x, to[1].y - to[0].y)
+  if (!d0 || !d1) return view
+  const mx0 = (from[0].x + from[1].x) / 2
+  const my0 = (from[0].y + from[1].y) / 2
+  const mx1 = (to[0].x + to[1].x) / 2
+  const my1 = (to[0].y + to[1].y) / 2
+  const panned = { ...view, x: view.x + mx1 - mx0, y: view.y + my1 - my0 }
+  return zoomAt(panned, view.z * (d1 / d0), mx1, my1)
 }
