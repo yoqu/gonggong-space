@@ -1,6 +1,6 @@
 //! MCP tool calls in ACP updates: Claude titles them `mcp__<server>__<tool>` and reports the result as content;
 //! Codex titles them `mcp.<server>.<tool>` with `{ server, tool, arguments }` in and `{ result, error }` out; Gemini
-//! CLI titles them `<tool> (<server> MCP Server)`.
+//! CLI titles them `<tool> (<server> MCP Server)`; Antigravity CLI `Run mcp_<server>_<tool>` (see `antigravity_name`).
 use agent_client_protocol::schema::v1::{ContentBlock, ToolCallContent};
 use serde_json::Value;
 
@@ -19,6 +19,24 @@ pub fn name(title: &str) -> Option<(String, String)> {
     };
     (!server.is_empty() && !tool.is_empty()).then(|| (server.to_string(), tool.to_string()))
 }
+
+/// Antigravity CLI titles them `Run mcp_<server>_<tool>`, its server name with each character outside `[A-Za-z0-9_-]`
+/// made `_`. Server names may hold `_` themselves, so the run's own `servers` decide where the title splits.
+pub fn antigravity_name(title: &str, servers: &[String]) -> Option<(String, String)> {
+    let rest = title.strip_prefix("Run mcp_")?;
+    let safe = |s: &str| -> String {
+        s.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect()
+    };
+    servers
+        .iter()
+        .filter_map(|s| Some((s, rest.strip_prefix(safe(s).as_str())?.strip_prefix('_')?)))
+        .filter(|(_, tool)| !tool.is_empty())
+        .max_by_key(|(s, _)| s.len())
+        .map(|(s, tool)| (s.clone(), tool.to_string()))
+}
+
+/// Antigravity CLI adds this to every call's arguments: its own one-line note, not the tool's input.
+pub const ANTIGRAVITY_SUMMARY: &str = "toolSummary";
 
 /// The call's arguments; Codex wraps them with the server and tool names.
 pub fn arguments(raw: &Value) -> &Value {

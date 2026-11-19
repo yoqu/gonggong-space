@@ -302,6 +302,18 @@ pub fn prune(home: &Path, store: &Store, stale: Option<Duration>) {
 }
 
 /// Merges `p`'s openai endpoint `e` into the adapter's `CODEX_CONFIG`; the key itself goes in [`CODEX_KEY_ENV`].
+/// Claude's todo tools, off under the agent SDK: claude-agent-acp turns them into ACP plan updates.
+pub const CLAUDE_PLAN_ENV: [(&str, &str); 1] = [("CLAUDE_CODE_ENABLE_TODO_TOOLS", "1")];
+
+/// The codex adapter's config (`CODEX_CONFIG`) before any provider: the bot's instructions, and Codex's plan tool,
+/// off by default, which codex-acp turns into ACP plan updates. A dotted key keeps the user's other `[tools]`.
+pub fn codex_base(instructions: String) -> Map<String, Value> {
+    let mut config = Map::new();
+    config.insert("developer_instructions".into(), instructions.into());
+    config.insert("tools.update_plan.enabled".into(), true.into());
+    config
+}
+
 pub fn codex_config(config: &mut Map<String, Value>, p: &Provider, e: &Endpoint) {
     let wire_api = e.wire_api.as_deref().unwrap_or(providers::WIRE_RESPONSES);
     let provider = json!({ "name": p.name, "base_url": e.base_url, "wire_api": wire_api, "env_key": CODEX_KEY_ENV });

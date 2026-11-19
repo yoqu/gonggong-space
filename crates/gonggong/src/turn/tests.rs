@@ -441,6 +441,41 @@ fn codex_mcp_calls_unwrap_their_raw_input_and_output() {
 }
 
 #[test]
+fn antigravity_mcp_calls_split_on_the_runs_own_server_names() {
+    let mut t = Turn::with_mcp(vec!["gonggong".into(), "my-srv.x".into()]);
+    // As agy 1.5.10 sends it: the server's `.` became `_`, and agy adds its own `toolSummary` to the arguments.
+    let call = ToolCall::new("a", "Run mcp_my-srv_x_echo_text")
+        .kind(ToolKind::Other)
+        .raw_input(serde_json::json!({ "text": "hi", "toolSummary": "Echo text" }));
+    let Some(RunEvent::Tool { mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
+    let mcp = mcp.unwrap();
+    assert_eq!((mcp.server.as_str(), mcp.tool.as_str()), ("my-srv.x", "echo_text"));
+    assert_eq!(mcp.input.as_deref(), Some(r#"{"text":"hi"}"#));
+
+    let call = ToolCall::new("b", "Run mcp_gonggong_list_messages").kind(ToolKind::Other);
+    let Some(RunEvent::Tool { mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
+    assert_eq!(mcp.map(|m| m.tool), Some("list_messages".into()));
+
+    let builtin = ToolCall::new("c", "Run invoke_subagent").kind(ToolKind::Other);
+    let Some(RunEvent::Tool { mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(builtin)) else { panic!() };
+    assert_eq!(mcp, None);
+}
+
+#[test]
+fn codex_edits_name_their_files_from_the_diffs() {
+    use agent_client_protocol::schema::v1::Diff;
+    let mut t = Turn::default();
+    // codex-acp 2.2.2's apply_patch: no locations, the paths are only in the diffs.
+    let edit = ToolCall::new("e", "Editing files").kind(ToolKind::Edit).content(vec![
+        ToolCallContent::Diff(Diff::new("/w/a.txt", "world\n").old_text("hello\n")),
+        ToolCallContent::Diff(Diff::new("/w/b.txt", "z\n")),
+    ]);
+    let Some(RunEvent::Tool { detail, .. }) = t.apply("s", SessionUpdate::ToolCall(edit)) else { panic!() };
+    assert_eq!(detail.as_deref(), Some("/w/a.txt +1"));
+    assert_eq!(t.files.iter().map(String::as_str).collect::<Vec<_>>(), ["/w/a.txt", "/w/b.txt"]);
+}
+
+#[test]
 fn web_searches_carry_their_query_and_hits() {
     let mut t = Turn::default();
     let search = ToolCall::new("w", "Search \"fastify 5\"")

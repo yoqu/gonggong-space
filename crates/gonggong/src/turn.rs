@@ -409,9 +409,15 @@ pub struct Turn {
     subagents: HashMap<String, Subagent>,
     /// The main agent's plan last sent: an unchanged one is not sent again.
     plan: Option<Vec<PlanItem>>,
+    /// The run's MCP server names, ours included: where Antigravity CLI's MCP call titles split.
+    pub mcp_servers: Vec<String>,
 }
 
 impl Turn {
+    pub fn with_mcp(mcp_servers: Vec<String>) -> Self {
+        Turn { mcp_servers, ..Turn::default() }
+    }
+
     /// The final reply: what the main agent said after its last tool call, as text before it is narration of the
     /// work; the whole text when the turn ends on a tool call.
     pub fn reply(&self) -> String {
@@ -559,7 +565,13 @@ impl Turn {
 
     fn tool(&mut self, agent_id: Option<String>, update: ToolCallUpdate) -> RunEvent {
         let (id, f) = (update.tool_call_id.0.to_string(), update.fields);
-        let locations = f.locations.as_deref().unwrap_or_default();
+        // Codex's edits have no locations: their paths are in the diffs.
+        let mut paths: Vec<String> = match f.locations.as_deref() {
+            Some(l) if !l.is_empty() => l.iter().map(|l| l.path.to_string_lossy().into_owned()).collect(),
+            _ => diff_paths(f.content.as_deref().unwrap_or_default()),
+        };
+        paths.dedup();
+        let line = f.locations.as_deref().and_then(|l| l.first()?.line);
         let state = self.tools.entry((agent_id.clone(), id.clone())).or_default();
         if let Some(t) = f.title {
             state.title = t;
@@ -569,11 +581,15 @@ impl Turn {
             state.status = Some(s);
         }
         if matches!(state.kind, Some(ToolKind::Edit | ToolKind::Delete | ToolKind::Move)) {
-            self.files.extend(locations.iter().map(|l| l.path.to_string_lossy().into_owned()));
+            self.files.extend(paths.iter().cloned());
         }
-        if let Some(l) = locations.first() {
-            let path = l.path.display();
-            state.location = Some(clip_head(&l.line.map_or_else(|| path.to_string(), |n| format!("{path}:{n}"))));
+        if let Some(path) = paths.first() {
+            let at = line.map_or_else(|| path.clone(), |n| format!("{path}:{n}"));
+            let more = match paths.len() - 1 {
+                0 => String::new(),
+                n => format!(" +{n}"),
+            };
+            state.location = Some(format!("{}{more}", clip_head(&at)));
         }
         if let Some(cmd) = f.raw_input.as_ref().and_then(|v| command_field(v)?.as_str()) {
             state.command = Some(clip(cmd));
@@ -592,13 +608,21 @@ impl Turn {
                 web.hits = hits;
             }
         }
+        let antigravity = mcp_call::antigravity_name(&state.title, &self.mcp_servers);
+        let raw_input = match (&antigravity, f.raw_input) {
+            (Some(_), Some(serde_json::Value::Object(mut args))) => {
+                args.remove(mcp_call::ANTIGRAVITY_SUMMARY);
+                Some(serde_json::Value::Object(args))
+            }
+            (_, raw) => raw,
+        };
         if state.mcp.is_none()
-            && let Some((server, tool)) = mcp_call::name(&state.title)
+            && let Some((server, tool)) = mcp_call::name(&state.title).or(antigravity)
         {
             state.mcp = Some(McpCall { server, tool, input: None, output: None });
         }
         if let Some(m) = state.mcp.as_mut() {
-            if let Some(input) = f.raw_input.as_ref().and_then(mcp_call::input) {
+            if let Some(input) = raw_input.as_ref().and_then(mcp_call::input) {
                 m.input = Some(input);
             }
             if let Some(out) = mcp_call::output(f.content.as_deref().unwrap_or_default(), f.raw_output.as_ref()) {
@@ -620,6 +644,16 @@ impl Turn {
             web: state.web.clone().filter(|w| w.query.is_some() || w.url.is_some()),
         }
     }
+}
+
+fn diff_paths(content: &[ToolCallContent]) -> Vec<String> {
+    content
+        .iter()
+        .filter_map(|c| match c {
+            ToolCallContent::Diff(d) => Some(d.path.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn text(block: ContentBlock) -> Option<String> {

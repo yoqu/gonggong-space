@@ -1067,11 +1067,11 @@ impl Inner {
                     .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
                     // The CLAUDE.md of additional directories (extra repos, the owner's extra dirs); their skills load anyway.
                     .env("CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD", "1")
+                    .envs(inject::CLAUDE_PLAN_ENV)
                     .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p)))
             }
             AgentKind::Codex => {
-                let mut config = serde_json::Map::new();
-                config.insert("developer_instructions".into(), system_prompt(bot).into());
+                let mut config = inject::codex_base(system_prompt(bot));
                 if let Some((p, e)) = provider {
                     inject::codex_config(&mut config, p, e);
                 }

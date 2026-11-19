@@ -74,7 +74,10 @@ async fn claude_gets_a_private_settings_file_named_in_meta_on_new_and_resume() {
     let e = echo(&first);
     assert_eq!(e["settings"], file.to_str().unwrap(), "the path, never the object (argv)");
     assert!(e["systemPrompt"].as_str().unwrap().contains("小王"));
-    assert_eq!(e["env"], json!({ "MODEL_PROVIDER": null, "GG_PROVIDER_KEY": null, "CODEX_CONFIG": null }));
+    assert_eq!(
+        e["env"],
+        json!({ "MODEL_PROVIDER": null, "GG_PROVIDER_KEY": null, "CODEX_CONFIG": null, "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1" })
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -151,7 +154,10 @@ async fn official_injects_nothing() {
     let done = r.finish("r1").await;
     let e = echo(&done);
     assert_eq!(e["settings"], Value::Null);
-    assert_eq!(e["env"], json!({ "MODEL_PROVIDER": null, "GG_PROVIDER_KEY": null, "CODEX_CONFIG": null }));
+    assert_eq!(
+        e["env"],
+        json!({ "MODEL_PROVIDER": null, "GG_PROVIDER_KEY": null, "CODEX_CONFIG": null, "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1" })
+    );
     assert_eq!(r.pinned(done.session_id.as_deref().unwrap()), OFFICIAL);
 
     let codex = start("r2", AgentKind::Codex);
@@ -159,7 +165,8 @@ async fn official_injects_nothing() {
     let e = echo(&r.finish("r2").await);
     assert_eq!((e["env"]["MODEL_PROVIDER"].clone(), e["env"]["GG_PROVIDER_KEY"].clone()), (Value::Null, Value::Null));
     let config = e["env"]["CODEX_CONFIG"].as_object().unwrap();
-    assert_eq!(config.keys().collect::<Vec<_>>(), ["developer_instructions"]);
+    assert_eq!(config.keys().collect::<Vec<_>>(), ["developer_instructions", "tools.update_plan.enabled"]);
+    assert_eq!(config["tools.update_plan.enabled"], true, "its plan tool, off by default under codex-acp");
     assert!(!r.home().join("run").exists());
 }
 

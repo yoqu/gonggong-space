@@ -249,6 +249,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
           MODEL_PROVIDER: process.env.MODEL_PROVIDER ?? null,
           GG_PROVIDER_KEY: process.env.GG_PROVIDER_KEY ?? null,
           CODEX_CONFIG: process.env.CODEX_CONFIG ? JSON.parse(process.env.CODEX_CONFIG) : null,
+          CLAUDE_CODE_ENABLE_TODO_TOOLS: process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS ?? null,
         },
         gitEnv: Object.fromEntries(
           ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL'].map((k) => [

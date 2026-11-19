@@ -180,6 +180,7 @@ async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Pla
             crate::mcp_tools::prefetch(&plugins.mcp, cwd);
             if let Some(a) = shared.0.lock().unwrap().active.as_mut() {
                 a.mcp = turn.req.start.mcp_servers.clone();
+                a.turn.mcp_servers = mcp_names(&a.mcp);
             }
             turn.skills = skills;
             turn.plugins = plugins;
@@ -658,7 +659,7 @@ impl Shared {
             tier: req.start.bot.tier,
             rules: Rules::from(&req.start),
             out: req.out.clone(),
-            turn: Turn::default(),
+            turn: Turn::with_mcp(mcp_names(&req.start.mcp_servers)),
             streaming: false,
             git: None,
             sync: req.sync.take(),
@@ -761,7 +762,7 @@ impl Shared {
         let session = prev.session.clone().unwrap_or(w.session);
         s.pending.insert(run_id.into());
         s.conn = Some((agent, session.clone()));
-        let mut turn = Turn::default();
+        let mut turn = Turn::with_mcp(mcp_names(&prev.mcp));
         turn.compact = prev.compact;
         s.active = Some(Active {
             run_id: run_id.into(),
@@ -2313,6 +2314,14 @@ fn claude_options(
 /// tool, which every session gets (spec §7.2). An agent whose launch script takes the latter (`mcp.gonggong:
 /// script`, Gemini's settings, where it gets a timeout) does without it here: a server of the same name would replace
 /// it.
+/// The names of a run's MCP servers: its own and ours.
+fn mcp_names(servers: &[McpServer]) -> Vec<String> {
+    let name = |s: &McpServer| match s {
+        McpServer::Stdio { name, .. } | McpServer::Http { name, .. } => name.clone(),
+    };
+    servers.iter().map(name).chain([crate::ask::SERVER_NAME.to_string()]).collect()
+}
+
 fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer> {
     start
         .mcp_servers
