@@ -3,9 +3,11 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { Button, Icon, Tag } from '../../ui'
+import { useBotNames } from '../bots/model'
+import '../groups/groups.css'
 import { lastText, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
-import { schedulesApi, timingText, useBotNames, useSchedules } from './store'
+import { schedulesApi, timingText, useSchedules } from './store'
 import './schedules.css'
 
 /** A scheduled task's card in the chat; its live state comes from the group's list (gone = 已删除). */
@@ -48,8 +50,8 @@ export function ScheduleCard({
         <span>
           {timingText(s)} · {names.join(' → ')}
         </span>
-        <span className="sc-muted">{fallback}</span>
-        <span className="sc-muted">
+        <span className="gs-muted">{fallback}</span>
+        <span className="gs-muted">
           {stateText(s)}
           {last ? ` · ${last}` : ''}
         </span>

@@ -1,11 +1,16 @@
+import { randomUUID } from 'node:crypto'
+import { createWriteStream } from 'node:fs'
+import { mkdir, stat, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import type { Attachment } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Db } from '../../db/client.js'
 import { attachments } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { openFileRange } from '../../lib/seal.js'
+import { FILE_OVERHEAD, openFileRange, sealStream } from '../../lib/seal.js'
 import { effectiveParams } from '../groups/params.js'
 import { redact } from '../runs/redact.js'
 
@@ -14,6 +19,30 @@ export type AttachmentRow = typeof attachments.$inferSelect
 export type Upload = Omit<Attachment, 'messageId'>
 
 export const dataDir = () => resolve(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data')
+
+/** Seals `source` (a stream or buffer) to a new attachment file; deletes the file if writing or `verify` throws. */
+export async function writeSealedAttachment(
+  source: Readable | Buffer,
+  verify?: () => void,
+): Promise<{ id: string; storageKey: string; path: string; size: number }> {
+  const id = randomUUID()
+  const storageKey = `attachments/${id}`
+  const path = join(dataDir(), storageKey)
+  await mkdir(join(dataDir(), 'attachments'), { recursive: true })
+  try {
+    await pipeline(
+      Buffer.isBuffer(source) ? Readable.from([source]) : source,
+      sealStream(),
+      createWriteStream(path),
+    )
+    verify?.()
+    const size = Buffer.isBuffer(source) ? source.byteLength : (await stat(path)).size - FILE_OVERHEAD
+    return { id, storageKey, path, size }
+  } catch (e) {
+    await unlink(path).catch(() => {})
+    throw e
+  }
+}
 
 /** A file lost from storage is a 404 the reader can understand, not a 500. */
 export function openStored(a: AttachmentRow, range?: { start: number; end: number }) {

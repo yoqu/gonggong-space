@@ -111,10 +111,10 @@ describe('schedules panel', () => {
       'PATCH /schedules/s1': schedule({ enabled: false, nextRunAt: null }),
     })
     render(<SchedulesView groupId="g1" />)
-    const row = (await screen.findByText('日报')).closest('.sc-row') as HTMLElement
+    const row = (await screen.findByText('日报')).closest('.gs-row') as HTMLElement
     expect(within(row).getByText(/每个工作日 09:00/)).toBeTruthy()
     expect(within(row).getByText(/Codex → Claude/)).toBeTruthy()
-    const other = screen.getByText('周报').closest('.sc-row') as HTMLElement
+    const other = screen.getByText('周报').closest('.gs-row') as HTMLElement
     expect(within(other).queryByRole('switch')).toBeNull()
     fireEvent.click(within(row).getByRole('switch', { name: '启用「日报」' }))
     await waitFor(() =>

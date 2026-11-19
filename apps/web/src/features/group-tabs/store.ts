@@ -1,46 +1,19 @@
 import type { GroupTabDto, GroupTabsDto, GroupTabTargetReq, LinkMetaDto } from '@gonggong/protocol'
-import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useInspector } from '../../app/inspector'
 import { api } from '../../lib/api'
-import { realtime } from '../../lib/realtime'
+import { createGroupStore } from '../../lib/groupStore'
 import { openTab } from '../workbench/open'
 
 /** Each group's tab bar (群标签栏), loaded on first use and replaced by `group.tabs` events. */
-const useStore = create<Record<string, GroupTabDto[]>>()(() => ({}))
-const loading = new Set<string>()
+const store = createGroupStore<GroupTabDto[]>({
+  load: (groupId) => api.get<GroupTabsDto>(`/groups/${groupId}/tabs`).then((d) => d.tabs),
+  onEvent: (e) => (e.t === 'group.tabs' ? { groupId: e.groupId, value: e.tabs } : null),
+})
 
-let synced = false
-function sync() {
-  if (synced) return
-  synced = true
-  realtime.subscribe((e) => {
-    if (e.t === 'group.tabs') useStore.setState({ [e.groupId]: e.tabs })
-  })
-  // Events missed while offline: the next use reloads.
-  realtime.onReconnect(() => useStore.setState({}, true))
-}
+export const useGroupTabs = store.use
 
-function load(groupId: string) {
-  if (loading.has(groupId)) return
-  loading.add(groupId)
-  api
-    .get<GroupTabsDto>(`/groups/${groupId}/tabs`)
-    .then((d) => useStore.setState({ [groupId]: d.tabs }))
-    .catch(() => {})
-    .finally(() => loading.delete(groupId))
-}
-
-export function useGroupTabs(groupId: string): GroupTabDto[] | undefined {
-  const tabs = useStore((s) => s[groupId])
-  useEffect(() => {
-    sync()
-    if (!tabs) load(groupId)
-  }, [groupId, tabs])
-  return tabs
-}
-
-const put = (groupId: string) => (d: GroupTabsDto) => useStore.setState({ [groupId]: d.tabs })
+const put = (groupId: string) => (d: GroupTabsDto) => store.set(groupId, d.tabs)
 const base = (groupId: string) => `/groups/${groupId}/tabs`
 
 export const groupTabsApi = {
@@ -50,14 +23,17 @@ export const groupTabsApi = {
     api.patch<GroupTabsDto>(`${base(groupId)}/${id}`, { title }).then(put(groupId)),
   remove: (groupId: string, id: string) => api.del<GroupTabsDto>(`${base(groupId)}/${id}`).then(put(groupId)),
   reorder: (groupId: string, ids: string[]) => {
-    const tabs = useStore.getState()[groupId] ?? []
+    const tabs = store.get(groupId) ?? []
     // Shown at once; the answer (or the reload after a 409) settles it.
-    useStore.setState({ [groupId]: ids.map((id) => tabs.find((x) => x.id === id)).filter((x) => !!x) })
+    store.set(
+      groupId,
+      ids.map((id) => tabs.find((x) => x.id === id)).filter((x) => !!x),
+    )
     return api
       .put<GroupTabsDto>(`${base(groupId)}/order`, { ids })
       .then(put(groupId))
       .catch((e) => {
-        load(groupId)
+        store.reload(groupId)
         throw e
       })
   },

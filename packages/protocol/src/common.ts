@@ -246,3 +246,14 @@ export const RunConfigPick = z.object({
   effort: z.string().nullable().optional(),
 })
 export type RunConfigPick = z.infer<typeof RunConfigPick>
+
+/** Model / thought level per candidate bot id; absent = the defaults. */
+export const BotRunOptions = z.record(z.string(), RunConfigPick)
+export type BotRunOptions = z.infer<typeof BotRunOptions>
+
+/** Agent-tool input item selecting a candidate bot's model and reasoning effort. */
+export const BotRunOptionArg = z.object({
+  bot: z.string().min(1).max(64),
+  model: z.string().max(100).optional().describe('e.g. opus, sonnet; default if omitted'),
+  effort: z.string().max(40).optional().describe('e.g. low, medium, high; default if omitted'),
+})

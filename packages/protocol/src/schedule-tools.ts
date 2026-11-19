@@ -1,20 +1,14 @@
 import { z } from 'zod'
+import { BotRunOptionArg } from './common.js'
+import { SCHEDULE_MAX_BOTS } from './schedules.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 
 // ── Scheduled task tools (agent-facing, not translated) ──────────────────────
 // Undescribed: schedule_update reuses them and points at schedule_create for their meaning.
 const scheduleCron = z.string().min(9).max(100)
 const scheduleAt = z.iso.datetime({ offset: true })
-const scheduleBots = z.array(z.string().min(1).max(64)).min(1).max(10)
-const scheduleRunOptions = z
-  .array(
-    z.object({
-      bot: z.string().min(1).max(64),
-      model: z.string().max(100).optional().describe('e.g. opus, sonnet; default if omitted'),
-      effort: z.string().max(40).optional().describe('e.g. low, medium, high; default if omitted'),
-    }),
-  )
-  .max(10)
+const scheduleBots = z.array(z.string().min(1).max(64)).min(1).max(SCHEDULE_MAX_BOTS)
+const scheduleRunOptions = z.array(BotRunOptionArg).max(SCHEDULE_MAX_BOTS)
 const scheduleTz = z.string()
 const atMostOneTiming = (a: { cron?: unknown; at?: unknown }) => !(a.cron !== undefined && a.at !== undefined)
 

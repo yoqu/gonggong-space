@@ -2,8 +2,9 @@ import type { ProtocolKey, RunConfigPick } from '@gonggong/protocol'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, runs } from '../../db/schema.js'
-import { HttpError } from '../../lib/errors.js'
+import { fail, HttpError } from '../../lib/errors.js'
 import { assertPick, botCatalog, checkPick, isEmptyPick } from '../bots/config.js'
+import { activeBots } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 
 /** Run statuses that still occupy a bot or keep a task/webhook busy. */
@@ -41,6 +42,14 @@ export async function pickAvailableBot<T extends { id: string; name: string; mac
     )
   })
   return usable.find((b) => !busy.some((x) => x.botId === b.id)) ?? usable[0] ?? null
+}
+
+/** Ensures every candidate bot id is an active bot of `groupId` and deduplicates while preserving order. */
+export async function checkCandidateBots(ctx: Ctx, groupId: string, botIds: string[]) {
+  if (!botIds.length) return []
+  const inGroup = new Set((await activeBots(ctx, groupId)).map((b) => b.id))
+  if (botIds.some((id) => !inGroup.has(id))) fail('invalid', '候选 Bot 须是本群的 Bot')
+  return [...new Set(botIds)]
 }
 
 /** Picks of the candidates only; new or changed ones are checked as a message pick by `actorUserId`. */

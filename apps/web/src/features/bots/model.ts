@@ -2,8 +2,10 @@ import {
   AGENT_KINDS,
   AGENT_META,
   type AgentKind,
+  agentConfigLabel,
   type BotDto,
   type BotRole,
+  type BotRunOptions,
   clientRunsAgent,
   compareVersions,
   type MachineDto,
@@ -164,3 +166,21 @@ export const TRIGGER_SCOPE_LABEL: Record<TriggerScope, string> = {
   list: t('指定名单'),
   self: t('仅本人'),
 }
+
+/** Candidate bots by name, in order; removed ones read 已移出. */
+export function useBotNames(botIds: string[]) {
+  const bots = useWorkspace((s) => s.bots)
+  return botIds.map((id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))
+}
+
+/** Candidates in order, each with its own model and thought level when configured. */
+export const botsText = (s: { botIds: string[]; runOptions: BotRunOptions }, names: string[]) =>
+  s.botIds
+    .map((id, i) => {
+      const pick = s.runOptions[id]
+      const name = names[i] ?? ''
+      return pick
+        ? `${name}（${agentConfigLabel(null, pick.model ?? null, pick.effort ?? null, (key) => t.text({ key }))}）`
+        : name
+    })
+    .join(' → ')

@@ -1,9 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { mkdir, stat } from 'node:fs/promises'
-import { join } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import { AnswerActionsReq, type Attachment, type Question } from '@gonggong/protocol'
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -23,10 +18,9 @@ import {
 } from '../../db/schema.js'
 import { translator } from '../../i18n/index.js'
 import { HttpError } from '../../lib/errors.js'
-import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { decideApproval } from '../approvals/service.js'
-import { dataDir, safeName } from '../attachments/service.js'
+import { safeName, writeSealedAttachment } from '../attachments/service.js'
 import { approveShareRequest, rejectShareRequest } from '../bots/share-requests.js'
 import { dmsOf, isSharedWith } from '../bots/shares.js'
 import { fullAccessForRun } from '../bots/tier.js'
@@ -133,17 +127,13 @@ async function fetchFiles(
   for (const f of files.slice(0, attachmentsPerMessage)) {
     const data = await ctx.feishu.api.download(credsOf(app), messageId, f.key, f.type)
     if (data.length > attachmentMaxMb * 1024 * 1024) continue
-    const id = randomUUID()
-    const storageKey = `attachments/${id}`
-    await mkdir(join(dataDir(), 'attachments'), { recursive: true })
-    const path = join(dataDir(), storageKey)
-    await pipeline(Readable.from([data]), sealStream(), createWriteStream(path))
+    const { id, storageKey, size } = await writeSealedAttachment(data)
     const values = {
       id,
       uploaderId: o.uploaderId,
       groupId: o.groupId,
       name: safeName(f.name, await groupRedactor(ctx, o.groupId)),
-      size: (await stat(path)).size - FILE_OVERHEAD,
+      size,
       mime: mimeOf(data, f),
       storageKey,
     }

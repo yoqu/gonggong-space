@@ -54,7 +54,7 @@ test('a bot schedules a task through gonggong; a member schedules one in the pan
     await main.getByRole('button', { name: '群设置', exact: true }).click()
     const drawer = page.getByRole('complementary', { name: '群设置' })
     await drawer.getByText('定时任务', { exact: true }).click()
-    await expect(drawer.locator('.sc-row', { hasText: '日报' })).toBeVisible()
+    await expect(drawer.locator('.gs-row', { hasText: '日报' })).toBeVisible()
     await drawer.getByRole('button', { name: '新建定时任务' }).click()
     const dialog = page.getByRole('dialog', { name: '新建定时任务' })
     await dialog.getByLabel('名称').fill('巡检')

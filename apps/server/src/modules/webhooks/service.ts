@@ -12,9 +12,9 @@ import { groupMembers, runs, users, webhooks } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
-import { activeBots } from '../groups/service.js'
+import { groupAdmins } from '../groups/service.js'
 import type { RunRow } from '../runs/dto.js'
-import { checkBotRunOptions } from '../runs/pick.js'
+import { checkBotRunOptions, checkCandidateBots } from '../runs/pick.js'
 
 export type WebhookRow = typeof webhooks.$inferSelect
 export type WebhookActor =
@@ -57,17 +57,6 @@ export const webhookDto = ({ w, ownerName, lastStatus }: Loaded, canManage: bool
   createdAt: w.createdAt.toISOString(),
 })
 
-async function groupAdmins(ctx: Ctx, groupId: string) {
-  const rows = await ctx.db
-    .select({ userId: groupMembers.userId, isAdmin: groupMembers.isAdmin })
-    .from(groupMembers)
-    .where(eq(groupMembers.groupId, groupId))
-  return {
-    members: rows.map((r) => r.userId),
-    admins: new Set(rows.filter((r) => r.isAdmin).map((r) => r.userId)),
-  }
-}
-
 const manages = (w: WebhookRow, userId: string, admins: Set<string>) =>
   w.ownerId === userId || admins.has(userId)
 
@@ -101,13 +90,6 @@ export async function requireManageWebhook(ctx: Ctx, w: WebhookRow, userId: stri
     .where(and(eq(groupMembers.groupId, w.groupId), eq(groupMembers.userId, userId)))
   if (!m) return fail('not_found', 'Webhook 不存在')
   if (w.ownerId !== userId && !m.isAdmin) fail('forbidden', '仅 Webhook 主人或群管理员可操作')
-}
-
-async function checkBots(ctx: Ctx, groupId: string, botIds: string[]) {
-  if (!botIds.length) return []
-  const inGroup = new Set((await activeBots(ctx, groupId)).map((b) => b.id))
-  if (botIds.some((id) => !inGroup.has(id))) fail('invalid', '候选 Bot 须是本群的 Bot')
-  return [...new Set(botIds)]
 }
 
 async function record(
@@ -145,7 +127,7 @@ export async function createWebhook(
     .where(and(live, eq(webhooks.groupId, groupId)))
   if ((n?.n ?? 0) >= WEBHOOK_MAX_PER_GROUP)
     fail('invalid', '每个群最多 {n} 个 Webhook', { n: WEBHOOK_MAX_PER_GROUP })
-  const botIds = await checkBots(ctx, groupId, req.botIds)
+  const botIds = await checkCandidateBots(ctx, groupId, req.botIds)
   const actorUserId = 'userId' in actor ? actor.userId : actor.originUserId
   const runOptions = await checkBotRunOptions(ctx, groupId, req.runOptions, botIds, actorUserId)
   const token = 'userId' in actor ? newToken('gwh') : null
@@ -170,7 +152,7 @@ export async function createWebhook(
 }
 
 export async function updateWebhook(ctx: Ctx, w: WebhookRow, req: UpdateWebhookReq, actor: WebhookActor) {
-  const botIds = req.botIds !== undefined ? await checkBots(ctx, w.groupId, req.botIds) : w.botIds
+  const botIds = req.botIds !== undefined ? await checkCandidateBots(ctx, w.groupId, req.botIds) : w.botIds
   const actorUserId = 'userId' in actor ? actor.userId : actor.originUserId
   const runOptions =
     req.botIds !== undefined || req.runOptions !== undefined

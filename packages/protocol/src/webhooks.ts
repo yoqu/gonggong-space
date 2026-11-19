@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { RunConfigPick, RunStatus } from './common.js'
-import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
+import { BotRunOptions, RunStatus } from './common.js'
 
 // ── Group webhooks (plan 群Webhook): outside systems post into a group and may @ its bots ─────────
 export const WEBHOOK_MAX_PER_GROUP = 20
@@ -19,7 +18,7 @@ export const WebhookName = z.string().trim().min(1).max(60)
 /** What the @-ed bot is asked to do; null = the default troubleshooting instruction. */
 export const WebhookPrompt = z.string().trim().min(1).max(4000)
 /** Model / thought level per candidate bot id (bot owner or group admin); absent = the defaults. */
-export const WebhookRunOptions = z.record(z.string(), RunConfigPick)
+export const WebhookRunOptions = BotRunOptions
 
 /**
  * GET /api/groups/:id/webhooks → GroupWebhooksDto (members); POST (CreateWebhookReq, group admins) → WebhookTokenDto.
@@ -100,67 +99,3 @@ export const WebhookCallDto = z.object({
   skipped: z.enum(['busy', 'unavailable']).optional(),
 })
 export type WebhookCallDto = z.infer<typeof WebhookCallDto>
-
-const webhookBots = z.array(z.string().min(1).max(64)).max(WEBHOOK_MAX_BOTS)
-const webhookRunOptions = z
-  .array(
-    z.object({
-      bot: z.string().min(1).max(64),
-      model: z.string().max(100).optional().describe('e.g. opus, sonnet; default if omitted'),
-      effort: z.string().max(40).optional().describe('e.g. low, medium, high; default if omitted'),
-    }),
-  )
-  .max(WEBHOOK_MAX_BOTS)
-export const WebhookCreateArgs = z.object({
-  name: WebhookName.describe('Display name shown as the sender, e.g. Jenkins 部署'),
-  bots: webhookBots
-    .describe(
-      'Candidate bots of this group that this webhook may @, best first; omit or [] for post-only (no bot runs)',
-    )
-    .optional(),
-  run_options: webhookRunOptions
-    .describe(
-      'Model and effort per candidate, only when the user asks; give the full list when changing, [] = all default',
-    )
-    .optional(),
-  prompt: WebhookPrompt.describe(
-    'Instruction appended when a bot is @-ed; omit for the default troubleshooting prompt',
-  ).optional(),
-})
-export const WebhookListArgs = z.object({})
-export const WebhookUpdateArgs = z.object({
-  id: z.string().describe('Webhook id from webhook_list'),
-  name: WebhookName.optional(),
-  bots: webhookBots.optional(),
-  run_options: webhookRunOptions.optional(),
-  prompt: WebhookPrompt.nullable().describe('null restores the default prompt').optional(),
-  enabled: z.boolean().describe('false = disable, true = enable').optional(),
-})
-export const WebhookDeleteArgs = z.object({ id: z.string().describe('Webhook id from webhook_list') })
-
-export const WEBHOOK_TOOLS = {
-  webhook_create: {
-    title: GONGGONG_TOOL_TITLES.webhook_create,
-    description:
-      'Create an inbound webhook for this group (e.g. for Jenkins) on behalf of the turn initiator; requires the initiator to be a group admin. ' +
-      'For security, the URL/token is never returned to you or the chat — tell the initiator to open Group Settings → Webhook and generate/copy the URL there.',
-    input: WebhookCreateArgs,
-  },
-  webhook_list: {
-    title: GONGGONG_TOOL_TITLES.webhook_list,
-    description:
-      "This group's inbound webhooks: id, name, candidate bots, enabled, token state and last call.",
-    input: WebhookListArgs,
-  },
-  webhook_update: {
-    title: GONGGONG_TOOL_TITLES.webhook_update,
-    description:
-      'Update an inbound webhook (only the fields to change, as in webhook_create); requires the turn initiator to be its owner or a group admin.',
-    input: WebhookUpdateArgs,
-  },
-  webhook_delete: {
-    title: GONGGONG_TOOL_TITLES.webhook_delete,
-    description: 'Delete an inbound webhook; requires the turn initiator to be its owner or a group admin.',
-    input: WebhookDeleteArgs,
-  },
-} as const

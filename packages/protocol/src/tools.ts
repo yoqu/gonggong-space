@@ -23,7 +23,7 @@ import {
   ReleaseNotesReq,
   SKILL_MAX_FILES,
 } from './web.js'
-import { WEBHOOK_TOOLS } from './webhooks.js'
+import { WEBHOOK_TOOLS } from './webhook-tools.js'
 
 /**
  * Tools of the built-in `gonggong` MCP server answered by the server (the daemon forwards them; `ask_group_members`

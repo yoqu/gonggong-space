@@ -4,10 +4,11 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { Button, EmptyState, GroupBox, NoSchedulesArt, Spinner, Switch, Tag } from '../../ui'
-import { botsText, lastText, stateText } from './model'
+import { botsText, useBotNames } from '../bots/model'
+import '../groups/groups.css'
+import { lastText, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
-import { schedulesApi, timingText, useBotNames, useSchedules } from './store'
-import './schedules.css'
+import { schedulesApi, timingText, useSchedules } from './store'
 
 function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
   const bots = useWorkspace((x) => x.bots)
@@ -26,22 +27,22 @@ function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
   }
   const last = lastText(s, (id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))
   return (
-    <div className="sc-row" data-testid={`schedule-${s.id}`}>
-      <span className="sc-row__main">
-        <span className="sc-row__title">
+    <div className="gs-row" data-testid={`schedule-${s.id}`}>
+      <span className="gs-row__main">
+        <span className="gs-row__title">
           {s.name}
           {s.createdByBotId ? <Tag tone="gray">{t('Bot 创建')}</Tag> : null}
         </span>
-        <span className="sc-muted">
+        <span className="gs-muted">
           {timingText(s)} · {botsText(s, names)}
         </span>
-        <span className="sc-muted">
+        <span className="gs-muted">
           {stateText(s)}
           {last ? ` · ${last}` : ''}
         </span>
       </span>
       {s.canManage ? (
-        <span className="sc-row__ops">
+        <span className="gs-row__ops">
           <Button
             variant="plain"
             size="small"

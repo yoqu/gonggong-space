@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { RunConfigPick, RunStatus } from './common.js'
+import { BotRunOptions, RunStatus } from './common.js'
 import { I18nText } from './i18n.js'
 import type { ProtocolKey } from './i18n-en.js'
 
@@ -12,7 +12,7 @@ export const SCHEDULE_MAX_BOTS = 10
 export const ScheduleName = z.string().trim().min(1).max(60)
 export const SchedulePrompt = z.string().trim().min(1).max(4000)
 /** Model / thought level per candidate bot id (bot owner or group admin; anyone in a DM); absent = the defaults. */
-export const ScheduleRunOptions = z.record(z.string(), RunConfigPick)
+export const ScheduleRunOptions = BotRunOptions
 /** Five fields: minute hour day-of-month month day-of-week. */
 export const CronExpr = z.string().trim().min(9).max(100)
 export const ScheduleInstant = z.iso.datetime({ offset: true })

@@ -19,8 +19,6 @@ export default {
     'All selected candidate Bots are offline; @ mentions will be skipped',
   '本 Webhook': 'This webhook',
   '已删除 Webhook「{name}」': 'Deleted webhook "{name}"',
-  排查中: 'Investigating',
-  离线作废: 'Expired',
   尚未调用: 'Never called',
   '最近调用 {at}（{status}）': 'Last called {at} ({status})',
   '最近调用 {at}': 'Last called {at}',

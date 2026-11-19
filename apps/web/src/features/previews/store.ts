@@ -1,48 +1,24 @@
 import type { GroupPreviewsDto, PreviewDto } from '@gonggong/protocol'
-import { useEffect, useRef } from 'react'
-import { create } from 'zustand'
+import { useRef } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { api } from '../../lib/api'
-import { realtime } from '../../lib/realtime'
+import { createGroupStore } from '../../lib/groupStore'
 import { openTab } from '../workbench/open'
 
 /** Each group's open previews and live services, loaded on first use and replaced by `group.previews` events. */
-const useStore = create<Record<string, GroupPreviewsDto>>()(() => ({}))
-const loading = new Set<string>()
+const store = createGroupStore<GroupPreviewsDto>({
+  load: (groupId) => api.get<GroupPreviewsDto>(`/groups/${groupId}/previews`),
+  onEvent: (e) =>
+    e.t === 'group.previews'
+      ? {
+          groupId: e.groupId,
+          value: { previews: e.previews, services: e.services, manageableBotIds: e.manageableBotIds },
+        }
+      : null,
+})
 
-let synced = false
-function sync() {
-  if (synced) return
-  synced = true
-  realtime.subscribe((e) => {
-    if (e.t === 'group.previews')
-      useStore.setState({
-        [e.groupId]: { previews: e.previews, services: e.services, manageableBotIds: e.manageableBotIds },
-      })
-  })
-  // Events missed while offline: the next use reloads.
-  realtime.onReconnect(() => useStore.setState({}, true))
-}
-
-function loadPreviews(groupId: string) {
-  if (loading.has(groupId)) return
-  loading.add(groupId)
-  api
-    .get<GroupPreviewsDto>(`/groups/${groupId}/previews`)
-    .then((list) => useStore.setState({ [groupId]: list }))
-    .catch(() => {})
-    .finally(() => loading.delete(groupId))
-}
-
-export function usePreviews(groupId: string): GroupPreviewsDto | undefined {
-  const list = useStore((s) => s[groupId])
-  // Also after a reconnect cleared the lists.
-  useEffect(() => {
-    sync()
-    if (!list) loadPreviews(groupId)
-  }, [groupId, list])
-  return list
-}
+export const usePreviews = store.use
+export const resetPreviews = store.reset
 
 export type PreviewStatus = PreviewDto['status'] | 'closed'
 
@@ -57,13 +33,6 @@ export function usePreview(previewId: string) {
     last.current = { preview, status: preview ? preview.status : 'closed' }
   }
   return last.current
-}
-
-/** Tests: forget loaded lists and the realtime hook-up. */
-export function resetPreviews() {
-  useStore.setState({}, true)
-  loading.clear()
-  synced = false
 }
 
 export const openUrl = (previewId: string, path = '/') =>

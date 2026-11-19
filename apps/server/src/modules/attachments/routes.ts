@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { mkdir, stat, unlink } from 'node:fs/promises'
-import { join } from 'node:path'
-import { pipeline } from 'node:stream/promises'
+import { unlink } from 'node:fs/promises'
 import multipart from '@fastify/multipart'
 import { type MessageDto, SendAttachmentsArgs } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
@@ -12,7 +9,6 @@ import { requireMachine } from '../../daemon/auth.js'
 import { attachments, bots, groupBots, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
-import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { mirrorBotAttachments } from '../feishu/outbound.js'
@@ -30,12 +26,12 @@ import { groupRedactor, runRedactors } from '../secrets/resolve.js'
 import { publishHtmlRender, serveHtmlRender } from './html-render.js'
 import {
   type AttachmentRow,
-  dataDir,
   inlineType,
   openStored,
   safeName,
   type Upload,
   uploadDto,
+  writeSealedAttachment,
 } from './service.js'
 
 async function findAttachment(ctx: Ctx, id: string) {
@@ -109,18 +105,10 @@ async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { ru
         part.file.resume()
         return fail('invalid', '每条消息最多 {max} 个附件', { max: params.attachmentsPerMessage })
       }
-      const id = randomUUID()
-      const storageKey = `attachments/${id}`
-      const path = join(dataDir(), storageKey)
-      await mkdir(join(dataDir(), 'attachments'), { recursive: true })
-      try {
-        await pipeline(part.file, sealStream(), createWriteStream(path))
+      const { id, storageKey, path, size } = await writeSealedAttachment(part.file, () => {
         if (part.file.truncated)
           fail('invalid', '单个附件不能超过 {maxMb} MB', { maxMb: params.attachmentMaxMb })
-      } catch (e) {
-        await unlink(path).catch(() => {})
-        throw e
-      }
+      })
       stored.push({
         path,
         values: {
@@ -129,7 +117,7 @@ async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { ru
           groupId: run.groupId,
           messageId,
           name: safeName(part.filename, await groupRedactor(ctx, run.groupId)),
-          size: (await stat(path)).size - FILE_OVERHEAD,
+          size,
           mime: part.mimetype || 'application/octet-stream',
           storageKey,
         },
@@ -198,18 +186,10 @@ export function attachmentRoutes(ctx: Ctx) {
         part.file.resume()
         throw e
       }
-      const id = randomUUID()
-      const storageKey = `attachments/${id}`
-      const path = join(dataDir(), storageKey)
-      await mkdir(join(dataDir(), 'attachments'), { recursive: true })
-      try {
-        await pipeline(part.file, sealStream(), createWriteStream(path))
+      const { id, storageKey, size } = await writeSealedAttachment(part.file, () => {
         // busboy stops at the limit and marks the stream truncated instead of failing it.
         if (part.file.truncated) fail('invalid', '单个附件不能超过 {maxMb} MB', { maxMb })
-      } catch (e) {
-        await unlink(path).catch(() => {})
-        throw e
-      }
+      })
       const [row] = await ctx.db
         .insert(attachments)
         .values({
@@ -217,7 +197,7 @@ export function attachmentRoutes(ctx: Ctx) {
           uploaderId: me.id,
           groupId,
           name: safeName(part.filename, await groupRedactor(ctx, groupId)),
-          size: (await stat(path)).size - FILE_OVERHEAD,
+          size,
           mime: part.mimetype || 'application/octet-stream',
           storageKey,
         })

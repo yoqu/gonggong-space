@@ -3,8 +3,8 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, GroupBox, IconButton } from '../../ui'
 import { type Picks, RunConfigChip, useCanConfigure } from '../chat/RunConfigChips'
-import '../schedules/schedules.css'
 import { BotAvatar } from './avatars'
+import './CandidateBotPicker.css'
 import { PRESENCE } from './model'
 
 /** Filters saved model/effort picks down to the currently selected candidate bots. */
@@ -65,23 +65,23 @@ export function CandidateBotPicker({
 
   return (
     <section>
-      <h3 className="sc-form__title">{title}</h3>
+      <h3 className="bot-pick__title">{title}</h3>
       <GroupBox>
         {candidates.map((id, i) => {
           const bot = allBots.find((b) => b.id === id)
           const online = isOnline(id)
           return (
-            <div key={id} className="sc-bot">
-              <span className="sc-bot__rank">{i + 1}</span>
+            <div key={id} className="bot-pick__row">
+              <span className="bot-pick__rank">{i + 1}</span>
               <BotAvatar id={id} name={nameOf(id)} size={22} />
-              <span className="sc-bot__name">
+              <span className="bot-pick__name">
                 <span
-                  className="sc-bot__dot"
+                  className="bot-pick__dot"
                   style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
                   aria-hidden="true"
                 />
                 {nameOf(id)}
-                {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
+                {!online ? <span className="bot-pick__off">{t('离线')}</span> : null}
               </span>
               {group && bot ? (
                 <RunConfigChip
@@ -111,7 +111,7 @@ export function CandidateBotPicker({
             </div>
           )
         })}
-        <div className="sc-bot sc-bot--add">
+        <div className="bot-pick__row bot-pick__row--add">
           {botIds
             .filter((id) => !candidates.includes(id))
             .map((id) => {
@@ -126,23 +126,23 @@ export function CandidateBotPicker({
                   onClick={() => onCandidatesChange([...candidates, id])}
                 >
                   <span
-                    className="sc-bot__dot"
+                    className="bot-pick__dot"
                     style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
                     aria-hidden="true"
                   />
                   + {nameOf(id)}
-                  {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
+                  {!online ? <span className="bot-pick__off">{t('离线')}</span> : null}
                 </Button>
               )
             })}
           {botIds.length === 0 ? (
-            <span className="sc-muted">{t('本群还没有 Bot')}</span>
+            <span className="bot-pick__muted">{t('本群还没有 Bot')}</span>
           ) : botIds.every((id) => candidates.includes(id)) ? (
-            <span className="sc-muted">{t('本群的 Bot 都已加入')}</span>
+            <span className="bot-pick__muted">{t('本群的 Bot 都已加入')}</span>
           ) : null}
         </div>
       </GroupBox>
-      {offlineWarning && allOffline ? <p className="sc-warn">{offlineWarning}</p> : null}
+      {offlineWarning && allOffline ? <p className="bot-pick__warn">{offlineWarning}</p> : null}
     </section>
   )
 }

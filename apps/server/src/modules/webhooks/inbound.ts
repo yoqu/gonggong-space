@@ -1,9 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { mkdir, unlink } from 'node:fs/promises'
-import { join } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
+import { unlink } from 'node:fs/promises'
 import {
   type Attachment,
   WEBHOOK_ATTACHMENT_MAX,
@@ -18,9 +14,8 @@ import { attachments, groupMembers, groups, messages, runs, users, webhooks } fr
 import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
-import { sealStream } from '../../lib/seal.js'
 import type { Throttle } from '../../lib/throttle.js'
-import { dataDir, safeName } from '../attachments/service.js'
+import { safeName, writeSealedAttachment } from '../attachments/service.js'
 import { mirrorUserMessage } from '../feishu/outbound.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '../messages/service.js'
@@ -37,20 +32,9 @@ async function storeTextAttachment(o: {
   content: string
   redact: (s: string) => string
 }): Promise<{ attachment: Attachment; path: string; row: typeof attachments.$inferInsert }> {
-  const id = randomUUID()
-  const storageKey = `attachments/${id}`
-  const path = join(dataDir(), storageKey)
-  await mkdir(join(dataDir(), 'attachments'), { recursive: true })
-  const buf = Buffer.from(o.redact(o.content), 'utf8')
-  try {
-    await pipeline(Readable.from([buf]), sealStream(), createWriteStream(path))
-  } catch (e) {
-    await unlink(path).catch(() => {})
-    throw e
-  }
+  const { id, storageKey, path, size } = await writeSealedAttachment(Buffer.from(o.redact(o.content), 'utf8'))
   const name = safeName(o.name, o.redact)
   const mime = 'text/plain; charset=utf-8'
-  const size = buf.byteLength
   return {
     path,
     row: {

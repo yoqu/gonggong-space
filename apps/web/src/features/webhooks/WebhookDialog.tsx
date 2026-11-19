@@ -6,7 +6,7 @@ import { toastError } from '../../lib/errors'
 import { Button, Dialog, TextArea, TextField, toast } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
-import '../schedules/schedules.css'
+import '../groups/groups.css'
 import { webhooksApi } from './store'
 import './webhooks.css'
 
@@ -51,7 +51,7 @@ export function WebhookUrlDialog({ token, onClose }: { token: WebhookTokenDto; o
           </Button>
         </div>
         <section>
-          <h3 className="sc-form__title">{t('调用示例')}</h3>
+          <h3 className="gs-section-title">{t('调用示例')}</h3>
           <pre className="wh-url__sample">{sample}</pre>
         </section>
       </div>
@@ -142,7 +142,7 @@ export function WebhookDialog({
         </>
       }
     >
-      <div className="sc-form">
+      <div className="gs-dialog-form">
         <TextField
           label={t('名称')}
           value={name}

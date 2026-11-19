@@ -11,9 +11,9 @@ import { groupMembers, runs, schedules, users } from '../../db/schema.js'
 import { type MessageKey, zh } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
-import { activeBots } from '../groups/service.js'
+import { groupAdmins } from '../groups/service.js'
 import { postMessage } from '../messages/service.js'
-import { type BotRunPicks, checkBotRunOptions } from '../runs/pick.js'
+import { type BotRunPicks, checkBotRunOptions, checkCandidateBots } from '../runs/pick.js'
 import { nextFire, timingError } from './timing.js'
 
 export type ScheduleRow = typeof schedules.$inferSelect
@@ -62,17 +62,6 @@ export const scheduleDto = ({ s, ownerName, lastStatus }: Loaded, canManage: boo
   createdAt: s.createdAt.toISOString(),
 })
 
-async function groupAdmins(ctx: Ctx, groupId: string) {
-  const rows = await ctx.db
-    .select({ userId: groupMembers.userId, isAdmin: groupMembers.isAdmin })
-    .from(groupMembers)
-    .where(eq(groupMembers.groupId, groupId))
-  return {
-    members: rows.map((r) => r.userId),
-    admins: new Set(rows.filter((r) => r.isAdmin).map((r) => r.userId)),
-  }
-}
-
 const manages = (s: ScheduleRow, userId: string, admins: Set<string>) =>
   s.ownerId === userId || admins.has(userId)
 
@@ -110,12 +99,6 @@ export async function requireManage(ctx: Ctx, s: ScheduleRow, userId: string) {
 }
 
 const invalid = (e: I18nText): never => fail('invalid', e.key as MessageKey, e.params)
-
-async function checkBots(ctx: Ctx, groupId: string, botIds: string[]) {
-  const inGroup = new Set((await activeBots(ctx, groupId)).map((b) => b.id))
-  if (botIds.some((id) => !inGroup.has(id))) fail('invalid', '候选 Bot 须是本群的 Bot')
-  return [...new Set(botIds)]
-}
 
 const checkRunOptions = (
   ctx: Ctx,
@@ -161,7 +144,7 @@ export async function createSchedule(
     .where(and(live, eq(schedules.groupId, groupId)))
   if ((n?.n ?? 0) >= SCHEDULE_MAX_PER_GROUP)
     fail('invalid', '每个群最多 {n} 个定时任务', { n: SCHEDULE_MAX_PER_GROUP })
-  const botIds = await checkBots(ctx, groupId, req.botIds)
+  const botIds = await checkCandidateBots(ctx, groupId, req.botIds)
   const runOptions = await checkRunOptions(ctx, groupId, req.runOptions, botIds, actor)
   const timing = {
     cron: req.cron ?? null,
@@ -220,7 +203,7 @@ export async function updateSchedule(ctx: Ctx, s: ScheduleRow, req: UpdateSchedu
     const error = timingError(next, now)
     if (error) invalid(error)
   }
-  const botIds = req.botIds ? await checkBots(ctx, s.groupId, req.botIds) : s.botIds
+  const botIds = req.botIds ? await checkCandidateBots(ctx, s.groupId, req.botIds) : s.botIds
   const runOptions =
     req.botIds || req.runOptions
       ? await checkRunOptions(ctx, s.groupId, req.runOptions ?? s.runOptions, botIds, actor, s.runOptions)

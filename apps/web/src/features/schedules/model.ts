@@ -1,18 +1,7 @@
-import { agentConfigLabel, type ScheduleDto } from '@gonggong/protocol'
+import type { ScheduleDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
+import { STATUS_LABEL } from '../chat/RunGraphics'
 import { at } from './store'
-
-const RESULT: Partial<Record<NonNullable<ScheduleDto['lastStatus']>, string>> = {
-  queued: t('排队中'),
-  offline_wait: t('等待 Bot 上线'),
-  running: t('运行中'),
-  awaiting_approval: t('等待审批'),
-  awaiting_answer: t('等待回答'),
-  completed: t('完成'),
-  interrupted: t('中断'),
-  forbidden: t('无权触发'),
-  expired: t('离线已失效'),
-}
 
 /** 下次… while on; why it is off otherwise. */
 export const stateText = (s: ScheduleDto) =>
@@ -30,18 +19,6 @@ export const lastText = (s: ScheduleDto, botName: (id: string) => string) =>
     ? t('最近 {at} · {bot} {result}', {
         at: at(s.lastFiredAt, s),
         bot: s.lastBotId ? botName(s.lastBotId) : '',
-        result: s.lastStatus ? (RESULT[s.lastStatus] ?? '') : t('跳过#schedule'),
+        result: s.lastStatus ? STATUS_LABEL[s.lastStatus] : t('跳过#schedule'),
       })
     : null
-
-/** Candidates in order, each with its own model and thought level when the task sets one. */
-export const botsText = (s: Pick<ScheduleDto, 'botIds' | 'runOptions'>, names: string[]) =>
-  s.botIds
-    .map((id, i) => {
-      const pick = s.runOptions[id]
-      const name = names[i] ?? ''
-      return pick
-        ? `${name}（${agentConfigLabel(null, pick.model ?? null, pick.effort ?? null, (key) => t.text({ key }))}）`
-        : name
-    })
-    .join(' → ')

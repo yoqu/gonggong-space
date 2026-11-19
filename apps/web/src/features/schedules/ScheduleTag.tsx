@@ -1,6 +1,7 @@
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, Icon, Popover } from '../../ui'
+import '../groups/groups.css'
 import { lastText, stateText } from './model'
 import { timingText, useSchedules } from './store'
 import './schedules.css'
@@ -45,11 +46,11 @@ export function ScheduleTag({ groupId, onManage }: { groupId: string; onManage: 
             const last = lastText(s, (id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))
             return (
               <div key={s.id} className="sc-pop__item" data-testid={`schedule-tag-${s.id}`}>
-                <span className="sc-row__title">{s.name}</span>
-                <span className="sc-muted">
+                <span className="gs-row__title">{s.name}</span>
+                <span className="gs-muted">
                   {timingText(s)} · {stateText(s)}
                 </span>
-                {last ? <span className="sc-muted">{last}</span> : null}
+                {last ? <span className="gs-muted">{last}</span> : null}
               </div>
             )
           })}

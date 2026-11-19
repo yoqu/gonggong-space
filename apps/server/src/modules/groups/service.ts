@@ -98,6 +98,18 @@ export async function requireAdmin(ctx: Ctx, groupId: string, userId: string) {
   return row.member.isAdmin ? row : fail('forbidden', '仅群管理员可操作')
 }
 
+/** Member ids of a group together with its admin user ids. */
+export async function groupAdmins(ctx: Ctx, groupId: string) {
+  const rows = await ctx.db
+    .select({ userId: groupMembers.userId, isAdmin: groupMembers.isAdmin })
+    .from(groupMembers)
+    .where(eq(groupMembers.groupId, groupId))
+  return {
+    members: rows.map((r) => r.userId),
+    admins: new Set(rows.filter((r) => r.isAdmin).map((r) => r.userId)),
+  }
+}
+
 /** Bots currently in the group (not removed, not deleted). */
 export function activeBots(ctx: Ctx, groupId: string) {
   return ctx.db

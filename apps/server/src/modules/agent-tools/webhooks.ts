@@ -13,40 +13,11 @@ import {
   type WebhookRow,
   webhookById,
 } from '../webhooks/service.js'
+import { botActorOf, botIdsOf, formatRunOptionLines, RUN_STATUS_ZH, runOptionsOf } from './bots.js'
 import { asTool, refuse, type ToolOutput } from './service.js'
 
 type Run = typeof runs.$inferSelect
 type Args<N extends keyof typeof GONGGONG_TOOLS> = z.infer<(typeof GONGGONG_TOOLS)[N]['input']>
-
-const STATUS: Record<string, string> = {
-  completed: '完成',
-  interrupted: '中断',
-  forbidden: '无权触发',
-  expired: '离线作废',
-}
-
-async function botIdsOf(ctx: Ctx, run: Run, names: string[] | undefined) {
-  if (!names?.length) return []
-  const inGroup = await activeBots(ctx, run.groupId)
-  return names.map((raw) => {
-    const name = raw.trim().replace(/^@/, '')
-    const bot = inGroup.find((b) => b.name === name)
-    return (
-      bot?.id ?? refuse(`本群没有叫「${name}」的 Bot，可选的有：${inGroup.map((b) => b.name).join('、')}`)
-    )
-  })
-}
-
-async function botName(ctx: Ctx, run: Run) {
-  return (await activeBots(ctx, run.groupId)).find((b) => b.id === run.botId)?.name ?? ''
-}
-
-const actorOf = (run: Run, name: string) => ({
-  botId: run.botId,
-  runId: run.id,
-  botName: name,
-  originUserId: run.originUserId,
-})
 
 async function requireOriginAdmin(ctx: Ctx, run: Run) {
   const [m] = await ctx.db
@@ -70,43 +41,29 @@ async function targetWebhook(ctx: Ctx, run: Run, id: string): Promise<WebhookRow
   return row.w
 }
 
-type RunOptionArgs = NonNullable<Args<'webhook_create'>['run_options']>
-
-async function runOptionsOf(ctx: Ctx, run: Run, list: RunOptionArgs) {
-  const ids = await botIdsOf(
-    ctx,
-    run,
-    list.map((o) => o.bot),
-  )
-  return Object.fromEntries(list.map(({ model, effort }, i) => [ids[i], { model, effort }]))
-}
-
 export async function webhookCreate(ctx: Ctx, run: Run, a: Args<'webhook_create'>): Promise<ToolOutput> {
   await requireOriginAdmin(ctx, run)
-  const botIds = await botIdsOf(ctx, run, a.bots)
+  const botIds = a.bots?.length ? await botIdsOf(ctx, run, a.bots) : []
   const runOptions = a.run_options ? await runOptionsOf(ctx, run, a.run_options) : {}
-  const { row } = await asTool(async () =>
+  const actor = await botActorOf(ctx, run)
+  const { row } = await asTool(() =>
     createWebhook(
       ctx,
       run.groupId,
       { name: a.name, botIds, runOptions, prompt: a.prompt ?? null },
       run.originUserId,
-      actorOf(run, await botName(ctx, run)),
+      actor,
     ),
   )
   const names = new Map((await activeBots(ctx, run.groupId)).map((b) => [b.id, b.name]))
   const botsText = row.botIds.length
     ? row.botIds.map((id) => names.get(id) ?? '已移出').join(' → ')
     : '仅发消息，不 @ Bot'
-  const pickLines = Object.entries(row.runOptions).map(
-    ([id, p]) =>
-      `${names.get(id) ?? '已移出'} 使用：${[p.model ?? '默认模型', p.effort].filter(Boolean).join(' · ')}`,
-  )
   return {
     text: [
       `已创建 Webhook「${row.name}」（id ${row.id}）。`,
       `候选 Bot：${botsText}`,
-      ...pickLines,
+      ...formatRunOptionLines(row.runOptions, names),
       '出于安全原因，令牌不会发给 Bot 或写入聊天记录；请告诉发起人在「群设置 → Webhook」里点「生成令牌」复制调用 URL（仅显示一次）。',
     ].join('\n'),
     groups: [],
@@ -122,7 +79,7 @@ export async function webhookList(ctx: Ctx, run: Run): Promise<ToolOutput> {
     const tokenState = w.tokenHash ? '已生成令牌' : '待生成令牌'
     const state = w.enabled ? '启用中' : '已停用'
     const last = w.lastCalledAt
-      ? ` · 最近调用 ${w.lastCalledAt.toISOString()}${lastStatus ? `（${STATUS[lastStatus] ?? lastStatus}）` : ''}`
+      ? ` · 最近调用 ${w.lastCalledAt.toISOString()}${lastStatus ? `（${RUN_STATUS_ZH[lastStatus] ?? lastStatus}）` : ''}`
       : ''
     return `- 「${w.name}」（id ${w.id}）· ${state} · ${tokenState} · 候选 ${bots}${last}`
   })
@@ -138,7 +95,8 @@ export async function webhookUpdate(ctx: Ctx, run: Run, a: Args<'webhook_update'
     ...(a.prompt !== undefined && { prompt: a.prompt }),
     ...(a.enabled !== undefined && { enabled: a.enabled }),
   }
-  const row = await asTool(async () => updateWebhook(ctx, w, req, actorOf(run, await botName(ctx, run))))
+  const actor = await botActorOf(ctx, run)
+  const row = await asTool(() => updateWebhook(ctx, w, req, actor))
   return {
     text: `已更新 Webhook「${row.name}」（id ${row.id}，${row.enabled ? '启用中' : '已停用'}）`,
     groups: [],
@@ -147,6 +105,6 @@ export async function webhookUpdate(ctx: Ctx, run: Run, a: Args<'webhook_update'
 
 export async function webhookDelete(ctx: Ctx, run: Run, a: Args<'webhook_delete'>): Promise<ToolOutput> {
   const w = await targetWebhook(ctx, run, a.id)
-  await deleteWebhook(ctx, w, actorOf(run, await botName(ctx, run)))
+  await deleteWebhook(ctx, w, await botActorOf(ctx, run))
   return { text: `已删除 Webhook「${w.name}」`, groups: [] }
 }

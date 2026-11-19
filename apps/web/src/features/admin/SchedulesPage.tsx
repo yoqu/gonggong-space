@@ -5,7 +5,9 @@ import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import { Alert, Button, EmptyState, SearchField, SegmentedControl, Spinner, Switch, Table } from '../../ui'
-import { botsText, lastText, stateText } from '../schedules/model'
+import { botsText } from '../bots/model'
+import '../groups/groups.css'
+import { lastText, stateText } from '../schedules/model'
 import { timingText } from '../schedules/store'
 import { AdminPage, countLine } from './AdminPage'
 import { TeamFilter } from './TeamFilter'
@@ -72,7 +74,7 @@ export function SchedulesPage() {
           ].map(([n, label]) => (
             <div key={label} className="sc-stat">
               <span className="sc-stat__value">{n}</span>
-              <span className="sc-muted">{label}</span>
+              <span className="gs-muted">{label}</span>
             </div>
           ))}
         </div>
@@ -92,9 +94,9 @@ export function SchedulesPage() {
               title: t('任务'),
               sortable: true,
               render: (s) => (
-                <span className="sc-row__main">
+                <span className="gs-row__main">
                   <span>{s.name}</span>
-                  <span className="sc-muted">{timingText(s)}</span>
+                  <span className="gs-muted">{timingText(s)}</span>
                 </span>
               ),
             },
@@ -124,9 +126,9 @@ export function SchedulesPage() {
               render: (s) => {
                 const last = lastText(s, (id) => s.botNames[s.botIds.indexOf(id)] ?? '')
                 return (
-                  <span className="sc-row__main">
+                  <span className="gs-row__main">
                     <span>{stateText(s)}</span>
-                    {last ? <span className="sc-muted">{last}</span> : null}
+                    {last ? <span className="gs-muted">{last}</span> : null}
                   </span>
                 )
               },
@@ -136,7 +138,7 @@ export function SchedulesPage() {
               title: '',
               width: 150,
               render: (s) => (
-                <span className="sc-row__ops">
+                <span className="gs-row__ops">
                   <Switch
                     aria-label={t('启用「{name}」', { name: s.name })}
                     checked={s.enabled}

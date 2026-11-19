@@ -6,6 +6,7 @@ import { toastError } from '../../lib/errors'
 import { Button, Dialog, Input, PopUpButton, SegmentedControl, TextArea, TextField } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
+import '../groups/groups.css'
 import { schedulesApi } from './store'
 import './schedules.css'
 
@@ -179,7 +180,7 @@ export function ScheduleDialog({
         </>
       }
     >
-      <div className="sc-form">
+      <div className="gs-dialog-form">
         <TextField
           label={t('名称')}
           value={name}
@@ -208,7 +209,7 @@ export function ScheduleDialog({
         />
 
         <section>
-          <h3 className="sc-form__title">{t('执行时间')}</h3>
+          <h3 className="gs-section-title">{t('执行时间')}</h3>
           <div className="sc-modes">
             <SegmentedControl<Mode>
               aria-label={t('频率')}
