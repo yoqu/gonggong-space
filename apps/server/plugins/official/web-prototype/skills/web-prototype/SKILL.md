@@ -72,7 +72,7 @@ design/<slug>/
 └── _gg/                    ← not hosted only: copied verbatim from kit/gg-kit.css and kit/gg-kit.js (platform runtime)
 ```
 
-People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone. Web pages people put on the canvas (a Feishu doc, say) are in `"links": [{ "id", "url", "title", … }]`: context to read when you can, keep them as they are too. A screen people dragged on the canvas has `"x"` and `"y"`: keep them too.
+People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone. Web pages people put on the canvas (a Feishu doc, say) are in `"links": [{ "id", "url", "title", … }]`: context to read when you can, keep them as they are too. A screen people dragged on the canvas has `"x"` and `"y"`: keep them too. People sort pages into groups in the canvas's page list: `"groups": [{ "id", "title", "parent"? }]` (kebab-case ids, nested by `parent`, at most 3 levels) and a screen's `"group"`; the order of `screens` is the list's order. Keep them when you rewrite the manifest, and put a screen you add in the group it belongs to.
 
 ## Screen states
 

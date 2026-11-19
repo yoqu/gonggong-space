@@ -1,13 +1,16 @@
 import { z } from 'zod'
 import { ArtifactLinkDisplay, ArtifactLinkRatio, LinkFields, LinkSize } from './artifact-links.js'
 import {
+  ARTIFACT_PAGE_GROUPS_MAX,
   ArtifactRefFile,
   ArtifactRefKind,
   ArtifactScreenId,
   GgArtifactManifest,
+  GgArtifactPageGroup,
 } from './artifact-manifest.js'
 import { ArtifactAnchor, ArtifactRuleFile } from './artifact-rules.js'
 import { ArtifactStateKey } from './artifact-states.js'
+import { RunStatus } from './common.js'
 import { SyncHash, SyncPath, syncRootText } from './sync.js'
 
 // ── Artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md): server-hosted, versioned design/<slug>/ folders ────
@@ -459,6 +462,18 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
       if (o.op === 'reorder' && o.index === undefined)
         ctx.addIssue({ code: 'custom', path: ['index'], message: '缺少位置' })
     }),
+  /**
+   * The page list (多级分类): the page groups and every screen in its new order with its group. Group, ungroup,
+   * move and reorder pages in one op; the screens must be exactly the manifest's.
+   */
+  z.object({
+    kind: z.literal('pages'),
+    groups: z.array(GgArtifactPageGroup).max(ARTIFACT_PAGE_GROUPS_MAX),
+    screens: z
+      .array(z.object({ id: ArtifactScreenId, group: ArtifactScreenId.optional() }))
+      .min(1)
+      .max(100),
+  }),
   /** Places the screen on the canvas. */
   z.object({
     kind: z.literal('screen-move'),
@@ -810,6 +825,36 @@ export type ArtifactSubmitRes = z.infer<typeof ArtifactSubmitRes>
 /** PUT /api/artifacts/:id/visibility — its creator, its bot's owner or a group admin; answers its ArtifactDto. */
 export const ArtifactVisibilityReq = z.object({ visibility: ArtifactVisibility })
 export type ArtifactVisibilityReq = z.infer<typeof ArtifactVisibilityReq>
+
+/**
+ * GET /api/artifacts/:id/history — the canvas's 命令记录: the group's messages that told a bot to change this
+ * artifact (canvas commands, sent annotations, messages with canvas context or quoting its card) and the runs they
+ * started, with the versions those made of it; latest first, ARTIFACT_HISTORY_MAX at most. Group members only.
+ */
+export const ARTIFACT_HISTORY_MAX = 50
+export const ArtifactHistoryRun = z.object({
+  id: z.string(),
+  botName: z.string(),
+  status: RunStatus,
+  /** What the bot says it did, when it ended. */
+  summary: z.string(),
+  startedAt: z.string().nullable(),
+  endedAt: z.string().nullable(),
+  /** Its versions of this artifact; `candidate` ones did not become the head. */
+  versions: z.array(z.object({ id: z.string(), n: z.number().int(), candidate: z.boolean() })),
+})
+export type ArtifactHistoryRun = z.infer<typeof ArtifactHistoryRun>
+export const ArtifactHistoryItem = z.object({
+  messageId: z.string(),
+  /** Its sender (a member, or a bot that handed off). */
+  authorName: z.string(),
+  body: z.string(),
+  createdAt: z.string(),
+  /** The screens it was sent about (MessageCanvas.screens). */
+  screens: z.array(ScreenRef),
+  runs: z.array(ArtifactHistoryRun),
+})
+export type ArtifactHistoryItem = z.infer<typeof ArtifactHistoryItem>
 
 /** GET /api/works — every artifact the caller may open, across their groups (作品), latest first. */
 export const WorkDto = z.object({

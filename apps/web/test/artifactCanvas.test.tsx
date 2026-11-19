@@ -153,6 +153,8 @@ class NoopSocket {
 }
 beforeEach(() => {
   localStorage.clear()
+  // The page rail (pageRail.test.tsx) stays closed: these test the canvas itself.
+  localStorage.setItem('gg.art.rail', '0')
   resetArtifacts()
   vi.stubGlobal('WebSocket', NoopSocket)
   vi.spyOn(realtime, 'subscribe').mockImplementation(() => () => {})

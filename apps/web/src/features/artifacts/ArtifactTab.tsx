@@ -22,6 +22,7 @@ import { Canvas, type CanvasRequest } from './Canvas'
 import { useDesignSystem } from './DesignSystemPanel'
 import { downloadUrl, exportZipUrl } from './ExportPanel'
 import { IssuesButton } from './IssuesButton'
+import { PageRail, useRail } from './PageRail'
 import { PrototypeEditor } from './PrototypeEditor'
 import { ShareDialog } from './share'
 import {
@@ -158,6 +159,8 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
     setBusy(false)
   }
 
+  const rail = useRail()
+
   if (!entry) return <Spinner />
   if (!a)
     return (
@@ -239,6 +242,18 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
   return (
     <div className="art">
       <header className="art-bar">
+        {head && !rail.open ? (
+          <Button
+            size="small"
+            variant="plain"
+            className="art-bar__rail"
+            aria-label={t('展开侧栏')}
+            title={t('展开侧栏')}
+            onClick={() => rail.setOpen(true)}
+          >
+            <Icon name="sidebar" size={15} />
+          </Button>
+        ) : null}
         <MenuButton
           className="ui-btn ui-btn--plain ui-btn--small art-bar__menu"
           aria-label={t('产物菜单')}
@@ -348,40 +363,56 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
       ) : previewError ? (
         <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
       ) : (
-        <Canvas
-          artifactId={a.id}
-          groupId={a.groupId}
-          botId={a.botId}
-          title={a.title}
-          manifest={shownManifest}
-          tokens={design.tokens}
-          links={detail?.id === shown ? (detail.links ?? []) : []}
-          favourites={a.favorites ?? []}
-          preview={preview}
-          versionKey={shown ?? ''}
-          readOnly={readOnly}
-          undo={undo}
-          redo={redo}
-          onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
-          onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
-          onPresent={present}
-          readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
-          fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
-          screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
-          changedScreens={detail?.id === shown ? (detail.changedScreens ?? []) : []}
-          files={detail?.id === shown ? detail.files : null}
-          dir={a.dir}
-          designMd={design.md}
-          designPanel={design.panel}
-          guardDesign={design.guard}
-          request={request}
-          onRequestHandled={() => setRequest((r) => r && { ...r, handled: true })}
-          versions={entry.versions}
-          onViewVersion={(id) => setViewing(id === head ? null : id)}
-          onPrototypeAsked={() => {
-            awaitProto.current = a.running ? 'running' : 'asked'
-          }}
-        />
+        <div className={`art-main${rail.narrow ? ' art-main--narrow' : ''}`} ref={rail.ref}>
+          {rail.open ? (
+            <PageRail
+              artifactId={a.id}
+              groupId={a.groupId}
+              manifest={shownManifest ?? null}
+              readOnly={readOnly}
+              canEdit={a.access !== 'view'}
+              refreshKey={`${head}|${a.running ? 1 : 0}`}
+              onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
+              onClose={() => rail.setOpen(false)}
+              versionId={viewing}
+              onPicked={() => rail.narrow && rail.setOpen(false)}
+            />
+          ) : null}
+          <Canvas
+            artifactId={a.id}
+            groupId={a.groupId}
+            botId={a.botId}
+            title={a.title}
+            manifest={shownManifest}
+            tokens={design.tokens}
+            links={detail?.id === shown ? (detail.links ?? []) : []}
+            favourites={a.favorites ?? []}
+            preview={preview}
+            versionKey={shown ?? ''}
+            readOnly={readOnly}
+            undo={undo}
+            redo={redo}
+            onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
+            onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
+            onPresent={present}
+            readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
+            fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
+            screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
+            changedScreens={detail?.id === shown ? (detail.changedScreens ?? []) : []}
+            files={detail?.id === shown ? detail.files : null}
+            dir={a.dir}
+            designMd={design.md}
+            designPanel={design.panel}
+            guardDesign={design.guard}
+            request={request}
+            onRequestHandled={() => setRequest((r) => r && { ...r, handled: true })}
+            versions={entry.versions}
+            onViewVersion={(id) => setViewing(id === head ? null : id)}
+            onPrototypeAsked={() => {
+              awaitProto.current = a.running ? 'running' : 'asked'
+            }}
+          />
+        </div>
       )}
       {design.dialog}
       {shareDialog}

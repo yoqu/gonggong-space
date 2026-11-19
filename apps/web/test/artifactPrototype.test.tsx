@@ -173,6 +173,8 @@ class NoopSocket {
 }
 beforeEach(() => {
   localStorage.clear()
+  // The page rail (pageRail.test.tsx) stays closed: these test the canvas itself.
+  localStorage.setItem('gg.art.rail', '0')
   localStorage.setItem(GUIDE_KEY, '1')
   resetArtifacts()
   resetShares()

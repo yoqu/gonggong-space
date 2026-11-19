@@ -30,6 +30,8 @@ export const GgArtifactScreen = z.object({
   uses: z.array(ArtifactStateKey).max(ARTIFACT_GLOBAL_DIMS_MAX).optional(),
   /** Its own state dims (artifact-states.ts). */
   dims: z.array(GgArtifactDim).max(ARTIFACT_SCREEN_DIMS_MAX).optional(),
+  /** The page group it sits in (`groups` of the manifest); absent: the top level. */
+  group: ArtifactScreenId.optional(),
 })
 export type GgArtifactScreen = z.infer<typeof GgArtifactScreen>
 /** Reference files members put on the canvas (images, PDFs, text): AI context, not part of the prototype. */
@@ -59,6 +61,42 @@ export const GgArtifactRef = z.object({
   y: z.number().finite().optional(),
 })
 export type GgArtifactRef = z.infer<typeof GgArtifactRef>
+export const ARTIFACT_PAGE_GROUPS_MAX = 50
+/** How deep page groups nest: a group, its subgroup, and one more. */
+export const ARTIFACT_PAGE_GROUP_DEPTH = 3
+/** A page group of the page list (多级分类); its place among its siblings is its order in `groups`. */
+export const GgArtifactPageGroup = z.object({
+  id: ArtifactScreenId,
+  title: z.string().trim().min(1).max(40),
+  /** Its parent group; absent: the top level. */
+  parent: ArtifactScreenId.optional(),
+})
+export type GgArtifactPageGroup = z.infer<typeof GgArtifactPageGroup>
+
+/** Unique ids, known parents, no cycle, at most ARTIFACT_PAGE_GROUP_DEPTH deep. */
+export function pageGroupIssues(groups: readonly GgArtifactPageGroup[]): string[] {
+  const byId = new Map<string, GgArtifactPageGroup>()
+  const issues: string[] = []
+  for (const g of groups) {
+    if (byId.has(g.id)) issues.push(`分组 id 重复：${g.id}`)
+    byId.set(g.id, g)
+  }
+  for (const g of groups) {
+    let depth = 1
+    for (let p = g.parent; p !== undefined; p = byId.get(p)?.parent) {
+      if (!byId.has(p)) {
+        issues.push(`没有分组 ${p}`)
+        break
+      }
+      if (++depth > ARTIFACT_PAGE_GROUP_DEPTH) {
+        issues.push(`分组最多 ${ARTIFACT_PAGE_GROUP_DEPTH} 级：${g.id}`)
+        break
+      }
+    }
+  }
+  return issues
+}
+
 export const GG_ARTIFACT_MANIFEST = 'gg-artifact.json'
 export const GgArtifactManifest = z
   .object({
@@ -70,9 +108,17 @@ export const GgArtifactManifest = z
     links: z.array(GgArtifactLink).max(ARTIFACT_LINKS_MAX).optional(),
     /** Global state dims (artifact-states.ts). */
     dims: z.array(GgArtifactDim).max(ARTIFACT_GLOBAL_DIMS_MAX).optional(),
+    /** Page groups of the page list, nested by `parent` (多级分类). */
+    groups: z.array(GgArtifactPageGroup).max(ARTIFACT_PAGE_GROUPS_MAX).optional(),
   })
   .superRefine((m, ctx) => {
     refineStateDims(m, ctx)
+    for (const message of pageGroupIssues(m.groups ?? []))
+      ctx.addIssue({ code: 'custom', path: ['groups'], message })
+    const groupIds = new Set((m.groups ?? []).map((g) => g.id))
+    for (const [i, s] of m.screens.entries())
+      if (s.group !== undefined && !groupIds.has(s.group))
+        ctx.addIssue({ code: 'custom', path: ['screens', i, 'group'], message: `没有分组 ${s.group}` })
     const ids = new Set<string>()
     for (const [i, s] of m.screens.entries()) {
       if (s.file !== `screens/${s.id}.html`)

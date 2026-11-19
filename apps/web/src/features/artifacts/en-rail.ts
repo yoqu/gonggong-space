@@ -1,0 +1,27 @@
+// The canvas's left rail: the page list (多级分类) and the command log.
+export default {
+  页面与命令: 'Pages and commands',
+  页面: 'Pages',
+  命令记录: 'Command log',
+  新建分类: 'New group',
+  收起侧栏: 'Hide sidebar',
+  展开侧栏: 'Show sidebar',
+  '单页产物，没有页面列表': 'A single-page artifact has no page list',
+  移到顶层: 'Move to top level',
+  页面名称: 'Page name',
+  '入口#entry': 'Entry',
+  页面操作: 'Page actions',
+  删除页面: 'Delete page',
+  分类名称: 'Group name',
+  分类操作: 'Group actions',
+  新建子分类: 'New subgroup',
+  删除分类: 'Delete group',
+  '拖动页面调整顺序，新建分类后可把页面拖进去':
+    'Drag pages to reorder; create a group and drag pages into it',
+  '删除页面「{title}」？': 'Delete page "{title}"?',
+  从产物里移除这个页面: 'Removes this page from the artifact',
+  可以在版本记录里找回: 'You can get it back from the version history',
+  '还没有发给 AI 的命令': 'No commands sent to AI yet',
+  定位消息: 'Show message',
+  执行过程: 'Process',
+}

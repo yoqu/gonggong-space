@@ -1042,6 +1042,7 @@ export const en = {
   '修改的元素范围重叠，请分次保存': 'The edited elements overlap; save them separately',
   '令牌不存在：{name}': 'No such token: {name}',
   '清单无效，不能调整屏幕': 'The manifest is invalid, so screens cannot be changed',
+  '页面列表已变化，请刷新后重试': 'The page list has changed; refresh and try again',
   '清单无效，不能设置跳转': 'The manifest is invalid, so links cannot be set',
   '跳转目标屏幕不存在：{id}': 'No such target screen: {id}',
   '设计系统不存在：{id}': 'No such design system: {id}',

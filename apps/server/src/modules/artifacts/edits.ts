@@ -13,6 +13,7 @@ import {
   type ArtifactUploadRes,
   GG_ARTIFACT_MANIFEST,
   GgArtifactManifest,
+  type GgArtifactScreen,
   ruleFileOf,
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
@@ -88,7 +89,7 @@ async function uploaded(a: Artifact, uploadId: string, image: boolean) {
 /** `src` of `assets/<name>` as written in `file`. */
 const assetSrc = (file: string, name: string) => (file.includes('/') ? `../assets/${name}` : `assets/${name}`)
 
-type ManifestOp = Extract<ArtifactEditOp, { kind: 'manifest' | 'screen-move' }>
+type ManifestOp = Extract<ArtifactEditOp, { kind: 'manifest' | 'screen-move' | 'pages' }>
 type RefOp = Extract<ArtifactEditOp, { kind: 'ref' | 'ref-delete' | 'ref-move' | 'ref-rename' }>
 type LinkOp = Extract<ArtifactEditOp, { kind: 'link' | 'link-update' | 'link-move' | 'link-delete' }>
 
@@ -115,6 +116,17 @@ function copyId(id: string, taken: Set<string>) {
     const candidate = `${id.slice(0, 40 - suffix.length).replace(/-+$/, '')}${suffix}`
     if (!taken.has(candidate)) return candidate
   }
+}
+
+/** The `pages` op: the same screens in the op's order, each in its group (the manifest check validates the groups). */
+function pageList(screens: GgArtifactScreen[], op: Extract<ArtifactEditOp, { kind: 'pages' }>) {
+  const byId = new Map(screens.map((s) => [s.id, s]))
+  if (op.screens.length !== screens.length || new Set(op.screens.map((s) => s.id)).size !== screens.length)
+    fail('invalid', '页面列表已变化，请刷新后重试')
+  return op.screens.map(({ id, group }) => {
+    const { group: _, ...screen } = byId.get(id) ?? fail('invalid', '页面列表已变化，请刷新后重试')
+    return group ? { ...screen, group } : screen
+  })
 }
 
 /**
@@ -173,6 +185,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         break
       case 'manifest':
       case 'screen-move':
+      case 'pages':
         screens.push(op)
         break
       case 'ref':
@@ -227,6 +240,12 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
   if (screens.length || refs.length || linkOps.length) {
     const m = (await manifest()) ?? fail('invalid', '清单无效，不能调整屏幕')
     for (const op of screens) {
+      if (op.kind === 'pages') {
+        m.screens = pageList(m.screens, op)
+        if (op.groups.length) m.groups = op.groups
+        else delete m.groups
+        continue
+      }
       const i = m.screens.findIndex((s) => s.id === op.screenId)
       const screen = m.screens[i] ?? fail('invalid', '屏幕不存在：{id}', { id: op.screenId })
       if (op.kind === 'screen-move') Object.assign(screen, { x: op.x, y: op.y })

@@ -51,6 +51,7 @@ import { artifactBlobs, artifactQuota } from './blobs.js'
 import { sendAnnotations, sendCommand } from './commands.js'
 import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
+import { artifactHistory } from './history.js'
 import { pluginCommands, pluginDesignSystems } from './kit.js'
 import { artifactLinkMeta } from './link-meta.js'
 import {
@@ -431,6 +432,11 @@ export function artifactRoutes(ctx: Ctx) {
           .send(await artifactBlobs.open(a.groupId, file.hash))
       },
     )
+
+    app.get<{ Params: { id: string } }>('/api/artifacts/:id/history', async (req) => {
+      const me = await requireUser(ctx, req)
+      return artifactHistory(ctx, await requireArtifact(ctx, req.params.id, me.id))
+    })
 
     app.post<{ Params: { id: string } }>('/api/artifacts/:id/preview', async (req) => {
       const me = await requireUser(ctx, req)

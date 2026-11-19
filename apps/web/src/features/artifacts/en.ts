@@ -7,6 +7,7 @@ import proto from './en-proto'
 import r3 from './en-r3'
 import r4 from './en-r4'
 import r5 from './en-r5'
+import rail from './en-rail'
 import rules from './en-rules'
 
 export default {
@@ -16,6 +17,7 @@ export default {
   ...links,
   ...preview,
   ...proto,
+  ...rail,
   ...r3,
   ...r4,
   ...r5,
