@@ -14,9 +14,9 @@ use crate::ledger::Ledger;
 use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
-    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalMcp, ApprovalRequest,
-    Attachment, AutoSource, CacheUsage, Choice, DaemonToServer, McpCall, McpServer, ModelChoice, Question, RunDone,
-    RunEvent, RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
+    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalMcp, ApprovalRequest, Attachment,
+    AutoSource, CacheUsage, Choice, DaemonToServer, McpCall, McpServer, ModelChoice, Question, RunDone, RunEvent,
+    RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
@@ -38,9 +38,7 @@ use agent_client_protocol::schema::v1::{
     SessionConfigValueId, SessionId, SessionModeState, SessionNotification, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
-use agent_client_protocol::{
-    AcpAgent, Agent, Client, ConnectionTo, Handled, JsonRpcRequest, UntypedMessage,
-};
+use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo, Handled, JsonRpcRequest, UntypedMessage};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -1061,6 +1059,9 @@ impl Shared {
             }
             a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
         }
+        for event in a.turn.take_extra() {
+            a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+        }
         if main && !s.live_due {
             s.live_due = true;
             self.schedule_live(a.run_id.clone(), n.session_id.0.to_string());
@@ -1225,6 +1226,9 @@ fn permission_in(s: &mut State, mut req: RequestPermissionRequest) -> Permission
     else {
         unreachable!("tool call updates always map to tool events")
     };
+    for event in a.turn.take_extra() {
+        a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+    }
     // Codex asks for MCP calls without a title of their own: the tool call's (`mcp.gonggong.<tool>`) tells.
     if ask::is_builtin(&title) {
         return Permission::Now(auto_allow(&req.options));

@@ -462,6 +462,106 @@ fn antigravity_mcp_calls_split_on_the_runs_own_server_names() {
 }
 
 #[test]
+fn opencode_mcp_calls_are_titled_server_underscore_tool() {
+    let mut t = Turn::with_mcp(vec!["gonggong".into(), "my-srv.x".into()]);
+    let call =
+        ToolCall::new("o", "my-srv_x_echo_text").kind(ToolKind::Other).raw_input(serde_json::json!({ "text": "hi" }));
+    let Some(RunEvent::Tool { mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
+    let mcp = mcp.unwrap();
+    assert_eq!(
+        (mcp.server.as_str(), mcp.tool.as_str(), mcp.input.as_deref()),
+        ("my-srv.x", "echo_text", Some(r#"{"text":"hi"}"#))
+    );
+}
+
+/// OpenCode 1.19.3 sends its todowrite and task (subagent) tools as plain tool calls: no ACP plan, no subagent.
+#[test]
+fn opencode_todos_become_the_plan_and_its_tasks_subagents() {
+    let mut t = Turn::default();
+    let todo = ToolCall::new("t", "todowrite").kind(ToolKind::Other);
+    assert!(matches!(t.apply("s", SessionUpdate::ToolCall(todo)), Some(RunEvent::Tool { .. })));
+    assert!(t.take_extra().is_empty());
+    let todos = serde_json::json!({ "todos": [
+        { "content": "a", "status": "completed", "priority": "medium" },
+        { "content": "b", "status": "in_progress", "priority": "medium" },
+        { "content": "c", "status": "cancelled", "priority": "medium" },
+    ] });
+    let fields = ToolCallUpdateFields::new().status(ToolCallStatus::InProgress).raw_input(todos);
+    assert!(matches!(
+        t.apply("s", SessionUpdate::ToolCallUpdate(ToolCallUpdate::new("t", fields))),
+        Some(RunEvent::Tool { .. })
+    ));
+    let item = |c: &str, status| PlanItem { content: c.into(), status };
+    assert_eq!(
+        t.take_extra(),
+        vec![RunEvent::Plan {
+            entries: vec![
+                item("a", PlanStatus::Completed),
+                item("b", PlanStatus::InProgress),
+                item("c", PlanStatus::Completed)
+            ]
+        }]
+    );
+
+    let task = ToolCall::new("k", "task").kind(ToolKind::Think);
+    t.apply("s", SessionUpdate::ToolCall(task));
+    let input = serde_json::json!({ "description": "Say pong", "prompt": "Say \"pong\" and nothing else.", "subagent_type": "general" });
+    for _ in 0..2 {
+        let fields =
+            ToolCallUpdateFields::new().title("Say pong").status(ToolCallStatus::InProgress).raw_input(input.clone());
+        t.apply("s", SessionUpdate::ToolCallUpdate(ToolCallUpdate::new("k", fields)));
+    }
+    let sub = |state| RunEvent::Subagent {
+        agent_id: "k".into(),
+        parent_id: None,
+        name: "Say pong".into(),
+        task: "Say \"pong\" and nothing else.".into(),
+        state,
+    };
+    assert_eq!(t.take_extra(), vec![sub(SubagentState::Running)], "announced once");
+    let done = ToolCallUpdateFields::new().title("Say pong").status(ToolCallStatus::Completed);
+    t.apply("s", SessionUpdate::ToolCallUpdate(ToolCallUpdate::new("k", done)));
+    assert_eq!(t.take_extra(), vec![sub(SubagentState::Completed)]);
+}
+
+#[test]
+fn a_commands_row_shows_the_command_not_its_working_directory() {
+    let mut t = Turn::default();
+    // OpenCode puts the command's cwd in its locations.
+    let run = ToolCall::new("x", "echo hello")
+        .kind(ToolKind::Execute)
+        .locations(vec![ToolCallLocation::new("/w")])
+        .raw_input(serde_json::json!({ "command": "echo hello", "cwd": "/w" }))
+        .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new("hello\n")))]);
+    let Some(RunEvent::Tool { detail, .. }) = t.apply("s", SessionUpdate::ToolCall(run)) else { panic!() };
+    assert_eq!(detail.as_deref(), Some("$ echo hello\nhello"));
+}
+
+#[test]
+fn codebuddy_deferred_calls_show_the_tool_they_run() {
+    let mut t = Turn::default();
+    // CodeBuddy 2.184 runs every deferred tool (MCP ones included) through DeferExecuteTool.
+    let call = ToolCall::new("d", "DeferExecuteTool").kind(ToolKind::Other).raw_input(serde_json::json!({
+        "toolName": "mcp__gonggong__list_messages", "params": { "limit": 20 }
+    }));
+    let Some(RunEvent::Tool { title, mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
+    assert_eq!(title, "mcp__gonggong__list_messages");
+    let mcp = mcp.unwrap();
+    assert_eq!((mcp.tool.as_str(), mcp.input.as_deref()), ("list_messages", Some(r#"{"limit":20}"#)));
+    let done = ToolCallUpdate::new(
+        "d",
+        ToolCallUpdateFields::new().title("DeferExecuteTool").status(ToolCallStatus::Completed),
+    );
+    let Some(RunEvent::Tool { title, .. }) = t.apply("s", SessionUpdate::ToolCallUpdate(done)) else { panic!() };
+    assert_eq!(title, "mcp__gonggong__list_messages", "a later bare title keeps the tool");
+
+    let builtin =
+        ToolCall::new("w", "DeferExecuteTool").raw_input(serde_json::json!({ "toolName": "CronList", "params": {} }));
+    let Some(RunEvent::Tool { title, mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(builtin)) else { panic!() };
+    assert_eq!((title.as_str(), mcp), ("CronList", None));
+}
+
+#[test]
 fn codex_edits_name_their_files_from_the_diffs() {
     use agent_client_protocol::schema::v1::Diff;
     let mut t = Turn::default();

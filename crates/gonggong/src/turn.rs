@@ -10,7 +10,7 @@ use agent_client_protocol::schema::MaybeUndefined;
 use agent_client_protocol::schema::v1::{
     ClientCapabilities, ClientSessionCapabilities, CompactionCapabilities, CompactionStatus as AcpCompactionStatus,
     CompactionUpdate, ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, PlanEntryStatus,
-    SessionUpdate, ToolCallContent, ToolCallStatus, ToolCallUpdate, ToolKind,
+    SessionUpdate, ToolCallContent, ToolCallStatus, ToolCallUpdate, ToolCallUpdateFields, ToolKind,
 };
 use serde::Deserialize;
 use std::collections::{BTreeSet, HashMap};
@@ -225,9 +225,10 @@ struct ToolState {
 }
 
 impl ToolState {
-    /// First location, else `$ <command>` plus the tail of its output.
+    /// A command's `$ <command>` plus the tail of its output, else the first location.
     fn detail(&self) -> Option<String> {
-        if let Some(l) = &self.location {
+        let command = matches!(self.kind, Some(ToolKind::Execute)) && self.command.is_some();
+        if let Some(l) = self.location.as_ref().filter(|_| !command) {
             return Some(l.clone());
         }
         let cmd = format!("$ {}", self.command.as_ref()?);
@@ -345,6 +346,13 @@ struct Subagent {
     task: String,
 }
 
+impl Subagent {
+    fn event(&self, agent_id: &str, state: SubagentState) -> RunEvent {
+        let (parent_id, name, task) = (self.parent_id.clone(), self.name.clone(), self.task.clone());
+        RunEvent::Subagent { agent_id: agent_id.to_string(), parent_id, name, task, state }
+    }
+}
+
 /// Claude Code's compaction thresholds for a run, captured at launch (its `autoCompact` logic, 2.1.x).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompactPolicy {
@@ -409,13 +417,22 @@ pub struct Turn {
     subagents: HashMap<String, Subagent>,
     /// The main agent's plan last sent: an unchanged one is not sent again.
     plan: Option<Vec<PlanItem>>,
-    /// The run's MCP server names, ours included: where Antigravity CLI's MCP call titles split.
+    /// The run's MCP server names, ours included: where Antigravity CLI's and OpenCode's MCP call titles split.
     pub mcp_servers: Vec<String>,
+    /// Events a tool call implies beyond its own (OpenCode's todos and subagents), see `take_extra`.
+    extra: Vec<RunEvent>,
+    /// OpenCode subagents running, by the id of their task tool call.
+    delegated: HashMap<String, Subagent>,
 }
 
 impl Turn {
     pub fn with_mcp(mcp_servers: Vec<String>) -> Self {
         Turn { mcp_servers, ..Turn::default() }
+    }
+
+    /// What the tool calls applied since the last call implied besides their own events.
+    pub fn take_extra(&mut self) -> Vec<RunEvent> {
+        std::mem::take(&mut self.extra)
     }
 
     /// The final reply: what the main agent said after its last tool call, as text before it is narration of the
@@ -468,26 +485,14 @@ impl Turn {
                 None
             }
             SessionUpdate::CompactionUpdate(u) if agent_id.is_none() => self.compaction(u),
-            SessionUpdate::Plan(p) if agent_id.is_none() => {
-                let entries: Vec<PlanItem> = p
-                    .entries
-                    .into_iter()
-                    .take(PLAN_ENTRIES)
-                    .map(|e| PlanItem {
-                        content: e.content.chars().take(PLAN_ITEM_MAX).collect(),
-                        status: match e.status {
-                            PlanEntryStatus::InProgress => PlanStatus::InProgress,
-                            PlanEntryStatus::Completed => PlanStatus::Completed,
-                            _ => PlanStatus::Pending,
-                        },
-                    })
-                    .collect();
-                if self.plan.as_ref() == Some(&entries) {
-                    return None;
-                }
-                self.plan = Some(entries.clone());
-                Some(RunEvent::Plan { entries })
-            }
+            SessionUpdate::Plan(p) if agent_id.is_none() => self.plan(p.entries.into_iter().map(|e| {
+                let status = match e.status {
+                    PlanEntryStatus::InProgress => PlanStatus::InProgress,
+                    PlanEntryStatus::Completed => PlanStatus::Completed,
+                    _ => PlanStatus::Pending,
+                };
+                (e.content, status)
+            })),
             SessionUpdate::SessionInfoUpdate(u) => {
                 if let Some(title) = session_failure(u.meta.as_ref()) {
                     self.failure = Some(title);
@@ -499,6 +504,54 @@ impl Turn {
     }
 
     /// A compaction starting or ending; the summary streamed in chunks goes out once, with the end.
+    /// The main agent's plan, unless it is the one last sent.
+    fn plan(&mut self, entries: impl Iterator<Item = (String, PlanStatus)>) -> Option<RunEvent> {
+        let entries: Vec<PlanItem> = entries
+            .take(PLAN_ENTRIES)
+            .map(|(content, status)| PlanItem { content: content.chars().take(PLAN_ITEM_MAX).collect(), status })
+            .collect();
+        if self.plan.as_ref() == Some(&entries) {
+            return None;
+        }
+        self.plan = Some(entries.clone());
+        Some(RunEvent::Plan { entries })
+    }
+
+    /// OpenCode's todowrite (`todos` in) is its plan, its task tool (`subagent_type` in) a subagent.
+    fn implied(&mut self, id: &str, f: &ToolCallUpdateFields) {
+        let raw = f.raw_input.as_ref();
+        if let Some(todos) = raw.and_then(|r| r.get("todos")?.as_array()) {
+            let entries = todos.iter().filter_map(|t| {
+                let status = match t.get("status")?.as_str()? {
+                    "in_progress" => PlanStatus::InProgress,
+                    "completed" | "cancelled" => PlanStatus::Completed,
+                    _ => PlanStatus::Pending,
+                };
+                Some((t.get("content")?.as_str()?.to_string(), status))
+            });
+            if let Some(plan) = self.plan(entries) {
+                self.extra.push(plan);
+            }
+        }
+        if let Some(r) = raw
+            && !self.delegated.contains_key(id)
+            && let (Some(kind), Some(task)) = (r.get("subagent_type"), r.get("prompt").and_then(|p| p.as_str()))
+        {
+            let name = r.get("description").or(Some(kind)).and_then(|n| n.as_str()).unwrap_or_default();
+            let sub = Subagent { parent_id: None, name: name.to_string(), task: clip(task) };
+            self.extra.push(sub.event(id, SubagentState::Running));
+            self.delegated.insert(id.to_string(), sub);
+        }
+        let state = match f.status {
+            Some(ToolCallStatus::Completed) => SubagentState::Completed,
+            Some(ToolCallStatus::Failed) => SubagentState::Failed,
+            _ => return,
+        };
+        if let Some(sub) = self.delegated.remove(id) {
+            self.extra.push(sub.event(id, state));
+        }
+    }
+
     fn compaction(&mut self, u: CompactionUpdate) -> Option<RunEvent> {
         let id = u.compaction_id.0.to_string();
         let status = match u.status {
@@ -553,18 +606,14 @@ impl Turn {
             ExtUpdate::SubagentStateUpdate { subagent_session_id, state } => (subagent_session_id, state),
             _ => return None,
         };
-        let s = self.subagents.get(&id)?;
-        Some(RunEvent::Subagent {
-            agent_id: id,
-            parent_id: s.parent_id.clone(),
-            name: s.name.clone(),
-            task: s.task.clone(),
-            state,
-        })
+        Some(self.subagents.get(&id)?.event(&id, state))
     }
 
     fn tool(&mut self, agent_id: Option<String>, update: ToolCallUpdate) -> RunEvent {
         let (id, f) = (update.tool_call_id.0.to_string(), update.fields);
+        if agent_id.is_none() {
+            self.implied(&id, &f);
+        }
         // Codex's edits have no locations: their paths are in the diffs.
         let mut paths: Vec<String> = match f.locations.as_deref() {
             Some(l) if !l.is_empty() => l.iter().map(|l| l.path.to_string_lossy().into_owned()).collect(),
@@ -573,8 +622,15 @@ impl Turn {
         paths.dedup();
         let line = f.locations.as_deref().and_then(|l| l.first()?.line);
         let state = self.tools.entry((agent_id.clone(), id.clone())).or_default();
-        if let Some(t) = f.title {
+        if let Some(t) = f.title
+            && (t != mcp_call::CODEBUDDY_DEFER || state.title.is_empty())
+        {
             state.title = t;
+        }
+        if state.title == mcp_call::CODEBUDDY_DEFER
+            && let Some(target) = f.raw_input.as_ref().and_then(|r| r.get("toolName")?.as_str())
+        {
+            state.title = target.to_string();
         }
         state.kind = f.kind.or(state.kind.take());
         if let Some(s) = f.status.and_then(|s| serde_json::from_value(serde_json::to_value(s).ok()?).ok()) {
@@ -608,16 +664,16 @@ impl Turn {
                 web.hits = hits;
             }
         }
-        let antigravity = mcp_call::antigravity_name(&state.title, &self.mcp_servers);
-        let raw_input = match (&antigravity, f.raw_input) {
-            (Some(_), Some(serde_json::Value::Object(mut args))) => {
+        let underscored = mcp_call::underscored_name(&state.title, &self.mcp_servers);
+        let raw_input = match (state.title.starts_with(mcp_call::ANTIGRAVITY_PREFIX), f.raw_input) {
+            (true, Some(serde_json::Value::Object(mut args))) => {
                 args.remove(mcp_call::ANTIGRAVITY_SUMMARY);
                 Some(serde_json::Value::Object(args))
             }
             (_, raw) => raw,
         };
         if state.mcp.is_none()
-            && let Some((server, tool)) = mcp_call::name(&state.title).or(antigravity)
+            && let Some((server, tool)) = mcp_call::name(&state.title).or(underscored)
         {
             state.mcp = Some(McpCall { server, tool, input: None, output: None });
         }

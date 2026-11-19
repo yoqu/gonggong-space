@@ -1,6 +1,6 @@
 //! MCP tool calls in ACP updates: Claude titles them `mcp__<server>__<tool>` and reports the result as content;
 //! Codex titles them `mcp.<server>.<tool>` with `{ server, tool, arguments }` in and `{ result, error }` out; Gemini
-//! CLI titles them `<tool> (<server> MCP Server)`; Antigravity CLI `Run mcp_<server>_<tool>` (see `antigravity_name`).
+//! CLI titles them `<tool> (<server> MCP Server)`; Antigravity CLI and OpenCode see `underscored_name`.
 use agent_client_protocol::schema::v1::{ContentBlock, ToolCallContent};
 use serde_json::Value;
 
@@ -20,10 +20,11 @@ pub fn name(title: &str) -> Option<(String, String)> {
     (!server.is_empty() && !tool.is_empty()).then(|| (server.to_string(), tool.to_string()))
 }
 
-/// Antigravity CLI titles them `Run mcp_<server>_<tool>`, its server name with each character outside `[A-Za-z0-9_-]`
-/// made `_`. Server names may hold `_` themselves, so the run's own `servers` decide where the title splits.
-pub fn antigravity_name(title: &str, servers: &[String]) -> Option<(String, String)> {
-    let rest = title.strip_prefix("Run mcp_")?;
+/// Antigravity CLI titles them `Run mcp_<server>_<tool>`, OpenCode `<server>_<tool>`; both make each character of
+/// the server name outside `[A-Za-z0-9_-]` a `_`. Server names may hold `_` themselves, so the run's own `servers`
+/// decide where the title splits.
+pub fn underscored_name(title: &str, servers: &[String]) -> Option<(String, String)> {
+    let rest = title.strip_prefix(ANTIGRAVITY_PREFIX).unwrap_or(title);
     let safe = |s: &str| -> String {
         s.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect()
     };
@@ -35,13 +36,19 @@ pub fn antigravity_name(title: &str, servers: &[String]) -> Option<(String, Stri
         .map(|(s, tool)| (s.clone(), tool.to_string()))
 }
 
+pub const ANTIGRAVITY_PREFIX: &str = "Run mcp_";
+
 /// Antigravity CLI adds this to every call's arguments: its own one-line note, not the tool's input.
 pub const ANTIGRAVITY_SUMMARY: &str = "toolSummary";
 
-/// The call's arguments; Codex wraps them with the server and tool names.
+/// CodeBuddy runs its deferred tools (MCP ones included) through this one, `{ toolName, params }` in.
+pub const CODEBUDDY_DEFER: &str = "DeferExecuteTool";
+
+/// The call's arguments; Codex wraps them with the server and tool names, CodeBuddy's deferred calls with the tool's.
 pub fn arguments(raw: &Value) -> &Value {
-    match raw.get("arguments") {
-        Some(a) if raw.get("server").is_some() && raw.get("tool").is_some() => a,
+    match (raw.get("arguments"), raw.get("params")) {
+        (Some(a), _) if raw.get("server").is_some() && raw.get("tool").is_some() => a,
+        (_, Some(p)) if raw.get("toolName").is_some() => p,
         _ => raw,
     }
 }
