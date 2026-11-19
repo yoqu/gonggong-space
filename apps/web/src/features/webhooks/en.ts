@@ -15,6 +15,9 @@ export default {
     'Leave blank to use the default troubleshooting instruction (read log attachment, locate commit, explain or fix)',
   '允许 @ 的候选 Bot（留空则仅发消息不触发 Bot）· 优先选在线且空闲的':
     'Allowed candidate Bots (leave empty to post without triggering) · picks online & idle first',
+  '所选候选 Bot 当前全部离线，触发时将跳过 @':
+    'All selected candidate Bots are offline; @ mentions will be skipped',
+  '本 Webhook': 'This webhook',
   '已删除 Webhook「{name}」': 'Deleted webhook "{name}"',
   排查中: 'Investigating',
   离线作废: 'Expired',

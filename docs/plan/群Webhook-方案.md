@@ -24,6 +24,7 @@
 | name | 显示名，如「Jenkins 部署」；消息作者处显示 |
 | tokenHash | `sha256(token)`；明文仅创建/重置时返回一次（Bot 通过 MCP 创建时为 `null`，由管理员在群设置里生成） |
 | botIds | 可 @ 的候选 Bot（有序）；空 = 只发消息不触发 |
+| runOptions | 每个候选 Bot 指定的模型与推理强度（同定时任务，缺省跟随默认） |
 | promptTemplate | 触发 Bot 时附带的指令，默认见下 |
 | enabled, lastCalledAt, lastRunId, createdByBotId, deletedAt | 同定时任务 |
 

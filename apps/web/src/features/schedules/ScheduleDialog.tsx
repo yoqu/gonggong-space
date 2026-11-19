@@ -3,20 +3,9 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import {
-  Button,
-  Dialog,
-  GroupBox,
-  IconButton,
-  Input,
-  PopUpButton,
-  SegmentedControl,
-  TextArea,
-  TextField,
-} from '../../ui'
-import { BotAvatar } from '../bots/avatars'
-import { PRESENCE } from '../bots/model'
-import { type Picks, RunConfigChip, useCanConfigure } from '../chat/RunConfigChips'
+import { Button, Dialog, Input, PopUpButton, SegmentedControl, TextArea, TextField } from '../../ui'
+import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
+import type { Picks } from '../chat/RunConfigChips'
 import { schedulesApi } from './store'
 import './schedules.css'
 
@@ -109,7 +98,6 @@ export function ScheduleDialog({
   schedule?: ScheduleDto
   onClose: () => void
 }) {
-  const allBots = useWorkspace((s) => s.bots)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const [name, setName] = useState(schedule?.name ?? '')
   const [prompt, setPrompt] = useState(schedule?.prompt ?? '')
@@ -140,17 +128,6 @@ export function ScheduleDialog({
   }, [key])
 
   const set = (o: Partial<Draft>) => setDraft((d) => ({ ...d, ...o }))
-  const nameOf = (id: string) => allBots.find((b) => b.id === id)?.name ?? t('已移出')
-  const canConfigure = useCanConfigure(group)
-  const pickFor = (id: string, next: Picks[string] | null) => {
-    const rest = { ...picks }
-    delete rest[id]
-    setPicks(next ? { ...rest, [id]: next } : rest)
-  }
-  const move = (i: number) =>
-    setCandidates((c) =>
-      c.map((id, j) => (j === i - 1 ? (c[i] as string) : j === i ? (c[i - 1] as string) : id)),
-    )
   const ready = !!name.trim() && !!prompt.trim() && candidates.length > 0 && !!preview && !preview.error
   const missingHint = !name.trim()
     ? t('请先填写名称')
@@ -163,21 +140,15 @@ export function ScheduleDialog({
           : !preview
             ? t('请设置有效的执行时间')
             : null
-  const isOnline = (id: string) => {
-    const p = allBots.find((b) => b.id === id)?.presence
-    return p === 'online' || p === 'running'
-  }
-  const allOffline = candidates.length > 0 && candidates.every((id) => !isOnline(id))
 
   const save = async () => {
     setSaving(true)
     try {
-      const runOptions = Object.fromEntries(candidates.flatMap((id) => (picks[id] ? [[id, picks[id]]] : [])))
       const body = {
         name: name.trim(),
         prompt: prompt.trim(),
         botIds: candidates,
-        runOptions,
+        runOptions: selectedRunOptions(candidates, picks),
         ...timing,
         timezone,
       }
@@ -225,83 +196,16 @@ export function ScheduleDialog({
           onChange={(e) => setPrompt(e.target.value)}
         />
 
-        <section>
-          <h3 className="sc-form__title">{t('候选 Bot（至少选 1 个）· 到点由第一个可用的执行')}</h3>
-          <GroupBox>
-            {candidates.map((id, i) => {
-              const bot = allBots.find((b) => b.id === id)
-              const online = isOnline(id)
-              return (
-                <div key={id} className="sc-bot">
-                  <span className="sc-bot__rank">{i + 1}</span>
-                  <BotAvatar id={id} name={nameOf(id)} size={22} />
-                  <span className="sc-bot__name">
-                    <span
-                      className="sc-bot__dot"
-                      style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
-                      aria-hidden="true"
-                    />
-                    {nameOf(id)}
-                    {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
-                  </span>
-                  {group && bot ? (
-                    <RunConfigChip
-                      scope="schedule"
-                      group={group}
-                      bot={bot}
-                      pick={picks[id]}
-                      editable={canConfigure(bot)}
-                      onPick={(next) => pickFor(id, next)}
-                    />
-                  ) : null}
-                  <IconButton
-                    size="small"
-                    title={t('上移 {name}', { name: nameOf(id) })}
-                    disabled={i === 0}
-                    onClick={() => move(i)}
-                  >
-                    {'chevron-up' as const}
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    title={t('移除 {name}', { name: nameOf(id) })}
-                    onClick={() => setCandidates(candidates.filter((x) => x !== id))}
-                  >
-                    {'minus' as const}
-                  </IconButton>
-                </div>
-              )
-            })}
-            <div className="sc-bot sc-bot--add">
-              {botIds
-                .filter((id) => !candidates.includes(id))
-                .map((id) => {
-                  const bot = allBots.find((b) => b.id === id)
-                  const online = isOnline(id)
-                  return (
-                    <Button
-                      key={id}
-                      size="small"
-                      aria-label={t('添加 {name}', { name: nameOf(id) })}
-                      onClick={() => setCandidates([...candidates, id])}
-                    >
-                      <span
-                        className="sc-bot__dot"
-                        style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
-                        aria-hidden="true"
-                      />
-                      + {nameOf(id)}
-                      {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
-                    </Button>
-                  )
-                })}
-              {botIds.every((id) => candidates.includes(id)) ? (
-                <span className="sc-muted">{t('本群的 Bot 都已加入')}</span>
-              ) : null}
-            </div>
-          </GroupBox>
-          {allOffline ? <p className="sc-warn">{t('所选候选 Bot 当前全部离线，到点会跳过')}</p> : null}
-        </section>
+        <CandidateBotPicker
+          group={group}
+          botIds={botIds}
+          candidates={candidates}
+          onCandidatesChange={setCandidates}
+          picks={picks}
+          onPicksChange={setPicks}
+          title={t('候选 Bot（至少选 1 个）· 到点由第一个可用的执行')}
+          offlineWarning={t('所选候选 Bot 当前全部离线，到点会跳过')}
+        />
 
         <section>
           <h3 className="sc-form__title">{t('执行时间')}</h3>

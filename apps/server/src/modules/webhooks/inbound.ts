@@ -24,7 +24,7 @@ import { dataDir, safeName } from '../attachments/service.js'
 import { mirrorUserMessage } from '../feishu/outbound.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '../messages/service.js'
-import { pickAvailableBot, UNFINISHED } from '../runs/pick.js'
+import { pickAvailableBot, resolveBotRunOptions, UNFINISHED } from '../runs/pick.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { groupRedactor } from '../secrets/resolve.js'
 import { DEFAULT_WEBHOOK_PROMPT, publishWebhooks } from './service.js'
@@ -145,6 +145,7 @@ export async function handleWebhookCall(
   let mentions: string[] = []
   let skipped: WebhookCallDto['skipped']
   let webhookPrompt: string | undefined
+  let runOptionsMeta: Pick<MessageMeta, 'runOptions'> = {}
 
   const wantsMention = req.mention === true || (Array.isArray(req.mention) && req.mention.length > 0)
   if (wantsMention) {
@@ -175,6 +176,14 @@ export async function handleWebhookCall(
       } else {
         mentions = [bot.id]
         webhookPrompt = req.prompt ?? w.promptTemplate ?? DEFAULT_WEBHOOK_PROMPT
+        runOptionsMeta = await resolveBotRunOptions(ctx, {
+          groupId: w.groupId,
+          name: w.name,
+          runOptions: w.runOptions,
+          botId: bot.id,
+          botName: bot.name,
+          fallbackKey: 'Webhook「{name}」为 {bot} 设置的模型已不可用（{pick}），本次按默认运行',
+        })
         if (!body.startsWith(`@${bot.name}`)) body = `@${bot.name} ${body}`
       }
     }
@@ -194,6 +203,7 @@ export async function handleWebhookCall(
 
   const meta: MessageMeta = {
     mentions,
+    ...runOptionsMeta,
     webhookOf: w.id,
     webhook: { id: w.id, name: w.name },
     ...(req.dedupeKey && { webhookDedupe: req.dedupeKey }),

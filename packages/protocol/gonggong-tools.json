@@ -610,6 +610,32 @@
           },
           "description": "Candidate bots of this group that this webhook may @, best first; omit or [] for post-only (no bot runs)"
         },
+        "run_options": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "bot": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "model": {
+                "description": "e.g. opus, sonnet; default if omitted",
+                "type": "string",
+                "maxLength": 100
+              },
+              "effort": {
+                "description": "e.g. low, medium, high; default if omitted",
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "required": ["bot"]
+          },
+          "description": "Model and effort per candidate, only when the user asks; give the full list when changing, [] = all default"
+        },
         "prompt": {
           "type": "string",
           "minLength": 1,
@@ -652,6 +678,31 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          }
+        },
+        "run_options": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "bot": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "model": {
+                "description": "e.g. opus, sonnet; default if omitted",
+                "type": "string",
+                "maxLength": 100
+              },
+              "effort": {
+                "description": "e.g. low, medium, high; default if omitted",
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "required": ["bot"]
           }
         },
         "prompt": {

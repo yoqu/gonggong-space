@@ -1,16 +1,15 @@
 import { type I18nText, TERMINAL_RUN_STATUS } from '@gonggong/protocol'
 import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groupMembers, groups, messages, runs, schedules, users } from '../../db/schema.js'
+import { groupMembers, groups, messages, runs, schedules, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
-import { fail, HttpError } from '../../lib/errors.js'
-import { assertPick, botCatalog } from '../bots/config.js'
+import { fail } from '../../lib/errors.js'
 import { mirrorUserMessage } from '../feishu/outbound.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageRow, messageDto, postEvent, publishMessage } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import type { RunRow } from '../runs/dto.js'
-import { pickAvailableBot, UNFINISHED } from '../runs/pick.js'
+import { pickAvailableBot, resolveBotRunOptions, UNFINISHED } from '../runs/pick.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { publishSchedules, type ScheduleRow } from './service.js'
 import { nextFire } from './timing.js'
@@ -72,36 +71,15 @@ export async function settleSchedule(ctx: Ctx, run: RunRow) {
   await publishSchedules(ctx, s.groupId)
 }
 
-/**
- * The schedule's pick for `botId` as message run options, if its machine still offers it; else the run follows the
- * defaults and the group is told.
- */
-async function runOptionsFor(ctx: Ctx, s: ScheduleRow, botId: string, botName: string) {
-  const pick = s.runOptions[botId]
-  if (!pick) return {}
-  const [row] = await ctx.db
-    .select({ bot: bots, groupModel: groupBots.model })
-    .from(groupBots)
-    .innerJoin(bots, eq(bots.id, groupBots.botId))
-    .where(and(eq(groupBots.groupId, s.groupId), eq(groupBots.botId, botId)))
-  try {
-    if (row) assertPick(await botCatalog(ctx.db, row.bot), pick, row.groupModel ?? row.bot.model)
-    return { runOptions: { [botId]: pick } }
-  } catch (err) {
-    if (!(err instanceof HttpError)) throw err
-    await postEvent(
-      ctx,
-      s.groupId,
-      '定时任务「{name}」为 {bot} 设置的模型已不可用（{pick}），本次按默认运行',
-      {
-        name: s.name,
-        bot: botName,
-        pick: [pick.model, pick.effort].filter(Boolean).join(' · '),
-      },
-    )
-    return {}
-  }
-}
+const runOptionsFor = (ctx: Ctx, s: ScheduleRow, botId: string, botName: string) =>
+  resolveBotRunOptions(ctx, {
+    groupId: s.groupId,
+    name: s.name,
+    runOptions: s.runOptions,
+    botId,
+    botName,
+    fallbackKey: '定时任务「{name}」为 {bot} 设置的模型已不可用（{pick}），本次按默认运行',
+  })
 
 /**
  * @-s the chosen bot with the task in its owner's name; the run then goes the way of any other @. `manual` (run now)

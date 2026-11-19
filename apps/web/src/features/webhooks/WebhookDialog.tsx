@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { Button, Dialog, GroupBox, IconButton, TextArea, TextField, toast } from '../../ui'
-import { BotAvatar } from '../bots/avatars'
-import { PRESENCE } from '../bots/model'
+import { Button, Dialog, TextArea, TextField, toast } from '../../ui'
+import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
+import type { Picks } from '../chat/RunConfigChips'
 import '../schedules/schedules.css'
 import { webhooksApi } from './store'
 import './webhooks.css'
@@ -73,27 +73,13 @@ export function WebhookDialog({
   onCreated?: (token: WebhookTokenDto) => void
   onClose: () => void
 }) {
-  const allBots = useWorkspace((s) => s.bots)
+  const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const [name, setName] = useState(webhook?.name ?? '')
   const [prompt, setPrompt] = useState(webhook?.prompt ?? '')
   const [candidates, setCandidates] = useState<string[]>(webhook?.botIds ?? [])
+  const [picks, setPicks] = useState<Picks>(webhook?.runOptions ?? {})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-
-  const nameOf = (id: string) => allBots.find((b) => b.id === id)?.name ?? t('已移出')
-  const isOnline = (id: string) => {
-    const p = allBots.find((b) => b.id === id)?.presence
-    return p === 'online' || p === 'running'
-  }
-  const move = (i: number) => {
-    const prev = candidates[i - 1]
-    const curr = candidates[i]
-    if (!prev || !curr) return
-    const next = [...candidates]
-    next[i - 1] = curr
-    next[i] = prev
-    setCandidates(next)
-  }
 
   const ready = name.trim().length > 0 && candidates.length <= WEBHOOK_MAX_BOTS
 
@@ -104,6 +90,7 @@ export function WebhookDialog({
       const body = {
         name: name.trim(),
         botIds: candidates,
+        runOptions: selectedRunOptions(candidates, picks),
         prompt: prompt.trim() ? prompt.trim() : null,
       }
       if (webhook) {
@@ -171,77 +158,18 @@ export function WebhookDialog({
           placeholder={t('留空则使用默认排查指令：读取附件日志、定位提交并给出原因或修复')}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <section>
-          <h3 className="sc-form__title">
-            {t('允许 @ 的候选 Bot（留空则仅发消息不触发 Bot）· 优先选在线且空闲的')}
-          </h3>
-          <GroupBox>
-            {candidates.map((id, i) => {
-              const bot = allBots.find((b) => b.id === id)
-              const online = isOnline(id)
-              return (
-                <div key={id} className="sc-bot">
-                  <span className="sc-bot__rank">{i + 1}</span>
-                  <BotAvatar id={id} name={nameOf(id)} size={22} />
-                  <span className="sc-bot__name">
-                    <span
-                      className="sc-bot__dot"
-                      style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
-                      aria-hidden="true"
-                    />
-                    {nameOf(id)}
-                    {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
-                  </span>
-                  <IconButton
-                    size="small"
-                    title={t('上移 {name}', { name: nameOf(id) })}
-                    disabled={i === 0}
-                    onClick={() => move(i)}
-                  >
-                    {'chevron-up' as const}
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    title={t('移除 {name}', { name: nameOf(id) })}
-                    onClick={() => setCandidates(candidates.filter((x) => x !== id))}
-                  >
-                    {'minus' as const}
-                  </IconButton>
-                </div>
-              )
-            })}
-            <div className="sc-bot sc-bot--add">
-              {botIds
-                .filter((id) => !candidates.includes(id))
-                .map((id) => {
-                  const bot = allBots.find((b) => b.id === id)
-                  const online = isOnline(id)
-                  return (
-                    <Button
-                      key={id}
-                      size="small"
-                      disabled={candidates.length >= WEBHOOK_MAX_BOTS}
-                      aria-label={t('添加 {name}', { name: nameOf(id) })}
-                      onClick={() => setCandidates([...candidates, id])}
-                    >
-                      <span
-                        className="sc-bot__dot"
-                        style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
-                        aria-hidden="true"
-                      />
-                      + {nameOf(id)}
-                      {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
-                    </Button>
-                  )
-                })}
-              {botIds.length === 0 ? (
-                <span className="sc-muted">{t('本群还没有 Bot')}</span>
-              ) : botIds.every((id) => candidates.includes(id)) ? (
-                <span className="sc-muted">{t('本群的 Bot 都已加入')}</span>
-              ) : null}
-            </div>
-          </GroupBox>
-        </section>
+        <CandidateBotPicker
+          scope="webhook"
+          group={group}
+          botIds={botIds}
+          candidates={candidates}
+          onCandidatesChange={setCandidates}
+          picks={picks}
+          onPicksChange={setPicks}
+          max={WEBHOOK_MAX_BOTS}
+          title={t('允许 @ 的候选 Bot（留空则仅发消息不触发 Bot）· 优先选在线且空闲的')}
+          offlineWarning={t('所选候选 Bot 当前全部离线，触发时将跳过 @')}
+        />
       </div>
     </Dialog>
   )

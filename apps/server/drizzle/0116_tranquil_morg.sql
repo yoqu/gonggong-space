@@ -1,0 +1,1 @@
+ALTER TABLE "webhooks" ADD COLUMN "run_options" jsonb DEFAULT '{}'::jsonb NOT NULL;

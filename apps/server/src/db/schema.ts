@@ -1545,6 +1545,8 @@ export const webhooks = pgTable(
     tokenHash: text('token_hash'),
     /** Candidates this webhook may @, most suitable first; empty = post-only. */
     botIds: jsonb('bot_ids').$type<string[]>().notNull().default([]),
+    /** Model / thought level per candidate bot id; absent = the defaults. */
+    runOptions: jsonb('run_options').$type<Record<string, RunConfigPick>>().notNull().default({}),
     /** Custom troubleshooting instruction; null = default prompt. */
     promptTemplate: text('prompt_template'),
     enabled: boolean('enabled').notNull().default(true),

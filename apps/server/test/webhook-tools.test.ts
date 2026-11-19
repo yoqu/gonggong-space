@@ -13,7 +13,16 @@ afterEach(() => t.close())
 async function world() {
   const wang = await t.seed.user({ name: '王磊' })
   const li = await t.seed.user({ name: '李建国' })
-  const { machine, token } = await t.seed.machine(wang.id)
+  const catalog = {
+    current: null,
+    efforts: [],
+    effort: null,
+    models: [{ value: 'opus', name: 'Opus', efforts: [{ value: 'high', name: 'High' }], effort: 'high' }],
+  }
+  const agents = [
+    { kind: 'claude', available: true, version: '2.1.4', path: null, minVersion: null, catalog },
+  ]
+  const { machine, token } = await t.seed.machine(wang.id, { agents })
   const claude = await t.seed.bot({ ownerId: wang.id, name: 'Claude', machineId: machine.id })
   const codex = await t.seed.bot({ ownerId: wang.id, name: 'Codex', machineId: machine.id })
   const group = await t.seed.group({ createdBy: wang.id, memberIds: [li.id], botIds: [claude.id, codex.id] })
@@ -63,10 +72,12 @@ describe('webhook MCP tools', () => {
     const res = await w.call(wangRun.id, 'webhook_create', {
       name: 'Jenkins 部署',
       bots: ['Codex', 'Claude'],
+      run_options: [{ bot: 'Claude', model: 'opus', effort: 'high' }],
     })
     expect(res.isError).toBe(false)
     expect(res.text).toContain('Jenkins 部署')
     expect(res.text).toContain('Codex → Claude')
+    expect(res.text).toContain('Claude 使用：opus · high')
     expect(res.text).not.toContain('gwh_')
 
     const [row] = await t.db.select().from(webhooks)
@@ -75,6 +86,7 @@ describe('webhook MCP tools', () => {
       createdByBotId: w.claude.id,
       tokenHash: null,
       botIds: [w.codex.id, w.claude.id],
+      runOptions: { [w.claude.id]: { model: 'opus', effort: 'high' } },
       enabled: true,
     })
 
@@ -86,10 +98,13 @@ describe('webhook MCP tools', () => {
     const updated = await w.call(wangRun.id, 'webhook_update', {
       id: row!.id,
       name: 'CI 部署',
+      run_options: [],
       enabled: false,
     })
     expect(updated.isError).toBe(false)
     expect(updated.text).toContain('CI 部署')
+    const [afterUpdate] = await t.db.select().from(webhooks).where(eq(webhooks.id, row!.id))
+    expect(afterUpdate?.runOptions).toEqual({})
 
     const deleted = await w.call(wangRun.id, 'webhook_delete', { id: row!.id })
     expect(deleted.isError).toBe(false)

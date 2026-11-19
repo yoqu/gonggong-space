@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { RunStatus } from './common.js'
+import { RunConfigPick, RunStatus } from './common.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 
 // ── Group webhooks (plan 群Webhook): outside systems post into a group and may @ its bots ─────────
@@ -18,6 +18,8 @@ export const WEBHOOK_PATH = '/api/hooks'
 export const WebhookName = z.string().trim().min(1).max(60)
 /** What the @-ed bot is asked to do; null = the default troubleshooting instruction. */
 export const WebhookPrompt = z.string().trim().min(1).max(4000)
+/** Model / thought level per candidate bot id (bot owner or group admin); absent = the defaults. */
+export const WebhookRunOptions = z.record(z.string(), RunConfigPick)
 
 /**
  * GET /api/groups/:id/webhooks → GroupWebhooksDto (members); POST (CreateWebhookReq, group admins) → WebhookTokenDto.
@@ -28,6 +30,7 @@ export const CreateWebhookReq = z.object({
   name: WebhookName,
   /** Candidates to @, most suitable first; empty = it only posts. */
   botIds: z.array(z.string()).max(WEBHOOK_MAX_BOTS).default([]),
+  runOptions: WebhookRunOptions.default({}),
   prompt: WebhookPrompt.nullable().default(null),
 })
 export type CreateWebhookReq = z.infer<typeof CreateWebhookReq>
@@ -35,6 +38,8 @@ export type CreateWebhookReq = z.infer<typeof CreateWebhookReq>
 export const UpdateWebhookReq = z.object({
   name: WebhookName.optional(),
   botIds: z.array(z.string()).max(WEBHOOK_MAX_BOTS).optional(),
+  /** The full set; picks of bots no longer candidates are dropped either way. */
+  runOptions: WebhookRunOptions.optional(),
   prompt: WebhookPrompt.nullable().optional(),
   enabled: z.boolean().optional(),
 })
@@ -45,6 +50,7 @@ export const WebhookDto = z.object({
   groupId: z.string(),
   name: z.string(),
   botIds: z.array(z.string()),
+  runOptions: WebhookRunOptions,
   prompt: z.string().nullable(),
   enabled: z.boolean(),
   /** False for one a bot created until its owner or a group admin rotates the token to reveal the URL once. */
@@ -96,11 +102,25 @@ export const WebhookCallDto = z.object({
 export type WebhookCallDto = z.infer<typeof WebhookCallDto>
 
 const webhookBots = z.array(z.string().min(1).max(64)).max(WEBHOOK_MAX_BOTS)
+const webhookRunOptions = z
+  .array(
+    z.object({
+      bot: z.string().min(1).max(64),
+      model: z.string().max(100).optional().describe('e.g. opus, sonnet; default if omitted'),
+      effort: z.string().max(40).optional().describe('e.g. low, medium, high; default if omitted'),
+    }),
+  )
+  .max(WEBHOOK_MAX_BOTS)
 export const WebhookCreateArgs = z.object({
   name: WebhookName.describe('Display name shown as the sender, e.g. Jenkins 部署'),
   bots: webhookBots
     .describe(
       'Candidate bots of this group that this webhook may @, best first; omit or [] for post-only (no bot runs)',
+    )
+    .optional(),
+  run_options: webhookRunOptions
+    .describe(
+      'Model and effort per candidate, only when the user asks; give the full list when changing, [] = all default',
     )
     .optional(),
   prompt: WebhookPrompt.describe(
@@ -112,6 +132,7 @@ export const WebhookUpdateArgs = z.object({
   id: z.string().describe('Webhook id from webhook_list'),
   name: WebhookName.optional(),
   bots: webhookBots.optional(),
+  run_options: webhookRunOptions.optional(),
   prompt: WebhookPrompt.nullable().describe('null restores the default prompt').optional(),
   enabled: z.boolean().describe('false = disable, true = enable').optional(),
 })

@@ -82,7 +82,7 @@ export function RunConfigChip({
   pick: RunConfigPick | undefined
   editable: boolean
   onPick: (next: RunConfigPick | null) => void
-  scope?: 'message' | 'schedule'
+  scope?: 'message' | 'schedule' | 'webhook'
 }) {
   const message = scope === 'message'
   const state = useWorkspace((s) => s.botStates[group.id]?.[bot.id])
@@ -165,7 +165,11 @@ export function RunConfigChip({
       }}
     >
       <span className="run-config__label">{text}</span>
-      {pick ? <span className="run-config__once">{message ? t('仅本条') : t('本任务')}</span> : null}
+      {pick ? (
+        <span className="run-config__once">
+          {message ? t('仅本条') : scope === 'webhook' ? t('本 Webhook') : t('本任务')}
+        </span>
+      ) : null}
       <Icon name="chevron-updown" size={10} weight={2.2} />
     </MenuButton>
   )

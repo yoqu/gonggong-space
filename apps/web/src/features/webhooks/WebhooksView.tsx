@@ -10,6 +10,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt, toastError } from '../../lib/errors'
 import { Button, Dialog, EmptyState, GroupBox, Spinner, Switch, Tag } from '../../ui'
+import { botsText } from '../schedules/model'
 import { useBotNames } from '../schedules/store'
 import '../schedules/schedules.css'
 import { useWebhooks, webhooksApi } from './store'
@@ -42,7 +43,7 @@ function Row({ w, onEdit, onRotate }: { w: WebhookDto; onEdit: () => void; onRot
     await attempt(() => webhooksApi.update(w.id, { enabled }))
     setPending(null)
   }
-  const bots = names.length ? names.join(' → ') : t('仅发消息，不 @ Bot')
+  const bots = names.length ? botsText(w, names) : t('仅发消息，不 @ Bot')
   return (
     <div className="sc-row" data-testid={`webhook-${w.id}`}>
       <span className="sc-row__main">

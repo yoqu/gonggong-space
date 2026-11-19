@@ -1,7 +1,6 @@
 import {
   type CreateScheduleReq,
   type I18nText,
-  type RunConfigPick,
   SCHEDULE_MAX_PER_GROUP,
   type ScheduleDto,
   type UpdateScheduleReq,
@@ -12,9 +11,9 @@ import { groupMembers, runs, schedules, users } from '../../db/schema.js'
 import { type MessageKey, zh } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
-import { checkPick, isEmptyPick } from '../bots/config.js'
 import { activeBots } from '../groups/service.js'
 import { postMessage } from '../messages/service.js'
+import { type BotRunPicks, checkBotRunOptions } from '../runs/pick.js'
 import { nextFire, timingError } from './timing.js'
 
 export type ScheduleRow = typeof schedules.$inferSelect
@@ -118,27 +117,16 @@ async function checkBots(ctx: Ctx, groupId: string, botIds: string[]) {
   return [...new Set(botIds)]
 }
 
-type Picks = Record<string, RunConfigPick>
-const samePick = (a: RunConfigPick, b: RunConfigPick | undefined) =>
-  a.model === b?.model && a.effort === b?.effort
-
-/** Picks of the candidates only; new or changed ones are checked as a message pick by whoever makes the change. */
-async function checkRunOptions(
+const checkRunOptions = (
   ctx: Ctx,
   groupId: string,
-  picks: Picks,
+  picks: BotRunPicks,
   botIds: string[],
   actor: Actor,
-  saved: Picks = {},
-) {
+  saved: BotRunPicks = {},
+) => {
   const by = 'userId' in actor ? actor.userId : 'sysadmin' in actor ? actor.sysadmin : actor.originUserId
-  const kept: Picks = {}
-  for (const id of botIds) {
-    const pick = picks[id]
-    if (!pick || isEmptyPick(pick)) continue
-    if (samePick(pick, saved[id]) || (await checkPick(ctx, { id: by }, groupId, id, pick))) kept[id] = pick
-  }
-  return kept
+  return checkBotRunOptions(ctx, groupId, picks, botIds, by, saved)
 }
 
 const actorAudit = (actor: Actor) =>

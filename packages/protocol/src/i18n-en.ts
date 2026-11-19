@@ -410,6 +410,8 @@ export const protocolEn = {
     'Scheduled task "{name}": no candidate Bot is available ({bots}), skipped this time',
   '定时任务「{name}」为 {bot} 设置的模型已不可用（{pick}），本次按默认运行':
     'Scheduled task "{name}": the model set for {bot} is no longer available ({pick}), running with the defaults this time',
+  'Webhook「{name}」为 {bot} 设置的模型已不可用（{pick}），本次按默认运行':
+    'Webhook "{name}": the model set for {bot} is no longer available ({pick}), running with the defaults this time',
   '{bot} 请 {user} 填写 MCP「{name}」的密钥：{keys}':
     '{bot} asks {user} to fill in the secrets of MCP "{name}": {keys}',
   '{bot} 请 {user} 填写自己的密钥：{names}': '{bot} asks {user} to fill in their own secrets: {names}',

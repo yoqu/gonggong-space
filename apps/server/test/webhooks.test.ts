@@ -1,4 +1,5 @@
 import type {
+  AgentCatalog,
   GroupWebhooksDto,
   RunStart,
   TimelineDto,
@@ -14,6 +15,7 @@ import {
   auditLogs,
   groupBots,
   groupMembers,
+  machines,
   messages,
   runs,
   webhooks,
@@ -313,5 +315,75 @@ describe('webhooks inbound calls', () => {
     expect((await w.callHook(body.token, { text: 'owner gone' })).status).toBe(401)
     const [row] = await t.db.select().from(webhooks).where(eq(webhooks.id, body.webhook.id))
     expect(row?.enabled).toBe(false)
+  })
+})
+
+describe('webhook model and thought level', () => {
+  const level = (value: string) => ({ value, name: value })
+  const CATALOG: AgentCatalog = {
+    current: null,
+    efforts: ['low', 'medium', 'high'].map(level),
+    effort: 'medium',
+    models: [
+      { value: 'sonnet', name: 'Sonnet', efforts: ['low', 'medium', 'high'].map(level), effort: 'medium' },
+      { value: 'opus', name: 'Opus', efforts: ['low', 'medium', 'high', 'max'].map(level), effort: 'high' },
+    ],
+  }
+  const AGENTS = [
+    {
+      kind: 'claude',
+      available: true,
+      version: '2.1.4',
+      path: '/bin/claude',
+      minVersion: '2.0.0',
+      catalog: CATALOG,
+    },
+  ]
+
+  it('keeps a model/effort pick per candidate bot, runs with it, refuses invalid picks and falls back when gone', async () => {
+    const w = await world()
+    await t.db.update(machines).set({ agents: AGENTS }).where(eq(machines.id, w.m1.machine.id))
+    w.online(w.m1.machine.id)
+
+    // Invalid model refused
+    expect(
+      (
+        await w.create('wang', {
+          name: 'Bad',
+          botIds: [w.claude.id],
+          runOptions: { [w.claude.id]: { model: 'gpt' } },
+        })
+      ).status,
+    ).toBe(400)
+
+    // Valid pick saved (non-candidate pick dropped) and sent to daemon in RunStart
+    const opusMax = { model: 'opus', effort: 'max' }
+    const created = await w.create('wang', {
+      name: 'Jenkins 部署',
+      botIds: [w.claude.id],
+      runOptions: { [w.claude.id]: opusMax, [w.codex.id]: { model: 'opus' } },
+    })
+    expect(created.status).toBe(200)
+    expect(created.body.webhook.runOptions).toEqual({ [w.claude.id]: opusMax })
+
+    const first = await w.callHook(created.body.token, { text: 'fail #1', mention: true })
+    expect(first.status).toBe(200)
+    expect(w.sent[w.m1.machine.id]?.[0]?.bot).toMatchObject({ model: 'opus', effort: 'max' })
+
+    // Complete run, remove opus from catalog → falls back to default and posts group event
+    await t.db.update(runs).set({ status: 'completed' }).where(eq(runs.id, first.body.runId!))
+    const sonnetOnly = { ...CATALOG, models: CATALOG.models.slice(0, 1) }
+    await t.db
+      .update(machines)
+      .set({ agents: [{ ...AGENTS[0]!, catalog: sonnetOnly }] })
+      .where(eq(machines.id, w.m1.machine.id))
+
+    const second = await w.callHook(created.body.token, { text: 'fail #2', mention: true })
+    expect(second.status).toBe(200)
+    expect(w.sent[w.m1.machine.id]?.[1]?.bot).toMatchObject({ model: null })
+    const events = (await w.groupMessages()).filter((m) => m.kind === 'event').map((m) => m.body)
+    expect(events).toContain(
+      'Webhook「Jenkins 部署」为 Claude 设置的模型已不可用（opus · max），本次按默认运行',
+    )
   })
 })

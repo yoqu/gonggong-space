@@ -70,14 +70,26 @@ async function targetWebhook(ctx: Ctx, run: Run, id: string): Promise<WebhookRow
   return row.w
 }
 
+type RunOptionArgs = NonNullable<Args<'webhook_create'>['run_options']>
+
+async function runOptionsOf(ctx: Ctx, run: Run, list: RunOptionArgs) {
+  const ids = await botIdsOf(
+    ctx,
+    run,
+    list.map((o) => o.bot),
+  )
+  return Object.fromEntries(list.map(({ model, effort }, i) => [ids[i], { model, effort }]))
+}
+
 export async function webhookCreate(ctx: Ctx, run: Run, a: Args<'webhook_create'>): Promise<ToolOutput> {
   await requireOriginAdmin(ctx, run)
   const botIds = await botIdsOf(ctx, run, a.bots)
+  const runOptions = a.run_options ? await runOptionsOf(ctx, run, a.run_options) : {}
   const { row } = await asTool(async () =>
     createWebhook(
       ctx,
       run.groupId,
-      { name: a.name, botIds, prompt: a.prompt ?? null },
+      { name: a.name, botIds, runOptions, prompt: a.prompt ?? null },
       run.originUserId,
       actorOf(run, await botName(ctx, run)),
     ),
@@ -86,10 +98,15 @@ export async function webhookCreate(ctx: Ctx, run: Run, a: Args<'webhook_create'
   const botsText = row.botIds.length
     ? row.botIds.map((id) => names.get(id) ?? '已移出').join(' → ')
     : '仅发消息，不 @ Bot'
+  const pickLines = Object.entries(row.runOptions).map(
+    ([id, p]) =>
+      `${names.get(id) ?? '已移出'} 使用：${[p.model ?? '默认模型', p.effort].filter(Boolean).join(' · ')}`,
+  )
   return {
     text: [
       `已创建 Webhook「${row.name}」（id ${row.id}）。`,
       `候选 Bot：${botsText}`,
+      ...pickLines,
       '出于安全原因，令牌不会发给 Bot 或写入聊天记录；请告诉发起人在「群设置 → Webhook」里点「生成令牌」复制调用 URL（仅显示一次）。',
     ].join('\n'),
     groups: [],
@@ -117,6 +134,7 @@ export async function webhookUpdate(ctx: Ctx, run: Run, a: Args<'webhook_update'
   const req = {
     ...(a.name !== undefined && { name: a.name }),
     ...(a.bots !== undefined && { botIds: await botIdsOf(ctx, run, a.bots) }),
+    ...(a.run_options !== undefined && { runOptions: await runOptionsOf(ctx, run, a.run_options) }),
     ...(a.prompt !== undefined && { prompt: a.prompt }),
     ...(a.enabled !== undefined && { enabled: a.enabled }),
   }

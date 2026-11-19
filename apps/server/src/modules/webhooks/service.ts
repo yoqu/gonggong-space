@@ -14,6 +14,7 @@ import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { activeBots } from '../groups/service.js'
 import type { RunRow } from '../runs/dto.js'
+import { checkBotRunOptions } from '../runs/pick.js'
 
 export type WebhookRow = typeof webhooks.$inferSelect
 export type WebhookActor =
@@ -42,6 +43,7 @@ export const webhookDto = ({ w, ownerName, lastStatus }: Loaded, canManage: bool
   groupId: w.groupId,
   name: w.name,
   botIds: w.botIds,
+  runOptions: w.runOptions,
   prompt: w.promptTemplate,
   enabled: w.enabled,
   hasToken: w.tokenHash !== null,
@@ -144,6 +146,8 @@ export async function createWebhook(
   if ((n?.n ?? 0) >= WEBHOOK_MAX_PER_GROUP)
     fail('invalid', '每个群最多 {n} 个 Webhook', { n: WEBHOOK_MAX_PER_GROUP })
   const botIds = await checkBots(ctx, groupId, req.botIds)
+  const actorUserId = 'userId' in actor ? actor.userId : actor.originUserId
+  const runOptions = await checkBotRunOptions(ctx, groupId, req.runOptions, botIds, actorUserId)
   const token = 'userId' in actor ? newToken('gwh') : null
   const [row] = (await ctx.db
     .insert(webhooks)
@@ -155,6 +159,7 @@ export async function createWebhook(
       name: req.name,
       tokenHash: token ? sha256(token) : null,
       botIds,
+      runOptions,
       promptTemplate: req.prompt,
       createdAt: ctx.now(),
     })
@@ -166,11 +171,24 @@ export async function createWebhook(
 
 export async function updateWebhook(ctx: Ctx, w: WebhookRow, req: UpdateWebhookReq, actor: WebhookActor) {
   const botIds = req.botIds !== undefined ? await checkBots(ctx, w.groupId, req.botIds) : w.botIds
+  const actorUserId = 'userId' in actor ? actor.userId : actor.originUserId
+  const runOptions =
+    req.botIds !== undefined || req.runOptions !== undefined
+      ? await checkBotRunOptions(
+          ctx,
+          w.groupId,
+          req.runOptions ?? w.runOptions,
+          botIds,
+          actorUserId,
+          w.runOptions,
+        )
+      : w.runOptions
   const [row] = (await ctx.db
     .update(webhooks)
     .set({
       ...(req.name !== undefined && { name: req.name }),
       botIds,
+      runOptions,
       ...(req.prompt !== undefined && { promptTemplate: req.prompt }),
       ...(req.enabled !== undefined && { enabled: req.enabled }),
     })

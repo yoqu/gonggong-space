@@ -1,19 +1,44 @@
 import type {
+  AgentCatalog,
   BotDto,
   GroupDto,
   GroupWebhooksDto,
   MessageDto,
+  UserDto,
   WebhookDto,
   WebhookTokenDto,
 } from '@gonggong/protocol'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { UserMessage } from '../src/features/chat/TimelineItems'
 import { resetWebhooks } from '../src/features/webhooks/store'
 import { WebhooksView } from '../src/features/webhooks/WebhooksView'
 import { mockApi } from './mockApi'
+
+const level = (value: string) => ({ value, name: value })
+const CATALOG: AgentCatalog = {
+  current: null,
+  efforts: ['low', 'medium', 'high'].map(level),
+  effort: 'medium',
+  models: [
+    { value: 'sonnet', name: 'Sonnet', efforts: ['low', 'medium', 'high'].map(level), effort: 'medium' },
+    { value: 'opus', name: 'Opus', efforts: ['low', 'medium', 'high', 'max'].map(level), effort: 'high' },
+  ],
+}
+const me: UserDto = {
+  id: 'u1',
+  account: 'wanglei',
+  name: '王磊',
+  role: 'member',
+  mustChangePassword: false,
+  disabled: false,
+  gitProtocol: 'auto',
+  email: null,
+  avatar: null,
+}
 
 const bot = (o: Partial<BotDto>): BotDto => ({
   id: 'b1',
@@ -86,6 +111,7 @@ const webhook = (o: Partial<WebhookDto> = {}): WebhookDto => ({
   groupId: 'g1',
   name: 'Jenkins 部署',
   botIds: ['b1', 'b2'],
+  runOptions: {},
   prompt: null,
   enabled: true,
   hasToken: true,
@@ -102,9 +128,10 @@ const webhook = (o: Partial<WebhookDto> = {}): WebhookDto => ({
 
 beforeEach(() => {
   resetWebhooks()
+  useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({
     groups: [group()],
-    bots: [bot({ id: 'b1', name: 'Claude' }), bot({ id: 'b2', name: 'Codex' })],
+    bots: [bot({ id: 'b1', name: 'Claude', catalog: CATALOG }), bot({ id: 'b2', name: 'Codex' })],
   })
 })
 afterEach(() => {
@@ -112,15 +139,16 @@ afterEach(() => {
 })
 
 describe('WebhooksView', () => {
-  it('creates a webhook and reveals the one-time URL dialog', async () => {
-    const created = webhook()
+  it('creates a webhook with per-bot model selection and reveals the one-time URL dialog', async () => {
+    const created = webhook({ botIds: ['b1'], runOptions: { b1: { model: 'opus' } } })
     const tokenRes: WebhookTokenDto = {
       webhook: created,
       token: 'gwh_test_secret_token',
       path: '/api/hooks/gwh_test_secret_token',
     }
-    mockApi({
+    const calls = mockApi({
       'GET /groups/g1/webhooks': { webhooks: [] } satisfies GroupWebhooksDto,
+      'GET /bots/b1/catalog': { catalog: CATALOG },
       'POST /groups/g1/webhooks': tokenRes,
     })
 
@@ -130,15 +158,32 @@ describe('WebhooksView', () => {
     fireEvent.click(screen.getByRole('button', { name: '新建 Webhook' }))
     fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'Jenkins 部署' } })
     fireEvent.click(screen.getByRole('button', { name: '添加 Claude' }))
+    const chip = await screen.findByRole('button', { name: 'Claude 的模型与推理强度' })
+    await vi.waitFor(() => expect((chip as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(chip)
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Opus' }))
+    expect(within(chip).getByText('本 Webhook')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     const urlEl = await screen.findByTestId('webhook-url')
     expect(urlEl.textContent).toContain('/api/hooks/gwh_test_secret_token')
     expect(screen.getByText(/仅显示这一次/)).toBeTruthy()
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+      name: 'Jenkins 部署',
+      botIds: ['b1'],
+      runOptions: { b1: { model: 'opus' } },
+    })
   })
 
-  it('lists webhooks, rotates tokens and respects readOnly for plain members', async () => {
-    const botCreated = webhook({ id: 'w1', name: 'CI 告警', hasToken: false, createdByBotId: 'b1' })
+  it('lists webhooks with configured model, rotates tokens and respects readOnly for plain members', async () => {
+    const botCreated = webhook({
+      id: 'w1',
+      name: 'CI 告警',
+      botIds: ['b1'],
+      runOptions: { b1: { model: 'opus', effort: 'high' } },
+      hasToken: false,
+      createdByBotId: 'b1',
+    })
     const rotated: WebhookTokenDto = {
       webhook: { ...botCreated, hasToken: true },
       token: 'gwh_new_token',
@@ -151,6 +196,7 @@ describe('WebhooksView', () => {
 
     const { rerender } = render(<WebhooksView group={group()} readOnly={false} />)
     await screen.findByText('CI 告警')
+    expect(screen.getByText(/Claude（opus · 高）/)).toBeTruthy()
     expect(screen.getByText('待生成令牌')).toBeTruthy()
     expect(screen.getByText('Bot 创建')).toBeTruthy()
 

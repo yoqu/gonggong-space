@@ -17,8 +17,16 @@ describe('webhooks protocol', () => {
     expect(CreateWebhookReq.parse({ name: '  Jenkins 部署  ' })).toEqual({
       name: 'Jenkins 部署',
       botIds: [],
+      runOptions: {},
       prompt: null,
     })
+    expect(
+      CreateWebhookReq.parse({
+        name: 'Jenkins 部署',
+        botIds: ['b1'],
+        runOptions: { b1: { model: 'opus', effort: 'high' } },
+      }).runOptions,
+    ).toEqual({ b1: { model: 'opus', effort: 'high' } })
     expect(CreateWebhookReq.safeParse({ name: '   ' }).success).toBe(false)
     expect(
       CreateWebhookReq.safeParse({ name: 'x', botIds: Array(WEBHOOK_MAX_BOTS + 1).fill('b') }).success,
@@ -50,11 +58,17 @@ describe('webhooks protocol', () => {
   })
 
   it('validates MCP tool arguments', () => {
-    expect(WebhookCreateArgs.safeParse({ name: 'Jenkins 部署', bots: ['共字君'] }).success).toBe(true)
+    expect(
+      WebhookCreateArgs.safeParse({
+        name: 'Jenkins 部署',
+        bots: ['共字君'],
+        run_options: [{ bot: '共字君', model: 'opus', effort: 'high' }],
+      }).success,
+    ).toBe(true)
     expect(WebhookCreateArgs.safeParse({ name: 'Jenkins 部署' }).success).toBe(true)
     expect(WebhookCreateArgs.safeParse({ name: '' }).success).toBe(false)
     expect(WebhookListArgs.safeParse({}).success).toBe(true)
-    expect(WebhookUpdateArgs.safeParse({ id: 'w1', enabled: false }).success).toBe(true)
+    expect(WebhookUpdateArgs.safeParse({ id: 'w1', enabled: false, run_options: [] }).success).toBe(true)
     expect(WebhookUpdateArgs.safeParse({ id: 'w1', prompt: null }).success).toBe(true)
     expect(WebhookDeleteArgs.safeParse({ id: 'w1' }).success).toBe(true)
   })
