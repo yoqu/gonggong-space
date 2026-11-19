@@ -161,10 +161,8 @@ fn workspaces(entries: &[Entry], backups: &[gonggong::workspace::Backup]) {
     if backups.is_empty() {
         println!("{}", t!("（无）"));
     } else {
-        let rows: Vec<_> = backups
-            .iter()
-            .map(|b| vec![b.name.clone(), human_size(b.size), b.path.display().to_string()])
-            .collect();
+        let rows: Vec<_> =
+            backups.iter().map(|b| vec![b.name.clone(), human_size(b.size), b.path.display().to_string()]).collect();
         for line in gonggong::format_columns(&rows) {
             println!("{line}");
         }
@@ -298,7 +296,10 @@ async fn main() -> anyhow::Result<()> {
             {
                 eprintln!(
                     "{}",
-                    t!("未能通知服务器（{e}），本机凭据仍会删除；如需解绑这台电脑请在 Web 端移除", e = format!("{e:#}"))
+                    t!(
+                        "未能通知服务器（{e}），本机凭据仍会删除；如需解绑这台电脑请在 Web 端移除",
+                        e = format!("{e:#}")
+                    )
                 );
             }
             Config::remove()?;

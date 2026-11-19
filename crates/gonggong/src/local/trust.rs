@@ -8,6 +8,11 @@ use super::{
     Path, PathBuf, Segment, Trust, base, current_branch, expands, lead, outside_words, unquote, within_root, writable,
 };
 
+mod code;
+use code::{NODE, PYTHON, code_ok};
+mod fetch;
+use fetch::{curl, wget};
+
 /// The temporary directories of this machine.
 pub(super) fn temp_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = ["/tmp", "/private/tmp", "/var/tmp"].iter().map(PathBuf::from).collect();
@@ -55,8 +60,16 @@ const SECRET_FILES: &[&str] = &[
     "/etc/master.passwd",
 ];
 /// The owner's personal folders in the home directory.
-const PRIVATE_DIRS: &[&str] =
-    &["Downloads", "Desktop", "Pictures", "Movies", "Music", "Library/Messages", "Library/Mail", "Library/Mobile Documents"];
+const PRIVATE_DIRS: &[&str] = &[
+    "Downloads",
+    "Desktop",
+    "Pictures",
+    "Movies",
+    "Music",
+    "Library/Messages",
+    "Library/Mail",
+    "Library/Mobile Documents",
+];
 
 /// Whether a word names a secret or a private file: credentials anywhere, `.env` files, keys and certificates, the
 /// home's personal folders.
@@ -69,8 +82,13 @@ pub(super) fn sensitive(word: &str) -> bool {
     let secret = parts.into_iter().any(|p| {
         SECRET_PARTS.iter().any(|s| p == *s || (s.starts_with("id_") && p.starts_with(s)))
             || p == ".env"
-            || (p.starts_with(".env.") && !p.ends_with(".example") && !p.ends_with(".sample") && !p.ends_with(".template"))
-            || [".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"].iter().any(|ext| p.ends_with(ext) && p.len() > ext.len())
+            || (p.starts_with(".env.")
+                && !p.ends_with(".example")
+                && !p.ends_with(".sample")
+                && !p.ends_with(".template"))
+            || [".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"]
+                .iter()
+                .any(|ext| p.ends_with(ext) && p.len() > ext.len())
     });
     let home = w
         .strip_prefix("~/")
@@ -104,11 +122,42 @@ pub(super) fn assignable(name: &str, value: &str, roots: &[&Path], exported: boo
         }
         _ => {
             const DENY: &[&str] = &[
-                "IFS", "HOME", "SHELL", "ENV", "BASH_ENV", "PS4", "PROMPT_COMMAND", "CDPATH", "FPATH", "EDITOR",
-                "VISUAL", "PAGER", "BROWSER", "LESSOPEN", "LESSCLOSE", "TMPDIR", "SUDO_ASKPASS",
+                "IFS",
+                "HOME",
+                "SHELL",
+                "ENV",
+                "BASH_ENV",
+                "PS4",
+                "PROMPT_COMMAND",
+                "CDPATH",
+                "FPATH",
+                "EDITOR",
+                "VISUAL",
+                "PAGER",
+                "BROWSER",
+                "LESSOPEN",
+                "LESSCLOSE",
+                "TMPDIR",
+                "SUDO_ASKPASS",
             ];
-            const PREFIXES: &[&str] =
-                &["LD_", "DYLD_", "PYTHON", "NODE_", "GIT_", "NPM_", "npm_config_", "RUSTC", "CARGO_", "GRADLE_", "MAVEN_", "JAVA_", "SSH_", "GO", "PERL", "RUBY"];
+            const PREFIXES: &[&str] = &[
+                "LD_",
+                "DYLD_",
+                "PYTHON",
+                "NODE_",
+                "GIT_",
+                "NPM_",
+                "npm_config_",
+                "RUSTC",
+                "CARGO_",
+                "GRADLE_",
+                "MAVEN_",
+                "JAVA_",
+                "SSH_",
+                "GO",
+                "PERL",
+                "RUBY",
+            ];
             !DENY.contains(&name)
                 && !PREFIXES.iter().any(|p| name.starts_with(p))
                 && !name.ends_with("_OPTIONS")
@@ -125,8 +174,23 @@ pub(super) fn git_read_only(words: &[String]) -> bool {
         Some(["git", "branch" | "tag"]) => !args[2..].iter().any(|a| {
             matches!(
                 *a,
-                "-d" | "-D" | "-m" | "-M" | "-c" | "-C" | "-f" | "--force" | "--delete" | "--move" | "--copy" | "-u"
-                    | "--set-upstream-to" | "--unset-upstream" | "--edit-description" | "-a" | "-s" | "--annotate"
+                "-d" | "-D"
+                    | "-m"
+                    | "-M"
+                    | "-c"
+                    | "-C"
+                    | "-f"
+                    | "--force"
+                    | "--delete"
+                    | "--move"
+                    | "--copy"
+                    | "-u"
+                    | "--set-upstream-to"
+                    | "--unset-upstream"
+                    | "--edit-description"
+                    | "-a"
+                    | "-s"
+                    | "--annotate"
             ) && !(args[1] == "branch" && *a == "-a")
                 || a.starts_with("--set-upstream-to=")
         }),
@@ -306,7 +370,8 @@ impl Place<'_> {
         if p.components().any(|c| c == std::path::Component::ParentDir || c.as_os_str() == ".git") {
             return false;
         }
-        let fixed: PathBuf = p.components().take_while(|c| !c.as_os_str().to_string_lossy().contains(['*', '?', '['])).collect();
+        let fixed: PathBuf =
+            p.components().take_while(|c| !c.as_os_str().to_string_lossy().contains(['*', '?', '['])).collect();
         let fixed = if fixed.as_os_str().is_empty() { PathBuf::from(".") } else { fixed };
         let absolute = if fixed.is_absolute() { fixed.clone() } else { self.roots[0].join(&fixed) };
         let canon = |q: &Path| std::fs::canonicalize(q).unwrap_or_else(|_| q.to_path_buf());
@@ -403,7 +468,10 @@ fn copy(args: &[&str], place: &Place) -> bool {
 /// Listing or extracting an archive: listing reads it, extracting writes inside the roots.
 fn archive(name: &str, args: &[&str], place: &Place) -> bool {
     match name {
-        "jar" => matches!(args.first(), Some(&("tf" | "tvf" | "-tf" | "-tvf"))) && args[1..].iter().all(|a| place.readable(a)),
+        "jar" => {
+            matches!(args.first(), Some(&("tf" | "tvf" | "-tf" | "-tvf")))
+                && args[1..].iter().all(|a| place.readable(a))
+        }
         "unzip" => {
             let listing = args.iter().any(|a| matches!(*a, "-l" | "-Z" | "-p" | "-t" | "-v" | "-lv"));
             let mut i = 0;
@@ -449,89 +517,21 @@ fn archive(name: &str, args: &[&str], place: &Place) -> bool {
     }
 }
 
-/// A plain HTTP(S) GET: no request body, upload, config file or other scheme; whatever it saves goes inside the roots.
-fn curl(args: &[&str], place: &Place) -> bool {
-    // What the shell fills in may carry the workspace's files out (`?d=$(cat src/a.ts)`).
-    if args.iter().any(|a| expands(a)) {
-        return false;
-    }
-    let mut i = 0;
-    let mut urls = 0;
-    while let Some(a) = args.get(i) {
-        let next = || args.get(i + 1).copied();
-        match *a {
-            "-X" | "--request" => {
-                if !next().is_some_and(|m| matches!(m, "GET" | "HEAD")) {
-                    return false;
-                }
-                i += 1;
-            }
-            "-o" | "--output" | "-D" | "--dump-header" | "-c" | "--cookie-jar" | "--output-dir" => {
-                if !next().is_some_and(|p| p == "-" || place.writable(p)) {
-                    return false;
-                }
-                i += 1;
-            }
-            "-H" | "--header" | "-m" | "--max-time" | "--connect-timeout" | "-A" | "--user-agent" | "-e" | "--referer"
-            | "-u" | "--user" | "-x" | "--proxy" | "-w" | "--write-out" | "--retry" | "-b" | "--cookie" | "-r"
-            | "--range" | "--resolve" | "--noproxy" => {
-                if next().is_some_and(|v| v.starts_with('@') || sensitive(v)) {
-                    return false;
-                }
-                i += 1;
-            }
-            "-O" | "--remote-name" | "-J" => {
-                if place.sh.away {
-                    return false;
-                }
-            }
-            a if a.starts_with("http://") || a.starts_with("https://") => urls += 1,
-            a if a.starts_with("--") => {
-                const FLAGS: &[&str] = &[
-                    "--silent", "--show-error", "--fail", "--location", "--insecure", "--include", "--head",
-                    "--compressed", "--verbose", "--globoff", "--fail-with-body", "--no-progress-meter", "--http1.1",
-                    "--http2", "--ipv4", "--max-time", "--retry-all-errors", "--get",
-                ];
-                if !FLAGS.contains(&a.split('=').next().unwrap_or(a)) {
-                    return false;
-                }
-            }
-            a if a.starts_with('-') => {
-                if !a[1..].chars().all(|c| "sSfLkiIvgNG4#".contains(c)) {
-                    return false;
-                }
-            }
-            _ => return false,
-        }
-        i += 1;
-    }
-    urls > 0
-}
-
-fn wget(args: &[&str], place: &Place) -> bool {
-    let mut i = 0;
-    let mut urls = 0;
-    while let Some(a) = args.get(i) {
-        match *a {
-            "-O" | "--output-document" | "-P" | "--directory-prefix" | "-o" | "--output-file" => {
-                if !args.get(i + 1).is_some_and(|p| *p == "-" || place.writable(p)) {
-                    return false;
-                }
-                i += 1;
-            }
-            "-T" | "--timeout" | "-t" | "--tries" | "--header" | "-U" | "--user-agent" => i += 1,
-            "-q" | "--quiet" | "-nv" | "-c" | "--continue" | "--no-check-certificate" | "-S" | "--server-response" => {}
-            a if a.starts_with("http://") || a.starts_with("https://") => urls += 1,
-            _ => return false,
-        }
-        i += 1;
-    }
-    urls > 0 && !place.sh.away
-}
-
 /// Bases of a team's shared history, never pushed to without asking (besides the group's own `protect`).
-const BASE_BRANCHES: &[&str] =
-    &["main", "master", "develop", "development", "dev", "trunk", "staging", "uat", "pre", "test", "prod", "production"];
+const BASE_BRANCHES: &[&str] = &[
+    "main",
+    "master",
+    "develop",
+    "development",
+    "dev",
+    "trunk",
+    "staging",
+    "uat",
+    "pre",
+    "test",
+    "prod",
+    "production",
+];
 
 /// Local git work and pushes to a feature branch (the floor already took force pushes, deletions, `reset --hard`).
 fn git(args: &[&str], roots: &[&Path], trust: Trust, sh: &Shell) -> bool {
@@ -626,93 +626,6 @@ fn push(rest: &[&str], dir: &Path, cwd: &Path, trust: Trust, elsewhere: bool) ->
     }
 }
 
-/// Code a script language gives no reason to ask about: patterns that run programs, reach the network, delete or
-/// move files, change directory or load code. Writes are judged with the paths the script names.
-struct Lang {
-    risky: &'static [&'static str],
-    /// Running programs and reaching the network: allowed to code in the temporary directories.
-    reach: &'static [&'static str],
-    writes: &'static [&'static str],
-}
-
-const PYTHON: Lang = Lang {
-    risky: &[
-        "os.exec", "os.spawn", "os.fork", "os.kill", "shutil.rmtree",
-        "shutil.move", "os.remove", "os.unlink", "os.rmdir", "os.removedirs", "os.rename", "os.replace", "os.chmod",
-        "os.chown", "os.symlink", "os.link", ".unlink(", ".rmdir(", ".rename(", "rmtree", "eval(", "exec(",
-        "__import__", "importlib", "ctypes", "import pty", "ftplib", "smtplib",
-        "paramiko", "telnetlib", "webbrowser", "pickle", "marshal", "sys.modules", "os.chdir", "expanduser",
-        "Path.home", "signal.", "setattr(os", "sys.path", "putenv", "keyring",
-    ],
-    reach: &[
-        "subprocess", "os.system", "os.popen", "socket", "requests", "urllib", "http.client", "httpx", "aiohttp",
-        "multiprocessing",
-    ],
-    writes: &[
-        ".write_text(", ".write_bytes(", ".touch(", ".mkdir(", "os.makedirs", "os.mkdir", "shutil.copy", ".to_csv(",
-        ".to_excel(", ".to_json(", ".savefig(", ".save(", "ZipFile(",
-    ],
-};
-
-const NODE: Lang = Lang {
-    risky: &[
-        "eval(", "new Function", "process.binding", "vm'", "vm\"", "unlink", "rmSync", "rmdir", ".rm(", "rename", "chmod", "chown", "symlink", "homedir",
-        "process.env.HOME", "import(", "worker_threads", "process.kill", "process.chdir", "process.dlopen",
-    ],
-    reach: &[
-        "child_process", "require('http", "require(\"http", "from 'http", "from \"http", "net'", "net\"", "dgram",
-        "fetch(", "XMLHttpRequest", "WebSocket",
-    ],
-    writes: &["writeFile", "appendFile", "mkdir", "createWriteStream", "copyFile", "cpSync", "cp(", "open("],
-};
-
-/// Whether code in `lang` may run: nothing risky (running programs and the network are fine `in_temp`), no secret
-/// named, and when it writes, every absolute path it or its arguments name inside the roots.
-fn code_ok(lang: &Lang, code: &str, args: &[&str], place: &Place, in_temp: bool) -> bool {
-    if lang.risky.iter().any(|r| code.contains(r)) || (!in_temp && lang.reach.iter().any(|r| code.contains(r))) {
-        return false;
-    }
-    let literals = path_literals(code);
-    if literals.iter().map(String::as_str).chain(args.iter().copied()).any(sensitive) {
-        return false;
-    }
-    let writes = lang.writes.iter().any(|w| code.contains(w)) || opens_for_writing(code);
-    !writes
-        || (!place.sh.away
-            && literals.iter().map(String::as_str).chain(args.iter().copied().filter(|a| a.contains('/'))).all(|p| {
-                !p.contains("..") && (!Path::new(p).is_absolute() && !p.starts_with('~') || place.writable(p))
-            }))
-}
-
-/// Python's `open(…, 'w')` and the like: a mode with `w`, `a`, `x` or `+`.
-fn opens_for_writing(code: &str) -> bool {
-    code.match_indices("open(").any(|(i, _)| {
-        let call: String = code[i..].chars().take_while(|c| *c != ')').collect();
-        ["'w", "\"w", "'a", "\"a", "'x", "\"x", "+'", "+\"", "mode="].iter().any(|m| call.contains(m))
-    })
-}
-
-/// Top-level directories a string must start in to be taken for a file path (`/api/v1` is a URL path).
-const FS_TOPS: &[&str] = &[
-    "Users", "home", "root", "tmp", "private", "var", "etc", "opt", "usr", "Library", "System", "Applications",
-    "Volumes", "bin", "sbin", "dev", "srv", "mnt",
-];
-
-/// String literals in code that look like absolute or home file paths.
-fn path_literals(code: &str) -> Vec<String> {
-    let mut out = vec![];
-    for quote in ['\'', '"', '`'] {
-        for (i, part) in code.split(quote).enumerate() {
-            let top = part.strip_prefix('/').map(|p| p.split('/').next().unwrap_or_default());
-            let path = part.starts_with("~/") || top.is_some_and(|t| FS_TOPS.contains(&t));
-            if i % 2 == 1 && path && !part.contains(char::is_whitespace) {
-                out.push(part.to_string());
-            }
-        }
-    }
-    out
-}
-
 /// The text a word holds, without one layer of quotes; `None` when the shell would expand something in it.
 fn literal_text(word: &str) -> Option<String> {
     if expands(word) {
@@ -772,7 +685,11 @@ fn python(words: &[String], seg: &Segment, place: &Place) -> bool {
     if let Some(at) = args.iter().position(|a| *a == "-m") {
         return args[..at].iter().all(|a| matches!(*a, "-I" | "-u" | "-B")) && args.get(at + 1) == Some(&"json.tool");
     }
-    let o = Options { flags: &["-I", "-u", "-B", "-E", "-s", "-S", "-O", "-OO", "-q"], values: &["-X", "-W"], inline: &["-c"] };
+    let o = Options {
+        flags: &["-I", "-u", "-B", "-E", "-s", "-S", "-O", "-OO", "-q"],
+        values: &["-X", "-W"],
+        inline: &["-c"],
+    };
     program_of(words, seg, &o, place).is_some_and(|(code, rest, temp)| {
         code_ok(&PYTHON, &code, &rest.iter().map(String::as_str).collect::<Vec<_>>(), place, temp)
     })
@@ -812,8 +729,9 @@ fn skill_query(file: &str, args: &[String], place: &Place) -> bool {
     let parts: Vec<&str> = Path::new(file).components().filter_map(|c| c.as_os_str().to_str()).collect();
     let steered = parts.windows(2).any(|w| matches!(w, [".claude" | ".codex", "skills"]));
     // Elsewhere only where the run cannot write without asking: outside the workspace.
-    let installed = parts.windows(2).any(|w| matches!(w, [".agents" | ".skillstack", "skills"] | [".gonggong", "skill-sets"]))
-        && !within_root(&expand_home(file), place.roots[0], place.roots);
+    let installed =
+        parts.windows(2).any(|w| matches!(w, [".agents" | ".skillstack", "skills"] | [".gonggong", "skill-sets"]))
+            && !within_root(&expand_home(file), place.roots[0], place.roots);
     let skill = steered || installed;
     let Some(sub) = args.first().map(|a| unquote(a)).filter(|a| !a.starts_with('-')) else { return false };
     let tokens = words_of(sub);
@@ -872,8 +790,10 @@ fn script_file(file: &str, args: &[&str], place: &Place, follow: &dyn Fn(&str) -
 }
 
 /// Team CLIs whose subcommands say whether they read.
-const CLIS: &[&str] =
-    &["lark-cli", "meegle", "aliyun", "gh", "glab", "kubectl", "docker", "helm", "npm", "pnpm", "yarn", "pip", "pip3", "brew", "fd"];
+const CLIS: &[&str] = &[
+    "lark-cli", "meegle", "aliyun", "gh", "glab", "kubectl", "docker", "helm", "npm", "pnpm", "yarn", "pip", "pip3",
+    "brew", "fd",
+];
 /// Words in a subcommand that read.
 const READS: &[&str] = &[
     "list", "get", "search", "query", "fetch", "view", "show", "status", "read", "describe", "inspect", "me", "info",
@@ -883,11 +803,75 @@ const READS: &[&str] = &[
 ];
 /// Words in a subcommand that change something.
 const CHANGES: &[&str] = &[
-    "create", "update", "upsert", "delete", "del", "remove", "rm", "batch", "set", "add", "upload", "login", "logout",
-    "publish", "send", "move", "mv", "copy", "cp", "apply", "write", "edit", "patch", "post", "put", "merge", "close",
-    "reopen", "approve", "comment", "transfer", "grant", "revoke", "run", "exec", "trigger", "build", "deploy",
-    "restart", "attach", "port", "proxy", "cordon", "drain", "taint", "label", "annotate", "stop", "start", "kill", "scale", "rollout", "drop", "reset", "import", "export", "install",
-    "uninstall", "enable", "disable", "download", "clone", "fork", "sync", "cancel", "rerun", "lock", "unlock", "pin",
+    "create",
+    "update",
+    "upsert",
+    "delete",
+    "del",
+    "remove",
+    "rm",
+    "batch",
+    "set",
+    "add",
+    "upload",
+    "login",
+    "logout",
+    "publish",
+    "send",
+    "move",
+    "mv",
+    "copy",
+    "cp",
+    "apply",
+    "write",
+    "edit",
+    "patch",
+    "post",
+    "put",
+    "merge",
+    "close",
+    "reopen",
+    "approve",
+    "comment",
+    "transfer",
+    "grant",
+    "revoke",
+    "run",
+    "exec",
+    "trigger",
+    "build",
+    "deploy",
+    "restart",
+    "attach",
+    "port",
+    "proxy",
+    "cordon",
+    "drain",
+    "taint",
+    "label",
+    "annotate",
+    "stop",
+    "start",
+    "kill",
+    "scale",
+    "rollout",
+    "drop",
+    "reset",
+    "import",
+    "export",
+    "install",
+    "uninstall",
+    "enable",
+    "disable",
+    "download",
+    "clone",
+    "fork",
+    "sync",
+    "cancel",
+    "rerun",
+    "lock",
+    "unlock",
+    "pin",
 ];
 
 /// A team CLI's read-only command: its subcommand words (before the first option) include one that reads and none
@@ -907,11 +891,14 @@ fn cli_read(name: &str, args: &[&str], place: &Place) -> bool {
     if api {
         let method = args.iter().position(|a| matches!(*a, "-X" | "--method")).and_then(|i| args.get(i + 1));
         let get = sub.get(1) == Some(&"GET") || method.is_none_or(|m| *m == "GET");
-        let body = args.iter().any(|a| matches!(*a, "-f" | "-F" | "--field" | "--raw-field" | "--input" | "--data" | "-d"));
+        let body =
+            args.iter().any(|a| matches!(*a, "-f" | "-F" | "--field" | "--raw-field" | "--input" | "--data" | "-d"));
         if !get || body || sub.get(1).is_some_and(|m| matches!(*m, "POST" | "PUT" | "PATCH" | "DELETE")) {
             return false;
         }
-    } else if !tokens.iter().any(|t| READS.contains(&t.as_str())) || tokens.iter().any(|t| CHANGES.contains(&t.as_str())) {
+    } else if !tokens.iter().any(|t| READS.contains(&t.as_str()))
+        || tokens.iter().any(|t| CHANGES.contains(&t.as_str()))
+    {
         return false;
     }
     let outputs_ok = args.windows(2).all(|w| match w[0] {
@@ -920,7 +907,10 @@ fn cli_read(name: &str, args: &[&str], place: &Place) -> bool {
         }
         _ => true,
     }) && !args.iter().any(|a| a.starts_with("--output=") && !place.writable(&a[9..]));
-    let paths_ok = args.iter().all(|a| !expands(a)) && outside_words(&args.iter().map(|a| a.to_string()).collect::<Vec<_>>(), place.roots).iter().all(|o| !sensitive(o));
+    let paths_ok = args.iter().all(|a| !expands(a))
+        && outside_words(&args.iter().map(|a| a.to_string()).collect::<Vec<_>>(), place.roots)
+            .iter()
+            .all(|o| !sensitive(o));
     outputs_ok && paths_ok
 }
 

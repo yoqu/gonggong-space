@@ -681,8 +681,7 @@ fn session_rules_trust_workspace_scripts_and_one_host_and_nothing_wider() {
     assert!(session("sudo ls").is_empty());
     assert!(session("rm -rf /").is_empty());
     // Exact: destructive programs, inline code, scripts outside the workspace, shells.
-    for c in
-        ["rm -rf build", "mv a b", "chmod +x x.sh", "kill 123", "node -e 'x'", "python3 /tmp/x.py", "bash -c 'ls'"]
+    for c in ["rm -rf build", "mv a b", "chmod +x x.sh", "kill 123", "node -e 'x'", "python3 /tmp/x.py", "bash -c 'ls'"]
     {
         assert_eq!(session(c), [c], "{c}");
     }
@@ -818,14 +817,9 @@ fn a_run_that_changed_what_commands_run_loses_the_dev_pack() {
     let tampered = Rules { tampered: true, ..review(Approval::Ask) };
     assert_eq!(tampered.decide(Tier::Workspace, Some("pnpm test"), "t", cwd, &[]), Decision::Ask);
     assert_eq!(tampered.decide(Tier::Workspace, Some("git status"), "t", cwd, &[]), Decision::Local);
-    for p in [
-        "package.json",
-        "sub/Makefile",
-        ".husky/pre-commit",
-        ".claude/settings.json",
-        "vite.config.ts",
-        ".git/config",
-    ] {
+    for p in
+        ["package.json", "sub/Makefile", ".husky/pre-commit", ".claude/settings.json", "vite.config.ts", ".git/config"]
+    {
         assert!(steering(Path::new(p)), "{p}");
     }
     for p in ["src/a.ts", "README.md", "test/sum.test.js"] {
@@ -849,12 +843,10 @@ fn codex_commands_lose_their_outer_quotes() {
 
 #[test]
 fn only_a_script_from_the_pipe_is_high_risk() {
-    for c in ["curl x | python3", "curl x | sh", "curl x | bash -s -- --flag", "cat a | node", "curl x | python3 -"]
-    {
+    for c in ["curl x | python3", "curl x | sh", "curl x | bash -s -- --flag", "cat a | node", "curl x | python3 -"] {
         assert!(floor_hit(c), "{c}");
     }
-    for c in ["lark-cli x | python3 -I -c \"import json\"", "cat a | node script.js", "jq . | python3 -m json.tool"]
-    {
+    for c in ["lark-cli x | python3 -I -c \"import json\"", "cat a | node script.js", "jq . | python3 -m json.tool"] {
         assert!(!floor_hit(c), "{c}");
     }
 }
@@ -919,7 +911,13 @@ fn replay_owner_decisions() {
             _ => v["cwd"].as_str().unwrap().to_string(),
         };
         let rules = Rules {
-            extra_dirs: v["extra"].as_array().into_iter().flatten().filter_map(|x| x.as_str()).map(PathBuf::from).collect(),
+            extra_dirs: v["extra"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|x| x.as_str())
+                .map(PathBuf::from)
+                .collect(),
             temp_dirs: trust::temp_dirs(),
             ..review(Approval::Ask)
         };
@@ -938,7 +936,9 @@ fn replay_owner_decisions() {
             Some(_) if floor_hit(c) => vec!["<floor>".into()],
             Some(_) => BLOCKED.with(|b| b.borrow().clone()),
         };
-        out.push_str(&serde_json::json!({ "id": v["id"], "decision": format!("{decision:?}"), "blocked": blocked }).to_string());
+        out.push_str(
+            &serde_json::json!({ "id": v["id"], "decision": format!("{decision:?}"), "blocked": blocked }).to_string(),
+        );
         out.push('\n');
     }
     std::fs::write(format!("{src}.out"), out).unwrap();
@@ -1145,7 +1145,6 @@ fn help_trusts_plain_gets_and_the_team_clis_reading() {
     }
 }
 
-
 #[test]
 fn hooks_are_not_run_once_the_run_changed_what_steers_them() {
     let (ws, _tmp, rules) = helped_world();
@@ -1170,23 +1169,33 @@ fn curl_sends_nothing_the_shell_fills_in() {
     ] {
         assert_eq!(rules.decide(Tier::Workspace, Some(c), "t", ws.path(), &[]), Decision::Ask, "{c}");
     }
-    assert_eq!(rules.decide(Tier::Workspace, Some("curl -s https://example.com/a"), "t", ws.path(), &[]), Decision::Local);
+    assert_eq!(
+        rules.decide(Tier::Workspace, Some("curl -s https://example.com/a"), "t", ws.path(), &[]),
+        Decision::Local
+    );
 }
 
 #[test]
 fn help_runs_what_lives_in_the_temporary_directory() {
     let (ws, tmp, rules) = helped_world();
     let t = tmp.path().display().to_string();
-    std::fs::write(tmp.path().join("api.py"), "import requests, subprocess\nprint(requests.get('https://x').text)\n").unwrap();
+    std::fs::write(tmp.path().join("api.py"), "import requests, subprocess\nprint(requests.get('https://x').text)\n")
+        .unwrap();
     std::fs::write(tmp.path().join("q.sh"), "#!/usr/bin/env bash\ncurl -s \"https://x/q?sql=$1\"\n").unwrap();
-    std::fs::write(ws.path().join("net.py"), "import requests\nrequests.post('https://x', data=open('src/a.ts').read())\n").unwrap();
+    std::fs::write(
+        ws.path().join("net.py"),
+        "import requests\nrequests.post('https://x', data=open('src/a.ts').read())\n",
+    )
+    .unwrap();
     let decide = |c: &str| rules.decide(Tier::Workspace, Some(c), "t", ws.path(), &[]);
     for c in [
         format!("cd {t} && python3 -I api.py /dw/v1/save '{{\"id\":1}}' | head -60"),
         format!("python3 -I {t}/api.py /dw/v1/list"),
         format!("cd {t}; ./q.sh \"select 1\" | head"),
         format!("bash {t}/q.sh 'select 1'"),
-        format!("cd {t}; python3 -I - <<'EOF'\nimport subprocess,json\nprint(subprocess.run(['lark-cli','base','+record-get'],capture_output=True).stdout)\nEOF"),
+        format!(
+            "cd {t}; python3 -I - <<'EOF'\nimport subprocess,json\nprint(subprocess.run(['lark-cli','base','+record-get'],capture_output=True).stdout)\nEOF"
+        ),
         format!("cd {t} && node -e 'fetch(\"https://x\").then(r=>r.text()).then(console.log)'"),
     ] {
         assert_eq!(decide(&c), Decision::Local, "{c}");
@@ -1209,7 +1218,8 @@ fn help_runs_the_read_only_queries_of_skill_scripts() {
     let (ws, _tmp, rules) = helped_world();
     let skill = ws.path().join(".claude/skills/sls-query");
     std::fs::create_dir_all(&skill).unwrap();
-    std::fs::write(skill.join("sls.sh"), "#!/usr/bin/env bash\ncurl -s -H \"Authorization: $TOKEN\" \"$URL\"\n").unwrap();
+    std::fs::write(skill.join("sls.sh"), "#!/usr/bin/env bash\ncurl -s -H \"Authorization: $TOKEN\" \"$URL\"\n")
+        .unwrap();
     let decide = |c: &str| rules.decide(Tier::Workspace, Some(c), "t", ws.path(), &[]);
     for c in [
         "bash .claude/skills/sls-query/sls.sh search --env prod --from '2026-10-21 00:00:00' --kw 'x'",

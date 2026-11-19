@@ -16,6 +16,5 @@
   "crates/gonggong/src/replicas.rs": 1102,
   "crates/gonggong/src/session.rs": 2353,
   "crates/gonggong/src/wechatide.rs": 1285,
-  "crates/gonggong/src/workspace.rs": 1746,
-  "packages/protocol/src/tools.ts": 1024
+  "crates/gonggong/src/workspace.rs": 1746
 }

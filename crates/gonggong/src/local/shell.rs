@@ -7,7 +7,8 @@ use std::collections::HashMap;
 /// Keywords that only open or close a compound command.
 const KEYWORDS: &[&str] = &["do", "then", "else", "elif", "if", "while", "until", "!", "{"];
 /// Statements that change nothing a later command depends on.
-const INERT: &[&str] = &["done", "fi", "}", "esac", "break", "continue", ":", "true", "false", "wait", "shift", "exit", "return"];
+const INERT: &[&str] =
+    &["done", "fi", "}", "esac", "break", "continue", ":", "true", "false", "wait", "shift", "exit", "return"];
 /// Variants of one command a line's loops may produce; past it the command is judged as written.
 const MAX_VARIANTS: usize = 32;
 /// The shell's own startup files, which a login shell runs anyway.
@@ -142,7 +143,8 @@ impl Shell {
         };
         let base: Vec<&Path> = self.dir.as_deref().into_iter().chain(roots.iter().copied()).collect();
         let inside = !self.away && dir.is_some_and(|d| cd_within(&["cd".into(), d.to_string()], &base));
-        let absolute_inside = dir.is_some_and(|d| Path::new(d).is_absolute() && cd_within(&["cd".into(), d.to_string()], roots));
+        let absolute_inside =
+            dir.is_some_and(|d| Path::new(d).is_absolute() && cd_within(&["cd".into(), d.to_string()], roots));
         if inside || absolute_inside {
             let d = Path::new(dir.unwrap_or_default());
             let to = if d.is_absolute() { d.to_path_buf() } else { base[0].join(d) };
@@ -175,7 +177,11 @@ impl Shell {
         }
         // Without 帮我审批 only what changes no program's behaviour: lowercase shell variables, output settings.
         let ok = (exported && env_assignment(word))
-            || if help { trust::assignable(name, value, roots, exported) } else { !exported && super::assignment(word) };
+            || if help {
+                trust::assignable(name, value, roots, exported)
+            } else {
+                !exported && super::assignment(word)
+            };
         if ok {
             self.bind(name, &[value.to_string()]);
         }
@@ -199,7 +205,8 @@ impl Shell {
 
 fn identifier(name: &str) -> bool {
     let mut chars = name.chars();
-    chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 fn assignment_word(w: &str) -> bool {

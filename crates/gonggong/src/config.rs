@@ -157,9 +157,8 @@ impl Settings {
     pub fn load(home: &Path) -> Result<Settings> {
         let path = home.join("settings.json");
         match std::fs::read_to_string(&path) {
-            Ok(s) => Ok(serde_json::from_str(&s).with_context(|| {
-                crate::t!("设置文件 {path} 格式损坏，请检查文件内容", path = path.display())
-            })?),
+            Ok(s) => Ok(serde_json::from_str(&s)
+                .with_context(|| crate::t!("设置文件 {path} 格式损坏，请检查文件内容", path = path.display()))?),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
             Err(e) => Err(e.into()),
         }

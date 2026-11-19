@@ -420,7 +420,11 @@ pub async fn install(home: &Path, kind: ToolKind, version: Option<&str>, progres
         bail!(t!("运行 Agent 需要 Node.js ≥ {min}，不能安装 {v}", min = MIN_NODE_MAJOR, v = v));
     }
     if let Some(command) = kind.own_install() {
-        bail!(t!("{tool} 不能由共工托管安装，请在这台电脑的终端运行：{command}", tool = kind.label(), command = command));
+        bail!(t!(
+            "{tool} 不能由共工托管安装，请在这台电脑的终端运行：{command}",
+            tool = kind.label(),
+            command = command
+        ));
     }
     {
         let _busy = busy(home)?;
@@ -742,7 +746,11 @@ pub fn cached_latest(home: &Path, kind: ToolKind) -> Option<String> {
 /// Latest version of `kind` on the configured mirror, cached for 6 hours unless `force`.
 pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> {
     if let Some(command) = kind.own_install() {
-        bail!(t!("{tool} 不能由共工托管安装，请在这台电脑的终端运行：{command}", tool = kind.label(), command = command));
+        bail!(t!(
+            "{tool} 不能由共工托管安装，请在这台电脑的终端运行：{command}",
+            tool = kind.label(),
+            command = command
+        ));
     }
     let settings = Settings::load(home)?;
     let mirror = &settings.mirror;

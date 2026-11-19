@@ -146,10 +146,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ),
     ("请在网页上确认这台电脑：", "Allow this computer on the Web:"),
     ("接入申请已过期，已重新发起：", "The connection request expired; sent a new one:"),
-    (
-        "接入申请已被拒绝；如需接入，请重新运行 {cmd}",
-        "The connection request was denied; to connect, run {cmd} again",
-    ),
+    ("接入申请已被拒绝；如需接入，请重新运行 {cmd}", "The connection request was denied; to connect, run {cmd} again"),
     (
         "接入申请一直没有人确认，已停止等待；准备好后请重新运行 {cmd}",
         "Nobody allowed the connection request, so gg stopped waiting; run {cmd} again when ready",
@@ -212,7 +209,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     ),
     ("可选模型：{models}", "Models: {models}"),
     ("未提供可选模型", "No models provided"),
-    ("可选模型待探测（共工客户端运行时自动探测）", "Models not probed yet (detected automatically while the Gonggong client runs)"),
+    (
+        "可选模型待探测（共工客户端运行时自动探测）",
+        "Models not probed yet (detected automatically while the Gonggong client runs)",
+    ),
     ("最新 {v}（可升级）", "Latest {v} (upgrade available)"),
     ("已是最新", "Up to date"),
     ("最新 {v}", "Latest {v}"),
@@ -257,10 +257,7 @@ pub(super) const EN: &[(&str, &str)] = &[
         "没有要修改的内容（--name / --base-url / --model / --key-stdin）",
         "Nothing to change (--name / --base-url / --model / --key-stdin)",
     ),
-    (
-        "已修改 {id}；使用它的会话会重启进程后继续",
-        "Updated {id}; sessions using it will restart and continue",
-    ),
+    ("已修改 {id}；使用它的会话会重启进程后继续", "Updated {id}; sessions using it will restart and continue"),
     (
         "已删除 {name}；使用它的会话下一轮会自动开启新会话",
         "Deleted {name}; sessions using it start a new session on their next turn",
@@ -538,7 +535,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("等待确认：同一工作区有其他会话在运行", "Awaiting confirmation: another session is running in the same workspace"),
     ("已批准：{title}", "Approved: {title}"),
     ("请求被拒绝，agent 自行绕路", "Request denied; the Agent will try another way"),
-    ("审批方式已切换为「完全允许」，自动批准：{title}", "Approval mode switched to \"Allow everything\"; auto-approved: {title}"),
+    (
+        "审批方式已切换为「完全允许」，自动批准：{title}",
+        "Approval mode switched to \"Allow everything\"; auto-approved: {title}",
+    ),
     ("已按命令审批规则自动批准：{command}", "Auto-approved by command approval rules: {command}"),
     ("审批由 Claude 内置审核（auto 模式）把关", "Approvals go to Claude's built-in review (auto mode)"),
     ("审批由 Codex 内置审核（agent 模式）把关", "Approvals go to Codex's built-in review (agent mode)"),
