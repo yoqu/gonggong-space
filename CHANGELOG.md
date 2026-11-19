@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.27 — 2026-11-19
+
+- 话题与群主会话可并行运行，仍受 Bot 并发上限约束，同一会话仍按顺序执行 / Threads and the main conversation can run in parallel within the bot's concurrency limit; each conversation still runs one turn at a time
+- 话题里的 Bot 可通过 `hand_off` 的 `thread: 'main'` 参数把任务交到群主会话，包括交给主会话里的自己 / Bots in threads can use `hand_off` with `thread: 'main'` to delegate to the main conversation, including to themselves
+
 ## v0.4.26 — 2026-11-19
 
 - 原型画布标出 AI 正在改的页面，改完播放过渡；daemon 上报本轮写过的文件 / The prototype canvas marks the screens an AI is editing and plays a transition when done; the daemon reports the files each run writes
