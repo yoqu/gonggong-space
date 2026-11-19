@@ -45,9 +45,15 @@ export function Tooltip({
       className="ui-tip-anchor"
       onMouseEnter={() => show(delay)}
       onMouseLeave={hide}
-      onFocus={() => {
+      onFocus={(e) => {
         clearTimeout(timer.current)
-        setOpen(true)
+        let visible = false
+        try {
+          visible = e.target instanceof Element && e.target.matches(':focus-visible')
+        } catch {
+          visible = true
+        }
+        if (visible) setOpen(true)
       }}
       onBlur={hide}
       onKeyDown={(e) => {

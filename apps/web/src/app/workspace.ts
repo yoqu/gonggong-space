@@ -48,7 +48,7 @@ const upsert = <T extends { id: string }>(list: T[], item: T) =>
 /** Same one-line preview the server computes for GroupDto.last. */
 const previewOf = (m: Pick<MessageDto, 'kind' | 'authorName' | 'body'>) => {
   const line = m.body.replace(/\n[\s\S]*$/, '').slice(0, 80)
-  return m.kind === 'event' ? line : `${m.authorName}：${line}`
+  return m.kind === 'event' ? line : t('{name}：{line}', { name: m.authorName, line })
 }
 
 function withMessage(g: GroupDto, m: MessageDto, activeGroupId: string | null): GroupDto {

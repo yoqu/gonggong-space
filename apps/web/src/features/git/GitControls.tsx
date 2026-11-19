@@ -45,7 +45,14 @@ function MenuItem({
   onClick: () => void
 }) {
   return (
-    <button type="button" className="git-subs__item" aria-label={aria} disabled={disabled} onClick={onClick}>
+    <button
+      type="button"
+      role="menuitem"
+      className="git-subs__item"
+      aria-label={aria}
+      disabled={disabled}
+      onClick={onClick}
+    >
       <span className="git-menu__icon" data-spin={spin || undefined}>
         <Icon name={icon} size={13} />
       </span>
@@ -100,7 +107,23 @@ export function WorkspaceMenu({
           run()
         }
         return (
-          <div className="git-subs">
+          <div
+            className="git-subs"
+            role="menu"
+            aria-label={label}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+              const items = [
+                ...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
+              ]
+              if (!items.length) return
+              e.preventDefault()
+              const i = items.indexOf(document.activeElement as HTMLButtonElement)
+              const next =
+                e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length
+              items[next]?.focus()
+            }}
+          >
             <div className="git-menu__head">{head}</div>
             {onNewSession ? (
               <MenuItem

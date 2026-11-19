@@ -1,9 +1,11 @@
 import type { GitActionKind, GitChangesDto, GitStatus, RepoStatus } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useIsMobile } from '../../app/viewport'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { Icon, MenuButton, type MenuItem, Tooltip, toast, useFlash } from '../../ui'
+import { useWide } from '../diff/useWide'
 import { type GitTarget, refreshGit } from './api'
 import { BranchPopup } from './BranchPopup'
 import { gitCommands } from './commands'
@@ -72,6 +74,10 @@ export function GitToolbar({
   changes: GitChangesDto | null
   onRepo: (repo: string | null) => void
 }) {
+  const barRef = useRef<HTMLDivElement>(null)
+  const mobile = useIsMobile()
+  const wide = useWide(barRef, 520)
+  const compact = mobile || !wide
   const [fetching, setFetching] = useState(false)
   const [fetched, flashFetched] = useFlash()
   const pull = useActionState(target, 'pull')
@@ -92,6 +98,22 @@ export function GitToolbar({
     setFetching(false)
   }
   const more: MenuItem[] = [
+    ...(compact
+      ? [
+          {
+            value: 'fetch',
+            label: fetching ? t('正在获取远程更新…') : t('获取远程更新'),
+            disabled: fetching,
+          },
+          {
+            value: 'update',
+            label: pull === 'busy' ? t('正在更新…') : t('更新…'),
+            disabled: pull === 'busy',
+          },
+          { value: 'push', label: push === 'busy' ? t('正在推送…') : pushLabel, disabled: push === 'busy' },
+          { separator: true as const },
+        ]
+      : []),
     { value: 'branch', label: t('新建分支…'), icon: 'git-branch' },
     { value: 'revision', label: t('检出标签或修订…'), icon: 'tag' },
     { separator: true },
@@ -107,7 +129,10 @@ export function GitToolbar({
     { value: 'files', label: t('浏览此版本的文件'), icon: 'folder', disabled: !!target.repo },
   ]
   const onMore = (v: string) => {
-    if (v === 'branch') cmd.newBranch()
+    if (v === 'fetch') void fetchAll()
+    else if (v === 'update') cmd.pull()
+    else if (v === 'push') cmd.push()
+    else if (v === 'branch') cmd.newBranch()
     else if (v === 'revision') cmd.checkoutRevision()
     else if (v === 'pull') cmd.pullRemote()
     else if (v === 'merge') cmd.merge()
@@ -119,7 +144,13 @@ export function GitToolbar({
     else if (v === 'files') cmd.browse(status.branch ?? 'HEAD')
   }
   return (
-    <div className="wb-git__bar" role="toolbar" aria-label={t('Git 工具栏')}>
+    <div
+      ref={barRef}
+      className="wb-git__bar"
+      data-compact={compact ? '' : undefined}
+      role="toolbar"
+      aria-label={t('Git 工具栏')}
+    >
       {views}
       <span className="spacer" />
       <BranchPopup target={target} status={status} git={git} onRepo={onRepo}>
@@ -145,43 +176,47 @@ export function GitToolbar({
           ↑{status.ahead}
         </span>
       ) : null}
-      <span className="gtb-sep" />
-      <Tooltip content={t('获取远程更新')}>
-        <button
-          type="button"
-          className="gtb-btn"
-          aria-label={fetching ? t('正在获取远程更新…') : t('获取远程更新')}
-          aria-busy={fetching || undefined}
-          disabled={fetching}
-          onClick={() => void fetchAll()}
-        >
-          <GitGlyph kind="fetch" state={fetching ? 'busy' : fetched ? 'done' : 'idle'} />
-        </button>
-      </Tooltip>
-      <Tooltip content={pull === 'busy' ? t('正在更新…') : t('更新…')}>
-        <button
-          type="button"
-          className="gtb-btn gtb-btn--in"
-          aria-label={pull === 'busy' ? t('正在更新…') : t('更新…')}
-          aria-busy={pull === 'busy' || undefined}
-          disabled={pull === 'busy'}
-          onClick={cmd.pull}
-        >
-          <GitGlyph kind="pull" state={pull} />
-        </button>
-      </Tooltip>
-      <Tooltip content={push === 'busy' ? t('正在推送…') : pushLabel}>
-        <button
-          type="button"
-          className="gtb-btn gtb-btn--out"
-          aria-label={push === 'busy' ? t('正在推送…') : pushLabel}
-          aria-busy={push === 'busy' || undefined}
-          disabled={push === 'busy'}
-          onClick={() => cmd.push()}
-        >
-          <GitGlyph kind="push" state={push} />
-        </button>
-      </Tooltip>
+      {compact ? null : (
+        <>
+          <span className="gtb-sep" />
+          <Tooltip content={t('获取远程更新')}>
+            <button
+              type="button"
+              className="gtb-btn"
+              aria-label={fetching ? t('正在获取远程更新…') : t('获取远程更新')}
+              aria-busy={fetching || undefined}
+              disabled={fetching}
+              onClick={() => void fetchAll()}
+            >
+              <GitGlyph kind="fetch" state={fetching ? 'busy' : fetched ? 'done' : 'idle'} />
+            </button>
+          </Tooltip>
+          <Tooltip content={pull === 'busy' ? t('正在更新…') : t('更新…')}>
+            <button
+              type="button"
+              className="gtb-btn gtb-btn--in"
+              aria-label={pull === 'busy' ? t('正在更新…') : t('更新…')}
+              aria-busy={pull === 'busy' || undefined}
+              disabled={pull === 'busy'}
+              onClick={cmd.pull}
+            >
+              <GitGlyph kind="pull" state={pull} />
+            </button>
+          </Tooltip>
+          <Tooltip content={push === 'busy' ? t('正在推送…') : pushLabel}>
+            <button
+              type="button"
+              className="gtb-btn gtb-btn--out"
+              aria-label={push === 'busy' ? t('正在推送…') : pushLabel}
+              aria-busy={push === 'busy' || undefined}
+              disabled={push === 'busy'}
+              onClick={() => cmd.push()}
+            >
+              <GitGlyph kind="push" state={push} />
+            </button>
+          </Tooltip>
+        </>
+      )}
       <MenuButton
         className="gtb-btn"
         aria-label={t('更多 Git 操作')}

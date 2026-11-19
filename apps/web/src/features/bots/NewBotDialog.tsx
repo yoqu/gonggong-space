@@ -14,6 +14,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { ago } from '../../lib/time'
 import {
   AgentIcon,
   Alert,
@@ -167,7 +168,13 @@ const missingText = (machine: string, agent: string) =>
 const undetectedText = (machine: string, agent: string) =>
   t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine, agent })
 
-const RESULT_VARIANT = { pending: 'info', warn: 'warning', ok: 'success', confirm: 'info' } as const
+const RESULT_VARIANT = {
+  pending: 'info',
+  warn: 'warning',
+  ok: 'success',
+  offline: 'info',
+  confirm: 'info',
+} as const
 
 /** What to do after creating: follows the live bot, so binding a machine or bringing it online updates it. */
 function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
@@ -305,8 +312,8 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
         }
       : self
         ? {
-            tone: 'ok',
-            title: t('创建后立即可用'),
+            tone: m.online ? 'ok' : 'offline',
+            title: m.online ? t('创建后立即可用') : t('创建后可拉入群'),
             desc: t(
               m.online
                 ? '绑定到 {machine} · {agent} {version}，可直接拉入群触发。'
@@ -429,17 +436,30 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
             <RadioGroup
               aria-label={t('运行电脑')}
               value={m?.id}
-              options={machines.map((x) => ({
-                value: x.id,
-                label: (
-                  <span className="newbot__machine">
-                    <span className="newbot__mono">{x.name}</span>
-                    <span className="newbot__muted">
-                      {OS_LABEL[x.os]} · {x.online ? t('在线') : t('离线')}
-                    </span>
-                  </span>
-                ),
-              }))}
+              options={(() => {
+                const counts = new Map<string, number>()
+                for (const x of machines) counts.set(x.name, (counts.get(x.name) ?? 0) + 1)
+                return machines.map((x) => {
+                  const dup = (counts.get(x.name) ?? 0) > 1
+                  const extra = dup
+                    ? !x.online && x.lastSeenAt
+                      ? ` · ${t('最后在线 {time}', { time: ago(x.lastSeenAt) })}`
+                      : ` · #${x.id.slice(0, 4)}`
+                    : ''
+                  return {
+                    value: x.id,
+                    label: (
+                      <span className="newbot__machine">
+                        <span>{x.name}</span>
+                        <span className="newbot__muted">
+                          {OS_LABEL[x.os]} · {x.online ? t('在线') : t('离线')}
+                          {extra}
+                        </span>
+                      </span>
+                    ),
+                  }
+                })
+              })()}
               onChange={(id) => {
                 const x = machines.find((y) => y.id === id)
                 if (!x) return
@@ -552,7 +572,9 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
           </FormRow>
         ) : null}
       </Form>
-      <Alert variant={RESULT_VARIANT[result.tone]} title={result.title} description={result.desc} />
+      <div className={result.tone === 'offline' ? 'newbot__alert--neutral' : undefined}>
+        <Alert variant={RESULT_VARIANT[result.tone]} title={result.title} description={result.desc} />
+      </div>
     </Shell>
   )
 }

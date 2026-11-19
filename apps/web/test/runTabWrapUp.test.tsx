@@ -229,7 +229,7 @@ describe('purged runs', () => {
   it('still show their requests, which are kept for good', async () => {
     serve(detail({ purged: true }))
     render(<RunTab {...tab('process')} />)
-    expect(await screen.findByText('运行过程已过期，仅保留摘要')).toBeTruthy()
+    expect(await screen.findByText('运行过程已过期，结果见聊天里的回复')).toBeTruthy()
     expect(await screen.findByText('rm -rf dist')).toBeTruthy()
     expect(screen.getByText(/允许改 fixture 吗/)).toBeTruthy()
   })

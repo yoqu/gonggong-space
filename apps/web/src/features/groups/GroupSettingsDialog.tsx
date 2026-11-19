@@ -1,9 +1,10 @@
-import { type GroupDto, GroupParams, type JoinRequestDto } from '@gonggong/protocol'
+import { type GroupDto, GroupParams, type JoinRequestDto, type SecretNeedDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   AvatarEditor,
   Button,
@@ -13,6 +14,7 @@ import {
   Icon,
   type IconName,
   PopUpButton,
+  Presence,
   SegmentedControl,
   Spinner,
   Stepper,
@@ -29,6 +31,7 @@ import { InstalledSection } from '../market/InstallList'
 import { GroupPluginsTab } from '../plugins/PluginLayer'
 import { RepoSettings } from '../repos/RepoSettings'
 import { GroupSecrets } from '../secrets/GroupSecrets'
+import { NeedsDialog } from '../secrets/SecretNeeds'
 import { groupsApi } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { BotsView, MembersView, type SettingsTab } from './GroupInfo'
@@ -168,20 +171,12 @@ export function GroupSettingsDialog({
             <BotsView group={group} isAdmin={!readOnly} member />
           ) : tab === 'repo' ? (
             <RepoSettings group={group} isAdmin={!readOnly} />
-          ) : readOnly && (tab === 'mcp' || tab === 'skill') ? (
-            <>
-              <GroupConfigView groupId={group.id} kind={tab} />
-              {tab === 'skill' ? <InstalledSection base={`/groups/${group.id}`} readOnly /> : null}
-            </>
+          ) : readOnly && tab === 'mcp' ? (
+            <GroupConfigView groupId={group.id} kind="mcp" />
           ) : tab === 'mcp' ? (
             <GroupMcpTab group={group} />
           ) : tab === 'skill' ? (
-            <>
-              <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
-              <SkillLayerList base={`/groups/${group.id}/skills`} tag={t('群层')} />
-              <InheritedSkillList groupId={group.id} />
-              <InstalledSection base={`/groups/${group.id}`} onLeave={onClose} />
-            </>
+            <GroupSkillTab group={group} readOnly={readOnly} onClose={onClose} />
           ) : tab === 'secrets' ? (
             <GroupSecrets group={group} editable={!readOnly} />
           ) : tab === 'plugins' ? (
@@ -437,6 +432,62 @@ function GroupMcpTab({ group }: { group: GroupDto }) {
       <McpLayerList layer={layer} tag={t('群层')} />
       <McpSaved force={layer.savedForce} />
       <InheritedMcpList groupId={group.id} />
+    </>
+  )
+}
+
+function GroupSkillTab({
+  group,
+  readOnly,
+  onClose,
+}: {
+  group: GroupDto
+  readOnly: boolean
+  onClose: () => void
+}) {
+  const needs = useGet<SecretNeedDto[]>(`/groups/${group.id}/secret-needs`)
+  const skills = useGet<unknown[]>(readOnly ? null : `/groups/${group.id}/skills`)
+  const installs = useGet<unknown[]>(readOnly ? null : `/groups/${group.id}/installs`)
+  const [openSecrets, setOpenSecrets] = useState(false)
+  const compactEmpty = !readOnly && skills.data?.length === 0 && (installs.data?.length ?? 0) > 0
+  return (
+    <>
+      {needs.data?.length ? (
+        <div className="gs-note">
+          {t('本群的 Skill 声明了 {n} 个密钥', { n: new Set(needs.data.map((n) => n.spec.name)).size })}{' '}
+          <Button size="small" onClick={() => setOpenSecrets(true)}>
+            {t('配置密钥')}
+          </Button>
+        </div>
+      ) : null}
+      {readOnly ? (
+        <>
+          <GroupConfigView groupId={group.id} kind="skill" />
+          <InstalledSection base={`/groups/${group.id}`} readOnly />
+        </>
+      ) : (
+        <>
+          <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
+          <div className={cx(compactEmpty && 'gs-skill--compact')}>
+            <SkillLayerList base={`/groups/${group.id}/skills`} tag={t('群层')} />
+          </div>
+          <InheritedSkillList groupId={group.id} />
+          <InstalledSection base={`/groups/${group.id}`} onLeave={onClose} />
+        </>
+      )}
+      <Presence>
+        {openSecrets && needs.data ? (
+          <NeedsDialog
+            groupId={group.id}
+            needs={needs.data}
+            onClose={() => setOpenSecrets(false)}
+            onDone={() => {
+              setOpenSecrets(false)
+              needs.reload()
+            }}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

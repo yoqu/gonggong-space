@@ -153,10 +153,47 @@ export function PushDialog({
   const mainline = group?.repo?.branch ?? null
   const protectedBase = group?.protectBase ? mainline : null
   const tip = upTo?.hash ?? name
+  const hasHead = (refs?.branches ?? []).some((b) => b.kind === 'remote' && b.name === `${at}/HEAD`)
+  const fallbackBase =
+    mainline && onRemote.includes(mainline)
+      ? `${at}/${mainline}`
+      : hasHead
+        ? `${at}/HEAD`
+        : onRemote.includes('main')
+          ? `${at}/main`
+          : onRemote.includes('master')
+            ? `${at}/master`
+            : null
   const range =
-    !name || !valid ? null : published ? `${dest}..${tip}` : mainline ? `${at}/${mainline}..${tip}` : null
+    !name || !valid || !refs
+      ? null
+      : published
+        ? `${dest}..${tip}`
+        : fallbackBase
+          ? `${fallbackBase}..${tip}`
+          : tip
   const log = useGitGet<GitLogDto>(range ? gitUrls.log(base, range, 0, target.repo) : null, stamp)
-  const commits = log.data?.commits ?? []
+  const rawCommits = log.data?.commits ?? []
+  const commits =
+    published || fallbackBase
+      ? rawCommits
+      : (() => {
+          const remoteRefs = new Set(
+            (refs?.branches ?? []).filter((b) => b.kind === 'remote').map((b) => b.name),
+          )
+          const remoteHashes = new Set<string>()
+          const out: typeof rawCommits = []
+          for (const c of rawCommits) {
+            const onRem = remoteHashes.has(c.hash) || c.refs.some((r) => remoteRefs.has(r))
+            if (onRem) {
+              remoteHashes.add(c.hash)
+              for (const p of c.parents) remoteHashes.add(p)
+            } else {
+              out.push(c)
+            }
+          }
+          return out
+        })()
   const shown = picked.size ? commits.filter((c) => picked.has(c.hash)) : commits
   const read = useCommitChanges(target, shown)
   const failed = shown.map((c) => read[c.hash]).find((r) => typeof r === 'string')

@@ -31,10 +31,12 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
     // A hidden entry still shows, selected, while its page is opened directly.
     ...(worksShown || works ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
     ...(builder || market ? [{ id: 'market', label: t('市场'), icon: 'tag' as const }] : []),
-    ...(builder || machines ? [{ id: 'machines', label: t('电脑与 Bot'), icon: 'server' as const }] : []),
+    ...(builder || machines ? [{ id: 'machines', label: t('电脑与 Bot#nav'), icon: 'server' as const }] : []),
     { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]
-  const adminItems: NavRailItem[] = admin ? [{ id: 'admin', label: t('管理后台'), icon: 'shield-check' }] : []
+  const adminItems: NavRailItem[] = admin
+    ? [{ id: 'admin', label: t('管理后台#nav'), icon: 'shield-check' }]
+    : []
   const select = (id: string) => {
     if (id === 'admin') navigate('/admin')
     else if (id === 'notif') set(overlay === 'notif' ? null : 'notif')

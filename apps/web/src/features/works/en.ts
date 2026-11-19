@@ -12,6 +12,8 @@ export default {
   团队可见: 'Team',
   全员可见: 'Everyone',
   没有符合条件的作品: 'No matching works',
+  还没有已共享的作品: 'No shared works yet',
+  你共享给团队或公开的作品会出现在这里: 'Works you share with your team or make public appear here',
   还没有作品: 'No works yet',
   '在群聊里发起创作，产出的原型和幻灯片会汇总到这里':
     'Start a creation in a group chat; the prototypes and slides it makes gather here',

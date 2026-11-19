@@ -326,8 +326,14 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           </Dialog>
         ) : null}
       </Presence>
-      <span className="att-chips__note">
-        {`${t('{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git', { n: uploads.items.length, max: MAX_ATTACHMENTS })}${image ? t(' · 图片：agent 支持时同时以 ACP 图片发送') : ''}`}
+      <span
+        className="att-chips__note"
+        title={t('{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git', {
+          n: uploads.items.length,
+          max: MAX_ATTACHMENTS,
+        })}
+      >
+        {`${t('{n} / {max} · Bot 能读到这些文件', { n: uploads.items.length, max: MAX_ATTACHMENTS })}${image ? t(' · 图片：agent 支持时同时以 ACP 图片发送') : ''}`}
       </span>
     </div>
   )

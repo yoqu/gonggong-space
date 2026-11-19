@@ -216,7 +216,7 @@ describe('overview', () => {
     show(status({ runs: [r1] }))
     fireEvent.click(within(screen.getByTestId('running')).getByRole('button', { name: /小王的 Claude/ }))
     const alert = (await screen.findByText(title)).closest('[role="alert"]') as HTMLElement
-    expect(alert.querySelector('pre')?.textContent).toBe(detail)
+    expect(alert.querySelector('.run-issue__detail')?.textContent).toBe(detail)
   })
 
   it('shows no banner for a completed run or one interrupted without a reason', async () => {

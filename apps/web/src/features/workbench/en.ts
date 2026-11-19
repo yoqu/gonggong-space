@@ -45,6 +45,8 @@ export default {
   改动: 'Changes',
   审批记录: 'Approvals',
   '运行过程已过期，仅保留摘要': 'Run details expired; only the summary is kept',
+  '运行过程已过期，结果见聊天里的回复': 'Run details expired; see the reply in chat',
+  '本轮共 {n} tokens，分项已随过程清理': '{n} tokens total this turn; breakdown expired with the process',
   '{name} 触发': 'Triggered by {name}',
   电脑与会话: 'Computer and session',
   模型: 'Model',
@@ -156,4 +158,6 @@ export default {
   '没有可用的电脑：需要你的一台在线的 macOS 或 Linux 电脑，且共工客户端已升级到最新版本。':
     'No computer available: you need one of your computers online, on macOS or Linux, with the latest Gonggong client.',
   '这次运行的 Agent 没有上报上下文用量': 'The agent did not report context usage for this run',
+  还没有工作区: 'No workspace yet',
+  机器离线: 'Machine offline',
 } satisfies Record<string, string>

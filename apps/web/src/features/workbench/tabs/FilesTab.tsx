@@ -516,7 +516,12 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           aria-pressed={showTree}
           onClick={() => (wide ? setCollapsed((c) => !c) : setTreeOpen((o) => !o))}
         />
-        <PathControl className="wt-files__path" items={crumbs} onSelect={(dir) => patch(tabKey, { dir })} />
+        <PathControl
+          className="wt-files__path"
+          items={crumbs}
+          maxItems={3}
+          onSelect={(dir) => patch(tabKey, { dir })}
+        />
         {rev ? null : (
           <SearchField
             className="wt-files__search"

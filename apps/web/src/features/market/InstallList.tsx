@@ -10,9 +10,11 @@ import {
   Button,
   ConfirmActionDialog,
   Dialog,
+  EmptyState,
   GroupBox,
   GroupRow,
   IconButton,
+  NoPluginsArt,
   Presence,
   RadioGroup,
   SearchField,
@@ -37,10 +39,13 @@ const LAYER_LABEL: Record<ListingSummary['layer'], string> = {
 export function InstallList({
   base,
   readOnly = false,
+  emptyArt = false,
   onLeave,
 }: {
   base: string
   readOnly?: boolean
+  /** Render the full illustrated EmptyState when empty (used on My Skills). */
+  emptyArt?: boolean
   /** Offers 打开市场 to browse for more, closing the caller's dialog on the way. */
   onLeave?: () => void
 }) {
@@ -54,9 +59,19 @@ export function InstallList({
     <>
       {error ? <Alert variant="error" title={t('配置加载失败')} description={error} /> : null}
       {data?.length === 0 ? (
-        <div className="gs-note">
-          {readOnly ? t('还没有引入条目') : t('还没有引入条目，可以去市场挑选 Skill 和插件')}
-        </div>
+        emptyArt ? (
+          <EmptyState
+            compact
+            illustration={<NoPluginsArt />}
+            title={t('还没有引入条目')}
+            description={readOnly ? undefined : t('还没有引入条目，可以去市场挑选 Skill 和插件')}
+            action={!readOnly && onLeave ? <OpenMarket onLeave={onLeave} /> : undefined}
+          />
+        ) : (
+          <div className="gs-note">
+            {readOnly ? t('还没有引入条目') : t('还没有引入条目，可以去市场挑选 Skill 和插件')}
+          </div>
+        )
       ) : (
         <GroupBox>
           {data?.map((i) => {
@@ -120,7 +135,7 @@ export function InstallList({
           })}
         </GroupBox>
       )}
-      {readOnly ? null : (
+      {readOnly || (emptyArt && data?.length === 0) ? null : (
         <div className="cfg__foot">
           <span className="spacer" />
           {onLeave ? <OpenMarket onLeave={onLeave} /> : null}

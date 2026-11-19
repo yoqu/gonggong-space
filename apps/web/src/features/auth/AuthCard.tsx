@@ -46,7 +46,10 @@ export function AuthCard({
         <div className="auth__card">
           <m.form animate={shake} onSubmit={onSubmit} noValidate className="auth__form">
             <div className="auth__head">
-              <Logo size={40} className="auth__logo" />
+              <div className="auth__brand">
+                <Logo size={40} className="auth__logo" />
+                <span className="auth__brand-name">{t('共工空间')}</span>
+              </div>
               {/* Narrow screens hide the stage; this line keeps what the product is for. */}
               {variant === 'login' ? (
                 <p className="auth__tagline">{t('在群里 @ 一下，队友的 Bot 就开工。')}</p>

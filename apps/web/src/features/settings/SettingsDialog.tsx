@@ -168,7 +168,7 @@ function MySkillsPage({ onClose }: { onClose: () => void }) {
       <div className="gs-note">
         {t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
       </div>
-      <InstallList base={PERSONAL_BASE} onLeave={onClose} />
+      <InstallList base={PERSONAL_BASE} emptyArt onLeave={onClose} />
     </>
   )
 }

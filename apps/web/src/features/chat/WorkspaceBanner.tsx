@@ -25,6 +25,27 @@ const readHidden = (): string[] => {
   }
 }
 
+import { create } from 'zustand'
+
+export const useWorkspaceBannerHidden = create<{ hidden: string[]; add: (keys: string[]) => void }>(
+  (set) => ({
+    hidden: readHidden(),
+    add: (keys) =>
+      set((s) => {
+        const next = [...new Set([...s.hidden, ...keys])].slice(-200)
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify(next))
+        return { hidden: next }
+      }),
+  }),
+)
+
+export const workspaceBannerHideKey = (
+  groupId: string,
+  botId: string,
+  state?: string,
+  reason?: string | null,
+) => `${groupId}:${botId}:${state}:${reason ?? ''}`
+
 /**
  * Bots waiting for their owner's workspace choice (plan W5): one to confirm in a repo group is not run meanwhile; one
  * left without any (from before managed became the default) moves onto a managed directory when @-ed.
@@ -37,14 +58,11 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const [picking, setPicking] = useState<BotDto | null>(null)
   const navigate = useNavigate()
   // Hidden per bot and state: a banner comes back once the bot's state changes.
-  const [hidden, setHidden] = useState(readHidden)
+  const hidden = useWorkspaceBannerHidden((s) => s.hidden)
+  const addHidden = useWorkspaceBannerHidden((s) => s.add)
   const hideKey = (b: BotDto) =>
-    `${group.id}:${b.id}:${states?.[b.id]?.state}:${states?.[b.id]?.reason ?? ''}`
-  const hide = (list: BotDto[]) => {
-    const next = [...new Set([...hidden, ...list.map(hideKey)])].slice(-200)
-    localStorage.setItem(HIDDEN_KEY, JSON.stringify(next))
-    setHidden(next)
-  }
+    workspaceBannerHideKey(group.id, b.id, states?.[b.id]?.state, states?.[b.id]?.reason)
+  const hide = (list: BotDto[]) => addHidden(list.map(hideKey))
   const inGroup = bots.filter((b) => group.botIds.includes(b.id) && !hidden.includes(hideKey(b)))
   const waiting = inGroup.filter((b) => ['unbound', 'confirm'].includes(states?.[b.id]?.state ?? ''))
   const paused = inGroup.filter((b) => {

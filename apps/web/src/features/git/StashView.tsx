@@ -25,11 +25,13 @@ export const stashDiff = (target: GitTarget, stash: GitStash, c: TreeChange) => 
 export function StashView({
   target,
   stamp,
+  dirty,
   selected,
   onPick,
 }: {
   target: GitTarget
   stamp: string
+  dirty?: boolean
   selected: { stash: string; path: string } | null
   onPick: (stash: GitStash, c: TreeChange) => void
 }) {
@@ -137,7 +139,18 @@ export function StashView({
           compact
           icon="archive"
           title={t('没有贮藏')}
-          description={t('贮藏会把未提交的改动暂时收起，工作区回到上次提交，之后可以随时恢复')}
+          description={
+            dirty
+              ? t('贮藏会把未提交的改动暂时收起，工作区回到上次提交，之后可以随时恢复')
+              : t('没有可贮藏的改动')
+          }
+          action={
+            dirty ? (
+              <Button variant="primary" icon="archive" onClick={() => cmd.stash()}>
+                {t('贮藏改动…')}
+              </Button>
+            ) : undefined
+          }
         />
       )}
     </div>

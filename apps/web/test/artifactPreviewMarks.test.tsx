@@ -508,7 +508,8 @@ describe('标注 round 3', () => {
     await openPreview()
     const toggle = screen.getByRole('button', { name: '标注' })
     // Rules · to confirm: a narrow bar's count, not one orange pill.
-    expect(toggle.querySelector('.proto-marks-toggle__count')?.textContent).toBe('2 · 1')
+    expect(toggle.querySelector('.proto-marks-toggle__count')?.textContent).toBe('2')
+    expect(toggle.querySelector('.proto-marks-toggle__pending')?.textContent).toBe('1')
   })
 
   it('says a rule’s element is out of sight and finds it; picks with the keyboard and reads the rule out', async () => {

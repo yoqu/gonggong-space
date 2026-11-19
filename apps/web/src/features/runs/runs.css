@@ -286,12 +286,14 @@
   margin: 0;
   max-height: 40vh;
   overflow: auto;
-  font-family: var(--font-mono);
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
   color: var(--label);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.run-issue__detail--mono {
+  font-family: var(--font-mono);
 }
 .run-issue__more {
   align-self: flex-start;

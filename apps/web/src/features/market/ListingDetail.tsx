@@ -20,6 +20,7 @@ import {
   Icon,
   Link,
   Presence,
+  PullDownButton,
   Spinner,
   Tag,
   TextArea,
@@ -157,9 +158,17 @@ export function ListingDetail({
                 {t('解封')}
               </Button>
             ) : (
-              <Button size="small" variant="destructive" onClick={() => setBanning(true)}>
-                {t('封禁')}
-              </Button>
+              <PullDownButton
+                variant="plain"
+                size="small"
+                icon="more"
+                indicator={false}
+                aria-label={t('管理 {name}', { name: data.name })}
+                align="end"
+                portal
+                items={[{ label: t('封禁'), value: 'ban', destructive: true }]}
+                onSelect={() => setBanning(true)}
+              />
             )
           ) : null}
         </div>

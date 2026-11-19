@@ -196,8 +196,9 @@
   translate: none;
   scale: none;
 }
-/* A context menu supersedes the hover bar; showing both stacks two menus on the same message. */
-body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
+/* A context menu or open hover card supersedes the hover bar; showing both stacks overlays on the message. */
+body:has(.ui-menu--context) .pn-msg .pn-msg__actions,
+body:has(.ucard) .pn-msg .pn-msg__actions {
   opacity: 0;
   pointer-events: none;
 }

@@ -61,18 +61,20 @@ function useShortcuts(mode: WorkbenchMode) {
 /** An empty workbench, opened to add a tab. */
 function Empty() {
   return (
-    <EmptyState
-      compact
-      illustration={<NoTabsArt />}
-      title={t('还没有打开的标签页')}
-      description={t('打开网页，或查看 Bot 的文件与 Git')}
-      action={
-        <NewTabMenu className="ui-btn ui-btn--small">
-          <Icon name="plus" size={12} weight={1.8} />
-          {t('新建标签页')}
-        </NewTabMenu>
-      }
-    />
+    <div className="bench__empty">
+      <EmptyState
+        compact
+        illustration={<NoTabsArt />}
+        title={t('还没有打开的标签页')}
+        description={t('打开网页，或查看 Bot 的文件与 Git')}
+        action={
+          <NewTabMenu className="ui-btn ui-btn--small">
+            <Icon name="plus" size={12} weight={1.8} />
+            {t('新建标签页')}
+          </NewTabMenu>
+        }
+      />
+    </div>
   )
 }
 

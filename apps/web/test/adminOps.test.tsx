@@ -203,19 +203,10 @@ describe('群', () => {
     expect(cells('支付服务重构')).toEqual([
       '支付服务重构',
       '默认团队',
-      '分区模式',
+      '--',
       'git.corp/pay/pay-server',
       '6',
       '4',
-      '--',
-    ])
-    expect(cells('王磊 ⇄ 小王的 Claude')).toEqual([
-      '王磊 ⇄ 小王的 Claude',
-      '默认团队',
-      '分区模式',
-      '未绑定',
-      '1',
-      '1',
       '--',
     ])
     await waitFor(() =>
@@ -229,6 +220,16 @@ describe('群', () => {
         '归档 · 21 天后清除',
       ]),
     )
+    fireEvent.click(screen.getByRole('radio', { name: '私聊' }))
+    expect(cells('王磊 ⇄ 小王的 Claude')).toEqual([
+      '王磊 ⇄ 小王的 Claude',
+      '默认团队',
+      '--',
+      '未绑定',
+      '1',
+      '1',
+      '--',
+    ])
   })
 })
 

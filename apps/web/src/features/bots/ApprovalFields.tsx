@@ -100,7 +100,11 @@ export function ApprovalFields({
                 <div>{FLOOR}</div>
               </>
             )}
-            {mode === 'review' && builtin ? ` ${BUILTIN_HINT}` : null}
+            {mode === 'review' && builtin ? (
+              <div className="bot-settings__note" role="note">
+                {BUILTIN_HINT}
+              </div>
+            ) : null}
             {mode === 'review' && outdated !== undefined ? (
               <span className="bot-settings__warn" role="note">
                 {t(

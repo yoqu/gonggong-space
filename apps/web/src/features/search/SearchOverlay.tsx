@@ -5,6 +5,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import {
+  Button,
   EmptyState,
   FileIcon,
   Icon,
@@ -265,7 +266,23 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           ) : settled && !count ? (
-            <EmptyState compact title={t('没有匹配的结果')} illustration={<NoResultsArt />} />
+            <EmptyState
+              compact
+              title={t('没有匹配的结果')}
+              description={
+                tab === 'file'
+                  ? t('文件搜索仅覆盖保留了改动详情的运行，过期运行的文件可在「运行」里按名称查找')
+                  : undefined
+              }
+              action={
+                tab === 'file' ? (
+                  <Button size="small" onClick={() => setTab('run')}>
+                    {t('去「运行」里搜')}
+                  </Button>
+                ) : undefined
+              }
+              illustration={<NoResultsArt />}
+            />
           ) : null}
         </div>
       </div>

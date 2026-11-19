@@ -410,13 +410,17 @@
   gap: var(--space-16);
 }
 
-/* Leaving: the form lifts away as the app takes over */
-.auth[data-leaving] .auth__card {
-  transition:
-    opacity var(--fade-in) 120ms,
-    transform var(--spring-snappy) 120ms;
-  opacity: 0;
-  transform: translateY(-12px) scale(0.98);
+/* Keep the form visible while navigating so the right pane never flashes blank. */
+.auth__brand {
+  display: none;
+  align-items: center;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+.auth__brand-name {
+  font-size: var(--text-title3-size);
+  font-weight: 600;
+  color: var(--label);
 }
 
 @media (max-width: 880px) {
@@ -425,6 +429,9 @@
   }
   .auth-stage {
     display: none;
+  }
+  .auth__brand {
+    display: inline-flex;
   }
   .auth__logo,
   .auth__tagline {

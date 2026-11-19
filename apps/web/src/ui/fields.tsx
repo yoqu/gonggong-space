@@ -83,6 +83,8 @@ export interface StepperProps {
   value?: number | null
   defaultValue?: number
   onChange?: (value: number) => void
+  /** Called when the user clears the input to empty; keeps the field empty instead of reverting. */
+  onClear?: () => void
   min?: number
   max?: number
   step?: number
@@ -107,6 +109,7 @@ export function Stepper({
   value,
   defaultValue,
   onChange,
+  onClear,
   min = Number.NEGATIVE_INFINITY,
   max = Number.POSITIVE_INFINITY,
   step = 1,
@@ -136,6 +139,12 @@ export function Stepper({
   }
   const commit = () => {
     if (draft == null) return
+    if (draft.trim() === '' && onClear) {
+      setCurrent(null)
+      setDraft(null)
+      onClear()
+      return
+    }
     const n = Number.parseFloat(draft)
     if (Number.isNaN(n)) setDraft(null)
     else set(n)
@@ -163,7 +172,14 @@ export function Stepper({
           style={{ width }}
           onChange={(e) => {
             setDraft(e.target.value)
-            if (!live || e.target.value.trim() === '') return
+            if (!live) return
+            if (e.target.value.trim() === '') {
+              if (onClear && current !== null) {
+                setCurrent(null)
+                onClear()
+              }
+              return
+            }
             const n = Number(Number(e.target.value).toFixed(precision))
             if (Number.isFinite(n) && n >= min && n <= max && n !== current) {
               setCurrent(n)

@@ -689,7 +689,8 @@ export function PrototypeEditor({
                     >
                       <div className="proto-content" style={{ width: size.w, height: size.h }}>
                         {!live || !(swap.loading || swap.holding) ? null : thumbOf(s.id) &&
-                          !swap.restoring ? (
+                          !swap.restoring &&
+                          states.isDefault(s.id) ? (
                           <img
                             className="proto-placeholder"
                             data-testid="proto-placeholder"

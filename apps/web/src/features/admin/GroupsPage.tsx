@@ -8,6 +8,7 @@ import {
   NoGroupsArt,
   NoResultsArt,
   SearchField,
+  SegmentedControl,
   Spinner,
   Table,
   Tag,
@@ -19,9 +20,9 @@ import { TeamFilter } from './TeamFilter'
 
 const DAY_MS = 86_400_000
 
-function mode(g: AdminGroupDto): [string, TagTone] {
+function mode(g: AdminGroupDto): [string, TagTone] | null {
   if (g.archivedAt) return [t('已归档'), 'gray']
-  return g.mode === 'force' ? [t('强制同步'), 'blue'] : [t('分区模式'), 'green']
+  return g.mode === 'force' ? [t('强制同步'), 'blue'] : null
 }
 
 /** A DM's `name` is its Bot's current name. */
@@ -30,6 +31,7 @@ const title = (g: AdminGroupDto) => (g.kind === 'dm' ? `${g.ownerName ?? ''} ⇄
 /** 管理后台 · 群: every group incl. archived ones. */
 export function GroupsPage() {
   const [teamId, setTeamId] = useState('')
+  const [kind, setKind] = useState<'group' | 'dm'>('group')
   const { data: groups, error } = useGet<AdminGroupDto[]>(`/admin/groups${teamId ? `?teamId=${teamId}` : ''}`)
   const [query, setQuery] = useState('')
   const params = useSystemParams()
@@ -40,17 +42,38 @@ export function GroupsPage() {
     const left = params.archiveRetentionDays - Math.floor((Date.now() - Date.parse(g.archivedAt)) / DAY_MS)
     return t('归档 · {n} 天后清除', { n: Math.max(0, left) })
   }
+  const byKind = groups?.filter((g) => g.kind === kind)
   const q = query.trim().toLowerCase()
-  const shown = groups?.filter((g) => !q || `${title(g)} ${g.repo ?? ''}`.toLowerCase().includes(q))
+  const shown = byKind?.filter((g) => !q || `${title(g)} ${g.repo ?? ''}`.toLowerCase().includes(q))
 
   return (
     <AdminPage
       title={t('群#nav')}
       desc={t('所有群的模式、仓库与存档状态。')}
       subtitle={
-        groups ? countLine(t('{n} 个群', { n: groups.length }), shown?.length, groups.length) : undefined
+        byKind
+          ? countLine(
+              kind === 'dm' ? t('{n} 个私聊', { n: byKind.length }) : t('{n} 个群', { n: byKind.length }),
+              shown?.length,
+              byKind.length,
+            )
+          : undefined
       }
-      actions={<TeamFilter value={teamId} onChange={setTeamId} />}
+      actions={
+        <div className="admin-filters">
+          <SegmentedControl<'group' | 'dm'>
+            aria-label={t('会话类型')}
+            size="small"
+            value={kind}
+            onChange={setKind}
+            items={[
+              { value: 'group', label: t('群#nav') },
+              { value: 'dm', label: t('私聊#nav') },
+            ]}
+          />
+          <TeamFilter value={teamId} onChange={setTeamId} />
+        </div>
+      }
       search={<SearchField placeholder={t('搜索群或仓库')} value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
@@ -63,22 +86,28 @@ export function GroupsPage() {
           emptyText={
             <EmptyState
               compact
-              title={q ? t('没有匹配的群') : t('还没有群')}
+              title={q ? t('没有匹配的群') : kind === 'dm' ? t('还没有私聊') : t('还没有群')}
               illustration={q ? <NoResultsArt /> : <NoGroupsArt />}
             />
           }
           columns={[
-            { key: 'name', title: t('群'), sortable: true, sortValue: title, render: title },
+            {
+              key: 'name',
+              title: kind === 'dm' ? t('私聊#nav') : t('群'),
+              sortable: true,
+              sortValue: title,
+              render: title,
+            },
             { key: 'teamName', title: t('团队'), width: 120, secondary: true, sortable: true },
             {
               key: 'mode',
               title: t('模式'),
               width: 104,
               sortable: true,
-              sortValue: (g) => mode(g)[0],
+              sortValue: (g) => mode(g)?.[0] ?? '',
               render: (g) => {
-                const [label, tone] = mode(g)
-                return <Tag tone={tone}>{label}</Tag>
+                const m = mode(g)
+                return m ? <Tag tone={m[1]}>{m[0]}</Tag> : null
               },
             },
             {

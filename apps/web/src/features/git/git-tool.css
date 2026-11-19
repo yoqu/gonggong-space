@@ -9,12 +9,21 @@
 .wb-git__bar {
   display: flex;
   flex: none;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 2px;
   min-height: 36px;
   padding: 4px 6px;
   border-bottom: 1px solid var(--separator);
+}
+.wb-git__bar > .ui-popover,
+.wb-git__bar > .ui-popover .ui-popover__trigger {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.wb-git__bar[data-compact] .gb-trigger {
+  max-width: 120px;
+  padding: 0 6px;
 }
 .gtb-count {
   font-family: var(--font-mono);
@@ -224,6 +233,7 @@
 }
 .gc-box__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }

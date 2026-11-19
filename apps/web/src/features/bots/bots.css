@@ -114,11 +114,19 @@
 .newbot__name > :last-child {
   flex: 1;
 }
-.newbot__mono {
-  font-family: var(--font-mono);
-}
 .newbot__muted {
   color: var(--label-secondary);
+}
+.newbot__alert--neutral {
+  --alert-fill: var(--tint-gray);
+  --alert-accent: var(--tint-gray-text);
+}
+.bot-settings__note {
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-field);
+  background: var(--group-bg);
+  line-height: 1.5;
 }
 .newbot__missing {
   color: var(--tint-orange-text);

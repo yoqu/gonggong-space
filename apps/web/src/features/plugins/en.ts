@@ -169,4 +169,8 @@ export default {
   '本群暂时没有 Bot 能接这个任务': 'No bot in this group can take this right now',
   '可以先选好内容，最后一步会写明每个 Bot 不能用的原因。':
     'You can fill in the details first; the last step says why each bot is unavailable.',
+  '带 * 的为必填项。': 'Fields marked with * are required.',
+  '选中的 Bot': 'selected Bot',
+  '检查：{n} 项未完成': 'Checks: {n} remaining',
+  '检查：可以开始': 'Checks: Ready',
 }

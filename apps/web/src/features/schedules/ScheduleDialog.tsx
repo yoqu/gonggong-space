@@ -15,6 +15,7 @@ import {
   TextField,
 } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
+import { PRESENCE } from '../bots/model'
 import { type Picks, RunConfigChip, useCanConfigure } from '../chat/RunConfigChips'
 import { schedulesApi } from './store'
 import './schedules.css'
@@ -42,9 +43,24 @@ interface Draft {
   cron: string
 }
 
+/** Next whole hour formatted for `datetime-local` in the browser's local time zone. */
+function nextWholeHour() {
+  const d = new Date()
+  d.setMinutes(0, 0, 0)
+  d.setHours(d.getHours() + 1)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 /** The editor fields of a saved timing: a preset when the expression is one, else the raw expression. */
 function draftOf(s: ScheduleDto | undefined): Draft {
-  const blank: Draft = { mode: 'weekdays', time: '09:00', weekday: '1', day: '1', date: '', cron: '' }
+  const blank: Draft = {
+    mode: 'weekdays',
+    time: '09:00',
+    weekday: '1',
+    day: '1',
+    date: nextWholeHour(),
+    cron: '',
+  }
   if (!s) return blank
   if (s.runAt) {
     const d = new Date(s.runAt)
@@ -136,6 +152,22 @@ export function ScheduleDialog({
       c.map((id, j) => (j === i - 1 ? (c[i] as string) : j === i ? (c[i - 1] as string) : id)),
     )
   const ready = !!name.trim() && !!prompt.trim() && candidates.length > 0 && !!preview && !preview.error
+  const missingHint = !name.trim()
+    ? t('请先填写名称')
+    : !prompt.trim()
+      ? t('请先填写指令')
+      : candidates.length === 0
+        ? t('请至少选择 1 个候选 Bot')
+        : preview?.error
+          ? t.text(preview.error)
+          : !preview
+            ? t('请设置有效的执行时间')
+            : null
+  const isOnline = (id: string) => {
+    const p = allBots.find((b) => b.id === id)?.presence
+    return p === 'online' || p === 'running'
+  }
+  const allOffline = candidates.length > 0 && candidates.every((id) => !isOnline(id))
 
   const save = async () => {
     setSaving(true)
@@ -167,6 +199,8 @@ export function ScheduleDialog({
       onClose={onClose}
       footer={
         <>
+          {missingHint ? <span className="sc-footer-hint">{missingHint}</span> : null}
+          <span className="spacer" />
           <Button onClick={onClose}>{t('取消')}</Button>
           <Button variant="primary" disabled={!ready || saving} onClick={() => void save()}>
             {schedule ? t('保存') : t('创建')}
@@ -192,15 +226,24 @@ export function ScheduleDialog({
         />
 
         <section>
-          <h3 className="sc-form__title">{t('候选 Bot · 到点由第一个可用的执行')}</h3>
+          <h3 className="sc-form__title">{t('候选 Bot（至少选 1 个）· 到点由第一个可用的执行')}</h3>
           <GroupBox>
             {candidates.map((id, i) => {
               const bot = allBots.find((b) => b.id === id)
+              const online = isOnline(id)
               return (
                 <div key={id} className="sc-bot">
                   <span className="sc-bot__rank">{i + 1}</span>
                   <BotAvatar id={id} name={nameOf(id)} size={22} />
-                  <span className="sc-bot__name">{nameOf(id)}</span>
+                  <span className="sc-bot__name">
+                    <span
+                      className="sc-bot__dot"
+                      style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
+                      aria-hidden="true"
+                    />
+                    {nameOf(id)}
+                    {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
+                  </span>
                   {group && bot ? (
                     <RunConfigChip
                       scope="schedule"
@@ -232,31 +275,44 @@ export function ScheduleDialog({
             <div className="sc-bot sc-bot--add">
               {botIds
                 .filter((id) => !candidates.includes(id))
-                .map((id) => (
-                  <Button
-                    key={id}
-                    size="small"
-                    aria-label={t('添加 {name}', { name: nameOf(id) })}
-                    onClick={() => setCandidates([...candidates, id])}
-                  >
-                    + {nameOf(id)}
-                  </Button>
-                ))}
+                .map((id) => {
+                  const bot = allBots.find((b) => b.id === id)
+                  const online = isOnline(id)
+                  return (
+                    <Button
+                      key={id}
+                      size="small"
+                      aria-label={t('添加 {name}', { name: nameOf(id) })}
+                      onClick={() => setCandidates([...candidates, id])}
+                    >
+                      <span
+                        className="sc-bot__dot"
+                        style={{ background: bot ? PRESENCE[bot.presence].color : 'var(--system-gray)' }}
+                        aria-hidden="true"
+                      />
+                      + {nameOf(id)}
+                      {!online ? <span className="sc-bot__off">{t('离线')}</span> : null}
+                    </Button>
+                  )
+                })}
               {botIds.every((id) => candidates.includes(id)) ? (
                 <span className="sc-muted">{t('本群的 Bot 都已加入')}</span>
               ) : null}
             </div>
           </GroupBox>
+          {allOffline ? <p className="sc-warn">{t('所选候选 Bot 当前全部离线，到点会跳过')}</p> : null}
         </section>
 
         <section>
           <h3 className="sc-form__title">{t('执行时间')}</h3>
-          <SegmentedControl<Mode>
-            aria-label={t('频率')}
-            items={MODES}
-            value={draft.mode}
-            onChange={(mode) => set({ mode })}
-          />
+          <div className="sc-modes">
+            <SegmentedControl<Mode>
+              aria-label={t('频率')}
+              items={MODES}
+              value={draft.mode}
+              onChange={(mode) => set({ mode })}
+            />
+          </div>
           <div className="sc-timing">
             {draft.mode === 'weekly' ? (
               <PopUpButton
@@ -305,9 +361,11 @@ export function ScheduleDialog({
             {preview?.error
               ? t.text(preview.error)
               : preview?.next.length
-                ? t('接下来：{times}', {
-                    times: preview.next.map((iso) => formatInZone(iso, timezone)).join(t('、')),
-                  })
+                ? draft.mode === 'once'
+                  ? t('将在 {time} 执行', { time: formatInZone(preview.next[0]!, timezone) })
+                  : t('接下来：{times}', {
+                      times: preview.next.map((iso) => formatInZone(iso, timezone)).join(t('、')),
+                    })
                 : null}
           </p>
         </section>

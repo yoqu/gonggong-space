@@ -983,3 +983,6 @@
   width: 18px;
   height: 18px;
 }
+.wt-files__path .ui-path__seg:first-child {
+  flex-shrink: 0;
+}

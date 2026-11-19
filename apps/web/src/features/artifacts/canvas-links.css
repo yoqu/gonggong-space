@@ -118,6 +118,16 @@
   flex-direction: column;
   gap: var(--space-16);
 }
+.art-addlink .ui-radio {
+  align-items: flex-start;
+}
+.art-addlink .ui-radio__dot {
+  margin-top: 2px;
+}
+.art-addlink__req {
+  margin-left: 2px;
+  color: var(--system-red);
+}
 .art-addlink__field {
   display: flex;
   flex-direction: column;

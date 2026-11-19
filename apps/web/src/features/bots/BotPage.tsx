@@ -1,27 +1,32 @@
-import type {
-  BotDto,
-  BotPlaceDto,
-  FeishuAppView,
-  UsageDayDto,
-  UsageRowDto,
-  UserBriefDto,
-  UserDto,
+import {
+  AGENT_META,
+  type BotDto,
+  type BotPlaceDto,
+  type FeishuAppView,
+  type UsageDayDto,
+  type UsageRowDto,
+  type UserBriefDto,
+  type UserDto,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { fmtTokens } from '../../lib/format'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, ChatHeader, Tag } from '../../ui'
+import { choiceLabel, machineDefault } from '../agents/model'
 import { RUN_STATUS } from '../chat/TimelineItems'
 import { FeishuAppTag } from '../feishu/FeishuAppTag'
+import { effectiveProvider } from '../machines/providers'
 import { stepText } from '../runs/mcp'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { agentLabel } from './AgentConfig'
 import { approvalText } from './ApprovalFields'
 import { BotAvatar, botRole, roleOf } from './avatars'
+import { useMachineProviders } from './BotProvider'
 import { type BotTab, BotWarning } from './BotSettings'
 import { agentCliVersion, agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import { ShareRequestAction, useDm } from './ShareRequest'
@@ -227,6 +232,21 @@ function Profile({
   onSettings: (tab?: BotTab) => void
 }) {
   const feishu = useGet<FeishuAppView>(canEdit ? `/bots/${bot.id}/feishu` : null).data
+  const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
+  const wantProvider =
+    canEdit &&
+    !!machine?.online &&
+    machine.features.includes('providers') &&
+    AGENT_META[bot.agentKind].login !== 'own'
+  const [view] = useMachineProviders(wantProvider ? bot.machineId : null, !wantProvider)
+  const modelRow: Row = view
+    ? [
+        t('供应商/模型'),
+        view.bots[bot.id]
+          ? choiceLabel(view, effectiveProvider(view, bot.agentKind, bot.id))
+          : `${choiceLabel(view, machineDefault(view, bot.agentKind))}（${t('使用电脑默认')}）`,
+      ]
+    : [t('模型'), agentLabel(bot.catalog, bot.model, bot.effort)]
   const role = roleOf(botRole(bot), bot.agentKind)
   const names = (ids: string[]) => ids.map((id) => users.find((u) => u.id === id)?.name ?? '--').join(t('、'))
   const sections: [string, Row[], ReactNode?][] = [
@@ -256,7 +276,7 @@ function Profile({
             {agentCliVersion(bot)}
           </span>,
         ],
-        [t('模型'), agentLabel(bot.catalog, bot.model, bot.effort)],
+        modelRow,
         ...(canEdit
           ? ([
               [

@@ -74,6 +74,12 @@ const SWATCHES = [
   'system-red',
   'system-green',
   'system-orange',
+  'brand-blue',
+  'brand-amber',
+  'brand-ink',
+  'brand-pupil',
+  'brand-blue-wash',
+  'brand-amber-wash',
 ]
 
 function IconGrid({ title, names }: { title: string; names: string[] }) {

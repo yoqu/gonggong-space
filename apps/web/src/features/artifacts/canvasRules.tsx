@@ -242,7 +242,8 @@ export function useCanvasRules(o: {
 
   /** The numbered marks on the screens (and the new rule's), over the canvas at the current pan and zoom. */
   const marks = (view: View, nodes: CanvasNode[]): ReactNode => {
-    if (!show && !adding) return null
+    const showMarks = show && view.z >= 0.35
+    if (!showMarks && !adding) return null
     const pageAt = (n: CanvasNode, k: number) => ({
       left: view.x + n.x * view.z + 6 + k * PAGE_MARK_STEP,
       top: view.y + n.y * view.z + 6,
@@ -250,7 +251,7 @@ export function useCanvasRules(o: {
     const out: ReactNode[] = []
     for (const n of nodes) {
       if (n.kind !== 'screen') continue
-      const rules = show ? (data.pages[n.id]?.rules ?? []) : []
+      const rules = showMarks ? (data.pages[n.id]?.rules ?? []) : []
       let k = 0
       const onAnchor = new Map<string, number>()
       const place = (rect: Rect, shift = 0) => {

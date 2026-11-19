@@ -74,3 +74,18 @@ export function eventFolds(messages: MessageDto[], breakAt?: string | null) {
   close(messages.length - 1)
   return folds
 }
+
+/** A bare `/new @bot` message immediately followed by the "下一轮将开新会话" event is redundant (two lines for one click). */
+export function isAbsorbedMessage(
+  messages: MessageDto[],
+  index: number,
+  progressByRun: Map<string, unknown>,
+) {
+  const m = messages[index]
+  if (!m) return false
+  if (m.progress?.runId && progressByRun.has(m.progress.runId)) return true
+  if (m.kind !== 'user' || m.recalled || m.attachments.length) return false
+  if (!/^\/new(?:\s+@\S+)*\s*$/.test(m.body.trim())) return false
+  const next = messages[index + 1]
+  return !!next && next.kind === 'event' && next.body.includes('下一轮将开新会话')
+}

@@ -298,6 +298,11 @@ describe('Tooltip', () => {
     expect(tip.dataset.open).toBe('')
     fireEvent.mouseLeave(btn.parentElement!)
     expect(tip.dataset.open).toBeUndefined()
+    // Mouse focus does not open the tooltip; keyboard (:focus-visible) focus does.
+    fireEvent.focus(btn)
+    expect(tip.dataset.open).toBeUndefined()
+    const origMatches = btn.matches.bind(btn)
+    btn.matches = (sel) => (sel === ':focus-visible' ? true : origMatches(sel))
     fireEvent.focus(btn)
     expect(tip.dataset.open).toBe('')
     fireEvent.keyDown(btn, { key: 'Escape' })

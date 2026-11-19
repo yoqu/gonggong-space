@@ -78,7 +78,7 @@ import { lastEditable } from './editing'
 import { FirstDmIntro } from './FirstDmIntro'
 import { GitBar } from './GitBar'
 import { GroupThreads } from './GroupThreads'
-import { continues, eventFolds, sameDay, unreadStart } from './grouping'
+import { continues, eventFolds, isAbsorbedMessage, sameDay, unreadStart } from './grouping'
 import { useImmersive } from './immersive'
 import { MentionNames } from './Markdown'
 import { branchableRuns } from './MessageActions'
@@ -611,10 +611,10 @@ export function ChatView({
       if (m.progress && runId && tl.runs[runId])
         progressByRun.set(runId, [...(progressByRun.get(runId) ?? []), m.progress])
     }
-    const absorbed = (m: MessageDto) => !!m.progress?.runId && progressByRun.has(m.progress.runId)
-    const shown = progressByRun.size ? tl.messages.filter((m) => !absorbed(m)) : tl.messages
+    const absorbed = (_m: MessageDto, i: number) => isAbsorbedMessage(tl.messages, i, progressByRun)
+    const shown = tl.messages.filter((m, i) => !absorbed(m, i))
     const at = tl.messages.findIndex((m) => m.id === dividerAt)
-    const dividerShown = at < 0 ? dividerAt : tl.messages.slice(at).find((m) => !absorbed(m))?.id
+    const dividerShown = at < 0 ? dividerAt : tl.messages.slice(at).find((m, i) => !absorbed(m, at + i))?.id
     return { progressByRun, shown, dividerShown }
   }, [tl.messages, tl.runs, dividerAt])
 

@@ -191,26 +191,47 @@ export function CommitBox({
         </div>
       ) : null}
       <div className="gc-box__actions">
-        <Button
-          size="small"
-          variant="primary"
-          icon={<GitGlyph kind="commit" state={busy ? 'busy' : committed ? 'done' : 'idle'} size={12} />}
-          liveIcon
-          loading={busy}
-          done={committed}
-          disabled={!ready}
-          onClick={() => void commit(false)}
-        >
-          {busy ? t('提交中…') : committed ? t('已提交') : label}
-        </Button>
-        {owner && (!ongoing || ongoing.kind === 'merge') ? (
-          <Button size="small" disabled={!ready} onClick={() => void commit(true)}>
-            {amend ? t('修改并推送…') : t('提交并推送…')}
-          </Button>
-        ) : null}
-        {ongoing && conflicts ? (
-          <span className="gc-box__hint">{t('{n} 个文件有冲突，解决后才能继续', { n: conflicts })}</span>
-        ) : null}
+        {(() => {
+          const disabledReason = busy
+            ? undefined
+            : ongoing && conflicts
+              ? t('{n} 个文件有冲突，解决后才能继续', { n: conflicts })
+              : !ongoing && !amend && paths.length === 0
+                ? t('先勾选要提交的文件')
+                : !ongoing && !text
+                  ? t('先写提交说明')
+                  : undefined
+          return (
+            <>
+              <Button
+                size="small"
+                variant="primary"
+                icon={
+                  <GitGlyph kind="commit" state={busy ? 'busy' : committed ? 'done' : 'idle'} size={12} />
+                }
+                liveIcon
+                loading={busy}
+                done={committed}
+                disabled={!ready}
+                title={disabledReason}
+                onClick={() => void commit(false)}
+              >
+                {busy ? t('提交中…') : committed ? t('已提交') : label}
+              </Button>
+              {owner && (!ongoing || ongoing.kind === 'merge') ? (
+                <Button
+                  size="small"
+                  disabled={!ready}
+                  title={disabledReason}
+                  onClick={() => void commit(true)}
+                >
+                  {amend ? t('修改并推送…') : t('提交并推送…')}
+                </Button>
+              ) : null}
+              {disabledReason ? <span className="gc-box__hint">{disabledReason}</span> : null}
+            </>
+          )
+        })()}
       </div>
     </div>
   )

@@ -307,4 +307,9 @@ export default {
     "{name}'s computer is missing its Agent; it can't respond for now",
   '{name} 还不可触发': "{name} can't be triggered yet",
   '；': '; ',
+  未选工作区: 'No workspace',
+  '{name}（{status}）': '{name} ({status})',
+  '收起已完成（{n} 项）': 'Collapse completed ({n})',
+  收起其余项: 'Collapse remaining',
+  '去绑定 ›': 'Bind now ›',
 } satisfies Record<string, string>

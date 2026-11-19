@@ -284,4 +284,6 @@ export default {
   '换个角色…': 'Change character…',
   '默认用 Agent 的形象，一眼看出是哪家':
     "Wears its agent's look by default, so you can tell at a glance which one it is",
+  创建后可拉入群: 'Can be added to groups after creation',
+  '最后在线 {time}': 'Last online {time}',
 } satisfies Record<string, string>

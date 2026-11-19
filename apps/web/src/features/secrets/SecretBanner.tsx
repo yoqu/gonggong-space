@@ -53,14 +53,15 @@ export function SecretBanner({ groupId }: { groupId: string }) {
       offReconnect()
     }
   }, [groupId, reloadCards, reloadNeeds])
-  const first = cards.data?.[0]
+  const allCards = cards.data ?? []
+  const first = allCards[0]
   const todo = (needs.data ?? []).filter((n) => n.spec.required && actionable(n))
   const names = [...new Set(todo.map((n) => n.spec.name))].sort()
   const sig = names.join(',')
   // A card asking me means a run already needs it: the snooze gives way.
   const showNeeds = names.length > 0 && (!!first || !snoozed(groupId, sig))
   const count =
-    (cards.data ?? []).reduce((k, c) => k + c.names.filter((n) => !names.includes(n)).length, 0) +
+    allCards.reduce((k, c) => k + c.names.filter((n) => !names.includes(n)).length, 0) +
     (showNeeds ? names.length : 0)
   if (!first && !showNeeds) return null
   const done = () => {
@@ -68,6 +69,7 @@ export function SecretBanner({ groupId }: { groupId: string }) {
     reloadCards()
     reloadNeeds()
   }
+  const openCombined = showNeeds || allCards.length > 1
   return (
     <div data-testid="secret-banner">
       <PinnedBanner
@@ -75,7 +77,7 @@ export function SecretBanner({ groupId }: { groupId: string }) {
         title={null}
         text={t('本群有 {n} 个密钥待你配置', { n: count })}
         action={
-          <Button size="small" variant="primary" onClick={() => setOpen(first ? 'card' : 'needs')}>
+          <Button size="small" variant="primary" onClick={() => setOpen(openCombined ? 'needs' : 'card')}>
             {t('去配置')}
           </Button>
         }
@@ -97,13 +99,14 @@ export function SecretBanner({ groupId }: { groupId: string }) {
           first.define ? (
             <DefineDialog card={first} onClose={() => setOpen(null)} onDone={done} />
           ) : (
-            <FillDialog card={first} onClose={() => setOpen(null)} onDone={done} />
+            <FillDialog card={first} groupId={groupId} onClose={() => setOpen(null)} onDone={done} />
           )
         ) : null}
-        {open === 'needs' && needs.data ? (
+        {open === 'needs' ? (
           <NeedsDialog
             groupId={groupId}
-            needs={needs.data.filter((n) => todo.some((x) => x.skill === n.skill))}
+            needs={(needs.data ?? []).filter((n) => todo.some((x) => x.skill === n.skill))}
+            cards={allCards}
             onClose={() => setOpen(null)}
             onDone={done}
           />

@@ -26,7 +26,7 @@ import {
   teams,
   users,
 } from '../../db/schema.js'
-import { zhText } from '../../i18n/index.js'
+import { t, zhText } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { summarizeBlocks } from '../../lib/text.js'
@@ -112,7 +112,7 @@ const preview = (kind: string, author: string | null, body: string, pages?: Html
   const line = summarizeBlocks(body, pages)
     .replace(/\n[\s\S]*$/, '')
     .slice(0, 80)
-  return kind === 'event' ? line : `${author ?? ''}：${line}`
+  return kind === 'event' ? line : t('{name}：{line}', { name: author ?? '', line })
 }
 
 const recallNote = (mine: boolean, author: string | null): I18nText =>

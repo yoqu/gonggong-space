@@ -411,7 +411,7 @@ describe('Agent 工具', () => {
     expect(node.textContent).toContain('Node.js 22.1.0 · 共工空间托管')
     expect(within(node).getByRole('button', { name: '升级到 22.9.0' })).toBeTruthy()
     const claude = row('Claude Code')
-    expect(claude.textContent).toContain('有更新')
+    expect(claude.textContent).not.toContain('有更新')
     expect(
       within(claude)
         .getAllByRole('button')
@@ -1209,7 +1209,15 @@ describe('默认「供应商/模型」', () => {
   })
 
   it('greys out a provider of another protocol, saying why', async () => {
-    mockApi(LIVE)
+    mockApi({
+      ...LIVE,
+      'GET /machines/m1/tools': {
+        ...TOOLS,
+        agents: TOOLS.agents.map((a) =>
+          a.kind === 'codex' ? { ...a, available: true, version: '0.159.2' } : a,
+        ),
+      },
+    })
     const box = await openDefault(mbp, 'Codex')
     fireEvent.click(picker(box))
     const item = screen.getByRole('menuitemcheckbox', { name: 'Kimi' })

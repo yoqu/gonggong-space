@@ -32,3 +32,23 @@
   flex-wrap: wrap;
   gap: var(--space-6);
 }
+@media (hover: hover) {
+  .later__actions {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--t-fast);
+  }
+  .later__item:hover .later__actions,
+  .later__item:focus-within .later__actions,
+  .later__item:has([aria-expanded="true"]) .later__actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.later-row--badge {
+  gap: var(--space-4);
+  padding-inline: var(--space-8);
+}
+.later-row--badge .pn-shortcut__icon {
+  display: none;
+}

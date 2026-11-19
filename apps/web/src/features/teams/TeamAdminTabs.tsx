@@ -210,6 +210,7 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
                 placeholder={String(data.platform[key])}
                 value={draft[key] ?? null}
                 onChange={(v) => setDraft({ ...draft, [key]: v })}
+                onClear={() => setDraft(Object.fromEntries(Object.entries(draft).filter(([k]) => k !== key)))}
               />
             </GroupRow>
           )

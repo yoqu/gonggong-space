@@ -141,4 +141,12 @@ export default {
     'Skill "{skill}" declares these secrets. Their definitions will be created in the team layer (without values); members then fill them in.',
   创建: 'Create',
   '本群的 Skill 声明了 {n} 个密钥': "This group's skills declare {n} {n:secret|secrets}",
+  '填写统一值…': 'Fill in shared value…',
+  需团队管理员在团队设置中填写: 'Ask a team admin to fill this in Team Settings',
+  '输入 {name} 的值': 'Enter value for {name}',
+  '团队统一密钥 · 管理员': 'Team shared secret · admins',
+  '平台统一密钥 · 管理员': 'Platform shared secret · admins',
+  '已创建密钥定义，请成员各自填写后继续': 'Secret definitions created. Members can now fill in their values',
+  仅管理员可以填写这些密钥: 'Only admins can fill in these secrets',
+  运行请求: 'Run request',
 } as const

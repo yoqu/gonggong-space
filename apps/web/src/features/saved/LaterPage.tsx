@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { plainText } from '../../lib/plain'
 import { realtime } from '../../lib/realtime'
-import { ago } from '../../lib/time'
+import { ago, fullTime } from '../../lib/time'
 import {
   Button,
   EmptyState,
@@ -79,7 +79,9 @@ function Item({
         <p className="thread-inbox__line">
           <b>{m.authorName}</b>
           <span>{snippet(m)}</span>
-          <time dateTime={m.createdAt}>{ago(m.createdAt)}</time>
+          <time dateTime={m.createdAt} title={t('消息发于 {time}', { time: fullTime(m.createdAt) })}>
+            {ago(m.createdAt)}
+          </time>
         </p>
       </button>
       <span className="later__actions">

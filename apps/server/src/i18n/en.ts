@@ -1088,5 +1088,6 @@ export const en = {
   'tokens.css 只能包含令牌声明、注释和 .t-* 文字样式':
     'tokens.css can only contain token declarations, comments and .t-* text styles',
   '已删除的 Bot': 'Deleted Bot',
+  '{name}：{line}': '{name}: {line}',
   '服务器出错了，请稍后重试': 'Something went wrong on the server; try again later',
 } satisfies Record<string, string>

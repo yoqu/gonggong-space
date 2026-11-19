@@ -38,6 +38,7 @@ export default {
   批准: 'Approve',
   '批准，不再询问': "Approve, don't ask again",
   以后都允许这个工具: 'Always allow this tool',
+  以后都允许: 'Always allow',
   工具未声明风险: 'Risk not declared by the tool',
   可能删除或覆盖数据: 'May delete or overwrite data',
   会修改数据: 'Changes data',

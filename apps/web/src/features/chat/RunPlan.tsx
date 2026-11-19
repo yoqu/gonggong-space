@@ -60,6 +60,8 @@ export function RunPlan({
   const [all, setAll] = useState(false)
   const expanded = panel || (open ?? (live && !folded))
   const { folded: hidden, items, more } = shownOf(plan, all)
+  const collapsedPreview = all ? shownOf(plan, false) : null
+  const canCollapse = !!collapsedPreview && (collapsedPreview.folded > 0 || collapsedPreview.more > 0)
   const head = (
     <>
       <Icon name="checklist" size={12} />
@@ -102,6 +104,15 @@ export function RunPlan({
             <li>
               <button type="button" className="run-plan__fold" onClick={() => setAll(true)}>
                 {t('还有 {n} 项', { n: more })}
+              </button>
+            </li>
+          ) : null}
+          {canCollapse ? (
+            <li>
+              <button type="button" className="run-plan__fold" onClick={() => setAll(false)}>
+                {collapsedPreview.folded > 0
+                  ? t('收起已完成（{n} 项）', { n: collapsedPreview.folded })
+                  : t('收起其余项')}
               </button>
             </li>
           ) : null}

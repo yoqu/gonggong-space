@@ -13,7 +13,13 @@ export function LaterRow() {
       ? t('{n} 条进行中', { n: ids.size })
       : t('收藏的消息与提醒')
   return (
-    <NavLink to="/later" className="pn-shortcut" data-testid="later-item" title={detail} tabIndex={-1}>
+    <NavLink
+      to="/later"
+      className={due > 0 ? 'pn-shortcut later-row--badge' : 'pn-shortcut'}
+      data-testid="later-item"
+      title={detail}
+      tabIndex={-1}
+    >
       <ShortcutContent icon="bookmark" label={t('稍后处理')} detail={detail} count={due} bold={due > 0} />
     </NavLink>
   )

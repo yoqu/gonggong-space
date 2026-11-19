@@ -17,7 +17,7 @@ function Mark({ meta }: { meta: TabMeta }) {
     case 'done':
       return <Icon name="checkmark-circle" size={13} className="bench-tab__done" />
     case 'failed':
-      return <Icon name="xmark-circle" size={13} className="bench-tab__failed" />
+      return <Icon name="exclamation-circle" size={13} className="bench-tab__failed" />
     default:
       return <Icon name={meta.icon} size={13} />
   }

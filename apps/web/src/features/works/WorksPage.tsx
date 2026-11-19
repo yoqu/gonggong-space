@@ -130,9 +130,8 @@ export function WorksPage() {
         (!q || `${w.title} ${w.groupTitle} ${w.creatorName ?? ''}`.toLowerCase().includes(q)),
     )
     .sort((a, b) => (sort === 'title' ? a.title.localeCompare(b.title, 'zh') : 0))
-  const filtered = scope !== 'all' || group !== 'all' || !!q
+  const filtered = group !== 'all' || !!q
   const clear = () => {
-    setScope('all')
     setGroup('all')
     setQuery('')
   }
@@ -279,9 +278,21 @@ export function WorksPage() {
       ) : (
         <div className="works__center">
           <EmptyState
-            illustration={list.length ? <NoResultsArt /> : <NoWorksArt />}
-            title={list.length ? t('没有符合条件的作品') : t('还没有作品')}
-            description={list.length ? undefined : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')}
+            illustration={filtered ? <NoResultsArt /> : <NoWorksArt />}
+            title={
+              filtered
+                ? t('没有符合条件的作品')
+                : scope === 'team'
+                  ? t('还没有已共享的作品')
+                  : t('还没有作品')
+            }
+            description={
+              filtered
+                ? undefined
+                : scope === 'team'
+                  ? t('你共享给团队或公开的作品会出现在这里')
+                  : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')
+            }
             action={
               filtered && list.length ? (
                 <Button size="small" onClick={clear}>

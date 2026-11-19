@@ -14,4 +14,7 @@ export default {
   '会话#conversations': 'Conversations',
   私聊: 'Direct',
   群聊: 'Group',
+  '文件搜索仅覆盖保留了改动详情的运行，过期运行的文件可在「运行」里按名称查找':
+    'File search covers runs whose diffs are still kept; search expired runs under Runs',
+  '去「运行」里搜': 'Search in Runs',
 } satisfies Record<string, string>

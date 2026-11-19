@@ -54,7 +54,7 @@ export const KIND_LABEL: Record<FileKind, string> = {
   audio: t('音频'),
   pdf: 'PDF',
   md: 'Markdown',
-  text: t('文本日志'),
+  text: t('文本'),
   code: t('代码'),
   archive: t('压缩包'),
   file: t('文件#item'),

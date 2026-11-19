@@ -39,6 +39,7 @@ import {
   repoUnavailable,
   repoValidated,
 } from '../repos/repo-access'
+import { useSettings } from '../settings/store'
 import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
 import { repoName } from './repo'
 import './chat.css'
@@ -216,9 +217,23 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
                 <GroupRow
                   label={t('同时创建飞书群')}
                   description={
-                    feishuId.identity
-                      ? t('用群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot')
-                      : t('先在设置 › 账户中绑定飞书账号')
+                    feishuId.identity ? (
+                      t('用群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot')
+                    ) : (
+                      <>
+                        {t('先在设置 › 账户中绑定飞书账号')}{' '}
+                        <button
+                          type="button"
+                          className="ng-link"
+                          onClick={() => {
+                            onClose()
+                            useSettings.getState().open('account')
+                          }}
+                        >
+                          {t('去绑定 ›')}
+                        </button>
+                      </>
+                    )
                   }
                 >
                   <Switch

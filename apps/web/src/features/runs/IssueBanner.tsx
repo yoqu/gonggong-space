@@ -45,7 +45,13 @@ export function IssueBanner({ issue, onRetry }: { issue: RunIssue; onRetry?: () 
         ) : null}
       </div>
       {issue.detail ? (
-        <pre className="run-issue__detail">{(folded ? lines.slice(0, HEAD_LINES) : lines).join('\n')}</pre>
+        issue.mono ? (
+          <pre className="run-issue__detail run-issue__detail--mono">
+            {(folded ? lines.slice(0, HEAD_LINES) : lines).join('\n')}
+          </pre>
+        ) : (
+          <div className="run-issue__detail">{(folded ? lines.slice(0, HEAD_LINES) : lines).join('\n')}</div>
+        )
       ) : null}
       {folded ? (
         <button type="button" className="run-issue__more" onClick={() => setAll(true)}>

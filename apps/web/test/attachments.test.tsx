@@ -287,7 +287,7 @@ describe('composer attachments', () => {
     pick(images!, [file('screen.png', 486 * 1024, 'image/png')])
     expect(await screen.findByText('screen.png')).toBeTruthy()
     expect(composer().getByText('486 KB')).toBeTruthy()
-    expect(screen.getByText(/1 \/ 10 · 写入工作区 \.gonggong\/attachments\/，不进 git · 图片：/)).toBeTruthy()
+    expect(screen.getByText(/1 \/ 10 · Bot 能读到这些文件 · 图片：/)).toBeTruthy()
 
     pick(files!, [file('huge.zip', 51 * 1024 * 1024, 'application/zip')])
     expect(await screen.findByText('huge.zip 超过 50 MB，未添加')).toBeTruthy()
@@ -498,7 +498,7 @@ describe('message attachments and preview', () => {
     expect(within(main).getByText('上次的结论')).toBeTruthy()
     expect(main.querySelector('video')?.getAttribute('src')).toBe('/api/attachments/v1')
     expect(within(main).getByRole('button', { name: '播放 demo.mp4' })).toBeTruthy()
-    expect(within(main).getByRole('button', { name: /ci\.log/ }).textContent).toContain('文本日志 · 84 KB')
+    expect(within(main).getByRole('button', { name: /ci\.log/ }).textContent).toContain('文本 · 84 KB')
     expect(within(main).getByRole('button', { name: /plan\.xlsx/ }).textContent).toContain(
       'Excel 表格 · 4 KB · 点击预览',
     )

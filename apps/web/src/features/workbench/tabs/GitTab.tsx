@@ -131,6 +131,7 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
       <StashView
         target={target}
         stamp={stamp}
+        dirty={data ? data.changes.length > 0 : shownStatus.dirty}
         selected={stashFile}
         onPick={(s, c) => {
           const url = stashDiff(target, s, c)

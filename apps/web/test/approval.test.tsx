@@ -108,8 +108,9 @@ describe('ApprovalBlock', () => {
     expect(screen.getByText('访问外部系统')).toBeTruthy()
     expect(screen.getByText('6512')).toBeTruthy()
     expect(screen.getByText(long)).toBeTruthy()
-    expect(screen.getByText('以后都允许这个工具')).toBeTruthy()
-    expect(screen.getByText('不再询问：feishu-project · update_field')).toBeTruthy()
+    expect(screen.getByText('不再询问：Update field')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    expect(screen.getByRole('menuitem', { name: '以后都允许' })).toBeTruthy()
 
     // Nothing declared: said so, not guessed from a name like delete_*.
     const bare = { server: 'wiki', tool: 'delete_page', input: '{"id":1}' }
@@ -158,7 +159,7 @@ describe('ApprovalBlock', () => {
     expect(screen.getByText('权限请求 · 执行命令')).toBeTruthy()
     expect(screen.getByText('go build ./...')).toBeTruthy()
     expect(screen.getByText(/01:30 后自动拒绝/)).toBeTruthy()
-    expect(screen.getByText('你是 Bot 主人')).toBeTruthy()
+    expect(screen.queryByText('你是 Bot 主人')).toBeNull()
     act(() => {
       vi.advanceTimersByTime(1000)
     })
@@ -194,14 +195,15 @@ describe('ApprovalBlock', () => {
     login('u1', '王磊')
     const calls = mockApi({ 'POST /runs/r1/full-access': null })
     const { unmount } = render(<ApprovalBlock run={run([approval()])} />)
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
     expect(screen.getByTitle(/下一轮恢复原审批方式/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '本次运行免审批' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '本次运行免审批' }))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0]).toMatchObject({ method: 'POST', path: '/runs/r1/full-access' })
     unmount()
     useSession.setState({ tenancy: { demoMode: true } as never })
     render(<ApprovalBlock run={run([approval()])} />)
-    expect(screen.queryByRole('button', { name: '本次运行免审批' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '更多' })).toBeNull()
     useSession.setState({ tenancy: undefined as never })
   })
 
@@ -221,7 +223,8 @@ describe('ApprovalBlock', () => {
     expect(screen.getByRole('button', { name: '批准' })).toBeTruthy()
     rerender(<ApprovalBlock run={run([approval({ options, remember })])} />)
     expect(screen.getByText('不再询问：npm run build、tail')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '批准，不再询问' }))
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '批准，不再询问' }))
     await waitFor(() => expect(calls[0]?.body).toEqual({ optionId: 'always' }))
   })
 
@@ -307,7 +310,8 @@ describe('ApprovalBlock', () => {
     expect(screen.queryByRole('button', { name: '本次会话不再问' })).toBeNull()
     rerender(<ApprovalBlock run={run([approval({ detail: 'node a.js', rememberSession: ['node'] })])} />)
     expect(screen.getByText('本次会话不再问：node')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '本次会话不再问' }))
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '本次会话不再问' }))
     await waitFor(() => expect(calls[0]?.body).toEqual({ optionId: 'allow', session: true }))
   })
 
@@ -403,14 +407,7 @@ describe('ApprovalBlock', () => {
       />,
     )
     const names = screen.getAllByRole('button').map((b) => b.textContent)
-    expect(names).toEqual([
-      '批准',
-      '拒绝',
-      '本次会话不再问',
-      '批准，不再询问',
-      '本次运行免审批',
-      '全部批准（2）',
-    ])
+    expect(names).toEqual(['批准', '拒绝', '更多', '全部批准（2）'])
   })
 
   it('folds a long command but lets the owner read all of it', () => {

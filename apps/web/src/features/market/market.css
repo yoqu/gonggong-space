@@ -353,3 +353,8 @@
   flex-direction: column;
   gap: var(--space-6);
 }
+@media (max-width: 640px) {
+  .mkt-secret__compare {
+    grid-template-columns: 1fr;
+  }
+}

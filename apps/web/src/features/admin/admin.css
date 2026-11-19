@@ -104,8 +104,14 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   }
   .admin__nav .ui-sidebar__title,
   .admin__brand,
+  .admin__account,
   .admin__role {
     display: none;
+  }
+  .admin__desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* The tab row scrolls sideways: keep the way out first and pinned so it never scrolls off. */
   .admin__back {

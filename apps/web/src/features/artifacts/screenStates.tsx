@@ -73,7 +73,15 @@ export function useScreenStates(manifest: GgArtifactManifest | null | undefined)
     )
   }
 
+  const isDefault = (id: string) => {
+    const dims = dimsOf(id)
+    if (!dims.length) return true
+    const state = stateOf(id)
+    const base = defaultState(dims)
+    return dims.every((d) => state[d.id] === base[d.id])
+  }
+
   /** The page a frame of the screen loads: its file and the state in the query. */
   const fileOf = (s: { id: string; file: string }) => `${s.file}${query(s.id)}`
-  return { fileOf, query, choose, picker }
+  return { fileOf, query, choose, picker, isDefault }
 }

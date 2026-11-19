@@ -248,11 +248,28 @@ describe('诊断 self-checks', () => {
 
 describe('official login', () => {
   it("explains logging in from the agent's CLI on the machine", async () => {
-    mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW })
+    const installedTools: MachineAgentsDto = {
+      ...TOOLS,
+      agents: [
+        {
+          kind: 'codex',
+          available: true,
+          version: '0.159.2',
+          latest: null,
+          managed: false,
+          path: '/usr/local/bin/codex',
+          catalog: null,
+          minVersion: null,
+          installCommand: null,
+          upgradeCommand: null,
+        },
+      ],
+    }
+    mockApi({ 'GET /machines/m1/tools': installedTools, 'GET /machines/m1/providers': VIEW })
     open(server, '/?tab=agents')
-    const installable = await screen.findByRole('region', { name: '可安装' })
-    fireEvent.click(within(installable).getByRole('button', { name: /^Codex/ }))
-    fireEvent.click(within(installable).getByRole('button', { name: '登录…' }))
+    const agents = await screen.findByRole('region', { name: 'Agent' })
+    fireEvent.click(within(agents).getByRole('button', { name: /^Codex/ }))
+    fireEvent.click(within(agents).getByRole('button', { name: '登录…' }))
     const dialog = await screen.findByRole('dialog', { name: '登录 Codex 官方账号' })
     expect(within(dialog).getByText('codex login --device-auth')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '改用 API Key 供应商' }))

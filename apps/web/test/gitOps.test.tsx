@@ -75,7 +75,7 @@ describe('git status bar', () => {
     fireEvent.click(await screen.findByRole('button', { name: '小王的 Claude 的工作区' }))
     const menu = await dialog('小王的 Claude 的工作区')
     expect(menu.queryByRole('button', { name: /拉取|推送|提交/ })).toBeNull()
-    fireEvent.click(menu.getByRole('button', { name: '打开 小王的 Claude 的 Git' }))
+    fireEvent.click(menu.getByRole('menuitem', { name: '打开 小王的 Claude 的 Git' }))
     expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1' }])
     expect(await screen.findByTestId('git-tab')).toBeTruthy()
   })

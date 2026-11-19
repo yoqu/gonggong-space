@@ -269,4 +269,8 @@ export default {
   定时任务列表: 'Scheduled tasks',
   没有匹配的任务: 'No matching tasks',
   任务: 'Task',
+  会话类型: 'Conversation type',
+  '私聊#nav': 'Direct chats',
+  '{n} 个私聊': '{n} {n:direct chat|direct chats}',
+  还没有私聊: 'No direct chats yet',
 }

@@ -873,7 +873,8 @@ describe('M4 封禁', () => {
       'POST /market/l1/ban': {},
     })
     const drawer = await openDetail()
-    fireEvent.click(await within(drawer).findByRole('button', { name: '封禁' }))
+    fireEvent.click(await within(drawer).findByRole('button', { name: '管理 review-pr' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '封禁' }))
     const dialog = await screen.findByRole('dialog', { name: '封禁「review-pr」' })
     const ban = within(dialog).getByRole('button', { name: '封禁' }) as HTMLButtonElement
     expect(ban.disabled).toBe(true)

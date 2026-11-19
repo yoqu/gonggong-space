@@ -1,18 +1,34 @@
-import { type SecretCard as Card, type MessageDto, SECRET_MIN_LENGTH } from '@gonggong/protocol'
+import {
+  type SecretCard as Card,
+  type MessageDto,
+  SECRET_MIN_LENGTH,
+  type SecretDto,
+  type SecretNeedDto,
+} from '@gonggong/protocol'
 import { memo, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
+import { useGet } from '../../lib/useGet'
 import { Alert, Button, ChatNotice, Checkbox, Dialog, Icon, Presence, SecureField, Tag } from '../../ui'
 import { MODE_LABEL, secretsApi } from './api'
 import { FOREIGN, FOREIGN_NOTE } from './MySecrets'
+import './secrets.css'
+
+const host = (url: string) => {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
 
 /**
  * Who may fill an `admins` card as far as the client knows: a sysadmin, an admin of the group or of its team. The
  * definition's layer is not on the card, so the server has the last word.
  */
-function useCanManage(groupId: string) {
+export function useCanManage(groupId: string) {
   const user = useSession((s) => s.user)
   const teams = useSession((s) => s.tenancy?.teams)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
@@ -78,6 +94,7 @@ export const SecretCard = memo(function SecretCard({ m, card }: { m: MessageDto;
         ) : open ? (
           <FillDialog
             card={card}
+            groupId={m.groupId}
             onClose={() => setOpen(false)}
             onDone={() => {
               setFilled(true)
@@ -137,7 +154,7 @@ export function DefineDialog({
         <div key={s.name} className="sn-row">
           <div className="sn-row__head">
             <strong>{s.title ?? s.name}</strong>
-            <code>{s.name}</code>
+            {s.title && s.title !== s.name ? <code>{s.name}</code> : null}
             <Tag tone="blue">{MODE_LABEL[s.mode]}</Tag>
           </div>
           {s.description ? <div className="gs-desc">{s.description}</div> : null}
@@ -149,16 +166,21 @@ export function DefineDialog({
 
 export function FillDialog({
   card,
+  groupId,
   onClose,
   onDone,
 }: {
   card: Card
+  groupId?: string
   onClose: () => void
   onDone: () => void
 }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Best-effort metadata from the group's declared needs and definitions; failure only omits the extra hints.
+  const needs = useGet<SecretNeedDto[]>(groupId ? `/groups/${groupId}/secret-needs` : null)
+  const defs = useGet<SecretDto[]>(groupId ? `/groups/${groupId}/secrets` : null)
   // Without it the value never reaches a bot on someone else's machine, so the card that asked for it offers it.
   const askForeign = card.audience === 'origin' && !!card.foreign
   const [foreign, setForeign] = useState(true)
@@ -192,21 +214,47 @@ export function FillDialog({
       ]}
     >
       {error ? <Alert variant="error" title={error} /> : null}
-      {card.names.map((n) => (
-        <SecureField
-          key={n}
-          label={n}
-          autoComplete="new-password"
-          hint={t('至少 8 个字符')}
-          value={values[n] ?? ''}
-          onChange={(e) => setValues({ ...values, [n]: e.target.value })}
-        />
-      ))}
+      {card.names.map((n) => {
+        const spec = needs.data?.find((x) => x.spec.name === n)?.spec
+        const def = defs.data?.find((x) => x.name === n)
+        const desc = spec?.description || def?.description
+        const val = values[n] ?? ''
+        const short = val.length > 0 && val.length < SECRET_MIN_LENGTH
+        return (
+          <div key={n} className="sn-row">
+            {spec?.title && spec.title !== n ? (
+              <div className="sn-row__head">
+                <strong>{spec.title}</strong>
+                <code>{n}</code>
+              </div>
+            ) : (
+              <div className="sn-row__head">
+                <strong>{n}</strong>
+              </div>
+            )}
+            {desc ? <div className="gs-desc">{desc}</div> : null}
+            {spec?.url ? (
+              <a className="sn-row__link" href={spec.url} target="_blank" rel="noreferrer noopener">
+                {t('前往 {host} 申请', { host: host(spec.url) })}
+              </a>
+            ) : null}
+            <SecureField
+              aria-label={n}
+              autoComplete="new-password"
+              placeholder={spec?.placeholder || t('输入 {name} 的值', { name: n })}
+              hint={short ? undefined : t('至少 8 个字符')}
+              error={short ? t('至少 8 个字符') : undefined}
+              value={val}
+              onChange={(e) => setValues({ ...values, [n]: e.target.value })}
+            />
+          </div>
+        )
+      })}
       {askForeign ? (
-        <>
+        <div className="sn-foreign">
           <Checkbox label={FOREIGN} checked={foreign} onChange={setForeign} />
           <div className="gs-desc">{FOREIGN_NOTE}</div>
-        </>
+        </div>
       ) : null}
     </Dialog>
   )

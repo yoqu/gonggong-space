@@ -22,6 +22,7 @@ export default {
   '移除 {name}': 'Remove {name}',
   '{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git':
     '{n} / {max} · saved to the workspace under .gonggong/attachments/, kept out of git',
+  '{n} / {max} · Bot 能读到这些文件': '{n} / {max} · Bots can read these files',
   ' · 图片：agent 支持时同时以 ACP 图片发送':
     ' · images: also sent as ACP images when the agent supports them',
   '：': ': ',
@@ -35,6 +36,7 @@ export default {
   视频: 'Video',
   音频: 'Audio',
   文本日志: 'Text log',
+  文本: 'Text',
   代码: 'Code',
   压缩包: 'Archive',
   '播放 {name}': 'Play {name}',

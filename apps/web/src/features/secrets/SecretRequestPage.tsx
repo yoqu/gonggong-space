@@ -6,7 +6,7 @@ import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Button, DeniedArt, EmptyState, Presence, Spinner } from '../../ui'
 import { secretsApi } from './api'
-import { DefineDialog, FillDialog, useLayerAdmin, waitingFor } from './SecretCard'
+import { DefineDialog, FillDialog, useCanManage, useLayerAdmin, waitingFor } from './SecretCard'
 
 /** /secret-requests/:id — where a Feishu 填写密钥 card links: the value is typed here, never in Feishu. */
 export function SecretRequestPage() {
@@ -17,6 +17,7 @@ export function SecretRequestPage() {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const layerAdmin = useLayerAdmin(req?.define?.layer)
+  const canManage = useCanManage(req?.groupId ?? '')
 
   useEffect(() => {
     secretsApi.request(id).then(setReq, (e) => setError(errorText(e)))
@@ -38,7 +39,7 @@ export function SecretRequestPage() {
     <Spinner />
   ) : req.filled || done ? (
     <EmptyState
-      title={t('已填写，可以回到飞书')}
+      title={req.define ? t('已创建密钥定义，请成员各自填写后继续') : t('已填写，可以回到飞书')}
       description={req.names.join('、')}
       icon="lock"
       action={back}
@@ -47,12 +48,19 @@ export function SecretRequestPage() {
     <EmptyState title={t('只有发起人本人可以填写这些密钥')} icon="lock" action={back} />
   ) : req.define && !layerAdmin ? (
     <EmptyState title={waitingFor(req.define)} icon="lock" action={back} />
+  ) : req.audience === 'admins' && !req.define && !canManage ? (
+    <EmptyState title={t('仅管理员可以填写这些密钥')} icon="lock" action={back} />
   ) : (
     <Presence>
       {req.define ? (
         <DefineDialog card={req} onClose={() => navigate(`/g/${req.groupId}`)} onDone={() => setDone(true)} />
       ) : (
-        <FillDialog card={req} onClose={() => navigate(`/g/${req.groupId}`)} onDone={() => setDone(true)} />
+        <FillDialog
+          card={req}
+          groupId={req.groupId}
+          onClose={() => navigate(`/g/${req.groupId}`)}
+          onDone={() => setDone(true)}
+        />
       )}
     </Presence>
   )

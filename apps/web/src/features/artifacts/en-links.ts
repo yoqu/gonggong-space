@@ -24,4 +24,6 @@ export default {
   切换为链接卡片: 'Switch to link card',
   '删除 {n} 个链接？': 'Delete {n} {n:link|links}?',
   '链接从画布移除，生成一个新版本': 'The links leave the canvas, in a new version',
+  请先填写有效链接和标题: 'Enter a valid URL and title first',
+  请先填写标题: 'Enter a title first',
 }

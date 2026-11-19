@@ -108,7 +108,27 @@ export function NewTabMenu({
           { header: t('Git 面板') },
           ...withGit.map((b) => ({ label: b.name, value: `git:${b.id}`, icon: 'git-branch' as const })),
         ]
-      : []),
+      : bots.length
+        ? (() => {
+            const anyOnline = bots.some((b) => machines.find((m) => m.id === b.machineId)?.online)
+            const reason = anyOnline ? t('还没有工作区') : t('机器离线')
+            return [
+              { separator: true as const },
+              {
+                value: 'git:disabled',
+                icon: 'git-branch' as const,
+                disabled: true,
+                title: reason,
+                label: (
+                  <span className="bench-menu__disabled">
+                    <span>{t('Git 面板')}</span>
+                    <span className="bench-menu__sub">{reason}</span>
+                  </span>
+                ),
+              },
+            ]
+          })()
+        : []),
     ...(withTerminal.length
       ? [
           { separator: true as const },

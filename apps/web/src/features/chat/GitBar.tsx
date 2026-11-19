@@ -7,6 +7,7 @@ import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { Icon, type IconName, Presence } from '../../ui'
+import { PRESENCE } from '../bots/model'
 import { refreshGitQuietly } from '../git/api'
 import { ongoingLabel } from '../git/commands'
 import { BranchLabel, WorkspaceMenu } from '../git/GitControls'
@@ -16,6 +17,7 @@ import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 import { ContextMeter } from './ContextMeter'
 import { contextGauge } from './ContextRing'
 import { startNewSession } from './newSession'
+import { useWorkspaceBannerHidden, workspaceBannerHideKey } from './WorkspaceBanner'
 
 const WORKSPACE_LABEL = { managed: t('托管目录'), cd: t('本机目录') }
 const FOCUS_REFRESH_MS = 30_000
@@ -138,6 +140,7 @@ function Where({
 
 function Item({
   group,
+  bot,
   name,
   s,
   showGit,
@@ -145,6 +148,7 @@ function Item({
   onChange,
 }: {
   group: GroupDto
+  bot?: BotDto
   name: string
   s: GroupBotStateDto
   /** Partition groups with a repo, where the bar shows each bot's git status. */
@@ -154,9 +158,13 @@ function Item({
 }) {
   const groupId = group.id
   const git = s.git
+  const bannerHidden = useWorkspaceBannerHidden((st) => st.hidden)
+  const bannerDismissed = bannerHidden.includes(workspaceBannerHideKey(groupId, s.botId, s.state, s.reason))
   const hint =
     s.state === 'unbound' ? (
-      <span className="git-bar__hint">{t('待绑定')}</span>
+      bannerDismissed ? (
+        <span className="git-bar__hint">{t('未选工作区')}</span>
+      ) : null
     ) : s.state === 'confirm' ? (
       <span className="git-bar__hint">{t('待主人确认')}</span>
     ) : s.state === 'pending' && !git ? (
@@ -168,6 +176,8 @@ function Item({
         {t('工作区创建失败')}
       </span>
     ) : null
+  const presence = bot ? PRESENCE[bot.presence] : null
+  const itemLabel = presence ? t('{name}（{status}）', { name, status: presence.label }) : name
   // Uncommitted work first; a clean feature branch shows what it holds against main.
   const diff = git
     ? () => openTab({ kind: 'diff', botId: s.botId, scope: git.dirty ? 'uncommitted' : 'base', file: null })
@@ -177,7 +187,16 @@ function Item({
       ? () => openTab({ kind: 'files', botId: s.botId, dir: '', selected: null })
       : undefined
   return (
-    <div className="git-bar__item" data-testid={`git-${s.botId}`}>
+    <div className="git-bar__item" data-testid={`git-${s.botId}`} title={itemLabel}>
+      {presence && bot ? (
+        <span
+          className="git-bar__dot"
+          role="img"
+          aria-label={itemLabel}
+          data-ring={bot.presence === 'offline' ? 'true' : undefined}
+          style={{ '--dot-color': presence.color } as React.CSSProperties}
+        />
+      ) : null}
       <span className="git-bar__name">{name}</span>
       {showGit ? (
         <>
@@ -289,8 +308,13 @@ export function GitBar({ group }: { group: GroupDto }) {
       const now = Date.now()
       if (now - focusedAt.current < FOCUS_REFRESH_MS) return
       focusedAt.current = now
-      const shown = useWorkspace.getState().botStates[group.id] ?? {}
-      for (const id of group.botIds) if (shown[id]?.git) refreshGitQuietly(group.id, id)
+      const { botStates, bots: allBots } = useWorkspace.getState()
+      const shown = botStates[group.id] ?? {}
+      for (const id of group.botIds) {
+        const b = allBots.find((x) => x.id === id)
+        if (b && ['offline', 'pending_bind', 'pending_confirm'].includes(b.presence)) continue
+        if (shown[id]?.git) refreshGitQuietly(group.id, id)
+      }
     }
     window.addEventListener('focus', onFocus)
     const timer = window.setInterval(onFocus, POLL_REFRESH_MS)
@@ -331,6 +355,7 @@ export function GitBar({ group }: { group: GroupDto }) {
       <Item
         key={id}
         group={group}
+        bot={bot}
         showGit={showGit && (!!group.repo || !!stateOf(id).git)}
         machine={bot?.machineName ?? null}
         name={bot?.name ?? 'bot'}

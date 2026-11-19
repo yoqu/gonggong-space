@@ -76,83 +76,110 @@ export function AgentDetail({
   return (
     <div className="ag-detail">
       <GroupBox>
-        <GroupRow
-          label={t('路径')}
-          className="ag-long"
-          wideValue
-          value={
-            <span className="ag-value ag-value--wrap">
-              {a.path ? <span className="mx-mono">{a.path}</span> : '--'}
-              {local?.customPath && resetPath ? (
-                <Button size="small" onClick={changePath(() => resetPath(a.kind))}>
-                  {t('恢复自动检测')}
-                </Button>
-              ) : null}
-              {pickPath ? (
-                <Button size="small" onClick={changePath(() => pickPath(a.kind))}>
-                  {a.available ? t('更换路径…') : t('手动指定路径…')}
-                </Button>
-              ) : null}
-            </span>
-          }
-        />
-        <GroupRow
-          label={t('版本')}
-          description={a.minVersion ? t('最低要求 {version}', { version: a.minVersion }) : undefined}
-          wideValue
-          value={a.version ?? '--'}
-        />
         {a.available ? (
-          <GroupRow
-            label={t('来源')}
-            wideValue
-            value={a.managed ? t('共工空间托管') : t('自行安装')}
-            description={a.installCommand ? t('自行安装，按它自己的方式升级') : undefined}
-          />
-        ) : null}
-        {a.installCommand ? null : (
-          <GroupRow label={t('最新版本')} wideValue value={a.latest ?? t('无法获取，请检查镜像源')} />
+          <>
+            <GroupRow
+              label={t('路径')}
+              className="ag-long"
+              wideValue
+              value={
+                <span className="ag-value ag-value--wrap">
+                  {a.path ? <span className="mx-mono">{a.path}</span> : '--'}
+                  {local?.customPath && resetPath ? (
+                    <Button size="small" onClick={changePath(() => resetPath(a.kind))}>
+                      {t('恢复自动检测')}
+                    </Button>
+                  ) : null}
+                  {pickPath ? (
+                    <Button size="small" onClick={changePath(() => pickPath(a.kind))}>
+                      {t('更换路径…')}
+                    </Button>
+                  ) : null}
+                </span>
+              }
+            />
+            <GroupRow
+              label={t('版本')}
+              description={a.minVersion ? t('最低要求 {version}', { version: a.minVersion }) : undefined}
+              wideValue
+              value={a.version ?? '--'}
+            />
+            <GroupRow
+              label={t('来源')}
+              wideValue
+              value={a.managed ? t('共工空间托管') : t('自行安装')}
+              description={a.installCommand ? t('自行安装，按它自己的方式升级') : undefined}
+            />
+            {a.installCommand ? null : (
+              <GroupRow label={t('最新版本')} wideValue value={a.latest ?? t('无法获取，请检查镜像源')} />
+            )}
+            {!a.managed && a.upgradeCommand ? (
+              <GroupRow
+                label={t('升级命令')}
+                className="ag-long"
+                description={t('升级时按原安装方式运行，也可以在这台电脑的终端自己运行')}
+                wideValue
+                value={<Command command={a.upgradeCommand} />}
+              />
+            ) : null}
+            {local ? <GroupRow label={t('登录#status')} wideValue value={local.login ?? t('未知')} /> : null}
+            <GroupRow
+              label={t('ACP 适配器')}
+              wideValue
+              value={
+                meta.adapter !== 'bundled'
+                  ? t('CLI 自带 ACP')
+                  : local?.adapterVersion
+                    ? t('共工内置适配器 {version}', { version: local.adapterVersion })
+                    : t('共工内置适配器')
+              }
+            />
+            <GroupRow
+              label={t('可用模型')}
+              className="ag-long"
+              wideValue
+              value={models.length ? models.join(t('、')) : t('电脑上报后可见')}
+            />
+          </>
+        ) : (
+          <>
+            <GroupRow
+              label={t('安装方式')}
+              wideValue
+              value={
+                <span className="ag-value ag-value--wrap">
+                  {a.installCommand ? t('自行安装') : t('共工空间托管')}
+                  {pickPath ? (
+                    <Button size="small" onClick={changePath(() => pickPath(a.kind))}>
+                      {t('手动指定路径…')}
+                    </Button>
+                  ) : null}
+                </span>
+              }
+            />
+            {a.minVersion ? <GroupRow label={t('最低版本')} wideValue value={a.minVersion} /> : null}
+            {meta.note ? (
+              <GroupRow label={t('运行要求')} wideValue value={t.text({ key: meta.note })} />
+            ) : null}
+            {a.installCommand ? (
+              <GroupRow
+                label={t('安装命令')}
+                className="ag-long"
+                description={t('共工空间无法自动安装它，请在这台电脑的终端运行')}
+                wideValue
+                value={<Command command={a.installCommand} />}
+              />
+            ) : (
+              <GroupRow label={t('最新版本')} wideValue value={a.latest ?? t('无法获取，请检查镜像源')} />
+            )}
+            <GroupRow label={t('可用模型')} className="ag-long" wideValue value={t('安装并登录后可见')} />
+          </>
         )}
-        {!a.managed && a.upgradeCommand ? (
-          <GroupRow
-            label={t('升级命令')}
-            className="ag-long"
-            description={t('升级时按原安装方式运行，也可以在这台电脑的终端自己运行')}
-            wideValue
-            value={<Command command={a.upgradeCommand} />}
-          />
-        ) : null}
-        {a.installCommand && !a.available ? (
-          <GroupRow
-            label={t('安装命令')}
-            className="ag-long"
-            description={t('共工空间无法自动安装它，请在这台电脑的终端运行')}
-            wideValue
-            value={<Command command={a.installCommand} />}
-          />
-        ) : null}
-        {local && a.available ? (
-          <GroupRow label={t('登录#status')} wideValue value={local.login ?? t('未知')} />
-        ) : null}
-        <GroupRow
-          label={t('ACP 适配器')}
-          wideValue
-          value={
-            meta.adapter !== 'bundled'
-              ? t('CLI 自带 ACP')
-              : local?.adapterVersion
-                ? t('共工内置适配器 {version}', { version: local.adapterVersion })
-                : t('共工内置适配器')
-          }
-        />
-        <GroupRow
-          label={t('可用模型')}
-          wideValue
-          value={models.length ? models.join(t('、')) : t('电脑上报后可见')}
-        />
       </GroupBox>
       {meta.login === 'own' ? (
         <p className="mx-sub ag-detail__note">{t.text({ key: meta.loginHint ?? '' })}</p>
+      ) : !a.available ? (
+        <p className="mx-sub ag-detail__note">{t('安装后可设置默认供应商与登录')}</p>
       ) : view && has('providers') ? (
         <DefaultBox
           source={source}
@@ -163,7 +190,7 @@ export function AgentDetail({
           bots={bots}
         />
       ) : null}
-      {view && has('agentSettings') && fieldsFor(a.kind, 'agent').length ? (
+      {a.available && view && has('agentSettings') && fieldsFor(a.kind, 'agent').length ? (
         <AgentSettingsBox source={source} bots={bots} agent={a.kind} view={view} onView={onView} />
       ) : null}
       <section className="mx-section" aria-label={t('使用它的 Bot')}>

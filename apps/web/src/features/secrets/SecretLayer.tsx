@@ -40,7 +40,7 @@ import '../config/config.css'
 
 type Bot = Pick<BotDto, 'id' | 'name'>
 type Action =
-  | { kind: 'edit' | 'clear' | 'delete'; secret: SecretDto }
+  | { kind: 'edit' | 'clear' | 'delete' | 'fill_shared'; secret: SecretDto }
   | { kind: 'create' }
   | { kind: 'fill'; item: MySecretDto }
 
@@ -91,12 +91,21 @@ export function SecretLayerList({
           <Tag tone={own ? 'blue' : 'gray'}>{SCOPE_LABEL[s.scope]}</Tag>
           <Tag tone="gray">{MODE_LABEL[s.mode]}</Tag>
           {s.enabled ? null : <Tag tone="gray">{t('已停用')}</Tag>}
+          {s.mode !== 'personal' && !s.value && !s.overridden ? <Tag tone="orange">{t('未填写')}</Tag> : null}
           {s.overridden ? <Tag tone="orange">{overriddenBy(s)}</Tag> : null}
         </span>
       }
       description={
         <>
           <SecretFacts secret={s} bots={botNames(s.botIds)} />
+          {scope === 'group' &&
+          !own &&
+          s.scope === 'team' &&
+          s.mode !== 'personal' &&
+          !s.value &&
+          !s.overridden ? (
+            <div>{t('需团队管理员在团队设置中填写')}</div>
+          ) : null}
           {my ? (
             <div>{t('我的值：{state}', { state: my.mine ? valueState(my.mine) : t('未填写') })}</div>
           ) : null}
@@ -104,6 +113,11 @@ export function SecretLayerList({
       }
     >
       <span className="cfg__controls">
+        {own && editable && s.mode !== 'personal' && !s.value ? (
+          <Button size="small" onClick={() => setAction({ kind: 'fill_shared', secret: s })}>
+            {t('填写统一值…')}
+          </Button>
+        ) : null}
         {my ? (
           <Button size="small" onClick={() => setAction({ kind: 'fill', item: my })}>
             {my.mine ? t('更新我的值…') : t('填写我的值…')}
@@ -169,6 +183,8 @@ export function SecretLayerList({
           />
         ) : action?.kind === 'fill' ? (
           <FillMine item={action.item} onClose={close} onDone={done} />
+        ) : action?.kind === 'fill_shared' ? (
+          <FillSharedDialog secret={action.secret} onClose={close} onDone={done} />
         ) : action?.kind === 'clear' ? (
           <ConfirmActionDialog
             key="clear"
@@ -398,6 +414,64 @@ function SecretDialog({
         )}
       </Form>
       {error ? <Alert variant="error" title={error} /> : null}
+    </Dialog>
+  )
+}
+
+function FillSharedDialog({
+  secret,
+  onClose,
+  onDone,
+}: {
+  secret: SecretDto
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const short = value.length > 0 && value.length < SECRET_MIN_LENGTH
+  const submit = async () => {
+    setBusy(true)
+    try {
+      await secretsApi.update(secret.id, { value })
+      onDone()
+    } catch (e) {
+      setError(errorText(e))
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      title={t('填写 {name}', { name: secret.name })}
+      message={
+        secret.description ||
+        t('填写统一值，对该层所有可用的 Bot 生效；Bot 运行时以环境变量使用，值不会出现在聊天记录和日志里。')
+      }
+      onClose={onClose}
+      closeOnBackdrop={false}
+      actions={[
+        { label: t('取消'), onClick: onClose },
+        {
+          label: t('保存'),
+          variant: 'primary',
+          onClick: () => void submit(),
+          disabled: busy || value.length < SECRET_MIN_LENGTH,
+        },
+      ]}
+    >
+      {error ? <Alert variant="error" title={error} /> : null}
+      <SecureField
+        aria-label={t('填写统一值')}
+        autoComplete="new-password"
+        placeholder={t('输入 {name} 的值', { name: secret.name })}
+        hint={short ? undefined : t('至少 8 个字符')}
+        error={short ? t('至少 8 个字符') : undefined}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        autoFocus
+      />
     </Dialog>
   )
 }

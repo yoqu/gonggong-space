@@ -8,6 +8,8 @@ export interface RunIssue {
   title: string
   /** The reason as the server or the agent reported it, in full. */
   detail: string
+  /** True only for raw error/log output (shown in monospace); prose explanations use body font. */
+  mono?: boolean
   hint?: string
 }
 
@@ -19,6 +21,7 @@ export function agentErrorIssue(detail: string): RunIssue {
     tone: 'error',
     title: t('运行失败：Agent 异常'),
     detail: detail || t('未知错误'),
+    mono: !!detail,
     hint: t('看完错误信息后重新 @ Bot 再试；反复出现时检查 Bot 所在电脑上 Agent 的登录、额度与网络。'),
   }
 }

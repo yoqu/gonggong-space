@@ -1348,7 +1348,7 @@ export function Canvas({
       : links
   const thumbOf = (n: CanvasNode) => screenThumbs.find((s) => s.screenId === n.id)
   const covered = (n: CanvasNode) => {
-    const thumb = thumbOf(n)
+    const thumb = states.isDefault(n.id) ? thumbOf(n) : undefined
     return !!thumb && !thumb.stale && coveringThumbs.has(`${thumb.url}|${n.w}x${n.h}`)
   }
   const onThumbLoad = (n: CanvasNode, img: HTMLImageElement) => {
@@ -1789,7 +1789,7 @@ export function Canvas({
                   </div>
                 ) : src(n) ? (
                   <>
-                    {thumbOf(n) ? (
+                    {thumbOf(n) && states.isDefault(n.id) ? (
                       <img
                         className="art-node__thumb"
                         src={thumbOf(n)?.url}

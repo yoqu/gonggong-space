@@ -290,3 +290,25 @@
   font: inherit;
   text-align: left;
 }
+.bench__empty {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+.ui-menu__item:has(.bench-menu__disabled) {
+  height: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  align-items: flex-start;
+}
+.bench-menu__disabled {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.bench-menu__sub {
+  font-size: var(--text-caption-size);
+  color: var(--label-tertiary);
+}

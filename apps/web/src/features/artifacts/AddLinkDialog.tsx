@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Dialog, Input, RadioGroup, SegmentedControl } from '../../ui'
 import { isFeishu, ratioItems, validUrl } from './webPage'
+import './canvas-links.css'
 
 const TITLE_MAX = 120
 /** After a paste or leaving the field, the page's title is read this much later (a quick fix of the URL waits). */
@@ -88,6 +89,10 @@ export function AddLinkDialog({
           <span className="art-addlink__note">
             {t('飞书文档用你当前的飞书登录态加载，无权限时显示飞书登录页')}
           </span>
+        ) : !valid ? (
+          <span className="art-addlink__note">{t('请先填写有效链接和标题')}</span>
+        ) : !title.trim() ? (
+          <span className="art-addlink__note">{t('请先填写标题')}</span>
         ) : null
       }
       actions={[
@@ -103,9 +108,15 @@ export function AddLinkDialog({
     >
       <div className="art-addlink">
         <div className="art-addlink__field">
-          <span className="art-addlink__label">{t('链接地址')}</span>
+          <span className="art-addlink__label">
+            {t('链接地址')}
+            <span className="art-addlink__req" aria-hidden="true">
+              *
+            </span>
+          </span>
           <Input
             aria-label={t('链接地址')}
+            required
             placeholder="https://"
             value={url}
             maxLength={2000}
@@ -128,9 +139,15 @@ export function AddLinkDialog({
           ) : null}
         </div>
         <div className="art-addlink__field">
-          <span className="art-addlink__label">{t('标题')}</span>
+          <span className="art-addlink__label">
+            {t('标题')}
+            <span className="art-addlink__req" aria-hidden="true">
+              *
+            </span>
+          </span>
           <Input
             aria-label={t('标题')}
+            required
             placeholder={t('请输入标题')}
             className={cx(noTitle && 'art-addlink__warn')}
             value={title}

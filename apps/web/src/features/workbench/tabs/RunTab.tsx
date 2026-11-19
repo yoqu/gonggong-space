@@ -18,6 +18,7 @@ import { api } from '../../../lib/api'
 import { copyWithToast } from '../../../lib/clipboard'
 import { cx } from '../../../lib/cx'
 import { attempt } from '../../../lib/errors'
+import { fmtTokens } from '../../../lib/format'
 import { Elapsed } from '../../../lib/now'
 import { realtime } from '../../../lib/realtime'
 import { hm, hms, stamp } from '../../../lib/time'
@@ -71,7 +72,7 @@ const VIEWS: { value: RunView; label: string }[] = [
 ]
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const FAILED = ['forbidden', 'interrupted', 'expired']
-const PURGED = t('运行过程已过期，仅保留摘要')
+const PURGED = t('运行过程已过期，结果见聊天里的回复')
 /** Coalesces bursts of run.updated / run.progress / run.step into one refetch. */
 const REFETCH_MS = 300
 /** How long streamed text is gathered before it is shown. */
@@ -523,7 +524,15 @@ function useFollow(ref: RefObject<HTMLDivElement | null>, on: boolean, steps: un
 /** The context at the run's end (or now, while it runs); its process must still be kept. */
 function RunContext({ detail }: { detail: RunDetailDto }) {
   const last = useMemo(() => lastContext(detail.events, detail.live), [detail.events, detail.live])
-  if (detail.purged) return <div className="run-tab__empty">{PURGED}</div>
+  if (detail.purged) {
+    const u = detail.run.usage
+    const total = u ? (u.inputTokens ?? 0) + (u.outputTokens ?? 0) : 0
+    return (
+      <div className="run-tab__empty">
+        {total > 0 ? t('本轮共 {n} tokens，分项已随过程清理', { n: fmtTokens(total) }) : PURGED}
+      </div>
+    )
+  }
   if (!last) return <div className="run-tab__empty">{t('这次运行的 Agent 没有上报上下文用量')}</div>
   return <ContextWindow context={last.context} breakdown={last.breakdown} />
 }

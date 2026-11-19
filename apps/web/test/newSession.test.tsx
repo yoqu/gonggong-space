@@ -93,7 +93,7 @@ describe('新对话', () => {
       </MemoryRouter>,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'MBP 的 CC 的工作区' }))
-    fireEvent.click(await screen.findByRole('button', { name: '让 MBP 的 CC 开新对话' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '让 MBP 的 CC 开新对话' }))
     await waitFor(() => expect(sent(calls)).toHaveLength(1))
     expect(sent(calls)[0]).toMatchObject({ body: '/new @MBP 的 CC', appendTo: null })
     expect(sent(calls)[0]).not.toHaveProperty('threadRootId')

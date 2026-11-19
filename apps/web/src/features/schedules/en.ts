@@ -58,4 +58,13 @@ export default {
   已移出: 'Removed',
   '定时任务：{n} 个': '{n} {n:scheduled task|scheduled tasks}',
   '管理#manage': 'Manage',
+  '候选 Bot（至少选 1 个）· 到点由第一个可用的执行':
+    'Candidate Bots (pick at least 1) · the first available one runs it',
+  请先填写名称: 'Enter a name first',
+  请先填写指令: 'Enter instructions first',
+  '请至少选择 1 个候选 Bot': 'Pick at least 1 candidate Bot',
+  请设置有效的执行时间: 'Set a valid run time',
+  '所选候选 Bot 当前全部离线，到点会跳过':
+    'All selected candidate Bots are offline; this run will be skipped',
+  '将在 {time} 执行': 'Runs at {time}',
 }

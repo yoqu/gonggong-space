@@ -59,9 +59,46 @@
 .sc-bot__name {
   flex: 1;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sc-bot__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+}
+.sc-bot__off {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
 }
 .sc-bot--add {
   flex-wrap: wrap;
+}
+.sc-warn {
+  margin: 6px 0 0;
+  font-size: var(--text-footnote-size);
+  color: var(--system-orange);
+}
+.sc-footer-hint {
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
+@media (max-width: 520px) {
+  .sc-modes .ui-seg {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    width: 100%;
+  }
+  .sc-modes .ui-seg__thumb {
+    display: none;
+  }
+  .sc-modes .ui-seg__item[data-selected] {
+    background: var(--control-bg);
+    box-shadow: var(--shadow-seg);
+  }
 }
 .sc-timing {
   display: flex;

@@ -197,9 +197,11 @@ export function usePreviewMarks(o: {
     const side = follow.current
     if (!side || selected === null) return
     follow.current = null
-    const note = o.root.current?.querySelector<HTMLElement>(
-      `[data-testid="proto-note-${selected + 1}"] .proto-note__pick`,
-    )
+    const note = open
+      ? o.root.current?.querySelector<HTMLElement>(
+          `[data-testid="proto-note-${selected + 1}"] .proto-note__pick`,
+        )
+      : null
     // A mark scrolled out of view cannot take it: the panel's rule does.
     const found = markBtn(selected)
     const mark = found?.classList.contains('proto-mark--out') ? undefined : found
@@ -207,17 +209,14 @@ export function usePreviewMarks(o: {
     quiet.current = true
     to?.focus({ preventScroll: true })
     quiet.current = false
-    walkedTo.current = to ?? null
-  }, [selected, o.root])
+    walkedTo.current = to ?? document.activeElement?.closest<HTMLElement>('.proto-mark') ?? null
+  }, [selected, o.root, open])
   /** The rule the focus is on (a mark — a walked-to group's the picked one — or a panel's rule), else the picked one. */
   const focusedRule = () => {
     const el = document.activeElement
     const m = el?.closest('.proto-mark')
     const ids = idsOf(m)
-    if (ids.length)
-      return m === walkedTo.current && selected !== null && ids.includes(selected)
-        ? selected
-        : (ids[0] as number)
+    if (ids.length) return m === walkedTo.current && selected !== null ? selected : (ids[0] as number)
     const n = Number(/-(\d+)$/.exec(el?.closest('.proto-note')?.getAttribute('data-testid') ?? '')?.[1])
     return n ? n - 1 : selected
   }
@@ -300,8 +299,21 @@ export function usePreviewMarks(o: {
         <span className="proto-marks-toggle__label">{t('标注')}</span>
         {/* A narrow bar has no room for the badge: the count goes here (prototype.css). */}
         {rules.length ? (
-          <span className="proto-marks-toggle__count">
-            {stats.pending ? `${stats.total} · ${stats.pending}` : stats.total}
+          <span
+            className="proto-marks-toggle__counts"
+            title={
+              stats.pending
+                ? t('规则 {n} · 待确认 {m}', { n: stats.total, m: stats.pending })
+                : t('规则 {n}', { n: stats.total })
+            }
+          >
+            <span className="proto-marks-toggle__count">{stats.total}</span>
+            {stats.pending ? (
+              <span className="proto-marks-toggle__pending">
+                <span className="proto-marks-toggle__dot" aria-hidden="true" />
+                {stats.pending}
+              </span>
+            ) : null}
           </span>
         ) : null}
       </Button>

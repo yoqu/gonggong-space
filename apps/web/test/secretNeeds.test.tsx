@@ -105,7 +105,10 @@ describe('secret needs banner', () => {
     expect(key.placeholder).toBe('dwk_…')
     fireEvent.change(key, { target: { value: 'dwk_12345678' } })
     fireEvent.change(within(dialog).getByLabelText('DW_SHARED'), { target: { value: 'shared_12345678' } })
-    fireEvent.click(within(dialog).getByLabelText('允许在他人电脑上的 Bot 使用'))
+    // With a foreign bot in the group, allowForeignMachines defaults to checked.
+    expect((within(dialog).getByLabelText('允许在他人电脑上的 Bot 使用') as HTMLInputElement).checked).toBe(
+      true,
+    )
     needs = []
     fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(screen.queryByTestId('secret-banner')).toBeNull())
@@ -156,7 +159,7 @@ describe('secret needs banner', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/groups/g1/secret-needs/personal',
-        body: { name: 'DW_KEY', value: 'dwk_12345678', allowForeignMachines: false },
+        body: { name: 'DW_KEY', value: 'dwk_12345678', allowForeignMachines: true },
       }),
     )
   })
@@ -260,7 +263,7 @@ describe('secret needs banner', () => {
       expect(calls).toContainEqual({
         method: 'PUT',
         path: '/me/secrets/d-DW_KEY',
-        body: { value: 'dwk_12345678', allowForeignMachines: false },
+        body: { value: 'dwk_12345678', allowForeignMachines: true },
       }),
     )
     expect(calls.some((c) => c.method === 'POST' && c.path === '/teams/t1/secrets')).toBe(false)

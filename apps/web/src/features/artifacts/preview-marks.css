@@ -513,24 +513,45 @@
 }
 
 /* ── The bar's switch on a narrow bar: the count moves in from the badge, the label goes at the narrowest ── */
-.proto-marks-toggle__count {
+.proto-marks-toggle__counts {
   display: none;
-  min-width: 16px;
+  align-items: center;
+  gap: 3px;
   margin-left: 4px;
-  padding: 0 4px;
+}
+.proto-marks-toggle__count,
+.proto-marks-toggle__pending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 16px;
+  padding: 0 5px;
   border-radius: var(--radius-capsule);
-  background: var(--accent-fill);
-  color: var(--on-accent);
   font-size: var(--text-caption-size);
   line-height: 16px;
-  text-align: center;
+}
+.proto-marks-toggle__count {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.proto-marks-toggle__pending {
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+  font-weight: 500;
+}
+.proto-marks-toggle__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--system-orange);
 }
 @container (max-width: 720px) {
   .proto-bar__nav .art-title__rules {
     display: none;
   }
-  .proto-marks-toggle__count {
-    display: inline-block;
+  .proto-marks-toggle__counts {
+    display: inline-flex;
   }
 }
 @container (max-width: 480px) {

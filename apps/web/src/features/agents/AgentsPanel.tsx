@@ -69,6 +69,7 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
     <AgentRow
       key={a.kind}
       agent={a}
+      nodeVersion={state.node?.version ?? null}
       open={open === a.kind}
       onToggle={() => setOpen(open === a.kind ? null : a.kind)}
       op={tools.op}
@@ -140,8 +141,16 @@ const STATUS_TAG: Record<AgentStatus, { tone: 'green' | 'orange' | 'gray'; text:
 const belowMin = (a: AgentState) =>
   !!a.version && !!a.minVersion && compareVersions(a.version, a.minVersion) < 0
 
+const nodeNoteMissing = (note: string | undefined, nodeVersion: string | null) => {
+  if (!note) return false
+  const m = /Node\.js\s*≥\s*([\d.]+)/.exec(note)
+  if (!m) return false
+  return !nodeVersion || compareVersions(nodeVersion, m[1]!) < 0
+}
+
 function AgentRow({
   agent: a,
+  nodeVersion,
   open,
   onToggle,
   op,
@@ -151,6 +160,7 @@ function AgentRow({
   detail,
 }: {
   agent: AgentState
+  nodeVersion: string | null
   open: boolean
   onToggle: () => void
   op: ToolOp | null
@@ -161,14 +171,15 @@ function AgentRow({
 }) {
   const meta = agentMeta(a.kind)
   const status = agentStatus(a)
-  const tag = STATUS_TAG[status]
-  const sub = [
+  // Hide the redundant 有更新 tag when the row already carries an 升级到 button.
+  const tag = canRun && status === 'update' ? null : STATUS_TAG[status]
+  const isNodeNote = !!meta.note && /Node\.js\s*≥\s*[\d.]+/.test(meta.note)
+  const warnNode = isNodeNote && nodeNoteMissing(meta.note, nodeVersion)
+  const subParts = [
     t.text({ key: meta.vendor }),
     a.available ? (a.version ?? t('已安装')) : '',
-    meta.note ? t.text({ key: meta.note }) : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
+    meta.note && !isNodeNote ? t.text({ key: meta.note }) : '',
+  ].filter(Boolean)
   const mine = op?.kind === a.kind ? op : null
   return (
     <div className="ag-agent" data-open={open}>
@@ -184,7 +195,15 @@ function AgentRow({
                 <Tag tone="red">{t('低于最低要求 {version}', { version: a.minVersion ?? '' })}</Tag>
               ) : null}
             </span>
-            <span className="mx-sub mx-ellipsis">{sub}</span>
+            <span className="mx-sub mx-ellipsis">
+              {subParts.join(' · ')}
+              {warnNode && meta.note ? (
+                <>
+                  {subParts.length ? ' · ' : ''}
+                  <span className="mx-warn">{t.text({ key: meta.note })}</span>
+                </>
+              ) : null}
+            </span>
           </span>
         </button>
         <MainAction agent={a} status={status} busy={busy} canRun={canRun} onRun={onRun} />
@@ -227,7 +246,7 @@ function MainAction({
   if (!canRun) return null
   if (status === 'missing')
     return (
-      <Button size="small" variant="primary" disabled={busy} onClick={() => onRun(a.kind, 'install')}>
+      <Button size="small" disabled={busy} onClick={() => onRun(a.kind, 'install')}>
         {t('安装')}
       </Button>
     )

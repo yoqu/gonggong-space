@@ -46,4 +46,9 @@ export default {
   '正在升级…': 'Updating…',
   升级失败: 'Update failed',
   升级完成: 'Update complete',
+  安装方式: 'Install method',
+  最低版本: 'Minimum version',
+  运行要求: 'Requirements',
+  安装并登录后可见: 'Shown after installing and signing in',
+  安装后可设置默认供应商与登录: 'Set the default provider and login after installing',
 }

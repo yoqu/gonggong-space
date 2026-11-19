@@ -693,7 +693,7 @@ describe('run tab', () => {
     mockApi(() => detail({ purged: true, patch: null, events: [] }))
     renderChat()
     const rail = await openProcess()
-    expect(await within(rail).findByText('运行过程已过期，仅保留摘要')).toBeTruthy()
+    expect(await within(rail).findByText('运行过程已过期，结果见聊天里的回复')).toBeTruthy()
     fireEvent.click(within(rail).getByRole('tab', { name: '审批记录' }))
     expect(rail.textContent).toContain('echo hello-approval')
   })

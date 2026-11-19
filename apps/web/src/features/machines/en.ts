@@ -494,4 +494,8 @@ export default {
   '进入后按提示用 Google 账号登录；电脑没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码':
     'Sign in with a Google account as it prompts; on a computer without a browser run agy acp --login instead, open the link elsewhere and paste the code',
   电脑接入申请: 'Computer connect request',
+  刚刚离线: 'Just went offline',
+  '已离线 {n} 分钟': 'Offline {n}m',
+  '已离线 {n} 小时': 'Offline {n}h',
+  '已离线 {n} 天': 'Offline {n}d',
 } satisfies Record<string, string>

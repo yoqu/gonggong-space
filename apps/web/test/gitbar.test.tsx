@@ -353,17 +353,17 @@ describe('git status bar', () => {
     render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
     // One menu per bot: its changes come first, next to its files, pull, commit and push.
     fireEvent.click(
-      within(await menu('小王的 Claude')).getByRole('button', { name: '查看 小王的 Claude 的改动' }),
+      within(await menu('小王的 Claude')).getByRole('menuitem', { name: '查看 小王的 Claude 的改动' }),
     )
     const tabs = () => useWorkbench.getState().benches.g1?.tabs
     expect(tabs()).toEqual([{ kind: 'diff', botId: 'b1', scope: 'uncommitted', file: null }])
     fireEvent.click(
-      within(await menu('老李的 Codex')).getByRole('button', { name: '查看 老李的 Codex 的改动' }),
+      within(await menu('老李的 Codex')).getByRole('menuitem', { name: '查看 老李的 Codex 的改动' }),
     )
     expect(tabs()?.at(-1)).toEqual({ kind: 'diff', botId: 'b2', scope: 'base', file: null })
     const cloning = await menu('阿杰的 Claude')
     expect(
-      (within(cloning).getByRole('button', { name: '查看 阿杰的 Claude 的改动' }) as HTMLButtonElement)
+      (within(cloning).getByRole('menuitem', { name: '查看 阿杰的 Claude 的改动' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
     expect(within(cloning).queryByRole('button', { name: /拉取/ })).toBeNull()
@@ -429,17 +429,17 @@ describe('git status bar', () => {
     useWorkbench.setState({ groupId: 'g1', benches: {} })
     render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
     fireEvent.click(
-      within(await menu('小王的 Claude')).getByRole('button', { name: '浏览 小王的 Claude 的文件' }),
+      within(await menu('小王的 Claude')).getByRole('menuitem', { name: '浏览 小王的 Claude 的文件' }),
     )
     const tabs = () => useWorkbench.getState().benches.g1?.tabs
     expect(tabs()).toEqual([{ kind: 'files', botId: 'b1', dir: '', selected: null }])
     fireEvent.click(
-      within(await menu('老李的 Codex')).getByRole('button', { name: '浏览 老李的 Codex 的文件' }),
+      within(await menu('老李的 Codex')).getByRole('menuitem', { name: '浏览 老李的 Codex 的文件' }),
     )
     expect(tabs()?.at(-1)).toEqual({ kind: 'files', botId: 'b2', dir: '', selected: null })
     const cloning = await menu('阿杰的 Claude')
     expect(
-      (within(cloning).getByRole('button', { name: '浏览 阿杰的 Claude 的文件' }) as HTMLButtonElement)
+      (within(cloning).getByRole('menuitem', { name: '浏览 阿杰的 Claude 的文件' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
   })
@@ -463,16 +463,16 @@ describe('git status bar', () => {
     const first = await menu('小王的 Claude')
     expect(within(first).queryByRole('button', { name: /的改动$/ })).toBeNull()
     expect(within(first).queryByRole('button', { name: /拉取/ })).toBeNull()
-    fireEvent.click(within(first).getByRole('button', { name: '浏览 小王的 Claude 的文件' }))
+    fireEvent.click(within(first).getByRole('menuitem', { name: '浏览 小王的 Claude 的文件' }))
     const tabs = () => useWorkbench.getState().benches.g1?.tabs
     expect(tabs()).toEqual([{ kind: 'files', botId: 'b1', dir: '', selected: null }])
     fireEvent.click(
-      within(await menu('老李的 Codex')).getByRole('button', { name: '浏览 老李的 Codex 的文件' }),
+      within(await menu('老李的 Codex')).getByRole('menuitem', { name: '浏览 老李的 Codex 的文件' }),
     )
     expect(tabs()?.at(-1)).toEqual({ kind: 'files', botId: 'b2', dir: '', selected: null })
     const unbound = await menu('阿杰的 Claude')
     expect(
-      (within(unbound).getByRole('button', { name: '浏览 阿杰的 Claude 的文件' }) as HTMLButtonElement)
+      (within(unbound).getByRole('menuitem', { name: '浏览 阿杰的 Claude 的文件' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
   })
@@ -507,7 +507,7 @@ describe('git status bar', () => {
       within(await menu('老李的 Codex')).queryByRole('button', { name: '更换 老李的 Codex 的工作区' }),
     ).toBeNull()
     fireEvent.click(
-      within(await menu('小王的 Claude')).getByRole('button', { name: '更换 小王的 Claude 的工作区' }),
+      within(await menu('小王的 Claude')).getByRole('menuitem', { name: '更换 小王的 Claude 的工作区' }),
     )
     const picker = await screen.findByRole('dialog', { name: '为 小王的 Claude 选择工作区' })
     fireEvent.click(within(picker).getByRole('button', { name: /使用托管目录/ }))
@@ -538,7 +538,7 @@ describe('git status bar', () => {
     useWorkspace
       .getState()
       .applyEvent({ t: 'group.botState', groupId: 'g1', state: state('b1', { state: 'unbound' }) })
-    await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claude待绑定'))
+    await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claude—'))
   })
 
   it('loads once on the first connect and again after a reconnect', async () => {

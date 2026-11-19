@@ -94,6 +94,8 @@ export function CreationSheet({
   }
   const [filter, setFilter] = useState(() => facetsOf(draft))
   const [stepKey, setStep] = useState<CreationStep>(open.step ?? 'template')
+  const [maxReached, setMaxReached] = useState(0)
+  const [sideOpen, setSideOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const uploads = useUploads(group.id)
@@ -106,6 +108,12 @@ export function CreationSheet({
   const steps = creationSteps(m, template, usable.length)
   const step = steps.includes(stepKey) ? stepKey : 'content'
   const at = steps.indexOf(step)
+  const reached = Math.max(maxReached, at)
+  const goStep = (next: CreationStep) => {
+    const idx = steps.indexOf(next)
+    if (idx > maxReached) setMaxReached(idx)
+    setStep(next)
+  }
   const asksBot = steps.includes('bot')
   const bot = m.composer
     ? (usable.find((b) => b.id === draft.botId) ?? usable[0])
@@ -141,16 +149,23 @@ export function CreationSheet({
     return v ? [{ label: i.label, value: v }] : []
   })
   const blocker = bot ? blockerOf(plugin, bot.id) : null
-  const problems = [
+  const contentIdx = steps.indexOf('content')
+  const botIdx = steps.indexOf('bot')
+  const problemItems: { text: string; active: boolean }[] = [
     ...asked
       .filter((i) => i.required && !valueText(draft.inputs[i.id]))
-      .map((i) => t('请填写{label}', { label: i.label })),
+      .map((i) => ({
+        text: t('请填写{label}', { label: i.label }),
+        active: contentIdx >= 0 && reached >= contentIdx,
+      })),
     ...(!bot
-      ? [t('请选择交给哪个 Bot')]
+      ? [{ text: t('请选择交给哪个 Bot'), active: botIdx < 0 || reached >= botIdx }]
       : blocker
-        ? [`${bot.name}：${blockerText(blocker, m, bot.name)}`]
+        ? [{ text: `${bot.name}：${blockerText(blocker, m, bot.name)}`, active: true }]
         : []),
   ]
+  const problems = problemItems.map((p) => p.text)
+  const hasActiveProblem = problemItems.some((p) => p.active)
 
   const submit = async () => {
     const req = requestOf({ ...draft, botId: bot?.id ?? null }, uploads.ids, m)
@@ -208,7 +223,7 @@ export function CreationSheet({
       footer={<span className="plg-sheet__count">{`${at + 1} / ${steps.length}`}</span>}
       actions={[
         { label: t('取消'), onClick: closeCreation },
-        ...(at > 0 ? [{ label: t('上一步'), onClick: () => setStep(steps[at - 1] as CreationStep) }] : []),
+        ...(at > 0 ? [{ label: t('上一步'), onClick: () => goStep(steps[at - 1] as CreationStep) }] : []),
         last
           ? {
               label: !asksBot && bot ? t('交给 {bot}', { bot: bot.name }) : t('交给 AI'),
@@ -219,7 +234,7 @@ export function CreationSheet({
           : {
               label: t('下一步'),
               variant: 'primary' as const,
-              onClick: () => setStep(steps[at + 1] as CreationStep),
+              onClick: () => goStep(steps[at + 1] as CreationStep),
             },
       ]}
     >
@@ -231,7 +246,7 @@ export function CreationSheet({
               type="button"
               className={cx('plg-step', i === at && 'plg-step--on')}
               aria-current={i === at ? 'step' : undefined}
-              onClick={() => setStep(key)}
+              onClick={() => goStep(key)}
             >
               <span className={cx('plg-step__n', done(key, i) && 'plg-step__n--done')}>
                 {done(key, i) ? <Icon name="check" size={10} /> : i + 1}
@@ -369,10 +384,14 @@ export function CreationSheet({
           ) : step === 'content' ? (
             <section>
               <h3 className="plg-heading">{t('内容与参数')}</h3>
-              <div className="gs-note">{t('表单根据插件声明的输入项自动生成。')}</div>
+              <div className="gs-note">{t('带 * 的为必填项。')}</div>
               <Form className="plg-form">
                 {asked.map((i) => (
-                  <FormRow key={i.id} label={i.label} align={i.type === 'text' ? 'top' : 'center'}>
+                  <FormRow
+                    key={i.id}
+                    label={i.required ? `${i.label} *` : i.label}
+                    align={i.type === 'text' ? 'top' : 'center'}
+                  >
                     <InputField input={i} value={draft.inputs[i.id]} onChange={(v) => setInput(i.id, v)} />
                   </FormRow>
                 ))}
@@ -445,42 +464,64 @@ export function CreationSheet({
             </section>
           )}
         </div>
-        <aside className="plg-side">
-          <h4 className="plg-side__title">{t('将交给 AI 的内容')}</h4>
-          <section className="plg-side__box" aria-label={t('将交给 AI 的内容')}>
-            <div>
-              {t('插件')} <code>{`${m.name} ${m.version}`}</code>
+        <aside className={cx('plg-side', sideOpen && 'plg-side--open')}>
+          <button
+            type="button"
+            className="plg-side__toggle"
+            aria-expanded={sideOpen}
+            onClick={() => setSideOpen((o) => !o)}
+          >
+            <span>
+              {problemItems.length
+                ? t('检查：{n} 项未完成', { n: problemItems.length })
+                : t('检查：可以开始')}
+            </span>
+            <Icon name={sideOpen ? 'chevron-down' : 'chevron-right'} size={12} />
+          </button>
+          <div className="plg-side__body">
+            <h4 className="plg-side__title">{t('将交给 AI 的内容')}</h4>
+            <section className="plg-side__box" aria-label={t('将交给 AI 的内容')}>
+              <div>{`${m.title} v${m.version}`}</div>
+              {template ? <div>{t('模板：{title}', { title: template.title })}</div> : null}
+              {ds ? <div>{t('设计系统：{title}', { title: ds.title })}</div> : null}
+              {filled.map((f) => (
+                <div key={f.label}>{`${f.label}：${f.value}`}</div>
+              ))}
+              {draft.directions ? <div>{t('先出视觉方向：是')}</div> : null}
+              {uploads.items.length ? <div>{t('参考附件：{n} 个', { n: uploads.items.length })}</div> : null}
+              {!asksBot && bot ? <div>{t('交给：{bot}', { bot: bot.name })}</div> : null}
+            </section>
+            <h4 className="plg-side__title">{t('发出后群里会看到')}</h4>
+            <div className="plg-side__box">
+              {t('一张「创作请求」卡片，并自动 @{bot}。群成员都能看到参数，也可以「再来一版」。', {
+                bot: bot?.name ?? t('选中的 Bot'),
+              })}
             </div>
-            {template ? <div>{t('模板：{title}', { title: template.title })}</div> : null}
-            {ds ? <div>{t('设计系统：{title}', { title: ds.title })}</div> : null}
-            {filled.map((f) => (
-              <div key={f.label}>{`${f.label}：${f.value}`}</div>
-            ))}
-            {draft.directions ? <div>{t('先出视觉方向：是')}</div> : null}
-            {uploads.items.length ? <div>{t('参考附件：{n} 个', { n: uploads.items.length })}</div> : null}
-            {!asksBot && bot ? <div>{t('交给：{bot}', { bot: bot.name })}</div> : null}
-          </section>
-          <h4 className="plg-side__title">{t('发出后群里会看到')}</h4>
-          <div className="plg-side__box">
-            {t('一张「创作请求」卡片，并自动 @{bot}。群成员都能看到参数，也可以「再来一版」。', {
-              bot: bot?.name ?? '…',
-            })}
-          </div>
-          <h4 className="plg-side__title">{t('检查')}</h4>
-          <div className={cx('plg-check', problems.length ? 'plg-check--warn' : 'plg-check--ok')}>
-            {problems.length ? (
-              problems.map((p) => (
-                <div key={p} className="plg-check__item">
-                  <span aria-hidden="true">⚠</span>
-                  <span>{p}</span>
+            <h4 className="plg-side__title">{t('检查')}</h4>
+            <div
+              className={cx(
+                'plg-check',
+                !problemItems.length
+                  ? 'plg-check--ok'
+                  : hasActiveProblem
+                    ? 'plg-check--warn'
+                    : 'plg-check--muted',
+              )}
+            >
+              {problemItems.length ? (
+                problemItems.map((p) => (
+                  <div key={p.text} className={cx('plg-check__item', !p.active && 'plg-check__item--muted')}>
+                    <span aria-hidden="true">{p.active ? '⚠' : '·'}</span>
+                    <span>{p.text}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="plg-check__item">
+                  <span aria-hidden="true">✓</span>
+                  <span>{t('可以开始：Bot 在线，插件可用，密钥齐全')}</span>
                 </div>
-              ))
-            ) : (
-              <div className="plg-check__item">
-                <span aria-hidden="true">✓</span>
-                <span>{t('可以开始：Bot 在线，插件可用，密钥齐全')}</span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </aside>
       </div>

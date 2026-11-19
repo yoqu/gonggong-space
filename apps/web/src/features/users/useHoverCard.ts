@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useEscape } from '../../ui'
 
+const isCoarsePointer = () =>
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(pointer: coarse)').matches
+
 /**
  * Hover/focus card state: opens `openDelay` ms after the pointer (or focus) arrives and closes `closeDelay` ms after
- * it leaves both trigger and card, so the pointer can travel between them; Escape closes at once.
+ * it leaves both trigger and card, so the pointer can travel between them; Escape closes at once. On touch devices
+ * (`pointer: coarse`), tapping toggles the card instead of relying on focus (iOS Safari does not focus buttons on tap).
  */
 export function useHoverCard({ openDelay = 300, closeDelay = 200 } = {}) {
   const [open, setOpen] = useState(false)
@@ -22,7 +28,24 @@ export function useHoverCard({ openDelay = 300, closeDelay = 200 } = {}) {
         cancel()
         setOpen(false)
       },
-      triggerProps: { onMouseEnter: show, onMouseLeave: hide, onFocus: show, onBlur: hide },
+      triggerProps: {
+        onMouseEnter: () => {
+          if (!isCoarsePointer()) show()
+        },
+        onMouseLeave: () => {
+          if (!isCoarsePointer()) hide()
+        },
+        onFocus: () => {
+          if (!isCoarsePointer()) show()
+        },
+        onBlur: hide,
+        onClick: () => {
+          if (isCoarsePointer()) {
+            cancel()
+            setOpen((v) => !v)
+          }
+        },
+      },
       cardProps: { onMouseEnter: cancel, onMouseLeave: hide },
     }
   }, [openDelay, closeDelay])

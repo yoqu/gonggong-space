@@ -270,12 +270,21 @@
   .gs-settings__nav {
     width: auto;
     flex-direction: row;
+    padding-inline: var(--space-12);
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
-    scroll-padding-inline: var(--space-8);
+    scroll-padding-inline: var(--space-12);
     border-right: 0;
     border-bottom: 1px solid var(--separator);
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 12px,
+      #000 calc(100% - 12px),
+      transparent
+    );
+    mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
   }
   .gs-settings__nav::-webkit-scrollbar {
     display: none;

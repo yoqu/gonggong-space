@@ -28,4 +28,5 @@ export default {
     'Choose "Later" in a message\'s More menu to save it with a reminder.',
   已移回进行中: 'Moved back to in progress',
   '已移除#later': 'Removed from Later',
+  '消息发于 {time}': 'Sent at {time}',
 }

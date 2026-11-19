@@ -479,4 +479,7 @@ export default {
   新对话: 'New chat',
   下一轮不带之前的上下文: 'Next turn starts without prior context',
   '让 {name} 开新对话': 'Start a new chat with {name}',
+  没有可贮藏的改动: 'No changes to stash',
+  先写提交说明: 'Enter a commit message first',
+  先勾选要提交的文件: 'Select files to commit first',
 } satisfies Record<string, string>

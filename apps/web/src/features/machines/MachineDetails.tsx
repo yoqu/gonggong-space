@@ -156,12 +156,29 @@ export function MachineName({ machine, onChanged }: { machine: MachineDto; onCha
   )
 }
 
+function offlineDuration(iso: string | null) {
+  if (!iso) return null
+  const ms = Math.max(0, Date.now() - Date.parse(iso))
+  const min = Math.floor(ms / 60_000)
+  if (min < 1) return t('刚刚离线')
+  if (min < 60) return t('已离线 {n} 分钟', { n: min })
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return t('已离线 {n} 小时', { n: hours })
+  return t('已离线 {n} 天', { n: Math.floor(hours / 24) })
+}
+
 /** An offline machine's live sections: when it was last seen and how to bring it back; nothing is kept off it. */
 function OfflineNote({ machine }: { machine: MachineDto }) {
+  const dur = offlineDuration(machine.lastSeenAt)
+  const exact = dateText(machine.lastSeenAt)
   return (
     <section className="machine-offline" aria-label={t('电脑离线')}>
-      <span className="mx-strong">{t('电脑离线')}</span>
-      <span className="mx-sub">{t('最后在线：{time}', { time: dateText(machine.lastSeenAt) })}</span>
+      <span className="mx-strong" title={exact}>
+        {dur ? `${t('电脑离线')} · ${dur}` : t('电脑离线')}
+      </span>
+      <span className="mx-sub" title={exact}>
+        {t('最后在线：{time}', { time: exact })}
+      </span>
       <span>{t('供应商、Agent 工具与 Agent 设置只保存在这台电脑上，上线后才能查看和修改。')}</span>
       <span>{t('让它上线：在这台电脑上打开共工空间客户端，或在终端运行')}</span>
       <CommandLine command="gg run" />
@@ -263,8 +280,12 @@ export function MachineDetails({
                 ) : null}
               </span>
             </span>
-            <span className="machine__status" data-online={machine.online}>
-              {machine.online ? t('在线') : t('离线')}
+            <span
+              className="machine__status"
+              data-online={machine.online}
+              title={machine.online ? undefined : dateText(machine.lastSeenAt)}
+            >
+              {machine.online ? t('在线') : (offlineDuration(machine.lastSeenAt) ?? t('离线'))}
             </span>
           </section>
           {upgradable(machine, latest) ? (
@@ -331,7 +352,9 @@ export function MachineDetails({
             {machine.online ? null : (
               <>
                 <dt>{t('最后在线')}</dt>
-                <dd>{dateText(machine.lastSeenAt)}</dd>
+                <dd title={dateText(machine.lastSeenAt)}>
+                  {offlineDuration(machine.lastSeenAt) ?? dateText(machine.lastSeenAt)}
+                </dd>
               </>
             )}
             <dt>{t('首次绑定')}</dt>
