@@ -125,7 +125,7 @@
 
 | 位置 | 内容 |
 | --- | --- |
-| `apps/desktop/src/pages/` | 各页面：概览、Agent、Bot、工作区、穿透与服务、实时画面、市场、日志与诊断、设置，以及运行详情 |
+| `apps/desktop/src/pages/` | 各页面：概览、Agent、Bot、工作区、在线预览、实时画面、市场、日志与诊断、设置，以及运行详情 |
 | `apps/desktop/src/onboarding/` | 首次引导（绑定） |
 | `apps/desktop/src/shell/`、`providers/` | 窗口外壳、供应商编辑 |
 | `apps/desktop/src-tauri/src/commands/` | 每个页面对应的 Tauri 命令，调用 `crates/gonggong` |

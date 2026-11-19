@@ -79,10 +79,10 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
       },
       {
         key: 'tunnels',
-        label: t('穿透与服务'),
+        label: t('在线预览'),
         icon: 'globe',
         color: 'var(--system-teal)',
-        desc: t('Bot 开放的预览穿透与后台托管的服务，可在本机停止'),
+        desc: t('Bot 对外开放的网页与后台运行的服务，可在本机查看或停止'),
         Component: TunnelsPage,
       },
       {

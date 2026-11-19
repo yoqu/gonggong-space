@@ -285,7 +285,7 @@ describe('输入框上方的穿透标记', () => {
   })
 })
 
-describe('群设置 · 预览与服务', () => {
+describe('群设置 · 在线预览', () => {
   it('opens an online preview in the workbench and leaves the settings', async () => {
     mockApi({
       'GET /groups/g1/previews': list([
@@ -303,25 +303,115 @@ describe('群设置 · 预览与服务', () => {
     expect(onOpen).toHaveBeenCalled()
   })
 
-  it('lists previews and services; managers close and stop them', async () => {
+  it('merges bound services, stops both by default, and pauses or reveals tech details via menu', async () => {
     const calls = mockApi({
       'GET /groups/g1/previews': list(
-        [preview({ canManage: true }), preview({ id: 'p2', title: '接口文档', canManage: false })],
-        [service({ canManage: true })],
+        [
+          preview({ canManage: true }),
+          preview({
+            id: 'p2',
+            kind: 'static',
+            title: '静态报告',
+            path: '/',
+            port: 8080,
+            serviceId: 'sv2',
+            serviceName: 'static-site',
+            canManage: true,
+          }),
+          preview({ id: 'p3', title: '接口文档', serviceId: null, serviceName: null, canManage: false }),
+        ],
+        [
+          service({ canManage: true }),
+          service({ id: 'sv2', name: 'static-site', command: '静态站点 site', port: 8080, canManage: true }),
+          service({
+            id: 'sv3',
+            name: 'data-worker',
+            command: 'python worker.py',
+            port: null,
+            canManage: true,
+          }),
+        ],
       ),
       'POST /previews/p1/close': undefined,
       'POST /services/sv1/stop': undefined,
+      'POST /services/sv3/stop': undefined,
     })
     render(<PreviewsView groupId="g1" />)
-    await screen.findByText('接口文档')
-    expect(screen.getByText(/pnpm dev/)).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: '关闭' })).toHaveLength(1)
-    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
-    fireEvent.click(screen.getByRole('button', { name: '停止' }))
+    await screen.findByText('静态报告')
+    expect(screen.queryByText(/pnpm dev/)).toBeNull()
+    expect(screen.queryByText(/静态站点 site/)).toBeNull()
+    expect(screen.getByText(/仅后台运行/)).toBeTruthy()
+    expect(screen.getByText(/python worker\.py/)).toBeTruthy()
+
+    const loginRow = screen.getByText('登录页').closest('.pv-item') as HTMLElement
+    fireEvent.click(within(loginRow).getByRole('button', { name: '停止' }))
     await waitFor(() =>
-      expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(
-        expect.arrayContaining(['POST /previews/p1/close', 'POST /services/sv1/stop']),
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/previews/p1/close',
+        body: { stopService: true },
+      }),
+    )
+
+    fireEvent.click(within(loginRow).getByRole('button', { name: '登录页 的更多操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '仅暂停后台进程（保留卡片）' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'POST', path: '/services/sv1/stop', body: undefined }),
+    )
+
+    const staticRow = screen.getByText('静态报告').closest('.pv-item') as HTMLElement
+    fireEvent.click(within(staticRow).getByRole('button', { name: '静态报告 的更多操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '查看技术详情' }))
+    expect(within(staticRow).getByText(/静态站点 site/)).toBeTruthy()
+    expect(within(staticRow).getByText(/127\.0\.0\.1:8080/)).toBeTruthy()
+
+    const workerRow = screen.getByText('data-worker').closest('.pv-item') as HTMLElement
+    fireEvent.click(within(workerRow).getByRole('button', { name: '停止' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'POST', path: '/services/sv3/stop', body: undefined }),
+    )
+  })
+
+  it('hides background section when empty and handles paused and offline previews cleanly', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/previews': list(
+        [
+          preview({ id: 'p1', title: '登录页', status: 'stopped', canManage: true, serviceId: 'sv1' }),
+          preview({ id: 'p2', title: '离线页', status: 'offline', canManage: true, serviceId: 'sv2' }),
+        ],
+        [],
       ),
+      'POST /previews/p1/start': undefined,
+      'POST /previews/p1/close': undefined,
+      'POST /previews/p2/close': undefined,
+    })
+    render(<PreviewsView groupId="g1" />)
+    await screen.findByText('登录页')
+    expect(screen.queryByText(/仅后台运行/)).toBeNull()
+
+    const pausedRow = screen.getByText('登录页').closest('.pv-item') as HTMLElement
+    expect(within(pausedRow).getByText('已暂停')).toBeTruthy()
+    fireEvent.click(within(pausedRow).getByRole('button', { name: '重新启动' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'POST', path: '/previews/p1/start', body: undefined }),
+    )
+    fireEvent.click(within(pausedRow).getByRole('button', { name: '彻底关闭' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/previews/p1/close',
+        body: { stopService: false },
+      }),
+    )
+
+    const offlineRow = screen.getByText('离线页').closest('.pv-item') as HTMLElement
+    fireEvent.click(within(offlineRow).getByRole('button', { name: '停止' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/previews/p2/close',
+        body: { stopService: false },
+      }),
     )
   })
 })

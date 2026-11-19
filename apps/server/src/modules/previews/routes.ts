@@ -136,6 +136,18 @@ export function previewRoutes(ctx: Ctx) {
       return reply.status(204).send()
     })
 
+    app.post('/api/daemon/previews/:id/start', async (req, reply) => {
+      const machine = await requireMachine(ctx, req)
+      const id = idParam((req.params as { id: string }).id, '预览不存在')
+      const [preview] = await ctx.db
+        .select()
+        .from(previews)
+        .where(and(eq(previews.id, id), eq(previews.machineId, machine.id)))
+      if (!preview) return fail('not_found', '预览不存在')
+      await startPreview(ctx, preview)
+      return reply.status(204).send()
+    })
+
     app.post('/api/daemon/services/:id/stop', async (req, reply) => {
       const machine = await requireMachine(ctx, req)
       const id = idParam((req.params as { id: string }).id, '服务不存在')

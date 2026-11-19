@@ -255,6 +255,25 @@ code,
 .ui-group > * > .dk-row + .dk-row {
   border-top: 1px solid var(--separator);
 }
+.dk-row-item {
+  display: flex;
+  flex-direction: column;
+}
+.dk-tech {
+  margin: 0 var(--space-12) var(--space-8) 52px;
+  padding: var(--space-6) var(--space-12);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--content-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  word-break: break-all;
+}
 .dk-row__main {
   flex: 1;
   min-width: 0;

@@ -59,7 +59,7 @@ describe('empty states draw 共字君 and carry the page action', () => {
     expect(screen.getAllByRole('button', { name: '新建条目' })).toHaveLength(1)
   })
 
-  it('预览与服务: one empty state when the group has neither', async () => {
+  it('在线预览: one empty state when the group has neither', async () => {
     mockApi({
       'GET /groups/g1/previews': {
         previews: [],
@@ -68,8 +68,8 @@ describe('empty states draw 共字君 and carry the page action', () => {
       } satisfies GroupPreviewsDto,
     })
     render(<PreviewsView groupId="g1" />)
-    await emptyWithArt('暂无预览和托管服务')
-    expect(screen.queryByText('暂无预览')).toBeNull()
+    await emptyWithArt('暂无在线预览')
+    expect(screen.queryByText(/仅后台运行/)).toBeNull()
     expect(screen.getByText(/让 Bot 把网页或服务跑起来/)).toBeTruthy()
     expect(screen.queryByText(/service_start/)).toBeNull()
   })
@@ -112,7 +112,7 @@ describe('views show a loading state until their data arrives', () => {
     expect(screen.queryByText('还没有知识')).toBeNull()
   })
 
-  it('预览与服务', () => {
+  it('在线预览', () => {
     mockApi({ 'GET /groups/g1/previews': never })
     render(<PreviewsView groupId="g1" />)
     expect(screen.getByRole('status', { name: '加载中' })).toBeTruthy()

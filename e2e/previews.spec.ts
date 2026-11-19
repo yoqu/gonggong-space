@@ -76,9 +76,12 @@ test('a bot hosts a dev server and publishes it; members open it, embed a static
 
     await main.getByRole('button', { name: '群设置', exact: true }).click()
     const drawer = page.getByRole('complementary', { name: '群设置' })
-    await drawer.getByText('预览与服务').click()
-    await expect(drawer.getByText(/静态站点 site/)).toBeVisible()
-    await drawer.locator('.pv-row', { hasText: '首页' }).getByRole('button', { name: '关闭' }).click()
+    await drawer.getByText('在线预览').click()
+    const staticRow = drawer.locator('.pv-item', { hasText: '静态报告' })
+    await staticRow.getByRole('button', { name: '静态报告 的更多操作' }).click()
+    await page.getByRole('menuitem', { name: '查看技术详情' }).click()
+    await expect(staticRow.getByText(/静态站点 site/)).toBeVisible()
+    await drawer.locator('.pv-item', { hasText: '首页' }).getByRole('button', { name: '停止' }).click()
     await expect(card.getByRole('img', { name: '已关闭', exact: true })).toBeVisible()
   } finally {
     m.stop()

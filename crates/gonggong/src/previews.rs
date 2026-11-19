@@ -83,6 +83,12 @@ impl Client {
         ok(self.http.post(url).bearer_auth(&self.token).json(&body).send().await?).await.map(drop)
     }
 
+    /// Restarts a paused/stopped preview's service as it was started.
+    pub async fn start_preview(&self, id: &str) -> Result<()> {
+        let url = format!("{}/api/daemon/previews/{id}/start", self.base);
+        ok(self.http.post(url).bearer_auth(&self.token).send().await?).await.map(drop)
+    }
+
     /// 立即重试 of a live preview this machine publishes.
     pub async fn retry_cast(&self, id: &str) -> Result<()> {
         let url = format!("{}/api/daemon/previews/{id}/live/retry", self.base);

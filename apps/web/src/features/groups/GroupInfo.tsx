@@ -180,7 +180,7 @@ export function GroupInfo({
     bots: `Bot · ${group.botIds.length}`,
     info: t('编辑群公告'),
     notices: t('群公告'),
-    previews: t('预览与服务'),
+    previews: t('在线预览'),
     schedules: t('定时任务'),
     knowledge: t('知识库#kb'),
   }[view]
@@ -415,7 +415,7 @@ function MainView({
                 ]
               : []),
             {
-              label: t('预览与服务'),
+              label: t('在线预览'),
               value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
               onClick: () => setView('previews'),
             },

@@ -61,7 +61,7 @@ Click the screenshot to open the preview in the workbench (only while online). B
 
 ::: tip Other entry points
 - All open previews in the group appear as tags above the composer; click a tag to see the screenshot and actions.
-- 「群设置 → 预览与服务」 (Group settings → Previews & services) lists all previews and managed services in the group. There you can 「在工作台打开」 (Open in workbench) or 「关闭」 (Close) a preview, or 「停止」 (Stop) a managed service.
+- 「群设置 → 在线预览」 (Group settings → Online previews) merges the group's previews with their bound background services (pure background processes without previews appear only when present). There you can 「在工作台打开」 (Open in workbench) or 「停止」 (Stop), or use the 「···」 menu to pause a process while keeping the card or view technical details.
 :::
 
 ## Preview workbench

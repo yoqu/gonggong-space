@@ -2,7 +2,7 @@
 
 This page walks through each page in the desktop app's left sidebar and what it's for.
 
-The left sidebar has three groups: 「概览」 (Overview); the 「执行」 (Execution) group, with 「Agent」, 「Bot」, 「工作区」 (Workspaces), 「穿透与服务」 (Tunnels & services), 「实时画面」 (Live views), and 「市场」 (Market); and the 「本机」 (This machine) group, with 「日志与诊断」 (Logs & diagnostics) and 「设置」 (Settings). The bottom of the sidebar shows the machine owner, the machine name, and the operating system.
+The left sidebar has three groups: 「概览」 (Overview); the 「执行」 (Execution) group, with 「Agent」, 「Bot」, 「工作区」 (Workspaces), 「在线预览」 (Online previews), 「实时画面」 (Live views), and 「市场」 (Market); and the 「本机」 (This machine) group, with 「日志与诊断」 (Logs & diagnostics) and 「设置」 (Settings). The bottom of the sidebar shows the machine owner, the machine name, and the operating system.
 
 The desktop app focuses on "what this machine is doing." Creating Bots, changing Bot settings, managing providers, installing Skills, and similar tasks happen on the web; 「在 Web 中管理」 (Manage on Web) and 「在网页中打开」 (Open on the Web) on these pages open the corresponding place in your browser. For managing machines on the web, see [My machines and Bots](/en/user/machines).
 
@@ -106,16 +106,16 @@ If the server can't be reached, the top of the page shows 「无法连接服务�
 Viewing usage per workspace, slimming, and bulk cleanup happen under 「工作区」 (Workspaces) on the machine page on the web; see [My machines and Bots](/en/user/machines). For the workspace concept, see [Repositories and workspaces](/en/user/repos-workspaces).
 :::
 
-## Tunnels & services
+## Online previews
 
-Preview tunnels and hosted services opened by Bots, which can be stopped here.
+Web pages and background services opened by Bots, which can be viewed or stopped here.
 
-![Tunnels & services](/screenshots/desktop/tunnels.webp)
+![Online previews](/screenshots/desktop/tunnels.webp)
 
-- **Preview tunnels**: web previews a Bot has opened to group members, showing the group, Bot, port, and online status. You can 「本机打开」 (Open locally) to visit it in this machine's browser, or 「停止穿透」 (Stop tunnel) — shown as 「停止穿透和服务」 (Stop tunnel and service) when there's a hosted service.
-- **Hosted services**: background services a Bot has started (such as a dev server), showing status (启动中 / 运行中 / 已退出 / 启动失败, Starting / Running / Exited / Failed to start), port, and start command. You can 「停止」 (Stop) them.
+- **Online previews**: merges web previews opened to group members with their bound local background services, showing the group, Bot, type, and status (在线 / 已暂停 / 离线, Online / Paused / Offline). You can 「本机打开」 (Open locally) in this machine's browser, or click 「停止」 (Stop) to close the preview and stop its service together; the 「···」 menu lets you 「仅暂停后台进程（保留卡片）」 (Pause background process only (keep card), then 「重新启动」 (Restart) later) or 「查看技术详情」 (Show technical details: port, service name, start command).
+- **Running in background only (no preview)**: appears only when there are background services not bound to any open preview, showing status (启动中 / 运行中 / 已退出 / 启动失败, Starting / Running / Exited / Failed to start), port, and start command, where you can 「停止」 (Stop) them.
 
-Stopping here has the same effect as stopping in the group on the web; group members see the change immediately. For the preview feature, see [Previews](/en/user/previews).
+Actions here have the same effect as in the group on the web; group members see the change immediately. For the preview feature, see [Previews](/en/user/previews).
 
 ## Live views
 

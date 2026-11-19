@@ -169,7 +169,7 @@ export interface Workspaces {
   offline: boolean
 }
 
-/** 穿透与服务: this machine's open preview tunnels and live hosted services, as the server lists them. */
+/** 在线预览: this machine's online previews and live hosted services, as the server lists them. */
 export interface Tunnels {
   previews: {
     id: string
@@ -182,7 +182,7 @@ export interface Tunnels {
     path: string
     serviceId: string | null
     serviceName: string | null
-    status: 'online' | 'offline'
+    status: 'online' | 'offline' | 'stopped'
     /** This machine's gg-cast while someone watches; null otherwise. */
     live: {
       state: 'starting' | 'live' | 'failed'
@@ -339,6 +339,7 @@ export const ipc = {
   tunnels: () => invoke<Tunnels>('tunnels'),
   /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
   closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),
+  startPreview: (id: string) => invoke<void>('start_preview', { id }),
   retryCast: (id: string) => invoke<void>('retry_cast', { id }),
   stopService: (id: string) => invoke<void>('stop_service', { id }),
   /** The forwarded port in the default browser: `http://localhost:<port><path>`. */

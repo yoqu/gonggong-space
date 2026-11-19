@@ -198,18 +198,28 @@ export const en = {
   解除绑定: 'Unbind',
   已退出: 'Exited',
   启动失败: 'Failed to start',
-  预览穿透: 'Preview tunnels',
-  本机没有开放的穿透: 'No open tunnels on this computer',
+  已暂停: 'Paused',
+  卡片保留中: 'Card kept',
+  静态页面: 'Static page',
+  网页应用: 'Web app',
+  '外部端口 {port}': 'External port {port}',
+  外部端口: 'External port',
+  本机没有在线预览: 'No online previews on this computer',
   '端口 {port}': 'Port {port}',
+  '路径 {path}': 'Path {path}',
   '服务 {name}': 'Service {name}',
   本机打开: 'Open locally',
-  停止穿透和服务: 'Stop tunnel and service',
+  重新启动: 'Restart',
+  彻底关闭: 'Close completely',
   停止穿透: 'Stop tunnel',
-  托管服务: 'Hosted services',
-  本机没有托管服务: 'No hosted services on this computer',
+  '{name} 的更多操作': 'More actions for {name}',
+  '仅暂停后台进程（保留卡片）': 'Pause background process only (keep card)',
+  查看技术详情: 'Show technical details',
+  收起技术详情: 'Hide technical details',
+  '仅后台运行（未开放预览）': 'Running in background only (no preview)',
   停止: 'Stop',
-  'Bot 开放的预览与启动的后台服务由本机托管。在这里停止与在 Web 群里停止效果相同，群成员会立即看到变化。':
-    'Previews opened and background services started by Bots are hosted on this computer. Stopping them here is the same as stopping them in the Web group; group members see the change immediately.',
+  'Bot 开放的网页与后台服务由这台电脑运行。在这里操作与在 Web 群里效果相同，群成员会立即看到变化。':
+    'Web pages and background services opened by Bots run on this computer. Actions here have the same effect as in the Web group; group members see the change immediately.',
   '已请求 {bot} 改回托管工作区，结果见群消息':
     'Asked {bot} to switch back to the managed workspace; see the group messages for the result',
   '已删除 {path}': 'Deleted {path}',
@@ -241,9 +251,9 @@ export const en = {
     'Bots running on this computer with their provider / model; change their settings on the Web',
   '每个「群 × Bot」一个托管目录，或绑定的本机目录':
     'One managed directory per "group × Bot", or a bound local directory',
-  穿透与服务: 'Tunnels & services',
-  'Bot 开放的预览穿透与后台托管的服务，可在本机停止':
-    'Preview tunnels and hosted services opened by Bots, which can be stopped here',
+  在线预览: 'Online previews',
+  'Bot 对外开放的网页与后台运行的服务，可在本机查看或停止':
+    'Web pages and background services opened by Bots, which can be viewed or stopped here',
   实时画面: 'Live views',
   'Bot 推送的桌面应用与小程序画面：推流组件、系统权限与推流状态':
     'Desktop app and mini program views pushed by Bots: streaming component, system permissions and stream status',

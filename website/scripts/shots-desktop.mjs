@@ -20,7 +20,7 @@ const SHOTS = [
   { name: 'agents', nav: 'Agent' },
   { name: 'bots', nav: 'Bot' },
   { name: 'workspaces', nav: '工作区' },
-  { name: 'tunnels', nav: '穿透与服务' },
+  { name: 'tunnels', nav: '在线预览' },
   { name: 'live', nav: '实时画面' },
   { name: 'logs', nav: '日志与诊断' },
   { name: 'settings', nav: '设置' },

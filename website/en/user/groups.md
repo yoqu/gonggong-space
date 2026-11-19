@@ -101,7 +101,7 @@ From top to bottom, the sidebar contains:
 - **Group name and tags**: labeled 「公开频道」 (Public channel) or 「私有群」 (Private group), plus the sync mode; below are the repository URL and base branch, or 「未绑定仓库 · 各 Bot 使用本机目录」 ("No repo · each Bot uses a local folder") when none is bound.
 - **Quick buttons**: 「成员」 (Members), 「公告」 (Notice, group admins only), 「设置」 (Settings).
 - **Member avatars**: you can add members here.
-- **Bot**, **预览与服务** (Previews & services), **定时任务** (Scheduled tasks), **知识库** (Wiki), **群公告** (Group notice): click to open the matching subpage. For scheduled tasks and the wiki, see [Scheduled tasks and threads](/en/user/schedules-threads) and [Wiki and secrets](/en/user/knowledge-secrets); for previews, see [Previews](/en/user/previews).
+- **Bot**, **在线预览** (Online previews), **定时任务** (Scheduled tasks), **知识库** (Wiki), **群公告** (Group notice): click to open the matching subpage. For scheduled tasks and the wiki, see [Scheduled tasks and threads](/en/user/schedules-threads) and [Wiki and secrets](/en/user/knowledge-secrets); for previews, see [Previews](/en/user/previews).
 - **Personal settings** (affect only you):
 
 | Setting | Description |

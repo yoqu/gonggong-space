@@ -8,7 +8,7 @@ The desktop app is an application with a built-in daemon, available for macOS an
 
 - **Built-in daemon**: the app itself is this machine's executor. It receives tasks dispatched to Bots on this machine and runs them with local Agents such as Claude Code and Codex.
 - **Stays in the background**: closing the window leaves the app running in the background. The menu bar icon (the system tray icon on Windows) has two items, 「打开」 (Open) and 「退出」 (Quit). On macOS, clicking the Dock icon also brings the window back.
-- **Graphical view and management**: you can view this machine's Agents, Bots, workspaces, tunnels & services, live views, market, logs and diagnostics, and settings in the window. See [Pages](/en/desktop/pages).
+- **Graphical view and management**: you can view this machine's Agents, Bots, workspaces, online previews, live views, market, logs and diagnostics, and settings in the window. See [Pages](/en/desktop/pages).
 - **Streaming component included**: gg-cast, which Bots use to stream live views of desktop apps and mini programs, is bundled with the macOS installer. No separate download is needed.
 
 ![Desktop app overview](/screenshots/desktop/overview.webp)

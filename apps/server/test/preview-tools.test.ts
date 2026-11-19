@@ -320,6 +320,63 @@ describe('the machine manages its own tunnels (desktop app)', () => {
     expect(w.seen).toContainEqual(expect.objectContaining({ t: 'group.previews', previews: [] }))
     expect((await daemon('POST', `/api/daemon/services/${w.web.id}/stop`)).statusCode).toBe(204)
   })
+  it('restarts a paused preview from the desktop app', async () => {
+    const w = await world()
+    await w.call('preview_expose', { service: 'web', title: '登录页' })
+    const [p] = await openRows()
+    const stranger = await t.seed.machine(w.li.id)
+    const daemon = (url: string, token = w.token) =>
+      t.app.inject({ method: 'POST', url, headers: { authorization: `Bearer ${token}` } })
+    expect((await daemon(`/api/daemon/previews/${p!.id}/start`, stranger.token)).statusCode).toBe(404)
+
+    await daemon(`/api/daemon/services/${w.web.id}/stop`)
+    await t.db.update(services).set({ status: 'exited' }).where(eq(services.id, w.web.id))
+    t.ctx.tunnels.register(w.machine.id, { close: () => {} } as never)
+    expect(
+      (
+        await t.app.inject({
+          method: 'GET',
+          url: '/api/daemon/previews',
+          headers: { authorization: `Bearer ${w.token}` },
+        })
+      ).json(),
+    ).toMatchObject({
+      previews: [{ id: p!.id, status: 'stopped' }],
+      services: [],
+    })
+
+    t.ctx.hub.register(w.machine.id, {
+      send: (m) => {
+        w.sent.push(m)
+        if (m.t !== 'service.restart') return
+        setTimeout(() => {
+          t.ctx.hub.emit('message', w.machine.id, {
+            t: 'service.state',
+            service: {
+              id: crypto.randomUUID(),
+              groupId: w.group.id,
+              botId: w.bot.id,
+              runId: w.run.id,
+              name: 'web',
+              command: 'pnpm dev',
+              cwd: '',
+              port: 5173,
+              status: 'running',
+              exitCode: null,
+            },
+          })
+          t.ctx.hub.emit('message', w.machine.id, {
+            t: 'service.restart.result',
+            requestId: m.requestId,
+            error: null,
+          })
+        }, 10)
+      },
+      close: () => {},
+    })
+    expect((await daemon(`/api/daemon/previews/${p!.id}/start`)).statusCode).toBe(204)
+    expect(w.sent).toContainEqual(expect.objectContaining({ t: 'service.restart', serviceId: w.web.id }))
+  })
 })
 
 describe('idle previews', () => {

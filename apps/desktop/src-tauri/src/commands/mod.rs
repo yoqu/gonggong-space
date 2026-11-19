@@ -68,6 +68,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         market::open_market_in_web,
         tunnels::tunnels,
         tunnels::close_tunnel,
+        tunnels::start_preview,
         tunnels::retry_cast,
         tunnels::stop_service,
         tunnels::open_local,

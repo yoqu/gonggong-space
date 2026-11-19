@@ -75,7 +75,7 @@ export type ServiceDto = z.infer<typeof ServiceDto>
  * POST /api/previews/:id/start → 204 reopens a closed preview and restarts its stopped service as it was started
  * (same people; 409 with the machine's reason).
  * Machine token (desktop app): GET /api/daemon/previews → the machine's own; POST /api/daemon/previews/:id/close
- * (ClosePreviewReq) and /api/daemon/services/:id/stop → 204.
+ * (ClosePreviewReq), /api/daemon/previews/:id/start and /api/daemon/services/:id/stop → 204.
  */
 export const GroupPreviewsDto = z.object({
   previews: z.array(PreviewDto),

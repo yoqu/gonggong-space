@@ -11,7 +11,7 @@ export default {
   群设置: 'Group settings',
   '群成员 · {n}': 'Members · {n}',
   群公告: 'Group notice',
-  预览与服务: 'Previews & services',
+  在线预览: 'Online previews',
   已退出群: 'Left the group',
   已删除私聊: 'Chat deleted',
   群已解散: 'Group dissolved',

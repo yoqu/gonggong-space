@@ -24,7 +24,7 @@
 | Web | React + Vite | 登录、群消息、@Bot、运行过程 / diff / Git / 文件、审批、预览与作品、市场、机器与 Bot、管理后台；适配手机浏览器 |
 | 服务器 | Fastify + PostgreSQL | 账号与权限、群与消息、调度运行与定时任务、转发 daemon 事件、存附件与作品、预览入口、审计 |
 | daemon | Rust，命令行 `gg` | 在成员机器上接活：准备工作区、启动 Agent、回传过程、执行审批决定、维持预览隧道、Git 操作与终端会话 |
-| 桌面端 | Tauri（macOS、Windows） | 内置同一套 daemon，加上图形界面（概览、Agent、Bot、工作区、穿透与服务、实时画面、市场、日志与诊断、设置） |
+| 桌面端 | Tauri（macOS、Windows） | 内置同一套 daemon，加上图形界面（概览、Agent、Bot、工作区、在线预览、实时画面、市场、日志与诊断、设置） |
 | Agent 接入 | ACP | daemon 通过 [ACP](https://agentclientprotocol.com)（Agent Client Protocol）驱动各家 Agent，拿到结构化的思考、工具调用与权限请求 |
 | 预览隧道 | daemon ↔ 服务器的 WebSocket | 把浏览器对预览的访问转发到成员机器的本地端口 |
 

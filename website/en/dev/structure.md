@@ -125,7 +125,7 @@ Located in `apps/web/src/features/`. Each directory has its own English dictiona
 
 | Location | Contents |
 | --- | --- |
-| `apps/desktop/src/pages/` | Pages: Overview, Agent, Bot, Workspaces, Tunnels & services, Live views, Market, Logs & diagnostics, Settings, and run details |
+| `apps/desktop/src/pages/` | Pages: Overview, Agent, Bot, Workspaces, Online previews, Live views, Market, Logs & diagnostics, Settings, and run details |
 | `apps/desktop/src/onboarding/` | First-run setup (binding) |
 | `apps/desktop/src/shell/`, `providers/` | Window shell, provider editing |
 | `apps/desktop/src-tauri/src/commands/` | Tauri commands for each page, calling into `crates/gonggong` |

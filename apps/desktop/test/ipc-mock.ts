@@ -80,6 +80,7 @@ vi.mock('../src/ipc', () => ({
     openMarketInWeb: vi.fn(async () => {}),
     tunnels: vi.fn(async () => ({ previews: [], services: [] })),
     closeTunnel: vi.fn(),
+    startPreview: vi.fn(),
     retryCast: vi.fn(),
     stopService: vi.fn(),
     openLocal: vi.fn(),

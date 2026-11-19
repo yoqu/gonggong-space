@@ -1,4 +1,4 @@
-//! 穿透与服务 page: this machine's preview tunnels and hosted services, stopped here as on the Web.
+//! 在线预览 page: this machine's online previews and background services, managed here as on the Web.
 use super::{Result, client};
 use gonggong::previews::Tunnels;
 use tauri::AppHandle;
@@ -12,6 +12,11 @@ pub async fn tunnels() -> Result<Tunnels> {
 #[tauri::command]
 pub async fn close_tunnel(id: String, stop_service: bool) -> Result<()> {
     client()?.close_preview(&id, stop_service).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn start_preview(id: String) -> Result<()> {
+    client()?.start_preview(&id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
