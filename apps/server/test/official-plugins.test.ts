@@ -86,9 +86,10 @@ it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goe
   })
   expect(agent!.acp).toEqual({ kind: 'native', args: ['acp', '--disable-telemetry'] })
   expect(agent!.systemPrompt).toEqual({ via: 'meta', key: 'antigravity' })
-  // Its ACP modes are default / accept-edits / plan; 完全访问 is answered by the daemon on top of accept-edits.
+  // Its ACP modes are default / accept-edits / auto / plan. 完全访问 is auto, answered by the daemon on top: its
+  // subagents' permission prompts never reach ACP, so only auto lets them run safe commands.
   expect(agent!.tiers).toMatchObject({
-    full: { mode: 'accept-edits' },
+    full: { mode: 'auto' },
     workspace: { mode: 'accept-edits' },
     readonly: { mode: 'default' },
   })

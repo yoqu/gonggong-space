@@ -175,8 +175,9 @@ async fn antigravity_runs_agy_acp_with_the_instructions_in_the_session_meta() {
     let prompt = e["meta"]["antigravity"]["systemPrompt"]["append"].as_str().unwrap();
     assert!(prompt.contains("小王") && prompt.contains("只改 server/"), "{prompt}");
     assert_eq!(e["systemPrompt"], Value::Null, "not Claude's `_meta.systemPrompt`");
-    // agy has no bypass mode: 完全访问 edits freely and the daemon allows the rest.
-    assert_eq!(e["mode"], "accept-edits");
+    // agy has no bypass mode: 完全访问 runs safe commands itself (its subagents' prompts never reach ACP) and the
+    // daemon allows the rest.
+    assert_eq!(e["mode"], "auto");
     assert!(e["mcpServers"].as_array().unwrap().iter().any(|m| m["name"] == "gonggong"));
 }
 

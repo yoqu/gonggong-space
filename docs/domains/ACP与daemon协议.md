@@ -41,6 +41,7 @@
 - 过程以 `run.event` 上报（`RunEvent`：text / thought / tool / status / usage / task / subagent / compaction / plan），服务端按机器串行处理，积压超 32MB 时丢流式片段（`runs/engine.ts`）。
 - `plan`：ACP 标准 `plan` 更新（Claude Code 的 TodoWrite/Task*、Codex 的计划、CodeBuddy 的 TodoWrite 都转成它；Gemini、Pi、DeepSeek 不发）。daemon 只收主 Agent 的、整份替换、与上一份相同不发，最多 100 条、每条 500 字（`turn.rs`）。服务端照常记入 `run_events`，最新一份另存 `runs.plan`（空条目置空）随 `RunDto.plan` 返回，用于运行卡片「计划」块、任务栏圆环和运行页顶部面板；与 `progress_card` 是两套：进度卡由 Bot 主动调用，计划是 Agent 自己的清单，两者并存时进度卡在前、计划折叠。旧服务端会把 `plan` 当无效消息丢弃并记日志，所以服务端先于客户端上线。
 - 结束 `run.done`：`outcome` 为 completed / interrupted / failed，带 `reply`、`usage`、`sessionId`、`newSessionReason`、`git`、`patch`、`repos`、`appendsApplied`、`sync`。
+- Antigravity CLI 不发子 agent / 异步任务扩展（子 agent 只是一条立即返回的 `invoke_subagent` 调用，转后台的 `run_command` 回合结束后才完成）：daemon 跟读它的 transcript（`<agy home>/brain/<会话>/.system_generated/logs/transcript.jsonl`，子 agent 各一份），转成 `subagent` / `task` 及子 agent 自己的过程事件（`antigravity.rs`）。它们归属发起时的运行（嵌套子 agent 归父 agent 的），运行结束后照常上报，服务端对 `subagent`、`task` 及带 `agentId` 的事件接受已结束运行；适配器进程退出时仍在跑的报 `disconnected` / `stopped`。主 agent 在 transcript 里写出不调用工具的回复即视为本周期结束，回合间的续跑运行 3 秒无新输出就收尾（不等 5 分钟静默）。
 - s2d 控制：`run.cancel`（/stop，daemon 发 ACP `session/cancel`）、`run.append`（打断并追加，未应用的追加由服务端退化成新一轮）、`run.discard`→`run.discarded`（只还原本轮动过的文件）、`run.tier`（中途改档位）、`task.stop`（停后台任务）。
 - Agent 在上一轮结束后自行继续（后台任务完成）时 daemon 发 `run.continue`，服务端以 `run.continued` 回新 runId 或拒绝。
 

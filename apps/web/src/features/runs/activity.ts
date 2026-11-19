@@ -221,13 +221,19 @@ export function classify(s: Step, root: string | null): Action {
   }
 }
 
-/** Codex multi-agent tools: without native subagent sessions (multi_agent v1) the child's work is not reported. */
+/**
+ * Multi-agent tools shown as calls. Codex without native subagent sessions (multi_agent v1): the child's work is not
+ * reported.
+ */
 const COLLAB: Record<string, [verb: string, target?: string]> = {
   spawnAgent: [t('派出子 agent'), t('详情不可见')],
   wait: [t('等待子 agent')],
   sendInput: [t('向子 agent 发送消息')],
   resumeAgent: [t('恢复子 agent')],
   closeAgent: [t('关闭子 agent')],
+  // Antigravity CLI: the subagents themselves come from its transcripts (daemon `antigravity`).
+  'Run invoke_subagent': [t('派出子 agent')],
+  'Run manage_subagents': [t('调度了子 agent')],
 }
 
 /** Titles adapters send before a call's input arrives. */

@@ -196,7 +196,9 @@ function forgetOwner(runId: string) {
 }
 
 async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent) {
-  const run = await ownerOf(ctx, machineId, runId, raw.kind === 'task' ? 'ended' : 'live')
+  // Background tasks and (Antigravity's) subagents outlive the turn that started them; so does a subagent's process.
+  const outlives = raw.kind === 'task' || raw.kind === 'subagent' || ('agentId' in raw && !!raw.agentId)
+  const run = await ownerOf(ctx, machineId, runId, outlives ? 'ended' : 'live')
   if (!run) return
   if (raw.kind === 'text' || raw.kind === 'thought') {
     await pushDelta(ctx, run, await appendStream(ctx, runId, raw))

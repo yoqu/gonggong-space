@@ -75,7 +75,7 @@
 - 档位 `Tier`：`full` 完全允许、`workspace` 需要审批、`read-only` 只读；Bot 默认 `bots.tier`，群可覆盖 `group_bots.tier`；演示模式不许 full（`modules/bots/tier.ts`）。
 - 档位改动对运行中的轮次立即生效（`run.tier`）；升到 full 时自动批准待审请求。
 - ACP 模式映射（`turn.rs` `mode_for`）：Claude bypassPermissions / acceptEdits / default；Codex agent-full-access / workspace-write / read-only（不用 `agent`，它把审批交给 Codex 自己的审查模型）。
-- 插件 Agent 取清单 `tiers`：Gemini yolo / autoEdit / default；CodeBuddy 同 Claude；Antigravity accept-edits / accept-edits / default；DeepSeek 用 `DSH_PERMISSION_MODE` 环境变量且改档重启；pi 无档位。
+- 插件 Agent 取清单 `tiers`：Gemini yolo / autoEdit / default；CodeBuddy 同 Claude；Antigravity auto / accept-edits / default（auto 才让子 agent 跑安全命令：agy 不把子 agent 的审批发到 ACP）；DeepSeek 用 `DSH_PERMISSION_MODE` 环境变量且改档重启；pi 无档位。
 - 「帮我审批」（`aiReview`）且 workspace 档、官方服务时，Claude 用 `auto`、Codex 用 `agent`（`builtin_mode`），否则由共工规则处理（AI 预审已移除）。
 - `bots.approval`/`allowlist` 为遗留列，恒为 `ask`（迁移 0106 起审批方式 = 档位 + aiReview），仍随 `RunStart.bot` 下发。
 

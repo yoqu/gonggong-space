@@ -53,6 +53,14 @@ describe('classify', () => {
     expect(t('cat a.ts && cat b.ts')).toBe('a.ts, b.ts')
   })
 
+  it("names Antigravity's subagent tools like Codex's", () => {
+    expect(classify(step('other', { title: 'Run invoke_subagent' }), ROOT)).toMatchObject({
+      family: 'delegate',
+      verb: '派出子 agent',
+    })
+    expect(classify(step('other', { title: 'Run manage_subagents' }), ROOT).family).toBe('delegate')
+  })
+
   it('shows workspace-relative paths and live / failed verbs', () => {
     expect(classify(read('src/a.ts'), ROOT)).toMatchObject({ verb: '已读取', target: 'src/a.ts' })
     expect(classify(read('src/a.ts', { running: true }), ROOT).verb).toBe('正在读取')

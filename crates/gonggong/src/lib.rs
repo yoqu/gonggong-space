@@ -1,6 +1,7 @@
 pub mod adapters;
 pub mod agent_settings;
 pub mod agents;
+pub mod antigravity;
 pub mod artifacts;
 pub mod ask;
 pub mod attachments;

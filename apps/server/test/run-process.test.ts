@@ -627,6 +627,29 @@ describe('run process', () => {
     ])
   })
 
+  it('records a subagent outliving its run (Antigravity): its process and end land in that run', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const sub = { kind: 'subagent', agentId: 'c1', name: 'File Lister', task: '列出文件' }
+    w.send(runId, { ...sub, state: 'running' })
+    w.done(runId)
+    await w.ended(runId)
+    const tool = { kind: 'tool', agentId: 'c1', toolCallId: 'c1/1/0', title: 'ls', toolKind: 'execute' }
+    w.send(runId, { ...tool, status: 'completed' })
+    w.send(runId, { kind: 'text', delta: '共 2 个文件', agentId: 'c1' })
+    w.send(runId, { ...sub, state: 'completed' })
+    w.send(runId, { kind: 'text', delta: '主 agent 不在这条运行里说话' })
+    await expect
+      .poll(async () => (await w.detail(runId)).run.delegation)
+      .toEqual({ subagents: 1, subagentsRunning: 0, tasksRunning: 0 })
+    expect((await w.detail(runId)).events.map((e) => e.event)).toEqual([
+      { ...sub, state: 'running' },
+      { ...tool, status: 'completed' },
+      { kind: 'text', delta: '共 2 个文件', agentId: 'c1' },
+      { ...sub, state: 'completed' },
+    ])
+  })
+
   it("keeps the main agent's latest plan on the card, each change in the process; no entries clear it", async () => {
     const w = await world()
     const runId = await w.mention()

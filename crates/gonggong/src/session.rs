@@ -1,6 +1,7 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
 use crate::agent_settings;
 use crate::agents;
+use crate::antigravity;
 use crate::artifacts;
 use crate::ask::{self, Asker};
 use crate::attachments;
@@ -49,6 +50,8 @@ use tokio::sync::{Notify, mpsc, oneshot};
 use tokio::time::Instant;
 
 const ERROR_MAX: usize = 800;
+/// How long a continuation stays open after its agent is known to wait (`State::agent_idle`).
+const SETTLE: std::time::Duration = std::time::Duration::from_secs(3);
 const RESUME_FAILED: &str = "resume_failed";
 /// The session to resume was pinned to a provider since deleted (§4.3).
 const PROVIDER_REMOVED: &str = "provider_removed";
@@ -307,6 +310,10 @@ struct State {
     appends: Vec<(String, Vec<Attachment>)>,
     /// Background tasks by id, reporting to the run that started them even after it ended.
     tasks: HashMap<String, Task>,
+    /// Antigravity's subagents and background tasks (`antigravity`) by id, likewise.
+    delegates: HashMap<String, Delegate>,
+    /// Antigravity's main agent waits, as its transcript tells: a continuation it was in has ended.
+    agent_idle: bool,
     prev: Option<Prev>,
     adopting: Option<Adopting>,
     /// The latest `current_mode_update`: an adapter reports the mode it fell back to (Claude `auto` → `acceptEdits`).
@@ -323,6 +330,14 @@ struct Task {
     /// ACP session that owns it, for `_session/async_task/stop`.
     session: String,
     snap: TaskSnap,
+}
+
+struct Delegate {
+    run_id: String,
+    out: Outbox,
+    live: bool,
+    /// Reported if the adapter process goes away while it is at work.
+    orphan: Option<RunEvent>,
 }
 
 /// Draft ACP extension method both adapters serve.
@@ -385,6 +400,7 @@ impl Shared {
         s.pending.is_empty()
             && s.active.is_none()
             && s.tasks.is_empty()
+            && !s.delegates.values().any(|d| d.live)
             && s.approvals.is_empty()
             && s.questions.is_empty()
             && s.last.is_none()
@@ -395,7 +411,10 @@ impl Shared {
     /// the agent may go on from.
     pub(crate) fn holds_adapter(&self) -> bool {
         let s = self.0.lock().unwrap();
-        s.active.is_some() || s.adopting.is_some() || s.tasks.values().any(|t| !t.snap.ended())
+        s.active.is_some()
+            || s.adopting.is_some()
+            || s.tasks.values().any(|t| !t.snap.ended())
+            || s.delegates.values().any(|d| d.live)
     }
 
     pub(crate) fn cancel(self: &Arc<Self>, run_id: &str) {
@@ -808,12 +827,14 @@ impl Shared {
                     if waiting {
                         c.last = Instant::now();
                     }
+                    // An agent known to wait has ended the cycle once what it streamed has come.
+                    let quiet = if s.agent_idle { SETTLE.min(quiet) } else { quiet };
                     quiet.saturating_sub(c.last.elapsed())
                 };
                 if left.is_zero() {
                     return shared.conclude(&id, RunOutcome::Completed).await;
                 }
-                tokio::time::sleep(left).await;
+                tokio::time::sleep(left.min(SETTLE)).await;
             }
         });
         true
@@ -929,6 +950,30 @@ impl Shared {
         if s.cancelled.contains(&run_id) {
             send_cancel(&s);
         }
+    }
+
+    /// What Antigravity's transcripts tell of its subagents and background tasks: each reports to the run it started
+    /// in (its parent subagent's), also after that run ended.
+    fn delegated(&self, e: antigravity::Emit) {
+        let mut guard = self.0.lock().unwrap();
+        let s = &mut *guard;
+        if !s.delegates.contains_key(&e.key) {
+            let owner = match e.parent.as_ref() {
+                Some(p) => s.delegates.get(p).map(|d| (d.run_id.clone(), d.out.clone())),
+                None => s
+                    .active
+                    .as_ref()
+                    .map(|a| (a.run_id.clone(), a.out.clone()))
+                    .or_else(|| s.prev.as_ref().map(|p| (p.run_id.clone(), p.out.clone()))),
+            };
+            let Some((run_id, out)) = owner else { return };
+            s.delegates.insert(e.key.clone(), Delegate { run_id, out, live: true, orphan: e.orphan });
+        }
+        let d = s.delegates.get_mut(&e.key).expect("inserted above");
+        if let Some(live) = e.live {
+            d.live = live;
+        }
+        d.out.send(DaemonToServer::RunEvent { run_id: d.run_id.clone(), event: e.event });
     }
 
     /// `session/update` parsed by hand: the draft subagent / async-task updates are unknown to the schema crate.
@@ -1658,6 +1703,11 @@ pub(crate) async fn run(
             s.agent = None;
             s.tasks.clear();
             s.adopting = None;
+            for d in s.delegates.drain().map(|(_, d)| d).filter(|d| d.live) {
+                if let Some(event) = d.orphan {
+                    d.out.send(DaemonToServer::RunEvent { run_id: d.run_id, event });
+                }
+            }
         }
         // A turn still active here was cut short by the adapter exiting or failing to start.
         let error = match result {
@@ -1748,6 +1798,8 @@ async fn connect(
                 initial: HashMap::new(),
                 applied: HashMap::new(),
                 models: None,
+                user_home: &engine.config.user_home,
+                watch: None,
             };
             let secrets = env_digest(&first.req.start.env);
             let hidden = first.req.start.hidden_tools.clone();
@@ -1810,7 +1862,7 @@ fn env_digest(env: &SecretEnv) -> [u8; 32] {
 struct Conversation<'a> {
     cx: &'a ConnectionTo<Agent>,
     init: &'a InitializeResponse,
-    shared: &'a Shared,
+    shared: &'a Arc<Shared>,
     ask: &'a acp::McpServer,
     home: &'a Path,
     api: Option<&'a Config>,
@@ -1837,9 +1889,30 @@ struct Conversation<'a> {
     applied: HashMap<String, String>,
     /// The session's models when offered the older way instead of a config option (Gemini CLI).
     models: Option<Models>,
+    user_home: &'a Path,
+    /// Antigravity: the session whose transcripts are followed.
+    watch: Option<(SessionId, antigravity::Watch)>,
 }
 
 impl Conversation<'_> {
+    /// Antigravity tells of its subagents and background tasks only in its transcripts (`antigravity`).
+    fn follow(&mut self, session: &SessionId) {
+        if self.watch.as_ref().is_some_and(|(id, _)| id == session) {
+            return;
+        }
+        let Some(adapter) = crate::adapters::get(AgentKind::Antigravity) else { return };
+        let brain = adapter.config_home(self.user_home, &|n| std::env::var(n).ok()).join("brain");
+        let shared = self.shared.clone();
+        let idle = self.shared.clone();
+        let watch = antigravity::watch(
+            brain,
+            &session.0,
+            move |e| shared.delegated(e),
+            move |i| idle.0.lock().unwrap().agent_idle = i,
+        );
+        self.watch = Some((session.clone(), watch));
+    }
+
     /// Runs one prompt turn. Only transport-level failures are returned (they tear the adapter down).
     /// `removed`: the session to resume lost its provider, so a new one is started.
     async fn turn(
@@ -1891,6 +1964,9 @@ impl Conversation<'_> {
         };
         *resume = Some(session.clone());
         self.session = Some(session.clone());
+        if s.bot.agent_kind == AgentKind::Antigravity {
+            self.follow(&session);
+        }
         let builtin = builtin_mode(s.bot.agent_kind, s.bot.tier, s.bot.ai_review, self.official)
             .filter(|m| self.modes.iter().any(|o| o == m));
         let fallback = mode_for(s.bot.agent_kind, s.bot.tier);
