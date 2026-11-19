@@ -1,7 +1,7 @@
 import type { GgArtifactManifest } from '@gonggong/protocol'
 import { create } from 'zustand'
 
-/** The page (画布, a `groups` entry of the manifest) each artifact's canvas shows; absent: 全部页面. */
+/** The folder (文件夹, a `groups` entry of the manifest) each artifact's canvas shows; absent: 全部页面. */
 const usePages = create<Record<string, string>>()(() => ({}))
 
 export const useArtifactPage = (artifactId: string): string | null => usePages((s) => s[artifactId] ?? null)

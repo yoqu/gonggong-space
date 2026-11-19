@@ -76,10 +76,11 @@ describe('page list (多级分类)', () => {
   it('refuses an unknown group, a cycle, too deep a tree or a different set of pages', async () => {
     const s = await setup()
     const g = (id: string, parent?: string) => ({ id, title: id, ...(parent && { parent }) })
+    const chain = (n: number) => Array.from({ length: n }, (_, i) => g(`f${i}`, i ? `f${i - 1}` : undefined))
     const bad = [
       { groups: [], screens: [{ id: 'home', group: 'nope' }, { id: 'done' }] },
       { groups: [g('a', 'b'), g('b', 'a')], screens: [{ id: 'home' }, { id: 'done' }] },
-      { groups: [g('a'), g('b', 'a'), g('c', 'b'), g('d', 'c')], screens: [{ id: 'home' }, { id: 'done' }] },
+      { groups: chain(8), screens: [{ id: 'home' }, { id: 'done' }] },
       { groups: [], screens: [{ id: 'home' }] },
       { groups: [], screens: [{ id: 'home' }, { id: 'home' }] },
     ]
@@ -90,6 +91,20 @@ describe('page list (多级分类)', () => {
       })
       expect([op, res.statusCode]).toEqual([op, 400])
     }
+  })
+
+  it('nests folders up to 7 levels, like 墨刀', async () => {
+    const s = await setup()
+    const groups = Array.from({ length: 7 }, (_, i) => ({
+      id: `f${i}`,
+      title: `f${i}`,
+      ...(i && { parent: `f${i - 1}` }),
+    }))
+    const res = await s.req('POST', `/api/artifacts/${s.a.id}/edits`, {
+      baseVersionId: s.v1.versionId,
+      ops: [{ kind: 'pages', groups, screens: [{ id: 'home', group: 'f6' }, { id: 'done' }] }],
+    })
+    expect(res.statusCode).toBe(200)
   })
 })
 

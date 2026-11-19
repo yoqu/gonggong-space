@@ -19,9 +19,16 @@ export async function threadRoot(ctx: Ctx, groupId: string, rootId: string) {
         .where(and(eq(messages.id, rootId), eq(messages.groupId, groupId)))
     : []
   if (!root) return fail('not_found', '消息不存在')
+  if (isArtifactChat(root)) return root
   if (root.threadRootId || root.kind === 'event') return fail('invalid', '只能在群里的普通消息下回复话题')
   return root
 }
+
+/**
+ * The root of an artifact's 画布 AI 对话 (artifacts/chat.ts) is its own reply: nobody follows it, and it never shows in
+ * the group, 话题 or Feishu.
+ */
+export const isArtifactChat = (m: { id: string; threadRootId: string | null }) => m.threadRootId === m.id
 
 /** Reply summaries of the roots among `rootIds` that have replies. */
 export async function threadSummaries(

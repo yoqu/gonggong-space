@@ -9,6 +9,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
 import { ConfirmActionDialog, Icon, MenuButton, type MenuItem, Presence } from '../../ui'
+import { CanvasChat } from './CanvasChat'
 import { CommandLog } from './CommandLog'
 import { setArtifactPage, useArtifactPage } from './page'
 import {
@@ -41,6 +42,11 @@ const WIDTH_KEY = 'gg.art.railWidth'
 const WIDTH_MIN = 180
 const WIDTH_MAX = 480
 const WIDTH_DEFAULT = 248
+
+const LOG_KEY = 'gg.art.railLog'
+/** The rail's lower half: the 画布 AI 对话, or the command log (everything sent about the artifact, group included). */
+const LOG_TABS = ['chat', 'log'] as const
+type LogTab = (typeof LOG_TABS)[number]
 
 const clampWidth = (w: number) => Math.round(Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, w)))
 const readWidth = () => {
@@ -104,8 +110,8 @@ type Editing =
 type Dragged = { kind: 'screen' | 'group'; id: string } | null
 
 /**
- * The canvas's left rail: the pages above (画布, nested; each shows only its screens, 全部页面 shows them all), the
- * command log below, split 2:1 by default and draggable.
+ * The canvas's left rail: the pages above (文件夹, nested; each shows only its screens, 全部页面 shows them all), the
+ * AI chat and command log below, split 2:1 by default and draggable.
  */
 export function PageRail({
   artifactId,
@@ -134,6 +140,11 @@ export function PageRail({
   onPicked: () => void
 }) {
   const [split, setSplit] = useState(readSplit)
+  const [log, setLog] = useState<LogTab>(() => (localStorage.getItem(LOG_KEY) === 'log' ? 'log' : 'chat'))
+  const pickLog = (k: LogTab) => {
+    setLog(k)
+    localStorage.setItem(LOG_KEY, k)
+  }
   const [width, setWidth] = useState(readWidth)
   const box = useRef<HTMLDivElement>(null)
   const resize = (e: PointerEvent<HTMLDivElement>) => {
@@ -205,10 +216,27 @@ export function PageRail({
             onPointerDown={resize}
           />
           <section className="art-rail__log">
-            <h3 className="art-rail__title">{t('命令记录')}</h3>
-            <div className="art-rail__scroll">
-              <CommandLog artifactId={artifactId} groupId={groupId} refreshKey={refreshKey} />
+            <div className="art-rail__tabs" role="tablist">
+              {LOG_TABS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={log === k}
+                  className={cx('art-rail__tab', log === k && 'is-current')}
+                  onClick={() => pickLog(k)}
+                >
+                  {k === 'chat' ? t('AI 对话') : t('命令记录')}
+                </button>
+              ))}
             </div>
+            {log === 'chat' ? (
+              <CanvasChat artifactId={artifactId} groupId={groupId} />
+            ) : (
+              <div className="art-rail__scroll">
+                <CommandLog artifactId={artifactId} groupId={groupId} refreshKey={refreshKey} />
+              </div>
+            )}
           </section>
         </>
       ) : null}
@@ -253,8 +281,8 @@ function Pages({
         <button
           type="button"
           className="art-rail__icon"
-          aria-label={t('新建画布')}
-          title={t('新建画布')}
+          aria-label={t('新建文件夹')}
+          title={t('新建文件夹')}
           onClick={() => setEditing({ kind: 'new', parent: undefined })}
         >
           <Icon name="folder-plus" size={14} />
@@ -485,7 +513,7 @@ function Pages({
         >
           <Icon name="folder" size={13} className="art-rail__glyph" />
           {editing?.kind === 'group' && editing.id === id ? (
-            nameInput(g.group.title, t('画布名称'))
+            nameInput(g.group.title, t('文件夹名称'))
           ) : (
             <button
               type="button"
@@ -500,19 +528,19 @@ function Pages({
           {edit ? (
             <MenuButton
               className="art-rail__more"
-              aria-label={t('画布操作')}
+              aria-label={t('文件夹操作')}
               align="end"
               items={[
-                { label: t('添加子画布'), value: 'sub', disabled: deepest },
-                { label: t('上方添加画布'), value: 'above' },
-                { label: t('下方添加画布'), value: 'below' },
+                { label: t('添加子文件夹'), value: 'sub', disabled: deepest },
+                { label: t('上方添加文件夹'), value: 'above' },
+                { label: t('下方添加文件夹'), value: 'below' },
                 { separator: true },
                 { label: t('上移'), value: 'up', disabled: !shiftGroup(m, id, -1) },
                 { label: t('下移'), value: 'down', disabled: !shiftGroup(m, id, 1) },
                 ...(g.group.parent ? [{ label: t('移到顶层'), value: 'top' }] : []),
                 { separator: true },
                 { label: t('重命名'), value: 'rename' },
-                { label: t('删除画布'), value: 'delete', destructive: true },
+                { label: t('删除文件夹'), value: 'delete', destructive: true },
               ]}
               onSelect={(v) => {
                 if (v === 'rename') setEditing({ kind: 'group', id })
@@ -544,7 +572,7 @@ function Pages({
   const inputRow = (key: string, depth: number) => (
     <li key={key} className="art-rail__row" style={{ paddingLeft: 8 + depth * 14 }}>
       <Icon name="folder" size={13} className="art-rail__glyph" />
-      {nameInput('', t('画布名称'))}
+      {nameInput('', t('文件夹名称'))}
     </li>
   )
   /** A new subpage of `parent` being named (beside one: besideRow). */
@@ -580,7 +608,7 @@ function Pages({
           {tree.screens.map((s) => screenRow(s, 0))}
         </ul>
         {!readOnly && !m.groups?.length ? (
-          <p className="art-rail__hint">{t('新建画布后，可以把屏幕拖进去；每个画布单独显示它的屏幕')}</p>
+          <p className="art-rail__hint">{t('新建文件夹后，可以把页面拖进去；每个文件夹单独显示它的页面')}</p>
         ) : null}
       </div>
       <Presence>
@@ -600,9 +628,9 @@ function Pages({
   )
 }
 
-/** A page (画布) with no screens yet, over the canvas. */
+/** A folder (文件夹) with no screens yet, over the canvas. */
 export const PageEmpty = () => (
   <p className="art-page-empty" data-testid="art-page-empty">
-    {t('这个画布还没有屏幕：让 AI 生成，或从左侧把屏幕拖进来')}
+    {t('这个文件夹还没有页面：让 AI 生成，或从左侧把页面拖进来')}
   </p>
 )

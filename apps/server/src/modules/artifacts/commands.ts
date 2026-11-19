@@ -15,12 +15,13 @@ import { artifactAnnotations, messages } from '../../db/schema.js'
 import { type MessageKey, t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { mirrorUserMessage } from '../feishu/outbound.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '../messages/service.js'
 import { findDesignSystem } from '../plugins/designSystems.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { publishThread } from '../threads/service.js'
 import { readBlob } from './blobs.js'
+import { artifactChatRoot } from './chat.js'
 import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
 import { pluginCommands } from './kit.js'
 import { rulesContext } from './rules.js'
@@ -110,9 +111,9 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
   const lines = [`产物「${a.title}」，目录 ${a.dir}/，当前版本 v${v.n}。`]
   if (sel.page) {
     const page =
-      m?.groups?.find((g) => g.id === sel.page) ?? fail('invalid', '画布不存在：{id}', { id: sel.page })
+      m?.groups?.find((g) => g.id === sel.page) ?? fail('invalid', '文件夹不存在：{id}', { id: sel.page })
     lines.push(
-      `当前画布：${page.title}（${page.id}）。新建的屏幕放进这个画布：在 gg-artifact.json 的屏幕上写 "group": "${page.id}"。`,
+      `当前文件夹：${page.title}（${page.id}）。新建的屏幕放进这个文件夹：在 gg-artifact.json 的屏幕上写 "group": "${page.id}"。`,
     )
   }
   if (sel.screenIds.length) lines.push('选中的屏幕：', ...sel.screenIds.map((id) => `- ${screenLine(m, id)}`))
@@ -228,8 +229,8 @@ const withText = (action: string, text: string | undefined) =>
   text?.trim() ? t('{action}：{text}', { action, text: text.trim() }) : action
 
 /**
- * Posts a message as the member @-ing the bot about the artifact: a short sentence and the selection for people, the
- * full instruction in `artifactNote` for the agent. Its run checks the artifact out first.
+ * Posts a message as the member @-ing the bot about the artifact, in its 画布 AI 对话: a short sentence and the
+ * selection for people, the full instruction in `artifactNote` for the agent. Its run checks the artifact out first.
  */
 async function postAsMember(
   ctx: Ctx,
@@ -248,13 +249,15 @@ async function postAsMember(
     clientId: randomUUID(),
   }
   const body = `@${bot.name} ${say.action}\n${summaryLine(say.canvas)}`
+  // Asked on the canvas: it goes to the artifact's 画布 AI 对话, not the group.
+  const root = await artifactChatRoot(ctx, a)
   const [row] = (await ctx.db
     .insert(messages)
-    .values({ groupId: a.groupId, kind: 'user', authorUserId: me.id, body, meta })
+    .values({ groupId: a.groupId, kind: 'user', authorUserId: me.id, body, meta, threadRootId: root.id })
     .returning()) as [MessageRow]
   const dto = messageDto(row, me.name)
   await publishMessage(ctx, dto)
-  await mirrorUserMessage(ctx, row, me)
+  await publishThread(ctx, root)
   await triggerRuns(ctx, row)
   return dto
 }

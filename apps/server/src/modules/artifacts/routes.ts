@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
   type AnnotationDto,
+  type ArtifactChatDto,
   ArtifactCommandReq,
   type ArtifactDesignSystem,
   type ArtifactDto,
@@ -48,6 +49,7 @@ import { previewOrigin } from '../previews/routes.js'
 import { publishRun } from '../runs/dto.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
+import { artifactChatRoot } from './chat.js'
 import { sendAnnotations, sendCommand } from './commands.js'
 import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
@@ -432,6 +434,12 @@ export function artifactRoutes(ctx: Ctx) {
           .send(await artifactBlobs.open(a.groupId, file.hash))
       },
     )
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/chat', async (req): Promise<ArtifactChatDto> => {
+      const me = await requireUser(ctx, req)
+      const root = await artifactChatRoot(ctx, await requireArtifact(ctx, req.params.id, me.id))
+      return { rootId: root.id }
+    })
 
     app.get<{ Params: { id: string } }>('/api/artifacts/:id/history', async (req) => {
       const me = await requireUser(ctx, req)

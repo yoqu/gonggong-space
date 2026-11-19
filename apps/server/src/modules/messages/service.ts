@@ -90,6 +90,8 @@ export type MessageMeta = {
   feishuIssue?: FeishuIssueEvent
   /** A thread reply also shown in the main timeline (同时发送到群). */
   alsoSent?: boolean
+  /** The root of this artifact's 画布 AI 对话 (artifacts/chat.ts). */
+  artifactChat?: string
 }
 
 /** A user message's author name, a webhook's name or Feishu sender's when they have no 共工 account; needs `users` left-joined. */

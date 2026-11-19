@@ -24,7 +24,7 @@ import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/s
 import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
 import { pauseStopped, requeueRun } from '../sync/resolve.js'
-import { followOnReply, publishThread } from '../threads/service.js'
+import { followOnReply, isArtifactChat, publishThread } from '../threads/service.js'
 import { settleWebhook } from '../webhooks/service.js'
 import { publishBotState, updateContextUsage } from '../workspaces/state.js'
 import { cardColumns, publishRun, publishStep, type RunRow } from './dto.js'
@@ -740,7 +740,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
       message && run.threadRootId
         ? await tx.select().from(messages).where(eq(messages.id, run.threadRootId))
         : []
-    if (message && root) await followOnReply(tx, root, message, userMentions)
+    if (message && root && !isArtifactChat(root)) await followOnReply(tx, root, message, userMentions)
     if (message && pages.length)
       await tx
         .update(attachments)

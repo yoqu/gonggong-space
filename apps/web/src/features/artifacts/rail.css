@@ -73,9 +73,33 @@
   font-weight: 600;
   color: var(--label-secondary);
 }
-.art-rail__log > .art-rail__title {
+.art-rail__tabs {
   flex: none;
-  padding: var(--space-8) var(--space-12) var(--space-4);
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8) var(--space-4);
+}
+.art-rail__tab {
+  padding: var(--space-2) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  color: var(--label-tertiary);
+  cursor: pointer;
+}
+.art-rail__tab:hover {
+  color: var(--label);
+}
+.art-rail__tab.is-current {
+  background: var(--quote-fill);
+  color: var(--label);
+}
+/* The chat's messages and run cards, narrowed to the rail. */
+.art-chat {
+  padding: 0 var(--space-4) var(--space-8);
+  font-size: var(--text-footnote-size);
 }
 .art-rail__count {
   margin-left: var(--space-6);

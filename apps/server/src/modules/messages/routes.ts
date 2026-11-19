@@ -28,7 +28,13 @@ import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { currentTeam } from '../teams/service.js'
 import { loadMessages } from '../threads/routes.js'
-import { followOnReply, inMainTimeline, publishThread, threadRoot } from '../threads/service.js'
+import {
+  followOnReply,
+  inMainTimeline,
+  isArtifactChat,
+  publishThread,
+  threadRoot,
+} from '../threads/service.js'
 import { answerActions } from './actions.js'
 import { appendTarget, sendAppend } from './append.js'
 import { branchMessage } from './branch.js'
@@ -146,9 +152,12 @@ export function messageRoutes(ctx: Ctx) {
       const bots = activeBots(ctx, group.id).execute()
       // @所有人: group owner or admins, in the main timeline only.
       const everyone = !threadRootId && (group.createdBy === me.id || member.isAdmin) && mentionsAll(body)
-      const canvas = artifactContext ? await canvasContext(ctx, group.id, me.id, artifactContext) : null
-      const [root, target, inGroup, quoted, userMentions] = await Promise.all([
-        threadRootId ? threadRoot(ctx, group.id, threadRootId) : null,
+      const root = threadRootId ? await threadRoot(ctx, group.id, threadRootId) : null
+      const chat = root && isArtifactChat(root) ? (root.meta as MessageMeta).artifactChat : undefined
+      // In an artifact's 画布 AI 对话 every message is about the artifact and goes to its bot.
+      const context = artifactContext ?? (chat ? { artifactId: chat } : undefined)
+      const canvas = context ? await canvasContext(ctx, group.id, me.id, context) : null
+      const [target, inGroup, quoted, userMentions] = await Promise.all([
         appendTo ? appendTarget(ctx, group.id, me.id, appendTo) : null,
         bots,
         quote ? resolveQuote(ctx, group.id, quote) : null,
@@ -207,7 +216,7 @@ export function messageRoutes(ctx: Ctx) {
           ...(Object.keys(picks).length > 0 && { runOptions: picks }),
           ...(canvas && { artifactRefs: [canvas.id], artifactNote: canvas.note, canvas: canvas.canvas }),
           ...(foreground && { artifactForeground: foreground }),
-          ...(root && alsoSent && { alsoSent: true }),
+          ...(root && alsoSent && !chat && { alsoSent: true }),
         }
         if (files.length) meta.attachments = files
         if (quoted) meta.quote = quoted
@@ -223,7 +232,7 @@ export function messageRoutes(ctx: Ctx) {
             threadRootId: root?.id,
           })
           .returning()) as [MessageRow]
-        if (root) await followOnReply(tx, root, inserted, userMentions)
+        if (root && !chat) await followOnReply(tx, root, inserted, userMentions)
         return { row: inserted, created: true }
       })
 
@@ -236,9 +245,9 @@ export function messageRoutes(ctx: Ctx) {
         if (target) await sendAppend(ctx, target, dto)
         else if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })
         else if (mentions.length) {
-          await mirrorUserMessage(ctx, row, me)
+          if (!chat) await mirrorUserMessage(ctx, row, me)
           await triggerRuns(ctx, row)
-        } else if (userMentions.some((id) => id !== me.id)) await mirrorUserMessage(ctx, row, me)
+        } else if (!chat && userMentions.some((id) => id !== me.id)) await mirrorUserMessage(ctx, row, me)
       }
       return dto
     })

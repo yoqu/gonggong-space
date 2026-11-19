@@ -45,7 +45,15 @@ import { messageDto, userAuthorName } from '../messages/service.js'
 import { readThreadMentions } from '../notifications/notify.js'
 import { reactionsFor } from '../reactions/service.js'
 import { cardColumns, runDtoLoader } from '../runs/dto.js'
-import { readThread, stateColumns, stateDto, threadState, threadStates, threadSummaries } from './service.js'
+import {
+  isArtifactChat,
+  readThread,
+  stateColumns,
+  stateDto,
+  threadState,
+  threadStates,
+  threadSummaries,
+} from './service.js'
 
 const INBOX_LATEST = 2
 const BOT_AT_WORK = ['queued', 'offline_wait', 'running', 'awaiting_approval', 'awaiting_answer']
@@ -104,7 +112,7 @@ async function requireRoot(ctx: Ctx, rootId: string, userId: string) {
     .where(eq(messages.id, idParam(rootId, '消息不存在')))
   if (!root) return fail('not_found', '消息不存在')
   await requireReader(ctx, root.groupId, userId)
-  if (root.threadRootId) return fail('invalid', '该消息是话题回复')
+  if (root.threadRootId && !isArtifactChat(root)) return fail('invalid', '该消息是话题回复')
   return root
 }
 
@@ -123,7 +131,11 @@ export function threadRoutes(ctx: Ctx) {
         loadMessages(
           ctx,
           me.id,
-          and(eq(messages.threadRootId, root.id), before ? lt(messages.seq, before) : undefined),
+          and(
+            eq(messages.threadRootId, root.id),
+            ne(messages.id, root.id),
+            before ? lt(messages.seq, before) : undefined,
+          ),
           limit,
         ),
         ctx.db.select(cardColumns).from(runs).where(eq(runs.threadRootId, root.id)).orderBy(runs.queuedAt),

@@ -3,12 +3,14 @@ import {
   type KeyboardEvent,
   memo,
   type RefObject,
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react'
+import { FloatingChat } from '../../app/floatingChat'
 import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
@@ -16,6 +18,7 @@ import { cx } from '../../lib/cx'
 import { Checkbox, Composer } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips, ForegroundChip } from '../artifacts/ContextChips'
+import { useCanvasChat } from '../artifacts/chatRoot'
 import { artifactContextOf, type CanvasContext, clearContext, useCanvasContext } from '../artifacts/context'
 import { setEditing, useEditing, useEditingOf } from '../artifacts/editing'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
@@ -116,6 +119,9 @@ export const MessageComposer = memo(function MessageComposer({
   const [alsoSent, setAlsoSent] = useState(false)
   /** The group's composer-wide stores (cite, canvas…) speak to the main composer only; quotes and @s are per thread. */
   const main = thread ? '' : group.id
+  // Floating over an artifact's canvas, the main composer talks to its 画布 AI 对话 instead of the group.
+  const floating = useContext(FloatingChat)
+  const chatRoot = useCanvasChat((s) => (main && floating ? s.byGroup[main]?.rootId : undefined))
   const [caret, setCaret] = useState(0)
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState(false)
@@ -294,7 +300,9 @@ export const MessageComposer = memo(function MessageComposer({
   }, [recalled])
 
   const rejected = usePending((s) =>
-    s.rejected?.groupId === group.id && s.rejected.req.threadRootId === thread ? s.rejected : null,
+    s.rejected?.groupId === group.id && s.rejected.req.threadRootId === (thread ?? chatRoot)
+      ? s.rejected
+      : null,
   )
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per refused message, onto the draft it was rendered with
   useEffect(() => {
@@ -416,7 +424,7 @@ export const MessageComposer = memo(function MessageComposer({
     if (sending.current || uploads.uploading || (!body.trim() && !attachmentIds.length)) return
     const q = quote && { kind: quote.kind, id: quote.id }
     const target = useAppend.getState().target
-    const appendTo = !thread && target?.groupId === group.id ? target.runId : null
+    const appendTo = !thread && !chatRoot && target?.groupId === group.id ? target.runId : null
     const runOptions: Picks = {}
     for (const b of targets) {
       const pick = picks[b.id]
@@ -428,7 +436,7 @@ export const MessageComposer = memo(function MessageComposer({
       attachmentIds,
       quote: q,
       appendTo,
-      ...(thread && { threadRootId: thread, alsoSent }),
+      ...(thread ? { threadRootId: thread, alsoSent } : chatRoot ? { threadRootId: chatRoot } : {}),
     }
     if (Object.keys(runOptions).length) req.runOptions = runOptions
     if (canvas) req.artifactContext = artifactContextOf(canvas)
@@ -441,7 +449,8 @@ export const MessageComposer = memo(function MessageComposer({
         req,
         draft: { quote, uploads: uploads.items, append: appendTo ? target : null, picks, alsoSent },
       },
-      onSent,
+      // The canvas's AI 对话 picks its own copy up from realtime.
+      chatRoot ? () => {} : onSent,
     )
     setSent((n) => n + 1)
     if (appendTo) useAppend.getState().clear()
@@ -477,13 +486,15 @@ export const MessageComposer = memo(function MessageComposer({
         placeholder={
           thread
             ? t('回复话题，@ 触发 Bot')
-            : variations
-              ? t('描述变体方向，生成 {n} 个变体', { n: variations })
-              : canvasBot
-                ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
-                : mobile
-                  ? t('发消息，@ 触发 Bot')
-                  : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
+            : chatRoot && !variations && !canvasBot
+              ? t('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+              : variations
+                ? t('描述变体方向，生成 {n} 个变体', { n: variations })
+                : canvasBot
+                  ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
+                  : mobile
+                    ? t('发消息，@ 触发 Bot')
+                    : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
         }
         tools={[
           {

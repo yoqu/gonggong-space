@@ -3,8 +3,10 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FloatingChat } from '../src/app/floatingChat'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
+import { useCanvasChat } from '../src/features/artifacts/chatRoot'
 import { type CanvasContext, clearContext, useCanvasContext } from '../src/features/artifacts/context'
 import { artifactSlash, parseArtifactSlash } from '../src/features/artifacts/slash'
 import { resetArtifacts, useArtifactFocus } from '../src/features/artifacts/store'
@@ -52,11 +54,39 @@ beforeEach(() => {
   useToasts.setState({ items: [] })
   vi.stubGlobal('WebSocket', NoopSocket)
   useWorkspace.setState({ groups: [group], bots })
+  useCanvasChat.setState({ byGroup: {} })
   useWorkbench.setState({ groupId: 'g1', open: false, mode: 'split', previous: 'split', benches: {} })
 })
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+})
+
+describe('the composer floating over a canvas (画布 AI 对话)', () => {
+  it("posts to the artifact's AI 对话 instead of the group; docked beside the chat it posts to the group", async () => {
+    const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    const { unmount } = render(
+      <FloatingChat.Provider value>
+        <MessageComposer group={group} onSent={() => {}} />
+      </FloatingChat.Provider>,
+    )
+    expect(input().placeholder).toBe('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+    type('首页改成深色')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
+    expect(posts(calls, '/groups/g1/messages')[0]).toMatchObject({
+      body: '首页改成深色',
+      threadRootId: 'root1',
+    })
+    unmount()
+
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('大家看看')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(2))
+    expect(posts(calls, '/groups/g1/messages')[1]).not.toHaveProperty('threadRootId')
+  })
 })
 
 describe('variations ×n in the composer (G07)', () => {

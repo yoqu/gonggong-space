@@ -115,7 +115,7 @@ export function moveGroup(
   return same ? null : op(groups, m.screens)
 }
 
-/** A new empty page (画布) right above or below `sibling`, beside it. */
+/** A new empty folder (文件夹) right above or below `sibling`, beside it. */
 export function insertGroup(
   m: GgArtifactManifest,
   title: string,

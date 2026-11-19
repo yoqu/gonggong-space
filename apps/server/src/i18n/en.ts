@@ -1055,7 +1055,7 @@ export const en = {
   文件内容与类型不符: "The file content doesn't match its type",
   '图片无法读取，文件可能已损坏': 'The image cannot be read; the file may be damaged',
   '参考不存在：{id}': 'Reference not found: {id}',
-  '画布不存在：{id}': 'Page not found: {id}',
+  '文件夹不存在：{id}': 'Folder not found: {id}',
   参考太多或无效: 'Too many references, or an invalid one',
   '链接不存在：{id}': 'Link not found: {id}',
   链接太多或无效: 'Too many links, or an invalid one',

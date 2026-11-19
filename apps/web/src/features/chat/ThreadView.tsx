@@ -56,7 +56,6 @@ export function ThreadView({
   const latestMessages = useRef(tl.messages)
   latestMessages.current = tl.messages
   const editLast = useCallback(() => lastEditable(latestMessages.current, me?.id), [me?.id])
-  const bots = useWorkspace((s) => s.bots)
   const scroll = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const olderAnchor = useRef<number | null>(null)
@@ -131,63 +130,7 @@ export function ThreadView({
     }
   }
 
-  const botsById = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
-  const { runsByTrigger, replyRuns } = useMemo(() => {
-    const replyRuns = new Map<string, RunDto>()
-    for (const m of tl.messages) {
-      const run = m.kind === 'bot' && m.runId ? tl.runs[m.runId] : undefined
-      if (run) replyRuns.set(m.id, run)
-    }
-    const answered = new Set([...replyRuns.values()].map((r) => r.id))
-    const runsByTrigger = new Map<string, RunDto[]>()
-    for (const r of Object.values(tl.runs).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt)))
-      if (!answered.has(r.id))
-        runsByTrigger.set(r.triggerMessageId, [...(runsByTrigger.get(r.triggerMessageId) ?? []), r])
-    return { runsByTrigger, replyRuns }
-  }, [tl.messages, tl.runs])
-  const targets = useMemo(
-    () => [
-      ...bots.map((b) => ({ id: b.id, name: b.name })),
-      ...group.members.map((m) => ({ id: m.userId, name: m.name })),
-    ],
-    [bots, group.members],
-  )
-  const userName = (id: string | null) => group.members.find((m) => m.userId === id)?.name ?? '—'
-
-  const card = (r: RunDto, reply?: MessageDto) => {
-    const bot = botsById.get(r.botId)
-    return (
-      <RunCard
-        key={r.id}
-        run={r}
-        reply={reply}
-        botName={bot?.name ?? 'bot'}
-        agent={bot ? AGENT_META[bot.agentKind].name : ''}
-        trigger={r.triggerUserId ? userName(r.triggerUserId) : '—'}
-        foldable={group.foldRuns}
-      />
-    )
-  }
-  const item = (m: MessageDto) => {
-    const run = replyRuns.get(m.id)
-    const body = run ? (
-      card(run, m)
-    ) : m.kind === 'event' ? (
-      <EventRow m={m} />
-    ) : m.recalled || m.hidden ? (
-      <RecallRow m={m} mine={m.authorId === me?.id} />
-    ) : m.kind === 'bot' ? (
-      <BotReply m={m} />
-    ) : (
-      <UserMessage m={m} targets={targets} meId={me?.id} mine={m.authorId === me?.id} />
-    )
-    return (
-      <div key={m.id} data-msg-id={m.id} className="tl-item" inert={readOnly}>
-        {body}
-        {runsByTrigger.get(m.id)?.map((r) => card(r))}
-      </div>
-    )
-  }
+  const item = useThreadItem(group, tl.messages, tl.runs, readOnly)
 
   const following = tl.threadState?.following ?? false
   const follow = async () => {
@@ -253,4 +196,77 @@ export function ThreadView({
       </ThreadPanel>
     </ThreadScope.Provider>
   )
+}
+
+/**
+ * Renders one message of a thread: a bot reply inside its run's card, the other runs it started under it. Shared by
+ * ThreadView and the canvas's AI 对话.
+ */
+export function useThreadItem(
+  group: GroupDto,
+  messages: MessageDto[],
+  runs: Record<string, RunDto>,
+  readOnly = false,
+) {
+  const me = useSession((s) => s.user)
+  const bots = useWorkspace((s) => s.bots)
+  const botsById = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
+  const { runsByTrigger, replyRuns } = useMemo(() => {
+    const replyRuns = new Map<string, RunDto>()
+    for (const m of messages) {
+      const run = m.kind === 'bot' && m.runId ? runs[m.runId] : undefined
+      if (run) replyRuns.set(m.id, run)
+    }
+    const answered = new Set([...replyRuns.values()].map((r) => r.id))
+    const runsByTrigger = new Map<string, RunDto[]>()
+    for (const r of Object.values(runs).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt)))
+      if (!answered.has(r.id))
+        runsByTrigger.set(r.triggerMessageId, [...(runsByTrigger.get(r.triggerMessageId) ?? []), r])
+    return { runsByTrigger, replyRuns }
+  }, [messages, runs])
+  const targets = useMemo(
+    () => [
+      ...bots.map((b) => ({ id: b.id, name: b.name })),
+      ...group.members.map((m) => ({ id: m.userId, name: m.name })),
+    ],
+    [bots, group.members],
+  )
+  const userName = (id: string | null) => group.members.find((m) => m.userId === id)?.name ?? '—'
+
+  const card = (r: RunDto, reply?: MessageDto) => {
+    const bot = botsById.get(r.botId)
+    return (
+      <RunCard
+        key={r.id}
+        run={r}
+        reply={reply}
+        botName={bot?.name ?? 'bot'}
+        agent={bot ? AGENT_META[bot.agentKind].name : ''}
+        trigger={r.triggerUserId ? userName(r.triggerUserId) : '—'}
+        foldable={group.foldRuns}
+      />
+    )
+  }
+  const item = (m: MessageDto) => {
+    const run = replyRuns.get(m.id)
+    const body = run ? (
+      card(run, m)
+    ) : m.kind === 'event' ? (
+      <EventRow m={m} />
+    ) : m.recalled || m.hidden ? (
+      <RecallRow m={m} mine={m.authorId === me?.id} />
+    ) : m.kind === 'bot' ? (
+      <BotReply m={m} />
+    ) : (
+      <UserMessage m={m} targets={targets} meId={me?.id} mine={m.authorId === me?.id} />
+    )
+    return (
+      <div key={m.id} data-msg-id={m.id} className="tl-item" inert={readOnly}>
+        {body}
+        {runsByTrigger.get(m.id)?.map((r) => card(r))}
+      </div>
+    )
+  }
+
+  return item
 }

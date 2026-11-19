@@ -391,7 +391,10 @@ describe('design-system panel', () => {
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'POST' && c.path === '/artifacts/a1/commands')).toBe(true),
     )
-    const posts = calls.filter((c) => c.method === 'POST' && c.path !== '/artifacts/a1/preview')
+    // The preview and the 画布 AI 对话 root come with the tab, not with saving.
+    const posts = calls.filter(
+      (c) => c.method === 'POST' && c.path !== '/artifacts/a1/preview' && c.path !== '/artifacts/a1/chat',
+    )
     expect(posts.map((c) => c.path)).toEqual(['/artifacts/a1/edits', '/artifacts/a1/commands'])
     expect(posts[1]?.body).toEqual({ command: 'apply-design-system', botId: 'b1' })
     // Over the canvas where it was done, not in the app's corner over the chat (P2-18).

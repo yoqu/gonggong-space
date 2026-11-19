@@ -19,6 +19,7 @@ import type { TabMeta, TabProps } from '../workbench/types'
 import { ActivityNote } from './ActivityLayer'
 import { useGroupBots } from './actions'
 import { Canvas, type CanvasRequest } from './Canvas'
+import { useFrontCanvasChat } from './chatRoot'
 import { useDesignSystem } from './DesignSystemPanel'
 import { downloadUrl, exportZipUrl } from './ExportPanel'
 import { IssuesButton } from './IssuesButton'
@@ -76,7 +77,7 @@ const PROJECT = {
   archive: 'archive',
 } as const
 
-export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
+export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   const entry = useArtifact(tab.artifactId)
   const a = entry?.artifact
   /** A past version looked at, read-only; null = the head. */
@@ -160,6 +161,8 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
   }
 
   const rail = useRail()
+  // In front, the composer floating over the canvas talks to its AI 对话 instead of the group.
+  useFrontCanvasChat(a?.groupId ?? '', tab.artifactId, active && !!a && a.access !== 'view')
 
   if (!entry) return <Spinner />
   if (!a)

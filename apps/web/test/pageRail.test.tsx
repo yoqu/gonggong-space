@@ -1,7 +1,8 @@
-import type { ArtifactEditOp, ArtifactHistoryItem, GgArtifactManifest } from '@gonggong/protocol'
+import type { ArtifactEditOp, ArtifactHistoryItem, GgArtifactManifest, MessageDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useWorkspace } from '../src/app/workspace'
 import { PageRail } from '../src/features/artifacts/PageRail'
 import {
   addGroup,
@@ -13,9 +14,10 @@ import {
   shiftGroup,
   shiftScreen,
 } from '../src/features/artifacts/pageTree'
+import { group } from './gitFixtures'
 import { mockApi } from './mockApi'
 
-// The canvas's left rail: pages (画布, nested), each its own canvas, and 命令记录.
+// The canvas's left rail: pages (文件夹, nested), each its own canvas, and the AI 对话 / 命令记录 below.
 
 const sc = (id: string, title: string, group?: string) => ({
   id,
@@ -136,6 +138,31 @@ const history: ArtifactHistoryItem[] = [
   },
 ]
 
+const reply = (id: string, seq: number, kind: 'user' | 'bot', body: string): MessageDto => ({
+  id,
+  seq,
+  groupId: 'g1',
+  kind,
+  authorId: kind === 'user' ? 'u1' : 'b1',
+  authorName: kind === 'user' ? '蒋庆' : '共字君',
+  body,
+  mentions: [],
+  runId: null,
+  createdAt: new Date().toISOString(),
+  attachments: [],
+  quote: null,
+})
+/** The artifact's 画布 AI 对话: its root (an event no one sees) and `replies`. */
+const chatRoutes = (replies: MessageDto[]) => ({
+  'POST /artifacts/a1/chat': { rootId: 'root1' },
+  'GET /messages/root1/thread?limit=50': {
+    root: { ...reply('root1', 1, 'user', '画布 AI 对话'), kind: 'event', threadRootId: 'root1' },
+    replies,
+    runs: [],
+    state: { rootId: 'root1', groupId: 'g1', following: false, lastReadSeq: 0, unread: 0, mentioned: false },
+  },
+})
+
 function renderRail(o: { canEdit?: boolean; versionId?: string } = {}) {
   const onPicked = vi.fn()
   const onEdit = vi.fn<(ops: ArtifactEditOp[]) => Promise<unknown>>(async () => {})
@@ -160,15 +187,28 @@ function renderRail(o: { canEdit?: boolean; versionId?: string } = {}) {
 
 describe('page rail', () => {
   it('lists groups and pages, and shows each command with its run result', async () => {
-    mockApi({ 'GET /artifacts/a1/history': history })
+    mockApi({ 'GET /artifacts/a1/history': history, ...chatRoutes([]) })
     renderRail()
     const rail = screen.getByTestId('art-rail')
     expect(within(rail).getByText('下单')).toBeTruthy()
     expect(within(rail).getByText('支付成功')).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '命令记录' }))
     const log = await screen.findByTestId('art-log')
     expect(within(log).getByText('@共字君 首页加个搜索框')).toBeTruthy()
     expect(within(log).getByText('首页顶部加了搜索框')).toBeTruthy()
     expect(within(log).getByRole('button', { name: 'v2' })).toBeTruthy()
+  })
+
+  it("shows the canvas's AI 对话: what was asked on the canvas and AI's answer, not the group's messages", async () => {
+    useWorkspace.setState({ groups: [group({ members: [] })], bots: [] })
+    const asked = { ...reply('m2', 2, 'user', '首页改成深色'), threadRootId: 'root1' }
+    const answered = { ...reply('m3', 3, 'bot', '已改成深色'), threadRootId: 'root1' }
+    mockApi(chatRoutes([asked, answered]))
+    renderRail()
+    expect(screen.getByRole('tab', { name: 'AI 对话' }).getAttribute('aria-selected')).toBe('true')
+    const chat = await screen.findByTestId('art-chat')
+    await waitFor(() => expect(within(chat).getByText('首页改成深色')).toBeTruthy())
+    expect(within(chat).getByText('已改成深色')).toBeTruthy()
   })
 
   it('renames a page inline and creates a group', async () => {
@@ -184,8 +224,8 @@ describe('page rail', () => {
       ]),
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '新建画布' }))
-    const name = screen.getByRole('textbox', { name: '画布名称' }) as HTMLInputElement
+    fireEvent.click(screen.getByRole('button', { name: '新建文件夹' }))
+    const name = screen.getByRole('textbox', { name: '文件夹名称' }) as HTMLInputElement
     name.value = '个人中心'
     fireEvent.blur(name)
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([addGroup(M, '个人中心')]))
@@ -253,27 +293,27 @@ describe('page rail', () => {
     const onEdit = renderRail()
     const menu = (page: string, item: string) => {
       const row = screen.getByRole('button', { name: page }).closest('div')!
-      fireEvent.click(within(row).getByRole('button', { name: '画布操作' }))
+      fireEvent.click(within(row).getByRole('button', { name: '文件夹操作' }))
       fireEvent.click(screen.getByRole('menuitem', { name: item }))
     }
     const type = async (value: string) => {
-      const input = screen.getByRole('textbox', { name: '画布名称' }) as HTMLInputElement
+      const input = screen.getByRole('textbox', { name: '文件夹名称' }) as HTMLInputElement
       input.value = value
       fireEvent.blur(input)
     }
-    menu('下单', '上方添加画布')
+    menu('下单', '上方添加文件夹')
     await type('首页')
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([insertGroup(M, '首页', 'order', 'above')]))
-    menu('支付', '下方添加画布')
+    menu('支付', '下方添加文件夹')
     await type('退款')
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([insertGroup(M, '退款', 'pay', 'below')]))
-    menu('下单', '添加子画布')
+    menu('下单', '添加子文件夹')
     await type('地址')
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([addGroup(M, '地址', 'order')]))
     menu('支付', '移到顶层')
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([moveGroup(M, 'pay', undefined)]))
     const row = screen.getByRole('button', { name: '下单' }).closest('div')!
-    fireEvent.click(within(row).getByRole('button', { name: '画布操作' }))
+    fireEvent.click(within(row).getByRole('button', { name: '文件夹操作' }))
     expect((screen.getByRole('menuitem', { name: '上移' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -281,7 +321,7 @@ describe('page rail', () => {
     const calls = mockApi({})
     renderRail({ canEdit: false })
     expect(screen.queryByText('命令记录')).toBeNull()
-    expect(screen.queryByRole('button', { name: '新建画布' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '新建文件夹' })).toBeNull()
     expect(calls).toEqual([])
   })
 })

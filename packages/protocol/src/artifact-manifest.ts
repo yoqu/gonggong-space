@@ -62,8 +62,8 @@ export const GgArtifactRef = z.object({
 })
 export type GgArtifactRef = z.infer<typeof GgArtifactRef>
 export const ARTIFACT_PAGE_GROUPS_MAX = 50
-/** How deep page groups nest: a group, its subgroup, and one more. */
-export const ARTIFACT_PAGE_GROUP_DEPTH = 3
+/** How deep page folders nest (墨刀 allows 7 levels). */
+export const ARTIFACT_PAGE_GROUP_DEPTH = 7
 /** A page group of the page list (多级分类); its place among its siblings is its order in `groups`. */
 export const GgArtifactPageGroup = z.object({
   id: ArtifactScreenId,

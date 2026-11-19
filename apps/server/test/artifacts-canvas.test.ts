@@ -128,7 +128,7 @@ describe('message canvas context (G11)', () => {
     expect(res.statusCode).toBe(200)
     const msg = res.json() as MessageDto
     const meta = (await t.db.select().from(messages).where(eq(messages.id, msg.id)))[0]!.meta as MessageMeta
-    expect(meta.artifactNote).toContain('当前画布：支付流程（g-1）')
+    expect(meta.artifactNote).toContain('当前文件夹：支付流程（g-1）')
     expect(meta.artifactNote).toContain('"group": "g-1"')
 
     const sent = await t.app.inject({
@@ -149,7 +149,7 @@ describe('message canvas context (G11)', () => {
           .where(eq(messages.id, (sent.json() as MessageDto).id))
       )[0]!.meta as MessageMeta
     ).artifactNote
-    expect(note).toContain('当前画布：支付流程（g-1）')
+    expect(note).toContain('当前文件夹：支付流程（g-1）')
 
     const gone = await t.app.inject({
       method: 'POST',
