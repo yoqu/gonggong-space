@@ -17,4 +17,14 @@ export default {
   编辑连接: 'Edit connection',
   移除连接: 'Remove connection',
   '改了 {n} 屏': 'changed {n} {n:screen|screens}',
+  // Moving an artifact to another group.
+  '移动到群…': 'Move to group…',
+  '移动「{title}」到群': 'Move "{title}" to a group',
+  '版本历史和分享链接都会保留；原群会收到一条移动通知':
+    'Its version history and share link are kept; the original group gets a notice of the move',
+  移动: 'Move',
+  目标群: 'Target group',
+  选择群: 'Choose a group',
+  你没有其他可移入的群: 'You are in no other group to move it to',
+  '已移到群「{group}」': 'Moved to "{group}"',
 }

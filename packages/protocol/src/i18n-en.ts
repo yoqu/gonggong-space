@@ -423,6 +423,8 @@ export const protocolEn = {
   '已填写密钥，重新 @{bot} 即可继续': 'Secrets filled, @{bot} again to carry on',
   '{bot} 的进度：{title}': "{bot}'s progress: {title}",
   '产物「{title}」': 'Artifact "{title}"',
+  '产物「{title}」从群「{group}」移入': 'Artifact "{title}", moved here from "{group}"',
+  '产物「{title}」已移到群「{group}」': 'Artifact "{title}" moved to "{group}"',
   '{bot} 提议用「{plugin}」创作，等群成员确认':
     '{bot} proposes a {plugin} creation, waiting for a member to confirm',
   '{user} 置顶了一条消息：{text}': '{user} pinned a message: {text}',

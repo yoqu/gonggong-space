@@ -170,7 +170,7 @@ const versionDto = (row: VersionRow, fb?: Fallback): ArtifactVersionDto => ({
 type Runner = NonNullable<ArtifactDto['runner']>
 
 /** The group's artifacts a live run has checked out, each with that run's bot and status (the latest run wins). */
-async function runners(db: Read, groupId: string) {
+export async function runners(db: Read, groupId: string) {
   const live = await db
     .select({ ids: runs.artifacts, botId: runs.botId, status: runs.status })
     .from(runs)

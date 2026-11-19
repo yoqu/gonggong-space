@@ -1030,6 +1030,12 @@ export const en = {
     '"{title}" v{n}: double-click index.html to preview it, or run npx serve (or any static server) in this folder and open the address it prints.',
   '产物所属的 Bot 没有绑定电脑': "The artifact's Bot is not bound to a computer",
   '产物已有新版本，请刷新后重做': 'The artifact has a newer version; refresh and redo your changes',
+  产物已在这个群: 'The artifact is already in this group',
+  已删除的产物不能移动: 'A deleted artifact cannot be moved',
+  '目标群已有同一目录的产物：{dir}': 'The target group already has an artifact in {dir}',
+  'Bot 正在修改这个产物，等本轮结束后再移动': 'A bot is working on this artifact; move it once its turn ends',
+  '只有产物创建人、Bot 主人或群管理员能移动产物':
+    "Only the artifact's creator, its Bot's owner or a group admin can move it",
   '文件不存在：{path}': 'File not found: {path}',
   '元素在源码里找不到：{ggId}': 'Element not found in the source: {ggId}',
   '元素包含子元素，不能直接改文字，请交给 AI':

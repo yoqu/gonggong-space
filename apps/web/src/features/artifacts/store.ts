@@ -176,6 +176,10 @@ export async function setArtifactVisibility(artifactId: string, visibility: Arti
 export const duplicateArtifact = (artifactId: string) =>
   api.post<ArtifactDto>(`/artifacts/${artifactId}/duplicate`)
 
+/** POST /api/artifacts/:id/move — to another group, with its versions and share link. */
+export const moveArtifact = (artifactId: string, groupId: string) =>
+  api.post<ArtifactDto>(`/artifacts/${artifactId}/move`, { groupId })
+
 /** POST /api/artifacts/:id/archive — gone from the group; its files stay and it can be restored. */
 export const archiveArtifact = (artifactId: string) =>
   api.post<ArtifactDto>(`/artifacts/${artifactId}/archive`)

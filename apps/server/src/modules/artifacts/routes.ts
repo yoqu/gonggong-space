@@ -11,6 +11,7 @@ import {
   ArtifactLinkMetaReq,
   type ArtifactLinkMetaRes,
   type ArtifactManifestRes,
+  ArtifactMoveReq,
   ArtifactPatchReq,
   type ArtifactPluginCommandDto,
   ArtifactScreenId,
@@ -56,6 +57,7 @@ import { exportZip } from './export.js'
 import { artifactHistory } from './history.js'
 import { pluginCommands, pluginDesignSystems } from './kit.js'
 import { artifactLinkMeta } from './link-meta.js'
+import { moveArtifact } from './move.js'
 import {
   type Artifact,
   artifactDetail,
@@ -562,6 +564,18 @@ export function artifactRoutes(ctx: Ctx) {
         return artifactDetail(ctx, await duplicateArtifact(ctx, a, me.id))
       },
     )
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/move', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const { groupId } = ArtifactMoveReq.parse(req.body)
+      try {
+        return await artifactDetail(ctx, await moveArtifact(ctx, a, me.id, groupId))
+      } catch (e) {
+        if (!(e instanceof QuotaExceeded)) throw e
+        return quotaFull(reply)
+      }
+    })
 
     app.put<{ Params: { id: string } }>('/api/artifacts/:id/favorites', async (req): Promise<ArtifactDto> => {
       const me = await requireUser(ctx, req)

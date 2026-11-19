@@ -24,9 +24,10 @@ import { useFrontCanvasChat } from './chatRoot'
 import { useDesignSystem } from './DesignSystemPanel'
 import { downloadUrl, exportZipUrl } from './ExportPanel'
 import { IssuesButton } from './IssuesButton'
+import { MoveDialog } from './MoveDialog'
 import { PageRail, useRail } from './PageRail'
 import { PrototypeEditor } from './PrototypeEditor'
-import { ShareDialog } from './share'
+import { ShareDialog, useArtifactManager } from './share'
 import {
   archiveArtifact,
   artifactFileUrl,
@@ -72,6 +73,7 @@ const versionNote = (v: ArtifactVersionDto) =>
 const PROJECT = {
   rename: 'rename',
   duplicate: 'duplicate',
+  move: 'move',
   download: 'download',
   commands: 'commands',
   shortcuts: 'shortcuts',
@@ -91,6 +93,8 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   const ask = (what: CanvasRequest['what']) => setRequest((r) => ({ what, n: (r?.n ?? 0) + 1 }))
   const [renaming, setRenaming] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  const [moving, setMoving] = useState(false)
+  const manager = useArtifactManager(a?.groupId ?? '', a?.botId, a?.createdBy ?? null)
   const groupBots = useGroupBots(a?.groupId ?? '')
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
@@ -185,6 +189,7 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
     if (value === PROJECT.commands) return ask('commands')
     if (value === PROJECT.shortcuts) return ask('shortcuts')
     if (value === PROJECT.archive) return setArchiving(true)
+    if (value === PROJECT.move) return setMoving(true)
     if (value === PROJECT.download) return head ? downloadUrl(exportZipUrl(a.id, head)) : undefined
     if (value === PROJECT.duplicate)
       await attempt(async () => {
@@ -268,6 +273,7 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
           items={[
             { label: t('重命名'), value: PROJECT.rename },
             { label: t('创建副本'), value: PROJECT.duplicate },
+            ...(manager ? [{ label: t('移动到群…'), value: PROJECT.move }] : []),
             { label: t('下载 .zip'), value: PROJECT.download, disabled: !head },
             { separator: true },
             { label: t('命令菜单'), value: PROJECT.commands, shortcut: '⌘K', disabled: !head },
@@ -454,6 +460,9 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
             onClose={() => setArchiving(false)}
           />
         ) : null}
+      </Presence>
+      <Presence>
+        {moving ? <MoveDialog artifact={a} tabKey={tabKey} onClose={() => setMoving(false)} /> : null}
       </Presence>
     </div>
   )

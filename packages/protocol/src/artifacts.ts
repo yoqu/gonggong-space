@@ -211,6 +211,12 @@ export type ArtifactDto = z.infer<typeof ArtifactDto>
 /** PATCH /api/artifacts/:id — renames it (its card follows); answers its ArtifactDto. */
 export const ArtifactPatchReq = z.object({ title: z.string().trim().min(1).max(80) })
 export type ArtifactPatchReq = z.infer<typeof ArtifactPatchReq>
+/**
+ * POST /api/artifacts/:id/move — moves it to another group the caller is in (managers only), with its versions,
+ * previews and share link; a new card is posted there. Answers its ArtifactDto.
+ */
+export const ArtifactMoveReq = z.object({ groupId: z.uuid() })
+export type ArtifactMoveReq = z.infer<typeof ArtifactMoveReq>
 // POST /api/artifacts/:id/duplicate — a new artifact in the group whose v1 is a copy of the head (new `dir`, its own
 // card); answers the new ArtifactDto. POST /api/artifacts/:id/archive deletes one: archived artifacts leave the
 // group's list and are no longer checked out by runs.

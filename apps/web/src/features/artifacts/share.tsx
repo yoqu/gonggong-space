@@ -78,8 +78,12 @@ export function useShareAccess(groupId: string, botId: string | null | undefined
   return t('只有 Bot 主人或群管理员能开关分享')
 }
 
-/** Who may set who sees it: its creator, the owner of its bot or a group admin. */
-function useCanSetVisibility(groupId: string, botId: string | null | undefined, createdBy: string | null) {
+/** Who manages it (sets who sees it, moves it): its creator, the owner of its bot or a group admin. */
+export function useArtifactManager(
+  groupId: string,
+  botId: string | null | undefined,
+  createdBy: string | null,
+) {
   const me = useSession((s) => s.user?.id)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const owner = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.ownerId)
@@ -135,7 +139,7 @@ export function ShareDialog({
 }) {
   const { share, busy, set } = useArtifactShare(artifactId)
   const denied = useShareAccess(groupId, botId)
-  const canScope = useCanSetVisibility(groupId, botId, createdBy)
+  const canScope = useArtifactManager(groupId, botId, createdBy)
   const [scope, setScope] = useState(visibility)
   const [saving, setSaving] = useState(false)
   const changeScope = async (next: ArtifactVisibility) => {
