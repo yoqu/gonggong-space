@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.26 — 2026-11-19
+
+- 原型画布标出 AI 正在改的页面，改完播放过渡；daemon 上报本轮写过的文件 / The prototype canvas marks the screens an AI is editing and plays a transition when done; the daemon reports the files each run writes
+- 原型画布左侧新增固定栏：页面多级分类、拖拽移动、重命名与删除，以及命令记录 / A fixed left rail on the prototype canvas: nested page groups, drag to move, rename and delete, plus a command log
+- 网页可以看到 Antigravity 的子 Agent 与后台任务，agy 改在 Bot 工作区里启动 / Antigravity sub-agents and background tasks show on the web, and agy now starts in the Bot workspace
+- 补齐计划块、Antigravity 的 MCP 卡片、Codex 改文件路径，CodeBuddy、OpenCode 的工具调用接入网页 / Plan blocks, Antigravity MCP cards and Codex file paths fixed; CodeBuddy and OpenCode tool calls show on the web
+- 群消息附件同步到飞书，手机端工作台与话题层级统一，画布缩放更细 / Group message attachments sync to Feishu, unified phone workbench and thread layering, and finer canvas zoom
+
 ## v0.4.25 — 2026-11-18
 
 - 修复 Claude 独立配置目录的模型切换与官方登录识别，刷新模型时重新探测各配置目录 / Fix model switching and official sign-in detection for separate Claude config directories, and reprobe those directories when refreshing models
