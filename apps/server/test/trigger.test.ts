@@ -37,12 +37,12 @@ async function daemon(token: string) {
       })
       return res.json<ToolCallRes>()
     },
-    handOff: async (runId: string, bot: string, task = '继续', group?: string) => {
+    handOff: async (runId: string, bot: string, task = '继续', group?: string, thread?: string) => {
       const res = await t.app.inject({
         method: 'POST',
         url: `/api/daemon/runs/${runId}/tools/hand_off`,
         headers: { authorization: `Bearer ${token}` },
-        payload: { arguments: { bot, task, group } },
+        payload: { arguments: { bot, task, group, thread } },
       })
       return res.json<ToolCallRes>()
     },
@@ -81,10 +81,22 @@ async function world() {
     memberIds: [bob.id, carol.id],
     botIds: [a.id, b.id],
   })
-  const say = async (userId: string, body: string, mentions: string[]) => {
+  const say = async (
+    userId: string,
+    body: string,
+    mentions: string[],
+    threadRootId: string | null = null,
+  ) => {
     const [m] = await t.db
       .insert(messages)
-      .values({ groupId: group.id, kind: 'user', authorUserId: userId, body, meta: { mentions } })
+      .values({
+        groupId: group.id,
+        kind: 'user',
+        authorUserId: userId,
+        body,
+        meta: { mentions },
+        threadRootId,
+      })
       .returning()
     await triggerRuns(t.ctx, m!)
     return m!
@@ -283,6 +295,51 @@ describe('relay chain', () => {
     await new Promise((r) => setTimeout(r, 100))
     expect((await all()).length).toBe(3)
     expect(rows.map((r) => r.hop).sort()).toEqual([1, 2, 2])
+  })
+
+  it("hands from a thread to the main session, the bot's own too", async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    const root = await w.say(w.bob.id, '话题', [])
+    await w.say(w.bob.id, '@接力 A 查一下', [w.a.id], root.id)
+    const start = await d.next()
+    expect(await d.handOff(start.runId, '接力 A', '查完了，结论是 X', undefined, 'main')).toMatchObject({
+      isError: false,
+      text: '已登记：本轮结束后由「接力 A」在主会话接手（任务：查完了，结论是 X）。回复里不需要再 @ 它。',
+    })
+    // The same bot in its own thread still goes on there.
+    await d.handOff(start.runId, '接力 B', '补测试')
+    d.done(start.runId, '好了')
+    const next = [await d.next(), await d.next()]
+    const main = next.find((s) => s.bot.id === w.a.id)!
+    expect(main).toMatchObject({ threadRootId: null, prompt: { text: '@接力 A 查完了，结论是 X' } })
+    expect(next.find((s) => s.bot.id === w.b.id)).toMatchObject({ threadRootId: root.id })
+    const rows = await until(w.allRuns, (r) => r.length === 3)
+    const hop = rows.find((r) => r.id === main.runId)!
+    expect(hop).toMatchObject({ hop: 2, threadRootId: null, parentRunId: rows[0]!.id })
+    const [relay] = await t.db.select().from(messages).where(eq(messages.id, hop.triggerMessageId))
+    expect(relay).toMatchObject({ threadRootId: null, authorBotId: w.a.id, meta: { mentions: [w.a.id] } })
+  })
+
+  it('refuses a main-session hand-off outside a thread or to another group, and to itself without it', async () => {
+    const w = await world()
+    const other = await t.seed.group({ createdBy: w.owner.id, botIds: [w.a.id, w.b.id] })
+    const d = await daemon(w.token)
+    const root = await w.say(w.bob.id, '话题', [])
+    await w.say(w.bob.id, '@接力 A', [w.a.id], root.id)
+    const inThread = await d.next()
+    expect(await d.handOff(inThread.runId, '接力 A')).toMatchObject({ isError: true, text: '不能交给自己' })
+    expect(await d.handOff(inThread.runId, '接力 B', '继续', other.id, 'main')).toMatchObject({
+      isError: true,
+      text: 'thread 只用于本群：交给其他群的 Bot 总在该群主会话',
+    })
+    d.done(inThread.runId, '好了')
+    await w.say(w.bob.id, '@接力 A', [w.a.id])
+    const inMain = await d.next()
+    expect(await d.handOff(inMain.runId, '接力 A', '继续', undefined, 'main')).toMatchObject({
+      isError: true,
+      text: '你已在主会话，不能交给自己',
+    })
   })
 
   it('opens a thread for a bot to work in, followed by the chain initiator', async () => {

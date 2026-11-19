@@ -176,6 +176,12 @@ export const HandOffArgs = z.object({
       'Group id when the bot is in another group (listed by get_group_info; you must both be in it); default: this group',
     )
     .optional(),
+  thread: z
+    .literal('main')
+    .describe(
+      "From a thread: post the hand-off in this group's main conversation instead of the thread, starting the bot's main session (you too)",
+    )
+    .optional(),
 })
 
 export const ThreadCreateArgs = z.object({
@@ -559,7 +565,8 @@ export const GONGGONG_TOOLS = {
     title: GONGGONG_TOOL_TITLES.hand_off,
     description:
       'Hand work to another bot: after this turn a message from you @-mentions it with the task and it starts. ' +
-      'group hands to a bot of another group you are in. Writing @name in a reply does not start it.',
+      'group hands to a bot of another group you are in; thread main, from a thread, to the main conversation (e.g. to ' +
+      'report back to your main session). Writing @name in a reply does not start it.',
     input: HandOffArgs,
   },
   thread_create: {

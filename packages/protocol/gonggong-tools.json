@@ -359,7 +359,7 @@
   {
     "name": "hand_off",
     "title": "交给其他 Bot",
-    "description": "Hand work to another bot: after this turn a message from you @-mentions it with the task and it starts. group hands to a bot of another group you are in. Writing @name in a reply does not start it.",
+    "description": "Hand work to another bot: after this turn a message from you @-mentions it with the task and it starts. group hands to a bot of another group you are in; thread main, from a thread, to the main conversation (e.g. to report back to your main session). Writing @name in a reply does not start it.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -378,6 +378,11 @@
         "group": {
           "type": "string",
           "description": "Group id when the bot is in another group (listed by get_group_info; you must both be in it); default: this group"
+        },
+        "thread": {
+          "type": "string",
+          "const": "main",
+          "description": "From a thread: post the hand-off in this group's main conversation instead of the thread, starting the bot's main session (you too)"
         }
       },
       "required": ["bot", "task"]

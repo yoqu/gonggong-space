@@ -217,8 +217,9 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
       .where(and(eq(messages.groupId, groupId), sql`${messages.meta}->>'relayOf' = ${relayOf}`))
     if (prior && (await hasRun(ctx, groupId, prior.id))) continue
     const from = h.groupId ? `来自「${group.name}」群：` : ''
-    // A hop in the same group goes on in the parent's thread, or in the one thread_create opened for it.
-    const threadRootId = h.threadRootId ?? (h.groupId ? null : parent.threadRootId)
+    // A hop in the same group goes on in the parent's thread, or in the one thread_create opened for it, or in the
+    // main timeline it was handed to.
+    const threadRootId = h.threadRootId ?? (h.groupId || h.toMain ? null : parent.threadRootId)
     const messageId =
       prior?.id ??
       (
