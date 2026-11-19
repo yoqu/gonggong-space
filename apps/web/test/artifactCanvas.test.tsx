@@ -19,6 +19,7 @@ import {
 } from '../src/features/artifacts/geometry'
 import { implementationPrompt } from '../src/features/artifacts/implPrompt'
 import { useLinkedArtifact } from '../src/features/artifacts/link'
+import { artifactPage, setArtifactPage } from '../src/features/artifacts/page'
 import {
   artifactLink,
   focusArtifact,
@@ -156,6 +157,7 @@ beforeEach(() => {
   // The page rail (pageRail.test.tsx) stays closed: these test the canvas itself.
   localStorage.setItem('gg.art.rail', '0')
   resetArtifacts()
+  setArtifactPage('a1', null)
   vi.stubGlobal('WebSocket', NoopSocket)
   vi.spyOn(realtime, 'subscribe').mockImplementation(() => () => {})
   useWorkbench.setState({ groupId: 'g1', open: false, mode: 'split', previous: 'split', benches: {} })
@@ -308,6 +310,34 @@ describe('nodes', () => {
     await waitFor(() => expect(node('@prototype')).toBeTruthy())
     expect(node('@prototype').querySelector('img')).toBeNull()
     expect(within(node('@prototype')).getByRole('button', { name: '点击预览' })).toBeTruthy()
+  })
+
+  it('shows one page (画布) at a time: its screens only, empty pages say so, a focus elsewhere goes back to 全部页面', async () => {
+    const paged = {
+      ...manifest,
+      groups: [
+        { id: 'p1', title: '详情' },
+        { id: 'p2', title: '空白' },
+      ],
+      screens: [manifest.screens[0]!, { ...manifest.screens[1]!, group: 'p1' }],
+    }
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ manifest: paged }),
+        'GET /artifacts/a1/versions/v2': detail({ manifest: paged }),
+      }),
+    )
+    setArtifactPage('a1', 'p1')
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('书籍详情')
+    expect(screen.queryByTestId('art-node-home')).toBeNull()
+    expect(screen.queryByTestId('art-node-@system')).toBeNull()
+    expect(screen.queryByTestId('art-node-@prototype')).toBeNull()
+    act(() => setArtifactPage('a1', 'p2'))
+    expect(screen.getByTestId('art-page-empty')).toBeTruthy()
+    act(() => focusArtifact('a1', { screenIds: ['home'] }))
+    await screen.findByTitle('首页')
+    expect(artifactPage('a1')).toBeNull()
   })
 
   it('has no design-system node without tokens.css', async () => {

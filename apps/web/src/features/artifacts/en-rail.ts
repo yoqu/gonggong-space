@@ -1,9 +1,10 @@
-// The canvas's left rail: the page list (多级分类) and the command log.
+// The canvas's left rail: the pages (画布) and the command log.
 export default {
   页面与命令: 'Pages and commands',
   页面: 'Pages',
   命令记录: 'Command log',
-  新建分类: 'New group',
+  新建画布: 'New canvas',
+  全部页面: 'All pages',
   收起侧栏: 'Hide sidebar',
   展开侧栏: 'Show sidebar',
   '单页产物，没有页面列表': 'A single-page artifact has no page list',
@@ -12,12 +13,18 @@ export default {
   '入口#entry': 'Entry',
   页面操作: 'Page actions',
   删除页面: 'Delete page',
-  分类名称: 'Group name',
-  分类操作: 'Group actions',
-  新建子分类: 'New subgroup',
-  删除分类: 'Delete group',
-  '拖动页面调整顺序，新建分类后可把页面拖进去':
-    'Drag pages to reorder; create a group and drag pages into it',
+  画布名称: 'Canvas name',
+  画布操作: 'Canvas actions',
+  添加子画布: 'Add sub-canvas',
+  上方添加画布: 'Add canvas above',
+  下方添加画布: 'Add canvas below',
+  上移: 'Move up',
+  下移: 'Move down',
+  删除画布: 'Delete canvas',
+  '新建画布后，可以把屏幕拖进去；每个画布单独显示它的屏幕':
+    'Create a canvas and drag screens into it; each canvas shows only its own screens',
+  '这个画布还没有屏幕：让 AI 生成，或从左侧把屏幕拖进来':
+    'This canvas has no screens yet: ask AI to make some, or drag screens in from the left',
   '删除页面「{title}」？': 'Delete page "{title}"?',
   从产物里移除这个页面: 'Removes this page from the artifact',
   可以在版本记录里找回: 'You can get it back from the version history',

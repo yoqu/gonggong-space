@@ -3,10 +3,19 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PageRail } from '../src/features/artifacts/PageRail'
-import { addGroup, deleteGroup, moveGroup, moveScreen, pageTree } from '../src/features/artifacts/pageTree'
+import {
+  addGroup,
+  deleteGroup,
+  insertGroup,
+  moveGroup,
+  moveScreen,
+  pageTree,
+  shiftGroup,
+  shiftScreen,
+} from '../src/features/artifacts/pageTree'
 import { mockApi } from './mockApi'
 
-// The canvas's left rail: 多级分类 page list and 命令记录.
+// The canvas's left rail: pages (画布, nested), each its own canvas, and 命令记录.
 
 const sc = (id: string, title: string, group?: string) => ({
   id,
@@ -30,7 +39,8 @@ const M: GgArtifactManifest = {
   ],
 }
 
-afterEach(() => {
+afterEach(async () => {
+  ;(await import('../src/features/artifacts/page')).setArtifactPage('a1', null)
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   localStorage.clear()
@@ -71,6 +81,37 @@ describe('page tree', () => {
       { id: 'order', title: '下单' },
       { id: 'pay', title: '支付' },
     ])
+  })
+
+  it('adds a page above or below another, and moves pages and screens up and down', () => {
+    const three: GgArtifactManifest = {
+      ...M,
+      groups: [
+        { id: 'a', title: 'A' },
+        { id: 'a1', title: 'A1', parent: 'a' },
+        { id: 'b', title: 'B' },
+      ],
+    }
+    expect(insertGroup(three, 'N', 'b', 'above').groups.map((g) => g.id)).toEqual(['a', 'a1', 'g-1', 'b'])
+    expect(insertGroup(three, 'N', 'a1', 'below').groups.at(-2)).toEqual({
+      id: 'g-1',
+      title: 'N',
+      parent: 'a',
+    })
+    expect(insertGroup(three, 'N', 'a', 'below').groups.map((g) => g.id)).toEqual(['a', 'g-1', 'a1', 'b'])
+    expect(shiftGroup(three, 'b', -1)?.groups.map((g) => g.id)).toEqual(['b', 'a', 'a1'])
+    expect(shiftGroup(three, 'a', 1)?.groups.map((g) => g.id)).toEqual(['a1', 'b', 'a'])
+    expect(shiftGroup(three, 'a', -1)).toBeNull()
+    expect(shiftGroup(three, 'a1', 1)).toBeNull()
+    // A page dropped on another's edge lands beside it, among its siblings.
+    expect(moveGroup(three, 'a1', undefined, 'a')?.groups).toEqual([
+      { id: 'a1', title: 'A1' },
+      { id: 'a', title: 'A' },
+      { id: 'b', title: 'B' },
+    ])
+    expect(shiftScreen(M, 'me', -1)?.screens.map((s) => s.id)).toEqual(['me', 'home', 'cart', 'paid'])
+    expect(shiftScreen(M, 'home', 1)?.screens.map((s) => s.id)).toEqual(['cart', 'paid', 'me', 'home'])
+    expect(shiftScreen(M, 'cart', 1)).toBeNull()
   })
 })
 
@@ -143,8 +184,8 @@ describe('page rail', () => {
       ]),
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '新建分类' }))
-    const name = screen.getByRole('textbox', { name: '分类名称' }) as HTMLInputElement
+    fireEvent.click(screen.getByRole('button', { name: '新建画布' }))
+    const name = screen.getByRole('textbox', { name: '画布名称' }) as HTMLInputElement
     name.value = '个人中心'
     fireEvent.blur(name)
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([addGroup(M, '个人中心')]))
@@ -177,11 +218,55 @@ describe('page rail', () => {
     expect(onPicked).toHaveBeenCalled()
   })
 
+  it('opens 全部页面 by default, one page (画布) per click, and a screen on its own page', async () => {
+    mockApi({ 'GET /artifacts/a1/history': [] })
+    const { artifactPage } = await import('../src/features/artifacts/page')
+    renderRail()
+    const all = screen.getByRole('button', { name: /全部页面/ })
+    expect(all.closest('li')?.className).toContain('is-current')
+    fireEvent.click(screen.getByRole('button', { name: '支付' }))
+    expect(artifactPage('a1')).toBe('pay')
+    expect(screen.getByRole('button', { name: '支付' }).closest('div')?.className).toContain('is-current')
+    fireEvent.click(screen.getByRole('button', { name: '购物车' }))
+    expect(artifactPage('a1')).toBe('order')
+    fireEvent.click(all)
+    expect(artifactPage('a1')).toBeNull()
+  })
+
+  it('adds pages above, below and inside a page, and moves it up and down', async () => {
+    mockApi({ 'GET /artifacts/a1/history': [] })
+    const onEdit = renderRail()
+    const menu = (page: string, item: string) => {
+      const row = screen.getByRole('button', { name: page }).closest('div')!
+      fireEvent.click(within(row).getByRole('button', { name: '画布操作' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: item }))
+    }
+    const type = async (value: string) => {
+      const input = screen.getByRole('textbox', { name: '画布名称' }) as HTMLInputElement
+      input.value = value
+      fireEvent.blur(input)
+    }
+    menu('下单', '上方添加画布')
+    await type('首页')
+    await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([insertGroup(M, '首页', 'order', 'above')]))
+    menu('支付', '下方添加画布')
+    await type('退款')
+    await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([insertGroup(M, '退款', 'pay', 'below')]))
+    menu('下单', '添加子画布')
+    await type('地址')
+    await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([addGroup(M, '地址', 'order')]))
+    menu('支付', '移到顶层')
+    await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([moveGroup(M, 'pay', undefined)]))
+    const row = screen.getByRole('button', { name: '下单' }).closest('div')!
+    fireEvent.click(within(row).getByRole('button', { name: '画布操作' }))
+    expect((screen.getByRole('menuitem', { name: '上移' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('hides the command log from visitors', () => {
     const calls = mockApi({})
     renderRail({ canEdit: false })
     expect(screen.queryByText('命令记录')).toBeNull()
-    expect(screen.queryByRole('button', { name: '新建分类' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '新建画布' })).toBeNull()
     expect(calls).toEqual([])
   })
 })

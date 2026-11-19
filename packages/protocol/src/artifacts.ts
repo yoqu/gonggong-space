@@ -951,6 +951,8 @@ export const ArtifactCommandReq = z
     count: z.number().int().min(1).max(5).optional(),
     /** apply-design-system: a design system the group imported, rewritten into DESIGN.md and tokens.css first. */
     designSystemId: z.string().optional(),
+    /** The page (画布, a `groups` entry of the manifest) the member is on: new screens go into it. */
+    page: ArtifactScreenId.optional(),
   })
   .superRefine((r, ctx) => {
     if (r.command !== 'edit-with-ai' && r.command !== 'connect-element') return
@@ -983,5 +985,7 @@ export const ArtifactContext = z.object({
     .optional(),
   /** Reference nodes by file (`refs/…` of the head's GgArtifactRef): the agent is told where they are. */
   refs: z.array(ArtifactRefFile).max(20).optional(),
+  /** The page (画布) the member is on: new screens go into it. */
+  page: ArtifactScreenId.optional(),
 })
 export type ArtifactContext = z.infer<typeof ArtifactContext>

@@ -1,5 +1,6 @@
 import type { ArtifactContext, ArtifactRefKind, GgArtifactRef } from '@gonggong/protocol'
 import { create } from 'zustand'
+import { artifactPage } from './page'
 
 /**
  * What the canvas hands to the group composer (Stitch's selection-as-context and Add to Chat ⌘L): the selected
@@ -107,11 +108,13 @@ export function artifactContextOf(c: CanvasContext): ArtifactContext {
   const screenIds = [...new Set(c.items.filter(isScreenItem).map((i) => i.screenId))]
   const elements = c.items.flatMap((i) => (i.element ? [i.element] : [])).slice(0, 20)
   const refs = c.items.flatMap((i) => (i.ref ? [i.ref.file] : [])).slice(0, 20)
+  const page = artifactPage(c.artifactId)
   return {
     artifactId: c.artifactId,
     ...(screenIds.length ? { screenIds } : {}),
     ...(elements.length ? { elements } : {}),
     ...(refs.length ? { refs } : {}),
+    ...(page ? { page } : {}),
   }
 }
 

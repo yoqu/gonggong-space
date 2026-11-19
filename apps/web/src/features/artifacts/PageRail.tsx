@@ -10,18 +10,23 @@ import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
 import { ConfirmActionDialog, Icon, MenuButton, type MenuItem, Presence } from '../../ui'
 import { CommandLog } from './CommandLog'
+import { setArtifactPage, useArtifactPage } from './page'
 import {
   addGroup,
   canNest,
   deleteGroup,
   flatGroups,
   groupDepth,
+  insertGroup,
   moveGroup,
   moveScreen,
+  newGroupId,
   type PageGroupNode,
   type PagesOp,
   pageTree,
   renameGroup,
+  shiftGroup,
+  shiftScreen,
 } from './pageTree'
 import { focusArtifact } from './store'
 import './rail.css'
@@ -70,14 +75,14 @@ const clip = (title: string) => (title.length > 14 ? `${title.slice(0, 13)}…` 
 type Editing =
   | { kind: 'screen'; id: string }
   | { kind: 'group'; id: string }
-  | { kind: 'new'; parent: string | undefined }
+  | { kind: 'new'; parent: string | undefined; beside?: { id: string; place: 'above' | 'below' } }
   | null
 /** What is being dragged. */
 type Dragged = { kind: 'screen' | 'group'; id: string } | null
 
 /**
- * The canvas's left rail: the page list (多级分类; group, move, rename, delete pages) above, the command log below,
- * split 2:1 by default and draggable.
+ * The canvas's left rail: the pages above (画布, nested; each shows only its screens, 全部页面 shows them all), the
+ * command log below, split 2:1 by default and draggable.
  */
 export function PageRail({
   artifactId,
@@ -185,19 +190,22 @@ function Pages({
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState<GgArtifactScreen | null>(null)
   const [current, setCurrent] = useState<string | null>(null)
+  const asked = useArtifactPage(artifactId)
+  const page = m?.groups?.some((g) => g.id === asked) ? asked : null
+  const show = (id: string | null) => {
+    setArtifactPage(artifactId, id)
+    onPicked()
+  }
 
   const header = (
     <div className="art-rail__head">
-      <h3 className="art-rail__title">
-        {t('页面')}
-        {m ? <span className="art-rail__count">{m.screens.length}</span> : null}
-      </h3>
+      <h3 className="art-rail__title">{t('页面')}</h3>
       {m && !readOnly ? (
         <button
           type="button"
           className="art-rail__icon"
-          aria-label={t('新建分类')}
-          title={t('新建分类')}
+          aria-label={t('新建画布')}
+          title={t('新建画布')}
           onClick={() => setEditing({ kind: 'new', parent: undefined })}
         >
           <Icon name="folder-plus" size={14} />
@@ -225,47 +233,80 @@ function Pages({
   const tree = pageTree(m)
   const groups = flatGroups(tree)
   const save = async (op: PagesOp | ArtifactEditOp | null) => {
-    if (!op) return
+    if (!op) return false
     setBusy(true)
-    await attempt(() => onEdit([op]))
+    const ok = await attempt(() => onEdit([op]))
     setBusy(false)
+    return ok
   }
   const commit = (title: string) => {
     const e = editing
     setEditing(null)
     const v = title.trim()
     if (!e || !v) return
-    if (e.kind === 'new') void save(addGroup(m, v.slice(0, 40), e.parent))
-    else if (e.kind === 'group') {
+    if (e.kind === 'new') {
+      const id = newGroupId(m)
+      const title = v.slice(0, 40)
+      // A new page opens at once: it starts empty, for AI to fill or screens to be dragged in.
+      void save(
+        e.beside ? insertGroup(m, title, e.beside.id, e.beside.place) : addGroup(m, title, e.parent),
+      ).then((ok) => ok && setArtifactPage(artifactId, id))
+    } else if (e.kind === 'group') {
       if (m.groups?.find((g) => g.id === e.id)?.title !== v) void save(renameGroup(m, e.id, v.slice(0, 40)))
     } else if (m.screens.find((s) => s.id === e.id)?.title !== v)
       void save({ kind: 'manifest', op: 'rename', screenId: e.id, title: v.slice(0, 80) })
   }
   const edit = !readOnly && !busy
 
-  const drop = (target: { group: string | undefined; before?: string; into?: string }) => {
+  const drop = (target: {
+    group: string | undefined
+    before?: string
+    into?: string
+    beside?: { id: string; place: 'above' | 'below' }
+  }) => {
     const d = dragged
     setDragged(null)
     setOver(null)
     if (!d || !edit) return
     if (d.kind === 'screen') void save(moveScreen(m, d.id, target.into ?? target.group, target.before))
+    else if (target.beside) void save(besideGroup(d.id, target.beside.id, target.beside.place))
     else void save(moveGroup(m, d.id, target.into ?? target.group))
+  }
+  /** Drops the page `id` just above or below the page `other`, among its siblings. */
+  const besideGroup = (id: string, other: string, place: 'above' | 'below') => {
+    const parent = m.groups?.find((g) => g.id === other)?.parent
+    const siblings = (m.groups ?? []).filter((g) => g.parent === parent && g.id !== id).map((g) => g.id)
+    const before = place === 'above' ? other : siblings[siblings.indexOf(other) + 1]
+    return moveGroup(m, id, parent, before)
+  }
+  /** A page dragged over another page's top or bottom quarter goes beside it; over its middle, into it. */
+  const edgeOf = (e: DragEvent): 'above' | 'below' | null => {
+    const r = e.currentTarget.getBoundingClientRect()
+    if (!r.height) return null
+    const y = (e.clientY - r.top) / r.height
+    return y < 0.25 ? 'above' : y > 0.75 ? 'below' : null
   }
   const dropProps = (key: string, target: Parameters<typeof drop>[0]) =>
     edit && dragged
       ? {
           onDragOver: (e: DragEvent) => {
-            const into = target.into ?? target.group
+            const edge = dragged.kind === 'group' && target.into ? edgeOf(e) : null
+            const into = edge ? target.group : (target.into ?? target.group)
             if (dragged.kind === 'group' && (target.before || !canNest(m, dragged.id, into))) return
             e.preventDefault()
             e.stopPropagation()
-            setOver(key)
+            setOver(edge ? `${key}:${edge}` : key)
           },
-          onDragLeave: () => setOver((o) => (o === key ? null : o)),
+          onDragLeave: () => setOver((o) => (o === key || o?.startsWith(`${key}:`) ? null : o)),
           onDrop: (e: DragEvent) => {
             e.preventDefault()
             e.stopPropagation()
-            drop(target)
+            const edge = dragged.kind === 'group' && target.into ? edgeOf(e) : null
+            drop(
+              edge && target.into
+                ? { group: target.group, beside: { id: target.into, place: edge } }
+                : target,
+            )
           },
         }
       : {}
@@ -334,6 +375,7 @@ function Pages({
             className="art-rail__name"
             onClick={() => {
               setCurrent(s.id)
+              setArtifactPage(artifactId, s.group ?? null)
               focusArtifact(artifactId, { screenIds: [s.id], versionId })
               onPicked()
             }}
@@ -351,6 +393,9 @@ function Pages({
             items={[
               { label: t('重命名'), value: 'rename' },
               { label: t('创建副本'), value: 'duplicate' },
+              { separator: true },
+              { label: t('上移'), value: 'up', disabled: !shiftScreen(m, s.id, -1) },
+              { label: t('下移'), value: 'down', disabled: !shiftScreen(m, s.id, 1) },
               ...(moveItems.length ? [{ separator: true } as const, ...moveItems] : []),
               { separator: true },
               { label: t('删除页面'), value: 'delete', destructive: true, disabled: m.screens.length === 1 },
@@ -359,6 +404,7 @@ function Pages({
               if (v === 'rename') setEditing({ kind: 'screen', id: s.id })
               else if (v === 'duplicate') void save({ kind: 'manifest', op: 'duplicate', screenId: s.id })
               else if (v === 'delete') setDeleting(s)
+              else if (v === 'up' || v === 'down') void save(shiftScreen(m, s.id, v === 'up' ? -1 : 1))
               else if (v.startsWith('to:')) void save(moveScreen(m, s.id, v.slice(3) || undefined))
             }}
           >
@@ -369,72 +415,96 @@ function Pages({
     )
   }
 
-  const groupRow = (g: PageGroupNode) => (
-    <li key={g.group.id} className="art-rail__group">
-      <div
-        className={cx(
-          'art-rail__row',
-          'art-rail__row--group',
-          over === `g:${g.group.id}` && 'art-rail__row--over',
-        )}
-        style={{ paddingLeft: 8 + (g.depth - 1) * 14 }}
-        {...dragProps('group', g.group.id)}
-        {...dropProps(`g:${g.group.id}`, { group: g.group.parent, into: g.group.id })}
-      >
-        <Icon name="folder" size={13} className="art-rail__glyph" />
-        {editing?.kind === 'group' && editing.id === g.group.id ? (
-          nameInput(g.group.title, t('分类名称'))
-        ) : (
-          <button
-            type="button"
-            className="art-rail__name"
-            onDoubleClick={() => edit && setEditing({ kind: 'group', id: g.group.id })}
-          >
-            {g.group.title}
-          </button>
-        )}
-        {edit ? (
-          <MenuButton
-            className="art-rail__more"
-            aria-label={t('分类操作')}
-            align="end"
-            items={[
-              { label: t('重命名'), value: 'rename' },
-              {
-                label: t('新建子分类'),
-                value: 'sub',
-                disabled: groupDepth(m, g.group.id) >= ARTIFACT_PAGE_GROUP_DEPTH,
-              },
-              ...(g.group.parent ? [{ label: t('移到顶层'), value: 'top' }] : []),
-              { separator: true },
-              { label: t('删除分类'), value: 'delete', destructive: true },
-            ]}
-            onSelect={(v) => {
-              if (v === 'rename') setEditing({ kind: 'group', id: g.group.id })
-              else if (v === 'sub') setEditing({ kind: 'new', parent: g.group.id })
-              else if (v === 'top') void save(moveGroup(m, g.group.id, undefined))
-              else if (v === 'delete') void save(deleteGroup(m, g.group.id))
-            }}
-          >
-            <Icon name="more" size={13} />
-          </MenuButton>
-        ) : null}
-      </div>
-      <ul className="art-rail__list">
-        {g.groups.map(groupRow)}
-        {newRow(g.group.id, g.depth)}
-        {g.screens.map((s) => screenRow(s, g.depth))}
-      </ul>
+  const groupRow = (g: PageGroupNode) => {
+    const id = g.group.id
+    const deepest = groupDepth(m, id) >= ARTIFACT_PAGE_GROUP_DEPTH
+    return [
+      besideRow(id, 'above', g.depth - 1),
+      <li key={id} className="art-rail__group">
+        <div
+          className={cx(
+            'art-rail__row',
+            'art-rail__row--group',
+            over === `g:${id}` && 'art-rail__row--over',
+            over === `g:${id}:above` && 'art-rail__row--above',
+            over === `g:${id}:below` && 'art-rail__row--below',
+            page === id && 'is-current',
+          )}
+          style={{ paddingLeft: 8 + (g.depth - 1) * 14 }}
+          {...dragProps('group', id)}
+          {...dropProps(`g:${id}`, { group: g.group.parent, into: id })}
+        >
+          <Icon name="folder" size={13} className="art-rail__glyph" />
+          {editing?.kind === 'group' && editing.id === id ? (
+            nameInput(g.group.title, t('画布名称'))
+          ) : (
+            <button
+              type="button"
+              className="art-rail__name"
+              aria-current={page === id ? 'page' : undefined}
+              onClick={() => show(id)}
+              onDoubleClick={() => edit && setEditing({ kind: 'group', id })}
+            >
+              {g.group.title}
+            </button>
+          )}
+          {edit ? (
+            <MenuButton
+              className="art-rail__more"
+              aria-label={t('画布操作')}
+              align="end"
+              items={[
+                { label: t('添加子画布'), value: 'sub', disabled: deepest },
+                { label: t('上方添加画布'), value: 'above' },
+                { label: t('下方添加画布'), value: 'below' },
+                { separator: true },
+                { label: t('上移'), value: 'up', disabled: !shiftGroup(m, id, -1) },
+                { label: t('下移'), value: 'down', disabled: !shiftGroup(m, id, 1) },
+                ...(g.group.parent ? [{ label: t('移到顶层'), value: 'top' }] : []),
+                { separator: true },
+                { label: t('重命名'), value: 'rename' },
+                { label: t('删除画布'), value: 'delete', destructive: true },
+              ]}
+              onSelect={(v) => {
+                if (v === 'rename') setEditing({ kind: 'group', id })
+                else if (v === 'sub') setEditing({ kind: 'new', parent: id })
+                else if (v === 'above' || v === 'below')
+                  setEditing({ kind: 'new', parent: g.group.parent, beside: { id, place: v } })
+                else if (v === 'up' || v === 'down') void save(shiftGroup(m, id, v === 'up' ? -1 : 1))
+                else if (v === 'top') void save(moveGroup(m, id, undefined))
+                else if (v === 'delete') {
+                  if (page === id) setArtifactPage(artifactId, g.group.parent ?? null)
+                  void save(deleteGroup(m, id))
+                }
+              }}
+            >
+              <Icon name="more" size={13} />
+            </MenuButton>
+          ) : null}
+        </div>
+        <ul className="art-rail__list">
+          {newRow(id, g.depth)}
+          {g.groups.flatMap(groupRow)}
+          {g.screens.map((s) => screenRow(s, g.depth))}
+        </ul>
+      </li>,
+      besideRow(id, 'below', g.depth - 1),
+    ]
+  }
+
+  const inputRow = (key: string, depth: number) => (
+    <li key={key} className="art-rail__row" style={{ paddingLeft: 8 + depth * 14 }}>
+      <Icon name="folder" size={13} className="art-rail__glyph" />
+      {nameInput('', t('画布名称'))}
     </li>
   )
-
+  /** A new subpage of `parent` being named (beside one: besideRow). */
   const newRow = (parent: string | undefined, depth: number) =>
-    editing?.kind === 'new' && editing.parent === parent ? (
-      <li className="art-rail__row" style={{ paddingLeft: 8 + depth * 14 }}>
-        <Icon name="folder" size={13} className="art-rail__glyph" />
-        {nameInput('', t('分类名称'))}
-      </li>
-    ) : null
+    editing?.kind === 'new' && editing.parent === parent && !editing.beside ? inputRow('new', depth) : null
+  const besideRow = (id: string, place: 'above' | 'below', depth: number) =>
+    editing?.kind === 'new' && editing.beside?.id === id && editing.beside.place === place
+      ? inputRow(`new-${place}-${id}`, depth)
+      : null
 
   return (
     <>
@@ -444,12 +514,24 @@ function Pages({
         {...dropProps('top', { group: undefined })}
       >
         <ul className="art-rail__list" aria-busy={busy}>
+          <li className={cx('art-rail__row', 'art-rail__row--all', page === null && 'is-current')}>
+            <Icon name="dashboard" size={13} className="art-rail__glyph" />
+            <button
+              type="button"
+              className="art-rail__name"
+              aria-current={page === null ? 'page' : undefined}
+              onClick={() => show(null)}
+            >
+              {t('全部页面')}
+              <span className="art-rail__count">{m.screens.length}</span>
+            </button>
+          </li>
           {newRow(undefined, 0)}
-          {tree.groups.map(groupRow)}
+          {tree.groups.flatMap(groupRow)}
           {tree.screens.map((s) => screenRow(s, 0))}
         </ul>
         {!readOnly && !m.groups?.length ? (
-          <p className="art-rail__hint">{t('拖动页面调整顺序，新建分类后可把页面拖进去')}</p>
+          <p className="art-rail__hint">{t('新建画布后，可以把屏幕拖进去；每个画布单独显示它的屏幕')}</p>
         ) : null}
       </div>
       <Presence>
@@ -468,3 +550,10 @@ function Pages({
     </>
   )
 }
+
+/** A page (画布) with no screens yet, over the canvas. */
+export const PageEmpty = () => (
+  <p className="art-page-empty" data-testid="art-page-empty">
+    {t('这个画布还没有屏幕：让 AI 生成，或从左侧把屏幕拖进来')}
+  </p>
+)

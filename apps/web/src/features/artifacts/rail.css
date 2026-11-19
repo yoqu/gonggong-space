@@ -275,3 +275,23 @@ button.art-rail__name {
   border-radius: var(--radius-small);
   background: var(--quote-fill);
 }
+
+.art-page-empty {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-width: 320px;
+  color: var(--label-secondary);
+  text-align: center;
+  pointer-events: none;
+}
+
+.art-rail__row--above {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.art-rail__row--below {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}

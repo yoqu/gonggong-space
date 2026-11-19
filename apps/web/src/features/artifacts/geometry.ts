@@ -136,6 +136,8 @@ export interface LayoutInput {
   refs?: GgArtifactRef[]
   /** Measured heights of image references, by ref id. */
   refHeights?: Record<string, number>
+  /** The page (画布, a `groups` entry) shown: its screens only, no other node; null or absent: 全部页面. */
+  page?: string | null
   /** Web pages on the canvas. */
   links?: GgArtifactLink[]
 }
@@ -154,7 +156,18 @@ const perRow = (device: ArtifactDevice) =>
  * `perRow(device)` (Stitch capability list §3), each row below the tallest node of the one above. An L0 artifact (no
  * manifest) is one desktop page.
  */
-export function layoutNodes({
+export function layoutNodes({ page, ...input }: LayoutInput) {
+  const { manifest, title, frames, content } = input
+  return page && manifest
+    ? layoutAll({
+        ...{ title, frames, content, system: null },
+        manifest: { ...manifest, screens: manifest.screens.filter((s) => s.group === page) },
+        prototype: false,
+      })
+    : layoutAll(input)
+}
+
+function layoutAll({
   title,
   manifest,
   system,
@@ -165,7 +178,8 @@ export function layoutNodes({
   refs = [],
   refHeights = {},
   links = [],
-}: LayoutInput): {
+  prototype = true,
+}: Omit<LayoutInput, 'page'> & { prototype?: boolean }): {
   device: ArtifactDevice
   nodes: CanvasNode[]
 } {
@@ -199,7 +213,7 @@ export function layoutNodes({
     if (s.x !== undefined && s.y !== undefined) placed.set(s.id, { x: s.x, y: s.y })
     return { id: s.id, kind: 'screen', title: s.title, file: s.file, w: f.w, h }
   })
-  if (manifest) {
+  if (manifest && prototype) {
     const { w, h } = DEVICE_SIZE[device]
     cells.push({ id: PROTOTYPE_ID, kind: 'prototype', title: manifest.title, file: '', w, h })
   }
@@ -415,3 +429,9 @@ export const rectOf = (ax: number, ay: number, bx: number, by: number): Rect => 
 /** The nodes a marquee touches (Stitch / Figma select what the box intersects). */
 export const nodesInRect = (nodes: CanvasNode[], r: Rect) =>
   nodes.filter((n) => n.x < r.x + r.w && n.x + n.w > r.x && n.y < r.y + r.h && n.y + n.h > r.y)
+
+/** Marks the design-system, DESIGN.md and prototype nodes (and their titles) for their context menu. */
+export const nodeKind = (n: CanvasNode) =>
+  n.kind === 'system' || n.kind === 'doc' || n.kind === 'prototype'
+    ? { 'data-node-kind': n.kind, 'data-node-id': n.id }
+    : {}

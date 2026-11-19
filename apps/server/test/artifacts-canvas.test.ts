@@ -112,6 +112,54 @@ describe('message canvas context (G11)', () => {
     expect((en.json() as MessageDto).body).toBe('@小王的 Claude Regenerate\n「活动报名」 › 首页')
   })
 
+  it('tells the agent which page (画布) the member is on, so new screens go into it', async () => {
+    const w = await artifactWorld(t)
+    const a = await w.artifact()
+    const run = await w.run([a.id], { status: 'succeeded' })
+    const manifest = { ...JSON.parse(MANIFEST), groups: [{ id: 'g-1', title: '支付流程' }] }
+    await w.submit(run.id, a.id, { ...L1, 'gg-artifact.json': JSON.stringify(manifest) })
+    const cookie = await t.seed.cookie(w.li.id)
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/artifacts/${a.id}/commands`,
+      headers: { cookie },
+      payload: { command: 'variations', botId: w.bot.id, screenIds: ['home'], page: 'g-1' },
+    })
+    expect(res.statusCode).toBe(200)
+    const msg = res.json() as MessageDto
+    const meta = (await t.db.select().from(messages).where(eq(messages.id, msg.id)))[0]!.meta as MessageMeta
+    expect(meta.artifactNote).toContain('当前画布：支付流程（g-1）')
+    expect(meta.artifactNote).toContain('"group": "g-1"')
+
+    const sent = await t.app.inject({
+      method: 'POST',
+      url: `/api/groups/${w.g.id}/messages`,
+      headers: { cookie },
+      payload: {
+        body: '再加一页',
+        clientId: 'client-0002',
+        artifactContext: { artifactId: a.id, page: 'g-1' },
+      },
+    })
+    const note = (
+      (
+        await t.db
+          .select()
+          .from(messages)
+          .where(eq(messages.id, (sent.json() as MessageDto).id))
+      )[0]!.meta as MessageMeta
+    ).artifactNote
+    expect(note).toContain('当前画布：支付流程（g-1）')
+
+    const gone = await t.app.inject({
+      method: 'POST',
+      url: `/api/artifacts/${a.id}/commands`,
+      headers: { cookie },
+      payload: { command: 'variations', botId: w.bot.id, screenIds: ['home'], page: 'g-9' },
+    })
+    expect(gone.statusCode).toBe(400)
+  })
+
   it('posts sent annotations as a short sentence with the list in the agent note', async () => {
     const s = await setup()
     const n = (

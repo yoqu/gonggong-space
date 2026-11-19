@@ -83,6 +83,7 @@ import {
 import { DesignMdNode } from './DesignMdNode'
 import { DesignSystemNode } from './DesignSystemNode'
 import type { DesignTab } from './DesignSystemPanel'
+import { saveFile, saveUrl } from './download'
 import { ElementPanel } from './ElementPanel'
 import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
@@ -113,6 +114,7 @@ import {
   linkNodeId,
   nearView,
   neighbour,
+  nodeKind,
   nodesInRect,
   onScreen,
   REF_PREFIX,
@@ -152,6 +154,8 @@ import {
   ZOOM_SELECTION,
   zoomItems,
 } from './menus'
+import { PageEmpty } from './PageRail'
+import { setArtifactPage, useShownPage } from './page'
 import { useArtifactCommands } from './pluginCommands'
 import { connectOps } from './prototype'
 import { RefNode } from './RefNode'
@@ -304,29 +308,10 @@ const BRIEF = 'project-brief'
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
 
-/** Marks the design-system, DESIGN.md and prototype nodes (and their titles) for their context menu. */
-const nodeKind = (n: CanvasNode) =>
-  n.kind === 'system' || n.kind === 'doc' || n.kind === 'prototype'
-    ? { 'data-node-kind': n.kind, 'data-node-id': n.id }
-    : {}
-
 const editable = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 
 const bridgeMode = (tool: Tool): BridgeMode => (tool === 'mark' || tool === 'edit' ? tool : 'preview')
-
-function saveUrl(name: string, url: string) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-}
-
-function saveFile(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/html' }))
-  saveUrl(name, url)
-  URL.revokeObjectURL(url)
-}
 
 const manifestOp = (
   op: 'rename' | 'duplicate' | 'delete' | 'reorder',
@@ -554,11 +539,13 @@ export function Canvas({
       fitTo([id])
     },
   })
+  const page = useShownPage(artifactId, manifest)
   const { device, nodes } = useMemo(
     () =>
       layoutNodes({
         title,
         manifest: placedManifest,
+        page,
         system: tokens ? systemH : null,
         doc: designMd ? docH : null,
         sharedRules: rules.hasSharedNode,
@@ -569,6 +556,7 @@ export function Canvas({
         links: web.links,
       }),
     [
+      page,
       title,
       placedManifest,
       tokens,
@@ -632,6 +620,10 @@ export function Canvas({
   useEffect(() => {
     if (selected.length) auto.current = false
   }, [selected])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a newly shown page (画布) fits its screens
+  useEffect(() => {
+    auto.current = true
+  }, [page])
   /** The member moves the view: no more fitting to the layout. */
   const moveView = (next: SetStateAction<View>) => {
     auto.current = false
@@ -839,13 +831,16 @@ export function Canvas({
   useEffect(() => {
     if (!focusAsk || !manifest) return
     if (focusAsk.versionId && focusAsk.versionId !== versionKey) return
+    // Screens on other pages (画布): 全部页面 first, the ask waits for it.
+    if (page && focusAsk.screenIds.some((id) => !nodes.some((s) => s.id === id)))
+      return setArtifactPage(artifactId, null)
     const ids = focusAsk.screenIds.filter((id) => nodes.some((s) => s.id === id))
     if (ids.length) setSelected(ids)
     // Fitting waits for the plane's size; the ask stays until then.
     if (!room.width && ids.length) return
     takeArtifactFocus(artifactId)
     if (ids.length) fitTo(ids)
-  }, [focusAsk, room.width, manifest, versionKey])
+  }, [focusAsk, room.width, manifest, versionKey, page])
 
   // ── AI commands (Stitch's Generate and Variations menus) ──
   /** About the selected screens, or with `ggIds` about elements only. */
@@ -855,6 +850,7 @@ export function Canvas({
       command,
       botId: bot.id,
       ...(manifest && picked.length && !extra.ggIds ? { screenIds: picked.map((n) => n.id) } : {}),
+      ...(page ? { page } : {}),
       ...extra,
     }
     return sendCommand(artifactId, req, bot).then((ok) => {
@@ -1651,6 +1647,7 @@ export function Canvas({
         void upload([...e.dataTransfer.files])
       }}
     >
+      {page && !nodes.length ? <PageEmpty /> : null}
       <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
         {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer panning; the keyboard pans with the arrows */}
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Esc clears the selection */}

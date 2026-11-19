@@ -97,6 +97,7 @@ type Selection = {
   screenIds: string[]
   elements: (ArtifactElementRef & { label?: string })[]
   refs?: string[]
+  page?: string
 }
 
 const REF_KIND = { image: '图片', pdf: 'PDF', text: '文本' } as const
@@ -107,6 +108,13 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
   const source = sources(a, v)
   const m = await manifestOf(a, v)
   const lines = [`产物「${a.title}」，目录 ${a.dir}/，当前版本 v${v.n}。`]
+  if (sel.page) {
+    const page =
+      m?.groups?.find((g) => g.id === sel.page) ?? fail('invalid', '画布不存在：{id}', { id: sel.page })
+    lines.push(
+      `当前画布：${page.title}（${page.id}）。新建的屏幕放进这个画布：在 gg-artifact.json 的屏幕上写 "group": "${page.id}"。`,
+    )
+  }
   if (sel.screenIds.length) lines.push('选中的屏幕：', ...sel.screenIds.map((id) => `- ${screenLine(m, id)}`))
   const elements: MessageCanvas['elements'] = []
   if (sel.elements.length) {
@@ -270,6 +278,7 @@ export async function sendCommand(
   const { lines, canvas } = await contextLines(ctx, a, {
     screenIds: r.screenIds ?? [],
     elements: r.ggIds ?? [],
+    ...(r.page && { page: r.page }),
   })
   return postAsMember(ctx, me, a, r.botId, {
     action: withText(
@@ -392,6 +401,7 @@ export async function artifactContextNote(ctx: Ctx, a: Artifact, c: ArtifactCont
     screenIds: c.screenIds ?? [],
     elements: c.elements ?? [],
     refs: c.refs ?? [],
+    ...(c.page && { page: c.page }),
   })
   return { note: ['[画布上下文：这条消息针对下面的产物和选中内容]', ...lines].join('\n'), canvas }
 }

@@ -93,15 +93,64 @@ export function deleteGroup(m: GgArtifactManifest, id: string): PagesOp {
 export const canNest = (m: GgArtifactManifest, id: string, parent: string | undefined) =>
   !isWithin(m, parent, id) && groupDepth(m, parent) + subtreeHeight(m, id) <= ARTIFACT_PAGE_GROUP_DEPTH
 
-/** Moves the group into `parent`, after its new siblings; null when it cannot go there. */
-export function moveGroup(m: GgArtifactManifest, id: string, parent: string | undefined): PagesOp | null {
-  const g = m.groups?.find((x) => x.id === id)
-  if (!g || g.parent === parent || !canNest(m, id, parent)) return null
+/**
+ * Moves the group into `parent`, before its sibling `before` or after its last sibling; null when it cannot go there or
+ * nothing changes.
+ */
+export function moveGroup(
+  m: GgArtifactManifest,
+  id: string,
+  parent: string | undefined,
+  before?: string,
+): PagesOp | null {
+  const all = m.groups ?? []
+  const g = all.find((x) => x.id === id)
+  if (!g || before === id || !canNest(m, id, parent)) return null
   const { parent: _, ...rest } = g
-  return op(
-    [...(m.groups ?? []).filter((x) => x.id !== id), { ...rest, ...(parent && { parent }) }],
-    m.screens,
-  )
+  const others = all.filter((x) => x.id !== id)
+  const at = before ? others.findIndex((x) => x.id === before) : -1
+  const moved = { ...rest, ...(parent && { parent }) }
+  const groups = at < 0 ? [...others, moved] : [...others.slice(0, at), moved, ...others.slice(at)]
+  const same = groups.every((x, i) => x.id === all[i]?.id && x.parent === all[i]?.parent)
+  return same ? null : op(groups, m.screens)
+}
+
+/** A new empty page (画布) right above or below `sibling`, beside it. */
+export function insertGroup(
+  m: GgArtifactManifest,
+  title: string,
+  sibling: string,
+  place: 'above' | 'below',
+): PagesOp {
+  const all = m.groups ?? []
+  const at = all.findIndex((g) => g.id === sibling) + (place === 'below' ? 1 : 0)
+  const parent = all.find((g) => g.id === sibling)?.parent
+  const added = { id: newGroupId(m), title, ...(parent && { parent }) }
+  return op([...all.slice(0, at), added, ...all.slice(at)], m.screens)
+}
+
+/** Where moving one step up (-1) or down (1) among `siblings` puts `id`: before which one (undefined: last); null at the edge. */
+function stepBefore(siblings: string[], id: string, dir: -1 | 1): string | undefined | null {
+  const i = siblings.indexOf(id)
+  const to = i + dir
+  if (i < 0 || to < 0 || to >= siblings.length) return null
+  return dir < 0 ? siblings[to] : siblings[to + 1]
+}
+
+/** 上移 / 下移 among its sibling pages. */
+export function shiftGroup(m: GgArtifactManifest, id: string, dir: -1 | 1): PagesOp | null {
+  const parent = m.groups?.find((g) => g.id === id)?.parent
+  const siblings = (m.groups ?? []).filter((g) => g.parent === parent).map((g) => g.id)
+  const before = stepBefore(siblings, id, dir)
+  return before === null ? null : moveGroup(m, id, parent, before)
+}
+
+/** 上移 / 下移 among the screens of its page. */
+export function shiftScreen(m: GgArtifactManifest, id: string, dir: -1 | 1): PagesOp | null {
+  const group = m.screens.find((s) => s.id === id)?.group
+  const siblings = m.screens.filter((s) => s.group === group).map((s) => s.id)
+  const before = stepBefore(siblings, id, dir)
+  return before === null ? null : moveScreen(m, id, group, before)
 }
 
 /**
