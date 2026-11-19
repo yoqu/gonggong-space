@@ -1,0 +1,6 @@
+{
+  "t": "artifact.activity",
+  "runId": "run-1",
+  "artifactId": "4b1f6c2e-8d3a-4e5f-9a0b-1c2d3e4f5a6b",
+  "paths": ["screens/home.html", "tokens.css"]
+}

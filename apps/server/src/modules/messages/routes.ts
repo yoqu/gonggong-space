@@ -16,7 +16,7 @@ import type { Ctx } from '../../context.js'
 import { groupMembers, groups, messages } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { artifactContextNote } from '../artifacts/commands.js'
-import { requireArtifact } from '../artifacts/service.js'
+import { foregroundArtifact, requireArtifact } from '../artifacts/service.js'
 import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
@@ -138,6 +138,7 @@ export function messageRoutes(ctx: Ctx) {
         appendTo,
         runOptions,
         artifactContext,
+        foregroundArtifactId,
         threadRootId,
         alsoSent,
       } = SendMessageReq.parse(req.body)
@@ -169,6 +170,10 @@ export function messageRoutes(ctx: Ctx) {
       const fallback = soleDmBot ?? canvasBot
       const mentions = agent?.botIds ?? (!explicit.length && fallback ? [fallback.id] : explicit)
       const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)
+      const foreground =
+        foregroundArtifactId && !canvas && explicit.length && !command && !target
+          ? await foregroundArtifact(ctx, group.id, me.id, foregroundArtifactId)
+          : null
 
       // The advisory lock serializes retries/double-clicks carrying the same clientId.
       const { row, created } = await ctx.db.transaction(async (tx) => {
@@ -201,6 +206,7 @@ export function messageRoutes(ctx: Ctx) {
           ...(target && { appendTo: target.runId }),
           ...(Object.keys(picks).length > 0 && { runOptions: picks }),
           ...(canvas && { artifactRefs: [canvas.id], artifactNote: canvas.note, canvas: canvas.canvas }),
+          ...(foreground && { artifactForeground: foreground }),
           ...(root && alsoSent && { alsoSent: true }),
         }
         if (files.length) meta.attachments = files

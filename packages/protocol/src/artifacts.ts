@@ -138,6 +138,24 @@ export type ArtifactVisibility = z.infer<typeof ArtifactVisibility>
 export const ArtifactAccess = z.enum(['edit', 'view'])
 export type ArtifactAccess = z.infer<typeof ArtifactAccess>
 
+const ScreenRef = z.object({ id: z.string(), title: z.string() })
+
+/**
+ * What a live run is writing in an artifact (plan 原型协作 P1), from its daemon's artifact.activity: the screens whose
+ * file it changed since it checked the artifact out, and `global` when it changed anything else (tokens.css, DESIGN.md,
+ * the manifest, rules, an L0 page). Never stored.
+ */
+export const ArtifactActivityDto = z.object({
+  runId: z.string(),
+  botId: z.string(),
+  /** The artifact's title, for the run card. */
+  title: z.string(),
+  /** Titled by the head's manifest (the id when it has none). */
+  screens: z.array(ScreenRef),
+  global: z.boolean(),
+})
+export type ArtifactActivityDto = z.infer<typeof ArtifactActivityDto>
+
 export const ArtifactDto = z.object({
   id: z.string(),
   groupId: z.string(),
@@ -170,6 +188,8 @@ export const ArtifactDto = z.object({
     .object({ botId: z.string(), status: z.enum(['running', 'awaiting_approval', 'awaiting_answer']) })
     .nullable()
     .optional(),
+  /** What live runs are writing in it now (artifact.activity events keep it current). */
+  activity: z.array(ArtifactActivityDto).optional(),
   /** Its bot has triggered runs waiting for its machine to come online (offline_wait); they run once it does. */
   queued: z.boolean(),
   queuedRunCount: z.number().int().min(0),
@@ -192,7 +212,6 @@ export type ArtifactPatchReq = z.infer<typeof ArtifactPatchReq>
 // card); answers the new ArtifactDto. POST /api/artifacts/:id/archive deletes one: archived artifacts leave the
 // group's list and are no longer checked out by runs.
 
-const ScreenRef = z.object({ id: z.string(), title: z.string() })
 /**
  * MessageDto.canvas — what the canvas had selected when the message was sent (composer context, a menu command or
  * sent annotations), for its bubble; screen titles are as of then.
@@ -216,6 +235,8 @@ export const RunArtifact = z.object({
   versionId: z.string(),
   n: z.number().int().min(1),
   changedScreens: z.array(ScreenRef),
+  /** Kept as a candidate, not the head: the run was told to change other artifacts, or the head moved on. */
+  candidate: z.boolean().optional(),
 })
 export type RunArtifact = z.infer<typeof RunArtifact>
 

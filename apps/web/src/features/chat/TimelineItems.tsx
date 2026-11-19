@@ -969,7 +969,7 @@ export const RunCard = memo(function RunCard({
                           <PersonalSkillsFact n={run.personalSkills} />
                           <DelegationFacts d={run.delegation} />
                           <RunSyncLine run={run} />
-                          {made.length ? <RunArtifactsLine artifacts={made} /> : null}
+                          <RunArtifactsLine artifacts={made} runId={run.id} />
                         </div>
                       ) : null}
                       {sessionNote ? (

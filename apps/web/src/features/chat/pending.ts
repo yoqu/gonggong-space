@@ -19,6 +19,7 @@ export interface SendBody {
   appendTo: string | null
   runOptions?: Picks
   artifactContext?: ReturnType<typeof artifactContextOf>
+  foregroundArtifactId?: string
   threadRootId?: string
   alsoSent?: boolean
 }

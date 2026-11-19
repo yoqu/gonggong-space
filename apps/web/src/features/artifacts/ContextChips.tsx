@@ -11,6 +11,26 @@ const DEFAULT_VARIATIONS = 3
 /** More whole screens than this fold into one 「N 个屏幕」 chip: a marquee of many screens keeps the input in view. */
 const SCREEN_CHIPS_MAX = 2
 
+/** An @Bot message without a canvas selection names the artifact open in front: a hint the member may remove. */
+export function ForegroundChip({ title, onRemove }: { title: string; onRemove: () => void }) {
+  return (
+    <div className="art-chips" data-testid="art-foreground">
+      <span className="art-chip art-chip--editing" title={t('Bot 会知道你正在看「{name}」', { name: title })}>
+        <Icon name="grid" size={13} className="art-chip__icon" />
+        <span className="art-chip__text">{t('正在看 · {name}', { name: title })}</span>
+        <button
+          type="button"
+          className="art-chip__x"
+          aria-label={t('不带上 {name}', { name: title })}
+          onClick={onRemove}
+        >
+          <Icon name="xmark" size={10} weight={2} />
+        </button>
+      </span>
+    </div>
+  )
+}
+
 /**
  * The canvas selection above the group composer: `产物 · 屏` or `屏 › 元素`, each removable. `bot`: who a message
  * without an @ goes to (the artifact's bot); 换 Bot puts an @ of one of the `others` in front of the draft.

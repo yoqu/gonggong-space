@@ -6,6 +6,7 @@ import { attachments, bots, groupBots, messages, runEvents, runs, threadSessions
 import { isUuid } from '../../lib/ids.js'
 import { open, seal } from '../../lib/seal.js'
 import { onAiApproved, onApprovalRequest, voidApprovals } from '../approvals/service.js'
+import { dropMachineActivity, onArtifactActivity } from '../artifacts/activity.js'
 import { publishBot } from '../bots/dto.js'
 import { mirrorDelta, mirrorRun } from '../feishu/mirror.js'
 import { requeueAppends } from '../messages/append.js'
@@ -98,6 +99,7 @@ export function startRunEngine(ctx: Ctx) {
     else if (msg.t === 'question.withdraw') run(() => onQuestionWithdraw(ctx, machineId, msg))
     else if (msg.t === 'session.config') run(() => onSessionConfig(ctx, machineId, msg))
     else if (msg.t === 'run.continue') run(() => onContinue(ctx, machineId, msg))
+    else if (msg.t === 'artifact.activity') run(() => onArtifactActivity(ctx, machineId, msg))
   }
   const onOnline = (machineId: string) =>
     enqueue(machineId, async () => {
@@ -119,6 +121,7 @@ export function startRunEngine(ctx: Ctx) {
   const onOffline = (machineId: string) => {
     drops++
     for (const [runId, owner] of owners) if (owner.machineId === machineId) owners.delete(runId)
+    enqueue(machineId, () => dropMachineActivity(ctx, machineId))
   }
   ctx.hub.on('message', onMessage)
   ctx.hub.on('online', onOnline)

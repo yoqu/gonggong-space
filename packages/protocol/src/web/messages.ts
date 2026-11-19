@@ -290,6 +290,11 @@ export const SendMessageReq = z.object({
   runOptions: z.record(z.string(), RunConfigPick).default({}),
   /** The artifact canvas selection the message is about (plan 原型编辑器 R3). */
   artifactContext: ArtifactContext.optional(),
+  /**
+   * The artifact open in front in the group's workbench, sent with an @ and no artifactContext: a hint of which one
+   * "it" is, never a limit on what the bot may change and never an addressee on its own.
+   */
+  foregroundArtifactId: z.string().optional(),
   /** Reply in the thread of this root message of the group (plan 话题). */
   threadRootId: z.string().nullable().default(null),
   /** With threadRootId: also show the reply in the main timeline. */

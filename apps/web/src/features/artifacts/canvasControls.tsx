@@ -2,6 +2,8 @@ import { type CSSProperties, type ReactElement, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { Icon, type IconName, MenuButton, type MenuItem, Tooltip } from '../../ui'
 
+export { ActivityLayer } from './ActivityLayer'
+
 /** The title's inline rename (Stitch's Rename): Enter saves, Esc or leaving cancels. */
 export function RenameField({
   title,

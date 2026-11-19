@@ -15,7 +15,7 @@ import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
 import { Checkbox, Composer } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
-import { ContextChips } from '../artifacts/ContextChips'
+import { ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { artifactContextOf, type CanvasContext, clearContext, useCanvasContext } from '../artifacts/context'
 import { setEditing, useEditing, useEditingOf } from '../artifacts/editing'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
@@ -54,6 +54,15 @@ function useArtifactTarget(groupId: string, editing: CanvasContext | null) {
   const entry = useArtifactEntry(canvas?.artifactId ?? tabId)
   if (canvas) return { artifactId: canvas.artifactId, botId: canvas.botId }
   return tabId ? { artifactId: tabId, botId: entry?.artifact?.botId ?? null } : null
+}
+
+/** The artifact tab in front of the group's workbench: the soft 正在看 hint of an @Bot message (plan 原型协作 P1). */
+function useForeground(groupId: string) {
+  return useWorkbench((s) => {
+    const bench = s.benches[groupId]
+    const tab = bench?.tabs.find((x) => x.kind === 'artifact' && `artifact:${x.artifactId}` === bench.active)
+    return tab?.kind === 'artifact' ? tab : null
+  })
 }
 
 /** sessionStorage key of a group's (or one of its threads') unsent draft. */
@@ -147,6 +156,13 @@ export const MessageComposer = memo(function MessageComposer({
       : null
   const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
   const artifact = useArtifactTarget(main, editingContext)
+  const front = useForeground(group.id)
+  /** The foreground artifact the member removed from the next message; another one in front shows again. */
+  const [noFront, setNoFront] = useState<string | null>(null)
+  const foreground =
+    front && !canvas && mentioned.length && !command && !appending && noFront !== front.artifactId
+      ? front
+      : null
   const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
   const hasScreens = selectedScreenIds(canvas).length > 0
   const slashList = artifactSlash(useArtifactCommands(artifact?.artifactId))
@@ -416,6 +432,7 @@ export const MessageComposer = memo(function MessageComposer({
     }
     if (Object.keys(runOptions).length) req.runOptions = runOptions
     if (canvas) req.artifactContext = artifactContextOf(canvas)
+    if (foreground) req.foregroundArtifactId = foreground.artifactId
     // Shown in the timeline at once (发送中, then 发送失败 with 重发), so the composer is free for the next one;
     // one the server refuses comes back here (see `rejected`).
     void sendPending(
@@ -431,13 +448,14 @@ export const MessageComposer = memo(function MessageComposer({
     dropDraft(key, body)
     setDraft((d) => (d === body ? '' : d))
     setPicks({})
+    setNoFront(null)
     setAlsoSent(false)
     uploads.clear()
     if (q) useQuote.getState().clear()
     if (selection) clearContext()
   }
 
-  const chips = appending || quote || canvas || uploads.items.length > 0
+  const chips = appending || quote || canvas || foreground || uploads.items.length > 0
   return (
     <div
       className={cx('composer', shake && 'composer--shake')}
@@ -527,6 +545,9 @@ export const MessageComposer = memo(function MessageComposer({
                   variations={variations}
                   onVariations={setVariations}
                 />
+              ) : null}
+              {foreground ? (
+                <ForegroundChip title={foreground.title} onRemove={() => setNoFront(foreground.artifactId)} />
               ) : null}
               {quote ? <QuoteChip quote={quote} /> : null}
               <AttachmentChips uploads={uploads} />

@@ -35,6 +35,7 @@ import {
   messageDto,
   postEvent,
 } from '../messages/service.js'
+import { artifactActivity, endRunActivity } from './activity.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { linksOf } from './html.js'
 import { pluginKit } from './kit.js'
@@ -219,6 +220,7 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     archivedAt: a.archivedAt?.toISOString() ?? null,
     running: !!live.runner,
     runner: live.runner,
+    activity: artifactActivity(a.id),
     queued: queuedRunCount > 0,
     queuedRunCount,
     favorites: a.favorites,
@@ -330,6 +332,16 @@ async function artifactAccess(
   return a.visibility === 'team' && (await inTeamOfGroup(ctx, a.groupId, userId)) ? 'view' : null
 }
 
+/**
+ * SendMessageReq.foregroundArtifactId kept only for a live artifact of the group the sender may change: a hint left
+ * behind by a stale tab is dropped rather than refusing the message.
+ */
+export async function foregroundArtifact(ctx: Ctx, groupId: string, userId: string, id: string) {
+  const a = await findArtifact(ctx.db, id)
+  if (!a || a.groupId !== groupId || a.archivedAt) return null
+  return (await artifactAccess(ctx, a, userId)) === 'edit' ? a.id : null
+}
+
 /** An artifact `userId` may look at and present. */
 export async function viewArtifact(ctx: Ctx, id: string, userId: string) {
   const a = (await findArtifact(ctx.db, id)) ?? fail('not_found', '产物不存在')
@@ -433,6 +445,8 @@ export type SubmitInput = {
   userId: string | null
   /** Refuse (409) instead of keeping a stale candidate when it does not merge into the head: members' edits. */
   onlyHead?: boolean
+  /** Kept as a stale candidate whatever its parent: a run's upload of an artifact its message did not point at. */
+  candidateOnly?: boolean
 }
 
 /** Every file's content was uploaded to the artifact store with its declared size. */
@@ -476,9 +490,9 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
         : []
       if (!p) fail('invalid', '父版本不属于该产物')
     }
-    const head = parent === locked.headVersionId
+    const head = !input.candidateOnly && parent === locked.headVersionId
     const merged =
-      !head && parent && locked.headVersionId
+      !input.candidateOnly && !head && parent && locked.headVersionId
         ? await mergeInto(tx, parent, locked.headVersionId, files)
         : null
     if (!head && !merged && input.onlyHead) fail('conflict', '产物已有新版本，请刷新后重做')
@@ -615,6 +629,7 @@ export async function refreshRunArtifacts(
     const ended = TERMINAL_RUN_STATUS.includes(run.status as RunStatus)
     if (ended) seenStatus.delete(run.id)
     else seenStatus.set(run.id, run.status)
+    if (ended) await endRunActivity(ctx, run.id)
     const checkedOut = sql`${artifacts.id}::text in (select jsonb_array_elements_text(${runs.artifacts}) from ${runs} where ${runs.id} = ${run.id})`
     const list = await ctx.db
       .select({ id: artifacts.id })
@@ -635,8 +650,11 @@ export async function refreshRunArtifacts(
   }
 }
 
-/** Artifacts a message points at: its `artifactRefs`, or the artifact card it quotes. */
-async function referenced(tx: Tx, meta: MessageMeta) {
+/**
+ * Artifacts a message points at: its `artifactRefs`, or the artifact card it quotes. They are its run's targets: an
+ * upload of any other artifact by that run is kept as a candidate only (submitVersion `candidateOnly`).
+ */
+export async function referenced(tx: Read, meta: MessageMeta) {
   const ids = new Set((meta.artifactRefs ?? []).filter(isUuid))
   if (meta.quote?.kind === 'message' && isUuid(meta.quote.id)) {
     const [q] = await tx.select({ meta: messages.meta }).from(messages).where(eq(messages.id, meta.quote.id))
@@ -644,6 +662,16 @@ async function referenced(tx: Tx, meta: MessageMeta) {
     if (card?.type === 'artifact') ids.add(card.artifactId)
   }
   return [...ids]
+}
+
+/** The artifacts a run's trigger message points at (none: the run may change any it checked out). */
+export async function runTargets(ctx: Ctx, run: { triggerMessageId: string | null }) {
+  if (!run.triggerMessageId) return []
+  const [m] = await ctx.db
+    .select({ meta: messages.meta })
+    .from(messages)
+    .where(eq(messages.id, run.triggerMessageId))
+  return m ? referenced(ctx.db, m.meta as MessageMeta) : []
 }
 
 /**
@@ -657,7 +685,9 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
     .set({ checkoutBotIds: sql`${artifacts.checkoutBotIds} - ${botId}::text` })
     .where(and(eq(artifacts.groupId, groupId), wanted))
     .returning({ id: artifacts.id })
-  const targets = [...new Set([...(await referenced(tx, meta)), ...asked.map((r) => r.id)])]
+  const strong = await referenced(tx, meta)
+  const foreground = meta.artifactForeground && !strong.length ? meta.artifactForeground : null
+  const targets = [...new Set([...strong, ...asked.map((r) => r.id), ...(foreground ? [foreground] : [])])]
   const cols = { a: artifacts, head: artifactVersions }
   const base = () =>
     tx
@@ -693,7 +723,9 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
           .orderBy(desc(artifacts.updatedAt))
           .limit(RUN_ARTIFACTS_MAX - first.length)
       : []
-  const picked = [...first, ...rest].slice(0, RUN_ARTIFACTS_MAX)
+  const picked = [...first, ...rest]
+    .slice(0, RUN_ARTIFACTS_MAX)
+    .sort((x, y) => Number(y.a.id === foreground) - Number(x.a.id === foreground))
   const pluginIds = [...new Set(picked.flatMap(({ a }) => (a.pluginId ? [a.pluginId] : [])))]
   const names = new Map(
     pluginIds.length
@@ -712,7 +744,25 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
     digest: head?.digest ?? null,
     plugin: (a.pluginId && names.get(a.pluginId)) || null,
   }))
-  return { refs, exclude: all.map((r) => r.dir) as DaemonArtifactRef['dir'][], note: issuesNote(picked) }
+  const named = (ids: string[]) =>
+    picked
+      .filter(({ a }) => ids.includes(a.id))
+      .map(({ a }) => `「${a.title}」（${a.dir}/）`)
+      .join('、')
+  const focus = strong.length ? strong : foreground ? [foreground] : null
+  const note = [
+    named(strong)
+      ? `本轮只改产物${named(strong)}；其余检出的产物只作参考，改了也不会成为当前版本（只存为候选）。`
+      : foreground
+        ? `用户正在工作台看着产物${named([foreground])}；消息没指明改哪个产物时，说的就是它。`
+        : null,
+    issuesNote(focus ? picked.filter(({ a }) => focus.includes(a.id)) : picked),
+  ].filter(Boolean)
+  return {
+    refs,
+    exclude: all.map((r) => r.dir) as DaemonArtifactRef['dir'][],
+    note: note.join('\n\n') || null,
+  }
 }
 
 /** The design-rule findings of the checked-out heads, for the agent to fix first (agent-facing: not translated). */

@@ -28,6 +28,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, UNIX_EPOCH};
 use tokio::io::AsyncWriteExt;
 
+mod watch;
+use watch::{Watch, Watcher, watch};
+
 pub const FILE_MAX_BYTES: u64 = 10 * 1024 * 1024;
 pub const VERSION_MAX_BYTES: u64 = 200 * 1024 * 1024;
 pub const MAX_FILES: usize = 500;
@@ -743,7 +746,7 @@ async fn shell<B>(dir: &Path, kit: Option<&Path>, req: Request<B>) -> Response<B
     static_site::answer(dir, &req, true).await
 }
 
-/// A run's artifacts: prepared before the agent starts, published when the turn ends.
+/// A run's artifacts: prepared before the agent starts, watched while it works, published when the turn ends.
 pub(crate) struct Turn {
     artifacts: Arc<Artifacts>,
     run_id: String,
@@ -752,6 +755,7 @@ pub(crate) struct Turn {
     plugins: Vec<PathBuf>,
     home: PathBuf,
     out: Outbox,
+    watcher: Option<Watcher>,
 }
 
 /// Prepares every artifact of `start`; also returns the note for the agent about those left as they are.
@@ -770,16 +774,22 @@ pub(crate) async fn before_turn(
             return (None, None);
         }
     };
-    let mut kept = vec![];
+    let (mut kept, mut watches) = (vec![], vec![]);
     for r in &start.artifacts {
-        if let Err(e) = artifacts.prepare(&start.run_id, cwd, r).await {
-            tracing::warn!("run {}: artifact {} not checked out: {e}", start.run_id, r.dir);
-            status(
-                out,
-                &start.run_id,
-                t!("产物 {dir} 的本地改动未能上传，本轮未检出最新版本：{e}", dir = r.dir, e = e),
-            );
-            kept.push(format!("{}（{e}）", r.dir));
+        match artifacts.prepare(&start.run_id, cwd, r).await {
+            Ok(()) => match Folder::new(home, cwd, r).and_then(|f| Watch::new(&f)) {
+                Ok(w) => watches.push(w),
+                Err(e) => tracing::warn!("run {}: artifact {} not watched: {e}", start.run_id, r.dir),
+            },
+            Err(e) => {
+                tracing::warn!("run {}: artifact {} not checked out: {e}", start.run_id, r.dir);
+                status(
+                    out,
+                    &start.run_id,
+                    t!("产物 {dir} 的本地改动未能上传，本轮未检出最新版本：{e}", dir = r.dir, e = e),
+                );
+                kept.push(format!("{}（{e}）", r.dir));
+            }
         }
     }
     let hint = (!kept.is_empty()).then(|| {
@@ -796,13 +806,15 @@ pub(crate) async fn before_turn(
         plugins: plugins.to_vec(),
         home: home.to_path_buf(),
         out: out.clone(),
+        watcher: watch(start.run_id.clone(), watches, out.clone()),
     };
     (Some(turn), hint)
 }
 
 impl Turn {
     /// Uploads what the turn changed; thumbnails follow in the background. A failed upload waits for the next turn.
-    pub(crate) async fn finish(self) {
+    pub(crate) async fn finish(mut self) {
+        drop(self.watcher.take());
         for r in &self.refs {
             match self.artifacts.publish(&self.run_id, &self.cwd, r).await {
                 Ok(None) => {}

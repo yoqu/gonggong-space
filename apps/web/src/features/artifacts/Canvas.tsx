@@ -67,7 +67,7 @@ import {
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
 import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
-import { FloatMenu, RenameField, ToolButton } from './canvasControls'
+import { ActivityLayer, FloatMenu, RenameField, ToolButton } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
 import { framePoint, onPinch, wheelZoomFactor } from './canvasZoom'
@@ -763,8 +763,7 @@ export function Canvas({
     setRegion(null)
     resetText()
   }, [tool, origin, frameEls, resetText])
-  // Element positions belong to one version.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: on a version change only
+  // biome-ignore lint/correctness/useExhaustiveDependencies: element positions belong to one version
   useEffect(() => {
     setElement(null)
     setDeleting(null)
@@ -1819,6 +1818,7 @@ export function Canvas({
                 )}
               </div>
             ))}
+            <ActivityLayer artifactId={artifactId} nodes={nodes} />
           </div>
           <div className="art-overlay">
             <Links paths={paths} />

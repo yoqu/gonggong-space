@@ -215,3 +215,15 @@ fn git_ops4_up_to_and_expect_head_fixtures_parse() {
         (GitActionKind::Reset, Some("0f1e2d3c4b5a"), Some("soft"), Some("a1b2c3d4e5f6"))
     );
 }
+
+#[test]
+fn artifact_activity_fixture_round_trips() {
+    let raw: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../packages/protocol/fixtures/d2s.artifact.activity.json"))
+            .unwrap();
+    let parsed: DaemonToServer = serde_json::from_value(raw.clone()).unwrap();
+    assert!(
+        matches!(parsed, DaemonToServer::ArtifactActivity { ref paths, .. } if paths == &["screens/home.html", "tokens.css"])
+    );
+    assert_eq!(serde_json::to_value(parsed).unwrap(), raw);
+}

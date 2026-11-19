@@ -93,6 +93,9 @@ pub const FEATURE_ARTIFACTS: &str = "artifacts";
 /// `artifact.snapshot`: screenshots of artifact versions this machine did not make.
 pub const FEATURE_ARTIFACT_SNAPSHOT: &str = "artifactSnapshot";
 
+/// `artifact.activity`: the paths of a checked-out artifact a live turn has written.
+pub const FEATURE_ARTIFACT_ACTIVITY: &str = "artifactActivity";
+
 /// 机器与 Bot on the web: logs.get, workspaces.list and workspace.delete.
 pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
 
@@ -296,6 +299,9 @@ pub enum DaemonToServer {
     QuestionWithdraw { run_id: String, request_id: String },
     #[serde(rename = "run.discarded", rename_all = "camelCase")]
     RunDiscarded { run_id: String, ok: bool, files: u32, error: Option<String> },
+    /// Every path of a checked-out artifact the live turn added, changed or deleted so far; sent when the set changes.
+    #[serde(rename = "artifact.activity", rename_all = "camelCase")]
+    ArtifactActivity { run_id: String, artifact_id: String, paths: Vec<String> },
     /// The agent went on by itself after `run_id` ended: asks for a run to report it under (`run.continued`).
     #[serde(rename = "run.continue", rename_all = "camelCase")]
     RunContinue { request_id: String, run_id: String },

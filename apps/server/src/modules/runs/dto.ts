@@ -184,7 +184,14 @@ async function runArtifactsOf(ctx: Ctx, runIds: string[]) {
       return { id, title: manifest?.screens.find((s) => s.id === id)?.title ?? id }
     })
     const made = byRun.get(v.runId as string) ?? new Map<string, RunArtifact>()
-    made.set(a.id, { artifactId: a.id, title: a.title, versionId: v.id, n: v.n, changedScreens })
+    made.set(a.id, {
+      artifactId: a.id,
+      title: a.title,
+      versionId: v.id,
+      n: v.n,
+      changedScreens,
+      ...(v.stale && { candidate: true }),
+    })
     byRun.set(v.runId as string, made)
   }
   return new Map([...byRun].map(([id, m]) => [id, [...m.values()]]))

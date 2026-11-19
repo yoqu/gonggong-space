@@ -231,6 +231,19 @@ export const RunDiscarded = z.object({
 export type RunDiscarded = z.infer<typeof RunDiscarded>
 
 /**
+ * The files of a checked-out artifact (RunStart.artifacts) the agent wrote, added or deleted since this turn checked
+ * it out, as paths in the artifact folder (plan 原型协作 P1): the whole set, sent again whenever it changes while the
+ * turn runs. Only shown live; the server keeps nothing once the run ends.
+ */
+export const ArtifactActivity = z.object({
+  t: z.literal('artifact.activity'),
+  runId: z.string(),
+  artifactId: z.string(),
+  paths: z.array(z.string().max(500)).max(500),
+})
+export type ArtifactActivity = z.infer<typeof ArtifactActivity>
+
+/**
  * The agent went on by itself after `runId` ended (a background task it started finished): the daemon asks for a new
  * run of the same conversation to report that work under; answered with run.continued.
  */
@@ -551,6 +564,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   ApprovalAiApproved,
   RunDiscarded,
   RunContinue,
+  ArtifactActivity,
   SessionConfig,
   Hello,
   Heartbeat,

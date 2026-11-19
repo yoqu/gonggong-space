@@ -48,6 +48,8 @@ export const DaemonFeature = z.enum([
   'artifacts',
   /** artifact.snapshot: screenshots of versions the daemon did not make. */
   'artifactSnapshot',
+  /** artifact.activity: which files of its checked-out artifacts a turn is writing (plan 原型协作 P1). */
+  'artifactActivity',
   /** `args` of the official login (Claude Code command-line arguments): a daemon without it would drop them. */
   'claudeArgs',
   /** A provider's `configDir` / `executablePath` (a local Claude profile): a daemon without it would demand a key. */

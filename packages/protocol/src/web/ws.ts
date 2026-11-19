@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArtifactActivityDto } from '../artifacts.js'
 import { ContextUsage, GitStatus, Tier } from '../common.js'
 import { RepoAccessReason } from '../daemon.js'
 import { GroupSchedulesDto } from '../schedules.js'
@@ -89,6 +90,12 @@ export const WebEvent = z.discriminatedUnion('t', [
   /** Sent to the author only (their other sessions). */
   z.object({ t: z.literal('message.hidden'), groupId: z.string(), messageId: z.string() }),
   z.object({ t: z.literal('run.updated'), run: RunDto }),
+  /** Members who may open the artifact: replaces what live runs are writing in it (ArtifactDto.activity). */
+  z.object({
+    t: z.literal('artifact.activity'),
+    artifactId: z.string(),
+    activity: z.array(ArtifactActivityDto),
+  }),
   /** Only to connections showing the run's group, or that never sent a focus. */
   z.object({
     t: z.literal('run.delta'),

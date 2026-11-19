@@ -12,6 +12,7 @@ import { create } from 'zustand'
 import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { openTab } from '../workbench/open'
+import { setActivity } from './activity'
 
 /** An artifact's details and versions (oldest first), loaded per open tab and refreshed when its card changes. */
 export interface ArtifactEntry {
@@ -29,6 +30,7 @@ export async function loadArtifact(id: string) {
       api.get<ArtifactVersionDto[]>(`/artifacts/${id}/versions`),
     ])
     useStore.setState({ [id]: { artifact, versions: [...versions].sort((a, b) => a.n - b.n), error: '' } })
+    setActivity(id, artifact.activity ?? [])
   } catch (e) {
     useStore.setState((s) => ({
       [id]: { artifact: s[id]?.artifact ?? null, versions: s[id]?.versions ?? [], error: errorText(e) },

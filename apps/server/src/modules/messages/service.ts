@@ -66,6 +66,8 @@ export type MessageMeta = {
   card?: MessageCard
   /** Hosted artifacts the message is about: its run checks them out first (RunStart.artifacts). */
   artifactRefs?: string[]
+  /** SendMessageReq.foregroundArtifactId, checked: checked out first and named to the agent, not a target. */
+  artifactForeground?: string
   /** The canvas selection it was sent with (SendMessageReq.artifactContext): appended to the agent's prompt. */
   artifactNote?: string
   /** That selection as its bubble shows it (MessageDto.canvas). */

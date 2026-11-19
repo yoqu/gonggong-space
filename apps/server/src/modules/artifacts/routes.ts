@@ -66,6 +66,7 @@ import {
   requireArtifact,
   requireVersion,
   restoreVersion,
+  runTargets,
   submitVersion,
   versionDetail,
   viewArtifact,
@@ -268,7 +269,9 @@ export function artifactRoutes(ctx: Ctx) {
       async (req: RunArtifactReq): Promise<ArtifactSubmitRes> => {
         const { run, a } = await requireRunArtifact(ctx, req)
         const body = ArtifactSubmitReq.parse(req.body)
+        const targets = body.source === 'run' ? await runTargets(ctx, run) : []
         const out = await submitVersion(ctx, a, {
+          candidateOnly: targets.length > 0 && !targets.includes(a.id),
           parent: body.parentVersionId,
           submitKey: body.submitKey,
           files: body.files,

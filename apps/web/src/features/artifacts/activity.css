@@ -1,0 +1,140 @@
+/* What a run is writing on the canvas (plan 原型协作 P1): over the screen nodes, never taking the pointer. */
+.art-activity,
+.art-landed {
+  position: absolute;
+  pointer-events: none;
+  border-radius: var(--radius-4, 4px);
+}
+
+.art-activity {
+  outline: 2px dashed var(--tint-blue-text);
+  outline-offset: 3px;
+}
+
+.art-activity__who {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
+  padding: 2px var(--space-8);
+  border-radius: var(--radius-capsule);
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font-size: var(--text-caption-size);
+  white-space: nowrap;
+  box-shadow: var(--shadow-1, 0 1px 3px rgb(0 0 0 / 0.15));
+}
+
+.art-landed {
+  outline: 2px solid var(--tint-blue-text);
+  outline-offset: 3px;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .art-activity {
+    outline: none;
+  }
+
+  /* A light band flowing round the outline, and a slow wave across the screen. */
+  .art-activity::before,
+  .art-activity::after {
+    content: "";
+    position: absolute;
+    border-radius: inherit;
+  }
+
+  .art-activity::before {
+    inset: -5px;
+    padding: 2px;
+    background:
+      linear-gradient(90deg, var(--tint-blue-text), transparent 30%, var(--tint-blue-text) 60%, transparent) 0
+      0 / 300% 100%;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    animation: art-activity-flow 2.4s linear infinite;
+  }
+
+  .art-activity::after {
+    inset: 0;
+    background:
+      linear-gradient(
+        100deg,
+        transparent 35%,
+        color-mix(in srgb, var(--tint-blue-text) 12%, transparent) 50%,
+        transparent 65%
+      )
+      0 0 / 250% 100%;
+    animation: art-activity-flow 3.2s ease-in-out infinite;
+  }
+
+  .art-landed {
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, var(--tint-blue-text) 18%, transparent),
+        transparent
+      )
+      -100% 0 / 50% 100% no-repeat;
+    animation:
+      art-landed-wipe 0.6s ease-out,
+      art-landed-flash 2.1s ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-landed {
+    opacity: 1;
+  }
+}
+
+@keyframes art-activity-flow {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes art-landed-wipe {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes art-landed-flash {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.art-activity-note {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 240px;
+  height: 22px;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font-size: var(--text-caption-size);
+  cursor: pointer;
+}
+
+.art-activity-note span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

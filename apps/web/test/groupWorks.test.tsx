@@ -112,3 +112,47 @@ describe('正在编辑 in the composer', () => {
     expect((await screen.findByTestId('art-editing')).textContent).toContain('湖山VIP原型')
   })
 })
+
+describe('正在看 in the composer (plan 原型协作 P1)', () => {
+  const bench = (artifactId: string, title: string) =>
+    useWorkbench.setState({
+      benches: {
+        g1: { tabs: [{ kind: 'artifact', artifactId, title }], active: `artifact:${artifactId}`, used: {} },
+      },
+    })
+
+  it('names the artifact in front with an @ only, and leaves it out once removed', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/artifacts': works,
+      'POST /groups/g1/messages': { id: 'm1', seq: 1, groupId: 'g1', kind: 'user', body: 'x', createdAt: at },
+    })
+    bench('a2', '湖山VIP原型')
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('按钮改圆角')
+    expect(screen.queryByTestId('art-foreground')).toBeNull()
+    type('@共字君 按钮改圆角')
+    expect((await screen.findByTestId('art-foreground')).textContent).toContain('正在看 · 湖山VIP原型')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls)).toHaveLength(1))
+    expect(posts(calls)[0]).toMatchObject({ foregroundArtifactId: 'a2' })
+    expect(posts(calls)[0]).not.toHaveProperty('artifactContext')
+
+    await waitFor(() => expect(input().value).toBe(''))
+    type('@共字君 修后端')
+    fireEvent.click(await screen.findByRole('button', { name: '不带上 湖山VIP原型' }))
+    expect(screen.queryByTestId('art-foreground')).toBeNull()
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls)).toHaveLength(2))
+    expect(posts(calls)[1]).not.toHaveProperty('foregroundArtifactId')
+  })
+
+  it('yields to 正在编辑', async () => {
+    mockApi({ 'GET /groups/g1/artifacts': works })
+    bench('a1', 'codex俱乐部小程序原型')
+    setEditing('g1', { artifactId: 'a2', title: '湖山VIP原型' })
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('@共字君 改')
+    await screen.findByTestId('art-editing')
+    expect(screen.queryByTestId('art-foreground')).toBeNull()
+  })
+})

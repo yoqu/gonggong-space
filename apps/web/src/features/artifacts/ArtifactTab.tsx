@@ -16,6 +16,7 @@ import {
   toast,
 } from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
+import { ActivityNote } from './ActivityLayer'
 import { useGroupBots } from './actions'
 import { Canvas, type CanvasRequest } from './Canvas'
 import { useDesignSystem } from './DesignSystemPanel'
@@ -283,6 +284,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
         {a.runner ? (
           <Runner status={a.runner.status} name={groupBots.find((b) => b.id === a.runner?.botId)?.name} />
         ) : null}
+        <ActivityNote artifactId={a.id} />
         {current?.issues.length ? (
           <IssuesButton
             artifactId={a.id}

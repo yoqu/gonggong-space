@@ -1,5 +1,7 @@
 import { t } from '../../i18n'
 import { Button, Icon, type IconName } from '../../ui'
+import { activityText } from './ActivityLayer'
+import { useRunActivity } from './activity'
 import { refNodeId } from './geometry'
 import type { MessageCanvas, RunArtifact } from './runContext'
 import { focusArtifact } from './store'
@@ -57,10 +59,28 @@ export function MessageCanvasChips({ canvas }: { canvas: MessageCanvas }) {
   )
 }
 
-/** On a run's card: the artifact versions it made, the screens it changed, and a way to look at them. */
-export function RunArtifactsLine({ artifacts }: { artifacts: RunArtifact[] }) {
+/**
+ * On a run's card: what it is writing now (`runId`, plan 原型协作 P1), the artifact versions it made, the screens it
+ * changed, and a way to look at them.
+ */
+export function RunArtifactsLine({ artifacts, runId = '' }: { artifacts: RunArtifact[]; runId?: string }) {
+  const writing = useRunActivity(runId)
   return (
     <>
+      {writing.map((a) => (
+        <button
+          key={`live:${a.artifactId}`}
+          type="button"
+          className="art-run art-run--live"
+          data-testid="run-artifact-activity"
+          onClick={() =>
+            focusArtifact(a.artifactId, { screenIds: a.screens.map((s) => s.id), title: a.title })
+          }
+        >
+          <Icon name="pencil" size={12} className="art-run__icon" />
+          <span className="art-run__text">{`${a.title} · ${activityText(a)}`}</span>
+        </button>
+      ))}
       {artifacts.map((a) => (
         <span key={a.versionId} className="art-run" data-testid="run-artifact">
           <Icon name="grid" size={12} className="art-run__icon" />
@@ -94,6 +114,7 @@ const runText = (a: RunArtifact, short = false) =>
   [
     a.title,
     `v${a.n}`,
+    a.candidate ? t('存为候选，未成为当前版本') : '',
     !a.changedScreens.length
       ? ''
       : short && a.changedScreens.length > NAMED_SCREENS

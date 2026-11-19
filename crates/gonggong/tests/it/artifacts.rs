@@ -459,8 +459,8 @@ fn run_start(run_id: &str, cwd: &Path, text: &str, artifacts: Vec<DaemonArtifact
     }
 }
 
-/// Runs a turn on the mock agent; returns run.done and the status steps reported.
-async fn turn(r: &Rig, run_id: &str, text: &str) -> (RunDone, Vec<String>) {
+/// Runs a turn on the mock agent; returns run.done, the status steps and the artifact.activity paths reported.
+async fn turn(r: &Rig, run_id: &str, text: &str) -> (RunDone, Vec<String>, Vec<Vec<String>>) {
     let agent = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/mock-agent/agent.js");
     let engine = Engine::new(EngineConfig {
         home: r.home.path().to_path_buf(),
@@ -475,11 +475,15 @@ async fn turn(r: &Rig, run_id: &str, text: &str) -> (RunDone, Vec<String>) {
     let (out, mut rx) = Outbox::channel();
     let start = run_start(run_id, r.cwd.path(), text, vec![r.reference()]);
     engine.handle(ServerToDaemon::RunStart(Box::new(start)), &out);
-    let mut steps = vec![];
+    let (mut steps, mut activity) = (vec![], vec![]);
     loop {
         match tokio::time::timeout(Duration::from_secs(20), rx.recv()).await.unwrap().unwrap() {
-            DaemonToServer::RunDone(d) => return (d, steps),
+            DaemonToServer::RunDone(d) => return (d, steps, activity),
             DaemonToServer::RunEvent { event: RunEvent::Status { step, .. }, .. } => steps.push(step),
+            DaemonToServer::ArtifactActivity { run_id: id, artifact_id, paths } => {
+                assert_eq!((id.as_str(), artifact_id.as_str()), (run_id, "a1"));
+                activity.push(paths);
+            }
             _ => {}
         }
     }
@@ -489,7 +493,8 @@ async fn turn(r: &Rig, run_id: &str, text: &str) -> (RunDone, Vec<String>) {
 async fn a_run_works_on_the_checked_out_head_and_its_changes_go_up_before_run_done() {
     let r = rig().await;
     r.store.lock().unwrap().push(&[("index.html", "head"), ("old.html", "o")]);
-    let (done, _) = turn(&r, "run9", "mock:sh cat design/app/index.html && printf 'new' > design/app/index.html").await;
+    let (done, _, _) =
+        turn(&r, "run9", "mock:sh cat design/app/index.html && printf 'new' > design/app/index.html").await;
     assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
     assert_eq!(done.reply, "head");
     let s = r.submits();
@@ -510,7 +515,7 @@ async fn the_agent_and_the_run_are_told_when_a_folder_was_left_as_it_is() {
     r.store.lock().unwrap().push(&[("index.html", "v2")]);
     r.store.lock().unwrap().fail_uploads = true;
     r.write("index.html", "mine");
-    let (done, steps) = turn(&r, "run2", "mock:echo").await;
+    let (done, steps, _) = turn(&r, "run2", "mock:echo").await;
     let prompt =
         serde_json::from_str::<serde_json::Value>(&done.reply).unwrap()["prompt"].as_str().unwrap().to_string();
     assert!(prompt.starts_with("产物托管：以下产物目录的本地改动未能上传"), "{prompt}");
@@ -518,4 +523,32 @@ async fn the_agent_and_the_run_are_told_when_a_folder_was_left_as_it_is() {
     assert!(steps.iter().any(|s| s.starts_with("产物 design/app 的本地改动未能上传")), "{steps:?}");
     assert!(steps.iter().any(|s| s.starts_with("产物 design/app 上传失败，下一轮开跑前重试")), "{steps:?}");
     assert_eq!(r.read("index.html").as_deref(), Some("mine"));
+}
+
+/// Writes the agent's files, then works on long enough for the folder to be rescanned a few times (every 500ms).
+const WRITES: &str = "mock:sh mkdir -p design/app/screens && printf edited > design/app/screens/home.html \
+    && printf ':root{}' > design/app/tokens.css && sleep 1.6";
+
+#[tokio::test]
+async fn the_paths_a_live_turn_writes_are_reported_once_per_change() {
+    let r = rig().await;
+    r.store.lock().unwrap().push(&[("screens/home.html", "home"), ("index.html", "i")]);
+    let (done, _, activity) = turn(&r, "run3", WRITES).await;
+    assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
+    assert_eq!(
+        activity,
+        [vec!["screens/home.html".to_string(), "tokens.css".to_string()]],
+        "not the checkout's writes"
+    );
+}
+
+#[tokio::test]
+async fn a_folder_left_as_it_is_is_not_watched() {
+    let r = rig().await;
+    r.at(&[("index.html", "v1")]).await;
+    r.store.lock().unwrap().push(&[("index.html", "v2")]);
+    r.store.lock().unwrap().fail_uploads = true;
+    r.write("index.html", "mine");
+    let (_, _, activity) = turn(&r, "run4", WRITES).await;
+    assert!(activity.is_empty(), "{activity:?}");
 }

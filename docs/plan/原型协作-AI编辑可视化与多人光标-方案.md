@@ -1,6 +1,6 @@
 # 原型协作：AI 编辑可视化 + 多人光标 · 方案
 
-> 提出：姜维川 2026-11-19。状态：已拍板方向；按共字君Codex（#17212）、gemini大师（#17219）两轮审查修订，待确认开工 P1。现状见 `docs/domains/产物与原型编辑器.md`。
+> 提出：姜维川 2026-11-19。状态：已拍板方向；按共字君Codex（#17212）、gemini大师（#17219）两轮审查修订，P1 已实现（2026-11-19，见第八节），P2–P4 未开工。现状见 `docs/domains/产物与原型编辑器.md`。
 
 ## 一、现状与问题
 
@@ -123,3 +123,18 @@ P1–P3 不需数据库迁移，P4 需一列（在场信息与活动都是临时
 1. 不做 AI 写一半的实时草稿预览：P1–P2 只标改动区块和动效，P4 后再评估。
 2. 分享页访客可以看到成员真名；分享设置加「对访客隐藏成员名」开关。
 3. 顺序 P1 → P2 → P3 → P4，P1 先单独上线验证。
+
+## 八、P1 实现记录（2026-11-19）
+
+与第五节的出入：
+- **非目标产物不硬拒、不回滚**：触发消息指明了产物（`referenced`：`artifactRefs` / 引用的产物卡片）时，本轮对其他产物的 `source=run` 上传存为 stale 候选、不成为 head（`submitVersion` `candidateOnly`），运行卡片显示「存为候选，未成为当前版本」。daemon 拿到的版本等于它本地文件，下一轮 `prepare` 照常检出 head 覆盖残留，旧 daemon 也不会卡在重传上，所以不需要 daemon 回滚。`source=local` 不受影响。
+- **完成过渡**以「该 run 的版本成为 head」（`ArtifactDto.head.runId`）为准，在屏节点上播 0.6s 擦除 + 1.5s 描边淡出；没有等桥接 ready（iframe 下本来就垫着上一版截图）。
+- **「跟随 AI」开关未做**：画布顶栏和运行卡片的「正在改 …」可点击，一次性定位到那几屏；持续跟随放到 P2 随区块动效一起做。
+
+落点：
+- 协议：`SendMessageReq.foregroundArtifactId`、`RunArtifact.candidate`、`ArtifactActivityDto`、`ArtifactDto.activity`、web 事件 `artifact.activity`、daemon 消息 `artifact.activity`（能力 `artifactActivity`，fixture `d2s.artifact.activity.json`）。
+- 服务端：`artifacts/activity.ts`（内存表、按产物权限推送、run 终态/机器离线/60s 无写入清理）、`runTargets` / `foregroundArtifact`（`artifacts/service.ts`）。
+- daemon：`artifacts/watch.rs`（检出后基线、500ms 轻扫、集合变化才发）。
+- web：`MessageComposer` 的「正在看」芯片、`artifacts/ActivityLayer.tsx`（画布标记与过渡、顶栏 `ActivityNote`）、`CanvasRefs.tsx` 运行卡片行。
+- 上线顺序：服务端先上（旧 daemon 不发活动，界面退回产物级 `running`），再按约定交共字君codex 发 daemon。
+
