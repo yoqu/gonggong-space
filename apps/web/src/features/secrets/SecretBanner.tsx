@@ -4,7 +4,7 @@ import { t } from '../../i18n'
 import { realtime } from '../../lib/realtime'
 import { useGet } from '../../lib/useGet'
 import { Button, PinnedBanner, Presence } from '../../ui'
-import { FillDialog } from './SecretCard'
+import { DefineDialog, FillDialog } from './SecretCard'
 import { actionable, NeedsDialog } from './SecretNeeds'
 
 const SNOOZE_MS = 24 * 3600_000
@@ -94,7 +94,11 @@ export function SecretBanner({ groupId }: { groupId: string }) {
       />
       <Presence>
         {open === 'card' && first ? (
-          <FillDialog card={first} onClose={() => setOpen(null)} onDone={done} />
+          first.define ? (
+            <DefineDialog card={first} onClose={() => setOpen(null)} onDone={done} />
+          ) : (
+            <FillDialog card={first} onClose={() => setOpen(null)} onDone={done} />
+          )
         ) : null}
         {open === 'needs' && needs.data ? (
           <NeedsDialog

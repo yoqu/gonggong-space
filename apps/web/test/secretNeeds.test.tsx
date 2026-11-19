@@ -189,6 +189,82 @@ describe('secret needs banner', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByTestId('secret-banner')).toBeNull()
   })
+
+  it('opens DefineDialog rather than FillDialog when the pending banner card is a define card', async () => {
+    const defineCard: Card = {
+      id: 'q-def',
+      names: ['DW_KEY'],
+      audience: 'define',
+      userId: null,
+      filled: false,
+      define: {
+        skill: 'dw-query',
+        versionId: 'v1',
+        layer: { scope: 'team', teamId: 't1', groupId: null },
+        specs: [
+          {
+            name: 'DW_KEY',
+            title: '数仓 Key',
+            description: '个人中心签发',
+            mode: 'personal',
+            required: true,
+          },
+        ],
+        admins: ['王磊'],
+      },
+    }
+    const calls = mockApi({
+      'GET /groups/g1/secret-requests': [defineCard],
+      'GET /groups/g1/secret-needs': [],
+      'POST /secret-requests/q-def': {},
+    })
+    render(<SecretBanner groupId="g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '去配置' }))
+    const dialog = await screen.findByRole('dialog', { name: '按声明创建密钥' })
+    expect(within(dialog).getByText('个人中心签发')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'POST', path: '/secret-requests/q-def', body: { values: {} } }),
+    )
+  })
+
+  it('keeps collapsed optional create secrets unchecked by default so saving does not silently create them', async () => {
+    const optMissing = need({
+      name: 'SLACK_HOOK',
+      spec: {
+        name: 'SLACK_HOOK',
+        title: '告警 Hook',
+        description: '可选通知',
+        mode: 'personal',
+        required: false,
+      },
+      status: 'missing_def',
+      def: null,
+      target: { scope: 'team', teamId: 't1', groupId: null, mode: 'personal' },
+      action: 'create',
+    })
+    const calls = mockApi({
+      'GET /groups/g1/secret-requests': [],
+      'GET /groups/g1/secret-needs': [dwKey, optMissing],
+      'PUT /me/secrets/d-DW_KEY': {},
+      'POST /teams/t1/secrets': {},
+    })
+    render(<SecretBanner groupId="g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '去配置' }))
+    const dialog = await screen.findByRole('dialog', { name: '配置密钥' })
+    // Save is disabled until the user either fills a required key or explicitly opts into the optional one.
+    expect((within(dialog).getByRole('button', { name: '保存' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText('DW_KEY'), { target: { value: 'dwk_12345678' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'PUT',
+        path: '/me/secrets/d-DW_KEY',
+        body: { value: 'dwk_12345678', allowForeignMachines: false },
+      }),
+    )
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/teams/t1/secrets')).toBe(false)
+  })
 })
 
 describe('define card', () => {

@@ -112,12 +112,14 @@ export function NeedsDialog({
   onDone: () => void
 }) {
   const [values, setValues] = useState<Record<string, string>>({})
-  const [skip, setSkip] = useState<Record<string, boolean>>({})
+  const [createChoice, setCreateChoice] = useState<Record<string, boolean>>({})
   const [foreign, setForeign] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const others = useForeignBots(groupId)
   const key = (n: SecretNeedDto) => `${n.skill}/${n.spec.name}`
+  // Required missing defs default to checked; optional ones stay collapsed so they must be opted into explicitly.
+  const willCreate = (n: SecretNeedDto) => createChoice[key(n)] ?? n.spec.required
   // A name shared by two skills is one value: the first row of it takes the input.
   const seen = new Set<string>()
   const rows = needs.filter((n) => {
@@ -128,7 +130,7 @@ export function NeedsDialog({
   const todo = rows.filter((n) => n.status !== 'ok' && n.action)
   const personal = todo.some((n) => n.action === 'fill_personal' || n.action === 'fill_new')
   const filledIn = todo.filter((n) => fills(n) && (values[key(n)]?.length ?? 0) > 0)
-  const creating = todo.filter((n) => n.action === 'create' && !skip[key(n)])
+  const creating = todo.filter((n) => n.action === 'create' && willCreate(n))
   const valid = filledIn.every((n) => (values[key(n)]?.length ?? 0) >= SECRET_MIN_LENGTH)
   const submit = async () => {
     setBusy(true)
@@ -172,8 +174,8 @@ export function NeedsDialog({
         n={n}
         value={values[key(n)] ?? ''}
         onValue={(v) => setValues({ ...values, [key(n)]: v })}
-        create={!skip[key(n)]}
-        onCreate={(on) => setSkip({ ...skip, [key(n)]: !on })}
+        create={willCreate(n)}
+        onCreate={(on) => setCreateChoice({ ...createChoice, [key(n)]: on })}
       />
     ))
   return (

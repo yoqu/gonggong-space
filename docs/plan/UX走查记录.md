@@ -139,3 +139,15 @@
 - P3 群设置 › Skill 页在「已引入」已有条目时上半屏仍占半屏展示「还没有 Skill」空态插画，且缺「配置密钥」快捷入口：`GroupSettingsDialog.tsx` 无条件先渲染手写 `SkillLayerList` 大空态再渲染下方 `InstalledSection`，且未按方案 §6 在 Skill 页提供密钥入口 → 有已引入条目而无手写 Skill 时手写区收为紧凑单行提示 +「添加 Skill…」按钮；本群存在 `secret-needs` 时在 Skill 页同步提供「配置密钥」按钮（验收：有引入条目的群打开 Skill 页首屏直见已引入列表与「配置密钥」入口）。
 - P3 飞书密钥卡片独立落地页（`/secret-requests/:id`）完成「按声明创建」后误写「已填写」，且未前置拦截无权限成员：`SecretRequestPage.tsx:38-55` 对 `req.define` 完成后仍显示「已填写，可以回到飞书」（实际仅建空定义未填值），且普通成员打开管理员专属链接直接弹窗，提交才报 403 → `req.define` 完成后提示「已创建密钥定义，请成员各自填写后继续」；加载后对非 `origin` 卡片前置判断管理权限，无权直接显示只读等待空态（验收：建定义完成页文案准确，普通成员打开管理员卡片链接见只读等待说明）。
 - P3 市场详情页主操作栏右侧常驻实心高饱和红底「封禁」按钮，与「引入到…」抢视觉层级（`market/ListingDetail.tsx`）→ 未封禁条目的「封禁」改为次级危险按钮或收进右上角 `···` 管理菜单，仅已封禁条目主栏展示「解除封禁」（验收：正常条目详情主操作栏仅「引入到…」一个实心主色按钮）。
+
+## 11-19 第 1 轮（Skill 密钥待办条与配置弹窗交互、群设置密钥、工作台全屏空态、市场密钥引入窄屏；桌面 1440 + 手机 390）
+
+已修（2 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 群顶栏密钥待办条遇到「按声明创建（`define`）」卡片时错开成「填写密钥」密码弹窗（`secrets/SecretBanner.tsx`）：`open === 'card' && first` 无条件渲染 `FillDialog`，未按 `first.define` 分发 `DefineDialog` → 引入 `DefineDialog` 按 `first.define` 分发（验收：群内有待处理 `define` 卡片时点顶栏「去配置」弹出「按声明创建密钥」，可直接点「创建」无需填值）。
+- P1 配置密钥弹窗折叠在「可选配置」中的待创建密钥默认勾选并被静默提交（`secrets/SecretNeeds.tsx`）：`creating` 仅看 `!skip[key]`，导致用户未展开的折叠区可选密钥默认勾选并随保存一起创建 → 改为按 `n.spec.required` 决定默认勾选态，可选密钥必须展开后手动勾选才创建（验收：含可选待创建密钥时不展开直接保存不会创建可选密钥定义）。
+
+- P2 配置密钥弹窗层级扁平、全局选项归属不清且团队层标签文案失准（`secrets/SecretNeeds.tsx`、`secrets/secrets.css`）：Skill 标题与密钥行缺少分隔，密钥条目之间无卡片描边或分割线；底部「允许在他人电脑上的 Bot 使用」紧贴在「可选配置」下方无分割线，易误解为只作用于最后一条可选密钥；团队层 `fill_shared` 标签写死「本群统一密钥 · 管理员」未按 `n.def?.scope` 区分 → 每条 `.sn-row` 加轻描边或底部分割线、全局复选框上方加分割线、`fill_shared` 按 `scope` 区分本群/团队（验收：桌面与 390px 手机下每条密钥边界清晰、全局开关与上方列表明确分隔）。
+- P2 工作台全屏空态「还没有打开的标签页」左偏未居中（`workbench` 空态容器）：全屏模式下空态块偏在左侧约 x=200px，右侧留大片空白 → 空态容器占满工作台主区并 `display: grid; place-items: center`（验收：桌面 1440 分栏与全屏模式下无标签页时提示块均居中）。
+- P2 市场引入弹窗「声明 vs 现有定义」双列对比在 390px 手机端未折成单列（`market/market.css`）：`.mkt-secret__compare` 固定 `grid-template-columns: 1fr 1fr`，窄屏每列不足 130px 挤成竖条 → `@media (max-width: 640px)` 下改为单列 `1fr`（验收：390px 下声明与现有定义上下堆叠、文字易读）。
+- P3 配置密钥弹窗在本群存在他人电脑上的 Bot 时，默认未勾选「允许在他人电脑上的 Bot 使用」（`secrets/SecretNeeds.tsx`）：与 `FillDialog`（`card.foreign` 默认勾选）不一致，成员经待办条填完个人密钥后 @群内他人 Bot 仍无法读取 → `useForeignBots(groupId)` 非空时默认勾选并保留下方说明（验收：群内有他人 Bot 时打开弹窗默认勾选且明确列出 Bot 名）。
+- P3 配置密钥弹窗输入不足 8 字符时缺少行内红字错误提示（`secrets/SecretNeeds.tsx`）：输入短值后仅「保存」按钮置灰、`SecureField` 仍只显示灰色 `hint` → 当 `value.length > 0 && value.length < SECRET_MIN_LENGTH` 时向 `SecureField` 传 `error={t('至少 8 个字符')}`（验收：输入 3 字符时输入框下方变红提示，满 8 字符恢复）。
