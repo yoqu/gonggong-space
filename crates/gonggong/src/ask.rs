@@ -1136,79 +1136,22 @@ mod tests {
         assert_eq!(tools[0]["_meta"]["anthropic/alwaysLoad"], true);
         let names: Vec<String> =
             serde_json::from_value(tools.as_array().unwrap().iter().map(|t| t["name"].clone()).collect()).unwrap();
-        assert_eq!(
-            names,
-            [
-                TOOL,
-                "list_messages",
-                "search_messages",
-                "get_group_info",
-                "get_run",
-                "list_questions",
-                "fetch_attachments",
-                "list_feishu_messages",
-                "preview_expose",
-                "preview_gui",
-                "preview_close",
-                "progress_card",
-                "hand_off",
-                "thread_create",
-                "schedule_create",
-                "schedule_list",
-                "schedule_update",
-                "schedule_delete",
-                "skill_list",
-                "skill_get",
-                "skill_create",
-                "skill_update",
-                "skill_delete",
-                "skill_toggle",
-                "skill_versions",
-                "skill_rollback",
-                "market_list",
-                "market_get",
-                "market_publish",
-                "market_mine",
-                "market_submit",
-                "market_update",
-                "market_installs",
-                "market_install",
-                "market_uninstall",
-                "market_reviews",
-                "market_review",
-                "kb_list",
-                "kb_get",
-                "kb_search",
-                "kb_create",
-                "kb_update",
-                "kb_delete",
-                "tab_list",
-                "tab_create",
-                "mcp_list",
-                "mcp_get",
-                "mcp_create",
-                "mcp_update",
-                "mcp_toggle",
-                "mcp_delete",
-                "secret_list",
-                "secret_request",
-                "plugin_catalog",
-                "creation_propose",
-                "artifact_checkout",
-                "send_attachments",
-                "service_start",
-                "service_list",
-                "service_logs",
-                "service_stop",
-                "preview_static",
-                "html_preview",
-                "html_render",
-                "client_release_publish",
-                "client_release_notes",
-                "feishu_send_card",
-                "preview_miniprogram"
-            ]
-        );
+        let expected: Vec<&str> = "\
+            ask_group_members list_messages search_messages get_group_info get_run list_questions \
+            fetch_attachments list_feishu_messages preview_expose preview_gui preview_close progress_card \
+            hand_off thread_create schedule_create schedule_list schedule_update schedule_delete \
+            webhook_create webhook_list webhook_update webhook_delete \
+            skill_list skill_get skill_create skill_update skill_delete skill_toggle skill_versions skill_rollback \
+            market_list market_get market_publish market_mine market_submit market_update \
+            market_installs market_install market_uninstall market_reviews market_review \
+            kb_list kb_get kb_search kb_create kb_update kb_delete tab_list tab_create \
+            mcp_list mcp_get mcp_create mcp_update mcp_toggle mcp_delete secret_list secret_request \
+            plugin_catalog creation_propose artifact_checkout send_attachments \
+            service_start service_list service_logs service_stop preview_static html_preview html_render \
+            client_release_publish client_release_notes feishu_send_card preview_miniprogram"
+            .split_whitespace()
+            .collect();
+        assert_eq!(names, expected);
 
         let args = json!({ "questions": [{ "type": "single", "title": "用哪种语言？", "options": ["Python", "Go"], "recommended": 0 }] });
         let call =

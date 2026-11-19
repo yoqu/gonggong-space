@@ -32,6 +32,7 @@ import { GroupPluginsTab } from '../plugins/PluginLayer'
 import { RepoSettings } from '../repos/RepoSettings'
 import { GroupSecrets } from '../secrets/GroupSecrets'
 import { NeedsDialog } from '../secrets/SecretNeeds'
+import { WebhooksView } from '../webhooks/WebhooksView'
 import { groupsApi } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { BotsView, MembersView, type SettingsTab } from './GroupInfo'
@@ -84,6 +85,7 @@ export function GroupSettingsDialog({
           { value: 'mcp' as const, label: 'MCP', icon: 'plug' as const },
           { value: 'skill' as const, label: 'Skill', icon: 'star' as const },
           { value: 'secrets' as const, label: t('密钥'), icon: 'lock' as const },
+          { value: 'webhooks' as const, label: 'Webhook', icon: 'link' as const },
           // Its view carries the chat binding and app ids, so the server serves it to admins only.
           ...(readOnly ? [] : [{ value: 'feishu' as const, label: t('飞书'), icon: 'message' as const }]),
         ]),
@@ -179,6 +181,8 @@ export function GroupSettingsDialog({
             <GroupSkillTab group={group} readOnly={readOnly} onClose={onClose} />
           ) : tab === 'secrets' ? (
             <GroupSecrets group={group} editable={!readOnly} />
+          ) : tab === 'webhooks' ? (
+            <WebhooksView group={group} readOnly={readOnly} />
           ) : tab === 'plugins' ? (
             <GroupPluginsTab group={group} readOnly={readOnly} />
           ) : tab === 'feishu' ? (

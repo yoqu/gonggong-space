@@ -72,6 +72,7 @@ export type SettingsTab =
   | 'mcp'
   | 'skill'
   | 'secrets'
+  | 'webhooks'
   | 'feishu'
   | 'plugins'
 export type InfoView =
@@ -493,6 +494,7 @@ function MainView({
                   manage('MCP', undefined, 'mcp'),
                   manage('Skill', undefined, 'skill'),
                   manage(t('密钥'), undefined, 'secrets'),
+                  manage('Webhook', undefined, 'webhooks'),
                   ...(isAdmin ? [manage(t('飞书'), undefined, 'feishu')] : []),
                 ]),
           ],

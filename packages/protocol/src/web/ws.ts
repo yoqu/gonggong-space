@@ -4,6 +4,7 @@ import { ContextUsage, GitStatus, Tier } from '../common.js'
 import { RepoAccessReason } from '../daemon.js'
 import { GroupSchedulesDto } from '../schedules.js'
 import { SyncStatusDto } from '../sync.js'
+import { GroupWebhooksDto } from '../webhooks.js'
 import { GitOperationDto } from './git.js'
 import { GroupDto, GroupTabsDto } from './groups.js'
 import {
@@ -65,6 +66,7 @@ export const WebEvent = z.discriminatedUnion('t', [
   /** The group's previews or services changed; replaces both lists (`canManage` is per receiving user). */
   GroupPreviewsDto.extend({ t: z.literal('group.previews'), groupId: z.string() }),
   GroupSchedulesDto.extend({ t: z.literal('group.schedules'), groupId: z.string() }),
+  GroupWebhooksDto.extend({ t: z.literal('group.webhooks'), groupId: z.string() }),
   /** The group's knowledge base changed (`entryId` when one entry did); clients refetch what they show. */
   z.object({ t: z.literal('group.knowledge'), groupId: z.string(), entryId: z.string().optional() }),
   /** Force groups: the replicas' sync status changed; replaces it. */

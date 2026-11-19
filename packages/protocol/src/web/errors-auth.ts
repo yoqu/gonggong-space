@@ -15,6 +15,8 @@ export const ErrorCode = z.enum([
   'recall_expired',
   /** PATCH /api/messages/:id past RECALL_WINDOW_MS. */
   'edit_expired',
+  'payload_too_large',
+  'rate_limited',
 ])
 export const ApiError = z.object({ error: ErrorCode, message: z.string() })
 

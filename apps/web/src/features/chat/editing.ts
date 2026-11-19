@@ -21,6 +21,8 @@ export const canEdit = (m: MessageDto, now = Date.now()) =>
 
 /** ↑ in an empty composer (Slack): my latest message, when it may still be edited. */
 export function lastEditable(messages: MessageDto[], me: string | undefined) {
-  const m = messages.findLast((x) => x.kind === 'user' && x.authorId === me && !x.recalled && !x.hidden)
+  const m = messages.findLast(
+    (x) => x.kind === 'user' && x.authorId === me && !x.recalled && !x.hidden && !x.webhook,
+  )
   return m && m.card?.type !== 'creation' && canEdit(m) ? m : undefined
 }

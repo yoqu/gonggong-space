@@ -1,22 +1,21 @@
 {
-  "apps/server/src/modules/feishu/mirror.ts": 1041,
   "apps/web/src/app/Sidebar.tsx": 1038,
   "apps/web/src/app/shell.css": 1090,
   "apps/web/src/features/artifacts/Canvas.tsx": 2393,
-  "apps/web/src/features/artifacts/artifacts.css": 1891,
+  "apps/web/src/features/artifacts/artifacts.css": 1888,
   "apps/web/src/features/chat/ChatView.tsx": 1055,
-  "apps/web/src/features/chat/TimelineItems.tsx": 1021,
+  "apps/web/src/features/chat/TimelineItems.tsx": 1019,
   "apps/web/src/features/files/FileViewer.tsx": 1188,
-  "crates/gonggong/src/ask.rs": 1910,
+  "crates/gonggong/src/ask.rs": 1853,
   "crates/gonggong/src/engine.rs": 1371,
   "crates/gonggong/src/git.rs": 1632,
   "crates/gonggong/src/git_write.rs": 1408,
   "crates/gonggong/src/html_render.rs": 1155,
-  "crates/gonggong/src/local.rs": 2433,
+  "crates/gonggong/src/local.rs": 1767,
   "crates/gonggong/src/providers.rs": 1107,
   "crates/gonggong/src/replicas.rs": 1102,
-  "crates/gonggong/src/session.rs": 2414,
+  "crates/gonggong/src/session.rs": 2353,
   "crates/gonggong/src/wechatide.rs": 1285,
   "crates/gonggong/src/workspace.rs": 1746,
-  "packages/protocol/src/tools.ts": 1107
+  "packages/protocol/src/tools.ts": 1024
 }

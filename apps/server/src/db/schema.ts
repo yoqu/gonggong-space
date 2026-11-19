@@ -692,6 +692,9 @@ export const messages = pgTable(
     index('messages_schedule_of')
       .on(sql`(${t.meta}->>'scheduleOf')`, t.seq)
       .where(sql`(${t.meta}->>'scheduleOf') is not null`),
+    index('messages_webhook_dedupe')
+      .on(sql`(${t.meta}->>'webhookOf')`, sql`(${t.meta}->>'webhookDedupe')`, t.createdAt)
+      .where(sql`(${t.meta}->>'webhookDedupe') is not null`),
     // Search (⌘K and the agent tool): `body ilike '%q%'` for terms of 3+ characters.
     index('messages_body_trgm').using('gin', t.body.op('gin_trgm_ops')),
   ],
@@ -1520,6 +1523,40 @@ export const schedules = pgTable(
     deletedAt: ts('deleted_at'),
   },
   (t) => [index('schedules_due').on(t.nextRunAt), index('schedules_group').on(t.groupId)],
+)
+
+/** Inbound webhooks (plan 群Webhook): external systems post into a group and may @ its candidate bots. */
+export const webhooks = pgTable(
+  'webhooks',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    /** Posts in this member's name and is authorized against them; disabled if they leave the group. */
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id),
+    /** Set when a bot created it with the gonggong tools. */
+    createdByBotId: uuid('created_by_bot_id').references(() => bots.id),
+    createdByRunId: uuid('created_by_run_id'),
+    name: text('name').notNull(),
+    /** sha256(token); null when created by a bot before an admin generates/rotates the token. */
+    tokenHash: text('token_hash'),
+    /** Candidates this webhook may @, most suitable first; empty = post-only. */
+    botIds: jsonb('bot_ids').$type<string[]>().notNull().default([]),
+    /** Custom troubleshooting instruction; null = default prompt. */
+    promptTemplate: text('prompt_template'),
+    enabled: boolean('enabled').notNull().default(true),
+    lastCalledAt: ts('last_called_at'),
+    lastRunId: uuid('last_run_id'),
+    createdAt: createdAt(),
+    deletedAt: ts('deleted_at'),
+  },
+  (t) => [
+    index('webhooks_group').on(t.groupId),
+    uniqueIndex('webhooks_token_hash').on(t.tokenHash).where(sql`${t.tokenHash} is not null`),
+  ],
 )
 
 /** Group knowledge base (群知识库): markdown entries every bot of the group reads; members and bots maintain them. */

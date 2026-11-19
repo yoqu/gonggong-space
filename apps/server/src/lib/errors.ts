@@ -13,6 +13,8 @@ const STATUS: Record<z.infer<typeof ErrorCode>, number> = {
   code_locked: 423,
   recall_expired: 409,
   edit_expired: 409,
+  payload_too_large: 413,
+  rate_limited: 429,
 }
 
 export class HttpError extends Error {

@@ -51,6 +51,14 @@ export type MessageMeta = {
   schedule?: string
   /** Posted by this scheduled task when it fired. */
   scheduleOf?: string
+  /** Posted by this inbound webhook. */
+  webhookOf?: string
+  /** Display name and id of the inbound webhook that posted this message. */
+  webhook?: { id: string; name: string }
+  /** Idempotency key supplied by the webhook caller (deduped within 24h). */
+  webhookDedupe?: string
+  /** Troubleshooting instruction injected into the triggered bot's context. */
+  webhookPrompt?: string
   i18n?: I18nText
   /** A force-sync conflict card (F11). */
   syncConflict?: { id: string; botId: string }
@@ -84,8 +92,10 @@ export type MessageMeta = {
   alsoSent?: boolean
 }
 
-/** A user message's author name, a Feishu sender's when they have no 共工 account; needs `users` left-joined. */
-export const userAuthorName = sql<string | null>`coalesce(${users.name}, ${messages.meta}->'feishu'->>'name')`
+/** A user message's author name, a webhook's name or Feishu sender's when they have no 共工 account; needs `users` left-joined. */
+export const userAuthorName = sql<
+  string | null
+>`coalesce(${messages.meta}->'webhook'->>'name', ${users.name}, ${messages.meta}->'feishu'->>'name')`
 
 /** A recalled message keeps only its envelope (its body, attachments and quote are already erased). */
 export const messageDto = (m: MessageRow, authorName: string, reactions: ReactionDto[] = []): MessageDto => {
@@ -96,7 +106,8 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     groupId: m.groupId,
     kind: m.kind as MessageDto['kind'],
     authorId: m.authorUserId ?? m.authorBotId,
-    authorName: authorName || ((m.meta as MessageMeta).feishu?.name ?? ''),
+    authorName:
+      (m.meta as MessageMeta).webhook?.name || authorName || ((m.meta as MessageMeta).feishu?.name ?? ''),
     body: m.body,
     mentions: recalled ? [] : ((m.meta as MessageMeta).mentions ?? []),
     userMentions: recalled ? [] : ((m.meta as MessageMeta).userMentions ?? []),
@@ -112,6 +123,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).preview && { previewId: (m.meta as MessageMeta).preview }),
     ...((m.meta as MessageMeta).schedule && { scheduleId: (m.meta as MessageMeta).schedule }),
     ...((m.meta as MessageMeta).scheduleOf && { scheduledBy: (m.meta as MessageMeta).scheduleOf }),
+    ...((m.meta as MessageMeta).webhook && { webhook: (m.meta as MessageMeta).webhook }),
     ...((m.meta as MessageMeta).i18n && { i18n: (m.meta as MessageMeta).i18n }),
     ...((m.meta as MessageMeta).syncConflict && { syncConflict: (m.meta as MessageMeta).syncConflict }),
     ...((m.meta as MessageMeta).mcpSecret && { mcpSecret: (m.meta as MessageMeta).mcpSecret }),

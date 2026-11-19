@@ -369,7 +369,7 @@ const threadable = (m: MessageDto) => m.kind !== 'event' && !m.threadRootId && !
 
 /** Another member: avatar and name open their user card. */
 function person(m: MessageDto, avatar?: string): MessageAuthor {
-  // A Feishu sender without a 共工 account has no user card.
+  if (m.webhook) return { name: m.webhook.name }
   if (!m.authorId) return { name: m.authorName, avatar }
   const id = m.authorId
   return {
@@ -505,28 +505,28 @@ export const UserMessage = memo(function UserMessage({
   const canvas = messageCanvas(m)
   const thread = useThreadSummary(m)
   const scope = useContext(ThreadScope)
+  const own = mine && !m.webhook
   return (
     <MessageMenu
-      {...messageTarget(
-        m,
-        mine,
-        mine && !creation ? () => startEditing(m.id) : undefined,
-        startedRuns,
-        scope,
-      )}
+      {...messageTarget(m, own, own && !creation ? () => startEditing(m.id) : undefined, startedRuns, scope)}
     >
       {(bar) => (
         <Message
-          author={mine ? { name: m.authorName, avatar: avatar ?? undefined } : person(m, avatar ?? undefined)}
-          self={mine}
+          author={own ? { name: m.authorName, avatar: avatar ?? undefined } : person(m, avatar ?? undefined)}
+          self={own}
           continued={compact}
           time={<Time iso={m.createdAt} edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
           stamp={<Stamp iso={m.createdAt} />}
           marks={<Marks edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
           meta={
-            m.scheduledBy || unnamed.length || m.alsoSent ? (
+            m.scheduledBy || m.webhook || unnamed.length || m.alsoSent ? (
               <>
                 {m.alsoSent ? <AlsoSent m={m} /> : null}
+                {m.webhook ? (
+                  <Tag tone="gray" icon="link">
+                    Webhook
+                  </Tag>
+                ) : null}
                 {m.scheduledBy ? (
                   <Tag tone="gray" icon="clock">
                     {t('定时任务')}

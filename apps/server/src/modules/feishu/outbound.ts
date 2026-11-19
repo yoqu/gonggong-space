@@ -167,8 +167,10 @@ export async function mirrorUserMessage(ctx: Ctx, message: MessageRow, author: {
     const from = dm ? await singleChatApp(ctx, chat.chatId) : await mainApp(ctx)
     if (!from) return
     const app = credsOf(from)
-    const token = dm ? null : await userToken(ctx, author.id)
     const meta = message.meta as MessageMeta
+    // Webhook messages go through the app under the webhook's name instead of impersonating the owner in Feishu.
+    const token = dm || meta.webhook ? null : await userToken(ctx, author.id)
+    const displayName = meta.webhook?.name ?? author.name
     const files = await filesOf(ctx, meta)
     const body = await withFeishuAts(
       ctx,
@@ -201,7 +203,7 @@ export async function mirrorUserMessage(ctx: Ctx, message: MessageRow, author: {
     // Without text, a proxied message still needs the author's name in front of its files.
     const proxied = body.trim() || files.map((f) => f.name).join('、')
     if (!sent && (body.trim() || !token))
-      sent = await ctx.feishu.api.send(app, chat.chatId, textBody(`${author.name}：${proxied}`), { replyTo })
+      sent = await ctx.feishu.api.send(app, chat.chatId, textBody(`${displayName}：${proxied}`), { replyTo })
     if (sent)
       await ctx.db.insert(feishuMessageLinks).values({
         feishuMessageId: sent.messageId,

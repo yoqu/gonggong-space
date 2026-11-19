@@ -1,5 +1,5 @@
 import { type I18nText, TERMINAL_RUN_STATUS } from '@gonggong/protocol'
-import { and, asc, count, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groups, messages, runs, schedules, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
@@ -10,6 +10,7 @@ import { activeBots } from '../groups/service.js'
 import { type MessageRow, messageDto, postEvent, publishMessage } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import type { RunRow } from '../runs/dto.js'
+import { pickAvailableBot, UNFINISHED } from '../runs/pick.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { publishSchedules, type ScheduleRow } from './service.js'
 import { nextFire } from './timing.js'
@@ -18,7 +19,6 @@ const BATCH = 50
 const FAIL_LIMIT = 3
 /** A one-off that missed its time by more than this (server down) is dropped instead of fired late. */
 const MISS_LIMIT_MS = 24 * 3600_000
-const UNFINISHED = ['queued', 'offline_wait', 'running', 'awaiting_approval', 'awaiting_answer']
 
 /** Turns the schedule off for `reason`, says so in its group and tells its owner. */
 async function pause(ctx: Ctx, s: ScheduleRow, reason: I18nText) {
@@ -70,47 +70,6 @@ export async function settleSchedule(ctx: Ctx, run: RunRow) {
   if (s.enabled && failStreak >= FAIL_LIMIT)
     await pause(ctx, s, { key: '连续 {n} 次失败', params: { n: failStreak } })
   await publishSchedules(ctx, s.groupId)
-}
-
-/** The first candidate that is online and idle, else the first online one (its run queues); null when none is. */
-async function pick(
-  ctx: Ctx,
-  groupId: string,
-  candidates: { id: string; name: string; machineId: string | null }[],
-) {
-  const state = await ctx.db
-    .select({ id: bots.id, binding: bots.binding, workspace: groupBots.workspaceState })
-    .from(bots)
-    .innerJoin(groupBots, and(eq(groupBots.botId, bots.id), eq(groupBots.groupId, groupId)))
-    .where(
-      inArray(
-        bots.id,
-        candidates.map((b) => b.id),
-      ),
-    )
-  const busy = await ctx.db
-    .select({ botId: runs.botId, n: count() })
-    .from(runs)
-    .where(
-      and(
-        inArray(
-          runs.botId,
-          candidates.map((b) => b.id),
-        ),
-        inArray(runs.status, UNFINISHED),
-      ),
-    )
-    .groupBy(runs.botId)
-  const usable = candidates.filter((b) => {
-    const st = state.find((x) => x.id === b.id)
-    return (
-      st?.binding === 'bound' &&
-      !['unbound', 'confirm'].includes(st.workspace) &&
-      !!b.machineId &&
-      ctx.hub.isOnline(b.machineId)
-    )
-  })
-  return usable.find((b) => !busy.some((x) => x.botId === b.id)) ?? usable[0] ?? null
 }
 
 /**
@@ -167,7 +126,7 @@ async function fire(ctx: Ctx, s: ScheduleRow, manual = false) {
   const inGroup = await activeBots(ctx, s.groupId)
   const candidates = s.botIds.flatMap((id) => inGroup.filter((b) => b.id === id))
   if (!candidates.length) return pause(ctx, s, { key: '候选 Bot 都已不在群内' })
-  const bot = await pick(ctx, s.groupId, candidates)
+  const bot = await pickAvailableBot(ctx, s.groupId, candidates)
   if (!bot && manual)
     fail('conflict', '候选 Bot 都不可用（{bots}）', { bots: candidates.map((b) => b.name).join('、') })
   if (!bot)

@@ -25,6 +25,7 @@ import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
 import { pauseStopped, requeueRun } from '../sync/resolve.js'
 import { followOnReply, publishThread } from '../threads/service.js'
+import { settleWebhook } from '../webhooks/service.js'
 import { publishBotState, updateContextUsage } from '../workspaces/state.js'
 import { cardColumns, publishRun, publishStep, type RunRow } from './dto.js'
 import { redactDeep } from './redact.js'
@@ -694,7 +695,8 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
           .from(messages)
           .where(eq(messages.id, run.triggerMessageId))
       : []
-    const sessionId = (trigger?.meta as MessageMeta | undefined)?.scheduleOf ? null : done.sessionId
+    const triggerMeta = trigger?.meta as MessageMeta | undefined
+    const sessionId = triggerMeta?.scheduleOf || triggerMeta?.webhookOf ? null : done.sessionId
     // Asked in a thread: the session is the thread's (plan 话题).
     const thread = sessionId ? trigger?.threadRootId : null
     if (thread && sessionId)
@@ -776,6 +778,7 @@ async function finalize(ctx: Ctx, run: RunRow) {
   await publishBot(ctx, run.botId)
   await triggerChain(ctx, run)
   await settleSchedule(ctx, run)
+  await settleWebhook(ctx, run)
   await requeueAppends(ctx, run, run.appendsApplied)
   // Last: a relay hop created above keeps the chain open.
   await notifyChainDone(ctx, run)

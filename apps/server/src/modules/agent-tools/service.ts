@@ -64,6 +64,7 @@ import {
   skillUpdate,
 } from './skills.js'
 import { tabCreate, tabList } from './tabs.js'
+import { webhookCreate, webhookDelete, webhookList, webhookUpdate } from './webhooks.js'
 
 type Run = typeof runs.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -476,6 +477,10 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   schedule_list: (ctx, s) => scheduleList(ctx, s.run),
   schedule_update: (ctx, s, a) => scheduleUpdate(ctx, s.run, a),
   schedule_delete: (ctx, s, a) => scheduleDelete(ctx, s.run, a),
+  webhook_create: (ctx, s, a) => webhookCreate(ctx, s.run, a),
+  webhook_list: (ctx, s) => webhookList(ctx, s.run),
+  webhook_update: (ctx, s, a) => webhookUpdate(ctx, s.run, a),
+  webhook_delete: (ctx, s, a) => webhookDelete(ctx, s.run, a),
   skill_list: (ctx, s) => skillList(ctx, s.run),
   skill_get: (ctx, s, a) => skillGet(ctx, s.run, a),
   skill_create: (ctx, s, a) => skillCreate(ctx, s.run, a),

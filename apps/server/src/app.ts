@@ -98,6 +98,7 @@ import { terminalSpaceRoutes } from './modules/terminals/spaces.js'
 import { threadRoutes } from './modules/threads/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
+import { webhookRoutes } from './modules/webhooks/routes.js'
 import { currentRepo, startWorkspaceEngine } from './modules/workspaces/provision.js'
 import { workspaceRoutes } from './modules/workspaces/routes.js'
 import { webGateway } from './realtime/gateway.js'
@@ -166,6 +167,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   const stopScheduleEngine = startScheduleEngine(ctx)
   app.addHook('onClose', stopScheduleEngine)
   await app.register(scheduleRoutes(ctx))
+  await app.register(webhookRoutes(ctx))
   await app.register(knowledgeRoutes(ctx))
   await app.register(pinRoutes(ctx))
   await app.register(groupTabRoutes(ctx))

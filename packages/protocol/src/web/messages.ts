@@ -125,6 +125,8 @@ export const MessageDto = z.object({
   scheduleId: z.string().nullable().optional(),
   /** Posted by this scheduled task when it fired (in its owner's name). */
   scheduledBy: z.string().nullable().optional(),
+  /** Posted by an inbound webhook of this group (in its owner's name; displayed under the webhook's name). */
+  webhook: z.object({ id: z.string(), name: z.string() }).optional(),
   /** An event's translatable source; `body` holds its Chinese rendering. */
   i18n: I18nText.optional(),
   /** A force-sync conflict card (F11): the held change and whose replica it is. */

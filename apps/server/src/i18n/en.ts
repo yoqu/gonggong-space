@@ -1091,4 +1091,12 @@ export const en = {
   '已删除的 Bot': 'Deleted Bot',
   '{name}：{line}': '{name}: {line}',
   '服务器出错了，请稍后重试': 'Something went wrong on the server; try again later',
+  // Webhooks
+  'Webhook 不存在': 'Webhook not found',
+  '仅 Webhook 主人或群管理员可操作': 'Only the webhook owner or a group admin may do this',
+  '每个群最多 {n} 个 Webhook': 'At most {n} webhooks per group',
+  'Webhook 无效或已停用': 'Invalid or disabled webhook',
+  'Webhook 调用过于频繁，请稍后再试': 'Too many webhook requests; try again later',
+  '正文不能超过 {kb} KB': 'Body cannot exceed {kb} KB',
+  '附件不能超过 {kb} KB': 'Attachment cannot exceed {kb} KB',
 } satisfies Record<string, string>
