@@ -1,7 +1,9 @@
-/** Log-scale zoom per wheel pixel: 0.01 felt coarse on pinches and made a mouse notch (|deltaY| ≈ 100) a 2.7× jump. */
-const WHEEL_ZOOM_DIVISOR = 300
-/** One wheel event zooms by at most this much in log scale: about 3.4% per mouse notch. */
-const WHEEL_ZOOM_MAX = 0.1 / 3
+/** Log-scale zoom per wheel pixel: 1/300 felt sluggish; 0.01 made a mouse notch (|deltaY| ≈ 100) a 2.7× jump. */
+const WHEEL_ZOOM_DIVISOR = 150
+/** One wheel event zooms by at most this much in log scale: about 7% per mouse notch. */
+const WHEEL_ZOOM_MAX = 0.2 / 3
+/** Safari's pinch scale followed 1:1 felt as slow as the old wheel rate; zoom twice as far in log scale. */
+const PINCH_SPEED = 2
 const LINE_PX = 16
 
 /** The zoom factor for a ⌘/Ctrl wheel or trackpad pinch: smooth for small pinch deltas, capped for mouse notches. */
@@ -23,7 +25,7 @@ export function onPinch(el: HTMLElement, zoom: (factor: number, clientX: number,
       last = 1
       return
     }
-    zoom(g.scale / last, g.clientX, g.clientY)
+    zoom((g.scale / last) ** PINCH_SPEED, g.clientX, g.clientY)
     last = g.scale
   }
   el.addEventListener('gesturestart', gesture)

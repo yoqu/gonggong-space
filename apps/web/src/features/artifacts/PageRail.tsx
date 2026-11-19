@@ -37,6 +37,16 @@ const SPLIT_KEY = 'gg.art.railSplit'
 const NARROW_PX = 720
 const SPLIT_MIN = 0.2
 const SPLIT_MAX = 0.85
+const WIDTH_KEY = 'gg.art.railWidth'
+const WIDTH_MIN = 180
+const WIDTH_MAX = 480
+const WIDTH_DEFAULT = 248
+
+const clampWidth = (w: number) => Math.round(Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, w)))
+const readWidth = () => {
+  const v = Number(localStorage.getItem(WIDTH_KEY))
+  return v >= WIDTH_MIN && v <= WIDTH_MAX ? v : WIDTH_DEFAULT
+}
 
 const readSplit = () => {
   const v = Number(localStorage.getItem(SPLIT_KEY))
@@ -66,6 +76,19 @@ export function useRail() {
     localStorage.setItem(OPEN_KEY, v ? '1' : '0')
   }
   return { ref, narrow, open, setOpen }
+}
+
+/** Follows a pointer drag from `e` until release, then calls `done`. */
+function drag(e: PointerEvent<HTMLElement>, move: (ev: globalThis.PointerEvent) => void, done: () => void) {
+  e.preventDefault()
+  e.currentTarget.setPointerCapture(e.pointerId)
+  const up = () => {
+    done()
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+  }
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', up)
 }
 
 /** Menus stay narrow enough to open inside the rail's side of the tab. */
@@ -111,28 +134,54 @@ export function PageRail({
   onPicked: () => void
 }) {
   const [split, setSplit] = useState(readSplit)
+  const [width, setWidth] = useState(readWidth)
   const box = useRef<HTMLDivElement>(null)
   const resize = (e: PointerEvent<HTMLDivElement>) => {
     const el = box.current
     if (!el) return
-    e.currentTarget.setPointerCapture(e.pointerId)
     const rect = el.getBoundingClientRect()
     let last = split
-    const move = (ev: globalThis.PointerEvent) => {
-      last = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, (ev.clientY - rect.top) / rect.height))
-      setSplit(last)
-    }
-    const up = () => {
-      localStorage.setItem(SPLIT_KEY, String(last))
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
+    drag(
+      e,
+      (ev) => {
+        last = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, (ev.clientY - rect.top) / rect.height))
+        setSplit(last)
+      },
+      () => localStorage.setItem(SPLIT_KEY, String(last)),
+    )
+  }
+  const resizeWidth = (e: PointerEvent<HTMLDivElement>) => {
+    const x0 = e.clientX
+    const w0 = width
+    let last = width
+    drag(
+      e,
+      (ev) => {
+        last = clampWidth(w0 + ev.clientX - x0)
+        setWidth(last)
+      },
+      () => localStorage.setItem(WIDTH_KEY, String(last)),
+    )
   }
 
   return (
-    <aside className="art-rail" aria-label={t('页面与命令')} data-testid="art-rail" ref={box}>
+    <aside
+      className="art-rail"
+      aria-label={t('页面与命令')}
+      data-testid="art-rail"
+      ref={box}
+      style={{ width }}
+    >
+      {/* biome-ignore lint/a11y/useSemanticElements: a draggable splitter, not a static rule */}
+      <div
+        className="art-rail__edge"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('调整宽度')}
+        aria-valuenow={width}
+        tabIndex={-1}
+        onPointerDown={resizeWidth}
+      />
       <section className="art-rail__pages" style={{ flexBasis: canEdit ? `${split * 100}%` : '100%' }}>
         <Pages
           artifactId={artifactId}

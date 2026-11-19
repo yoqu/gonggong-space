@@ -191,6 +191,21 @@ describe('page rail', () => {
     await waitFor(() => expect(onEdit).toHaveBeenLastCalledWith([addGroup(M, '个人中心')]))
   })
 
+  it('drags its right edge to resize the rail and remembers the width', () => {
+    renderRail()
+    const rail = screen.getByTestId('art-rail')
+    expect(rail.style.width).toBe('248px')
+    const edge = screen.getByRole('separator', { name: '调整宽度' })
+    edge.setPointerCapture = () => {}
+    fireEvent.pointerDown(edge, { pointerId: 1, clientX: 248 })
+    fireEvent.pointerMove(window, { clientX: 348 })
+    expect(rail.style.width).toBe('348px')
+    fireEvent.pointerMove(window, { clientX: 2000 })
+    expect(rail.style.width).toBe('480px')
+    fireEvent.pointerUp(window)
+    expect(localStorage.getItem('gg.art.railWidth')).toBe('480')
+  })
+
   it('drags a page into a group', async () => {
     mockApi({ 'GET /artifacts/a1/history': [] })
     const onEdit = renderRail()

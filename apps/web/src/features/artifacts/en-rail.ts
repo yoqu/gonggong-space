@@ -31,4 +31,5 @@ export default {
   '还没有发给 AI 的命令': 'No commands sent to AI yet',
   定位消息: 'Show message',
   执行过程: 'Process',
+  调整宽度: 'Resize',
 }

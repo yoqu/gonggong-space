@@ -9,13 +9,26 @@
   min-width: 0;
 }
 .art-rail {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: none;
-  width: 248px;
   min-height: 0;
   border-right: 1px solid var(--separator);
   background: var(--window-bg);
+}
+/* Drag the right edge to resize the rail. */
+.art-rail__edge {
+  position: absolute;
+  inset: 0 -3px 0 auto;
+  width: 6px;
+  z-index: 2;
+  cursor: col-resize;
+}
+.art-rail__edge:hover,
+.art-rail__edge:active {
+  background: var(--accent);
+  opacity: 0.4;
 }
 /* Narrow tabs: the rail is a drawer over the canvas. */
 .art-main--narrow .art-rail {
