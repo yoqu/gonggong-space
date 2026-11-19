@@ -34,6 +34,7 @@
 - `docs/plan/acp-research.md` — ACP 客户端调研（2026-09-23） — 长期有效
 - `docs/plan/terminal-protocol.md` — 网页终端协议 — 长期有效
 - `docs/plan/产物托管与编辑-待办.md` — 产物托管与编辑 · 待办 — 进行中
+- `docs/plan/原型协作-AI编辑可视化与多人光标-方案.md` — 原型协作：AI 编辑可视化 + 多人光标 — 评审中
 - `docs/plan/发布与平台说明.md` — 发布与平台说明 — 长期有效
 - `docs/plan/团队密钥-方案.md` — 密钥管理方案（团队 / 群 / 个人 / 本机） — 进行中
 - `docs/plan/Skill密钥声明-方案.md` — Skill 密钥声明与配置引导（团队密钥二期） — 评审中
