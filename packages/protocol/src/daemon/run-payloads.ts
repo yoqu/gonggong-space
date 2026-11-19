@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { AgentSettingValues } from '../agent-settings.js'
-import { ArtifactDir, DaemonArtifactRef } from '../artifacts.js'
+import { DaemonArtifactRef } from '../artifact-daemon.js'
+import { ArtifactDir } from '../artifacts.js'
 import {
   AgentKind,
   Approval,
