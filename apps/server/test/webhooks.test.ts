@@ -13,6 +13,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   attachments,
   auditLogs,
+  feishuApps,
+  feishuChats,
   groupBots,
   groupMembers,
   machines,
@@ -20,6 +22,8 @@ import {
   runs,
   webhooks,
 } from '../src/db/schema.js'
+import { seal } from '../src/lib/seal.js'
+import { feishuIdle } from '../src/modules/feishu/mirror.js'
 import { createTestApp, type TestApp } from './support/app.js'
 
 let t: TestApp
@@ -110,6 +114,49 @@ async function world() {
     groupMessages,
   }
 }
+
+describe('webhook notifications in a bound Feishu group', () => {
+  it('renders an opt-in native card and leaves ordinary webhook notices as text', async () => {
+    const w = await world()
+    await t.db.insert(feishuApps).values({
+      kind: 'main',
+      appId: 'cli_main',
+      appSecret: seal('s'),
+      updatedBy: w.wang.id,
+    })
+    await t.db.insert(feishuChats).values({ groupId: w.group.id, chatId: 'oc_deploy', boundBy: w.wang.id })
+    const { body } = await w.create('wang', { name: 'Jenkins 部署成功' })
+    const title = '任务：部署 #42'
+    const log = '提交记录\n1234567 修复 <at id=all></at>\n89abcde 更新测试'
+    const url = 'https://ci.example.com/job/deploy/42/console'
+    const notice = await w.callHook(body.token, {
+      text: `${title}\n\n${log}`,
+      card: { tone: 'success', url },
+    })
+    const plain = await w.callHook(body.token, { text: '普通通知' })
+    await feishuIdle(t.ctx)
+
+    expect(notice.status).toBe(200)
+    expect(plain.status).toBe(200)
+    const [card, message] = t.feishu.sent
+    expect(card).toMatchObject({
+      chatId: 'oc_deploy',
+      msgType: 'interactive',
+      content: {
+        header: { title: { content: 'Jenkins 部署成功' }, template: 'green' },
+        body: {
+          elements: [
+            { tag: 'div', text: { tag: 'plain_text', content: title } },
+            { tag: 'hr' },
+            { tag: 'div', text: { tag: 'plain_text', content: log } },
+            { tag: 'button', behaviors: [{ type: 'open_url', default_url: url }] },
+          ],
+        },
+      },
+    })
+    expect(message).toMatchObject({ msgType: 'text', content: { text: 'Jenkins 部署成功：普通通知' } })
+  })
+})
 
 describe('webhooks REST management', () => {
   it('admins create, list, update, rotate and delete webhooks; tokens are stored hashed only', async () => {

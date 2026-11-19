@@ -15,6 +15,7 @@ import type {
   RunConfigPick,
   SecretCard,
   SyncDecision,
+  WebhookCallReq,
 } from '@gonggong/protocol'
 import { eq, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -55,6 +56,7 @@ export type MessageMeta = {
   webhookOf?: string
   /** Display name and id of the inbound webhook that posted this message. */
   webhook?: { id: string; name: string }
+  webhookCard?: WebhookCallReq['card']
   /** Idempotency key supplied by the webhook caller (deduped within 24h). */
   webhookDedupe?: string
   /** Troubleshooting instruction injected into the triggered bot's context. */

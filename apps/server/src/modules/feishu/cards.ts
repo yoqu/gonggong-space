@@ -633,6 +633,22 @@ export function notificationCard(o: { label: string; group: string; text: string
   )
 }
 
+export function webhookNotificationCard(o: {
+  title: string
+  tone: 'success' | 'failure'
+  body: string
+  url?: string
+}) {
+  const boundary = o.body.indexOf('\n\n')
+  const summary = boundary < 0 ? o.body : o.body.slice(0, boundary)
+  const detail = boundary < 0 ? '' : o.body.slice(boundary + 2)
+  return card(o.title, o.tone === 'success' ? 'green' : 'red', [
+    { tag: 'div', text: text(summary) },
+    ...(detail ? [{ tag: 'hr' }, { tag: 'div', text: text(detail) }] : []),
+    ...(o.url ? [linkButton('查看 Jenkins 控制台', o.url, true)] : []),
+  ])
+}
+
 /** 飞书通知 of a share request: 同意 / 拒绝 while pending, then who decided. */
 export function shareRequestCard(o: {
   label: string

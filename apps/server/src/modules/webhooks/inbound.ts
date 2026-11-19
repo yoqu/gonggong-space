@@ -190,6 +190,12 @@ export async function handleWebhookCall(
     ...runOptionsMeta,
     webhookOf: w.id,
     webhook: { id: w.id, name: w.name },
+    ...(req.card && {
+      webhookCard: {
+        tone: req.card.tone,
+        ...(req.card.url && redact(req.card.url) === req.card.url && { url: req.card.url }),
+      },
+    }),
     ...(req.dedupeKey && { webhookDedupe: req.dedupeKey }),
     ...(webhookPrompt && { webhookPrompt }),
     ...(stored && { attachments: [stored.attachment] }),

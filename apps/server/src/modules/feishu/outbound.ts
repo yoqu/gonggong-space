@@ -14,10 +14,11 @@ import {
 import { type AttachmentRow, openStored } from '../attachments/service.js'
 import type { MessageMeta } from '../messages/service.js'
 import { mainApp } from './apps.js'
+import { webhookNotificationCard } from './cards.js'
 import { type FeishuBody, type FeishuCreds, FeishuError, type FeishuFileType } from './client.js'
 import { credsOf } from './gateway.js'
 import { publicUrl, userToken } from './identity.js'
-import { appOfBot, boundChat, enqueue } from './mirror.js'
+import { appOfBot, boundChat, cardBody, enqueue } from './mirror.js'
 
 type Link = typeof feishuMessageLinks.$inferSelect
 type MessageRow = typeof messages.$inferSelect
@@ -202,6 +203,18 @@ export async function mirrorUserMessage(ctx: Ctx, message: MessageRow, author: {
     const byUser = !!sent
     // Without text, a proxied message still needs the author's name in front of its files.
     const proxied = body.trim() || files.map((f) => f.name).join('、')
+    if (!sent && meta.webhook && meta.webhookCard)
+      sent = await ctx.feishu.api
+        .send(
+          app,
+          chat.chatId,
+          cardBody(webhookNotificationCard({ title: displayName, body: proxied, ...meta.webhookCard })),
+          { replyTo },
+        )
+        .catch((err) => {
+          if (!(err instanceof FeishuError)) throw err
+          return null
+        })
     if (!sent && (body.trim() || !token))
       sent = await ctx.feishu.api.send(app, chat.chatId, textBody(`${displayName}：${proxied}`), { replyTo })
     if (sent)

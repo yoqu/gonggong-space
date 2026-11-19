@@ -86,6 +86,21 @@ export const WebhookCallReq = z.object({
   prompt: WebhookPrompt.optional(),
   /** A text file attached to the message (e.g. the console tail), readable by the bot. */
   attachment: z.object({ name: z.string().trim().min(1).max(200), content: z.string() }).optional(),
+  /** An opt-in native card in the bound Feishu group; never accepts raw HTML or card JSON. */
+  card: z
+    .object({
+      tone: z.enum(['success', 'failure']),
+      url: z
+        .url({ protocol: /^https$/ })
+        .max(1000)
+        .refine((value) => {
+          if (!URL.canParse(value)) return false
+          const url = new URL(value)
+          return !url.username && !url.password
+        })
+        .optional(),
+    })
+    .optional(),
   dedupeKey: z.string().trim().min(1).max(200).optional(),
 })
 export type WebhookCallReq = z.infer<typeof WebhookCallReq>
