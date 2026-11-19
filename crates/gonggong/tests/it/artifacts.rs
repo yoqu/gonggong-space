@@ -414,6 +414,7 @@ fn run_start(run_id: &str, cwd: &Path, text: &str, artifacts: Vec<DaemonArtifact
         run_id: run_id.into(),
         group_id: "g1".into(),
         group_name: "设计".into(),
+        thread_root_id: None,
         bot: RunBot {
             id: "b1".into(),
             name: "小王的 Claude".into(),

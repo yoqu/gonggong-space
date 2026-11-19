@@ -34,8 +34,8 @@
 - Bot 离线时触发的运行进 `offline_wait`，超过群参数 `offlineWaitMin`（默认 30 分钟）作废并通知触发人（`runs/stop.ts` `expireOfflineRuns`）。
 
 ## 运行生命周期
-- 调度以服务端为准（`runs/scheduler.ts` `schedule`）：按 Bot 加 advisory 锁，按触发消息 seq 顺序派发；同一（群, Bot）同时只跑一轮，其余排队；占用并发槽位的状态为 `ACTIVE`（running / awaiting_approval / awaiting_answer）。
-- 不派发的原因写进 `step`：本群上一轮未结束、强制同步挂起、工作区准备中、客户端版本过低、Bot 忙、Bot 离线。
+- 调度以服务端为准（`runs/scheduler.ts` `schedule`）：按 Bot 加 advisory 锁，按触发消息 seq 顺序派发；同一（会话, Bot）同时只跑一轮，其余排队，会话指群主时间线或某个话题（话题有独立 session，与主会话、其他话题互不排队；共用工作目录的并行写由 daemon 目录忙提问卡兜底）。按触发消息所在话题算，「Bot 回复进话题」的群里主时间线的轮次仍算主会话。daemon 按（群, Bot, 话题）各开一个会话（`RunStart.threadRootId`，特性 `threadSessions`）；不带该特性的旧 daemon 和强制同步群（单副本一次只给一轮）仍按群串行；占用并发槽位的状态为 `ACTIVE`（running / awaiting_approval / awaiting_answer）。
+- 不派发的原因写进 `step`：本群/本话题上一轮未结束、强制同步挂起、工作区准备中、客户端版本过低、Bot 忙、Bot 离线。
 - 事务内先标 running 再提交后发送 `run.start`；发送失败退回 `offline_wait`，提交后崩溃由下次 hello 对账中断。
 - `RunStart` 携带：bot（agentKind、systemPrompt、tier、model/effort、approval、allowlist、alwaysAllow、aiReview、git 身份、agentSettings）、`workspace`、`resumeSessionId`/`newSessionReason`、prompt（text、context、omitted、fallbackContext、attachments、quote）、`mcpServers`、`skills`、`plugins`、`hiddenTools`、`command`、`sync`、`artifacts`、`env`（密钥，仅内存）。
 - 过程以 `run.event` 上报（`RunEvent`：text / thought / tool / status / usage / task / subagent / compaction / plan），服务端按机器串行处理，积压超 32MB 时丢流式片段（`runs/engine.ts`）。

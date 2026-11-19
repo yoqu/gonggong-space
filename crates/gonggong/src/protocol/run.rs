@@ -23,6 +23,9 @@ pub struct RunPrompt {
     pub quote: Option<Quote>,
 }
 
+/// (group, bot, thread) of a run's conversation: a group's threads are conversations of their own beside its main one.
+pub type ConversationKey = (String, String, Option<String>);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunStart {
@@ -30,6 +33,10 @@ pub struct RunStart {
     pub group_id: String,
     #[serde(default)]
     pub group_name: String,
+    /// Asked in this thread: a turn of the bot's session of that thread, run beside the group's main one
+    /// (`FEATURE_THREAD_SESSIONS`). None = the main session.
+    #[serde(default)]
+    pub thread_root_id: Option<String>,
     pub bot: RunBot,
     pub workspace: WorkspaceSpec,
     pub resume_session_id: Option<String>,

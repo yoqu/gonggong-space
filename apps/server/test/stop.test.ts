@@ -85,10 +85,11 @@ async function world(o: { online?: boolean } = {}) {
     outsider: client(t, await t.seed.cookie(outsider.id)),
   }
   let n = 0
-  const say = async (c: typeof as.wang, body: string) => {
+  const say = async (c: typeof as.wang, body: string, threadRootId?: string) => {
     const res = await c.post<MessageDto>(`/api/groups/${g.id}/messages`, {
       body,
       clientId: `stop-msg-${++n}`,
+      threadRootId,
     })
     clock = new Date(clock.getTime() + 1000)
     return res
@@ -388,6 +389,17 @@ describe('interrupt choice (keep / discard)', () => {
     expect((await w.run(r.id)).interrupt).toBe('discarded')
     const actions = (await t.db.select({ action: auditLogs.action }).from(auditLogs)).map((a) => a.action)
     expect(actions).toEqual(['command.stop', 'run.discard', 'run.discard'])
+  })
+
+  it('a turn in a thread is not told of a stop in the main session', async () => {
+    const w = await world()
+    const r = await pending(w)
+    const root = await w.say(w.as.li, '话题')
+    await w.say(w.as.li, '@小王的 Claude 继续', root.body.id)
+    const start = w.starts().at(-1)!
+    expect(start.threadRootId).toBe(root.body.id)
+    expect(start.prompt.context.map((m) => m.body).join()).not.toContain('/stop')
+    expect((await w.run(r.id)).interrupt).toBe('pending')
   })
 
   it('the next turn of that bot is told it was interrupted, and a pending choice settles as kept', async () => {

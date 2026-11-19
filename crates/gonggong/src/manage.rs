@@ -12,8 +12,9 @@ use crate::protocol::{
     FEATURE_GIT_REPOS, FEATURE_GOOSE, FEATURE_KIMI, FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_OPENCODE,
     FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS, FEATURE_PRESET_SYNC, FEATURE_PROTOCOL_PROVIDERS,
     FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_QWEN, FEATURE_REPROBE, FEATURE_SESSION_FORK,
-    FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput,
-    ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_THREAD_SESSIONS, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap,
+    ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd,
+    ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, Endpoint, INHERIT, Provider, Store};
 use crate::service::Outbox;
@@ -104,6 +105,7 @@ impl Manage {
             FEATURE_COPILOT.to_string(),
             FEATURE_AGENT_STATE.to_string(),
             FEATURE_PROTOCOL_PROVIDERS.to_string(),
+            FEATURE_THREAD_SESSIONS.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());

@@ -3,6 +3,7 @@
   "runId": "r1",
   "groupId": "g1",
   "groupName": "支付服务重构",
+  "threadRootId": "m-root",
   "bot": {
     "id": "b1",
     "name": "小王的 Claude",

@@ -9,6 +9,9 @@ pub const FEATURE_AGENT_STATE: &str = "agentState";
 /// `catalog` takes `agent`.
 pub const FEATURE_PROTOCOL_PROVIDERS: &str = "protocolProviders";
 
+/// One conversation per (group, bot, thread): a thread's turns run beside the group's main session and other threads.
+pub const FEATURE_THREAD_SESSIONS: &str = "threadSessions";
+
 /// Web terminals: hello `terminals`, the `terminate` open action, and stale cursors resuming from retained output.
 pub const FEATURE_TERMINAL: &str = "terminal-v2";
 

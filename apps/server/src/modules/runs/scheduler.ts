@@ -66,6 +66,9 @@ const OUTDATED = {
 }
 const WORKSPACE_WAIT = runStep('工作区准备中')
 
+/** The session a run is a turn of: its group's main one, or (asked in a thread) that thread's. */
+const sessionOf = (groupId: string, thread: string | null) => `${groupId}:${thread ?? 'main'}`
+
 /**
  * Server-authoritative scheduling (plan D22): dispatches the bot's waiting runs in trigger order while its machine
  * is online and it has free slots; the rest wait as queued (with position) or offline_wait.
@@ -82,25 +85,33 @@ export async function schedule(ctx: Ctx, botId: string) {
     if (!row || row.archivedAt) return { out: [], dispatches: [] }
     const { bot } = row
     const waiting = await tx
-      .select({ run: runs, meta: messages.meta })
+      .select({ run: runs, meta: messages.meta, thread: messages.threadRootId, mode: groups.mode })
       .from(runs)
       .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
+      .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
       .orderBy(asc(messages.seq))
     if (!waiting.length) return { out: [], dispatches: [] }
     // A daemon that cannot sync runs its turns unsynced; nothing of force sync holds them.
     const unsynced = syncOutdated(ctx, bot.machineId)
     const held = unsynced ? new Map() : await syncHeld(tx, botId)
-    // A continuation (the agent going on by itself after a turn) ends once the group's next turn reaches the daemon.
+    // A continuation (the agent going on by itself after a turn) ends once its session's next turn reaches the daemon.
     const active = await tx
-      .select({ groupId: runs.groupId })
+      .select({ groupId: runs.groupId, thread: messages.threadRootId, mode: groups.mode })
       .from(runs)
+      .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
+      .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(and(eq(runs.botId, botId), inArray(runs.status, ACTIVE), isNull(runs.continuationOf)))
     const unready = await unreadyGroups(tx, botId)
     let busy = active.length
-    // One conversation per (group, bot): a group's next turn waits for its previous one (spec §8.9).
-    const busyGroups = new Set(active.map((r) => r.groupId))
-    const groupQueue = new Map<string, number>()
+    // One turn per session and bot: its next turn waits for the previous one (spec §8.9). Threads have their own
+    // sessions, run side by side by daemons with their own conversation per thread; older ones get one per group, and
+    // so does a force group, whose single replica one turn holds at a time.
+    const threads = !!bot.machineId && ctx.hub.features(bot.machineId).includes('threadSessions')
+    const keyOf = (r: { groupId: string; thread: string | null; mode: string }) =>
+      threads && r.mode !== 'force' ? sessionOf(r.groupId, r.thread) : r.groupId
+    const busySessions = new Set(active.map(keyOf))
+    const sessionQueue = new Map<string, number>()
     let position = 0
     const out: RunRow[] = []
     const dispatches: {
@@ -115,12 +126,16 @@ export async function schedule(ctx: Ctx, botId: string) {
     }[] = []
     const setRun = async (id: string, patch: Partial<RunRow>) =>
       out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
-    for (const { run, meta } of waiting) {
+    for (const { run, meta, thread, mode } of waiting) {
       const machineId = bot.machineId && ctx.hub.isOnline(bot.machineId) ? bot.machineId : null
-      if (machineId && busyGroups.has(run.groupId)) {
-        const n = (groupQueue.get(run.groupId) ?? 0) + 1
-        groupQueue.set(run.groupId, n)
-        const step = runStep('本群上一轮未结束，排第 {n}', { n })
+      const session = keyOf({ groupId: run.groupId, thread, mode })
+      if (machineId && busySessions.has(session)) {
+        const n = (sessionQueue.get(session) ?? 0) + 1
+        sessionQueue.set(session, n)
+        const step =
+          session !== run.groupId && thread
+            ? runStep('本话题上一轮未结束，排第 {n}', { n })
+            : runStep('本群上一轮未结束，排第 {n}', { n })
         if (run.status !== 'queued' || run.step !== step.step)
           await setRun(run.id, { status: 'queued', ...step })
         continue
@@ -174,7 +189,7 @@ export async function schedule(ctx: Ctx, botId: string) {
           .returning()
         if (running) {
           busy += 1
-          busyGroups.add(run.groupId)
+          busySessions.add(session)
           out.push(running)
           dispatches.push({
             run: running,
@@ -415,7 +430,7 @@ export async function buildRunStart(
             params.sessionReplayTokens,
           )
         : null,
-      interruptNote(tx, run, at),
+      interruptNote(tx, run, at, thread),
       boundChat(tx, run.groupId),
       run.parentRunId ? relayNote(tx, run.parentRunId, at) : [],
       meta.scheduleOf ? scheduleNote(tx, meta.scheduleOf, at) : null,
@@ -467,6 +482,7 @@ export async function buildRunStart(
     runId: run.id,
     groupId: run.groupId,
     groupName: group.name,
+    threadRootId: thread,
     bot: {
       id: bot.id,
       name: bot.name,

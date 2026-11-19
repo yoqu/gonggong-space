@@ -71,7 +71,7 @@ Requests sent while it's offline wait for it to come online, up to 30 minutes by
 
 The steps on the card give the reason. Common ones:
 
-- 「本群上一轮未结束，排第 N」 ("Previous turn in this group still running, #N in line"): the same Bot runs only one turn at a time in the same group. Wait for the previous turn to finish, or stop it with `/stop`.
+- 「本群上一轮未结束，排第 N」 ("Previous turn in this group still running, #N in line") / 「本话题上一轮未结束，排第 N」 ("Previous turn in this thread still running, #N in line"): the same Bot runs only one turn at a time in a group's main conversation or in one thread (different threads, and threads and the main conversation, don't wait on each other). Wait for the previous turn to finish, or stop it with `/stop`.
 - The workspace is still being prepared (for example, the first clone of the repository); it starts automatically when the clone finishes.
 - The Bot's concurrency is full: the number of turns running at once has reached the 「并发上限」 (Concurrency limit); it starts automatically when tasks in other groups finish.
 

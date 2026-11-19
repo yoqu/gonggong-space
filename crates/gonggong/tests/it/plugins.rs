@@ -156,6 +156,7 @@ fn start(t: Turn) -> RunStart {
         run_id: t.run_id.into(),
         group_id: t.group.into(),
         group_name: "支付服务重构".into(),
+        thread_root_id: None,
         bot: RunBot {
             id: "b1".into(),
             name: "小王的 Claude".into(),

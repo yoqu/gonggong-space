@@ -239,6 +239,7 @@ export const protocolEn = {
   等待处理本地改动: 'Waiting for local changes to be resolved',
   等待处理同步冲突: 'Waiting for the sync conflict to be resolved',
   '本群上一轮未结束，排第 {n}': 'Previous turn in this group still running; #{n} in line',
+  '本话题上一轮未结束，排第 {n}': 'Previous turn in this thread still running; #{n} in line',
   '该 Bot 忙，排第 {n}': 'This Bot is busy; #{n} in line',
   '共工客户端重启，本轮已中断': 'The Gonggong client restarted; this turn was interrupted',
   'daemon 重启，本轮已中断': 'The Gonggong client restarted; this turn was interrupted',

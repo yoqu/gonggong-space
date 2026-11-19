@@ -124,6 +124,7 @@ fn start(run_id: &str, kind: AgentKind, cwd: &Path, skills: Vec<SkillRef>, resum
         run_id: run_id.into(),
         group_id: "g1".into(),
         group_name: "支付服务重构".into(),
+        thread_root_id: None,
         bot: RunBot {
             id: "b1".into(),
             name: "小王的 Claude".into(),

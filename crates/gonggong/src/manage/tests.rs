@@ -575,7 +575,8 @@ fn features_include_cc_switch_only_when_present() {
             "goose",
             "copilot",
             "agentState",
-            "protocolProviders"
+            "protocolProviders",
+            "threadSessions"
         ]
     );
     std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -620,6 +621,7 @@ fn features_include_cc_switch_only_when_present() {
             "copilot",
             "agentState",
             "protocolProviders",
+            "threadSessions",
             "ccSwitch"
         ]
     );

@@ -64,6 +64,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
         run_id: run_id.into(),
         group_id: "g1".into(),
         group_name: "支付服务重构".into(),
+        thread_root_id: None,
         bot: RunBot {
             id: "b1".into(),
             name: "小王的 Claude".into(),
@@ -1618,6 +1619,22 @@ async fn a_busy_directory_runs_in_parallel_only_after_confirmation() {
         }
     }
     assert_eq!(order, [("r1".into(), RunOutcome::Interrupted), ("r3".into(), RunOutcome::Completed)]);
+}
+
+#[tokio::test]
+async fn a_thread_turn_runs_beside_the_main_session_of_its_group() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:slow"));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+
+    // Not queued behind r1 in one conversation: it reaches the shared directory and asks to start beside it.
+    r.run(RunStart { thread_root_id: Some("t1".into()), ..start("r2", "mock:echo") });
+    let (request_id, _) = dir_question(&mut r, "r2").await;
+    choose(&r, "r2", &request_id, 0);
+    assert_eq!(done_of(&mut r, "r2").await.1.outcome, RunOutcome::Completed);
+
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
 }
 
 #[tokio::test]

@@ -1,4 +1,4 @@
-//! Executes server-dispatched runs: one adapter process per (group, bot) session (plan D20).
+//! Executes server-dispatched runs: one adapter process per (group, bot, thread) session (plan D20).
 use crate::agents;
 use crate::ask::{AskServer, Asker};
 use crate::attachments;
@@ -16,8 +16,8 @@ use crate::inject;
 use crate::local::LocalSettings;
 use crate::manage::Manage;
 use crate::protocol::{
-    AgentKind, Attachment, DaemonToServer, DiffScope, RepoKind, RunBot, RunDone, RunOutcome, RunStart, RunSyncDone,
-    SecretEnv, ServerToDaemon, ServiceInfo, SyncWaitIssue, WorkspaceSpec,
+    AgentKind, Attachment, ConversationKey, DaemonToServer, DiffScope, RepoKind, RunBot, RunDone, RunOutcome, RunStart,
+    RunSyncDone, SecretEnv, ServerToDaemon, ServiceInfo, SyncWaitIssue, WorkspaceSpec,
 };
 use crate::providers::Selection;
 use crate::replicas::{Init, Refusal, Replicas, sync_error};
@@ -89,7 +89,7 @@ pub struct Engine(Arc<Inner>);
 pub(crate) struct Inner {
     pub(crate) config: EngineConfig,
     pub(crate) workspaces: Workspaces,
-    actors: Mutex<HashMap<(String, String), Actor>>,
+    actors: Mutex<HashMap<ConversationKey, Actor>>,
     install: tokio::sync::Mutex<()>,
     /// Node the adapters were last verified installed for, keyed by the managed runtime it was resolved against.
     adapter_node: Mutex<Option<(Option<PathBuf>, tools::Node)>>,
@@ -750,8 +750,8 @@ impl Handler for Engine {
             ServerToDaemon::WorkspaceDiff(req) => {
                 let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
                 let extras: Vec<PathBuf> = req.workspace.extra_dirs.iter().map(PathBuf::from).collect();
-                let key = (req.group_id.clone(), req.bot_id.clone());
-                let shared = self.0.actors.lock().unwrap().get(&key).map(|a| a.shared.clone());
+                let ours = |a: &&Actor| req.run_id.as_ref().is_some_and(|r| a.shared.runs().contains(r));
+                let shared = self.0.actors.lock().unwrap().values().find(ours).map(|a| a.shared.clone());
                 let (inner, out) = (self.0.clone(), out.clone());
                 tokio::spawn(async move {
                     let key = format!("{}|{extras:?}|{:?}|{:?}", dir.display(), req.scope, req.run_id);
@@ -940,7 +940,7 @@ impl Inner {
         }
         // Enqueued and sent under the lock: `reap` relies on it.
         let mut actors = self.actors.lock().unwrap();
-        let key = (start.group_id.clone(), start.bot.id.clone());
+        let key = (start.group_id.clone(), start.bot.id.clone(), start.thread_root_id.clone());
         let actor = actors.entry(key.clone()).or_insert_with(|| {
             let (tx, rx) = mpsc::unbounded_channel();
             let shared = Arc::new(Shared::new(self.config.continuation));
@@ -957,7 +957,7 @@ impl Inner {
     /// holds something (`Shared::idle`).
     pub(crate) fn reap(
         &self,
-        key: &(String, String),
+        key: &ConversationKey,
         shared: &Shared,
         rx: &mpsc::UnboundedReceiver<TurnReq>,
         entry: &acp::McpServer,

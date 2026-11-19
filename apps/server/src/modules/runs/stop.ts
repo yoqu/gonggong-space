@@ -5,7 +5,7 @@ import {
   type RunSyncDone,
   TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groups, messages, notifications, runs, syncReplicas, teams, users } from '../../db/schema.js'
@@ -210,10 +210,11 @@ export async function notifyChainDone(ctx: Ctx, run: RunRow) {
 }
 
 /**
- * Context note for the turn after a /stop of this (group, bot) (plan D7). A still-open keep/discard choice settles
- * as kept: the daemon drops that turn's snapshot once the next turn starts. Returns the settled run for publishing.
+ * Context note for the turn after a /stop of this (group, bot) session, `thread` or the main one (plan D7). A still-open
+ * keep/discard choice settles as kept: the daemon drops that turn's snapshot once the next turn starts. Returns the
+ * settled run for publishing.
  */
-export async function interruptNote(tx: Tx, run: RunRow, at: string) {
+export async function interruptNote(tx: Tx, run: RunRow, at: string, thread: string | null) {
   const [prev] = await tx
     .select({
       id: runs.id,
@@ -224,12 +225,14 @@ export async function interruptNote(tx: Tx, run: RunRow, at: string) {
       sync: runs.sync,
     })
     .from(runs)
+    .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
     .where(
       and(
         eq(runs.groupId, run.groupId),
         eq(runs.botId, run.botId),
         ne(runs.id, run.id),
         isNotNull(runs.startedAt),
+        thread ? eq(messages.threadRootId, thread) : isNull(messages.threadRootId),
       ),
     )
     .orderBy(desc(runs.startedAt))

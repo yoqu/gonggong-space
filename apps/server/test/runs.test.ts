@@ -1,7 +1,15 @@
 import { PROTOCOL_VERSION, type RunStart, UI_BLOCKS_GUIDE, type WebEvent } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { groupBots, messages, notifications, runEvents, runs, systemParams } from '../src/db/schema.js'
+import {
+  groupBots,
+  groups,
+  messages,
+  notifications,
+  runEvents,
+  runs,
+  systemParams,
+} from '../src/db/schema.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
 import { listRuns, publishRuns, runDtoLoader } from '../src/modules/runs/dto.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
@@ -14,7 +22,7 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-async function daemon(token: string) {
+async function daemon(token: string, features: string[] = ['threadSessions']) {
   const ws = t.ws('/ws/daemon')
   const box = inbox(ws)
   await box.opened
@@ -26,6 +34,7 @@ async function daemon(token: string) {
       daemonVersion: '0.1.0',
       machine: { name: 'mbp', os: 'macos', arch: 'aarch64' },
       agents: [],
+      features,
     }),
   )
   expect(await box.next()).toMatchObject({ t: 'welcome' })
@@ -79,6 +88,7 @@ async function world(o: { concurrency?: number; binding?: string } = {}) {
     author: { userId?: string; botId?: string },
     mentions: string[] = [],
     groupId = group.id,
+    threadRootId: string | null = null,
   ) => {
     const [m] = await t.db
       .insert(messages)
@@ -89,13 +99,14 @@ async function world(o: { concurrency?: number; binding?: string } = {}) {
         authorBotId: author.botId ?? null,
         body,
         meta: { mentions },
+        threadRootId,
       })
       .returning()
     return m!
   }
   /** `inGroup` → mention from another group the bot is in (to exercise bot-level concurrency). */
-  const mention = async (body: string, inGroup = group.id) => {
-    const m = await say(body, { userId: alice.id }, [bot.id], inGroup)
+  const mention = async (body: string, inGroup = group.id, thread: string | null = null) => {
+    const m = await say(body, { userId: alice.id }, [bot.id], inGroup, thread)
     await triggerRuns(t.ctx, m)
     return m
   }
@@ -314,6 +325,74 @@ describe('run engine', () => {
     const second = await d.next()
     expect(second.prompt.text).toBe('two')
     expect(second.resumeSessionId).toBe('sess-1')
+  })
+
+  it('runs a thread turn alongside the main conversation and other threads, serial within a thread', async () => {
+    const w = await world({ concurrency: 3 })
+    const d = await daemon(w.token)
+    const rootA = await w.say('话题 A', { userId: w.alice.id })
+    const rootB = await w.say('话题 B', { userId: w.alice.id })
+    await w.mention('main')
+    await w.mention('a1', w.group.id, rootA.id)
+    await w.mention('b1', w.group.id, rootB.id)
+    await w.mention('a2', w.group.id, rootA.id)
+    const started = [await d.next(), await d.next(), await d.next()]
+    expect(started.map((m) => [m.prompt.text, m.threadRootId]).sort()).toEqual([
+      ['a1', rootA.id],
+      ['b1', rootB.id],
+      ['main', null],
+    ])
+    const [, , , a2] = await w.runsOf()
+    expect(a2).toMatchObject({ status: 'queued', step: '本话题上一轮未结束，排第 1' })
+  })
+
+  it('keeps main-timeline turns serial when bot replies go into threads', async () => {
+    const w = await world({ concurrency: 2 })
+    await t.db
+      .update(groups)
+      .set({ params: { botRepliesInThread: true } })
+      .where(eq(groups.id, w.group.id))
+    const d = await daemon(w.token)
+    await w.mention('one')
+    await w.mention('two')
+    expect((await d.next()).threadRootId).toBeNull()
+    const [, r2] = await w.runsOf()
+    expect(r2).toMatchObject({ status: 'queued', step: '本群上一轮未结束，排第 1' })
+  })
+
+  it('keeps a force group to one turn at a time', async () => {
+    const w = await world({ concurrency: 2 })
+    await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, w.group.id))
+    const d = await daemon(w.token)
+    const root = await w.say('话题', { userId: w.alice.id })
+    await w.mention('main')
+    await w.mention('t1', w.group.id, root.id)
+    expect((await d.next()).prompt.text).toBe('main')
+    const [, r2] = await w.runsOf()
+    expect(r2).toMatchObject({ status: 'queued', step: '本群上一轮未结束，排第 1' })
+  })
+
+  it('keeps a daemon without thread sessions to one turn per group', async () => {
+    const w = await world({ concurrency: 2 })
+    const d = await daemon(w.token, [])
+    const root = await w.say('话题', { userId: w.alice.id })
+    await w.mention('main')
+    await w.mention('t1', w.group.id, root.id)
+    expect((await d.next()).prompt.text).toBe('main')
+    const [, r2] = await w.runsOf()
+    expect(r2).toMatchObject({ status: 'queued', step: '本群上一轮未结束，排第 1' })
+  })
+
+  it('queues a thread turn as bot busy when concurrency is exhausted', async () => {
+    const w = await world({ concurrency: 1 })
+    const d = await daemon(w.token)
+    const root = await w.say('话题', { userId: w.alice.id })
+    await w.mention('main')
+    await w.mention('t1', w.group.id, root.id)
+    const first = await d.next()
+    expect(first.prompt.text).toBe('main')
+    const [, r2] = await w.runsOf()
+    expect(r2).toMatchObject({ status: 'queued', step: '该 Bot 忙，排第 1' })
   })
 
   it('persists run events and the final reply, and publishes them', async () => {

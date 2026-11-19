@@ -115,6 +115,11 @@ export const RunStart = z.object({
   runId: z.string(),
   groupId: z.string(),
   groupName: z.string(),
+  /**
+   * Asked in this thread: a turn of the bot's session of that thread, which daemons with the `threadSessions` feature
+   * run beside the group's main session and other threads. null = the main session.
+   */
+  threadRootId: z.string().nullable().default(null),
   bot: z.object({
     id: z.string(),
     name: z.string(),

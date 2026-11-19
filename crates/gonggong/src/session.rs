@@ -1663,7 +1663,7 @@ impl Asker for Shared {
 /// conversation (`Inner::reap`).
 pub(crate) async fn run(
     engine: Arc<Inner>,
-    key: (String, String),
+    key: crate::protocol::ConversationKey,
     shared: Arc<Shared>,
     ask: acp::McpServer,
     mut rx: mpsc::UnboundedReceiver<TurnReq>,

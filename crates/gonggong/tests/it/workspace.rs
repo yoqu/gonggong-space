@@ -650,6 +650,7 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
         run_id: run_id.into(),
         group_id: "g1".into(),
         group_name: "支付组".into(),
+        thread_root_id: None,
         bot: RunBot {
             id: "b1".into(),
             name: "小码".into(),
@@ -784,6 +785,7 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
         run_id: run_id.into(),
         group_id: group.into(),
         group_name: String::new(),
+        thread_root_id: None,
         bot: RunBot {
             id: "b1".into(),
             name: "bot".into(),
