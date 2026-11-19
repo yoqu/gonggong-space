@@ -85,6 +85,8 @@ it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goe
     command: expect.stringContaining('antigravity.google'),
   })
   expect(agent!.acp).toEqual({ kind: 'native', args: ['acp', '--disable-telemetry'] })
+  // agy runs commands (and counts as a workspace) in its process directory, not the session cwd.
+  expect(agent!.chdir).toBe(true)
   expect(agent!.systemPrompt).toEqual({ via: 'meta', key: 'antigravity' })
   // Its ACP modes are default / accept-edits / auto / plan. 完全访问 is auto, answered by the daemon on top: its
   // subagents' permission prompts never reach ACP, so only auto lets them run safe commands.

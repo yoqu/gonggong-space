@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync, realpathSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { bindManaged, buildDaemon, memberWithMachine } from './helpers'
 
@@ -47,7 +49,7 @@ test("an Antigravity bot's subagent and background command show on its run, with
         '@agy1 Antigravity 同时做两件事，派发后不要等待，直接回复「已派发」：' +
           '1) 用 invoke_subagent 派一个 TypeName 为 research、Role 为「E2E Lister」的子 agent，' +
           '让它查看当前工作目录有哪些文件，并用 send_message 回报给你；' +
-          '2) 用 run_command 在后台运行 `sleep 15; echo bg-e2e-done`，WaitMsBeforeAsync 设为 500。',
+          '2) 用 run_command 在后台运行 `sleep 15; pwd > where.txt; echo bg-e2e-done`，WaitMsBeforeAsync 设为 500。',
       )
     await page.getByRole('button', { name: '发送' }).click()
     const first = page.getByTestId('run-card').first()
@@ -75,10 +77,16 @@ test("an Antigravity bot's subagent and background command show on its run, with
       await card.getByRole('button', { name: '查看过程' }).click()
       const tab = page.getByTestId('run-tab')
       await expect(tab).toContainText('E2E Lister', { timeout: 30_000 })
-      await expect(tab).toContainText('sleep 15; echo bg-e2e-done')
+      await expect(tab).toContainText('sleep 15; pwd > where.txt; echo bg-e2e-done')
       await expect(tab).not.toContainText('运行中')
       await expect(card).not.toContainText('运行中')
       await page.screenshot({ path: 'test-results/agy-delegation-2.png' })
+    })
+
+    await test.step("the agent's commands run in the bot's workspace, not where the daemon started", async () => {
+      const where = m.find('where.txt')
+      expect(where, 'where.txt in the managed workspace').toBeTruthy()
+      expect(realpathSync(readFileSync(where!, 'utf8').trim())).toBe(realpathSync(dirname(where!)))
     })
   } finally {
     m.stop()

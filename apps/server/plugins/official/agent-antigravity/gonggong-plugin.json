@@ -1,6 +1,6 @@
 {
   "name": "agent-antigravity",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "title": "Antigravity CLI",
   "description": "Google 的 Antigravity CLI（agy）：在机器上用 ACP 运行，Bot 的指令随会话传入，用机器上登录的 Google 账号。",
   "category": "agent",
@@ -28,6 +28,7 @@
           "kind": "native",
           "args": ["acp", "--disable-telemetry"]
         },
+        "chdir": true,
         "systemPrompt": {
           "via": "meta",
           "key": "antigravity"

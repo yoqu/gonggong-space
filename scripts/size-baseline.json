@@ -8,7 +8,7 @@
   "apps/web/src/features/chat/TimelineItems.tsx": 1021,
   "apps/web/src/features/files/FileViewer.tsx": 1188,
   "crates/gonggong/src/ask.rs": 1910,
-  "crates/gonggong/src/engine.rs": 1393,
+  "crates/gonggong/src/engine.rs": 1371,
   "crates/gonggong/src/git.rs": 1632,
   "crates/gonggong/src/git_write.rs": 1408,
   "crates/gonggong/src/html_render.rs": 1155,

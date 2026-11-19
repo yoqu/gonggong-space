@@ -1116,11 +1116,16 @@ impl Inner {
                     .and_then(|(npm, s)| agents::node_script(cli, &format!("{npm}/{s}")));
                 let config = match (script, process.cwd.filter(|_| a.spec.chdir)) {
                     (Some(script), Some(cwd)) => AcpAgentConfig::new(&node.path)
-                        .arg(chdir_script(&self.config.home)?.to_string_lossy())
+                        .arg(chdir::node_script(&self.config.home)?.to_string_lossy())
                         .arg(cwd.to_string_lossy())
                         .arg(script.to_string_lossy()),
                     (Some(script), None) => AcpAgentConfig::new(&node.path).arg(script.to_string_lossy()),
-                    (None, _) => AcpAgentConfig::new(cli),
+                    // A native CLI cannot be told where to start: Node starts it there.
+                    (None, Some(cwd)) => AcpAgentConfig::new(&node.path)
+                        .arg(chdir::program(&self.config.home)?.to_string_lossy())
+                        .arg(cwd.to_string_lossy())
+                        .arg(cli.to_string_lossy()),
+                    (None, None) => AcpAgentConfig::new(cli),
                 };
                 (config, node)
             }
@@ -1309,17 +1314,6 @@ pub(crate) struct Process<'a> {
     pub ask: Option<&'a acp::McpServer>,
 }
 
-/// `node <this> <dir> <script> args…` runs the node script `script` with `args` in `dir`.
-fn chdir_script(home: &Path) -> anyhow::Result<PathBuf> {
-    const SCRIPT: &str = "process.chdir(process.argv[2]);\nconst script = process.argv[3];\nprocess.argv.splice(1, 3, script);\nrequire(script);\n";
-    let path = home.join("bin").join("chdir.cjs");
-    if std::fs::read_to_string(&path).ok().as_deref() != Some(SCRIPT) {
-        std::fs::create_dir_all(path.parent().expect("has a parent"))?;
-        std::fs::write(&path, SCRIPT)?;
-    }
-    Ok(path)
-}
-
 fn installed_version(pkg: &Path) -> Option<String> {
     let raw = std::fs::read_to_string(pkg.join("package.json")).ok()?;
     serde_json::from_str::<serde_json::Value>(&raw).ok()?["version"].as_str().map(String::from)
@@ -1362,6 +1356,7 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
     }
 }
 
+mod chdir;
 mod probe;
 
 #[cfg(test)]
@@ -1372,22 +1367,5 @@ mod tests {
     fn pins_codex_adapter_with_workspace_write_mode() {
         let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
         assert_eq!(*version, "2.2.2");
-    }
-
-    #[test]
-    fn the_chdir_script_runs_a_node_script_in_the_directory_with_its_own_arguments() {
-        let (home, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-        let script = home.path().join("echo.js");
-        std::fs::write(&script, "console.log(JSON.stringify([process.cwd(), process.argv.slice(2)]))").unwrap();
-        let out = std::process::Command::new("node")
-            .arg(chdir_script(home.path()).unwrap())
-            .arg(dir.path())
-            .arg(&script)
-            .args(["--acp", "--append-system-prompt", "x"])
-            .output()
-            .unwrap();
-        let (cwd, args): (String, Vec<String>) = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(PathBuf::from(cwd), dir.path().canonicalize().unwrap());
-        assert_eq!(args, ["--acp", "--append-system-prompt", "x"]);
     }
 }
