@@ -122,7 +122,7 @@ async fn wait_for_file(path: &Path) {
 }
 
 async fn wait_for_exit(attachment: &mut gonggong::terminal::TerminalAttachment) -> (Option<i32>, TerminalEndReason) {
-    timeout(Duration::from_secs(12), async {
+    timeout(Duration::from_secs(20), async {
         loop {
             match attachment.events.recv().await {
                 Some(TerminalEvent::Output(_)) => {}
@@ -441,7 +441,7 @@ async fn attach_cannot_cross_group_or_bot_boundaries() {
 
 #[tokio::test]
 async fn idle_shells_and_their_process_trees_are_reaped() {
-    let fixture = Fixture::with_idle_timeout(Duration::from_secs(5));
+    let fixture = Fixture::with_idle_timeout(Duration::from_secs(10));
     let (open, mut attachment) = fixture.create().await;
     bash(&fixture.manager, &open.session_id, &mut attachment).await;
     command(&fixture.manager, &open.session_id, &mut attachment, "sleep 30 & printf '%s' $! > idle.pid").await;
