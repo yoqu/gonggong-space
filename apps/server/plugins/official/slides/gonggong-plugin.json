@@ -2,7 +2,7 @@
   "name": "slides",
   "version": "0.2.1",
   "title": "幻灯片",
-  "description": "战略汇报、融资路演、产品发布、技术分享、周报、课件与社媒卡片，按模板自带的视觉体系生成可翻页的单文件 HTML 幻灯片，写到工作区 design/<slug>/ 并发布预览。",
+  "description": "战略汇报、融资路演、产品发布、技术分享、周报、课件与社媒卡片，按模板自带的视觉体系生成可翻页的单文件 HTML 幻灯片，生成后在群里预览。",
   "category": "deck",
   "agents": [
     "claude",
@@ -26,7 +26,7 @@
       "id": "html-ppt",
       "title": "演示工作室",
       "description": "36 套主题、31 种版式、15 套整稿起点，键盘翻页与演讲者模式；按场景选主题与模板，通用各类演示。",
-      "group": "经典·技术教育",
+      "group": "通用",
       "preview": "previews/html-ppt.webp",
       "demo": "previews/html-ppt-demo.webp"
     },
@@ -34,7 +34,7 @@
       "id": "html-ppt-weekly-report",
       "title": "数据周报",
       "description": "浅灰白底单一钴蓝强调，八格指标、已交付清单、八周柱图与下周负责人表，结论即标题。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/html-ppt-weekly-report.webp",
       "demo": "previews/html-ppt-weekly-report-demo.webp"
     },
@@ -42,7 +42,7 @@
       "id": "simple-deck",
       "title": "简洁汇报",
       "description": "明暗页交替节奏，单一强调色，随设计系统或品牌色换肤；适合经营复盘、产品介绍与短路演。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/simple-deck.webp",
       "demo": "previews/simple-deck-demo.webp"
     },
@@ -50,7 +50,7 @@
       "id": "gov-report",
       "title": "政企汇报",
       "description": "白底正红配深灰、页眉单位名与红色粗线，任务完成表、成效数据、问题与下步计划，适合国企、机关与大型企业的年度汇报。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/gov-report.webp",
       "demo": "previews/gov-report-demo.webp",
       "designSystem": false
@@ -59,7 +59,7 @@
       "id": "html-ppt-zhangzara-signal",
       "title": "深蓝战略",
       "description": "深海军蓝底配骨白纸页，单一暗金强调，衬线标题沉稳克制；适合战略决策、董事会与咨询交付。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/html-ppt-zhangzara-signal.webp",
       "demo": "previews/html-ppt-zhangzara-signal-demo.webp"
     },
@@ -67,7 +67,7 @@
       "id": "ib-pitch-book",
       "title": "投行资料册",
       "description": "机密标识与页眉，可比公司表、估值足球场、DCF 敏感性矩阵；适合并购顾问与战略选项讨论。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/ib-pitch-book.webp",
       "demo": "previews/ib-pitch-book-demo.webp"
     },
@@ -75,7 +75,7 @@
       "id": "html-ppt-testing-safety-alert",
       "title": "警示合规",
       "description": "暖白底红黑警示斜纹、删除线否定标题、红黄绿分级卡与检查清单，适合风险合规与复盘。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/html-ppt-testing-safety-alert.webp",
       "demo": "previews/html-ppt-testing-safety-alert-demo.webp"
     },
@@ -83,7 +83,7 @@
       "id": "html-ppt-zhangzara-grove",
       "title": "森林政策",
       "description": "墨绿底配骨白衬线与铁锈红点缀，明暗页交替、侧栏标注，中英双语友好，适合政策与议会简报。",
-      "group": "经典·汇报",
+      "group": "汇报",
       "preview": "previews/html-ppt-zhangzara-grove.webp",
       "demo": "previews/html-ppt-zhangzara-grove-demo.webp"
     },
@@ -91,7 +91,7 @@
       "id": "html-ppt-pitch-deck",
       "title": "融资路演",
       "description": "白底配蓝紫渐变、超大标题与巨型数字，十页经典结构：问题、方案、市场、牵引、融资额。",
-      "group": "经典·发布路演",
+      "group": "发布路演",
       "preview": "previews/html-ppt-pitch-deck.webp",
       "demo": "previews/html-ppt-pitch-deck-demo.webp"
     },
@@ -99,7 +99,7 @@
       "id": "html-ppt-product-launch",
       "title": "暗场发布",
       "description": "深色主视觉配暖橙渐变光球，功能卡、步骤、价格档与客户证言收尾，适合发布会与上线公告。",
-      "group": "经典·发布路演",
+      "group": "发布路演",
       "preview": "previews/html-ppt-product-launch.webp",
       "demo": "previews/html-ppt-product-launch-demo.webp"
     },
@@ -107,7 +107,7 @@
       "id": "guizang-ppt",
       "title": "杂志发布会",
       "description": "电子杂志加电子墨水风，衬线大标题与流体动态背景，横向翻页；适合发布会、行业分享与营销规划。",
-      "group": "经典·发布路演",
+      "group": "发布路演",
       "preview": "previews/guizang-ppt.webp",
       "demo": "previews/guizang-ppt-demo.webp"
     },
@@ -115,7 +115,7 @@
       "id": "html-ppt-zhangzara-coral",
       "title": "珊瑚增长",
       "description": "奶油、珊瑚红与近黑交替，Bebas 窄体大写标题配锯齿纹，适合增长计划、品牌营销汇报。",
-      "group": "经典·发布路演",
+      "group": "发布路演",
       "preview": "previews/html-ppt-zhangzara-coral.webp",
       "demo": "previews/html-ppt-zhangzara-coral-demo.webp"
     },
@@ -123,7 +123,7 @@
       "id": "html-ppt-zhangzara-bold-poster",
       "title": "巨字海报",
       "description": "白底黑字配消防红单色点缀、超大复古手写体堆叠标题，适合品牌宣言、愿景路演、融资故事。",
-      "group": "经典·发布路演",
+      "group": "发布路演",
       "preview": "previews/html-ppt-zhangzara-bold-poster.webp",
       "demo": "previews/html-ppt-zhangzara-bold-poster-demo.webp"
     },
@@ -131,7 +131,7 @@
       "id": "new-chinese",
       "title": "新中式",
       "description": "宣纸米白底、墨色宋楷配朱砂印章，竖排标题与水墨线描留白，适合文化品牌、茶与文旅、非遗与国风新品发布。",
-      "group": "经典·发布路演",
+      "group": "发布路演",
       "preview": "previews/new-chinese.webp",
       "demo": "previews/new-chinese-demo.webp",
       "designSystem": false
@@ -140,7 +140,7 @@
       "id": "html-ppt-tech-sharing",
       "title": "代码分享",
       "description": "代码编辑器暗底、等宽提示符小标题、薄荷到天蓝渐变标题与终端代码块，适合工程师内部分享。",
-      "group": "经典·技术教育",
+      "group": "技术教育",
       "preview": "previews/html-ppt-tech-sharing.webp",
       "demo": "previews/html-ppt-tech-sharing-demo.webp"
     },
@@ -148,7 +148,7 @@
       "id": "html-ppt-taste-brutalist",
       "title": "CRT 简报",
       "description": "炭黑底荧白等宽字、唯一警示红、扫描线与发丝线网格、零圆角，适合事故复盘与安全评审。",
-      "group": "经典·技术教育",
+      "group": "技术教育",
       "preview": "previews/html-ppt-taste-brutalist.webp",
       "demo": "previews/html-ppt-taste-brutalist-demo.webp"
     },
@@ -156,7 +156,7 @@
       "id": "html-ppt-course-module",
       "title": "课程模块",
       "description": "暖米纸面配衬线大标题，左侧常驻学习目标栏，概念框、例题、练习与选择题自测。",
-      "group": "经典·技术教育",
+      "group": "技术教育",
       "preview": "previews/html-ppt-course-module.webp",
       "demo": "previews/html-ppt-course-module-demo.webp"
     },
@@ -164,7 +164,7 @@
       "id": "html-ppt-presenter-mode-reveal",
       "title": "逐字稿演讲",
       "description": "深色主题可切换，每页附 150–300 字逐字稿，按 S 打开演讲者视图看当前、下页与计时。",
-      "group": "经典·技术教育",
+      "group": "技术教育",
       "preview": "previews/html-ppt-presenter-mode-reveal.webp",
       "demo": "previews/html-ppt-presenter-mode-reveal-demo.webp"
     },
@@ -172,7 +172,7 @@
       "id": "kami-deck",
       "title": "羊皮纸学术",
       "description": "暖羊皮纸底单一墨蓝强调，统一字重衬线、无斜体，印刷质感；适合学术组会、研究汇报与白皮书。",
-      "group": "经典·技术教育",
+      "group": "技术教育",
       "preview": "previews/kami-deck.webp",
       "demo": "previews/kami-deck-demo.webp"
     },
@@ -180,7 +180,7 @@
       "id": "html-ppt-zhangzara-daisy-days",
       "title": "粉彩课堂",
       "description": "奶油底配粉彩圆角卡片、手绘雏菊星星彩虹与粗描边，适合培训工作坊、课堂、社区活动。",
-      "group": "经典·技术教育",
+      "group": "技术教育",
       "preview": "previews/html-ppt-zhangzara-daisy-days.webp",
       "demo": "previews/html-ppt-zhangzara-daisy-days-demo.webp"
     },
@@ -188,7 +188,7 @@
       "id": "html-ppt-taste-editorial",
       "title": "极简杂志",
       "description": "暖米白底衬线标题配无衬线正文与等宽注记、发丝线分隔、单一低饱和强调色，适合投资人更新。",
-      "group": "经典·创意社媒",
+      "group": "创意社媒",
       "preview": "previews/html-ppt-taste-editorial.webp",
       "demo": "previews/html-ppt-taste-editorial-demo.webp"
     },
@@ -196,7 +196,7 @@
       "id": "html-ppt-xhs-white-editorial",
       "title": "小红书长图",
       "description": "纯白底彩虹顶条、黑色粗标题配渐变词与黑底重点胶囊、马卡龙软卡片，适合干货与晋升材料。",
-      "group": "经典·创意社媒",
+      "group": "创意社媒",
       "preview": "previews/html-ppt-xhs-white-editorial.webp",
       "demo": "previews/html-ppt-xhs-white-editorial-demo.webp"
     },
@@ -204,7 +204,7 @@
       "id": "html-ppt-zhangzara-scatterbrain",
       "title": "便利贴白板",
       "description": "软木与纸面底上的彩色便利贴，花体标题配手写字，像设计白板；适合毕设答辩、头脑风暴与工作坊。",
-      "group": "经典·创意社媒",
+      "group": "创意社媒",
       "preview": "previews/html-ppt-zhangzara-scatterbrain.webp",
       "demo": "previews/html-ppt-zhangzara-scatterbrain-demo.webp"
     },
@@ -212,7 +212,7 @@
       "id": "html-ppt-zhangzara-block-frame",
       "title": "新粗野提案",
       "description": "米白底配粉蓝绿黄色块、4px黑粗框与硬投影，适合品牌改版、创意提案、独立产品发布。",
-      "group": "经典·创意社媒",
+      "group": "创意社媒",
       "preview": "previews/html-ppt-zhangzara-block-frame.webp",
       "demo": "previews/html-ppt-zhangzara-block-frame-demo.webp"
     },
@@ -220,7 +220,7 @@
       "id": "html-ppt-zhangzara-8-bit-orbit",
       "title": "像素街机",
       "description": "深蓝星空底配粉青黄霓虹、像素描边大字与扫描线，适合游戏、黑客松、极客爱好分享。",
-      "group": "经典·创意社媒",
+      "group": "创意社媒",
       "preview": "previews/html-ppt-zhangzara-8-bit-orbit.webp",
       "demo": "previews/html-ppt-zhangzara-8-bit-orbit-demo.webp"
     },
@@ -228,7 +228,7 @@
       "id": "bento-grid",
       "title": "便当格",
       "description": "大小不一的圆角卡片拼成不规则网格，大数字、迷你图表与短句错峰浮现，适合产品特性一览、年度回顾与成绩单。",
-      "group": "经典·创意社媒",
+      "group": "创意社媒",
       "preview": "previews/bento-grid.webp",
       "demo": "previews/bento-grid-demo.webp",
       "designSystem": false

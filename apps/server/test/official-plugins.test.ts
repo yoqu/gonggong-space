@@ -478,12 +478,10 @@ describe('official plugin slides', () => {
       )
   })
 
-  it('groups 31 templates as 经典 / 交互实验 with short names, and every guide covers linked edits and print', () => {
+  it('groups 31 templates by scenario with short names, and every guide covers linked edits and print', () => {
     expect(manifest.templates).toHaveLength(31)
     for (const t of manifest.templates) {
-      expect(['经典·汇报', '经典·发布路演', '经典·技术教育', '经典·创意社媒', '交互实验'], t.id).toContain(
-        t.group,
-      )
+      expect(['通用', '汇报', '发布路演', '技术教育', '创意社媒', '交互实验'], t.id).toContain(t.group)
       expect(t.title.length, t.title).toBeLessThanOrEqual(6)
       const guide = readFileSync(join(skillDir, 'templates', t.id, 'GUIDE.md'), 'utf8')
       expect(guide, t.id).toContain('## Linked edits')
