@@ -287,6 +287,9 @@ pub enum ServerToDaemon {
         #[serde(default)]
         plugin: Option<String>,
     },
+    /// Upload the dir a static service serves as a version of a hosted site (needs [`FEATURE_SITE_HOST`]).
+    #[serde(rename = "site.host")]
+    SiteHost(SiteHost),
     /// Provider presets of platform plugins, over the built-in ones (needs [`FEATURE_PRESET_SYNC`]).
     #[serde(rename = "presets.sync")]
     PresetsSync { presets: Vec<Preset> },
@@ -314,4 +317,12 @@ pub enum ServerToDaemon {
     SyncAction { group_id: String, bot_id: String, action: SyncActionKind },
     #[serde(rename = "sync.init", rename_all = "camelCase")]
     SyncInit { group_id: String, bot_id: String, role: SyncRole, force: bool, repo_id: Option<String> },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SiteHost {
+    pub request_id: String,
+    pub service_id: String,
+    pub artifact_id: String,
 }

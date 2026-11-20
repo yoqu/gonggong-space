@@ -37,6 +37,7 @@ const MIME: Record<string, string> = {
   '.webm': 'video/webm',
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
+  '.wasm': 'application/wasm',
 }
 export const mimeOf = (path: string) => MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
 
@@ -113,11 +114,15 @@ export async function serveArtifact(
     kit?.has(shell) &&
     (LATEST_KIT_FILES.has(shell) ? await currentKitFile(ctx.db, a, shell) : kit.get(shell))
   if (fromKit) return send(mimeOf(path), fromKit)
-  const file = v.files.find((f) => f.path === path)
+  const site = a.siteDir !== null
+  const find = (p: string) => v.files.find((f) => f.path === p)
+  // A hosted site's routes: `about/` of a static export, else a single-page app's own router behind index.html.
+  const file =
+    find(path) ?? (site && !extname(path) ? (find(`${path}/index.html`) ?? find('index.html')) : undefined)
   if (!file) return { status: 404, key: '文件不存在' }
-  if (parent && bridged(path, l1))
+  if (parent && !site && bridged(path, l1))
     return send(
-      mimeOf(path),
+      mimeOf(file.path),
       Buffer.from(injectBridge((await readBlob(a.groupId, file.hash)).toString('utf8'), parent)),
     )
   const etag = `"${file.hash}"`
@@ -126,7 +131,7 @@ export async function serveArtifact(
     return null
   }
   const body = await artifactBlobs.open(a.groupId, file.hash)
-  res.writeHead(200, head(mimeOf(path), { etag, 'content-length': String(file.size) }))
+  res.writeHead(200, head(mimeOf(file.path), { etag, 'content-length': String(file.size) }))
   if (req.method === 'HEAD') {
     body.destroy()
     res.end()

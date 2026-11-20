@@ -468,7 +468,9 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
   const files = [...input.files].sort((x, y) => (x.path < y.path ? -1 : x.path > y.path ? 1 : 0))
   await checkUploaded(a, files)
   const kit = await pluginKit(ctx.db, a.pluginVersionId)
-  const lint = (list: ArtifactFile[]) => lintVersion(list, (f) => readBlob(a.groupId, f.hash), kit)
+  // A hosted site is someone's build, not a design to hold to the rules.
+  const lint = async (list: ArtifactFile[]) =>
+    a.siteDir === null ? lintVersion(list, (f) => readBlob(a.groupId, f.hash), kit) : []
   const issues = await lint(files)
   const out = await ctx.db.transaction(async (tx) => {
     const [locked] = await tx.select().from(artifacts).where(eq(artifacts.id, a.id)).for('update')
@@ -697,7 +699,12 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
   const [first, all] = await Promise.all([
     targets.length
       ? base().where(
-          and(eq(artifacts.groupId, groupId), inArray(artifacts.id, targets), isNull(artifacts.archivedAt)),
+          and(
+            eq(artifacts.groupId, groupId),
+            inArray(artifacts.id, targets),
+            isNull(artifacts.archivedAt),
+            isNull(artifacts.siteDir),
+          ),
         )
       : Promise.resolve([]),
     tx.select({ dir: artifacts.dir }).from(artifacts).where(eq(artifacts.groupId, groupId)),
@@ -711,6 +718,7 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
             and(
               eq(artifacts.groupId, groupId),
               isNull(artifacts.archivedAt),
+              isNull(artifacts.siteDir),
               first.length
                 ? notInArray(
                     artifacts.id,

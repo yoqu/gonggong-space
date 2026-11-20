@@ -3,7 +3,7 @@
 //! times out; the chat-history tools (`gonggong-tools.json`) are forwarded to the server for the session's live run.
 use crate::attachments;
 use crate::config::Config;
-use crate::hosted::{Scope, Services, StartArgs};
+use crate::hosted::{Scope, Services, StartArgs, static_name};
 use crate::protocol::{Answer, Attachment, OptionMeta, Question, QuestionType, ToolCallRes};
 use crate::tls;
 use agent_client_protocol::schema::v1::{McpServer, McpServerHttp};
@@ -812,15 +812,6 @@ struct MiniprogramArgs {
     title: String,
 }
 
-/// `static-<dir>` as a service name (lowercase ascii, dashes, at most 32).
-fn static_name(dir: &str) -> String {
-    let slug: String =
-        dir.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();
-    let slug = slug.split('-').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("-");
-    let name = if slug.is_empty() { "static".to_string() } else { format!("static-{slug}") };
-    name.chars().take(32).collect::<String>().trim_end_matches('-').into()
-}
-
 /// The hosted-service tools, scoped to the live run's (group, bot).
 async fn hosted(backends: &Backends, asker: &dyn Asker, name: &str, args: &Value) -> Result<String, String> {
     let services = &backends.services;
@@ -835,6 +826,9 @@ async fn hosted(backends: &Backends, asker: &dyn Asker, name: &str, args: &Value
             expose["path"] = json!(path);
         }
         return forward(backends.api.as_ref().as_ref(), asker, "preview_expose", &expose).await;
+    }
+    if name == "preview_host" {
+        return crate::artifacts::host_tool(backends.api.as_ref().as_ref(), &scope, args).await;
     }
     if name == "preview_miniprogram" {
         let a = MiniprogramArgs::deserialize(args).map_err(invalid)?;
@@ -1147,7 +1141,7 @@ mod tests {
             kb_list kb_get kb_search kb_create kb_update kb_delete tab_list tab_create \
             mcp_list mcp_get mcp_create mcp_update mcp_toggle mcp_delete secret_list secret_request \
             plugin_catalog creation_propose artifact_checkout send_attachments \
-            service_start service_list service_logs service_stop preview_static html_preview html_render \
+            service_start service_list service_logs service_stop preview_static preview_host html_preview html_render \
             client_release_publish client_release_notes feishu_send_card preview_miniprogram"
             .split_whitespace()
             .collect();

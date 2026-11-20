@@ -28,6 +28,7 @@ mod plugins;
 mod providers_run;
 mod secrets;
 mod service;
+mod sites;
 mod skills;
 mod sync;
 mod sync_round;

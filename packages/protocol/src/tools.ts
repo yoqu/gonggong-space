@@ -12,6 +12,7 @@ import {
 } from './html-render.js'
 import { KbCreateArgs, KbDeleteArgs, KbGetArgs, KbListArgs, KbSearchArgs, KbUpdateArgs } from './kb-tools.js'
 import { ListingType, ListingVisibility, MarketSource } from './market.js'
+import { PREVIEW_HOST_TOOL, PreviewMiniprogramArgs, PreviewStaticArgs } from './preview-tools.js'
 import { SCHEDULE_TOOLS } from './schedule-tools.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 import {
@@ -804,16 +805,6 @@ export const ServiceLogsArgs = z.object({
   tail: z.number().int().min(1).max(1000).describe('Last lines, default 100').optional(),
 })
 export const ServiceStopArgs = z.object({ name: serviceName })
-export const PreviewStaticArgs = z.object({
-  dir: z
-    .string()
-    .max(500)
-    .describe('Workspace dir to publish (e.g. dist, docs/report), default the root')
-    .optional(),
-  title: z.string().min(1).max(60).describe('Card title: what this is'),
-  path: z.string().regex(/^\//).max(500).describe('Path to open, default / (index.html)').optional(),
-})
-
 const page = z.string().min(1).max(HTML_RENDER_HTML_MAX).describe('A complete, self-contained HTML document.')
 
 export const HtmlPreviewArgs = z.object({
@@ -844,22 +835,6 @@ export const HtmlRenderArgs = z.object({
 
 const PAGE_RULES =
   'Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is.'
-
-export const PreviewMiniprogramArgs = z.object({
-  dir: z
-    .string()
-    .max(500)
-    .describe('Workspace dir of the mini program (with project.config.json), default the root')
-    .optional(),
-  page: z
-    .string()
-    .regex(/^[^/?]/)
-    .max(300)
-    .describe('Page to open, e.g. pages/goods/detail, default the home page')
-    .optional(),
-  query: z.string().regex(/^[^?]/).max(500).describe('Page query, e.g. id=42&from=share').optional(),
-  title: z.string().min(1).max(60).describe('Card title: what this is'),
-})
 
 export const ClientReleasePublishArgs = z
   .object({
@@ -955,6 +930,7 @@ export const DAEMON_TOOLS = {
       'Publish workspace static files (HTML reports, builds…) as a site with a preview card; no server needed.',
     input: PreviewStaticArgs,
   },
+  preview_host: PREVIEW_HOST_TOOL,
   html_preview: {
     title: '预览 HTML',
     description: `Optional check before html_render: returns a PNG, contentHeight and console output. ${PAGE_RULES} Rules are in html_render.`,

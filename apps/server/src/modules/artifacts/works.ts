@@ -101,6 +101,7 @@ export async function listWorks(ctx: Ctx, userId: string): Promise<WorkDto[]> {
       groupTitle: r.groupTitle,
       title: r.a.title,
       pluginTitle: (r.manifest as PluginManifest | null)?.title ?? null,
+      site: r.a.siteDir !== null,
       visibility: r.a.visibility as ArtifactVisibility,
       createdBy: r.a.createdBy,
       creatorName: r.creatorName,

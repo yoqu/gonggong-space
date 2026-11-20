@@ -96,6 +96,9 @@ pub const FEATURE_ARTIFACTS: &str = "artifacts";
 /// `artifact.snapshot`: screenshots of artifact versions this machine did not make.
 pub const FEATURE_ARTIFACT_SNAPSHOT: &str = "artifactSnapshot";
 
+/// The preview_host tool, site.host and the machine-scoped site upload routes.
+pub const FEATURE_SITE_HOST: &str = "siteHost";
+
 /// `artifact.activity`: the paths of a checked-out artifact a live turn has written.
 pub const FEATURE_ARTIFACT_ACTIVITY: &str = "artifactActivity";
 
@@ -323,6 +326,8 @@ pub enum DaemonToServer {
     ServiceState { service: ServiceInfo },
     #[serde(rename = "service.restart.result", rename_all = "camelCase")]
     ServiceRestartResult { request_id: String, error: Option<String> },
+    #[serde(rename = "site.host.result", rename_all = "camelCase")]
+    SiteHostResult { request_id: String, error: Option<String> },
     #[serde(rename = "cast.state", rename_all = "camelCase")]
     CastState {
         preview_id: String,

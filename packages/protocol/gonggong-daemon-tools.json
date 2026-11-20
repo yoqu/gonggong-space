@@ -151,6 +151,28 @@
     }
   },
   {
+    "name": "preview_host",
+    "title": "托管网页到服务器",
+    "description": "Upload a built static site (HTML, JS, CSS, images; no backend) to this space as a work that members open from 作品, even while this machine is offline. Build first (e.g. npm run build), then pass the output dir; calling again with the same dir adds a new version. Use preview_static for a quick look instead.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Workspace dir of the built static site with index.html at its top (e.g. dist), default the root"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Work title: what this is"
+        }
+      },
+      "required": ["title"]
+    }
+  },
+  {
     "name": "html_preview",
     "title": "预览 HTML",
     "description": "Optional check before html_render: returns a PNG, contentHeight and console output. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Rules are in html_render.",

@@ -338,6 +338,16 @@ export const ArtifactSnapshot = z.object({
   plugin: z.string().nullable().default(null),
 })
 /**
+ * 托管到服务器 on a static preview's card: the daemon uploads the dir its static service `serviceId` serves as a new
+ * version of the site artifact (POST /api/daemon/artifacts/:id/…), answered by site.host.result. Feature `siteHost`.
+ */
+export const SiteHost = z.object({
+  t: z.literal('site.host'),
+  requestId: z.string(),
+  serviceId: z.string(),
+  artifactId: z.string(),
+})
+/**
  * Provider presets from platform-layer plugins (plan 插件扩展点 §6), sent on connect and whenever they change to
  * daemons with `presetSync`: the daemon lists them with its built-in ones, the same id replacing a built-in. Daemons
  * without `protocolProviders` get them through presetsToLegacy (same (agent, id) replacing).
@@ -494,6 +504,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   CastSync,
   CastRetry,
   ArtifactSnapshot,
+  SiteHost,
   PresetsSync,
   ToolsCmd,
   ProvidersCmd,

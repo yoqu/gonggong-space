@@ -28,7 +28,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, UNIX_EPOCH};
 use tokio::io::AsyncWriteExt;
 
+mod host;
 mod watch;
+pub use host::{host_tool, site_host};
 use watch::{Watch, Watcher, watch};
 
 pub const FILE_MAX_BYTES: u64 = 10 * 1024 * 1024;
@@ -88,10 +90,6 @@ impl Client {
         Ok(Client { http, server: config.server.trim_end_matches('/').into(), token: config.token.clone() })
     }
 
-    fn run_url(&self, run: &str, id: &str, rest: &str) -> String {
-        self.url(Scope::Run(run), id, rest)
-    }
-
     fn url(&self, scope: Scope, id: &str, rest: &str) -> String {
         match scope {
             Scope::Run(run) => format!("{}/api/daemon/runs/{run}/artifacts/{id}/{rest}", self.server),
@@ -118,23 +116,23 @@ impl Client {
         Ok(self.send(self.http.get(url), META_TIMEOUT).await?.json().await?)
     }
 
-    async fn missing(&self, run: &str, id: &str, hashes: &[String]) -> Result<Vec<String>, Failure> {
+    async fn missing(&self, scope: Scope<'_>, id: &str, hashes: &[String]) -> Result<Vec<String>, Failure> {
         let mut out = vec![];
         for chunk in hashes.chunks(SYNC_MISSING_MAX) {
             let req =
-                self.http.post(self.run_url(run, id, "blobs/missing")).json(&serde_json::json!({ "hashes": chunk }));
+                self.http.post(self.url(scope, id, "blobs/missing")).json(&serde_json::json!({ "hashes": chunk }));
             let res: serde_json::Value = self.send(req, META_TIMEOUT).await?.json().await?;
             out.extend(res["missing"].as_array().into_iter().flatten().filter_map(|h| h.as_str().map(String::from)));
         }
         Ok(out)
     }
 
-    async fn upload(&self, run: &str, id: &str, hash: &str, path: &Path) -> Result<(), Failure> {
+    async fn upload(&self, scope: Scope<'_>, id: &str, hash: &str, path: &Path) -> Result<(), Failure> {
         let file = tokio::fs::File::open(path).await?;
         let len = file.metadata().await?.len();
         let req = self
             .http
-            .put(self.run_url(run, id, &format!("blobs/{hash}")))
+            .put(self.url(scope, id, &format!("blobs/{hash}")))
             .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
             .header(reqwest::header::CONTENT_LENGTH, len)
             .body(file);
@@ -151,8 +149,8 @@ impl Client {
         Ok(file.flush().await?)
     }
 
-    async fn submit(&self, run: &str, id: &str, req: &ArtifactSubmitReq) -> Result<ArtifactSubmitRes, Failure> {
-        let req = self.http.post(self.run_url(run, id, "versions")).json(req);
+    async fn submit(&self, scope: Scope<'_>, id: &str, req: &ArtifactSubmitReq) -> Result<ArtifactSubmitRes, Failure> {
+        let req = self.http.post(self.url(scope, id, "versions")).json(req);
         Ok(self.send(req, META_TIMEOUT).await?.json().await?)
     }
 
@@ -500,11 +498,11 @@ impl Artifacts {
             by_hash.entry(file.hash.as_str()).or_insert(file.path.as_str());
         }
         let hashes: Vec<String> = by_hash.keys().map(|h| h.to_string()).collect();
-        let missing = self.client.missing(run, &f.id, &hashes).await.map_err(|e| e.message)?;
+        let missing = self.client.missing(Scope::Run(run), &f.id, &hashes).await.map_err(|e| e.message)?;
         stream::iter(missing.iter().filter_map(|h| Some((h, by_hash.get(h.as_str())?))).map(Ok))
             .try_for_each_concurrent(TRANSFERS, |(hash, path)| {
                 let path = f.dir.join(path);
-                async move { self.client.upload(run, &f.id, hash, &path).await }
+                async move { self.client.upload(Scope::Run(run), &f.id, hash, &path).await }
             })
             .await
             .map_err(|e| e.message)?;
@@ -518,7 +516,7 @@ impl Artifacts {
     /// Sends the pending submit; settled (answered, or refused for good) it is cleared.
     async fn resend(&self, run: &str, f: &Folder, state: &mut State) -> Result<ArtifactSubmitRes, String> {
         let req = state.pending.clone().expect("a pending submit");
-        match self.client.submit(run, &f.id, &req).await {
+        match self.client.submit(Scope::Run(run), &f.id, &req).await {
             Ok(res) => {
                 state.version = Some(res.version_id.clone());
                 state.files = req.files.into_iter().map(|f| (f.path, f.hash)).collect();

@@ -428,10 +428,7 @@ impl Services {
 
     /// service.restart from the server: starts the service again as it was started, ending it first if still live.
     pub async fn restart_id(&self, id: &str, out: &Outbox) -> Result<String, String> {
-        let h = self
-            .find_id(id)
-            .or_else(|| self.0.ended.lock().unwrap().iter().find(|h| h.info.lock().unwrap().id == id).cloned())
-            .ok_or(crate::t!("这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动"))?;
+        let h = self.find_any(id)?;
         let (group_id, bot_id, name) = {
             let i = h.info.lock().unwrap();
             (i.group_id.clone(), i.bot_id.clone(), i.name.clone())
@@ -445,6 +442,22 @@ impl Services {
                 Ok(crate::t!("静态站点 {name} 已重新开放，端口 {port}", name = name, port = port))
             }
         }
+    }
+
+    /// site.host: the dir a static site serves (or served, once stopped).
+    pub fn static_dir(&self, id: &str) -> Result<PathBuf, String> {
+        let h = self.find_any(id)?;
+        match &h.origin.how {
+            How::Static(dir) => inside(&h.origin.root, dir),
+            How::Command(_) => Err(crate::t!("只有静态站点可以直接托管，请让 Bot 构建后用 preview_host 托管").into()),
+        }
+    }
+
+    /// A service live or ended since this daemon started.
+    fn find_any(&self, id: &str) -> Result<Hosted, String> {
+        self.find_id(id)
+            .or_else(|| self.0.ended.lock().unwrap().iter().find(|h| h.info.lock().unwrap().id == id).cloned())
+            .ok_or_else(|| crate::t!("这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动").into())
     }
 
     /// The virtual display (`:N`) a live service runs on.
@@ -551,6 +564,15 @@ fn code(c: Option<i32>) -> String {
 }
 
 /// `rel` resolved under `root`, refusing anything that leaves it.
+/// `static-<dir>` as a service name (lowercase ascii, dashes, at most 32).
+pub(crate) fn static_name(dir: &str) -> String {
+    let slug: String =
+        dir.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();
+    let slug = slug.split('-').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("-");
+    let name = if slug.is_empty() { "static".to_string() } else { format!("static-{slug}") };
+    name.chars().take(32).collect::<String>().trim_end_matches('-').into()
+}
+
 pub(crate) fn inside(root: &Path, rel: &str) -> Result<PathBuf, String> {
     const OUTSIDE: &str = "目录必须是工作区内已存在的相对目录";
     let root = root.canonicalize().map_err(|e| format!("工作区不可用：{e}"))?;

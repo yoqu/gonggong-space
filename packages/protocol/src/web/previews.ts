@@ -69,6 +69,16 @@ export const ServiceDto = z.object({
 })
 export type ServiceDto = z.infer<typeof ServiceDto>
 /**
+ * POST /api/previews/:id/host (托管到服务器; bot owner or group admin): a static site is uploaded from the machine
+ * as a new version of its hosted-site artifact (`artifactId`, shown in 作品); any other web preview asks its bot to
+ * build one and host it with preview_host (`asked`).
+ */
+export const PreviewHostRes = z.union([
+  z.object({ artifactId: z.string() }),
+  z.object({ asked: z.literal(true) }),
+])
+export type PreviewHostRes = z.infer<typeof PreviewHostRes>
+/**
  * GET /api/groups/:id/previews: open previews and live services. 打开 = GET /api/previews/:id/open?path= (also the
  * iframe src); POST /api/previews/:id/close and /api/services/:id/stop → 204 (bot owner or group admin);
  * POST /api/previews/:id/snapshot → 204 retakes the first screen (same people; 409 with the machine's reason).

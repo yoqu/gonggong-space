@@ -509,6 +509,12 @@ export const ServiceRestartResult = z.object({
   requestId: z.string(),
   error: z.string().nullable(),
 })
+/** Answer to site.host once the version is up; `error` in the daemon's words. */
+export const SiteHostResult = z.object({
+  t: z.literal('site.host.result'),
+  requestId: z.string(),
+  error: z.string().nullable(),
+})
 
 /**
  * gg-cast for a live preview (plan B2), as asked by cast.sync: starting (fetching gg-cast, finding the window,
@@ -574,6 +580,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   RepoProbeResult,
   ServiceState,
   ServiceRestartResult,
+  SiteHostResult,
   CastState,
   ToolsProgress,
   ToolsResult,

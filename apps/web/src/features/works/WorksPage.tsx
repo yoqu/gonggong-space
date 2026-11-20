@@ -259,7 +259,7 @@ export function WorksPage() {
                     {[w.groupTitle, w.creatorName].filter(Boolean).join(' · ')}
                   </span>
                   <span className="works__tags">
-                    {w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
+                    {w.site ? <Tag>{t('托管网页')}</Tag> : w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
                     <Tag
                       tone={w.visibility === 'team' || w.visibility === 'all' ? 'blue' : 'gray'}
                       icon={w.visibility === 'private' ? 'lock' : undefined}

@@ -124,6 +124,8 @@ pub enum ArtifactSubmitSource {
     #[default]
     Run,
     Local,
+    /// A hosted site's upload (machine routes).
+    Host,
 }
 
 /// `head` false with `stale` true: kept as a candidate, the head moved on meanwhile.

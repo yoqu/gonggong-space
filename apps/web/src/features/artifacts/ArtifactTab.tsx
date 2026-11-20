@@ -53,6 +53,7 @@ const SOURCE: Record<ArtifactVersionDto['source'], string> = {
   run: t('AI 生成'),
   edit: t('手动编辑'),
   local: t('本机改动'),
+  host: t('托管上传'),
 }
 
 const versionNote = (v: ArtifactVersionDto) =>

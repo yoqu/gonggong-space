@@ -882,4 +882,13 @@ pub(super) const EN: &[(&str, &str)] = &[
         "服务器版本较旧，未自动创建 Bot，请在 Web 端新建",
         "The server is too old to create the bot; create it on the Web",
     ),
+    ("无法读取目录 {dir}：{e}", "Couldn't read directory {dir}: {e}"),
+    (
+        "目录里没有 index.html：请先构建，再托管构建输出目录（如 dist）",
+        "No index.html in the directory: build first, then host the build output directory (such as dist)",
+    ),
+    (
+        "只有静态站点可以直接托管，请让 Bot 构建后用 preview_host 托管",
+        "Only static sites can be hosted directly; ask the Bot to build and host it with preview_host",
+    ),
 ];

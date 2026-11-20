@@ -19,6 +19,7 @@ const work = (o: Partial<WorkDto>): WorkDto => ({
   groupTitle: '麓客产品群',
   title: '湖畔露营地预约',
   pluginTitle: '产品原型',
+  site: false,
   visibility: 'group',
   createdBy: 'u1',
   creatorName: '姜维川',
@@ -146,6 +147,16 @@ describe('作品 page', () => {
     fireEvent.click(screen.getByRole('radio', { name: '全部' }))
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索作品' }), { target: { value: '露营' } })
     expect(within(grid).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('tags a hosted site as such', async () => {
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [work({ pluginTitle: null, site: true, title: '活动官网' })],
+    })
+    renderAt('/works')
+    const grid = await screen.findByRole('list', { name: '作品' })
+    expect(within(grid).getByRole('listitem').textContent).toContain('托管网页')
   })
 
   it('filters by group, sorts by name and clears filters from the empty state', async () => {

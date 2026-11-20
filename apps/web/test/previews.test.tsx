@@ -166,6 +166,21 @@ describe('preview card', () => {
     )
   })
 
+  it('lets managers host a web preview on the server, shown in 作品', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/previews': list([preview({ canManage: true })]),
+      'POST /previews/p1/host': { artifactId: 'a1' },
+    })
+    render(<PreviewCard previewId="p1" groupId="g1" botId="b1" fallback="预览：登录页" />)
+    fireEvent.click(await screen.findByRole('button', { name: '托管到服务器' }))
+    await waitFor(() =>
+      expect(useToasts.getState().items.map((x) => x.message)).toContain(
+        '已托管到服务器，可在「作品」中打开，Bot 的电脑离线也能访问',
+      ),
+    )
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/previews/p1/host')).toBe(true)
+  })
+
   it('reads 服务已停止 while the service is down; managers start it again from the card', async () => {
     const calls = mockApi({
       'GET /groups/g1/previews': list([preview({ status: 'stopped', canManage: true })]),

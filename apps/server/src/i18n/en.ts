@@ -357,6 +357,15 @@ export const en = {
   只有电脑主人可以确认: "Only the computer's owner can confirm",
   '该 Bot 无需确认': "This Bot doesn't need confirming",
   'Bot 不在本群': 'The Bot is not in this group',
+  这台电脑不能上传这个网页: 'This machine may not upload this site',
+  '请把「{title}」构建成静态网页，并用 preview_host 托管到服务器':
+    'Please build "{title}" as a static site and host it on the server with preview_host',
+  只能上传托管网页: 'Only hosted sites can be uploaded here',
+  只有网页预览可以托管: 'Only web previews can be hosted',
+  'Bot 所在电脑的客户端版本过旧，请升级后再托管':
+    "The Bot's machine runs an old client; upgrade it to host sites",
+  'Bot 所在电脑未响应，请确认它在线后重试':
+    "The Bot's machine did not respond; make sure it is online and retry",
   'Bot 不存在或已删除': 'The Bot does not exist or was deleted',
   '仅 Bot 主人或系统管理员可查看该 Bot 的用量': "Only the Bot's owner or a system admin can see its usage",
 

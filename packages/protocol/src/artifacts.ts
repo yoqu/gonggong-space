@@ -70,8 +70,8 @@ export const LintIssue = z.object({
 })
 export type LintIssue = z.infer<typeof LintIssue>
 
-/** `run`: uploaded after a run; `edit`: the panel's direct edits; `local`: changes found on the machine before a run. */
-export const ArtifactVersionSource = z.enum(['run', 'edit', 'local'])
+/** `run`: uploaded after a run; `edit`: the panel's direct edits; `local`: changes found on the machine before a run; `host`: a hosted site's upload. */
+export const ArtifactVersionSource = z.enum(['run', 'edit', 'local', 'host'])
 export type ArtifactVersionSource = z.infer<typeof ArtifactVersionSource>
 export const ArtifactVersionDto = z.object({
   id: z.string(),
@@ -846,6 +846,8 @@ export const WorkDto = z.object({
   title: z.string(),
   /** The plugin's title (产品原型, 幻灯片…). */
   pluginTitle: z.string().nullable(),
+  /** A hosted site (托管网页) rather than a design. */
+  site: z.boolean(),
   visibility: ArtifactVisibility,
   createdBy: z.string().nullable(),
   creatorName: z.string().nullable(),

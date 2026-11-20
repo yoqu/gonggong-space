@@ -834,9 +834,9 @@ impl Handler for Engine {
             }
             ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
             ServerToDaemon::CastRetry { preview_id } => self.0.casts.retry(&preview_id),
+            ServerToDaemon::SiteHost(r) => crate::artifacts::site_host(&self.0.config, &self.0.services, r, out),
             ServerToDaemon::ArtifactSnapshot { artifact_id, version_id, plugin } => {
-                let Some(api) = self.0.config.api.clone() else { return };
-                let home = self.0.config.home.clone();
+                let (Some(api), home) = (self.0.config.api.clone(), self.0.config.home.clone()) else { return };
                 tokio::spawn(async move {
                     let shot = match crate::artifacts::Artifacts::new(&api, &home) {
                         Ok(a) => {

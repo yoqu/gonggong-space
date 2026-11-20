@@ -1929,6 +1929,11 @@ export const artifacts = pgTable(
     dir: text('dir').notNull(),
     /** The bot it was created for: its previews hang off this bot. */
     botId: uuid('bot_id').references(() => bots.id),
+    /**
+     * A hosted site (托管网页): the workspace dir of `botId` it was uploaded from, re-hosting adds versions; such
+     * artifacts are never checked out into runs nor linted. Null: a design artifact.
+     */
+    siteDir: text('site_dir'),
     /** Not a foreign key: versions reference the artifact, and the first one is inserted after it. */
     headVersionId: uuid('head_version_id'),
     createdBy: uuid('created_by').references(() => users.id),

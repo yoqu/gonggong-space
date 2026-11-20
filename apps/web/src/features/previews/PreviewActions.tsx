@@ -1,10 +1,10 @@
-import type { PreviewDto } from '@gonggong/protocol'
+import type { PreviewDto, PreviewHostRes } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Icon, IconButton, Presence } from '../../ui'
+import { Icon, IconButton, Presence, toast } from '../../ui'
 import { ShareDialog } from './ShareDialog'
 import { openInWorkbench, openUrl } from './store'
 
@@ -29,6 +29,24 @@ export function PreviewActions({
     try {
       await api.post(path, body)
       if (key === 'stop') onDone?.()
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setBusy(undefined)
+    }
+  }
+  // 托管到服务器: a static site goes up as a work; any other page is handed to its bot to build and host.
+  const host = async () => {
+    setBusy('host')
+    try {
+      const res = await api.post<PreviewHostRes>(`/previews/${p.id}/host`)
+      toast({
+        type: 'success',
+        message:
+          'asked' in res
+            ? t('已请 Bot 构建静态网页并托管，完成后可在「作品」中打开')
+            : t('已托管到服务器，可在「作品」中打开，Bot 的电脑离线也能访问'),
+      })
     } catch (e) {
       toastError(e)
     } finally {
@@ -85,6 +103,16 @@ export function PreviewActions({
           {share && web && !demo ? (
             <IconButton size="small" title={t('公开链接')} onClick={() => setSharing(true)}>
               {'link' as const}
+            </IconButton>
+          ) : null}
+          {p.kind === 'http' ? (
+            <IconButton
+              size="small"
+              title={t('托管到服务器')}
+              disabled={busy === 'host'}
+              onClick={() => void host()}
+            >
+              {'cloud' as const}
             </IconButton>
           ) : null}
           {gui ? null : (

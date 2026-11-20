@@ -37,6 +37,7 @@ export default {
   'AI 生成': 'AI generated',
   手动编辑: 'Manual edit',
   本机改动: 'Local changes',
+  托管上传: 'Hosted upload',
   候选: 'Candidate',
   版本: 'Version',
   'v{n}（当前）': 'v{n} (current)',

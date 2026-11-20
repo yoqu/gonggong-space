@@ -19,6 +19,7 @@ import { agentToolRoutes } from './modules/agent-tools/routes.js'
 import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
 import { artifactRoutes } from './modules/artifacts/routes.js'
+import { siteRoutes } from './modules/artifacts/sites.js'
 import { attachmentRoutes } from './modules/attachments/routes.js'
 import { feishuAuthRoutes } from './modules/auth/feishu.js'
 import { authRoutes } from './modules/auth/routes.js'
@@ -174,6 +175,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   app.addHook('onClose', startSyncEngine(ctx))
   await app.register(syncRoutes(ctx))
   await app.register(artifactRoutes(ctx))
+  await app.register(siteRoutes(ctx))
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
   const stopApprovalTimer = startApprovalTimer(ctx)
