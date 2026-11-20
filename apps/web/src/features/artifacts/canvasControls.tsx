@@ -144,8 +144,8 @@ const TIPS = [
 const TIPS_KEY = 'gg.art.tips'
 const TIP_MS = 8000
 
-/** `through`: clicks pick elements (标记 / 直接编辑), so it says how to work the page itself instead. */
-export function CanvasTips({ through }: { through: boolean }): ReactElement | null {
+/** `through`: the pages take clicks (`pick`: 标记 / 直接编辑, `play`: 交互), so it says how to work them instead. */
+export function CanvasTips({ through }: { through: 'pick' | 'play' | null }): ReactElement | null {
   const [tip, setTip] = useState(() => (localStorage.getItem(TIPS_KEY) === 'off' ? -1 : 0))
   // Tips turn over by themselves until closed.
   useEffect(() => {
@@ -157,7 +157,11 @@ export function CanvasTips({ through }: { through: boolean }): ReactElement | nu
     return (
       <div className="art-tip" role="status" data-testid="art-through">
         <Icon name="cursor" size={14} />
-        <span>{t('按住 ⌥/Alt 点击可操作页面（如打开弹窗），松开再点选其中的元素')}</span>
+        <span>
+          {through === 'play'
+            ? t('直接点击操作页面（如打开弹窗），切回标记或直接编辑可点选其中的元素')
+            : t('按住 ⌥/Alt 点击或切到交互工具（P）可操作页面，再点选其中的元素')}
+        </span>
       </div>
     )
   if (tip < 0) return null

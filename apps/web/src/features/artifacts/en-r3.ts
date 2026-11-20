@@ -24,8 +24,11 @@ export default {
     'A brief to hand straight to a coding agent: the artifact folder, each screen, the flows and the design system.',
   双击屏幕放大查看: 'Double-click a screen to zoom in',
   '按住 ⌥/Alt 点击可操作页面': 'Hold ⌥/Alt and click to use the page',
-  '按住 ⌥/Alt 点击可操作页面（如打开弹窗），松开再点选其中的元素':
-    'Hold ⌥/Alt and click to use the page (e.g. open a dialog), then release to pick what it shows',
+  '按住 ⌥/Alt 点击或切到交互工具（P）可操作页面，再点选其中的元素':
+    'Hold ⌥/Alt and click, or switch to Interact (P), to use the page, then pick what it shows',
+  '直接点击操作页面（如打开弹窗），切回标记或直接编辑可点选其中的元素':
+    'Click to use the page (e.g. open a dialog), then switch back to Mark or Edit to pick what it shows',
+  交互: 'Interact',
   '选中屏幕后在左侧对话里描述修改，不用 @':
     'Select screens, then describe changes in the chat on the left — no @ needed',
   '可以说「点 X 时打开下一屏」，AI 会连好跳转':

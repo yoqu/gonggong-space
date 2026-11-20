@@ -170,7 +170,7 @@ import type { DesignTokens } from './tokens'
 import { VariationsDialog } from './VariationsDialog'
 import { linkIcon } from './webPage'
 
-type Tool = 'select' | 'hand' | 'mark' | 'edit'
+type Tool = 'select' | 'hand' | 'mark' | 'edit' | 'play'
 type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations' | 'export' | 'rules' | 'shared'
 
 /** What the tab's bar asks the canvas for (its 导出 button and project menu); `n` makes each ask a new one. */
@@ -183,7 +183,7 @@ export interface CanvasRequest {
   handled?: boolean
 }
 
-const TOOL_IDS: Tool[] = ['select', 'mark', 'edit', 'hand']
+const TOOL_IDS: Tool[] = ['select', 'mark', 'edit', 'play', 'hand']
 /** Command-menu values beyond the menus' own commands. */
 const RUN = { tool: 'tool:', zoom: 'zoom:', screen: 'screen:', panel: 'panel:' } as const
 /** Commands that take selected references as well as screens. */
@@ -496,6 +496,8 @@ export function Canvas({
   const escapeFrom = useRef(0)
   const panning = tool === 'hand' || space
   const live = tool === 'mark' || tool === 'edit'
+  /** The pages take the pointer: picked in 标记 / 直接编辑, worked by plain clicks in 交互. */
+  const through = live || tool === 'play'
   const canEdit = !readOnly && !!manifest
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved nodes in place
@@ -693,8 +695,8 @@ export function Canvas({
         rect: inDocument(m.rect, scrolls[m.file] ?? NO_SCROLL),
         ggIds: m.ggIds,
       })
-    } else if (m.type === 'nav' && live && screens.some((n) => n.id === m.screen)) {
-      // A link worked through (⌥ click) while editing goes where it points, as in the prototype.
+    } else if (m.type === 'nav' && through && screens.some((n) => n.id === m.screen)) {
+      // A link worked through (交互, or ⌥ click while editing) goes where it points, as in the prototype.
       setSelected([m.screen])
       fitTo([m.screen])
     } else if (m.type === 'select') {
@@ -1155,6 +1157,7 @@ export function Canvas({
     else if (key === 'v') run(() => setTool('select'))
     else if (key === 'h') run(() => setTool('hand'))
     else if (key === 'm') run(() => setTool('mark'))
+    else if (key === 'p') run(() => setTool('play'))
     else if (key === 'e') run(() => command(CMD.edit))
     else if (key === 'f') run(() => command(CMD.focus))
     else if (key === 'i') run(() => command(CMD.details))
@@ -1530,9 +1533,15 @@ export function Canvas({
       ...entriesOf(
         t('工具'),
         TOOL_IDS.map((id) => ({
-          label: { select: t('选择'), mark: t('标记#mark'), edit: t('直接编辑'), hand: t('抓手') }[id],
+          label: {
+            select: t('选择'),
+            mark: t('标记#mark'),
+            edit: t('直接编辑'),
+            play: t('交互'),
+            hand: t('抓手'),
+          }[id],
           value: `${RUN.tool}${id}`,
-          shortcut: { select: 'V', mark: 'M', edit: 'E', hand: 'H' }[id],
+          shortcut: { select: 'V', mark: 'M', edit: 'E', play: 'P', hand: 'H' }[id],
           ...(id === 'edit' && !canEdit ? { disabled: true, title: t('历史版本只读') } : {}),
         })),
       ),
@@ -1777,7 +1786,7 @@ export function Canvas({
                       }}
                       className={cx(
                         'art-node__frame',
-                        (live || rules.picking) && 'art-node__frame--live',
+                        (through || rules.picking) && 'art-node__frame--live',
                         ((swapToThumbs && covered(n)) || !nearView(n, view, room)) && 'art-node__frame--off',
                       )}
                       title={n.title}
@@ -2038,6 +2047,13 @@ export function Canvas({
           onClick={canEdit ? () => setTool('edit') : undefined}
         />
         <ToolButton
+          icon="play"
+          label={t('交互')}
+          shortcut="P"
+          on={tool === 'play'}
+          onClick={() => setTool('play')}
+        />
+        <ToolButton
           icon="hand"
           label={t('抓手')}
           shortcut="H"
@@ -2242,7 +2258,7 @@ export function Canvas({
         </div>
       ) : null}
 
-      <CanvasTips through={live} />
+      <CanvasTips through={through ? (live ? 'pick' : 'play') : null} />
 
       <div className="art-corner">
         <IconButton size="regular" title={t('撤销#undo')} disabled={!undo} onClick={() => undo?.()}>

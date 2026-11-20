@@ -250,7 +250,7 @@ describe('bridge', () => {
     const iframe = screen.getByTitle('首页') as HTMLIFrameElement
     expect(screen.queryByTestId('art-through')).toBeNull()
     key('e')
-    expect(screen.getByTestId('art-through').textContent).toMatch(/点击可操作页面/)
+    expect(screen.getByTestId('art-through').textContent).toMatch(/切到交互工具（P）/)
     act(() => {
       window.dispatchEvent(
         new MessageEvent('message', {
@@ -264,6 +264,40 @@ describe('bridge', () => {
     expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
     key('v')
     expect(screen.queryByTestId('art-through')).toBeNull()
+  })
+
+  it('the 交互 tool (P) works the pages by plain clicks and keeps them open for picking after', async () => {
+    mockApi(routes())
+    await renderTab()
+    const iframe = screen.getByTitle('首页') as HTMLIFrameElement
+    const sent = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'gg-bridge', type: 'ready', file: 'screens/home.html', width: 390, height: 844 },
+          origin: ORIGIN,
+          source: iframe.contentWindow,
+        }),
+      )
+    })
+    key('p')
+    expect(screen.getByRole('button', { name: '交互' }).getAttribute('aria-pressed')).toBe('true')
+    expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
+    expect(sent).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'mark' }), ORIGIN)
+    expect(screen.getByTestId('art-through').textContent).toMatch(/直接点击操作页面/)
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'gg-bridge', type: 'nav', file: 'screens/home.html', screen: 'detail' },
+          origin: ORIGIN,
+          source: iframe.contentWindow,
+        }),
+      )
+    })
+    expect(canvasScreen('a1')).toBe('detail')
+    key('e')
+    expect(screen.getByTitle('首页')).toBe(iframe)
+    expect(sent).toHaveBeenLastCalledWith({ source: 'gg-host', type: 'mode', mode: 'edit' }, ORIGIN)
   })
 
   it('tells the page rail which one screen is selected', async () => {

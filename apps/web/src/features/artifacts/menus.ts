@@ -319,6 +319,7 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('平移（按住）'), keys: ['Space'] },
       { label: t('标记#mark'), keys: ['M'] },
       { label: t('直接编辑'), keys: ['E'] },
+      { label: t('交互'), keys: ['P'] },
       { label: t('框选'), keys: ['⇧', t('拖动')] },
       { label: t('缩放（按住，⌥ 缩小）'), keys: ['Z'] },
       { label: t('显示连线'), keys: ['X'] },
