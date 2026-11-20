@@ -499,6 +499,7 @@ export function Canvas({
   /** The pages take the pointer: picked in 标记 / 直接编辑, worked by plain clicks in 交互. */
   const through = live || tool === 'play'
   const canEdit = !readOnly && !!manifest
+  const noEditReason = readOnly ? t('历史版本只读') : !manifest ? t('单页产物不支持画布编辑') : undefined
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved nodes in place
   useEffect(() => setMoves({}), [manifest])
@@ -1542,19 +1543,19 @@ export function Canvas({
           }[id],
           value: `${RUN.tool}${id}`,
           shortcut: { select: 'V', mark: 'M', edit: 'E', play: 'P', hand: 'H' }[id],
-          ...(id === 'edit' && !canEdit ? { disabled: true, title: t('历史版本只读') } : {}),
+          ...(id === 'edit' && noEditReason ? { disabled: true, title: noEditReason } : {}),
         })),
       ),
       ...entriesOf(t('工具'), [
         {
           label: t('上传到画布'),
           value: CMD.upload,
-          ...(canEdit ? {} : { disabled: true, title: t('历史版本只读') }),
+          ...(noEditReason ? { disabled: true, title: noEditReason } : {}),
         },
         {
           label: t('添加链接'),
           value: LINK_CMD.add,
-          ...(canEdit ? {} : { disabled: true, title: t('历史版本只读') }),
+          ...(noEditReason ? { disabled: true, title: noEditReason } : {}),
         },
       ]),
       ...entriesOf(t('面板'), [
@@ -2044,7 +2045,8 @@ export function Canvas({
           label={t('直接编辑')}
           shortcut="E"
           on={tool === 'edit'}
-          onClick={canEdit ? () => setTool('edit') : undefined}
+          off={noEditReason}
+          onClick={() => setTool('edit')}
         />
         <ToolButton
           icon="play"
@@ -2063,7 +2065,7 @@ export function Canvas({
         <ToolButton
           icon="upload"
           label={t('上传到画布')}
-          off={canEdit ? (uploading ? t('正在上传…') : undefined) : t('历史版本只读')}
+          off={noEditReason ?? (uploading ? t('正在上传…') : undefined)}
           onClick={() => command(CMD.upload)}
         />
         <input
@@ -2079,12 +2081,7 @@ export function Canvas({
             void upload(files)
           }}
         />
-        <ToolButton
-          icon="link"
-          label={t('添加链接')}
-          off={canEdit ? undefined : t('历史版本只读')}
-          onClick={web.openAdd}
-        />
+        <ToolButton icon="link" label={t('添加链接')} off={noEditReason} onClick={web.openAdd} />
         <ToolButton
           icon="arrow-clockwise"
           label={t('刷新')}

@@ -223,6 +223,32 @@ describe('grouping rule', () => {
     const late = msg({ seq: 1, createdAt: new Date(2026, 8, 23, 23, 59).toISOString() })
     expect(continues(late, msg({ seq: 2, createdAt: new Date(2026, 8, 24, 0, 1).toISOString() }))).toBe(false)
   })
+
+  it('never merges different webhooks or a webhook with its owner', () => {
+    const owner = msg({ seq: 1, authorId: 'u1', authorName: '王磊' })
+    const hookA = msg({
+      seq: 2,
+      authorId: 'u1',
+      authorName: 'Jenkins 部署成功',
+      webhook: { id: 'w1', name: 'Jenkins 部署成功' },
+    })
+    const hookB = msg({
+      seq: 3,
+      authorId: 'u1',
+      authorName: 'Jenkins 部署异常',
+      webhook: { id: 'w2', name: 'Jenkins 部署异常' },
+    })
+    const hookA2 = msg({
+      seq: 4,
+      authorId: 'u1',
+      authorName: 'Jenkins 部署成功',
+      webhook: { id: 'w1', name: 'Jenkins 部署成功' },
+    })
+    expect(continues(owner, hookA)).toBe(false)
+    expect(continues(hookA, owner)).toBe(false)
+    expect(continues(hookA, hookB)).toBe(false)
+    expect(continues(hookA, hookA2)).toBe(true)
+  })
 })
 
 describe('unread divider position', () => {

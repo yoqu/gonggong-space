@@ -189,6 +189,9 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
         if (swipeY.current != null && e.clientY - swipeY.current < -SWIPE_DISMISS) dismissToast(t.id)
         swipeY.current = undefined
       }}
+      onPointerCancel={() => {
+        swipeY.current = undefined
+      }}
     >
       <span className="ui-toast__icon">{ICON[t.type]}</span>
       <div className="ui-toast__body">

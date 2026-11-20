@@ -305,6 +305,16 @@ describe('Toast hold and dismiss', () => {
     fireEvent.pointerUp(el, { clientY: 60 })
     expect(useToasts.getState().items).toEqual([])
   })
+
+  it('resets swipe tracking on pointercancel', () => {
+    render(<Toaster />)
+    act(() => void toast({ type: 'success', message: '已保存' }))
+    const el = screen.getByText('已保存').closest<HTMLElement>('.ui-toast')!
+    fireEvent.pointerDown(el, { clientY: 100 })
+    fireEvent.pointerCancel(el)
+    fireEvent.pointerUp(el, { clientY: 40 })
+    expect(useToasts.getState().items).toHaveLength(1)
+  })
 })
 
 describe('useLeaving', () => {

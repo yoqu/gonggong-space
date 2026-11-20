@@ -15,6 +15,7 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-menu);
   color: var(--label);
+  touch-action: none;
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
@@ -97,6 +98,11 @@
 }
 .ui-toast:not([data-persistent], :hover, :focus-within) .ui-toast__close {
   display: none;
+}
+@media (hover: none) {
+  .ui-toast:not([data-persistent]) .ui-toast__close {
+    display: grid;
+  }
 }
 .ui-toast__close {
   display: grid;

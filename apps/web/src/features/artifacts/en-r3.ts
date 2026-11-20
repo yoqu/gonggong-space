@@ -29,6 +29,7 @@ export default {
   '直接点击操作页面（如打开弹窗），切回标记或直接编辑可点选其中的元素':
     'Click to use the page (e.g. open a dialog), then switch back to Mark or Edit to pick what it shows',
   交互: 'Interact',
+  单页产物不支持画布编辑: 'Canvas editing is not available for single-page artifacts',
   '选中屏幕后在左侧对话里描述修改，不用 @':
     'Select screens, then describe changes in the chat on the left — no @ needed',
   '可以说「点 X 时打开下一屏」，AI 会连好跳转':

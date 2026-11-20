@@ -33,13 +33,22 @@ document.addEventListener(
 )
 
 let live: HTMLElement | undefined
+const copiedTimers = new WeakMap<HTMLButtonElement, ReturnType<typeof setTimeout>>()
 /** Confirms a copy on the pressed button (a ✓ for a moment, announced for screen readers); a menu item, gone or
  *  closing by now, can't show it. */
 function flashCopied(b: HTMLButtonElement | null | undefined, done: string) {
   if (!b?.isConnected || b.closest('[role="menu"]') || !b.getClientRects().length) return false
   if (getComputedStyle(b).position === 'static') b.style.position = 'relative'
+  const prev = copiedTimers.get(b)
+  if (prev !== undefined) clearTimeout(prev)
   b.dataset.copied = ''
-  setTimeout(() => delete b.dataset.copied, COPIED_FLASH)
+  copiedTimers.set(
+    b,
+    setTimeout(() => {
+      delete b.dataset.copied
+      copiedTimers.delete(b)
+    }, COPIED_FLASH),
+  )
   if (!live?.isConnected) {
     live = document.createElement('div')
     live.className = 'ui-copied-live'

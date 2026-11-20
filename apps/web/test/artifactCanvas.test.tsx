@@ -1473,4 +1473,25 @@ describe('G18 artifact menu', () => {
       ).toEqual(['a2']),
     )
   })
+
+  it('explains why canvas editing tools are disabled on a single-page artifact instead of saying 历史版本只读 or 即将支持', async () => {
+    const singleHead = version(1, { source: 'host', files: [file('index.html')] })
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ headVersionId: 'v1', head: singleHead, manifest: null }),
+        'GET /artifacts/a1/versions': [singleHead],
+        'GET /artifacts/a1/versions/v1': { ...singleHead, manifest: null, links: [] },
+      }),
+    )
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('读书会小程序')
+    for (const label of ['直接编辑', '上传到画布', '添加链接']) {
+      const btn = screen.getByRole('button', { name: label })
+      expect(btn.hasAttribute('disabled')).toBe(true)
+      const tip = btn.parentElement?.textContent ?? ''
+      expect(tip).toContain('单页产物不支持画布编辑')
+      expect(tip).not.toContain('即将支持')
+      expect(tip).not.toContain('历史版本只读')
+    }
+  })
 })

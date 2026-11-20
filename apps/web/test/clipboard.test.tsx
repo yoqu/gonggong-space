@@ -51,4 +51,25 @@ describe('copyWithToast', () => {
     await act(() => copyWithToast('x', '已复制路径'))
     expect(useToasts.getState().items.map((x) => x.message)).toEqual(['已复制路径'])
   })
+
+  it('extends the ✓ flash when clicked again before the first timer fires', async () => {
+    vi.useFakeTimers()
+    shown()
+    render(
+      <button type="button" onClick={() => void copyWithToast('x', '链接已复制')}>
+        复制
+      </button>,
+    )
+    const button = screen.getByRole('button', { name: '复制' })
+    fireEvent.click(button)
+    await act(async () => {})
+    expect(button.hasAttribute('data-copied')).toBe(true)
+    act(() => vi.advanceTimersByTime(1000))
+    fireEvent.click(button)
+    await act(async () => {})
+    act(() => vi.advanceTimersByTime(600))
+    expect(button.hasAttribute('data-copied')).toBe(true)
+    act(() => vi.advanceTimersByTime(900))
+    expect(button.hasAttribute('data-copied')).toBe(false)
+  })
 })
