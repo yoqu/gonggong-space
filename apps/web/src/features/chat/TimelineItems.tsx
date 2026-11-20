@@ -7,7 +7,7 @@ import {
   type RunStatus,
   unplacedHtmlPages,
 } from '@gonggong/protocol'
-import { Fragment, memo, type ReactNode, useContext, useMemo, useState } from 'react'
+import { memo, type ReactNode, useContext, useMemo, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
@@ -20,10 +20,8 @@ import {
   Icon,
   type IconName,
   Mascot,
-  Mention,
   Message,
   type MessageAuthor,
-  splitMentions,
   Tag,
   type TagTone,
   ThreadSummary,
@@ -73,9 +71,9 @@ import { RunTodos, walkable } from './RunPlan'
 import { reedit, useRecalled } from './recalled'
 import { openThread } from './thread'
 import { InThread, ThreadScope, useThreadSummary } from './threadSummary'
+import { type MentionTarget, UserMessageText } from './UserMessageText'
 import './recall.css'
 import { t } from '../../i18n'
-import { Linkified } from '../../lib/links'
 import { MessageCanvasChips, RunArtifactsLine } from '../artifacts/CanvasRefs'
 import { messageCanvas, runArtifacts } from '../artifacts/runContext'
 import { usePins } from './PinnedMessages'
@@ -417,34 +415,7 @@ function AlsoSent({ m }: { m: MessageDto }) {
   ) : null
 }
 
-export interface MentionTarget {
-  id: string
-  name: string
-}
-
-/**
- * Only the targets the message @-ed by id are highlighted: a deleted one stays plain text instead of matching a
- * name it starts with (`@共字君` → member 共字).
- */
-function Text({ m, targets, meId }: { m: MessageDto; targets: MentionTarget[]; meId?: string }) {
-  const ids = new Set([...m.mentions, ...(m.userMentions ?? [])])
-  const byName = new Map(targets.filter((x) => ids.has(x.id)).map((x) => [x.name, x.id]))
-  return (
-    <p>
-      {splitMentions(m.body, [...byName.keys()]).map((s, i) =>
-        s.mention ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
-          <Mention key={i} name={s.text.slice(1)} me={!!meId && byName.get(s.text.slice(1)) === meId} />
-        ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
-          <Fragment key={i}>
-            <Linkified text={s.text} />
-          </Fragment>
-        ),
-      )}
-    </p>
-  )
-}
+export type { MentionTarget } from './UserMessageText'
 
 /**
  * Bots a member's message went to without naming them (the canvas hands a plain message to the artifact's bot): the
@@ -540,7 +511,7 @@ export const UserMessage = memo(function UserMessage({
               </>
             ) : undefined
           }
-          bare={!text}
+          bare={!text || !!m.webhookCard}
           actionBar={bar}
           thread={thread}
           footer={
@@ -563,7 +534,7 @@ export const UserMessage = memo(function UserMessage({
           {creation ? null : editing ? (
             <MessageEditor message={m} onDone={stopEditing} />
           ) : m.body ? (
-            <Text m={m} targets={targets} meId={meId} />
+            <UserMessageText m={m} targets={targets} meId={meId} />
           ) : null}
           <ReactionBar message={m} />
         </Message>

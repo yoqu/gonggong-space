@@ -128,6 +128,8 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).schedule && { scheduleId: (m.meta as MessageMeta).schedule }),
     ...((m.meta as MessageMeta).scheduleOf && { scheduledBy: (m.meta as MessageMeta).scheduleOf }),
     ...((m.meta as MessageMeta).webhook && { webhook: (m.meta as MessageMeta).webhook }),
+    ...(!recalled &&
+      (m.meta as MessageMeta).webhookCard && { webhookCard: (m.meta as MessageMeta).webhookCard }),
     ...((m.meta as MessageMeta).i18n && { i18n: (m.meta as MessageMeta).i18n }),
     ...((m.meta as MessageMeta).syncConflict && { syncConflict: (m.meta as MessageMeta).syncConflict }),
     ...((m.meta as MessageMeta).mcpSecret && { mcpSecret: (m.meta as MessageMeta).mcpSecret }),

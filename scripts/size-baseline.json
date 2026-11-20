@@ -4,7 +4,6 @@
   "apps/web/src/features/artifacts/Canvas.tsx": 2375,
   "apps/web/src/features/artifacts/artifacts.css": 1888,
   "apps/web/src/features/chat/ChatView.tsx": 1055,
-  "apps/web/src/features/chat/TimelineItems.tsx": 1019,
   "apps/web/src/features/files/FileViewer.tsx": 1188,
   "crates/gonggong/src/ask.rs": 1853,
   "crates/gonggong/src/engine.rs": 1371,

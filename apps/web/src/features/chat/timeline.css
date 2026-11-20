@@ -283,6 +283,16 @@
   max-width: none;
 }
 
+.tl-webhook-card {
+  width: 560px;
+  overflow-wrap: anywhere;
+}
+.tl-webhook-card__text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
 /* Run card: a bare MessageCard; the header tint follows the run status. */
 .run-card {
   display: flex;

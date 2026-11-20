@@ -25,6 +25,7 @@ export default {
   '查看 Bot': 'View Bot',
   打开群设置: 'Open group settings',
   打开群信息: 'Open group info',
+  打开链接: 'Open link',
   '未绑定仓库 · Bot 使用本机目录': 'No repo · the Bot uses a local folder',
   '未绑定仓库 · 各 Bot 使用本机目录': 'No repo · each Bot uses a local folder',
   '未绑定仓库 · Bot 使用托管工作区': 'No repo · the Bot uses a managed workspace',

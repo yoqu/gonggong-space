@@ -7,6 +7,7 @@ import { I18nText } from '../i18n.js'
 import { MessageCard } from '../plugins.js'
 import { SecretCard } from '../secrets.js'
 import { ActionAnswer } from '../ui-blocks.js'
+import { WebhookCard } from '../webhooks.js'
 import { GroupDto } from './groups.js'
 import { RunDto } from './runs.js'
 
@@ -127,6 +128,7 @@ export const MessageDto = z.object({
   scheduledBy: z.string().nullable().optional(),
   /** Posted by an inbound webhook of this group (in its owner's name; displayed under the webhook's name). */
   webhook: z.object({ id: z.string(), name: z.string() }).optional(),
+  webhookCard: WebhookCard.optional(),
   /** An event's translatable source; `body` holds its Chinese rendering. */
   i18n: I18nText.optional(),
   /** A force-sync conflict card (F11): the held change and whose replica it is. */

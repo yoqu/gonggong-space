@@ -281,6 +281,41 @@ describe('run status icons', () => {
 })
 
 describe('timeline bubbles', () => {
+  it('renders opt-in webhook cards without changing ordinary webhook messages', async () => {
+    const url = 'https://ci.example.com/job/deploy/42/console'
+    const webhook = { id: 'hook', name: 'Jenkins' }
+    renderChat({
+      messages: [
+        msg({
+          seq: 1,
+          webhook,
+          body: `共工部署成功\n任务：部署 #42\n\n1234567 修复 <at id=all></at>\n\n控制台：${url}`,
+          webhookCard: { tone: 'success', url },
+        }),
+        msg({
+          seq: 2,
+          webhook,
+          body: '@小王的 Claude 共工部署未成功',
+          mentions: ['b1'],
+          webhookCard: { tone: 'failure' },
+          attachments: [{ id: 'a1', name: 'diagnostics.log', size: 1, mime: 'text/plain', messageId: 'm2' }],
+        }),
+        msg({ seq: 3, webhook, body: '**无需卡片**' }),
+      ],
+      runs: [],
+    })
+
+    const consoleLink = await screen.findByRole('link', { name: '打开链接' })
+    expect(consoleLink.getAttribute('href')).toBe(url)
+    const success = consoleLink.closest('.pn-mcard--green')
+    expect(success?.textContent).toContain('1234567 修复 <at id=all></at>')
+    expect(success?.textContent).not.toContain(url)
+    const failure = screen.getByText(/共工部署未成功/).closest('.pn-mcard--red')
+    expect(failure?.textContent).toContain('@小王的 Claude')
+    expect(await screen.findByText('diagnostics.log')).toBeTruthy()
+    expect(screen.getByText('**无需卡片**').closest('.pn-bubble')).not.toBeNull()
+  })
+
   it('names my messages like the others and merges consecutive messages of one author', async () => {
     renderChat({
       messages: [

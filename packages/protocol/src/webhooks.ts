@@ -71,6 +71,19 @@ export type GroupWebhooksDto = z.infer<typeof GroupWebhooksDto>
 export const WebhookTokenDto = z.object({ webhook: WebhookDto, token: z.string(), path: z.string() })
 export type WebhookTokenDto = z.infer<typeof WebhookTokenDto>
 
+export const WebhookCard = z.object({
+  tone: z.enum(['success', 'failure']),
+  url: z
+    .url({ protocol: /^https$/ })
+    .max(1000)
+    .refine((value) => {
+      if (!URL.canParse(value)) return false
+      const url = new URL(value)
+      return !url.username && !url.password
+    })
+    .optional(),
+})
+
 /**
  * POST /api/hooks/:token (or /api/hooks with a Bearer token), no session → WebhookCallDto. 401 for a wrong, deleted or
  * disabled token alike, 413 over the size limits, 429 over WEBHOOK_RATE_PER_MIN.
@@ -86,21 +99,8 @@ export const WebhookCallReq = z.object({
   prompt: WebhookPrompt.optional(),
   /** A text file attached to the message (e.g. the console tail), readable by the bot. */
   attachment: z.object({ name: z.string().trim().min(1).max(200), content: z.string() }).optional(),
-  /** An opt-in native card in the bound Feishu group; never accepts raw HTML or card JSON. */
-  card: z
-    .object({
-      tone: z.enum(['success', 'failure']),
-      url: z
-        .url({ protocol: /^https$/ })
-        .max(1000)
-        .refine((value) => {
-          if (!URL.canParse(value)) return false
-          const url = new URL(value)
-          return !url.username && !url.password
-        })
-        .optional(),
-    })
-    .optional(),
+  /** An opt-in card in 共工 and the bound Feishu group; never accepts raw HTML or card JSON. */
+  card: WebhookCard.optional(),
   dedupeKey: z.string().trim().min(1).max(200).optional(),
 })
 export type WebhookCallReq = z.infer<typeof WebhookCallReq>

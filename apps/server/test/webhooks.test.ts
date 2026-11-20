@@ -138,6 +138,13 @@ describe('webhook notifications in a bound Feishu group', () => {
 
     expect(notice.status).toBe(200)
     expect(plain.status).toBe(200)
+    const timeline = await w.req<TimelineDto>('li', 'GET', `/api/groups/${w.group.id}/timeline`)
+    expect(timeline.body.messages.find((m) => m.id === notice.body.messageId)).toMatchObject({
+      webhookCard: { tone: 'success', url },
+    })
+    expect(timeline.body.messages.find((m) => m.id === plain.body.messageId)).not.toHaveProperty(
+      'webhookCard',
+    )
     const [card, message] = t.feishu.sent
     expect(card).toMatchObject({
       chatId: 'oc_deploy',
