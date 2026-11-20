@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useState } from 'react'
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { AppFrame } from '../ui'
@@ -29,7 +29,6 @@ const CHAT_DEFAULT = 380
 const CHAT_MIN = 320
 const CHAT_MAX = 560
 const STEP = 16
-const TOAST_GAP = 12
 /** The workbench is never squeezed under this by a docked rail; the rail takes the chat's place instead. */
 const BENCH_MIN = 400
 // Laid-out widths (separators included) of the columns left of the content, so the dock is decided in the
@@ -138,42 +137,6 @@ function Splitter({
   )
 }
 
-/** Keeps toasts centred on the chat column and just above its composer so they never cover what is being typed. */
-function useToastAboveComposer(main: HTMLElement | null) {
-  useEffect(() => {
-    if (!main) return
-    const root = document.documentElement.style
-    let composer: Element | null = null
-    const place = () => {
-      const box = main.getBoundingClientRect()
-      const top = composer?.getBoundingClientRect().top ?? box.bottom - TOAST_GAP
-      root.setProperty('--toast-bottom', `${Math.round(window.innerHeight - top + TOAST_GAP)}px`)
-      root.setProperty('--toast-x', `${Math.round(box.left + box.width / 2)}px`)
-    }
-    const ro = new ResizeObserver(place)
-    ro.observe(main)
-    const find = () => {
-      const next = main.querySelector('.pn-composer-wrap')
-      if (next === composer) return
-      if (composer) ro.unobserve(composer)
-      composer = next
-      if (next) ro.observe(next)
-      place()
-    }
-    const mo = new MutationObserver(find)
-    mo.observe(main, { childList: true, subtree: true })
-    find()
-    window.addEventListener('resize', place)
-    return () => {
-      ro.disconnect()
-      mo.disconnect()
-      window.removeEventListener('resize', place)
-      root.removeProperty('--toast-bottom')
-      root.removeProperty('--toast-x')
-    }
-  }, [main])
-}
-
 export function ChatLayout({
   sidebar,
   strip,
@@ -208,10 +171,8 @@ export function ChatLayout({
 }) {
   const width = useViewportWidth()
   const mobile = width < MOBILE_MAX
-  const [main, setMain] = useState<HTMLElement | null>(null)
   const bench = !mobile && !!workbench
   const phoneBench = mobile && mobileView === 'chat' && !!workbench
-  useToastAboveComposer(phoneBench ? null : main)
   const stored = useBenchMode()
   const railBody = rail && railOpen ? rail : null
   const docked = bench && !!railBody
@@ -329,7 +290,6 @@ export function ChatLayout({
       ) : null}
       {!mobile || mobileView === 'chat' ? (
         <main
-          ref={setMain}
           id="main"
           className={cx(
             'chat__center',

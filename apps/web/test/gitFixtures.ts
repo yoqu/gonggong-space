@@ -198,3 +198,13 @@ export const actionsCalled = (calls: Call[]) =>
 export const refreshes = (calls: Call[]) =>
   calls.filter((c) => c.path === `${BASE}/refresh`).map((c) => c.body)
 export const benchTabs = () => useWorkbench.getState().benches.g1?.tabs ?? []
+
+/** Every toast raised from now on: the slot shows only the latest. */
+export function raisedToasts() {
+  const raised: unknown[] = []
+  useToasts.subscribe((s, p) => {
+    const [t] = s.items
+    if (t && t.id !== p.items[0]?.id) raised.push(t.message)
+  })
+  return raised
+}

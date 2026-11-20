@@ -173,11 +173,10 @@ describe('preview card', () => {
     })
     render(<PreviewCard previewId="p1" groupId="g1" botId="b1" fallback="预览：登录页" />)
     fireEvent.click(await screen.findByRole('button', { name: '托管到服务器' }))
-    await waitFor(() =>
-      expect(useToasts.getState().items.map((x) => x.message)).toContain(
-        '已托管到服务器，可在「作品」中打开，Bot 的电脑离线也能访问',
-      ),
-    )
+    await waitFor(() => expect(useToasts.getState().items.map((x) => x.message)).toContain('已托管到服务器'))
+    const [shown] = useToasts.getState().items
+    ;[shown!.action].flat()[0]!.onClick()
+    expect(location.pathname + location.search).toBe('/g/g1?artifact=a1')
     expect(calls.some((c) => c.method === 'POST' && c.path === '/previews/p1/host')).toBe(true)
   })
 

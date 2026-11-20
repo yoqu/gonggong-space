@@ -160,8 +160,7 @@ export default {
   '小程序 · {path}': 'Mini program · {path}',
   '桌面应用 · {name}': 'Desktop app · {name}',
   托管到服务器: 'Host on server',
-  '已请 Bot 构建静态网页并托管，完成后可在「作品」中打开':
-    'Asked the Bot to build a static site and host it; open it from Works when done',
-  '已托管到服务器，可在「作品」中打开，Bot 的电脑离线也能访问':
-    "Hosted on the server: open it from Works, even while the Bot's machine is offline",
+  '已交给 Bot 构建并托管': 'Asked the Bot to build and host it',
+  已托管到服务器: 'Hosted on the server',
+  打开作品: 'Open work',
 } satisfies Record<string, string>

@@ -254,15 +254,17 @@ describe('Toast behavior', () => {
     expect(screen.queryByText('已保存')).toBeNull()
   })
 
-  it('merges identical toasts into one with a count', () => {
+  it('folds an identical toast into the one shown; a different one replaces it', () => {
     render(<Toaster />)
     act(() => {
       toast({ type: 'error', title: '加载失败', message: '网络连接失败，请检查网络后重试' })
       toast({ type: 'error', title: '加载失败', message: '网络连接失败，请检查网络后重试' })
+    })
+    expect(screen.getByText('×2')).toBeTruthy()
+    act(() => {
       toast({ type: 'error', title: '加载失败', message: '另一个错误' })
     })
-    expect(screen.getAllByRole('alert')).toHaveLength(2)
-    expect(screen.getByText('×2')).toBeTruthy()
+    expect(useToasts.getState().items.map((x) => x.message)).toEqual(['另一个错误'])
   })
 
   it('remounts the count on each repeat so its pop animation replays', () => {
@@ -278,48 +280,30 @@ describe('Toast behavior', () => {
   })
 })
 
-describe('Toast stack', () => {
-  const rows = () => [...document.querySelectorAll<HTMLElement>('.ui-toast')]
-  const depth = (el: HTMLElement) => el.style.getPropertyValue('--depth')
-  const raise = (...messages: string[]) =>
-    act(() => {
-      for (const message of messages) toast({ type: 'info', message })
-    })
+describe('Toast hold and dismiss', () => {
+  const row = () => document.querySelector<HTMLElement>('.ui-toast')!
 
-  it('stacks behind the newest toast, showing at most three layers', () => {
-    render(<Toaster />)
-    raise('一', '二', '三', '四')
-    expect(rows().map(depth)).toEqual(['3', '2', '1', '0'])
-    expect(rows().map((r) => r.hasAttribute('data-buried'))).toEqual([true, false, false, false])
-    expect(document.querySelector('.ui-toasts')!.hasAttribute('data-expanded')).toBe(false)
-  })
-
-  it('fans out on hover and on keyboard focus, and pauses every timer while open', () => {
+  it('holds while hovered, but for 10 seconds at most', () => {
     vi.useFakeTimers()
     render(<Toaster />)
-    raise('一', '二')
-    const stack = document.querySelector<HTMLElement>('.ui-toasts')!
-    fireEvent.mouseEnter(stack)
-    expect(stack.hasAttribute('data-expanded')).toBe(true)
-    act(() => {
-      vi.advanceTimersByTime(10_000)
-    })
-    expect(rows()).toHaveLength(2)
-    fireEvent.mouseLeave(stack)
-    expect(stack.hasAttribute('data-expanded')).toBe(false)
-    act(() => {
-      toast({ type: 'info', message: '可撤销', action: { label: '撤销', onClick: () => {} } })
-    })
-    fireEvent.focus(screen.getByRole('button', { name: '撤销' }))
-    expect(stack.hasAttribute('data-expanded')).toBe(true)
+    act(() => void toast({ type: 'success', message: '已保存' }))
+    fireEvent.mouseEnter(row())
+    act(() => vi.advanceTimersByTime(9000))
+    expect(useToasts.getState().items).toHaveLength(1)
+    act(() => vi.advanceTimersByTime(1000))
+    expect(useToasts.getState().items).toEqual([])
   })
 
-  it('places each toast above the newer ones when fanned out', () => {
+  it('closes from its × and from an upward swipe', () => {
     render(<Toaster />)
-    raise('一', '二', '三')
-    for (const r of rows()) Object.defineProperty(r, 'offsetHeight', { configurable: true, value: 36 })
-    fireEvent.mouseEnter(document.querySelector('.ui-toasts')!)
-    expect(rows().map((r) => r.style.getPropertyValue('--toast-y'))).toEqual(['88px', '44px', '0px'])
+    act(() => void toast({ type: 'success', message: '已保存' }))
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(useToasts.getState().items).toEqual([])
+    act(() => void toast({ type: 'success', message: '又保存' }))
+    const el = screen.getByText('又保存').closest<HTMLElement>('.ui-toast')!
+    fireEvent.pointerDown(el, { clientY: 100 })
+    fireEvent.pointerUp(el, { clientY: 60 })
+    expect(useToasts.getState().items).toEqual([])
   })
 })
 

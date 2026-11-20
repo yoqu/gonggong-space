@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
@@ -111,8 +111,13 @@ export interface ToastItem {
 
 const DURATION = 4000
 const ACTION_DURATION = 8000
+/** Hovering or focusing holds a toast this long at most, so one left under a resting pointer still goes. */
+const HOLD_DURATION = 10_000
+/** An upward swipe this far dismisses a toast on touch screens. */
+const SWIPE_DISMISS = 24
 let nextId = 1
 
+/** At most one toast: a new one replaces it (an identical one folds into it); `items` keeps the array for callers. */
 export const useToasts = create<{ items: ToastItem[] }>()(() => ({ items: [] }))
 
 function dismissToast(id: number) {
@@ -125,14 +130,13 @@ export function toast({
   message,
   action,
 }: Omit<ToastItem, 'id' | 'type' | 'count'> & { type?: ToastType }) {
-  const { items } = useToasts.getState()
-  const same = items.find((t) => t.type === type && t.title === title && t.message === message)
-  if (same) {
-    useToasts.setState({ items: items.map((t) => (t === same ? { ...t, count: t.count + 1 } : t)) })
-    return same.id
+  const [shown] = useToasts.getState().items
+  if (shown && shown.type === type && shown.title === title && shown.message === message) {
+    useToasts.setState({ items: [{ ...shown, count: shown.count + 1 }] })
+    return shown.id
   }
   const id = nextId++
-  useToasts.setState({ items: [...items, { id, type, title, message, action, count: 1 }] })
+  useToasts.setState({ items: [{ id, type, title, message, action, count: 1 }] })
   return id
 }
 
@@ -143,22 +147,11 @@ const ICON = {
   error: <Icon name="exclamation-circle" color="var(--system-red)" />,
 }
 
-/** Errors stay until dismissed; others auto-dismiss, paused while hovered (or the stack is open) and restarted by a repeat. */
-function ToastRow({
-  t,
-  open,
-  onExited,
-  depth,
-  paused,
-}: {
-  t: ToastItem
-  open: boolean
-  onExited: () => void
-  /** Newer toasts in front of this one: 0 is the front of the stack. */
-  depth: number
-  paused: boolean
-}) {
+/** Errors stay until dismissed; others auto-dismiss, held (up to HOLD_DURATION) while hovered or focused. */
+function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: () => void }) {
   const [hover, setHover] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const swipeY = useRef<number>(undefined)
   const presence = usePresence(open)
   // biome-ignore lint/correctness/useExhaustiveDependencies: onExited is recreated every render
   useEffect(() => {
@@ -166,25 +159,36 @@ function ToastRow({
   }, [presence.mounted])
   const persistent = t.type === 'error'
   const actions = [t.action ?? []].flat()
+  const held = hover || focused
   // biome-ignore lint/correctness/useExhaustiveDependencies: a repeat (count) restarts the timer
   useEffect(() => {
-    if (persistent || hover || paused || !open) return
-    const timer = setTimeout(() => dismissToast(t.id), actions.length ? ACTION_DURATION : DURATION)
+    if (persistent || !open) return
+    const ms = held ? HOLD_DURATION : actions.length ? ACTION_DURATION : DURATION
+    const timer = setTimeout(() => dismissToast(t.id), ms)
     return () => clearTimeout(timer)
-  }, [persistent, hover, paused, open, t.id, t.count, actions.length])
+  }, [persistent, held, open, t.id, t.count, actions.length])
   if (!presence.mounted) return null
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: hover only pauses the auto-dismiss timer
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover and swipe only hold or dismiss the toast
     <div
       className={cx('ui-toast', t.title != null && 'ui-toast--card')}
       data-state={presence.state}
-      data-behind={depth > 0 || undefined}
-      data-buried={depth >= STACK_LAYERS || undefined}
-      style={{ '--depth': depth } as CSSProperties}
+      data-persistent={persistent || undefined}
       role={persistent ? 'alert' : 'status'}
       onAnimationEnd={presence.onAnimationEnd}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false)
+      }}
+      onPointerDown={(e) => {
+        swipeY.current = e.clientY
+      }}
+      onPointerUp={(e) => {
+        if (swipeY.current != null && e.clientY - swipeY.current < -SWIPE_DISMISS) dismissToast(t.id)
+        swipeY.current = undefined
+      }}
     >
       <span className="ui-toast__icon">{ICON[t.type]}</span>
       <div className="ui-toast__body">
@@ -209,28 +213,19 @@ function ToastRow({
           {a.label}
         </button>
       ))}
-      {persistent ? (
-        <button
-          type="button"
-          className="ui-toast__close"
-          aria-label={CLOSE_LABEL}
-          onClick={() => dismissToast(t.id)}
-        >
-          <Icon name="xmark" size={12} weight={1.8} />
-        </button>
-      ) : null}
+      <button
+        type="button"
+        className="ui-toast__close"
+        aria-label={CLOSE_LABEL}
+        onClick={() => dismissToast(t.id)}
+      >
+        <Icon name="xmark" size={12} weight={1.8} />
+      </button>
     </div>
   )
 }
 
-/** Layers of a collapsed stack that peek out behind the front toast; older ones wait hidden. */
-const STACK_LAYERS = 3
-const STACK_GAP = 8
-
-/**
- * Stack for `toast()`: Pane capsules at the bottom center of the window. Several fold into a stack behind the newest;
- * hovering or focusing it fans them out (newest at the bottom) and holds every timer.
- */
+/** Slot for `toast()`: one Pane capsule at the top center of the window; a replaced toast fades out under the new one. */
 export function Toaster() {
   const items = useToasts((s) => s.items)
   const [prev, setPrev] = useState(items)
@@ -241,43 +236,14 @@ export function Toaster() {
     const gone = prev.filter((p) => !items.some((t) => t.id === p.id))
     if (gone.length) setLeaving((l) => [...l, ...gone])
   }
-  const [hovered, setHovered] = useState(false)
-  const [focused, setFocused] = useState(false)
-  const expanded = hovered || focused
-  const ref = useRef<HTMLDivElement>(null)
-  // Fanned-out place of each open toast: the heights of the newer ones below it, plus gaps.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the toasts or the fan change
-  useLayoutEffect(() => {
-    let y = 0
-    const open = [
-      ...(ref.current?.querySelectorAll<HTMLElement>('.ui-toast:not([data-state="closed"])') ?? []),
-    ]
-    for (const el of open.reverse()) {
-      el.style.setProperty('--toast-y', `${y}px`)
-      y += el.offsetHeight + STACK_GAP
-    }
-  }, [items, expanded])
   const rows = [...items, ...leaving].sort((a, b) => a.id - b.id)
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: hover and focus only fan the stack out and hold the timers
-    <div
-      ref={ref}
-      className="ui-toasts"
-      data-expanded={expanded || undefined}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false)
-      }}
-    >
+    <div className="ui-toasts">
       {rows.map((t) => (
         <ToastRow
           key={t.id}
           t={t}
           open={!leaving.includes(t)}
-          depth={items.filter((x) => x.id > t.id).length}
-          paused={expanded}
           onExited={() => setLeaving((l) => l.filter((x) => x !== t))}
         />
       ))}

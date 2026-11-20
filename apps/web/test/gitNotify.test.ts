@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { gitOperationSettled, wordSettled } from '../src/features/git/notify'
 import { useToasts } from '../src/ui/toast'
-import { op, setMe, toasts } from './gitFixtures'
+import { op, raisedToasts, setMe, toasts } from './gitFixtures'
 
 const BOTS = [{ id: 'b1', name: '小王的 Claude' }]
 
@@ -23,6 +23,7 @@ describe('git operation notices', () => {
 
   it('forgets the wording once the operation settled, and when told to', () => {
     const committed = vi.fn()
+    const raised = raisedToasts()
     wordSettled('g1', 'b1', 'commit', committed)
     gitOperationSettled(op({ id: 'c2', action: 'commit', status: 'failed', error: 'boom' }), BOTS)
     gitOperationSettled(op({ id: 'c3', action: 'commit', status: 'succeeded' }), BOTS)
@@ -30,6 +31,6 @@ describe('git operation notices', () => {
     wordSettled('g1', 'b1', 'push')
     gitOperationSettled(op({ id: 'p1', action: 'push', status: 'succeeded' }), BOTS)
     expect(committed).not.toHaveBeenCalled()
-    expect(toasts()).toHaveLength(3)
+    expect(raised).toHaveLength(3)
   })
 })

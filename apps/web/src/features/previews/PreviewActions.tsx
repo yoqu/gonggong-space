@@ -4,6 +4,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { go } from '../../lib/go'
 import { Icon, IconButton, Presence, toast } from '../../ui'
 import { ShareDialog } from './ShareDialog'
 import { openInWorkbench, openUrl } from './store'
@@ -40,13 +41,13 @@ export function PreviewActions({
     setBusy('host')
     try {
       const res = await api.post<PreviewHostRes>(`/previews/${p.id}/host`)
-      toast({
-        type: 'success',
-        message:
-          'asked' in res
-            ? t('已请 Bot 构建静态网页并托管，完成后可在「作品」中打开')
-            : t('已托管到服务器，可在「作品」中打开，Bot 的电脑离线也能访问'),
-      })
+      if ('asked' in res) toast({ type: 'success', message: t('已交给 Bot 构建并托管') })
+      else
+        toast({
+          type: 'success',
+          message: t('已托管到服务器'),
+          action: { label: t('打开作品'), onClick: () => go(`/g/${p.groupId}?artifact=${res.artifactId}`) },
+        })
     } catch (e) {
       toastError(e)
     } finally {

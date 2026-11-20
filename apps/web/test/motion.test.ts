@@ -79,11 +79,9 @@ describe('motion and touch CSS contract', () => {
     expect(ruleOf(css, '.ui-empty__desc')).toContain('text-wrap: balance')
   })
 
-  it('lifts toasts above the phone tab bar unless a composer placed them', () => {
+  it('places toasts at the top center, under the toolbar and the notch', () => {
     const css = read('ui/toast.css')
-    expect(css).toMatch(
-      /@media \(max-width: 767px\) \{\s*\.ui-toasts \{\s*bottom: var\(--toast-bottom, calc\(64px \+ env\(safe-area-inset-bottom\)\)\);/,
-    )
+    expect(ruleOf(css, '.ui-toasts')).toContain('top: calc(env(safe-area-inset-top) + var(--toolbar-height)')
     expect(ruleOf(css, '.ui-toast__count')).toContain('ui-enter')
   })
 

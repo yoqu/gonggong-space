@@ -1,6 +1,6 @@
 /* Pane Toast: glass capsule, 36px, message semibold; titled toasts (errors) grow into a card. */
 .ui-toast {
-  --enter-y: 8px;
+  --enter-y: -8px;
   --enter-scale: 0.96;
   --exit-scale: 0.96;
   display: inline-flex;
@@ -19,7 +19,8 @@
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
-.ui-toast:has(.ui-toast__action, .ui-toast__close) {
+.ui-toast:has(.ui-toast__action),
+.ui-toast[data-persistent] {
   padding-right: 6px;
 }
 .ui-toast--card {
@@ -83,6 +84,20 @@
 .ui-toast__close:hover {
   background: var(--control-track);
 }
+/* Errors keep their close button inline; other toasts float it on the corner while hovered or focused, like
+   macOS notifications, so the capsule doesn't change width. */
+.ui-toast:not([data-persistent]) .ui-toast__close {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 20px;
+  height: 20px;
+  background: var(--glass-fill);
+  box-shadow: var(--shadow-menu);
+}
+.ui-toast:not([data-persistent], :hover, :focus-within) .ui-toast__close {
+  display: none;
+}
 .ui-toast__close {
   display: grid;
   place-items: center;
@@ -97,17 +112,15 @@
   cursor: default;
 }
 
-/* Toaster: bottom center of the window; a page may lift it above its composer. All toasts share one cell: older
-   ones peek out behind the newest (--depth), up to three layers; hovered or focused, they fan out upwards by the
-   measured --toast-y. Only translate / scale / opacity move. */
+/* Toaster: one slot at the top center of the window, under the toolbar, clear of the latest messages and the
+   composer. A replaced toast fades out in the same cell under the new one. */
 .ui-toasts {
   position: fixed;
-  left: var(--toast-x, 50%);
-  bottom: var(--toast-bottom, var(--space-20));
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + var(--toolbar-height) + var(--space-8));
   z-index: var(--z-toast);
   display: grid;
   justify-items: center;
-  align-items: end;
   width: max-content;
   max-width: calc(100vw - 32px);
   transform: translateX(-50%);
@@ -115,49 +128,39 @@
 .ui-toasts > .ui-toast {
   grid-area: 1 / 1;
   position: relative;
-  z-index: calc(10 - var(--depth));
-  transform-origin: 50% 100%;
-  translate: 0 calc(var(--depth) * -8px);
-  scale: calc(1 - var(--depth) * 0.05);
-  transition:
-    translate var(--spring-snappy),
-    scale var(--spring-snappy),
-    opacity var(--fade-in);
-}
-.ui-toasts > .ui-toast > * {
-  transition: opacity var(--fade-in);
-}
-.ui-toasts:not([data-expanded]) > .ui-toast[data-behind] > * {
-  opacity: 0;
-}
-.ui-toasts:not([data-expanded]) > .ui-toast[data-buried] {
-  opacity: 0;
-  pointer-events: none;
-}
-.ui-toasts[data-expanded] > .ui-toast {
-  translate: 0 calc(-1 * var(--toast-y, 0px));
-  scale: 1;
-}
-/* Bridges the gap to the toast below, so moving between fanned-out toasts doesn't fold the stack. */
-.ui-toasts[data-expanded] > .ui-toast::after {
-  content: "";
-  position: absolute;
-  inset: 100% 0 auto;
-  height: var(--space-8);
+  transform-origin: 50% 0;
 }
 .ui-toasts:empty {
   display: none;
 }
-/* A window-level dialog takes the focus: toasts from it show centered under it, not over the composer behind. */
-:root:has(.ui-overlay:not(.ui-overlay--contained) .ui-dialog) .ui-toasts {
-  left: 50%;
-  bottom: var(--space-20);
+
+/* copyWithToast confirms on the pressed button: its content gives way to a green ✓ for a moment. */
+button[data-copied] {
+  color: transparent !important;
 }
-/* Phones: clear the bottom tab bar when no composer has lifted the toasts. */
-@media (max-width: 767px) {
-  .ui-toasts {
-    bottom: var(--toast-bottom, calc(64px + env(safe-area-inset-bottom)));
-  }
+button[data-copied] * {
+  visibility: hidden;
+}
+button[data-copied]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  background: var(--system-green);
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 7.5l3 3 6-7' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  animation: var(--spring-bouncy) ui-enter;
+  --enter-scale: 0.5;
+}
+.ui-copied-live {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 /* Pane HUD */

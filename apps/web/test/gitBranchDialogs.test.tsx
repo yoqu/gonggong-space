@@ -17,6 +17,7 @@ import {
   group,
   op,
   REFS,
+  raisedToasts,
   refreshes,
   resetStores,
   routes,
@@ -492,6 +493,7 @@ describe('operation notices (IDEA)', () => {
     mockApi(routes())
     render(<Page />)
     await screen.findByTestId('git-b1')
+    const raised = raisedToasts()
     settle({ id: 'n1', action: 'push', branch: 'feat/x', remote: 'origin', args: { target: 'feat/y' } })
     settle({ id: 'n2', action: 'push', branch: 'feat/x', remote: 'origin' })
     settle({ id: 'n3', action: 'branch-create', branch: 'feat/z' })
@@ -514,7 +516,7 @@ describe('operation notices (IDEA)', () => {
       error:
         'error: Merging is not possible because you have unmerged files.\nhint: Fix them up in the work tree',
     })
-    expect(toasts()).toEqual([
+    expect(raised).toEqual([
       '已推送到 origin/feat/y',
       '已推送到 origin/feat/x',
       '已创建分支 feat/z',
