@@ -19,6 +19,18 @@
 .gtabs__list::-webkit-scrollbar {
   display: none;
 }
+.gtabs__list--fade-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+.gtabs__list--fade-left {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 24px);
+  mask-image: linear-gradient(to right, transparent, #000 24px);
+}
+.gtabs__list--fade-left.gtabs__list--fade-right {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
 .gtab__ctx {
   flex: none;
   display: flex;

@@ -114,8 +114,10 @@ describe('正在编辑 in the composer', () => {
 })
 
 describe('正在看 in the composer (plan 原型协作 P1)', () => {
-  const bench = (artifactId: string, title: string) =>
+  const bench = (artifactId: string, title: string, open = true) =>
     useWorkbench.setState({
+      open,
+      groupId: 'g1',
       benches: {
         g1: { tabs: [{ kind: 'artifact', artifactId, title }], active: `artifact:${artifactId}`, used: {} },
       },
@@ -144,6 +146,28 @@ describe('正在看 in the composer (plan 原型协作 P1)', () => {
     fireEvent.keyDown(input(), { key: 'Enter' })
     await waitFor(() => expect(posts(calls)).toHaveLength(2))
     expect(posts(calls)[1]).not.toHaveProperty('foregroundArtifactId')
+  })
+
+  it('falls back to the artifact title when the workbench tab title is empty', async () => {
+    mockApi({ 'GET /groups/g1/artifacts': works })
+    bench('a2', '')
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('@共字君 调整配色')
+    expect((await screen.findByTestId('art-foreground')).textContent).toContain('正在看 · 湖山VIP原型')
+  })
+
+  it('hides 正在看 and omits foregroundArtifactId when the workbench is closed', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/artifacts': works,
+      'POST /groups/g1/messages': { id: 'm2', seq: 2, groupId: 'g1', kind: 'user', body: 'x', createdAt: at },
+    })
+    bench('a2', '湖山VIP原型', false)
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('@共字君 修个接口')
+    expect(screen.queryByTestId('art-foreground')).toBeNull()
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls)).toHaveLength(1))
+    expect(posts(calls)[0]).not.toHaveProperty('foregroundArtifactId')
   })
 
   it('yields to 正在编辑', async () => {

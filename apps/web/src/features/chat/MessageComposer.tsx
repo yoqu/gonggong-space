@@ -60,6 +60,7 @@ function useArtifactTarget(groupId: string, editing: CanvasContext | null) {
 /** The artifact tab in front of the group's workbench: the soft 正在看 hint of an @Bot message (plan 原型协作 P1). */
 function useForeground(groupId: string) {
   return useWorkbench((s) => {
+    if (!s.open || s.groupId !== groupId) return null
     const bench = s.benches[groupId]
     const tab = bench?.tabs.find((x) => x.kind === 'artifact' && `artifact:${x.artifactId}` === bench.active)
     return tab?.kind === 'artifact' ? tab : null
@@ -175,11 +176,19 @@ export const MessageComposer = memo(function MessageComposer({
       ? { artifactId: canvasChat.artifactId, botId: canvasChat.botId }
       : (selection ?? target)
   const front = useForeground(canvasChat ? '' : group.id)
+  const frontEntry = useArtifactEntry(front?.artifactId ?? '')
   /** The foreground artifact the member removed from the next message; another one in front shows again. */
   const [noFront, setNoFront] = useState<string | null>(null)
   const foreground =
     front && !canvas && mentioned.length && !command && !appending && noFront !== front.artifactId
-      ? front
+      ? {
+          artifactId: front.artifactId,
+          title:
+            groupArtifacts.find((a) => a.id === front.artifactId)?.title ||
+            frontEntry?.artifact?.title ||
+            front.title ||
+            t('作品'),
+        }
       : null
   const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
   const hasScreens = selectedScreenIds(canvas).length > 0

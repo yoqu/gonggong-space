@@ -15,6 +15,9 @@
   position: absolute;
   top: var(--space-8);
   right: var(--space-8);
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 2px var(--space-8);
   border-radius: var(--radius-capsule);
   background: var(--tint-blue);

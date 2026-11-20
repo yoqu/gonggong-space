@@ -1800,9 +1800,9 @@ export function Canvas({
                 )}
               </div>
             ))}
-            <ActivityLayer artifactId={artifactId} nodes={nodes} />
           </div>
           <div className="art-overlay">
+            <ActivityLayer artifactId={artifactId} nodes={nodes} view={view} />
             <Links paths={paths} />
             {marquee ? (
               <div

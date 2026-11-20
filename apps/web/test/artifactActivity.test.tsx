@@ -94,6 +94,25 @@ describe('activity on the canvas', () => {
     await act(() => loadArtifact('a1'))
     expect(screen.queryByTestId('art-activity-home')).toBeNull()
   })
+
+  it('positions overlays in screen space and hides the badge when the scaled screen is too narrow', () => {
+    const wide = [{ ...node('home', 100), y: 50, w: 400, h: 800 }]
+    const { rerender } = render(
+      <ActivityLayer artifactId="a1" nodes={wide} view={{ x: 20, y: 10, z: 0.34 }} />,
+    )
+    act(() => emit({ t: 'artifact.activity', artifactId: 'a1', activity: [writing(['home'])] }))
+    const mark = screen.getByTestId('art-activity-home')
+    expect(mark.style.left).toBe('54px')
+    expect(mark.style.top).toBe('27px')
+    expect(mark.style.width).toBe('136px')
+    expect(mark.style.height).toBe('272px')
+    expect(mark.textContent).toBe('共字君 正在改')
+
+    rerender(<ActivityLayer artifactId="a1" nodes={wide} view={{ x: 20, y: 10, z: 0.15 }} />)
+    const tiny = screen.getByTestId('art-activity-home')
+    expect(tiny.style.width).toBe('60px')
+    expect(tiny.textContent).toBe('')
+  })
 })
 
 describe('activity on the run card', () => {

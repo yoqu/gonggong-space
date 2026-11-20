@@ -4,7 +4,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Icon } from '../../ui'
 import { useActivityOf } from './activity'
-import type { CanvasNode } from './geometry'
+import { type CanvasNode, onScreen, type View } from './geometry'
 import { focusArtifact, useArtifactEntry } from './store'
 import './activity.css'
 
@@ -19,11 +19,23 @@ function byScreen(activity: ArtifactActivityDto[], name: (botId: string) => stri
   return out
 }
 
+/** Hide the in-screen badge below this width so it never overflows a tiny overview thumbnail. */
+const BADGE_MIN_WIDTH = 90
+const IDENTITY_VIEW: View = { x: 0, y: 0, z: 1 }
+
 /**
- * On the canvas world, over the screen nodes (plan 原型协作 P1): a flowing outline and who is at it on each screen a run
- * is writing; when that run's version becomes the head, its screens get a wipe and a short outline flash.
+ * On the canvas overlay in screen space (plan 原型协作 P1): a flowing outline and who is at it on each screen a run is
+ * writing; when that run's version becomes the head, its screens get a wipe and a short outline flash.
  */
-export function ActivityLayer({ artifactId, nodes }: { artifactId: string; nodes: CanvasNode[] }) {
+export function ActivityLayer({
+  artifactId,
+  nodes,
+  view = IDENTITY_VIEW,
+}: {
+  artifactId: string
+  nodes: CanvasNode[]
+  view?: View
+}) {
   const activity = useActivityOf(artifactId)
   const bots = useWorkspace((s) => s.bots)
   const head = useArtifactEntry(artifactId)?.artifact?.head
@@ -57,14 +69,15 @@ export function ActivityLayer({ artifactId, nodes }: { artifactId: string; nodes
         .filter((n) => n.kind === 'screen' && (editing.has(n.id) || landed.includes(n.id)))
         .map((n) => {
           const who = editing.get(n.id)
+          const rect = onScreen(n, view)
           return (
             <div
               key={n.id}
               className={who ? 'art-activity' : 'art-landed'}
               data-testid={`art-activity-${n.id}`}
-              style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
+              style={rect}
             >
-              {who ? (
+              {who && rect.width >= BADGE_MIN_WIDTH ? (
                 <span className="art-activity__who">
                   {t('{name} 正在改', { name: [...new Set(who)].join('、') })}
                 </span>

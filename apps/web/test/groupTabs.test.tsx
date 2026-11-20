@@ -125,6 +125,45 @@ describe('群标签栏', () => {
     render(<GroupTabBar group={{ ...group, id: 'g3' }} />)
     expect((await screen.findByTestId('group-tab')).textContent).toBe('群公告已失效')
   })
+
+  it('fades overflowing edges on scroll and marks stale tabs in the overflow menu', async () => {
+    const staleNotice = { ...notice, stale: true }
+    mockApi({ 'GET /groups/g4/tabs': { tabs: [docs, jenkins, staleNotice] } })
+    const resize = { fn: () => {} }
+    const ro = vi.fn().mockImplementation(function (this: unknown, cb: () => void) {
+      resize.fn = cb
+      return { observe: () => {}, disconnect: () => {} }
+    })
+    vi.stubGlobal('ResizeObserver', ro)
+    try {
+      const { container } = render(<GroupTabBar group={{ ...group, id: 'g4' }} />)
+      await screen.findAllByTestId('group-tab')
+      const list = container.querySelector('.gtabs__list') as HTMLElement
+      let scrollLeft = 0
+      Object.defineProperty(list, 'clientWidth', { configurable: true, get: () => 200 })
+      Object.defineProperty(list, 'scrollWidth', { configurable: true, get: () => 420 })
+      Object.defineProperty(list, 'scrollLeft', { configurable: true, get: () => scrollLeft })
+
+      resize.fn()
+      await waitFor(() => expect(list.className).toContain('gtabs__list--fade-right'))
+      expect(list.className).not.toContain('gtabs__list--fade-left')
+
+      scrollLeft = 100
+      fireEvent.scroll(list)
+      expect(list.className).toContain('gtabs__list--fade-left')
+      expect(list.className).toContain('gtabs__list--fade-right')
+
+      scrollLeft = 220
+      fireEvent.scroll(list)
+      expect(list.className).toContain('gtabs__list--fade-left')
+      expect(list.className).not.toContain('gtabs__list--fade-right')
+
+      fireEvent.click(screen.getByRole('button', { name: '更多标签' }))
+      expect(await screen.findByRole('menuitem', { name: '群公告（已失效）' })).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
 
 describe('link tab', () => {

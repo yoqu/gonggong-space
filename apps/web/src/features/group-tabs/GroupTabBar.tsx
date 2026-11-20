@@ -74,16 +74,27 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
   const [renaming, setRenaming] = useState<GroupTabDto | null>(null)
   const dragging = useRef<number | null>(null)
   const list = useRef<HTMLDivElement>(null)
-  const [overflow, setOverflow] = useState(false)
+  const [edges, setEdges] = useState({ overflow: false, left: false, right: false })
   // biome-ignore lint/correctness/useExhaustiveDependencies: more tabs widen the content, not the observed box
   useEffect(() => {
     const el = list.current
     if (!el) return
-    const measure = () => setOverflow(el.scrollWidth > el.clientWidth + 1)
+    const measure = () => {
+      const overflow = el.scrollWidth > el.clientWidth + 1
+      const left = overflow && el.scrollLeft > 1
+      const right = overflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+      setEdges((p) =>
+        p.overflow === overflow && p.left === left && p.right === right ? p : { overflow, left, right },
+      )
+    }
     measure()
+    el.addEventListener('scroll', measure, { passive: true })
     const ro = new ResizeObserver(measure)
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      el.removeEventListener('scroll', measure)
+      ro.disconnect()
+    }
   }, [tabs.length])
 
   const open = (tab: GroupTabDto, external: boolean) => {
@@ -118,7 +129,14 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
 
   return (
     <nav className="gtabs" aria-label={t('群标签栏')}>
-      <div ref={list} className="gtabs__list">
+      <div
+        ref={list}
+        className={cx(
+          'gtabs__list',
+          edges.left && 'gtabs__list--fade-left',
+          edges.right && 'gtabs__list--fade-right',
+        )}
+      >
         <span className="gtab gtab--current" aria-current="page">
           <Icon name="message" size={13} />
           <span className="gtab__title">{t('消息')}</span>
@@ -177,13 +195,16 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
           )
         })}
       </div>
-      {overflow ? (
+      {edges.overflow ? (
         <MenuButton
           aria-label={t('更多标签')}
           title={t('更多标签')}
           className="gtabs__more"
           align="end"
-          items={tabs.map((x) => ({ value: x.id, label: x.title }))}
+          items={tabs.map((x) => ({
+            value: x.id,
+            label: x.stale ? t('{title}（已失效）', { title: x.title }) : x.title,
+          }))}
           onSelect={(id) => {
             const tab = tabs.find((x) => x.id === id)
             if (tab) open(tab, false)
