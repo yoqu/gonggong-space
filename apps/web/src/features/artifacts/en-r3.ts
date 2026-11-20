@@ -23,6 +23,9 @@ export default {
   '一段可以直接交给编码 Agent 的实现说明：产物目录、每屏说明、跳转关系和设计系统要点。':
     'A brief to hand straight to a coding agent: the artifact folder, each screen, the flows and the design system.',
   双击屏幕放大查看: 'Double-click a screen to zoom in',
+  '按住 ⌥/Alt 点击可操作页面': 'Hold ⌥/Alt and click to use the page',
+  '按住 ⌥/Alt 点击可操作页面（如打开弹窗），松开再点选其中的元素':
+    'Hold ⌥/Alt and click to use the page (e.g. open a dialog), then release to pick what it shows',
   '选中屏幕后在左侧对话里描述修改，不用 @':
     'Select screens, then describe changes in the chat on the left — no @ needed',
   '可以说「点 X 时打开下一屏」，AI 会连好跳转':

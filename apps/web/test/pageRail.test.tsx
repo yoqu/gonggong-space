@@ -1,5 +1,5 @@
 import type { ArtifactEditOp, ArtifactHistoryItem, GgArtifactManifest, MessageDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useWorkspace } from '../src/app/workspace'
@@ -42,7 +42,9 @@ const M: GgArtifactManifest = {
 }
 
 afterEach(async () => {
-  ;(await import('../src/features/artifacts/page')).setArtifactPage('a1', null)
+  const page = await import('../src/features/artifacts/page')
+  page.setArtifactPage('a1', null)
+  page.setCanvasScreen('a1', null)
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   localStorage.clear()
@@ -288,6 +290,23 @@ describe('page rail', () => {
     expect(artifactPage('a1')).toBe('order')
     fireEvent.click(all)
     expect(artifactPage('a1')).toBeNull()
+  })
+
+  it('marks the screen selected on the canvas as current, and follows the selection', async () => {
+    mockApi({ 'GET /artifacts/a1/history': [] })
+    const { setCanvasScreen } = await import('../src/features/artifacts/page')
+    renderRail()
+    const row = (name: string | RegExp) => screen.getByRole('button', { name }).closest('li')?.className ?? ''
+    expect(row('购物车')).not.toContain('is-current')
+    act(() => setCanvasScreen('a1', 'cart'))
+    expect(row('购物车')).toContain('is-current')
+    act(() => setCanvasScreen('a1', 'me'))
+    expect(row('购物车')).not.toContain('is-current')
+    expect(row('我的')).toContain('is-current')
+    act(() => setCanvasScreen('a1', null))
+    expect(row('我的')).not.toContain('is-current')
+    fireEvent.click(screen.getByRole('button', { name: /^首页/ }))
+    expect(row(/^首页/)).toContain('is-current')
   })
 
   it('adds pages above, below and inside a page, and moves it up and down', async () => {

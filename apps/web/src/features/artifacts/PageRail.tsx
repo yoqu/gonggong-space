@@ -11,7 +11,7 @@ import { attempt } from '../../lib/errors'
 import { ConfirmActionDialog, Icon, MenuButton, type MenuItem, Presence } from '../../ui'
 import { CanvasChat } from './CanvasChat'
 import { CommandLog } from './CommandLog'
-import { setArtifactPage, useArtifactPage } from './page'
+import { setArtifactPage, setCanvasScreen, useArtifactPage, useCanvasScreen } from './page'
 import {
   addGroup,
   canNest,
@@ -282,7 +282,7 @@ function Pages({
   const [over, setOver] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState<GgArtifactScreen | null>(null)
-  const [current, setCurrent] = useState<string | null>(null)
+  const current = useCanvasScreen(artifactId)
   const asked = useArtifactPage(artifactId)
   const page = m?.groups?.some((g) => g.id === asked) ? asked : null
   const show = (id: string | null) => {
@@ -467,7 +467,7 @@ function Pages({
             type="button"
             className="art-rail__name"
             onClick={() => {
-              setCurrent(s.id)
+              setCanvasScreen(artifactId, s.id)
               setArtifactPage(artifactId, s.group ?? null)
               focusArtifact(artifactId, { screenIds: [s.id], versionId })
               onPicked()

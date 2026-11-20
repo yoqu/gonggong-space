@@ -67,7 +67,7 @@ import {
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
 import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
-import { ActivityLayer, FloatMenu, RenameField, ToolButton } from './canvasControls'
+import { ActivityLayer, CanvasTips, FloatMenu, RenameField, ToolButton } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
 import { framePoint } from './canvasZoom'
@@ -155,7 +155,7 @@ import {
   zoomItems,
 } from './menus'
 import { PageEmpty } from './PageRail'
-import { setArtifactPage, useShownPage } from './page'
+import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
 import { connectOps } from './prototype'
@@ -217,16 +217,7 @@ const needsSelection = (v: string) =>
     ] as string[]
   ).includes(v)
 
-/** The canvas's tips (bottom left), one at a time; closing them is remembered. */
-const TIPS = [
-  t('双击屏幕放大查看'),
-  t('选中屏幕后在左侧对话里描述修改，不用 @'),
-  t('可以说「点 X 时打开下一屏」，AI 会连好跳转'),
-  t('按 ⌘K 搜索所有命令，⇧ 拖动框选多个屏幕'),
-]
-const TIPS_KEY = 'gg.art.tips'
 const LINKS_KEY = 'gg.art.links'
-const TIP_MS = 8000
 /** How long the canvas's own notice (copied…) stays. */
 const NOTICE_MS = 2400
 /** More screens than this on screen: while the view moves they show their thumbnails, not the pages. */
@@ -417,7 +408,6 @@ export function Canvas({
   const [zoomHold, setZoomHold] = useState<'in' | 'out' | null>(null)
   /** ⇧ drag: the marquee in plane pixels, and the selection it adds to. */
   const [marquee, setMarquee] = useState<{ rect: Rect; base: string[] } | null>(null)
-  const [tip, setTip] = useState(() => (localStorage.getItem(TIPS_KEY) === 'off' ? -1 : 0))
   const [showLinks, setShowLinks] = useState(() => localStorage.getItem(LINKS_KEY) === 'on')
   const setPanel = (next: SetStateAction<Panel | null>) => {
     const p = typeof next === 'function' ? next(panel) : next
@@ -630,12 +620,8 @@ export function Canvas({
     auto.current = false
     setView(next)
   }
-  // Tips turn over by themselves until closed.
-  useEffect(() => {
-    if (tip < 0) return
-    const timer = setTimeout(() => setTip((i) => (i < 0 ? i : i + 1)), TIP_MS)
-    return () => clearTimeout(timer)
-  }, [tip])
+  const oneScreen = selected.length === 1 ? (screens.find((n) => n.id === selected[0])?.id ?? null) : null
+  useEffect(() => setCanvasScreen(artifactId, oneScreen), [artifactId, oneScreen])
   // Screens gone from the manifest leave the selection.
   useEffect(() => setSelected((s) => s.filter((id) => nodes.some((n) => n.id === id))), [nodes])
 
@@ -707,6 +693,10 @@ export function Canvas({
         rect: inDocument(m.rect, scrolls[m.file] ?? NO_SCROLL),
         ggIds: m.ggIds,
       })
+    } else if (m.type === 'nav' && live && screens.some((n) => n.id === m.screen)) {
+      // A link worked through (⌥ click) while editing goes where it points, as in the prototype.
+      setSelected([m.screen])
+      fitTo([m.screen])
     } else if (m.type === 'select') {
       const s = screens.find((n) => n.file === m.file)
       if (!s) return
@@ -2252,25 +2242,7 @@ export function Canvas({
         </div>
       ) : null}
 
-      {tip >= 0 ? (
-        <div className="art-tip" role="status" data-testid="art-tip">
-          <Icon name="sparkle" size={14} />
-          <span>{TIPS[tip % TIPS.length]}</span>
-          <button type="button" className="art-tip__next" onClick={() => setTip((i) => i + 1)}>
-            {t('下一条')}
-          </button>
-          <IconButton
-            size="small"
-            title={t('不再显示提示')}
-            onClick={() => {
-              localStorage.setItem(TIPS_KEY, 'off')
-              setTip(-1)
-            }}
-          >
-            {'xmark' as const}
-          </IconButton>
-        </div>
-      ) : null}
+      <CanvasTips through={live} />
 
       <div className="art-corner">
         <IconButton size="regular" title={t('撤销#undo')} disabled={!undo} onClick={() => undo?.()}>

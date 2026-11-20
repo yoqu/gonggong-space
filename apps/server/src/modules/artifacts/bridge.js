@@ -392,7 +392,7 @@
   window.addEventListener(
     'mousedown',
     (e) => {
-      if (mode !== 'mark' || e.button !== 0) return
+      if (mode !== 'mark' || e.button !== 0 || e.altKey) return
       // No text selection or native image drag while marking.
       e.preventDefault()
       clearBox()
@@ -462,7 +462,8 @@
         e.stopImmediatePropagation()
         return
       }
-      if (picking()) {
+      // ⌥/Alt works the page itself (opens its dialog, switches a tab) so what it then shows can be picked.
+      if (picking() && !e.altKey) {
         e.preventDefault()
         e.stopImmediatePropagation()
         setSelected(el)
@@ -507,7 +508,7 @@
     'mouseover',
     (e) => {
       if (!picking()) return
-      const el = target(e)
+      const el = e.altKey ? null : target(e)
       setHover(choices.length ? (choices.find((c) => el && c.contains(el)) ?? null) : el)
     },
     true,
@@ -516,7 +517,7 @@
   window.addEventListener(
     'dblclick',
     (e) => {
-      if (mode !== 'edit' || editing) return
+      if (mode !== 'edit' || editing || e.altKey) return
       for (let n = target(e); n && n !== document.body; n = n.parentElement)
         if (textTarget(n)) {
           e.preventDefault()

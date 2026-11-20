@@ -1,6 +1,6 @@
-import { type CSSProperties, type ReactElement, useRef, useState } from 'react'
+import { type CSSProperties, type ReactElement, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { Icon, type IconName, MenuButton, type MenuItem, Tooltip } from '../../ui'
+import { Icon, IconButton, type IconName, MenuButton, type MenuItem, Tooltip } from '../../ui'
 
 export { ActivityLayer } from './ActivityLayer'
 
@@ -131,5 +131,53 @@ export function ToolButton({
         ) : null}
       </button>
     </Tooltip>
+  )
+}
+
+/** The canvas's tips (bottom left), one at a time; closing them is remembered. */
+const TIPS = [
+  t('双击屏幕放大查看'),
+  t('选中屏幕后在左侧对话里描述修改，不用 @'),
+  t('可以说「点 X 时打开下一屏」，AI 会连好跳转'),
+  t('按 ⌘K 搜索所有命令，⇧ 拖动框选多个屏幕'),
+]
+const TIPS_KEY = 'gg.art.tips'
+const TIP_MS = 8000
+
+/** `through`: clicks pick elements (标记 / 直接编辑), so it says how to work the page itself instead. */
+export function CanvasTips({ through }: { through: boolean }): ReactElement | null {
+  const [tip, setTip] = useState(() => (localStorage.getItem(TIPS_KEY) === 'off' ? -1 : 0))
+  // Tips turn over by themselves until closed.
+  useEffect(() => {
+    if (tip < 0 || through) return
+    const timer = setTimeout(() => setTip((i) => (i < 0 ? i : i + 1)), TIP_MS)
+    return () => clearTimeout(timer)
+  }, [tip, through])
+  if (through)
+    return (
+      <div className="art-tip" role="status" data-testid="art-through">
+        <Icon name="cursor" size={14} />
+        <span>{t('按住 ⌥/Alt 点击可操作页面（如打开弹窗），松开再点选其中的元素')}</span>
+      </div>
+    )
+  if (tip < 0) return null
+  return (
+    <div className="art-tip" role="status" data-testid="art-tip">
+      <Icon name="sparkle" size={14} />
+      <span>{TIPS[tip % TIPS.length]}</span>
+      <button type="button" className="art-tip__next" onClick={() => setTip((i) => i + 1)}>
+        {t('下一条')}
+      </button>
+      <IconButton
+        size="small"
+        title={t('不再显示提示')}
+        onClick={() => {
+          localStorage.setItem(TIPS_KEY, 'off')
+          setTip(-1)
+        }}
+      >
+        {'xmark' as const}
+      </IconButton>
+    </div>
   )
 }

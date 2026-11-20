@@ -19,3 +19,18 @@ export function useShownPage(artifactId: string, manifest: GgArtifactManifest | 
   const page = useArtifactPage(artifactId)
   return manifest?.groups?.some((g) => g.id === page) ? page : null
 }
+
+/** The one screen selected on each artifact's canvas: the rail marks its row. */
+const useCanvasScreens = create<Record<string, string>>()(() => ({}))
+
+export const useCanvasScreen = (artifactId: string): string | null =>
+  useCanvasScreens((s) => s[artifactId] ?? null)
+export const canvasScreen = (artifactId: string): string | null =>
+  useCanvasScreens.getState()[artifactId] ?? null
+
+export function setCanvasScreen(artifactId: string, screenId: string | null) {
+  useCanvasScreens.setState((s) => {
+    const { [artifactId]: _, ...rest } = s
+    return screenId ? { ...rest, [artifactId]: screenId } : rest
+  }, true)
+}

@@ -648,6 +648,38 @@ describe('gg-bridge', () => {
     expect(s.last()).toMatchObject({ type: 'nav' })
   })
 
+  it('in mark and edit mode, an ⌥/Alt click works the page itself (opens its dialog) instead of selecting', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<button id="open" onclick="document.getElementById('dlg').hidden = false">添加规则</button>
+<div id="dlg" hidden><p id="tip">规则名称</p></div>
+<a data-gg-link="done" href="other.html">去报名</a></body></html>`)
+    const altClick = (sel: string) =>
+      s.$(sel).dispatchEvent(new s.w.MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }))
+    for (const mode of ['edit', 'mark']) {
+      s.$('#dlg').hidden = true
+      s.send({ type: 'mode', mode })
+      const before = s.posts.length
+      s.$('#open').dispatchEvent(
+        new s.w.MouseEvent('mousedown', { bubbles: true, cancelable: true, altKey: true }),
+      )
+      s.$('#open').dispatchEvent(
+        new s.w.MouseEvent('mouseup', { bubbles: true, cancelable: true, altKey: true }),
+      )
+      altClick('#open')
+      expect(s.$('#dlg').hidden).toBe(false)
+      expect(s.posts.slice(before).some((p) => p.data.type === 'select' || p.data.type === 'mark-rect')).toBe(
+        false,
+      )
+      expect(s.$('#open').hasAttribute('data-gg-selected')).toBe(false)
+      // What the dialog shows is then picked as usual.
+      s.click('#tip')
+      expect(s.last()).toMatchObject({ type: 'select', ggId: s.$('#tip').getAttribute('data-gg-id') })
+      // A link worked through still goes where it points.
+      altClick('[data-gg-link]')
+      expect(s.last()).toMatchObject({ type: 'nav', screen: 'done' })
+    }
+  })
+
   it('in mark mode, dragging posts the region (viewport) and the outermost elements wholly inside it; a click still selects', () => {
     const s = screen()
     s.send({ type: 'mode', mode: 'mark' })

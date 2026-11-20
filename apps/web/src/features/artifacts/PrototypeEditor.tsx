@@ -545,7 +545,9 @@ export function PrototypeEditor({
               { value: 'edit', label: t('编辑'), icon: 'pencil' },
             ]}
           />
-          {edit ? null : (
+          {edit ? (
+            <span className="proto-bar__where">{t('按住 ⌥/Alt 点击可操作页面')}</span>
+          ) : (
             <div className="proto-bar__nav">
               <span className="proto-bar__where" data-testid="proto-where">
                 {`${cur.title} · ${at}/${screens.length}`}

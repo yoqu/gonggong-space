@@ -19,7 +19,7 @@ import {
 } from '../src/features/artifacts/geometry'
 import { implementationPrompt } from '../src/features/artifacts/implPrompt'
 import { useLinkedArtifact } from '../src/features/artifacts/link'
-import { artifactPage, setArtifactPage } from '../src/features/artifacts/page'
+import { artifactPage, canvasScreen, setArtifactPage, setCanvasScreen } from '../src/features/artifacts/page'
 import {
   artifactLink,
   focusArtifact,
@@ -158,6 +158,7 @@ beforeEach(() => {
   localStorage.setItem('gg.art.rail', '0')
   resetArtifacts()
   setArtifactPage('a1', null)
+  setCanvasScreen('a1', null)
   vi.stubGlobal('WebSocket', NoopSocket)
   vi.spyOn(realtime, 'subscribe').mockImplementation(() => () => {})
   useWorkbench.setState({ groupId: 'g1', open: false, mode: 'split', previous: 'split', benches: {} })
@@ -241,6 +242,42 @@ describe('bridge', () => {
     key('v')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(false)
     expect(sent).toHaveBeenLastCalledWith({ source: 'gg-host', type: 'mode', mode: 'preview' }, ORIGIN)
+  })
+
+  it('in edit mode tells how to work the page, and a link worked through (⌥ click) goes to its screen', async () => {
+    mockApi(routes())
+    await renderTab()
+    const iframe = screen.getByTitle('首页') as HTMLIFrameElement
+    expect(screen.queryByTestId('art-through')).toBeNull()
+    key('e')
+    expect(screen.getByTestId('art-through').textContent).toMatch(/点击可操作页面/)
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'gg-bridge', type: 'nav', file: 'screens/home.html', screen: 'detail' },
+          origin: ORIGIN,
+          source: iframe.contentWindow,
+        }),
+      )
+    })
+    expect(canvasScreen('a1')).toBe('detail')
+    expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
+    key('v')
+    expect(screen.queryByTestId('art-through')).toBeNull()
+  })
+
+  it('tells the page rail which one screen is selected', async () => {
+    mockApi(routes())
+    await renderTab()
+    expect(canvasScreen('a1')).toBeNull()
+    fireEvent.click(node('home'))
+    expect(canvasScreen('a1')).toBe('home')
+    fireEvent.click(node('detail'), { shiftKey: true })
+    expect(canvasScreen('a1')).toBeNull()
+    fireEvent.click(node('detail'))
+    expect(canvasScreen('a1')).toBe('detail')
+    key('Escape')
+    expect(canvasScreen('a1')).toBeNull()
   })
 })
 
