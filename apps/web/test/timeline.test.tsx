@@ -331,7 +331,7 @@ describe('timeline bubbles', () => {
       runs: [],
     })
 
-    const consoleLink = await screen.findByRole('link', { name: '打开链接' })
+    const consoleLink = await screen.findByRole('link', { name: '打开控制台' })
     expect(consoleLink.getAttribute('href')).toBe(url)
     const success = consoleLink.closest('.pn-mcard--green')
     expect(success?.textContent).toContain('1234567 修复 <at id=all></at>')

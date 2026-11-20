@@ -259,4 +259,51 @@ describe('Webhook message rendering', () => {
     expect(screen.getByText('Jenkins 部署')).toBeTruthy()
     expect(screen.getByText('Webhook')).toBeTruthy()
   })
+
+  it('promotes summary line to card title, labels console button, and shortens 40-char commit SHAs', () => {
+    const sha = '290672cf1234567890abcdef1234567890abcdef'
+    const msg: MessageDto = {
+      id: 'm2',
+      seq: 2,
+      groupId: 'g1',
+      kind: 'user',
+      authorId: 'u1',
+      authorName: 'Jenkins 部署成功',
+      body: [
+        'demo-app-main #559 部署成功',
+        '分支：main',
+        `- ${sha} fix(webhooks): 优化部署卡片`,
+        '控制台：https://ci.example.com/job/prod/559/console',
+      ].join('\n'),
+      mentions: [],
+      userMentions: [],
+      runId: null,
+      createdAt: '2026-11-20T06:00:00Z',
+      attachments: [],
+      quote: null,
+      reactions: [],
+      recalled: false,
+      webhook: { id: 'w1', name: 'Jenkins 部署成功' },
+      webhookCard: {
+        tone: 'success',
+        url: 'https://ci.example.com/job/prod/559/console',
+      },
+    }
+    const { container } = render(
+      <MemoryRouter>
+        <UserMessage m={msg} targets={[]} meId="u1" mine={false} />
+      </MemoryRouter>,
+    )
+    // Author name only appears in message header, not repeated in card title
+    expect(screen.getAllByText('Jenkins 部署成功')).toHaveLength(1)
+    expect(container.querySelector('.pn-mcard__title')?.textContent).toBe('demo-app-main #559 部署成功')
+    // Console link button uses specific label
+    const link = screen.getByRole('link', { name: '打开控制台' })
+    expect(link.getAttribute('href')).toBe('https://ci.example.com/job/prod/559/console')
+    // 40-char SHA is shortened to 7 chars with full SHA in title
+    const shaEl = container.querySelector('.tl-webhook-card__sha')
+    expect(shaEl?.textContent).toBe('290672c')
+    expect(shaEl?.getAttribute('title')).toBe(sha)
+    expect(container.textContent).not.toContain(sha)
+  })
 })

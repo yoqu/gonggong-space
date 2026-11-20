@@ -24,9 +24,16 @@
 .ui-toast[data-persistent] {
   padding-right: 6px;
 }
+/* Persistent error toasts float over group banners (notice / secret bar): crisp border + deeper lift. */
+.ui-toast[data-persistent] {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--system-red) 28%, var(--glass-edge)),
+    0 12px 32px rgba(0, 0, 0, 0.16),
+    var(--shadow-menu);
+}
 .ui-toast--card {
   align-items: flex-start;
-  width: 340px;
+  width: min(340px, calc(100vw - 32px));
   padding-top: 10px;
   padding-bottom: 10px;
   border-radius: var(--radius-menu);
@@ -130,6 +137,11 @@
   width: max-content;
   max-width: calc(100vw - 32px);
   transform: translateX(-50%);
+}
+@media (max-width: 640px) {
+  .ui-toasts {
+    max-width: min(360px, calc(100vw - 32px));
+  }
 }
 .ui-toasts > .ui-toast {
   grid-area: 1 / 1;

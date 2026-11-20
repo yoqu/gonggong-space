@@ -26,8 +26,11 @@ export default {
   '按住 ⌥/Alt 点击可操作页面': 'Hold ⌥/Alt and click to use the page',
   '按住 ⌥/Alt 点击或切到交互工具（P）可操作页面，再点选其中的元素':
     'Hold ⌥/Alt and click, or switch to Interact (P), to use the page, then pick what it shows',
-  '直接点击操作页面（如打开弹窗），切回标记或直接编辑可点选其中的元素':
-    'Click to use the page (e.g. open a dialog), then switch back to Mark or Edit to pick what it shows',
+  '直接点击操作页面，切回标记/编辑可选元素': 'Click to use the page; switch to Mark/Edit to pick elements',
+  '交互模式 · 点击操作页面': 'Interact · click to use page',
+  '标记模式 · 点选页面元素': 'Mark · tap elements to annotate',
+  '直接编辑 · 点击修改文字': 'Edit · tap text to edit',
+  关闭模式提示: 'Dismiss mode hint',
   交互: 'Interact',
   单页产物不支持画布编辑: 'Canvas editing is not available for single-page artifacts',
   '选中屏幕后在左侧对话里描述修改，不用 @':

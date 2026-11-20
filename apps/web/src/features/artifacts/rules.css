@@ -308,9 +308,52 @@
   cursor: pointer;
 }
 
+/* Hosted static site view in the workbench (artifacts.css is at its size limit). */
+.art-site__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--window-bg);
+}
+.art-site__wait {
+  flex: 1;
+  display: grid;
+  place-items: center;
+}
+
+/* Narrow-screen mode pill (shown where .art-tip is hidden on phones). */
+.art-mode-pill {
+  display: none;
+}
+
 /* Canvas tips (artifacts.css is at its size limit): a phone has no room beside the canvas controls for a tip. */
 @media (max-width: 640px) {
   .art-tip {
     display: none;
+  }
+  .art-mode-pill {
+    user-select: none;
+    position: absolute;
+    top: var(--space-10);
+    left: 50%;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+    max-width: calc(100% - 24px);
+    padding: 4px 4px 4px 10px;
+    border-radius: var(--radius-capsule);
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-glass);
+    color: var(--label-secondary);
+    font-size: var(--text-footnote-size);
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+  .art-mode-pill > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

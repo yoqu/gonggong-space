@@ -159,6 +159,29 @@ describe('作品 page', () => {
     expect(within(grid).getByRole('listitem').textContent).toContain('托管网页')
   })
 
+  it('places relative time inside .works__meta so bottom tag row stays aligned', async () => {
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [
+        work({ id: 'a1', title: '活动官网', groupTitle: '麓客产品群', creatorName: '姜维川', site: true }),
+        work({ id: 'a2', title: '无来源作品', groupTitle: '', creatorName: null }),
+      ],
+    })
+    renderAt('/works')
+    const grid = await screen.findByRole('list', { name: '作品' })
+    const items = within(grid).getAllByRole('listitem')
+    const meta0 = items[0]!.querySelector('.works__meta')!
+    expect(meta0.querySelector('.works__source')?.textContent).toBe('麓客产品群 · 姜维川')
+    expect(meta0.querySelector('.works__sep')?.textContent).toBe('·')
+    expect(meta0.querySelector('time.works__time')?.getAttribute('datetime')).toBe('2026-10-31T05:28:00.000Z')
+    expect(items[0]!.querySelector('.works__tags time')).toBeNull()
+
+    const meta1 = items[1]!.querySelector('.works__meta')!
+    expect(meta1.querySelector('.works__source')).toBeNull()
+    expect(meta1.querySelector('.works__sep')).toBeNull()
+    expect(meta1.querySelector('time.works__time')).toBeTruthy()
+  })
+
   it('filters by group, sorts by name and clears filters from the empty state', async () => {
     mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [...WORKS].reverse() })
     renderAt('/works')

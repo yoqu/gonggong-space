@@ -284,7 +284,11 @@ describe('bridge', () => {
     expect(screen.getByRole('button', { name: '交互' }).getAttribute('aria-pressed')).toBe('true')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
     expect(sent).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'mark' }), ORIGIN)
-    expect(screen.getByTestId('art-through').textContent).toMatch(/直接点击操作页面/)
+    expect(screen.getByTestId('art-through').textContent).toBe('直接点击操作页面，切回标记/编辑可选元素')
+    const modePill = screen.getByTestId('art-mode-pill')
+    expect(modePill.textContent).toContain('交互模式')
+    fireEvent.click(within(modePill).getByRole('button', { name: '关闭模式提示' }))
+    expect(screen.queryByTestId('art-mode-pill')).toBeNull()
     act(() => {
       window.dispatchEvent(
         new MessageEvent('message', {
@@ -296,6 +300,7 @@ describe('bridge', () => {
     })
     expect(canvasScreen('a1')).toBe('detail')
     key('e')
+    expect(screen.getByTestId('art-mode-pill').textContent).toContain('直接编辑')
     expect(screen.getByTitle('首页')).toBe(iframe)
     expect(sent).toHaveBeenLastCalledWith({ source: 'gg-host', type: 'mode', mode: 'edit' }, ORIGIN)
   })

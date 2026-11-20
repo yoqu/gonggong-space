@@ -292,6 +292,23 @@
   white-space: pre-wrap;
   line-height: 1.5;
 }
+.tl-webhook-card__commit {
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+.tl-webhook-card__sha {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: var(--radius-small);
+  background: var(--fill-quaternary);
+  color: var(--label);
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+}
 
 /* Run card: a bare MessageCard; the header tint follows the run status. */
 .run-card {

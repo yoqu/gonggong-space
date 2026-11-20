@@ -167,11 +167,13 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   }
 
   const rail = useRail()
+  const isSite = !!a?.site
+  const siteFrame = useRef<HTMLIFrameElement>(null)
   // In front, the canvas has its own composer, talking to its AI 对话 and never to the group.
   const chatRoot = useFrontCanvasChat(
     a?.groupId ?? '',
     tab.artifactId,
-    active && !proto && !!a && a.access !== 'view',
+    active && !proto && !isSite && !!a && a.access !== 'view',
   )
 
   if (!entry) return <Spinner />
@@ -256,7 +258,7 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   return (
     <div className="art">
       <header className="art-bar">
-        {head && !rail.open ? (
+        {!isSite && head && !rail.open ? (
           <Button
             size="small"
             variant="plain"
@@ -276,9 +278,13 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
             { label: t('创建副本'), value: PROJECT.duplicate },
             ...(manager ? [{ label: t('移动到群…'), value: PROJECT.move }] : []),
             { label: t('下载 .zip'), value: PROJECT.download, disabled: !head },
-            { separator: true },
-            { label: t('命令菜单'), value: PROJECT.commands, shortcut: '⌘K', disabled: !head },
-            { label: t('快捷键'), value: PROJECT.shortcuts, shortcut: '?', disabled: !head },
+            ...(!isSite
+              ? [
+                  { separator: true as const },
+                  { label: t('命令菜单'), value: PROJECT.commands, shortcut: '⌘K', disabled: !head },
+                  { label: t('快捷键'), value: PROJECT.shortcuts, shortcut: '?', disabled: !head },
+                ]
+              : []),
             { separator: true },
             { label: t('删除产物'), value: PROJECT.archive, destructive: true },
           ]}
@@ -326,26 +332,55 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
           />
         ) : null}
         <span className="art-bar__fill" />
-        <Button
-          size="small"
-          variant="plain"
-          icon="play"
-          aria-label={t('预览原型')}
-          disabled={!preview || !shownManifest}
-          onClick={present}
-        >
-          {t('预览')}
-        </Button>
-        <Button
-          size="small"
-          icon="download"
-          className="art-bar__export"
-          aria-label={t('导出')}
-          disabled={!head}
-          onClick={() => ask('export')}
-        >
-          <span className="art-bar__export-label">{t('导出')}</span>
-        </Button>
+        {isSite ? (
+          <>
+            <Button
+              size="small"
+              variant="plain"
+              icon="external"
+              aria-label={t('新窗口打开')}
+              title={t('新窗口打开')}
+              disabled={!preview}
+              onClick={() => preview && window.open(preview.url, '_blank', 'noopener')}
+            >
+              {t('新窗口打开')}
+            </Button>
+            <Button
+              size="small"
+              variant="plain"
+              icon="expand"
+              aria-label={t('全屏')}
+              title={t('全屏')}
+              disabled={!preview}
+              onClick={() => void siteFrame.current?.requestFullscreen?.()}
+            >
+              {t('全屏')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              size="small"
+              variant="plain"
+              icon="play"
+              aria-label={t('预览原型')}
+              disabled={!preview || !shownManifest}
+              onClick={present}
+            >
+              {t('预览')}
+            </Button>
+            <Button
+              size="small"
+              icon="download"
+              className="art-bar__export"
+              aria-label={t('导出')}
+              disabled={!head}
+              onClick={() => ask('export')}
+            >
+              <span className="art-bar__export-label">{t('导出')}</span>
+            </Button>
+          </>
+        )}
         <Button size="small" variant="primary" icon="share" onClick={() => setSharing(true)}>
           {t('分享')}
         </Button>
@@ -377,6 +412,20 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
         <Generating />
       ) : previewError ? (
         <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
+      ) : isSite ? (
+        preview ? (
+          <iframe
+            ref={siteFrame}
+            className="art-site__frame"
+            title={a.title}
+            src={preview.url}
+            allowFullScreen
+          />
+        ) : (
+          <div className="art-site__wait">
+            <Spinner />
+          </div>
+        )
       ) : (
         <div className={`art-main${rail.narrow ? ' art-main--narrow' : ''}`} ref={rail.ref}>
           {rail.open && rail.narrow ? (

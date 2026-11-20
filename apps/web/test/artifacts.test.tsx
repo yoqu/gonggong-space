@@ -299,4 +299,33 @@ describe('artifact tab', () => {
     expect(within(dialog).getByText('适应画布')).toBeTruthy()
     expect(within(dialog).getByText('平移（按住）')).toBeTruthy()
   })
+
+  it('renders a hosted site as a full-bleed iframe without canvas controls or AI composer', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({
+          title: '活动官网',
+          manifest: null,
+          site: true,
+        }),
+      }),
+    )
+    const { container } = renderTab()
+    const frame = await waitFor(() => {
+      const el = container.querySelector('iframe.art-site__frame') as HTMLIFrameElement | null
+      expect(el).toBeTruthy()
+      return el!
+    })
+    expect(frame.getAttribute('title')).toBe('活动官网')
+    expect(frame.getAttribute('src')).toBe('/api/previews/pw1/open')
+    expect(screen.queryByRole('application', { name: '画布' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '预览原型' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '展开侧栏' })).toBeNull()
+    expect(screen.getByRole('button', { name: '版本' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '分享' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '全屏' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '新窗口打开' }))
+    expect(openSpy).toHaveBeenCalledWith('/api/previews/pw1/open', '_blank', 'noopener')
+  })
 })

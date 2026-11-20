@@ -255,9 +255,26 @@ export function WorksPage() {
                   <strong className="works__name" title={w.title}>
                     {w.title}
                   </strong>
-                  <span className="works__meta">
-                    {[w.groupTitle, w.creatorName].filter(Boolean).join(' · ')}
-                  </span>
+                  {(() => {
+                    const source = [w.groupTitle, w.creatorName].filter(Boolean).join(' · ')
+                    return (
+                      <span className="works__meta works__meta--row">
+                        {source ? (
+                          <>
+                            <span className="works__source" title={source}>
+                              {source}
+                            </span>
+                            <span className="works__sep" aria-hidden="true">
+                              ·
+                            </span>
+                          </>
+                        ) : null}
+                        <time className="works__time" dateTime={w.updatedAt} title={fullTime(w.updatedAt)}>
+                          {ago(w.updatedAt)}
+                        </time>
+                      </span>
+                    )
+                  })()}
                   <span className="works__tags">
                     {w.site ? <Tag>{t('托管网页')}</Tag> : w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
                     <Tag
@@ -266,9 +283,6 @@ export function WorksPage() {
                     >
                       {VISIBILITY_LABEL[w.visibility]}
                     </Tag>
-                    <time className="works__time" dateTime={w.updatedAt} title={fullTime(w.updatedAt)}>
-                      {ago(w.updatedAt)}
-                    </time>
                   </span>
                 </span>
               </button>

@@ -2255,7 +2255,10 @@ export function Canvas({
         </div>
       ) : null}
 
-      <CanvasTips through={through ? (live ? 'pick' : 'play') : null} />
+      <CanvasTips
+        through={through ? (live ? 'pick' : 'play') : null}
+        mode={tool === 'play' || tool === 'mark' || tool === 'edit' ? tool : null}
+      />
 
       <div className="art-corner">
         <IconButton size="regular" title={t('撤销#undo')} disabled={!undo} onClick={() => undo?.()}>

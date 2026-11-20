@@ -144,9 +144,26 @@ const TIPS = [
 const TIPS_KEY = 'gg.art.tips'
 const TIP_MS = 8000
 
+const MODE_LABEL: Record<'play' | 'mark' | 'edit', string> = {
+  play: t('交互模式 · 点击操作页面'),
+  mark: t('标记模式 · 点选页面元素'),
+  edit: t('直接编辑 · 点击修改文字'),
+}
+
 /** `through`: the pages take clicks (`pick`: 标记 / 直接编辑, `play`: 交互), so it says how to work them instead. */
-export function CanvasTips({ through }: { through: 'pick' | 'play' | null }): ReactElement | null {
+export function CanvasTips({
+  through,
+  mode,
+}: {
+  through: 'pick' | 'play' | null
+  mode?: 'play' | 'mark' | 'edit' | null
+}): ReactElement | null {
   const [tip, setTip] = useState(() => (localStorage.getItem(TIPS_KEY) === 'off' ? -1 : 0))
+  const [dismissedMode, setDismissedMode] = useState<'play' | 'mark' | 'edit' | null>(null)
+  // Reset narrow-screen mode pill dismissal whenever the active mode changes.
+  useEffect(() => {
+    if (!mode || mode !== dismissedMode) setDismissedMode(null)
+  }, [mode, dismissedMode])
   // Tips turn over by themselves until closed.
   useEffect(() => {
     if (tip < 0 || through) return
@@ -155,14 +172,25 @@ export function CanvasTips({ through }: { through: 'pick' | 'play' | null }): Re
   }, [tip, through])
   if (through)
     return (
-      <div className="art-tip" role="status" data-testid="art-through">
-        <Icon name="cursor" size={14} />
-        <span>
-          {through === 'play'
-            ? t('直接点击操作页面（如打开弹窗），切回标记或直接编辑可点选其中的元素')
-            : t('按住 ⌥/Alt 点击或切到交互工具（P）可操作页面，再点选其中的元素')}
-        </span>
-      </div>
+      <>
+        <div className="art-tip" role="status" data-testid="art-through">
+          <Icon name="cursor" size={14} />
+          <span>
+            {through === 'play'
+              ? t('直接点击操作页面，切回标记/编辑可选元素')
+              : t('按住 ⌥/Alt 点击或切到交互工具（P）可操作页面，再点选其中的元素')}
+          </span>
+        </div>
+        {mode && dismissedMode !== mode ? (
+          <div className="art-mode-pill" role="status" data-testid="art-mode-pill">
+            <Icon name="cursor" size={13} />
+            <span>{MODE_LABEL[mode]}</span>
+            <IconButton size="small" title={t('关闭模式提示')} onClick={() => setDismissedMode(mode)}>
+              {'xmark' as const}
+            </IconButton>
+          </div>
+        ) : null}
+      </>
     )
   if (tip < 0) return null
   return (

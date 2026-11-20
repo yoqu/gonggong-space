@@ -227,6 +227,7 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     botId: a.botId,
     visibility: a.visibility as ArtifactVisibility,
     createdBy: a.createdBy,
+    site: a.siteDir !== null,
   }
 }
 

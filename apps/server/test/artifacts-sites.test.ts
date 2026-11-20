@@ -98,8 +98,15 @@ describe('hosted sites', () => {
     const [row] = await t.db.select().from(artifactVersions).where(eq(artifactVersions.id, v2.versionId))
     expect(row).toMatchObject({ source: 'host', parentVersionId: v1.versionId, issues: [] })
 
-    // Shown in 作品.
+    // Shown in 作品, and GET /api/artifacts/:id exposes site: true.
     const cookie = await t.seed.cookie(w.li.id)
+    const getRes = await t.app.inject({
+      method: 'GET',
+      url: `/api/artifacts/${artifactId}`,
+      headers: { cookie },
+    })
+    expect(getRes.statusCode).toBe(200)
+    expect(getRes.json()).toMatchObject({ id: artifactId, site: true })
     const works = (await t.app.inject({ url: '/api/works', headers: { cookie } })).json() as WorkDto[]
     expect(works.map((x) => x.id)).toContain(artifactId)
   })

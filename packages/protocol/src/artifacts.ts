@@ -203,6 +203,8 @@ export const ArtifactDto = z.object({
   visibility: ArtifactVisibility,
   /** The member who started its creation. */
   createdBy: z.string().nullable(),
+  /** Hosted static site (uploaded built dir, not an editable design artifact). */
+  site: z.boolean().optional(),
   /** The caller's access; sent by GET /api/artifacts/:id. */
   access: ArtifactAccess.optional(),
 })
