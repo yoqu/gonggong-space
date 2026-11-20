@@ -448,7 +448,7 @@ describe('secret tools and cards', () => {
 
     const fills = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'secret.fill'))
     expect(
-      fills.map((l) => [(l.detail as { name: string }).name, (l.detail as { layer: string }).layer]),
+      fills.map((l) => [(l.detail as { name: string }).name, (l.detail as { layer: string }).layer]).sort(),
     ).toEqual([
       ['JIRA_TOKEN', 'personal'],
       ['WIKI_TOKEN', 'group'],
