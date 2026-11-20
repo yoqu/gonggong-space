@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.28 — 2026-11-20
+
+- 静态网页可托管到服务器，在「作品」里查看或分享，Bot 电脑离线也能访问 / Host static sites on the server and open or share them from Works even when the bot's computer is offline
+- 原型画布支持手机双指缩放；页面选择与左侧列表同步，标记或直接编辑时可按住 Alt 点击操作页面 / Pinch to zoom on mobile; screen selection stays in sync with the page list, and Alt-click interacts with the page in markup or edit mode
+- 原型画布新增「交互」工具，支持点击和触屏操作，切回编辑模式后保留页面状态 / The canvas Interaction tool supports mouse and touch input and preserves page state when switching back to edit mode
+- Webhook 部署通知支持飞书原生卡片 / Deployment webhooks support native Feishu cards
+
 ## v0.4.27 — 2026-11-19
 
 - 话题与群主会话可并行运行，仍受 Bot 并发上限约束，同一会话仍按顺序执行 / Threads and the main conversation can run in parallel within the bot's concurrency limit; each conversation still runs one turn at a time
