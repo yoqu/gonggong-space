@@ -7,4 +7,6 @@ export interface TerminalViewProps {
   active: boolean
   onSession?: (sessionId: string) => void
   onExit?: (exitCode: number | null, reason: string | null) => void
+  onError?: (message: string) => void
+  onRestart?: () => void
 }

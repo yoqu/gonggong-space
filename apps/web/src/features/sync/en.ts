@@ -99,6 +99,7 @@ export default {
   整版丢弃: 'Discard all',
   '提交#submit': 'Submit',
   冲突已处理: 'The conflict was already resolved',
+  读取冲突失败: "Couldn't load conflict",
   '选「交给 Bot 合并」的文件会写入冲突标记，由 {bot} 发起一轮合并，结束后自动提交':
     'Files set to "Let the Bot merge" get conflict markers; {bot} runs a merge turn and its result is submitted automatically',
   '保留我的：以我的内容为准；采用最新：放弃我对该文件的改动':

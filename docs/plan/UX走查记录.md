@@ -306,3 +306,18 @@
 - P3 `SchedulesPage` 顶部 4 个统计卡仅静态展示，不支持点击「启用中 / 已自动停用」联动过滤下方列表（`admin/SchedulesPage.tsx`）→ 点击统计卡同步切换筛选分段（验收：指标卡可交互联动）。
 - P3 `TeamsPage` 与 `UsersPage` 的新建引导横幅按钮与顶部工具栏按钮文案完全重名，屏幕阅读器难以区分（`admin/UsersPage.tsx`、`admin/TeamsPage.tsx`）→ 区分引导区按钮文案或仅留主入口（验收：无重名按钮冲突）。
 - P3 `BotsAdminPage` 桌面端选中行右侧详情卡切换时缺少轻过渡反馈（`bots/BotsAdminPage.tsx`）→ 保持滚动回顶与平滑切换（验收：切 Bot 详情从顶部开始阅读）。
+
+## 11-21 第 5 轮（终端空间与工作台终端、飞书管理、审计记录、客户端发布、同步冲突处理；桌面 1440 + 深色 + 390 触屏）
+
+已修（4 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 飞书管理页在 390px 手机端严重溢出破版（`feishu/FeishuAdminPage.tsx`、`feishu.css`）：「对外地址」行 `.gs-value-line` 将「保存」按钮顶出视口外、「主应用 › 凭证」`.feishu-app__fields` 固定双列把 `App Secret` 右半与显隐眼标裁出屏幕、长重定向 URL 无换行 → 窄屏下对外地址行纵向堆叠铺满、`.feishu-app__fields` 改单列、`.feishu-app__id` 允许任意处换行（验收：390px 下对外地址保存按钮与 App Secret 完整可见可点、无横向溢出）。
+- P1 审计记录在 390px 手机端第 7 项分类「预览」被裁出屏幕无法点选，且分类切换无竞态保护、「加载更多」缺防重入（`admin/AuditPage.tsx`、`audit.css`）→ 筛选区 `.admin-audit__filters .ui-seg` 允许横向滚动、首页拉取补 `cancelled` 竞态清理、`loadMore` 补 `loadingMore` 禁用态与「加载中」文案（验收：390px 下 7 个分类全部可达，连点「加载更多」不发重复请求）。
+- P1 终端空间切换会话不重置 `ended` 状态、终端出错/退出态无重连或新开入口、剪贴板失败静默丢失且重命名/删除缺防重入（`terminal/TerminalSpacePage.tsx`、`TerminalView.tsx`、`view.ts`）→ 切换 `space.id` 重置 `ended`/`failed`、错误态与退出态遮罩均提供「重新连接 / 新开 Shell」主按钮、剪贴板失败改为 `toast` 提示、重命名未改动按 Enter 不提交并补保存/删除防重入（验收：从已结束终端切至运行中终端顶栏按钮正确置灰，出错/退出态可一键恢复）。
+- P1 同步冲突弹窗加载失败误显「冲突已处理」且缺少竞态保护（`sync/ConflictDialog.tsx`、`sync/en.ts`）：`syncApi.conflicts` 失败时直接 `setConflict(null)` 导致界面误报已处理 → 区分 `loadError` 态展示「读取冲突失败」与「重试」按钮，为 `ConflictDialog` 与 `Preview` 补 `cancelled` 竞态清理（验收：冲突接口报错时显示错误与重试按钮，不再误报「冲突已处理」）。
+
+- P2 终端搜索栏（`Cmd+F`）缺少 `Enter`/`Shift+Enter` 跳转与关闭按钮（`terminal/TerminalView.tsx`、`terminal.css`）：仅渲染裸 `<input>` 无占位提示，输入后按 Enter 不跳转下一匹配且无鼠标关闭入口 → 补 `Enter`/`Shift+Enter` 调 `findNext`/`findPrevious`、占位提示与关闭 `×` 按钮（验收：打开终端搜索后可键盘上下翻找匹配并可点 `×` 关闭）。
+- P2 新建终端输入相对路径或 `~/...` 时「创建」按钮静默置灰无原因提示（`terminal/NewTerminalDialog.tsx`）：仅要求 `cwd.trim().startsWith('/')` 却未提示格式要求，且创建中无加载态文案 → 目录非空且不以 `/` 开头时显示行内错误「请输入以 / 开头的绝对路径」，提交中显示「创建中…」并禁用取消（验收：输入 `~/code` 时输入框下方明确提示需绝对路径）。
+- P2 飞书管理「重定向 URL」缺一键复制按钮，且「接入进度」第 4 步按钮在窄屏贴边（`feishu/FeishuAdminPage.tsx`、`FeishuOverview.tsx`）：重定向 URL 仅静态 `<code>` 需手动拖选；第 4 步按钮文案较长在 390px 紧贴卡片右缘 → 重定向 URL 右侧加一键复制按钮（带 ✓ 反馈），进度卡片按钮文案精简为「复制登录地址」（验收：可一键复制重定向 URL，390px 下进度卡片留白均衡）。
+- P2 客户端发布页「编辑版本说明」缺取消按钮，且「移除」弹窗缺提交中防重入（`admin/ReleasesPage.tsx`）：进入编辑态后无法放弃草稿退回预览，移除产物请求期间按钮未禁用 → 编辑态补「取消」按钮还原原说明，移除确认弹窗补 `removingBusy` 防重入（验收：编辑版本说明可随时取消还原，移除中不可连点）。
+- P3 审计记录详情弹窗 `detail` 原始英文键名与 JSON 单行平铺难阅读（`admin/AuditPage.tsx`）：嵌套 JSON 以单行紧凑字符串展示，排查长参数不便 → 对对象值使用缩进格式化与等宽换行块，支持一键复制详情 JSON（验收：含复杂 `detail` 的审计记录在弹窗内层次清晰不截断）。
+- P3 目录选择器（`DirPicker`）新建文件夹输入空名按 Enter 静默无反馈且缺触屏确认/取消按钮（`workspaces/DirPicker.tsx`）：仅依赖键盘 Enter/Esc，手机触屏端缺少显式按钮 → 空名提交时显示「请输入文件夹名称」，编辑行右侧补确认/取消小按钮（验收：390px 触屏下可点击完成或取消新建文件夹）。

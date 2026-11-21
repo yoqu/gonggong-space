@@ -1,0 +1,18 @@
+.admin-audit__filters {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-audit__filters .ui-seg {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.admin-audit__filters .ui-seg::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-audit__filters .ui-seg__item {
+  flex: 0 0 auto;
+}

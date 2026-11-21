@@ -7,7 +7,7 @@ import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
-import { Button, Dialog, EmptyState, Presence, Spinner } from '../../ui'
+import { Button, Dialog, EmptyState, Presence, Spinner, toast } from '../../ui'
 import { openFileAt } from '../workbench/tabs/DiffTab'
 import { createTerminal, endTerminal, openSpaceSession, resolveTerminalLink, terminalSocketUrl } from './api'
 import { attachTerminalKeyboard } from './keyboard'
@@ -84,6 +84,8 @@ export function TerminalView({
   active,
   onSession,
   onExit,
+  onError,
+  onRestart,
 }: TerminalViewProps) {
   const host = useRef<HTMLDivElement>(null)
   const terminal = useRef<Terminal>(null)
@@ -92,21 +94,29 @@ export function TerminalView({
   const started = useRef(false)
   const socket = useRef<WebSocket>(null)
   const shown = useRef(active)
-  const callbacks = useRef({ onSession, onExit })
+  const callbacks = useRef({ onSession, onExit, onError })
   const [phase, setPhase] = useState<Phase>('loading')
   const [error, setError] = useState<string | null>(null)
   const [exit, setExit] = useState<Exit>(null)
   const [confirming, setConfirming] = useState(false)
   const [ending, setEnding] = useState(false)
+  const [activeSessionId, setActiveSessionId] = useState(sessionId)
   const [currentSession, setCurrentSession] = useState(sessionId)
+  const [attempt, setAttempt] = useState(0)
   shown.current = active
-  callbacks.current = { onSession, onExit }
+  callbacks.current = { onSession, onExit, onError }
 
+  useEffect(() => {
+    setActiveSessionId(sessionId)
+    setCurrentSession(sessionId)
+  }, [sessionId])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt triggers reconnect/new shell
   useEffect(() => {
     const el = host.current
     if (!el) return
     let disposed = false
-    let attachedSession = sessionId
+    let attachedSession = activeSessionId
     let settled = false
     let attempts = 0
     let reconnect: ReturnType<typeof setTimeout> | undefined
@@ -150,7 +160,7 @@ export function TerminalView({
         if (searchBar.hidden) search.clearDecorations()
         else searchBar.focus()
       },
-      onError: () => setError(t('剪贴板不可用，请检查浏览器权限')),
+      onError: () => toast({ type: 'error', message: t('剪贴板不可用，请检查浏览器权限') }),
     })
     term.registerLinkProvider(
       createTerminalLinkProvider(term, {
@@ -185,6 +195,7 @@ export function TerminalView({
       if (reconnect) clearTimeout(reconnect)
       setPhase('error')
       setError(message)
+      callbacks.current.onError?.(message)
     }
     const onMessage = (event: MessageEvent) => {
       if (disposed) return
@@ -261,7 +272,7 @@ export function TerminalView({
           : groupId && botId
             ? sessionFor(groupId, botId, size)
             : null
-      if (sessionId) attach(sessionId)
+      if (activeSessionId) attach(activeSessionId)
       else {
         open()?.then(
           (id) => {
@@ -311,7 +322,7 @@ export function TerminalView({
       connect.current = null
       started.current = false
     }
-  }, [sessionId, groupId, botId, spaceId])
+  }, [activeSessionId, groupId, botId, spaceId, attempt])
 
   useEffect(() => {
     if (!active) return
@@ -336,6 +347,21 @@ export function TerminalView({
     } finally {
       setEnding(false)
     }
+  }
+
+  const restart = () => {
+    if (onRestart) {
+      onRestart()
+      return
+    }
+    setPhase('loading')
+    setError(null)
+    setExit(null)
+    if (phase === 'exited') {
+      setActiveSessionId(undefined)
+      setCurrentSession(undefined)
+    }
+    setAttempt((n) => n + 1)
   }
 
   return (
@@ -381,6 +407,13 @@ export function TerminalView({
                     (exit?.code !== null && exit?.code !== undefined
                       ? t('Shell 已退出，退出码 {code}', { code: exit.code })
                       : null))
+              }
+              action={
+                onRestart || spaceId || (groupId && botId) || activeSessionId ? (
+                  <Button size="small" variant="primary" onClick={restart}>
+                    {phase === 'error' ? t('重新连接') : t('新开 Shell')}
+                  </Button>
+                ) : undefined
               }
             />
           </div>

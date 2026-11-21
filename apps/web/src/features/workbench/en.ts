@@ -145,6 +145,7 @@ export default {
   选择一个文件查看改动: 'Pick a file to see its changes',
   终端会话: 'Terminal',
   '新开 Shell': 'New shell',
+  重新连接: 'Reconnect',
   删除终端: 'Delete terminal',
   '删除终端「{name}」？': 'Delete terminal "{name}"?',
   '会结束其中的 Shell 及正在运行的进程，并从会话列表移除；电脑上的目录不受影响。':

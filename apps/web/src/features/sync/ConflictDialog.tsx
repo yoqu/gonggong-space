@@ -30,10 +30,21 @@ function Preview({ groupId, c, f }: { groupId: string; c: SyncConflictDto; f: Fi
   const [sides, setSides] = useState<[string, string, string] | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
+    let cancelled = false
+    setSides(null)
+    setError(null)
     const text = (hash: string | null) => (hash ? syncApi.text(groupId, c.id, hash) : Promise.resolve(''))
-    Promise.all([text(f.baseHash), text(f.mineHash), text(f.theirsHash)]).then(setSides, (e) =>
-      setError(errorText(e)),
+    Promise.all([text(f.baseHash), text(f.mineHash), text(f.theirsHash)]).then(
+      (res) => {
+        if (!cancelled) setSides(res)
+      },
+      (e) => {
+        if (!cancelled) setError(errorText(e))
+      },
     )
+    return () => {
+      cancelled = true
+    }
   }, [groupId, c.id, f])
   if (error) return <div className="sync-muted">{error}</div>
   if (!sides) return <Spinner />
@@ -119,20 +130,32 @@ export function ConflictDialog({
   onClose: () => void
 }) {
   const [conflict, setConflict] = useState<SyncConflictDto | null | undefined>()
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const known = useWorkspace((s) => s.bots.find((b) => b.id === (botId ?? conflict?.botId))?.name)
   const botName = named ?? known ?? ''
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [busy, setBusy] = useState(false)
   const [discard, setDiscard] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt triggers a manual retry
   useEffect(() => {
+    let cancelled = false
+    setConflict(undefined)
+    setLoadError(null)
     syncApi.conflicts(groupId).then(
-      (list) => setConflict(list.find((c) => (conflictId ? c.id === conflictId : c.botId === botId)) ?? null),
+      (list) => {
+        if (!cancelled)
+          setConflict(list.find((c) => (conflictId ? c.id === conflictId : c.botId === botId)) ?? null)
+      },
       (e) => {
-        toastError(e)
-        setConflict(null)
+        if (cancelled) return
+        setLoadError(errorText(e))
       },
     )
-  }, [groupId, botId, conflictId])
+    return () => {
+      cancelled = true
+    }
+  }, [groupId, botId, conflictId, attempt])
 
   const files = conflict?.files ?? []
   const decided = files.length > 0 && files.every((f) => choices[f.path])
@@ -194,7 +217,17 @@ export function ConflictDialog({
           : undefined
       }
     >
-      {conflict === undefined ? (
+      {loadError ? (
+        <EmptyState
+          title={t('读取冲突失败')}
+          description={loadError}
+          action={
+            <Button size="small" onClick={() => setAttempt((n) => n + 1)}>
+              {t('重试')}
+            </Button>
+          }
+        />
+      ) : conflict === undefined ? (
         <Spinner />
       ) : conflict === null ? (
         <EmptyState title={t('冲突已处理')} />

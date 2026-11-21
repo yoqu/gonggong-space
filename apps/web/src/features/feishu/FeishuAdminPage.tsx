@@ -70,6 +70,7 @@ export function FeishuAdminPage() {
           <h2 className="admin-params__title">{t('对外地址')}</h2>
           <GroupBox>
             <GroupRow
+              className="feishu-url-row"
               label={t('对外地址')}
               description={
                 <>

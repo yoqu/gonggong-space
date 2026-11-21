@@ -23,6 +23,7 @@ import {
 } from '../../ui'
 import { AdminPage } from './AdminPage'
 import { TeamFilter } from './TeamFilter'
+import './audit.css'
 
 const PAGE = 50
 const ALL = 'all'
@@ -112,6 +113,7 @@ export function AuditPanel({
   const [actor, setActor] = useState('')
   const [rows, setRows] = useState<AuditDto[] | null>(null)
   const [more, setMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [open, setOpen] = useState<AuditDto | null>(null)
 
@@ -128,26 +130,39 @@ export function AuditPanel({
   )
 
   useEffect(() => {
+    let cancelled = false
     setRows(null)
+    setMore(false)
+    setLoadingMore(false)
     setError('')
     fetchPage()
       .then((page) => {
+        if (cancelled) return
         setRows(page)
         setMore(page.length === PAGE)
       })
-      .catch((e) => setError(errorText(e)))
+      .catch((e) => {
+        if (!cancelled) setError(errorText(e))
+      })
+    return () => {
+      cancelled = true
+    }
   }, [fetchPage])
   useEffect(() => {
     if (rows) onLoaded?.(rows.length)
   }, [rows, onLoaded])
 
   async function loadMore() {
+    if (loadingMore) return
+    setLoadingMore(true)
     try {
       const page = await fetchPage(rows?.at(-1)?.id)
       setRows((r) => [...(r ?? []), ...page])
       setMore(page.length === PAGE)
     } catch (e) {
       setError(errorText(e))
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -161,7 +176,7 @@ export function AuditPanel({
 
   return (
     <>
-      <div className="admin-filters">
+      <div className="admin-filters admin-audit__filters">
         <SegmentedControl
           aria-label={t('类型')}
           items={FILTERS.map((f) => ({ value: f.category ?? ALL, label: f.label }))}
@@ -220,8 +235,8 @@ export function AuditPanel({
         )}
       </div>
       {more ? (
-        <Button className="admin-more" onClick={() => void loadMore()}>
-          {t('加载更多')}
+        <Button className="admin-more" disabled={loadingMore} onClick={() => void loadMore()}>
+          {loadingMore ? t('加载中') : t('加载更多')}
         </Button>
       ) : null}
       <Presence>{open ? <AuditDialog record={open} onClose={() => setOpen(null)} /> : null}</Presence>
