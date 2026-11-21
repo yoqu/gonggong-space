@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { artifacts } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
-import { manifestOf, requireVersion } from '../artifacts/service.js'
+import { checkoutable, manifestOf, requireVersion } from '../artifacts/service.js'
 import type { Run } from './layers.js'
 import { refuse, type ToolOutput } from './service.js'
 
@@ -20,7 +20,11 @@ export async function artifactCheckout(ctx: Ctx, run: Run, a: Args): Promise<Too
     .select()
     .from(artifacts)
     .where(
-      and(eq(artifacts.groupId, run.groupId), isUuid(key) ? eq(artifacts.id, key) : eq(artifacts.title, key)),
+      and(
+        eq(artifacts.groupId, run.groupId),
+        checkoutable,
+        isUuid(key) ? eq(artifacts.id, key) : eq(artifacts.title, key),
+      ),
     )
     .orderBy(desc(artifacts.updatedAt))
   const [hit] = found

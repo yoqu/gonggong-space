@@ -158,6 +158,10 @@ describe('POST /api/messages/:id/branch', () => {
     expect((await w.asWang.post(`/api/messages/${w.cut.id}/branch`)).status).toBe(400)
     expect((await w.asWang.post(`/api/messages/${w.hidden.id}/branch`)).status).toBe(400)
     expect((await w.asOutsider.post(`/api/messages/${w.first.id}/branch`)).status).toBe(404)
+    expect((await w.asWang.post('/api/messages/00000000-0000-0000-0000-000000000000/branch')).status).toBe(
+      404,
+    )
+    expect((await w.asWang.post('/api/messages/not-a-uuid/branch')).status).toBe(404)
     expect(w.forks).toEqual([])
     expect(await dmsOf(w.wang.id)).toEqual([])
   })

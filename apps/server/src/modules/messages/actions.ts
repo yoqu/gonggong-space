@@ -4,14 +4,20 @@ import type { Ctx } from '../../context.js'
 import { messages } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
 import { mirrorReply } from '../feishu/mirror.js'
 import { mirrorUserMessage } from '../feishu/outbound.js'
-import { activeBots, requireMember } from '../groups/service.js'
+import { activeBots } from '../groups/service.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { publishThread } from '../threads/service.js'
 import { resolveQuote } from './quote.js'
-import { type MessageMeta, type MessageRow, memberIds, messageDto, publishMessage } from './service.js'
+import {
+  type MessageMeta,
+  type MessageRow,
+  memberIds,
+  messageDto,
+  publishMessage,
+  requireMessage,
+} from './service.js'
 
 /**
  * A click on a bot reply's ```actions block (plan 富交互消息 · 层 2): recorded once on the reply, then sent as the
@@ -23,12 +29,7 @@ export async function answerActions(
   id: string,
   req: AnswerActionsReq,
 ): Promise<MessageDto> {
-  const [m] = await ctx.db
-    .select()
-    .from(messages)
-    .where(eq(messages.id, idParam(id, '消息不存在')))
-  if (!m) return fail('not_found', '消息不存在')
-  await requireMember(ctx, m.groupId, user.id)
+  const m = await requireMessage(ctx, id, user.id)
   if (m.kind !== 'bot' || !m.authorBotId || m.recalledAt) return fail('not_found', '消息不存在')
   const block = findUiBlocks(m.body)
     .map((b) => b.block)

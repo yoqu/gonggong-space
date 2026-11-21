@@ -126,6 +126,8 @@ describe('POST /api/messages/:id/actions', () => {
   it('refuses non-members, other messages, missing blocks and bad options', async () => {
     const w = await world()
     expect((await answer(w.asOutsider, w.reply.id, 'env', [0])).status).toBe(404)
+    expect((await answer(w.asLi, '00000000-0000-0000-0000-000000000000', 'env', [0])).status).toBe(404)
+    expect((await answer(w.asLi, 'not-a-uuid', 'env', [0])).status).toBe(404)
     const mine = await w.post(ENV, { kind: 'user' })
     expect((await answer(w.asLi, mine.id, 'env', [0])).status).toBe(404)
     const recalled = await w.post(ENV, { recalled: true })

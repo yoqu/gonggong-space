@@ -2,12 +2,9 @@ import { ReactionEmoji, type ReactionsDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { messageReactions, messages } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
+import { messageReactions } from '../../db/schema.js'
 import { requireUser } from '../auth/session.js'
-import { requireMember } from '../groups/service.js'
-import { memberIds } from '../messages/service.js'
+import { memberIds, requireMessage } from '../messages/service.js'
 import { reactionsOf } from './service.js'
 
 type Params = { Params: { id: string; emoji: string } }
@@ -16,13 +13,8 @@ export function reactionRoutes(ctx: Ctx) {
   /** Idempotent toggle; members are told only when the set actually changed. */
   const react = async (userId: string, params: Params['Params'], on: boolean): Promise<ReactionsDto> => {
     const emoji = ReactionEmoji.parse(params.emoji)
-    const messageId = idParam(params.id, '消息不存在')
-    const [m] = await ctx.db
-      .select({ groupId: messages.groupId })
-      .from(messages)
-      .where(eq(messages.id, messageId))
-    if (!m) return fail('not_found', '消息不存在')
-    await requireMember(ctx, m.groupId, userId)
+    const m = await requireMessage(ctx, params.id, userId)
+    const messageId = m.id
     const changed = on
       ? await ctx.db
           .insert(messageReactions)

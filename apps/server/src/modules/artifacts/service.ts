@@ -677,6 +677,9 @@ export async function runTargets(ctx: Ctx, run: { triggerMessageId: string | nul
   return m ? referenced(ctx.db, m.meta as MessageMeta) : []
 }
 
+/** Artifacts a run can check out: not deleted, and not a hosted site (those live in their own directory). */
+export const checkoutable = and(isNull(artifacts.archivedAt), isNull(artifacts.siteDir))
+
 /**
  * RunStart.artifacts (§3.2): the ones the trigger points at or the bot asked for (artifact_checkout) always, then the bot's own (made for it or changed by
  * its runs), most recently updated first, up to RUN_ARTIFACTS_MAX; `exclude` is every artifact directory of the group.
@@ -699,14 +702,7 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
       .leftJoin(artifactVersions, eq(artifactVersions.id, artifacts.headVersionId))
   const [first, all] = await Promise.all([
     targets.length
-      ? base().where(
-          and(
-            eq(artifacts.groupId, groupId),
-            inArray(artifacts.id, targets),
-            isNull(artifacts.archivedAt),
-            isNull(artifacts.siteDir),
-          ),
-        )
+      ? base().where(and(eq(artifacts.groupId, groupId), inArray(artifacts.id, targets), checkoutable))
       : Promise.resolve([]),
     tx.select({ dir: artifacts.dir }).from(artifacts).where(eq(artifacts.groupId, groupId)),
   ])
@@ -718,8 +714,7 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
           .where(
             and(
               eq(artifacts.groupId, groupId),
-              isNull(artifacts.archivedAt),
-              isNull(artifacts.siteDir),
+              checkoutable,
               first.length
                 ? notInArray(
                     artifacts.id,

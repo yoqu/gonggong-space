@@ -4,13 +4,12 @@ import { and, desc, eq, inArray, isNull, lt } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, messages, runs, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
 import { createGroup } from '../groups/create.js'
 import { requireMember } from '../groups/service.js'
 import { requestCd } from '../workspaces/cd.js'
 import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 import { updateBotState } from '../workspaces/state.js'
-import { postEvent } from './service.js'
+import { postEvent, requireMessage } from './service.js'
 
 const FORK_TIMEOUT_MS = 10_000
 const SUMMARY_MESSAGES = 20
@@ -22,11 +21,7 @@ const SUMMARY_CHARS = 200
  * reply. Returns the new chat's id.
  */
 export async function branchMessage(ctx: Ctx, me: { id: string; name: string }, messageId: string) {
-  const [m] = await ctx.db
-    .select()
-    .from(messages)
-    .where(eq(messages.id, idParam(messageId, '消息不存在')))
-  if (!m) return fail('not_found', '消息不存在')
+  const m = await requireMessage(ctx, messageId, me.id)
   const { group } = await requireMember(ctx, m.groupId, me.id)
   if (m.kind !== 'bot' || !m.runId || m.recalledAt) return fail('invalid', '只能从 Bot 的回复分支')
   const [run] = await ctx.db.select().from(runs).where(eq(runs.id, m.runId))

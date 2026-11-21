@@ -8,23 +8,12 @@ import {
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { messages, savedMessages } from '../../db/schema.js'
+import { savedMessages } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
-import { requireMember } from '../groups/service.js'
+import { requireMessage } from '../messages/service.js'
 import { byCreated, byDone, doneBefore, openBefore, publishSaved, savedItems, savedState } from './service.js'
-
-/** A message of a group the caller is in. */
-async function requireMessage(ctx: Ctx, id: string, userId: string) {
-  const [m] = await ctx.db
-    .select({ id: messages.id, groupId: messages.groupId })
-    .from(messages)
-    .where(eq(messages.id, idParam(id, '消息不存在')))
-  if (!m) return fail('not_found', '消息不存在')
-  await requireMember(ctx, m.groupId, userId)
-  return m
-}
 
 const mine = (userId: string, messageId: string) =>
   and(eq(savedMessages.userId, userId), eq(savedMessages.messageId, messageId))

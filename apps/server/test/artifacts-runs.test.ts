@@ -177,6 +177,30 @@ describe('RunStart.artifacts', () => {
     expect(again.start.artifacts.map((a) => a.id)).toEqual([own.id])
   })
 
+  it('artifact_checkout skips deleted and site artifacts, which a run never checks out', async () => {
+    const w = await artifactWorld(t)
+    const deleted = await w.artifact({ botId: null, title: '已删除', archivedAt: new Date() })
+    const site = await w.artifact({ botId: null, title: '官网', siteDir: 'sites/web' })
+    await w.artifact({ botId: null, title: '同名', archivedAt: new Date() })
+    await w.artifact({ botId: null, title: '同名', siteDir: 'sites/web2' })
+    const kept = await w.artifact({ botId: null, title: '同名' })
+    const live = await w.run([])
+    const call = async (artifact: string) =>
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: `/api/daemon/runs/${live.id}/tools/artifact_checkout`,
+          headers: w.auth(),
+          payload: { arguments: { artifact } },
+        })
+      ).json() as { text: string; isError: boolean }
+    for (const key of ['已删除', deleted.id, '官网', site.id])
+      expect(await call(key)).toMatchObject({ isError: true, text: `本群没有产物「${key}」` })
+    const res = await call('同名')
+    expect(res).toMatchObject({ isError: false })
+    expect(res.text).toContain(`目录 ${kept.dir}/`)
+  })
+
   it('hides artifact_checkout from a daemon without the artifacts feature', async () => {
     const w = await artifactWorld(t)
     expect((await dispatch(w, { mentions: [w.bot.id] }, ['plugins'])).start.hiddenTools).toContain(

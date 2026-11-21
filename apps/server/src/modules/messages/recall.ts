@@ -3,24 +3,17 @@ import { and, eq, gt, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { messageHides, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
 import { mirrorRecall } from '../feishu/outbound.js'
-import { requireMember } from '../groups/service.js'
 import { dropPin } from '../pins/service.js'
 import { publishRun } from '../runs/dto.js'
 import { runStep } from '../runs/step.js'
 import { notifyChainDone } from '../runs/stop.js'
 import { publishThread } from '../threads/service.js'
-import { type MessageRow, memberIds, messageDto } from './service.js'
+import { type MessageRow, memberIds, messageDto, requireMessage } from './service.js'
 
 /** Only the author may recall or delete, and only their own user messages (not bot replies or events). */
 export async function ownMessage(ctx: Ctx, userId: string, id: string) {
-  const [m] = await ctx.db
-    .select()
-    .from(messages)
-    .where(eq(messages.id, idParam(id, '消息不存在')))
-  if (!m) return fail('not_found', '消息不存在')
-  await requireMember(ctx, m.groupId, userId)
+  const m = await requireMessage(ctx, id, userId)
   if (m.kind !== 'user' || m.authorUserId !== userId) return fail('forbidden', '只能操作自己发送的消息')
   return m
 }

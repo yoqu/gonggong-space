@@ -21,8 +21,23 @@ import { eq, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'
 import { zh } from '../../i18n/index.js'
+import { fail } from '../../lib/errors.js'
+import { idParam } from '../../lib/ids.js'
+import { requireMember } from '../groups/service.js'
 
 export type MessageRow = typeof messages.$inferSelect
+
+/** A message of a group the caller is in. */
+export async function requireMessage(ctx: Ctx, id: string, userId: string) {
+  const [m] = await ctx.db
+    .select()
+    .from(messages)
+    .where(eq(messages.id, idParam(id, '消息不存在')))
+  if (!m) return fail('not_found', '消息不存在')
+  await requireMember(ctx, m.groupId, userId)
+  return m
+}
+
 /**
  * `command`: the system command this message invoked (never replayed to agents as context).
  * `appendTo`: the run it was 打断并追加 into (it triggers nothing itself).
