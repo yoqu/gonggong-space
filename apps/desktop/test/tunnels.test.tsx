@@ -157,7 +157,7 @@ it('stops both by default, pauses via menu, restarts paused previews, and shows 
   await waitFor(() => expect(m.stopService).toHaveBeenCalledWith('sv1'))
 
   const paused = await row('调试台')
-  expect(paused.getByText('已暂停')).toBeTruthy()
+  expect(paused.getByText('服务已停止')).toBeTruthy()
   fireEvent.click(paused.getByRole('button', { name: '重新启动' }))
   await waitFor(() => expect(m.startPreview).toHaveBeenCalledWith('p_paused'))
   fireEvent.click(paused.getByRole('button', { name: '彻底关闭' }))

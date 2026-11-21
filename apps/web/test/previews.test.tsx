@@ -404,7 +404,7 @@ describe('群设置 · 在线预览', () => {
     expect(screen.queryByText(/仅后台运行/)).toBeNull()
 
     const pausedRow = screen.getByText('登录页').closest('.pv-item') as HTMLElement
-    expect(within(pausedRow).getByText('已暂停')).toBeTruthy()
+    expect(within(pausedRow).getByText('服务已停止')).toBeTruthy()
     fireEvent.click(within(pausedRow).getByRole('button', { name: '重新启动' }))
     await waitFor(() =>
       expect(calls).toContainEqual({ method: 'POST', path: '/previews/p1/start', body: undefined }),

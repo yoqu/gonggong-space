@@ -105,7 +105,6 @@ export default {
   已退出: 'Exited',
   启动失败: 'Failed to start',
   在线: 'Online',
-  已暂停: 'Paused',
   离线: 'Offline',
   卡片保留中: 'Card kept',
   静态页面: 'Static page',

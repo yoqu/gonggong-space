@@ -10,7 +10,7 @@ import { openInWorkbench, openUrl, usePreviews } from './store'
 
 const PREVIEW_BADGE: Record<PreviewDto['status'], { text: string; tone: TagTone }> = {
   online: { text: t('在线'), tone: 'green' },
-  stopped: { text: t('已暂停'), tone: 'orange' },
+  stopped: { text: t('服务已停止'), tone: 'orange' },
   offline: { text: t('离线'), tone: 'gray' },
 }
 
