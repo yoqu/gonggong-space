@@ -96,7 +96,7 @@ describe('audit, teams archive & sync conflict UX fixes', () => {
 
     // Confirmation dialog appears; API not yet called
     await waitFor(() => {
-      expect(screen.getByText('归档团队「产品设计组」？')).toBeTruthy()
+      expect(screen.getByText('要归档团队「产品设计组」吗？')).toBeTruthy()
     })
     expect(postSpy).not.toHaveBeenCalled()
 
