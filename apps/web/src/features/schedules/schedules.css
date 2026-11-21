@@ -99,6 +99,30 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.sc-admin-cell {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.sc-admin-cell__text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-table--cards .sc-admin-cell__text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ui-btn.sc-admin-del {
+  color: var(--tint-red-text);
+}
+@media (max-width: 640px) {
+  .sc-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
 .sc-tag {
   display: inline-flex;

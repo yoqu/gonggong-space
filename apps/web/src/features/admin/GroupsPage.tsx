@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  Button,
   EmptyState,
   NoGroupsArt,
   NoResultsArt,
@@ -32,7 +33,12 @@ const title = (g: AdminGroupDto) => (g.kind === 'dm' ? `${g.ownerName ?? ''} ⇄
 export function GroupsPage() {
   const [teamId, setTeamId] = useState('')
   const [kind, setKind] = useState<'group' | 'dm'>('group')
-  const { data: groups, error } = useGet<AdminGroupDto[]>(`/admin/groups${teamId ? `?teamId=${teamId}` : ''}`)
+  const {
+    data: groups,
+    error,
+    loading,
+    reload,
+  } = useGet<AdminGroupDto[]>(`/admin/groups${teamId ? `?teamId=${teamId}` : ''}`)
   const [query, setQuery] = useState('')
   const params = useSystemParams()
 
@@ -76,7 +82,15 @@ export function GroupsPage() {
       }
       search={<SearchField placeholder={t('搜索群或仓库')} value={query} onChange={setQuery} />}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {shown ? (
         <Table<AdminGroupDto>
           aria-label={t('群列表')}

@@ -4,7 +4,19 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Alert, Button, EmptyState, SearchField, SegmentedControl, Spinner, Switch, Table } from '../../ui'
+import {
+  Alert,
+  Button,
+  ConfirmActionDialog,
+  EmptyState,
+  Presence,
+  SearchField,
+  SegmentedControl,
+  Spinner,
+  Switch,
+  Table,
+  toast,
+} from '../../ui'
 import { botsText } from '../bots/model'
 import '../groups/groups.css'
 import { lastText, stateText } from '../schedules/model'
@@ -23,20 +35,30 @@ const FILTERS: { value: Filter; label: string }[] = [
 /** 管理后台 · 定时任务: every group's scheduled tasks across teams; sysadmins may pause or delete any. */
 export function SchedulesPage() {
   const [teamId, setTeamId] = useState('')
-  const { data, error, reload } = useGet<AdminSchedulesDto>(
+  const { data, error, loading, reload } = useGet<AdminSchedulesDto>(
     `/admin/schedules${teamId ? `?teamId=${teamId}` : ''}`,
   )
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<AdminScheduleDto | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const q = query.trim().toLowerCase()
   const shown = data?.schedules.filter(
     (s) =>
       (filter === 'all' || s.enabled === (filter === 'on')) &&
       (!q || `${s.name} ${s.groupName} ${s.ownerName} ${s.botNames.join(' ')}`.toLowerCase().includes(q)),
   )
-  const act = async (fn: () => Promise<unknown>) => {
-    if (await attempt(fn)) reload()
+  const toggle = async (s: AdminScheduleDto, enabled: boolean) => {
+    if (togglingId) return
+    setTogglingId(s.id)
+    try {
+      if (await attempt(() => api.patch(`/admin/schedules/${s.id}`, { enabled }))) {
+        toast({ type: 'success', message: enabled ? t('已启用定时任务') : t('已停用定时任务') })
+        reload()
+      }
+    } finally {
+      setTogglingId(null)
+    }
   }
   const title = (s: AdminScheduleDto) =>
     s.groupKind === 'dm' ? t('{owner} 的私聊', { owner: s.ownerName }) : s.groupName
@@ -63,7 +85,15 @@ export function SchedulesPage() {
       }
       search={<SearchField placeholder={t('搜索任务、群或 Bot')} value={query} onChange={setQuery} />}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {data ? (
         <div className="sc-stats">
           {[
@@ -94,9 +124,11 @@ export function SchedulesPage() {
               title: t('任务'),
               sortable: true,
               render: (s) => (
-                <span className="gs-row__main">
-                  <span>{s.name}</span>
-                  <span className="gs-muted">{timingText(s)}</span>
+                <span className="gs-row__main sc-admin-cell">
+                  <span className="sc-admin-cell__text" title={s.name}>
+                    {s.name}
+                  </span>
+                  <span className="gs-muted sc-admin-cell__text">{timingText(s)}</span>
                 </span>
               ),
             },
@@ -126,9 +158,13 @@ export function SchedulesPage() {
               render: (s) => {
                 const last = lastText(s, (id) => s.botNames[s.botIds.indexOf(id)] ?? '')
                 return (
-                  <span className="gs-row__main">
-                    <span>{stateText(s)}</span>
-                    {last ? <span className="gs-muted">{last}</span> : null}
+                  <span className="gs-row__main sc-admin-cell">
+                    <span className="sc-admin-cell__text">{stateText(s)}</span>
+                    {last ? (
+                      <span className="gs-muted sc-admin-cell__text" title={last}>
+                        {last}
+                      </span>
+                    ) : null}
                   </span>
                 )
               },
@@ -142,18 +178,16 @@ export function SchedulesPage() {
                   <Switch
                     aria-label={t('启用「{name}」', { name: s.name })}
                     checked={s.enabled}
-                    onChange={(enabled) => void act(() => api.patch(`/admin/schedules/${s.id}`, { enabled }))}
+                    disabled={togglingId === s.id}
+                    onChange={(enabled) => void toggle(s, enabled)}
                   />
                   <Button
                     size="small"
-                    variant={deleting === s.id ? 'destructive' : 'plain'}
-                    onClick={() =>
-                      deleting === s.id
-                        ? void act(() => api.del(`/admin/schedules/${s.id}`))
-                        : setDeleting(s.id)
-                    }
+                    variant="ghost"
+                    className="sc-admin-del"
+                    onClick={() => setDeleting(s)}
                   >
-                    {deleting === s.id ? t('确认删除') : t('删除')}
+                    {t('删除')}
                   </Button>
                 </span>
               ),
@@ -163,6 +197,23 @@ export function SchedulesPage() {
       ) : error ? null : (
         <Spinner size={18} />
       )}
+      <Presence>
+        {deleting ? (
+          <ConfirmActionDialog
+            title={t('删除定时任务「{name}」？', { name: deleting.name })}
+            message={t('删除后不再按计划执行，历史运行记录仍保留在聊天中。')}
+            consequences={[t('此操作不可恢复，后续触发计划将立即取消')]}
+            label={t('确认删除')}
+            done={t('已删除定时任务')}
+            run={() => api.del(`/admin/schedules/${deleting.id}`)}
+            onDone={() => {
+              setDeleting(null)
+              reload()
+            }}
+            onClose={() => setDeleting(null)}
+          />
+        ) : null}
+      </Presence>
     </AdminPage>
   )
 }

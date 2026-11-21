@@ -3,14 +3,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 .ui-tab-view__bar {
   position: relative;
   z-index: 1;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border-radius: var(--radius-capsule);
   margin-bottom: calc(var(--control-regular) / -2);
+}
+.ui-tab-view__bar::-webkit-scrollbar {
+  display: none;
 }
 .ui-tab-view__panel {
   align-self: stretch;
+  min-width: 0;
   padding: calc(var(--control-regular) / 2 + var(--space-16)) var(--space-16) var(--space-16);
   border-radius: var(--radius-menu);
   background: var(--group-bg);

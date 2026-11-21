@@ -279,3 +279,30 @@
 - P3 `GroupInfo` Bot 胶囊离线圆点呈实心缺空心环、普通成员管理区提示易误导可编辑（`groups/GroupInfo.tsx`、`groups/groups.css`）→ 离线态改用空心描边环与 `Dot` 统一，只读成员区弱化箭头并明示只读（验收：在线/离线状态视觉全站一致）。
 - P3 `GroupInfo` 顶部裸露长 SSH 仓库地址、通知下拉切态缺加载锁、`NoticesView` 时间格式未跟随英文语言（`groups/GroupInfo.tsx`）→ 顶部展示 `owner/repo` 简名（悬停见完整 URL），通知下拉接入 `pending` 锁，时间格式走 `i18n`（验收：顶部简洁、切通知不并发乱序、英文时间本地化）。
 - P3 `ChatPage` 用单个 `<Presence>` 同时包裹 `NewGroupDialog` 与 `FeishuGroupDialog` 导致弹窗退场动画失效（`app/ChatPage.tsx`）→ 拆分为两个独立 `<Presence>`（验收：两弹窗关闭均有平滑退场动画）。
+
+
+## 11-21 第 4 轮（管理后台一：壳层导航与核心列表 `/admin/users`、`/admin/teams`、`/admin/bots`、`/admin/groups`、`/admin/schedules`；桌面 1440 + 深色 + 390 触屏）
+
+已修（9 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 `TabView` 标签栏缺少宽度约束与横向滚动，导致 `BotsAdminPage` 400px 详情卡与 390px 手机端 7 个标签整体溢出卡片外并触发页面横向滚动（`ui/tab-view.tsx`、`ui/tab-view.css`）→ 为 `.ui-tab-view` 加 `max-width: 100%`、`.ui-tab-view__bar` 设 `overflow-x: auto; scrollbar-width: none`，切换标签自动 `scrollIntoView({ block: 'nearest', inline: 'nearest' })`（验收：400px 详情卡与 390px 移动端均零横向溢出，长标签组可顺滑横滑）。
+- P1 `Table` 移动端卡片模式对无标题操作列渲染孤立冒号 `：`、`ActionsCell` 行尾 `···` 用 `plain` 近隐形且触控热区偏小（`ui/table.tsx`、`ui/table.css`）→ 仅 `ci > 0 && c.title` 时渲染 `.ui-table__label`，`ActionsCell` 改 `variant="ghost"`，粗指针下动作按钮升至 `32×32px` 且卡片右侧留白 `48px`（验收：390px 定时任务卡片无孤立 `：`，`···` 清晰可点且不遮盖文案）。
+- P1 `ConfirmActionDialog` 与 `AlertAction` 缺少 `loading` 加载态，提交中未锁定取消按钮、Esc 与重复点击（`ui/overlay.tsx`、`ui/confirm.tsx`）→ `AlertAction` 增加 `loading?: boolean`，`ConfirmActionDialog` 在 `busy` 期间锁住取消键、关闭回调与重复提交并传 `loading: busy`（验收：确认提交期间按钮显 `aria-busy`，点取消或按 Esc 不会中断/误关）。
+- P1 `AdminLayout` 移动端顶部导航切到靠后路由时不自动滚入视野、触屏项偏矮（28px）、页首副说明单行硬截断，且 `PopUpButton` 粗指针热区 <32px（`admin/AdminLayout.tsx`、`admin/admin.css`、`ui/popup.css`）→ 路由切换自动将 `[aria-current="page"]` 滚入可见区，移动端导航项升至 `min-height: 36px`，`.admin__desc` 改为 2 行省略，粗指针 `.ui-popup__btn` 升至 `32px`（验收：390px 直达 `/admin/schedules` 当前项即刻可见、说明完整可读、下拉热区达标）。
+- P1 `TeamsPage`「归档团队」点击即刻生效零二次确认、「恢复团队」缺在途锁、`TeamDialog` 加载 `/admin/users` 失败无错误提示与重试、提交中未锁关闭与 `loading`（`admin/TeamsPage.tsx`、`test/adminOps.test.tsx`）→ 「归档团队」接入 `ConfirmActionDialog` 列明只读与 Bot 暂停后果，恢复加 `restoringId` 防重，`TeamDialog` 补加载 `<Spinner />`、失败 `<Alert>` +「重试」及提交锁，团队名补 `title` 悬停提示（验收：归档前必先确认且取消不发请求，成员接口失败可原位重试）。
+- P1 `SchedulesPage` 删除用蓝色两段式按钮无弹窗确认、启停 `Switch` 缺在途锁与反馈、超长任务名在桌面硬裁切半字、390px 顶部 4 个统计卡单列占满首屏（`admin/SchedulesPage.tsx`、`schedules/schedules.css`）→ 删除改红色幽灵键并接入 `ConfirmActionDialog`，`Switch` 加 `togglingId` 锁与成功 Toast，长标题加 `.sc-admin-cell__text` 省略与 `title`，≤640px 统计卡切 `2×2` 网格（验收：删除先确认、长名平滑省略无半字、390px 首屏同时可见指标与任务卡片）。
+- P1 `BotsAdminPage` 接口报错时仍误显「还没有 Bot」假空态、右侧 `BotDetail` 有未保存修改时切换 Bot 或团队筛选静默丢稿、保存缺 `loading`、新建/删 Bot 跨团队未刷新（`bots/BotsAdminPage.tsx`、`bots/BotSettings.tsx`、`bots/DeleteBotDialog.tsx`）→ 报错时隐藏空态仅展示错误 `<Alert>` +「重试」，`BotDetail` 透出 `onDirtyChange` 与 `loading={saving}`，切换前弹 `AlertDialog` 确认放弃，新建与删除均触发 `reload()`（验收：500 报错不误导空列表，编辑中切 Bot 必先拦截确认）。
+- P1 管理后台 5 个核心列表页（账号/团队/Bot/群/定时任务）加载失败仅显示纯文本 `<Alert>` 缺少「重试」按钮，用户只能整页刷新（`admin/UsersPage.tsx`、`admin/TeamsPage.tsx`、`bots/BotsAdminPage.tsx`、`admin/GroupsPage.tsx`、`admin/SchedulesPage.tsx`）→ 统一在列表错误 `<Alert>` 内补「重试」按钮并绑定 `loading` 与 `reload`（验收：5 页接口失败均可原位一键重试恢复）。
+- P1 `UsersPage` 新建账号在剪贴板写入失败时回退提示丢失明文初始密码（导致管理员无法拿到刚生成的密码）、新建/编辑与重置密码弹窗提交中未锁关闭与按钮加载态（`admin/UsersPage.tsx`、`admin/en.ts`）→ 剪贴板失败 Toast 直接展示 `{password}`，两处弹窗提交中锁定关闭与取消键并传 `loading: busy`，姓名列补 `title`（验收：无剪贴板权限时仍能完整复制初始密码，提交中不误关）。
+
+- P2 `UsersPage` 新建账号弹窗空表单时「创建」按钮仍亮蓝可点且触发工具栏按钮文案「新建账号…」与弹窗标题「新建成员」不一致（`admin/UsersPage.tsx`、`admin/en.ts`）→ 未填合法账号/姓名/密码前可禁用或行内标明必填，统一按钮与标题措辞（验收：表单可提交状态与标题一致）。
+- P2 `GroupsPage` 私聊行模式列展示 `--` 无说明、缺少点击进群/查看详情或行内操作（`admin/GroupsPage.tsx`）→ 私聊模式显语义标签（如「私聊」）并按权限提供查看/归档入口（验收：表格列含义自洽无裸 `--`）。
+- P2 `BotsAdminPage` 390px 移动端右侧 `BotDetail` 叠在全部 Bot 卡片最底部，点击某行无跳转或抽屉反馈易以为点击失效（`bots/BotsAdminPage.tsx`、`bots/bots.css`）→ 窄屏点击 Bot 行打开详情抽屉/弹窗或自动平滑滚动到详情区（验收：390px 点任意 Bot 立即进入详情编辑）。
+- P2 `AdminPage` 390px 移动端隐藏了右上角 `AccountMenu`，无法在后台内快捷切主题/语言或退出登录（`admin/AdminPage.tsx`、`admin/admin.css`）→ 在移动端工具栏或顶部导航右侧保留紧凑账户入口（验收：手机端后台可直接访问账户菜单）。
+- P2 `TeamsPage` 创建时间未传 `dateLocale` 跟随系统英文设置、`AdminLayout` 移动端顶部「返回消息」粘性置左时首项可能在其左侧透出半截（`admin/TeamsPage.tsx`、`admin/admin.css`）→ 日期格式化统一用 `dateLocale`，移动端顶部条为粘性返回项补实色底与左侧遮罩（验收：英文日期本地化、顶栏滚动不穿底）。
+- P2 `TeamFilter` 仅 1 个团队时仍占位可点（无切换意义）且 `/admin/teams` 失败时静默消失无反馈（`admin/TeamFilter.tsx`）→ 单团队时隐藏或只读，错误时提供轻量重试或回退（验收：单团队模式工具栏更清爽）。
+- P2 `BotsAdminPage` 状态列离线圆点为实心灰点，与聊天侧栏 `Dot` 空心灰环不一致（`bots/BotsAdminPage.tsx`）→ 复用统一状态点样式（验收：全站在线/离线指示视觉统一）。
+- P2 非系统管理员直访 `/admin/*` 时被静默重定向至 `/` 没有任何提示（`admin/AdminLayout.tsx`）→ 重定向前发一条温和权限说明 Toast（验收：误点后台链接知道原因）。
+- P3 `UsersPage` 禁用账号状态标签与停用按钮视觉层级可进一步拉开、`GroupsPage` 仓库列长路径可简写为 `owner/repo` 悬停见全址（`admin/UsersPage.tsx`、`admin/GroupsPage.tsx`）→ 精修标签对比度与仓库短名显示（验收：表格信息扫视更快）。
+- P3 `SchedulesPage` 顶部 4 个统计卡仅静态展示，不支持点击「启用中 / 已自动停用」联动过滤下方列表（`admin/SchedulesPage.tsx`）→ 点击统计卡同步切换筛选分段（验收：指标卡可交互联动）。
+- P3 `TeamsPage` 与 `UsersPage` 的新建引导横幅按钮与顶部工具栏按钮文案完全重名，屏幕阅读器难以区分（`admin/UsersPage.tsx`、`admin/TeamsPage.tsx`）→ 区分引导区按钮文案或仅留主入口（验收：无重名按钮冲突）。
+- P3 `BotsAdminPage` 桌面端选中行右侧详情卡切换时缺少轻过渡反馈（`bots/BotsAdminPage.tsx`）→ 保持滚动回顶与平滑切换（验收：切 Bot 详情从顶部开始阅读）。

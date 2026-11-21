@@ -215,3 +215,12 @@
   top: var(--space-6);
   right: var(--space-6);
 }
+@media (pointer: coarse) {
+  .ui-table__actions .ui-btn {
+    min-width: 32px;
+    min-height: 32px;
+  }
+  .ui-table--cards .ui-table__row {
+    padding-right: 48px;
+  }
+}

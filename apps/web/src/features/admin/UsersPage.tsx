@@ -97,7 +97,7 @@ function TempPasswordField({
 export function UsersPage() {
   // AdminLayout guarantees a sysadmin.
   const me = useSession((s) => s.user) as UserDto
-  const { data: users, error, reload: load } = useGet<AdminUserDto[]>('/admin/users')
+  const { data: users, error, loading, reload: load } = useGet<AdminUserDto[]>('/admin/users')
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<AdminUserDto | 'new' | null>(null)
   const [disabling, setDisabling] = useState<AdminUserDto | null>(null)
@@ -135,7 +135,15 @@ export function UsersPage() {
       }
       search={<SearchField placeholder={t('搜索姓名或账号')} value={query} onChange={setQuery} />}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={load}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {shown ? (
         <Table<AdminUserDto>
           aria-label={t('账号列表')}
@@ -177,7 +185,7 @@ export function UsersPage() {
               render: (u) => (
                 <>
                   <Avatar name={u.name} src={u.avatar ?? undefined} size={18} />
-                  {u.name}
+                  <span title={u.name}>{u.name}</span>
                 </>
               ),
             },
@@ -334,17 +342,27 @@ function ResetPasswordDialog({
       setBusy(false)
     }
   }
+  const close = () => {
+    if (!busy) onClose()
+  }
   return (
     <Dialog
       open
       title={t('重置 {name} 的密码', { name: user.name })}
       message={t('对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的电脑与 Bot 不受影响。')}
-      onClose={onClose}
+      onClose={close}
       closeOnBackdrop={false}
       width={480}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('重置并复制'), variant: 'primary', type: 'submit', form: formId, disabled: busy },
+        { label: t('取消'), disabled: busy, onClick: close },
+        {
+          label: t('重置并复制'),
+          variant: 'primary',
+          type: 'submit',
+          form: formId,
+          disabled: busy,
+          loading: busy,
+        },
       ]}
     >
       <Form id={formId} onSubmit={() => void reset()}>
@@ -405,7 +423,10 @@ function UserDialog({
           type: 'success',
           message: copied
             ? t('已创建账号 {account}，账号和初始密码已复制，首次登录需修改密码', { account: form.account })
-            : t('已创建账号 {account}，首次登录需修改密码', { account: form.account }),
+            : t('已创建账号 {account}，请记下初始密码 {password}', {
+                account: form.account,
+                password: form.password,
+              }),
         })
       }
       onSaved()
@@ -415,22 +436,27 @@ function UserDialog({
     }
   }
 
+  const close = () => {
+    if (!busy) onClose()
+  }
+
   return (
     <Dialog
       open
       title={user ? t('编辑成员 {name}', { name: user.name }) : t('新建成员')}
       subtitle={user ? undefined : t('首次登录需修改初始密码')}
-      onClose={onClose}
+      onClose={close}
       closeOnBackdrop={false}
       width={460}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: user ? t('保存') : t('创建'),
           variant: 'primary',
           type: 'submit',
           form: formId,
           disabled: busy,
+          loading: busy,
         },
       ]}
     >

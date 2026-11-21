@@ -823,6 +823,8 @@ describe('团队', () => {
     })
 
     rowAction(rowOf('王磊'), '归档团队')
+    const confirmArchive = await screen.findByRole('alertdialog', { name: '要归档团队「风控组」吗？' })
+    fireEvent.click(within(confirmArchive).getByRole('button', { name: '归档团队' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/admin/teams/t2/archive')).toBe(true))
   })
 })

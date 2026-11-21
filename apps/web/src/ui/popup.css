@@ -47,3 +47,8 @@
   width: 13px;
   height: 13px;
 }
+@media (pointer: coarse) {
+  .ui-popup__btn {
+    min-height: 32px;
+  }
+}

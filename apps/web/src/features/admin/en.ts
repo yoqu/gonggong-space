@@ -273,4 +273,14 @@ export default {
   '私聊#nav': 'Direct chats',
   '{n} 个私聊': '{n} {n:direct chat|direct chats}',
   还没有私聊: 'No direct chats yet',
+  '已创建账号 {account}，请记下初始密码 {password}':
+    'Created account {account}. Note down the initial password {password}',
+  '要归档团队「{name}」吗？': 'Archive team "{name}"?',
+  '归档后可以随时在这里恢复。': 'You can restore it here at any time.',
+  '成员将无法进入该团队及其群聊，群消息转为只读':
+    'Members lose access to the team and its groups; messages become read-only',
+  '该团队的 Bot 暂停运行；消息与审计记录保留': 'Team Bots stop running; messages and audit records are kept',
+  已启用定时任务: 'Scheduled task enabled',
+  已停用定时任务: 'Scheduled task disabled',
+  加载账号列表失败: 'Failed to load accounts',
 }

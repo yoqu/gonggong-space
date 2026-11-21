@@ -1,4 +1,5 @@
-import { Link, Navigate, NavLink, Outlet } from 'react-router'
+import { useEffect, useRef } from 'react'
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { Icon, Logo, TableCardsOnNarrow, Toaster } from '../../ui'
@@ -9,10 +10,19 @@ import './admin.css'
 /** 管理后台 shell: a flush Pane sidebar with settings-style tile icons (a scrolling tab row under 768px) beside the page. Members manage their own bots and machines in the chat UI. */
 export function AdminLayout() {
   const user = useSession((s) => s.user)
+  const { pathname } = useLocation()
+  const navRef = useRef<HTMLElement>(null)
+  // On phones the sidebar is a horizontal scroll strip: bring the active route pill into view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll active nav item on route changes
+  useEffect(() => {
+    navRef.current
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [pathname])
   if (user?.role !== 'sysadmin') return <Navigate to="/" replace />
   return (
     <div className="admin">
-      <nav className="ui-sidebar admin__nav" aria-label={t('管理后台')}>
+      <nav ref={navRef} className="ui-sidebar admin__nav" aria-label={t('管理后台')}>
         <div className="admin__brand">
           <Logo size={20} />
           <span className="admin__product">{t('共工空间')}</span>

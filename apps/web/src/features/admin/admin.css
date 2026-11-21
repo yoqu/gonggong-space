@@ -108,10 +108,15 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   .admin__role {
     display: none;
   }
+  .admin__nav .ui-sidebar__item {
+    min-height: 36px;
+    height: auto;
+  }
   .admin__desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   /* The tab row scrolls sideways: keep the way out first and pinned so it never scrolls off. */
   .admin__back {

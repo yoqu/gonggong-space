@@ -5,6 +5,8 @@ import { useWorkspace } from '../../app/workspace'
 import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
+  AlertDialog,
   Button,
   EmptyState,
   NoBotsArt,
@@ -33,18 +35,41 @@ export function BotsAdminPage() {
   const me = useSession((s) => s.user) as UserDto
   const [teamId, setTeamId] = useState('')
   const live = useWorkspace((s) => s.bots)
-  const { data, error, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
+  const { data, error, loading, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
   const teamNames = new Map((useGet<AdminTeamDto[]>('/admin/teams').data ?? []).map((x) => [x.id, x.name]))
   // biome-ignore lint/correctness/useExhaustiveDependencies: the open team's live bot updates re-fetch every team's list
   useEffect(() => reload(), [live, reload])
   const bots = data ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detailDirty, setDetailDirty] = useState(false)
+  const [pendingSwitch, setPendingSwitch] = useState<
+    { kind: 'bot'; id: string } | { kind: 'team'; teamId: string } | null
+  >(null)
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<BotDto | null>(null)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
   const [query, setQuery] = useState('')
   const shown = bots.filter((b) => matchAny(query, b.name, b.ownerName, b.machineName))
   const selected = shown.find((b) => b.id === selectedId) ?? shown[0]
+
+  const selectBot = (id: string) => {
+    if (selected?.id === id) return
+    if (detailDirty) setPendingSwitch({ kind: 'bot', id })
+    else setSelectedId(id)
+  }
+  const changeTeam = (next: string) => {
+    if (next === teamId) return
+    if (detailDirty) setPendingSwitch({ kind: 'team', teamId: next })
+    else setTeamId(next)
+  }
+  const confirmDiscard = () => {
+    const next = pendingSwitch
+    setPendingSwitch(null)
+    setDetailDirty(false)
+    if (!next) return
+    if (next.kind === 'bot') setSelectedId(next.id)
+    else setTeamId(next.teamId)
+  }
 
   return (
     <AdminPage
@@ -53,7 +78,7 @@ export function BotsAdminPage() {
       subtitle={countLine(t('{n} 个 Bot', { n: bots.length }), shown.length, bots.length)}
       actions={
         <ToolbarGroup>
-          <TeamFilter value={teamId} onChange={setTeamId} />
+          <TeamFilter value={teamId} onChange={changeTeam} />
           <ToolbarButton
             icon="plus"
             label={t('新建 Bot…')}
@@ -64,6 +89,15 @@ export function BotsAdminPage() {
       }
       search={<SearchField placeholder={t('搜索 Bot、主人或电脑')} value={query} onChange={setQuery} />}
     >
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {bots.length ? (
         <div className="bots-page__body">
           <Table<BotDto>
@@ -73,7 +107,7 @@ export function BotsAdminPage() {
             multiple={false}
             selection={selected ? [selected.id] : []}
             onSelectionChange={(ids) => {
-              if (ids[0] != null) setSelectedId(String(ids[0]))
+              if (ids[0] != null) selectBot(String(ids[0]))
             }}
             defaultSort={{ key: 'name', dir: 'asc' }}
             rowActions={() => [{ label: t('删除 Bot…'), value: 'delete', destructive: true }]}
@@ -89,7 +123,7 @@ export function BotsAdminPage() {
                 render: (b) => (
                   <>
                     <BotAvatar id={b.id} name={b.name} size={18} />
-                    {b.name}
+                    <span title={b.name}>{b.name}</span>
                   </>
                 ),
               },
@@ -148,9 +182,17 @@ export function BotsAdminPage() {
               },
             ]}
           />
-          {selected ? <BotDetail key={selected.id} bot={selected} me={me} users={users} /> : null}
+          {selected ? (
+            <BotDetail
+              key={selected.id}
+              bot={selected}
+              me={me}
+              users={users}
+              onDirtyChange={setDetailDirty}
+            />
+          ) : null}
         </div>
-      ) : !data && !error ? (
+      ) : error ? null : !data ? (
         <Spinner size={18} />
       ) : (
         <EmptyState
@@ -161,13 +203,39 @@ export function BotsAdminPage() {
         />
       )}
       <Presence>
-        {deleting ? <DeleteBotDialog bot={deleting} onClose={() => setDeleting(null)} /> : null}
+        {deleting ? (
+          <DeleteBotDialog
+            bot={deleting}
+            onDone={() => {
+              setDeleting(null)
+              reload()
+            }}
+            onClose={() => setDeleting(null)}
+          />
+        ) : null}
       </Presence>
       <Presence>
         {creating ? (
-          <NewBotDialog me={me} onClose={() => setCreating(false)} onCreated={(b) => setSelectedId(b.id)} />
+          <NewBotDialog
+            me={me}
+            onClose={() => setCreating(false)}
+            onCreated={(b) => {
+              setSelectedId(b.id)
+              reload()
+            }}
+          />
         ) : null}
       </Presence>
+      <AlertDialog
+        open={!!pendingSwitch}
+        title={t('有未保存的更改，确定放弃？')}
+        message={t('放弃后未保存的修改将不会保留。')}
+        onClose={() => setPendingSwitch(null)}
+        actions={[
+          { label: t('继续编辑'), onClick: () => setPendingSwitch(null) },
+          { label: t('放弃更改'), variant: 'destructive', onClick: confirmDiscard },
+        ]}
+      />
     </AdminPage>
   )
 }

@@ -387,6 +387,7 @@ interface AlertAction {
   label: ReactNode
   variant?: 'default' | 'primary' | 'destructive'
   disabled?: boolean
+  loading?: boolean
   /** Receives the suppression checkbox state (false without one). */
   onClick?: (suppressed: boolean) => void
 }
@@ -435,6 +436,7 @@ function AlertContent({
             size="large"
             variant={a.variant ?? 'default'}
             disabled={a.disabled}
+            loading={a.loading}
             onClick={() => a.onClick?.(suppressed)}
           >
             {a.label}

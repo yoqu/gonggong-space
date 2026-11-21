@@ -3,7 +3,15 @@ import { t } from '../../i18n'
 import { ConfirmActionDialog } from '../../ui'
 import { botsApi } from './model'
 
-export function DeleteBotDialog({ bot, onClose }: { bot: BotDto; onClose: () => void }) {
+export function DeleteBotDialog({
+  bot,
+  onDone,
+  onClose,
+}: {
+  bot: BotDto
+  onDone?: () => void
+  onClose: () => void
+}) {
   return (
     <ConfirmActionDialog
       title={t('要删除 {name} 吗？', { name: bot.name })}
@@ -14,6 +22,7 @@ export function DeleteBotDialog({ bot, onClose }: { bot: BotDto; onClose: () => 
       label={t('删除')}
       done={t('已删除 {name}', { name: bot.name })}
       run={() => botsApi.remove(bot.id)}
+      onDone={onDone}
       onClose={onClose}
     />
   )

@@ -28,7 +28,11 @@ export function ConfirmActionDialog({
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const close = () => {
+    if (!busy) onClose()
+  }
   const confirm = async () => {
+    if (busy) return
     setBusy(true)
     try {
       await run()
@@ -54,10 +58,10 @@ export function ConfirmActionDialog({
           {error ? <Alert variant="error" description={error} /> : null}
         </>
       }
-      onClose={onClose}
+      onClose={close}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label, variant: 'destructive', disabled: busy, onClick: () => void confirm() },
+        { label: t('取消'), disabled: busy, onClick: close },
+        { label, variant: 'destructive', disabled: busy, loading: busy, onClick: () => void confirm() },
       ]}
     />
   )

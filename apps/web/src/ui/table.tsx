@@ -367,10 +367,12 @@ export function Table<R extends TableRow = TableRow>({
                         </span>
                       ) : cards && ci > 0 ? (
                         <>
-                          <span className="ui-table__label" aria-hidden="true">
-                            {c.title}
-                            {t('：')}
-                          </span>
+                          {c.title ? (
+                            <span className="ui-table__label" aria-hidden="true">
+                              {c.title}
+                              {t('：')}
+                            </span>
+                          ) : null}
                           {cell}
                         </>
                       ) : (
@@ -419,7 +421,7 @@ function ActionsCell({ items, onSelect }: { items: MenuItem[]; onSelect: (value:
         <PullDownButton
           icon="more"
           aria-label={t('操作')}
-          variant="plain"
+          variant="ghost"
           size="small"
           align="end"
           portal

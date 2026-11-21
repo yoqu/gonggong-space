@@ -6,6 +6,8 @@ import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  Button,
+  ConfirmActionDialog,
   Dialog,
   EmptyState,
   Form,
@@ -29,17 +31,23 @@ const day = (iso: string) => new Date(iso).toLocaleDateString()
 
 /** 管理后台 · 团队 (plan §5): create a team for an owner, archive / restore, reassign the owner. */
 export function TeamsPage() {
-  const { data: teams, error, reload } = useGet<AdminTeamDto[]>('/admin/teams')
+  const { data: teams, error, loading, reload } = useGet<AdminTeamDto[]>('/admin/teams')
   const [query, setQuery] = useState('')
   const [dialog, setDialog] = useState<{ kind: 'new' } | { kind: 'owner'; team: AdminTeamDto } | null>(null)
+  const [archiving, setArchiving] = useState<AdminTeamDto | null>(null)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
-  const archive = async (team: AdminTeamDto, restore: boolean) => {
+  const restore = async (team: AdminTeamDto) => {
+    if (restoringId) return
+    setRestoringId(team.id)
     try {
-      await api.post(`/admin/teams/${team.id}/${restore ? 'unarchive' : 'archive'}`)
-      toast({ type: 'success', message: restore ? t('已恢复团队') : t('团队已归档') })
+      await api.post(`/admin/teams/${team.id}/unarchive`)
+      toast({ type: 'success', message: t('已恢复团队') })
       reload()
     } catch (e) {
       toastError(e)
+    } finally {
+      setRestoringId(null)
     }
   }
   const q = query.trim().toLowerCase()
@@ -64,7 +72,15 @@ export function TeamsPage() {
       }
       search={<SearchField placeholder={t('搜索团队或所有者')} value={query} onChange={setQuery} />}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {shown ? (
         <Table<AdminTeamDto>
           aria-label={t('团队列表')}
@@ -76,12 +92,13 @@ export function TeamsPage() {
             { label: t('指定所有者…'), value: 'owner' },
             { separator: true as const },
             x.archivedAt
-              ? { label: t('恢复团队'), value: 'restore' }
+              ? { label: t('恢复团队'), value: 'restore', disabled: restoringId === x.id }
               : { label: t('归档团队'), value: 'archive', destructive: true },
           ]}
           onRowAction={(action, x) => {
             if (action === 'owner') setDialog({ kind: 'owner', team: x })
-            else void archive(x, action === 'restore')
+            else if (action === 'restore') void restore(x)
+            else setArchiving(x)
           }}
           emptyText={<EmptyState compact title={t('没有匹配的团队')} illustration={<NoResultsArt />} />}
           columns={[
@@ -92,7 +109,7 @@ export function TeamsPage() {
               render: (x) => (
                 <>
                   <TeamAvatar team={x} size={18} />
-                  {x.name}
+                  <span title={x.name}>{x.name}</span>
                 </>
               ),
             },
@@ -126,6 +143,26 @@ export function TeamsPage() {
         <Spinner size={18} />
       )}
       <Presence>
+        {archiving ? (
+          <ConfirmActionDialog
+            title={t('要归档团队「{name}」吗？', { name: archiving.name })}
+            message={t('归档后可以随时在这里恢复。')}
+            consequences={[
+              t('成员将无法进入该团队及其群聊，群消息转为只读'),
+              t('该团队的 Bot 暂停运行；消息与审计记录保留'),
+            ]}
+            label={t('归档团队')}
+            done={t('团队已归档')}
+            run={() => api.post(`/admin/teams/${archiving.id}/archive`)}
+            onDone={() => {
+              setArchiving(null)
+              reload()
+            }}
+            onClose={() => setArchiving(null)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
         {dialog ? (
           <TeamDialog
             team={dialog.kind === 'owner' ? dialog.team : null}
@@ -151,15 +188,19 @@ function TeamDialog({
   onClose: () => void
   onDone: () => void
 }) {
-  const users = (useGet<AdminUserDto[]>('/admin/users').data ?? []).filter((u) => !u.disabled)
+  const usersQ = useGet<AdminUserDto[]>('/admin/users')
+  const users = (usersQ.data ?? []).filter((u) => !u.disabled)
   const [name, setName] = useState('')
   const [ownerId, setOwnerId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const formId = useId()
+  const close = () => {
+    if (!busy) onClose()
+  }
 
   const submit = async () => {
-    if (!ownerId || (!team && !name.trim())) return
+    if (busy || !ownerId || (!team && !name.trim())) return
     setBusy(true)
     try {
       if (team) await api.put(`/admin/teams/${team.id}/owner`, { userId: ownerId })
@@ -177,16 +218,17 @@ function TeamDialog({
       title={team ? t('指定「{name}」的所有者', { name: team.name }) : t('新建团队')}
       message={team ? t('对方成为所有者（未加入则自动加入）；原所有者改为管理员。') : undefined}
       width={460}
-      onClose={onClose}
+      onClose={close}
       closeOnBackdrop={false}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: team ? t('保存') : t('创建'),
           variant: 'primary',
           type: 'submit',
           form: formId,
           disabled: busy || !ownerId || (!team && !name.trim()),
+          loading: busy,
         },
       ]}
     >
@@ -203,13 +245,25 @@ function TeamDialog({
           </FormRow>
         )}
         <FormRow label={t('所有者')}>
-          <PopUpButton
-            aria-label={t('所有者')}
-            value={ownerId}
-            placeholder={t('选择账号')}
-            options={users.map((u) => ({ value: u.id, label: `${u.name} · ${u.account}` }))}
-            onChange={setOwnerId}
-          />
+          {usersQ.error && !usersQ.data ? (
+            <Alert variant="error" title={t('加载账号列表失败')} description={usersQ.error}>
+              <div style={{ marginTop: 'var(--space-8)' }}>
+                <Button size="small" loading={usersQ.loading} onClick={usersQ.reload}>
+                  {t('重试')}
+                </Button>
+              </div>
+            </Alert>
+          ) : !usersQ.data ? (
+            <Spinner />
+          ) : (
+            <PopUpButton
+              aria-label={t('所有者')}
+              value={ownerId}
+              placeholder={t('选择账号')}
+              options={users.map((u) => ({ value: u.id, label: `${u.name} · ${u.account}` }))}
+              onChange={setOwnerId}
+            />
+          )}
         </FormRow>
       </Form>
       {error ? <Alert variant="error" description={error} /> : null}

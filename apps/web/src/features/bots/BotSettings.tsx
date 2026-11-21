@@ -10,7 +10,7 @@ import {
   type UserBriefDto,
   type UserDto,
 } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -177,6 +177,7 @@ export function BotDetail({
   users,
   plain,
   tab: initialTab = 'basic',
+  onDirtyChange,
 }: {
   bot: BotDto
   me: UserDto
@@ -184,6 +185,7 @@ export function BotDetail({
   /** Embedded in a dialog: no panel chrome, no usage tab (the bot page shows it). */
   plain?: boolean
   tab?: BotTab
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const owner = me.id === bot.ownerId
   const canEdit = owner || me.role === 'sysadmin'
@@ -258,6 +260,10 @@ export function BotDetail({
   }
   const providerDirty = together && (picked !== null || modelChanged || effortChanged)
   const dirty = Object.keys(patch).length > 0 || workspace !== bot.defaultWorkspace || providerDirty
+  useEffect(() => {
+    onDirtyChange?.(canEdit && dirty)
+  }, [canEdit, dirty, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
   const commit = async () => {
     setSaving(true)
@@ -592,7 +598,12 @@ export function BotDetail({
           </Button>
           <span className="spacer" />
           {tab === 'usage' || tab === 'share' || tab === 'feishu' ? null : (
-            <Button variant="primary" disabled={!dirty || saving || !name.trim()} onClick={save}>
+            <Button
+              variant="primary"
+              disabled={!dirty || saving || !name.trim()}
+              loading={saving}
+              onClick={save}
+            >
               {t('保存')}
             </Button>
           )}
