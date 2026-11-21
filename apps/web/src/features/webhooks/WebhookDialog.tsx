@@ -2,8 +2,9 @@ import { WEBHOOK_MAX_BOTS, type WebhookDto, type WebhookTokenDto } from '@gonggo
 import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import { Button, ConfirmActionDialog, Dialog, Presence, TextArea, TextField, toast } from '../../ui'
+import { Button, ConfirmActionDialog, Dialog, Presence, TextArea, TextField } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
 import '../groups/groups.css'
@@ -13,14 +14,6 @@ import './webhooks.css'
 /** One-time reveal of the plaintext webhook URL right after creation or token rotation. */
 export function WebhookUrlDialog({ token, onClose }: { token: WebhookTokenDto; onClose: () => void }) {
   const url = `${window.location.origin}${token.path}`
-  const copy = async (text: string, msg: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      toast({ type: 'success', message: msg })
-    } catch {
-      toast({ type: 'error', message: t('复制失败，请手动选中复制') })
-    }
-  }
   const sample = `curl -fsS -X POST -H "Content-Type: application/json" \\\n  -d '{"text":"**❌ 构建失败** #1","mention":true}' \\\n  "${url}"`
   return (
     <Dialog
@@ -46,7 +39,10 @@ export function WebhookUrlDialog({ token, onClose }: { token: WebhookTokenDto; o
           <code className="wh-url__code" data-testid="webhook-url">
             {url}
           </code>
-          <Button size="small" onClick={() => void copy(url, t('已复制调用地址'))}>
+          <Button
+            size="small"
+            onClick={() => void copyWithToast(url, t('已复制调用地址'), t('复制失败，请手动选中复制'))}
+          >
             {t('复制地址')}
           </Button>
         </div>

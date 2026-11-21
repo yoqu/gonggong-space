@@ -8,14 +8,16 @@ import type {
   WebhookDto,
   WebhookTokenDto,
 } from '@gonggong/protocol'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { UserMessage } from '../src/features/chat/TimelineItems'
 import { resetWebhooks } from '../src/features/webhooks/store'
+import { WebhookUrlDialog } from '../src/features/webhooks/WebhookDialog'
 import { WebhooksView } from '../src/features/webhooks/WebhooksView'
+import { useToasts } from '../src/ui/toast'
 import { mockApi } from './mockApi'
 
 const level = (value: string) => ({ value, name: value })
@@ -305,5 +307,30 @@ describe('Webhook message rendering', () => {
     expect(shaEl?.textContent).toBe('290672c')
     expect(shaEl?.getAttribute('title')).toBe(sha)
     expect(container.textContent).not.toContain(sha)
+  })
+})
+
+describe('WebhookUrlDialog', () => {
+  it('copies the URL without navigator.clipboard (plain-http LAN)', async () => {
+    const origClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    const origExec = Object.getOwnPropertyDescriptor(document, 'execCommand')
+    const execCommand = vi.fn(() => true)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand })
+    useToasts.setState({ items: [] })
+    try {
+      const token: WebhookTokenDto = { webhook: webhook(), token: 'gwh_x', path: '/api/hooks/gwh_x' }
+      render(<WebhookUrlDialog token={token} onClose={() => {}} />)
+      fireEvent.click(screen.getByRole('button', { name: '复制地址' }))
+      await waitFor(() =>
+        expect(useToasts.getState().items[0]).toMatchObject({ type: 'success', message: '已复制调用地址' }),
+      )
+      expect(execCommand).toHaveBeenCalledWith('copy')
+    } finally {
+      if (origClipboard) Object.defineProperty(navigator, 'clipboard', origClipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+      if (origExec) Object.defineProperty(document, 'execCommand', origExec)
+      else Reflect.deleteProperty(document, 'execCommand')
+    }
   })
 })

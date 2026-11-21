@@ -11,22 +11,15 @@ import { ago } from '../../lib/time'
 import { Badge, Button, EmptyChatArt, EmptyState, FailedArt, Icon, Mascot, toast, useLeaving } from '../../ui'
 import { MessageComposer } from './MessageComposer'
 import './thread-inbox.css'
+import { messageSnippet } from './snippet'
 
-const SNIPPET = 140
 const REFRESH_MS = 300
-
-const snippet = (m: MessageDto) =>
-  m.hidden
-    ? t('你已删除这条消息')
-    : m.recalled
-      ? t('该消息已撤回')
-      : m.body.replace(/\s+/g, ' ').trim().slice(0, SNIPPET) || (m.attachments.length ? t('[附件]') : '')
 
 function Line({ m }: { m: MessageDto }) {
   return (
     <p className="thread-inbox__line">
       <b>{m.authorName}</b>
-      <span>{snippet(m)}</span>
+      <span>{messageSnippet(m)}</span>
       <time dateTime={m.createdAt}>{ago(m.createdAt)}</time>
     </p>
   )

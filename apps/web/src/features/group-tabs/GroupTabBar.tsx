@@ -2,7 +2,7 @@ import { type GroupDto, type GroupTabDto, MAX_GROUP_TABS } from '@gonggong/proto
 import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { tabKey, useWorkbench, type WorkbenchTab } from '../../app/workbench'
 import { t } from '../../i18n'
-import { copyText } from '../../lib/clipboard'
+import { copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import {
@@ -13,7 +13,6 @@ import {
   MenuButton,
   type MenuItem,
   Presence,
-  toast,
 } from '../../ui'
 import { GroupWorksTab } from '../artifacts/GroupWorks'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
@@ -118,11 +117,7 @@ export function GroupTabBar({ group, readOnly = false }: { group: GroupDto; read
     else if (value === 'external') open(tab, true)
     else if (value === 'copy') {
       const href = tabHref(group.id, tab)
-      if (href)
-        void copyText(new URL(href, location.href).href).then(
-          () => toast({ type: 'success', message: t('已复制链接') }),
-          () => toast({ type: 'error', message: t('复制失败') }),
-        )
+      if (href) void copyWithToast(new URL(href, location.href).href, t('已复制链接'))
     } else if (value === 'rename' && !readOnly) setRenaming(tab)
     else if (value === 'delete' && !readOnly) setDeleting(tab)
   }

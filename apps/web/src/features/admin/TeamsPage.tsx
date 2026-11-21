@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -50,8 +51,7 @@ export function TeamsPage() {
       setRestoringId(null)
     }
   }
-  const q = query.trim().toLowerCase()
-  const shown = teams?.filter((x) => !q || `${x.name} ${x.ownerName ?? ''}`.toLowerCase().includes(q))
+  const shown = teams?.filter((x) => matchAny(query, x.name, x.ownerName))
 
   return (
     <AdminPage

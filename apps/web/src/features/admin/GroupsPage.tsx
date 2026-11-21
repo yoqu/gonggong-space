@@ -1,6 +1,7 @@
 import type { AdminGroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -49,8 +50,8 @@ export function GroupsPage() {
     return t('归档 · {n} 天后清除', { n: Math.max(0, left) })
   }
   const byKind = groups?.filter((g) => g.kind === kind)
-  const q = query.trim().toLowerCase()
-  const shown = byKind?.filter((g) => !q || `${title(g)} ${g.repo ?? ''}`.toLowerCase().includes(q))
+  const q = query.trim()
+  const shown = byKind?.filter((g) => matchAny(q, g.name, g.kind === 'dm' ? g.ownerName : null, g.repo))
 
   return (
     <AdminPage

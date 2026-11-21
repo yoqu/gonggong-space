@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, ConfirmActionDialog, Icon, Presence, Tag } from '../../ui'
+import { Button, Icon, Presence, Tag } from '../../ui'
 import { useBotNames } from '../bots/model'
 import '../groups/groups.css'
+import { DeleteScheduleDialog } from './DeleteScheduleDialog'
 import { lastText, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
 import { schedulesApi, timingText, useSchedules } from './store'
@@ -28,6 +29,12 @@ export function ScheduleCard({
   const names = useBotNames(s?.botIds ?? [])
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const act = async (request: () => Promise<unknown>) => {
+    setBusy(true)
+    await attempt(request)
+    setBusy(false)
+  }
   if (!s)
     return (
       <div className="sc-card" data-state="gone">
@@ -61,11 +68,12 @@ export function ScheduleCard({
         <div className="sc-card__ops">
           <Button
             size="small"
-            onClick={() => void attempt(() => schedulesApi.update(s.id, { enabled: !s.enabled }))}
+            disabled={busy}
+            onClick={() => void act(() => schedulesApi.update(s.id, { enabled: !s.enabled }))}
           >
             {s.enabled ? t('暂停') : t('恢复')}
           </Button>
-          <Button size="small" onClick={() => void attempt(() => schedulesApi.run(s))}>
+          <Button size="small" disabled={busy} onClick={() => void act(() => schedulesApi.run(s))}>
             {t('立即执行')}
           </Button>
           <Button size="small" onClick={() => setEditing(true)}>
@@ -88,12 +96,8 @@ export function ScheduleCard({
       </Presence>
       <Presence>
         {confirmDelete ? (
-          <ConfirmActionDialog
-            title={t('删除定时任务「{name}」？', { name: s.name })}
-            message={t('删除后不再按计划执行，历史运行记录仍保留在聊天中。')}
-            consequences={[t('此操作不可恢复，后续触发计划将立即取消')]}
-            label={t('确认删除')}
-            done={t('已删除定时任务')}
+          <DeleteScheduleDialog
+            name={s.name}
             run={() => schedulesApi.remove(s)}
             onClose={() => setConfirmDelete(false)}
           />

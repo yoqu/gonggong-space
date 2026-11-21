@@ -1,4 +1,4 @@
-import type { GroupDto, GroupThreadItemDto, GroupThreadsDto, MessageDto } from '@gonggong/protocol'
+import type { GroupDto, GroupThreadItemDto, GroupThreadsDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -20,17 +20,10 @@ import {
 import { openThread } from './thread'
 import { useThreadLive, useThreadPeople } from './threadSummary'
 import './group-threads.css'
+import { messageSnippet } from './snippet'
 
-const SNIPPET = 120
 const REFRESH_MS = 300
 const NEAR_END_PX = 80
-
-const snippet = (m: MessageDto) =>
-  m.hidden
-    ? t('你已删除这条消息')
-    : m.recalled
-      ? t('该消息已撤回')
-      : m.body.replace(/\s+/g, ' ').trim().slice(0, SNIPPET) || (m.attachments.length ? t('[附件]') : '')
 
 function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
   const { root, state } = item
@@ -49,7 +42,7 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
         <b>{root.authorName}</b>
         {root.thread ? <time dateTime={root.thread.lastReplyAt}>{ago(root.thread.lastReplyAt)}</time> : null}
       </span>
-      <span className="group-threads__text">{snippet(root)}</span>
+      <span className="group-threads__text">{messageSnippet(root)}</span>
       <span className="group-threads__meta">
         <AvatarGroup people={people} size={20} max={3} />
         <span>{t('{n} 条回复', { n: root.thread?.replyCount ?? 0 })}</span>

@@ -3,20 +3,11 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import {
-  Button,
-  ConfirmActionDialog,
-  Dialog,
-  Input,
-  PopUpButton,
-  Presence,
-  SegmentedControl,
-  TextArea,
-  TextField,
-} from '../../ui'
+import { Button, Dialog, Input, PopUpButton, Presence, SegmentedControl, TextArea, TextField } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
 import '../groups/groups.css'
+import { DeleteScheduleDialog } from './DeleteScheduleDialog'
 import { schedulesApi } from './store'
 import './schedules.css'
 
@@ -295,12 +286,8 @@ export function ScheduleDialog({
       </Dialog>
       <Presence>
         {schedule?.canManage && confirmDelete ? (
-          <ConfirmActionDialog
-            title={t('删除定时任务「{name}」？', { name: schedule.name })}
-            message={t('删除后不再按计划执行，历史运行记录仍保留在聊天中。')}
-            consequences={[t('此操作不可恢复，后续触发计划将立即取消')]}
-            label={t('确认删除')}
-            done={t('已删除定时任务')}
+          <DeleteScheduleDialog
+            name={schedule.name}
             run={() => schedulesApi.remove(schedule)}
             onDone={() => {
               setConfirmDelete(false)

@@ -3,11 +3,11 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
-  ConfirmActionDialog,
   EmptyState,
   Presence,
   SearchField,
@@ -19,6 +19,7 @@ import {
 } from '../../ui'
 import { botsText } from '../bots/model'
 import '../groups/groups.css'
+import { DeleteScheduleDialog } from '../schedules/DeleteScheduleDialog'
 import { lastText, stateText } from '../schedules/model'
 import { timingText } from '../schedules/store'
 import { AdminPage, countLine } from './AdminPage'
@@ -42,11 +43,11 @@ export function SchedulesPage() {
   const [query, setQuery] = useState('')
   const [deleting, setDeleting] = useState<AdminScheduleDto | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
-  const q = query.trim().toLowerCase()
+  const q = query.trim()
   const shown = data?.schedules.filter(
     (s) =>
       (filter === 'all' || s.enabled === (filter === 'on')) &&
-      (!q || `${s.name} ${s.groupName} ${s.ownerName} ${s.botNames.join(' ')}`.toLowerCase().includes(q)),
+      matchAny(q, s.name, s.groupName, s.ownerName, ...s.botNames),
   )
   const toggle = async (s: AdminScheduleDto, enabled: boolean) => {
     if (togglingId) return
@@ -199,12 +200,8 @@ export function SchedulesPage() {
       )}
       <Presence>
         {deleting ? (
-          <ConfirmActionDialog
-            title={t('删除定时任务「{name}」？', { name: deleting.name })}
-            message={t('删除后不再按计划执行，历史运行记录仍保留在聊天中。')}
-            consequences={[t('此操作不可恢复，后续触发计划将立即取消')]}
-            label={t('确认删除')}
-            done={t('已删除定时任务')}
+          <DeleteScheduleDialog
+            name={deleting.name}
             run={() => api.del(`/admin/schedules/${deleting.id}`)}
             onDone={() => {
               setDeleting(null)

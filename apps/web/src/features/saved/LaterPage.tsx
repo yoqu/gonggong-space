@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { plainText } from '../../lib/plain'
 import { realtime } from '../../lib/realtime'
 import { ago, fullTime } from '../../lib/time'
 import {
@@ -24,17 +23,11 @@ import { RemindDialog } from './SaveMenu'
 import { remindLabel, remindPresets, savedApi } from './store'
 import '../chat/thread-inbox.css'
 import './later.css'
+import { messageSnippet } from '../chat/snippet'
 
 type Tab = 'open' | 'done'
-const SNIPPET = 140
 const REFRESH_MS = 300
 const PAGE = 30
-
-const snippet = (m: MessageDto) =>
-  m.recalled
-    ? t('该消息已撤回')
-    : m.body.split('\n').map(plainText).join(' ').replace(/\s+/g, ' ').trim().slice(0, SNIPPET) ||
-      (m.attachments.length ? t('[附件]') : '')
 
 /** Where 跳到原消息 goes: a thread reply opens its thread. */
 const messageHref = (m: MessageDto) =>
@@ -78,7 +71,7 @@ function Item({
       <button type="button" className="later__body" onClick={() => navigate(messageHref(m))}>
         <p className="thread-inbox__line">
           <b>{m.authorName}</b>
-          <span>{snippet(m)}</span>
+          <span>{messageSnippet(m)}</span>
           <time dateTime={m.createdAt} title={t('消息发于 {time}', { time: fullTime(m.createdAt) })}>
             {ago(m.createdAt)}
           </time>

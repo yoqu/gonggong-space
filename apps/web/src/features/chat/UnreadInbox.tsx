@@ -1,4 +1,4 @@
-import type { MessageDto, UnreadsDto } from '@gonggong/protocol'
+import type { UnreadsDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { t } from '../../i18n'
@@ -10,16 +10,11 @@ import { Button, EmptyChatArt, EmptyState, FailedArt, Icon, Input, Mascot, toast
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { uuid } from './MessageComposer'
 import './thread-inbox.css'
+import { messageSnippet } from './snippet'
 
 type Item = UnreadsDto['groups'][number]
 
-const SNIPPET = 140
 const REFRESH_MS = 300
-
-const snippet = (m: MessageDto) =>
-  m.recalled
-    ? t('该消息已撤回')
-    : m.body.replace(/\s+/g, ' ').trim().slice(0, SNIPPET) || (m.attachments.length ? t('[附件]') : '')
 
 function Reply({ groupId }: { groupId: string }) {
   const [body, setBody] = useState('')
@@ -78,7 +73,7 @@ function Card({ item, leaving, onRead }: { item: Item; leaving: boolean; onRead:
         {item.messages.map((m) => (
           <p key={m.id} className="thread-inbox__line">
             <b>{m.authorName}</b>
-            <span>{snippet(m)}</span>
+            <span>{messageSnippet(m)}</span>
             <time dateTime={m.createdAt}>{ago(m.createdAt)}</time>
           </p>
         ))}

@@ -173,6 +173,29 @@ describe('R3B P1-1: ScheduleDialog, ScheduleCard and SchedulesView', () => {
     expect(screen.queryByRole('button', { name: '删除' })).toBeNull()
   })
 
+  it('ScheduleCard locks 立即执行 and 暂停 while a request is in flight', async () => {
+    let release = () => {}
+    const held = new Promise<void>((r) => {
+      release = r
+    })
+    const calls = mockApi({
+      'GET /groups/g1/schedules': list(schedule()),
+      'POST /schedules/s1/run': () => held.then(() => schedule()),
+    })
+    render(<ScheduleCard scheduleId="s1" groupId="g1" fallback="Claude 创建了定时任务「日报」" />)
+    await screen.findByText('日报')
+
+    const run = screen.getByRole('button', { name: '立即执行' })
+    fireEvent.click(run)
+    fireEvent.click(run)
+    await waitFor(() => expect((run as HTMLButtonElement).disabled).toBe(true))
+    expect((screen.getByRole('button', { name: '暂停' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(calls.filter((c) => c.method === 'POST' && c.path === '/schedules/s1/run')).toHaveLength(1)
+
+    release()
+    await waitFor(() => expect((run as HTMLButtonElement).disabled).toBe(false))
+  })
+
   it('guards ScheduleCard deletion with ConfirmActionDialog instead of two-click delete', async () => {
     const calls = mockApi({
       'GET /groups/g1/schedules': list(schedule()),
