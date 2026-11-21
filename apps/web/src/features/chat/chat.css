@@ -160,6 +160,21 @@
   font-size: var(--text-footnote-size);
   color: var(--label-secondary);
 }
+.ng-hint--row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
+}
+.ng-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  font-size: var(--text-callout-size);
+  color: var(--tint-red-text);
+}
 .ng-section__title {
   margin: 0;
   padding: 0 var(--space-4);
@@ -256,6 +271,32 @@
   min-width: 0;
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
+}
+@media (pointer: coarse) {
+  .ng-member {
+    min-height: 28px;
+  }
+  .ng-member--add {
+    width: 32px;
+    height: 32px;
+  }
+  .ng-member__x {
+    min-width: 24px;
+    min-height: 24px;
+  }
+  .ng-hint--row .ng-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+  }
+}
+@media (max-width: 767px) {
+  .ng-foot {
+    flex: 1 0 100%;
+  }
+  .ng-foot:empty {
+    display: none;
+  }
 }
 
 /* Partition git status strip under the header */

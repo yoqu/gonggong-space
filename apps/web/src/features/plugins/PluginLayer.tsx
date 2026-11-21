@@ -22,6 +22,7 @@ import {
   IconButton,
   NoPluginsArt,
   Presence,
+  Spinner,
   Switch,
   Tag,
   toast,
@@ -39,7 +40,7 @@ import {
   sourceText,
 } from './model'
 import { PluginTile, pluginIcon } from './PluginTile'
-import { loadPlugins, togglePlugin, useGroupPlugins } from './store'
+import { loadPlugins, togglePlugin, useGroupPlugins, useGroupPluginsError } from './store'
 import '../config/config.css'
 import './plugins.css'
 
@@ -234,6 +235,7 @@ function botAvailability(plugins: GroupPluginDto[], botId: string, botName: stri
 /** 群设置 · 插件 (prototype #manage): the group's switch per plugin, its own layer, and each bot's availability. */
 export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
   const list = useGroupPlugins(group.id)
+  const error = useGroupPluginsError(group.id)
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const base = `/groups/${group.id}/plugins`
   const reload = () => loadPlugins(group.id)
@@ -245,37 +247,54 @@ export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; 
       <div className="gs-note">
         {t('启用后群成员可以在「创作」和 / 候选里使用。下一轮任务生效，不打断正在运行的任务。')}
       </div>
-      <GroupBox>
-        {list?.map((p) => {
-          const unsupported = p.bots.filter((b) => b.blocker === 'agent')
-          return (
-            <GroupRow
-              key={p.id}
-              className="cfg__item"
-              label={
-                <PluginInfo
-                  p={p}
-                  extra={unsupported.map((b) => (
-                    <span key={b.botId} className="plg-warn">
-                      {` · ⚠ ${blockerText('agent', p.manifest, nameOf(b.botId))}`}
-                    </span>
-                  ))}
-                />
-              }
-            >
-              <span className="cfg__controls">
-                {p.layer === 'group' && !readOnly ? <DeletePlugin base={base} p={p} onDone={reload} /> : null}
-                <Switch
-                  disabled={readOnly}
-                  ariaLabel={t('在本群启用 {name}', { name: p.manifest.title })}
-                  checked={p.enabledInGroup}
-                  onChange={(on) => void attempt(() => togglePlugin(group.id, p.id, on))}
-                />
-              </span>
-            </GroupRow>
-          )
-        })}
-      </GroupBox>
+      {error ? (
+        <Alert variant="error" title={t('插件加载失败')} description={error}>
+          <div className="cfg__retry">
+            <Button size="small" onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+      {error && !list ? null : list === undefined ? (
+        <Spinner />
+      ) : list.length === 0 ? (
+        <EmptyState compact illustration={<NoPluginsArt />} title={t('还没有可用插件')} />
+      ) : (
+        <GroupBox>
+          {list.map((p) => {
+            const unsupported = p.bots.filter((b) => b.blocker === 'agent')
+            return (
+              <GroupRow
+                key={p.id}
+                className="cfg__item"
+                label={
+                  <PluginInfo
+                    p={p}
+                    extra={unsupported.map((b) => (
+                      <span key={b.botId} className="plg-warn">
+                        {` · ⚠ ${blockerText('agent', p.manifest, nameOf(b.botId))}`}
+                      </span>
+                    ))}
+                  />
+                }
+              >
+                <span className="cfg__controls">
+                  {p.layer === 'group' && !readOnly ? (
+                    <DeletePlugin base={base} p={p} onDone={reload} />
+                  ) : null}
+                  <Switch
+                    disabled={readOnly}
+                    ariaLabel={t('在本群启用 {name}', { name: p.manifest.title })}
+                    checked={p.enabledInGroup}
+                    onChange={(on) => void attempt(() => togglePlugin(group.id, p.id, on))}
+                  />
+                </span>
+              </GroupRow>
+            )
+          })}
+        </GroupBox>
+      )}
       <div className="cfg__foot">
         <span className="cfg__hint">
           {t('上传到本群的插件只对本群生效；与团队层、平台层同名时以群层为准。')}

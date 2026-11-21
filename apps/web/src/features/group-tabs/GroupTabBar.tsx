@@ -2,9 +2,19 @@ import { type GroupDto, type GroupTabDto, MAX_GROUP_TABS } from '@gonggong/proto
 import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { tabKey, useWorkbench, type WorkbenchTab } from '../../app/workbench'
 import { t } from '../../i18n'
+import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
-import { ContextMenu, Icon, type IconName, MenuButton, Presence, toast } from '../../ui'
+import {
+  ConfirmActionDialog,
+  ContextMenu,
+  Icon,
+  type IconName,
+  MenuButton,
+  type MenuItem,
+  Presence,
+  toast,
+} from '../../ui'
 import { GroupWorksTab } from '../artifacts/GroupWorks'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
 import { fileIconName } from '../files/FileViewer'
@@ -63,7 +73,7 @@ function benchKey(tab: GroupTabDto): string | null {
  * 群标签栏 under the group header (飞书-style): 消息 first, then the group's shared tabs, then ＋. A click opens the
  * tab in the workbench (⌘/Ctrl-click or the context menu: a new browser tab); drag to reorder.
  */
-export function GroupTabBar({ group }: { group: GroupDto }) {
+export function GroupTabBar({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
   const known = useGroupTabs(group.id)
   const works = useGroupArtifacts(group.id)
   const tabs = known ?? []
@@ -72,6 +82,7 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
   )
   const [adding, setAdding] = useState(false)
   const [renaming, setRenaming] = useState<GroupTabDto | null>(null)
+  const [deleting, setDeleting] = useState<GroupTabDto | null>(null)
   const dragging = useRef<number | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ overflow: false, left: false, right: false })
@@ -108,16 +119,32 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
     else if (value === 'copy') {
       const href = tabHref(group.id, tab)
       if (href)
-        void navigator.clipboard
-          .writeText(new URL(href, location.href).href)
-          .then(() => toast({ type: 'success', message: t('已复制链接') }))
-    } else if (value === 'rename') setRenaming(tab)
-    else if (value === 'delete') groupTabsApi.remove(group.id, tab.id).catch(toastError)
+        void copyText(new URL(href, location.href).href).then(
+          () => toast({ type: 'success', message: t('已复制链接') }),
+          () => toast({ type: 'error', message: t('复制失败') }),
+        )
+    } else if (value === 'rename' && !readOnly) setRenaming(tab)
+    else if (value === 'delete' && !readOnly) setDeleting(tab)
+  }
+  const tabMenuItems = (tab: GroupTabDto, prefix = ''): MenuItem[] => {
+    const href = tabHref(group.id, tab)
+    return [
+      { label: t('打开'), value: `${prefix}open` },
+      { label: t('在新标签页打开'), value: `${prefix}external`, disabled: !href },
+      { label: t('复制链接'), value: `${prefix}copy`, disabled: !href },
+      ...(readOnly
+        ? []
+        : [
+            { separator: true as const },
+            { label: t('重命名'), value: `${prefix}rename` },
+            { label: t('删除标签#tab'), value: `${prefix}delete`, destructive: true },
+          ]),
+    ]
   }
   const drop = (e: DragEvent, to: number) => {
     const from = dragging.current
     dragging.current = null
-    if (from === null || from === to) return
+    if (readOnly || from === null || from === to) return
     e.preventDefault()
     const ids = tabs.map((x) => x.id)
     const [moved] = ids.splice(from, 1)
@@ -149,19 +176,12 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
             <ContextMenu
               key={tab.id}
               className="gtab__ctx"
-              items={[
-                { label: t('打开'), value: 'open' },
-                { label: t('在新标签页打开'), value: 'external', disabled: !href },
-                { label: t('复制链接'), value: 'copy', disabled: !href },
-                { separator: true },
-                { label: t('重命名'), value: 'rename' },
-                { label: t('删除标签#tab'), value: 'delete', destructive: true },
-              ]}
+              items={tabMenuItems(tab)}
               onSelect={(v) => onMenu(v, tab)}
             >
               <button
                 type="button"
-                draggable
+                draggable={!readOnly}
                 className={cx('gtab', key && key === shown && 'gtab--active', tab.stale && 'gtab--stale')}
                 title={
                   tab.stale
@@ -201,6 +221,7 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
           title={t('更多标签')}
           className="gtabs__more"
           align="end"
+          portal
           items={tabs.map((x) => ({
             value: x.id,
             label: x.stale ? t('{title}（已失效）', { title: x.title }) : x.title,
@@ -214,22 +235,59 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
           <Icon name="chevron-down" size={11} weight={1.8} />
         </MenuButton>
       ) : null}
-      <button
-        type="button"
-        className="gtabs__add"
-        aria-label={t('添加标签')}
-        title={
-          tabs.length >= MAX_GROUP_TABS ? t('本群最多 {n} 个标签', { n: MAX_GROUP_TABS }) : t('添加标签')
-        }
-        disabled={tabs.length >= MAX_GROUP_TABS}
-        onClick={() => setAdding(true)}
-      >
-        <Icon name="plus" size={13} />
-      </button>
+      {!readOnly && tabs.length ? (
+        <MenuButton
+          aria-label={t('管理标签')}
+          title={t('管理标签')}
+          className="gtabs__manage"
+          align="end"
+          portal
+          items={tabs.map((tab) => ({
+            value: `tab:${tab.id}`,
+            label: tab.stale ? t('{title}（已失效）', { title: tab.title }) : tab.title,
+            submenu: tabMenuItems(tab, `${tab.id}:`),
+          }))}
+          onSelect={(v) => {
+            const sep = v.lastIndexOf(':')
+            if (sep < 0) return
+            const tab = tabs.find((x) => x.id === v.slice(0, sep))
+            if (tab) onMenu(v.slice(sep + 1), tab)
+          }}
+        >
+          <Icon name="more" size={14} weight={2.2} />
+        </MenuButton>
+      ) : null}
+      {!readOnly ? (
+        <button
+          type="button"
+          className="gtabs__add"
+          aria-label={t('添加标签')}
+          title={
+            tabs.length >= MAX_GROUP_TABS ? t('本群最多 {n} 个标签', { n: MAX_GROUP_TABS }) : t('添加标签')
+          }
+          disabled={tabs.length >= MAX_GROUP_TABS}
+          onClick={() => setAdding(true)}
+        >
+          <Icon name="plus" size={13} />
+        </button>
+      ) : null}
+      <Presence>{adding ? <AddTabDialog group={group} onClose={() => setAdding(false)} /> : null}</Presence>
       <Presence>
-        {adding ? <AddTabDialog group={group} onClose={() => setAdding(false)} /> : null}
         {renaming ? (
           <RenameTabDialog groupId={group.id} tab={renaming} onClose={() => setRenaming(null)} />
+        ) : null}
+      </Presence>
+      <Presence>
+        {deleting ? (
+          <ConfirmActionDialog
+            title={t('删除标签「{title}」？', { title: deleting.title })}
+            message={t('所有群成员顶部标签栏将移除该入口，原内容本身不会被删除。')}
+            consequences={[t('需要时可随时重新添加该标签')]}
+            label={t('删除')}
+            done={t('已删除标签')}
+            run={() => groupTabsApi.remove(group.id, deleting.id)}
+            onClose={() => setDeleting(null)}
+          />
         ) : null}
       </Presence>
     </nav>

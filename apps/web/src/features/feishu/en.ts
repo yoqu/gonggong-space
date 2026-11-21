@@ -223,4 +223,7 @@ export default {
   '尚未保存，预填的是当前网址': "Not saved yet; prefilled with this page's address",
   尚未加入: 'Not added yet',
   去管理后台接入: 'Set it up in Admin',
+  '先绑定你的飞书账号，共工才能列出你所在的飞书群':
+    'Link your Feishu account first so Gonggong can list the Feishu chats you are in',
+  去绑定飞书账号: 'Link Feishu account',
 } satisfies Record<string, string>

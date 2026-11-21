@@ -25,6 +25,7 @@ import {
 import { BotDialog } from '../bots/BotDialog'
 import { feishuHintText } from './FeishuIssueEvent'
 import { feishuStartUrl } from './login'
+import './feishu.css'
 
 const list = (names: string[]) => names.join(locale === 'en' ? ', ' : '、')
 
@@ -56,12 +57,20 @@ const botLabel = (mainAppName: string | null) =>
 const useSysadmin = () => useSession((s) => s.user)?.role === 'sysadmin'
 
 /** Feishu could not be read (secret revoked, Feishu unreachable): say why and retry; a sysadmin can go fix it. */
-export function FeishuLoadError({ error, onRetry }: { error: string; onRetry: () => void }) {
+export function FeishuLoadError({
+  error,
+  loading,
+  onRetry,
+}: {
+  error: string
+  loading?: boolean
+  onRetry: () => void
+}) {
   const admin = useSysadmin()
   return (
     <Alert variant="error" description={t('读取飞书群信息失败：{reason}', { reason: error })}>
-      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Button size="sm" onClick={onRetry}>
+      <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+        <Button size="sm" loading={loading} onClick={onRetry}>
           {t('重试')}
         </Button>
         {admin ? <Link to="/admin/feishu">{t('去管理后台检查飞书')}</Link> : null}
@@ -116,7 +125,7 @@ export function FeishuUnavailableNote() {
  */
 export function GroupFeishuTab({ group }: { group: GroupDto }) {
   const path = `/groups/${group.id}/feishu`
-  const { data, error, reload } = useGet<GroupFeishuView>(path)
+  const { data, error, loading, reload } = useGet<GroupFeishuView>(path)
   const me = useSession((s) => s.user)
   const bots = useWorkspace((s) => s.bots)
   const [connecting, setConnecting] = useState<BotDto | null>(null)
@@ -199,7 +208,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
     }
   }
 
-  if (!data) return error ? <FeishuLoadError error={error} onRetry={reload} /> : <Spinner />
+  if (!data) return error ? <FeishuLoadError error={error} loading={loading} onRetry={reload} /> : <Spinner />
   if (!data.available) return <FeishuUnavailableNote />
 
   const linked = data.members.find((m) => m.userId === me?.id)?.linked ?? false
@@ -210,15 +219,24 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
 
   return (
     <>
+      {error ? <FeishuLoadError error={error} loading={loading} onRetry={reload} /> : null}
       {data.feishuError ? <FeishuCallError issue={data.feishuError} /> : null}
       {data.chat ? (
         <>
           <GroupBox>
-            <GroupRow label={t('飞书群')} description={t('一个共工群只能关联一个飞书群')}>
-              <span className="gs-value">{data.chat.name}</span>
-              <Button disabled={busy} onClick={() => setUnbinding(true)}>
-                {t('取消关联')}
-              </Button>
+            <GroupRow
+              className="feishu-creds"
+              label={t('飞书群')}
+              description={t('一个共工群只能关联一个飞书群')}
+            >
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                <span className="gs-value" style={{ textAlign: 'left' }}>
+                  {data.chat.name}
+                </span>
+                <Button disabled={busy} onClick={() => setUnbinding(true)}>
+                  {t('取消关联')}
+                </Button>
+              </div>
             </GroupRow>
             <GroupRow
               label={t('群成员')}
@@ -343,21 +361,29 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           </GroupBox>
           <h3 className="feishu-section">{t('选择飞书群')}</h3>
           <GroupBox>
-            <GroupRow label={t('飞书群')} description={chatListNote(data.mainAppName)}>
-              <Button disabled={busy} onClick={reload}>
-                {t('刷新')}
-              </Button>
-              <PopUpButton
-                aria-label={t('飞书群')}
-                placeholder={data.chats.length ? t('选择飞书群') : t('没有可关联的飞书群，先把机器人拉进群')}
-                disabled={!data.chats.length}
-                value={chatId}
-                options={data.chats.map((c) => ({ value: c.chatId, label: c.name }))}
-                onChange={setChatId}
-              />
-              <Button variant="primary" disabled={!chatId || busy} onClick={() => void bind()}>
-                {t('关联')}
-              </Button>
+            <GroupRow
+              className="feishu-creds"
+              label={t('飞书群')}
+              description={chatListNote(data.mainAppName)}
+            >
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                <Button disabled={busy} loading={loading} onClick={reload}>
+                  {t('刷新')}
+                </Button>
+                <PopUpButton
+                  aria-label={t('飞书群')}
+                  placeholder={
+                    data.chats.length ? t('选择飞书群') : t('没有可关联的飞书群，先把机器人拉进群')
+                  }
+                  disabled={!data.chats.length}
+                  value={chatId}
+                  options={data.chats.map((c) => ({ value: c.chatId, label: c.name }))}
+                  onChange={setChatId}
+                />
+                <Button variant="primary" disabled={!chatId || busy} onClick={() => void bind()}>
+                  {t('关联')}
+                </Button>
+              </div>
             </GroupRow>
           </GroupBox>
           <h3 className="feishu-section">{t('没有现成的飞书群')}</h3>

@@ -240,3 +240,42 @@
 - P3 移动端输入框 16px 字号配 19px 固定行高显拥挤（`ui/im/composer.css`、`chat/composer.css`）→ 引入 `--composer-line-height` 移动端升至 `22px`（验收：多行中文与 `@提及` 舒适对齐）。
 - P3 全局搜索 `⌘K` 右侧 `esc 关闭` 大小写与 `<Kbd>` 风格不统一（`search/SearchOverlay.tsx`、`search/en.ts`）→ 统一使用 `<Kbd>Esc</Kbd>`（验收：与 `ShellBar` 快捷键视觉一致）。
 - P3 话题抽屉（`ThreadView`）发送新回复时未自动滚底展示待发消息行（`chat/ThreadView.tsx`、`chat/pending.ts`）→ `useOnQueued` 按 `(groupId, thread)` 订阅并在入队时滚底（验收：话题上翻后发新回复立即滚底可见「发送中」）。
+
+## 11-21 第 3 轮（群信息侧栏与群公告、群设置弹窗 11 标签页、定时任务、群标签栏与工作台新建菜单、发起会话与飞书接入弹窗；桌面 1440 + 深色 + 390 触屏）
+
+已修（13 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 长群公告顶部横幅（`GroupNotice`）截断后不可点击展开全文、群头 topic 误跳主面板、`GroupInfo` 公告行未钳制行数撑长侧栏（`ui/im/notice.tsx`、`ui/im/notice.css`、`ui/im/panels.css`、`chat/ChatView.tsx`、`groups/GroupNotice.tsx`、`groups/GroupInfo.tsx`）→ `PinnedBanner` 支持点击与 `aria-expanded` 展开，群成员点公告/topic 直达「群公告」子页，只读预览点击展开全文，侧栏公告行 2 行省略钳制（验收：成员与只读用户均可完整阅读多行公告，侧栏高度不被撑长）。
+- P1 `NewGroupDialog` 选单个共享 Bot 切私聊后仍矛盾显示「Bot 主人自动加入」2 人芯片且强制劫持已配置群为私聊、无法建 1 人 1 Bot 群（`chat/NewGroupDialog.tsx`、`chat/chat.css`、`chat/en.ts`）→ 先判 `canDm`（已改群名/开公开频道/开飞书/手动加人不劫持），私聊时 `owners` 置空不矛盾，并提供「改为建群 / 改回私聊」切换（验收：共享 Bot 私聊不展示主人芯片，已改群名不跳私聊，支持创建 1 人 1 Bot 群）。
+- P1 `FeishuGroupDialog` 未绑定飞书账号时误报「没有可关联的飞书群」、`刷新`/`重试` 无加载反馈、旧数据存在时刷新报错被吞、带按钮错误 `Alert` 缺失红警示图标（`lib/useGet.ts`、`ui/display.tsx`、`feishu/FeishuGroupDialog.tsx`、`feishu/GroupFeishuTab.tsx`、`feishu/en.ts`）→ `useGet` 暴露 `loading`，查 `/me/feishu` 引导未绑定用户一键去「个人设置 › 账户」绑定，报错与刷新态完整透出，错误 `Alert` 始终带 `warning` 图标（验收：未绑定有明确入口、刷新/重试带 `aria-busy`、所有错误框均含警示图标）。
+- P1 `MemberPicker` 在 `/users` 加载中与搜不到结果时均误报「所有账号都已在群里 / 没有可添加的成员」且 `NewGroupDialog` 吞掉加载错误（`groups/pickers.tsx`、`groups/GroupInfo.tsx`、`chat/NewGroupDialog.tsx`）→ 新增 `loading` 态渲染 `<Spinner />`、区分「没有匹配的成员」与真正无候选态，`NewGroupDialog` 透出失败提示与「重试」（验收：加载显转圈、搜无结果不误报全员在群、失败可重试）。
+- P1 390px 移动端 `NewGroupDialog`/`FeishuGroupDialog`/`GroupFeishuTab` 多个分段、输入框、仓库按钮与底部操作按钮热区 <32px 且飞书多控件行把说明挤成竖条（`ui/segmented.css`、`ui/form.css`、`ui/overlay.css`、`chat/chat.css`、`repos/repos.css`、`feishu/FeishuGroupDialog.tsx`、`feishu/GroupFeishuTab.tsx`）→ 粗指针下分段/输入/仓库/弹窗按钮均升至 `≥32px`，飞书行改用 `.feishu-creds` 堆叠与可折行容器（验收：390px 下触控舒适、飞书说明占满整行不挤碎）。
+- P1 `GroupInfo` 退出/解散群采用原位红条无取消入口、`ConfirmRemove`/`RemoveNoticeDialog` 提交中未锁背景与 Esc 易误操作（`groups/GroupInfo.tsx`、`groups/GroupNotice.tsx`、`groups/en.ts`）→ 退出/解散/删除私聊/唯一管理员拦截统一改用 Pane `AlertDialog`（提交中锁按钮与 Esc），移出成员与移除公告弹窗均 `closeOnBackdrop={false}` 并锁取消与防重（验收：高危操作可明确取消、提交中不可重复触发）。
+- P1 `ScheduleDialog` 缺少「删除」入口、`ScheduleCard` 删除无确认弹窗易误点、`SchedulesView` 接口失败永久转圈（`schedules/store.ts`、`schedules/ScheduleDialog.tsx`、`schedules/SchedulesView.tsx`、`schedules/ScheduleCard.tsx`、`schedules/en.ts`）→ 编辑弹窗补红色「删除」键、两处均接 `ConfirmActionDialog` 与成功 Toast，列表加载失败渲染错误 `<Alert>` +「重试」（验收：两处删除均需确认、失败有重试不卡死）。
+- P1 `GroupSettingsDialog` 切标签、点背景或按 Esc 直接静默丢弃「基本信息 / 群级参数 / MCP」未保存改动（`groups/GroupSettingsDialog.tsx`、`config/ConfigPage.tsx`、`groups/en.ts`）→ 接入 `hasDirty` 拦截与 `AlertDialog`（「继续编辑」/「放弃更改」），有未保存改动时禁用点背景关闭（验收：三个可编辑标签切页与关闭前均二次确认，放弃后正确重置草稿）。
+- P1 `GroupSettingsDialog` 群级参数、`WebhooksView`、`GroupPluginsTab` 接口失败时永久转圈或静默假空态，插件空列表呈空白卡片（`lib/groupStore.ts`、`webhooks/WebhooksView.tsx`、`groups/GroupSettingsDialog.tsx`、`plugins/store.ts`、`plugins/PluginLayer.tsx`、`plugins/en.ts`）→ `createGroupStore` 与 `usePluginStore` 记录按群错误态（兼容旧服务端 404 降级），三处失败均渲染错误 `<Alert>` +「重试」，插件空态改用带插画 `<EmptyState>`（验收：500 报错清晰可重试、0 插件不再显空壳）。
+- P1 `GroupSettingsDialog` 左侧导航与 390px 顶部横向标签随内容滚走、触屏标签偏矮、窄屏设置行/MCP/Skill 编辑器溢出（`groups/groups.css`、`config/config.css`）→ 弹窗体改独立滚动让桌面左栏与移动顶栏固定不滚走，触屏标签升至 `36px`，窄屏行与操作区折行、`SkillEditorDialog` ≤640px 切单列（验收：长页滚动导航常驻可见，390px 零横向溢出）。
+- P1 `BotsView` 行尾 `···` 按钮用错 `ui-btn--plain` 呈淡灰近隐形且菜单未 `portal` 易被容器裁切（`groups/GroupInfo.tsx`）→ 改用 `ui-btn--ghost ui-btn--icon ui-icon-btn` + `weight={2.4}` + `MenuButton portal`（验收：浅/深色清晰可见，菜单浮层不被弹窗裁切）。
+- P1 `GroupTabBar` 删除群共享标签零确认、复制链接未用 `copyText` 降级、触屏无法重命名/删除、热区 24px、共享 `<Presence>` 破退场动画、`NewTabMenu` 在私聊误显「添加群标签…」（`group-tabs/GroupTabBar.tsx`、`group-tabs/group-tabs.css`、`group-tabs/en.ts`、`workbench/NewTabMenu.tsx`）→ 删除接入 `ConfirmActionDialog`、改用 `copyText` 与失败提示、新增触屏「管理标签」菜单、粗指针 `≥32px`、拆分独立 `<Presence>`、私聊隐藏「添加群标签…」（验收：删除先确认、触屏可管理标签、私聊不显示无效菜单项）。
+- P1 `GroupSettingsDialog` 管理员实时降权或全局关闭插件开关后，停留在「飞书/插件」标签导致弹窗标题出现 `undefined · 群名` 且残留内容（`groups/GroupSettingsDialog.tsx`）→ 计算 `activeTab` 并在当前标签消失时自动回退并同步至 `'basic'`（验收：降权或关开关瞬间无 `undefined`，立即切回只读基本信息）。
+
+- P2 `GroupSettingsDialog › 基本信息`「回复风格」说明文案「聊天：默认像聊天，简短直接」与实际默认值 `'technical'` 相反且下拉项缺说明（`groups/GroupSettingsDialog.tsx`、`groups/en.ts`）→ 修正说明文字标明「技术（默认）」与「聊天」差异并在选项或副文案中明确区分（验收：默认值与文案完全一致）。
+- P2 `GroupSettingsDialog` 非「群级参数」页仍渲染空白底部 footer 栏截断左侧导航底色（`groups/GroupSettingsDialog.tsx`、`groups/groups.css`）→ 仅 `readOnly || activeTab === 'params'` 时传 `footer`，其余标签省略 footer 让左栏贯通到底（验收：基本信息/成员/Bot 等标签无底部空条）。
+- P2 `GroupSettingsDialog › Skill` 群层列表底部说明硬编码「跳过团队版」实为「跳过群版」（`config/SkillLayer.tsx`、`config/en.ts`）→ 改为按 `layer` 渲染对应文案（群层写「本群禁用后跳过群版」或回退上层）（验收：群层与团队层提示语准确无混淆）。
+- P2 `SkillHistoryDialog` 点击「回滚到此版」直接生效无二次确认与加载锁，且打开后首版不默认高亮预览（`config/SkillHistoryDialog.tsx`）→ 补 `AlertDialog` 确认与 `busy` 锁定，初始化默认选中当前生效版本预览（验收：回滚需确认、防连点、打开即有选中态）。
+- P2 `GroupSettingsDialog › 群级参数` 未改动时「保存」仍亮蓝且 `Stepper` 缺 `live` 致失焦前无法立即保存（`groups/GroupSettingsDialog.tsx`）→ `!dirty || !parsed?.success` 时禁用「保存」，`Stepper` 传入 `live` 实时同步值（验收：未修改保存置灰、输入数字即亮起）。
+- P2 `GroupSettingsDialog › MCP` 内置 `gonggong` 11 行文字墙占满首屏、只读配置加载缺 `<Spinner />` 且说明重复（`config/ConfigPage.tsx`、`groups/GroupSettingsDialog.tsx`）→ 折叠内置工具详单（默认仅展示摘要+「查看工具」展开），只读加载补 `<Spinner />` 并去除重复顶部提示（验收：首屏即可看到自定义 MCP，只读态加载与错误状态完整）。
+- P2 `GroupInfo` 右侧栏「群管理」区块在插件总开关开启时漏掉「插件」快捷入口（`groups/GroupInfo.tsx`）→ `pluginsOn` 为真时在「群管理」补「插件」行点击直达 `onSettings('plugins')`（验收：右侧栏与弹窗 11 标签一一对应）。
+- P2 飞书接口失败报错三重嵌套裸露 Node 异常字符串，且 `FeishuLoadError` 使用内联硬编码 `style` 与过时 `size="sm"`（`feishu/GroupFeishuTab.tsx`、`apps/server/src/modules/feishu/`）→ 服务端收敛为可读中文错误码/提示，`FeishuLoadError` 改用标准 `size="small"` 与语义样式类（验收：错误提示简洁易懂、不暴露技术栈文本）。
+- P2 `GroupInfo` 顶部快捷操作栏固定 `repeat(4, 1fr)` 在 2–3 个按钮时整体左偏失衡（`ui/im/panels.css`）→ 改为 `grid-template-columns: repeat(auto-fit, minmax(0, 1fr))` 自适应均分（验收：私聊/普通群 2/3/4 键均居中对称）。
+- P2 `BotsView` 普通成员点击无操作行呈死点击、拉入/移出缺防重提示、0 Bot 缺空态、私聊拉人漏共享 Bot（`groups/GroupInfo.tsx`）→ 0 Bot 渲染 `<EmptyState>`，拉入/移出加提交态与成功 Toast，私聊补展示共享给我的 Bot（验收：空态明确、无死点、共享 Bot 可在私聊拉入）。
+- P2 `BotPicker` / `MemberPicker` 多选行误用 `menuitemcheckbox` 缺 `menu` 容器、无上下键导航、Tab 易逃逸、搜索框随列表滚走（`groups/pickers.tsx`、`groups/groups.css`）→ 修正为 `role="listbox"` + `role="option"` + `aria-selected`，搜索框吸顶固定并支持键盘上下选与焦点循环（验收：键盘可完整检索并勾选，滚动长列表搜索框常驻顶部）。
+- P2 `GroupInfo` 子页按 `Esc` 直接关整栏静默丢失公告草稿、公告历史返回断链、管理员无法恢复已隐藏的群公告（`groups/GroupInfo.tsx`）→ 子页按 `Esc` 优先返回主视图（有公告草稿先确认），公告子页为已隐藏公告提供「重新在顶部显示」开关（验收：Esc 逐级返回不丢草稿、已隐藏公告可恢复）。
+- P2 `GroupInfo` 成员预览网格丢失成员头像且重名成员 `key` 冲突、窄栏 `LoadError` 160px 裁切（`groups/GroupInfo.tsx`、`ui/im/panels.css`）→ `ChatInfoMember` 补 `id` 与 `avatar` 字段并用 `userId` 作 key，`LoadError` 取消固定窄宽允许折行（验收：成员头像一致显示、长错误信息不被裁切）。
+- P2 `NewGroupDialog` 创建提交中仍可点背景或 Esc 关闭、Safari IME 回车误触发提交、置灰提交按钮无缺失原因提示、切「新建终端」重挂载丢草稿（`chat/NewGroupDialog.tsx`、`chat/NewSessionDialog.tsx`）→ 提交中锁定关闭、补 `isComposing` 守卫、在底栏补齐置灰原因文案、切 tab 用隐藏保活草稿（验收：提交中不误关、拼音回车不误建、切换不丢草稿）。
+- P2 `FeishuGroupDialog` 刷新列表后若原选 `chatId` 失效仍残留在状态中、名称框按回车无响应、切换「关联到已有群」弹窗标题仍显示「从飞书群创建」（`feishu/FeishuGroupDialog.tsx`）→ 数据刷新时校验并清空失效 `chatId`，补 `onKeyDown` 回车提交，弹窗标题随 `mode` 切换（验收：刷新不残留失效选项、标题与动作一致）。
+- P3 `WebhooksView` 空态误用默认聊天气泡图标且「重置令牌」未用 `AlertDialog`（`webhooks/WebhooksView.tsx`）→ 改用语义图标与 `AlertDialog` 确认（验收：空态图标贴合 Webhook、重置令牌符合高危确认规范）。
+- P3 `webhooks.css` 引用未定义变量 `--fill-quaternary` 且多处状态文案误用 `--label-tertiary` 导致对比度偏低（`webhooks/webhooks.css`、`groups/groups.css`、`config/config.css`）→ 替换为 `--control-track` / `--label-secondary`（验收：浅/深色下背景与文字对比度达标）。
+- P3 仓库页禁止解绑仅靠 `title` 提示、`RepoDialog`/`ConfirmActionDialog` 提交中未统一锁定取消按钮与 loading（`repos/RepoSettings.tsx`、`ui/overlay.tsx`）→ 补可见说明行并在提交中同步禁用取消键（验收：触屏可见禁用原因、提交中防误点取消）。
+- P3 `GroupInfo` Bot 胶囊离线圆点呈实心缺空心环、普通成员管理区提示易误导可编辑（`groups/GroupInfo.tsx`、`groups/groups.css`）→ 离线态改用空心描边环与 `Dot` 统一，只读成员区弱化箭头并明示只读（验收：在线/离线状态视觉全站一致）。
+- P3 `GroupInfo` 顶部裸露长 SSH 仓库地址、通知下拉切态缺加载锁、`NoticesView` 时间格式未跟随英文语言（`groups/GroupInfo.tsx`）→ 顶部展示 `owner/repo` 简名（悬停见完整 URL），通知下拉接入 `pending` 锁，时间格式走 `i18n`（验收：顶部简洁、切通知不并发乱序、英文时间本地化）。
+- P3 `ChatPage` 用单个 `<Presence>` 同时包裹 `NewGroupDialog` 与 `FeishuGroupDialog` 导致弹窗退场动画失效（`app/ChatPage.tsx`）→ 拆分为两个独立 `<Presence>`（验收：两弹窗关闭均有平滑退场动画）。

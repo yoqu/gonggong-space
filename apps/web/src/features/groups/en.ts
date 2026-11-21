@@ -15,20 +15,29 @@ export default {
   已退出群: 'Left the group',
   已删除私聊: 'Chat deleted',
   群已解散: 'Group dissolved',
+  先指定其他群管理员: 'Appoint another group admin first',
+  前往群成员: 'Go to members',
   确认退出: 'Confirm leave',
   退出群: 'Leave group',
+  '退出群「{name}」？': 'Leave "{name}"?',
   '你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。':
     'You are the only group admin. Appoint another group admin under "Members" before leaving.',
-  '退出后你的 Bot 会一并移出本群，运行中的任务会直接中断。再次点击确认。':
-    'Your Bots leave the group with you, and running tasks will be interrupted. Click again to confirm.',
+  '退出后你的 Bot 会一并移出本群，运行中的任务会直接中断。':
+    'Your Bots leave the group with you, and running tasks will be interrupted.',
   确认删除: 'Confirm delete',
   删除私聊: 'Delete chat',
+  '删除私聊「{name}」？': 'Delete chat "{name}"?',
   确认解散: 'Confirm dissolve',
   解散群: 'Dissolve group',
-  '删除后消息与审计记录保留；Bot 的托管工作区保留在本机，由你决定是否删除。再次点击确认。':
-    "Messages and audit records are kept; the Bot's managed workspace stays on your machine for you to delete or keep. Click again to confirm.",
-  '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。再次点击确认。':
-    "The group is archived with its messages and audit records; force-sync archives are purged after 30 days; each Bot's managed workspace is kept for its owner to delete or keep. Click again to confirm.",
+  '解散群「{name}」？': 'Dissolve "{name}"?',
+  '删除后消息与审计记录保留；Bot 的托管工作区保留在本机，由你决定是否删除。':
+    "Messages and audit records are kept; the Bot's managed workspace stays on your machine for you to delete or keep.",
+  '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。':
+    "The group is archived with its messages and audit records; force-sync archives are purged after 30 days; each Bot's managed workspace is kept for its owner to delete or keep.",
+  '有未保存的更改，确定放弃？': 'Discard unsaved changes?',
+  '放弃后未保存的修改将不会保留。': 'Your unsaved changes will be lost.',
+  继续编辑: 'Keep editing',
+  放弃更改: 'Discard changes',
   '未绑定仓库 · 各 Bot 使用本机目录': 'No repo · each Bot uses a local folder',
   成员: 'Members',
   公告: 'Notice',

@@ -19,12 +19,14 @@
 }
 .cfg__name-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-6);
 }
 .cfg__name {
   font-family: var(--font-mono);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .cfg__item .ui-group__desc {
   overflow-wrap: anywhere;
@@ -117,6 +119,7 @@
 }
 .skill-ed__bar {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-8);
 }
 .skill-ed {
@@ -190,4 +193,24 @@
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
   gap: var(--space-8);
   align-items: center;
+}
+@media (max-width: 767px) {
+  .cfg__item {
+    flex-wrap: wrap;
+    row-gap: var(--space-8);
+  }
+  .cfg__item > .ui-group__text {
+    min-width: 0;
+  }
+  .cfg__item .ui-group__text > :first-child {
+    white-space: normal;
+  }
+  .cfg__controls {
+    margin-left: auto;
+  }
+}
+@media (max-width: 640px) {
+  .skill-ed {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

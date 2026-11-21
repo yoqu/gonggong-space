@@ -267,6 +267,14 @@
     padding-bottom: calc(var(--space-20) + env(safe-area-inset-bottom));
     border-radius: var(--radius-window) var(--radius-window) 0 0;
   }
+  .ui-dialog__actions {
+    flex-wrap: wrap;
+  }
+}
+@media (pointer: coarse) {
+  .ui-dialog__actions .ui-btn {
+    min-height: 34px;
+  }
 }
 .ui-drawer__header {
   display: flex;

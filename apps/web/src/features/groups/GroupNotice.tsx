@@ -1,5 +1,6 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useInspector } from '../../app/inspector'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
@@ -15,7 +16,11 @@ export const hideNotice = (groupId: string, hidden: boolean) =>
 /** Admins remove the notice for everyone; it stays in the history. */
 export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
+  const close = () => {
+    if (!busy) onClose()
+  }
   const run = async () => {
+    if (busy) return
     setBusy(true)
     if (await attempt(() => groupsApi.removeNotice(groupId))) onClose()
     else setBusy(false)
@@ -25,10 +30,13 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
       open
       title={t('移除群公告')}
       width={400}
-      onClose={onClose}
+      closeOnBackdrop={false}
+      onClose={close}
       footer={
         <>
-          <Button onClick={onClose}>{t('取消')}</Button>
+          <Button disabled={busy} onClick={close}>
+            {t('取消')}
+          </Button>
           <Button variant="destructive" loading={busy} onClick={() => void run()}>
             {t('移除')}
           </Button>
@@ -44,6 +52,7 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
 export function GroupNotice({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
   const me = useSession((s) => s.user)
   const [removing, setRemoving] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   if (!group.notice || group.noticeHidden) return null
   const admin = isGroupAdmin(group, me?.id)
   const hide = async () => {
@@ -54,9 +63,21 @@ export function GroupNotice({ group, readOnly = false }: { group: GroupDto; read
     <div data-testid="group-notice">
       <PinnedBanner
         text={group.notice}
+        textTitle={group.notice}
+        expanded={readOnly ? expanded : undefined}
+        onClick={
+          readOnly
+            ? () => setExpanded((v) => !v)
+            : () => useInspector.getState().open('group-info', 'notices')
+        }
         closeLabel={admin ? t('移除') : t('不再显示')}
         onClose={readOnly ? undefined : admin ? () => setRemoving(true) : () => void hide()}
       />
+      {readOnly && expanded ? (
+        <div className="pn-pinned__expanded" data-testid="group-notice-expanded">
+          {group.notice}
+        </div>
+      ) : null}
       <Presence>
         {removing ? <RemoveNoticeDialog groupId={group.id} onClose={() => setRemoving(false)} /> : null}
       </Presence>

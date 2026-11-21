@@ -3,7 +3,17 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { Button, Dialog, Input, PopUpButton, SegmentedControl, TextArea, TextField } from '../../ui'
+import {
+  Button,
+  ConfirmActionDialog,
+  Dialog,
+  Input,
+  PopUpButton,
+  Presence,
+  SegmentedControl,
+  TextArea,
+  TextField,
+} from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
 import '../groups/groups.css'
@@ -107,6 +117,7 @@ export function ScheduleDialog({
   const [draft, setDraft] = useState(() => draftOf(schedule))
   const [preview, setPreview] = useState<{ error: I18nText | null; next: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const timezone = schedule && draft.mode !== 'once' ? schedule.timezone : BROWSER_TZ
   const timing = timingOf(draft)
   const key = JSON.stringify({ ...timing, timezone })
@@ -163,118 +174,142 @@ export function ScheduleDialog({
   }
 
   return (
-    <Dialog
-      open
-      width={540}
-      closeOnBackdrop={false}
-      title={schedule ? t('编辑定时任务') : t('新建定时任务')}
-      onClose={onClose}
-      footer={
-        <>
-          {missingHint ? <span className="sc-footer-hint">{missingHint}</span> : null}
-          <span className="spacer" />
-          <Button onClick={onClose}>{t('取消')}</Button>
-          <Button variant="primary" disabled={!ready || saving} onClick={() => void save()}>
-            {schedule ? t('保存') : t('创建')}
-          </Button>
-        </>
-      }
-    >
-      <div className="gs-dialog-form">
-        <TextField
-          label={t('名称')}
-          value={name}
-          maxLength={60}
-          placeholder={t('如：每日 PR 汇总')}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <TextArea
-          label={t('指令')}
-          value={prompt}
-          maxLength={4000}
-          rows={4}
-          placeholder={t('到点发给 Bot 的完整指令：要做什么、范围和产出')}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-
-        <CandidateBotPicker
-          group={group}
-          botIds={botIds}
-          candidates={candidates}
-          onCandidatesChange={setCandidates}
-          picks={picks}
-          onPicksChange={setPicks}
-          title={t('候选 Bot（至少选 1 个）· 到点由第一个可用的执行')}
-          offlineWarning={t('所选候选 Bot 当前全部离线，到点会跳过')}
-        />
-
-        <section>
-          <h3 className="gs-section-title">{t('执行时间')}</h3>
-          <div className="sc-modes">
-            <SegmentedControl<Mode>
-              aria-label={t('频率')}
-              items={MODES}
-              value={draft.mode}
-              onChange={(mode) => set({ mode })}
-            />
-          </div>
-          <div className="sc-timing">
-            {draft.mode === 'weekly' ? (
-              <PopUpButton
-                aria-label={t('星期')}
-                value={draft.weekday}
-                options={WEEKDAYS.map((d, i) => ({ value: String(i), label: t(d) }))}
-                onChange={(weekday) => set({ weekday })}
-              />
+    <>
+      <Dialog
+        open
+        width={540}
+        closeOnBackdrop={false}
+        title={schedule ? t('编辑定时任务') : t('新建定时任务')}
+        onClose={onClose}
+        footer={
+          <>
+            {schedule?.canManage ? (
+              <Button variant="destructive" disabled={saving} onClick={() => setConfirmDelete(true)}>
+                {t('删除')}
+              </Button>
             ) : null}
-            {draft.mode === 'monthly' ? (
-              <Input
-                aria-label={t('日期（每月第几日）')}
-                type="number"
-                min={1}
-                max={31}
-                value={draft.day}
-                onChange={(e) => set({ day: e.target.value })}
+            {missingHint ? <span className="sc-footer-hint">{missingHint}</span> : null}
+            <span className="spacer" />
+            <Button onClick={onClose}>{t('取消')}</Button>
+            <Button variant="primary" disabled={!ready || saving} onClick={() => void save()}>
+              {schedule ? t('保存') : t('创建')}
+            </Button>
+          </>
+        }
+      >
+        <div className="gs-dialog-form">
+          <TextField
+            label={t('名称')}
+            value={name}
+            maxLength={60}
+            placeholder={t('如：每日 PR 汇总')}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <TextArea
+            label={t('指令')}
+            value={prompt}
+            maxLength={4000}
+            rows={4}
+            placeholder={t('到点发给 Bot 的完整指令：要做什么、范围和产出')}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+
+          <CandidateBotPicker
+            group={group}
+            botIds={botIds}
+            candidates={candidates}
+            onCandidatesChange={setCandidates}
+            picks={picks}
+            onPicksChange={setPicks}
+            title={t('候选 Bot（至少选 1 个）· 到点由第一个可用的执行')}
+            offlineWarning={t('所选候选 Bot 当前全部离线，到点会跳过')}
+          />
+
+          <section>
+            <h3 className="gs-section-title">{t('执行时间')}</h3>
+            <div className="sc-modes">
+              <SegmentedControl<Mode>
+                aria-label={t('频率')}
+                items={MODES}
+                value={draft.mode}
+                onChange={(mode) => set({ mode })}
               />
-            ) : null}
-            {draft.mode === 'once' ? (
-              <Input
-                aria-label={t('执行时刻')}
-                type="datetime-local"
-                value={draft.date}
-                onChange={(e) => set({ date: e.target.value })}
-              />
-            ) : draft.mode === 'custom' ? (
-              <TextField
-                label={t('cron 表达式')}
-                mono
-                value={draft.cron}
-                placeholder="*/30 9-18 * * 1-5"
-                hint={t('分 时 日 月 周（0 = 周日），时区 {tz}', { tz: timezone })}
-                onChange={(e) => set({ cron: e.target.value })}
-              />
-            ) : (
-              <Input
-                aria-label={t('时间')}
-                type="time"
-                value={draft.time}
-                onChange={(e) => set({ time: e.target.value })}
-              />
-            )}
-          </div>
-          <p className={preview?.error ? 'sc-preview sc-preview--error' : 'sc-preview'}>
-            {preview?.error
-              ? t.text(preview.error)
-              : preview?.next.length
-                ? draft.mode === 'once'
-                  ? t('将在 {time} 执行', { time: formatInZone(preview.next[0]!, timezone) })
-                  : t('接下来：{times}', {
-                      times: preview.next.map((iso) => formatInZone(iso, timezone)).join(t('、')),
-                    })
-                : null}
-          </p>
-        </section>
-      </div>
-    </Dialog>
+            </div>
+            <div className="sc-timing">
+              {draft.mode === 'weekly' ? (
+                <PopUpButton
+                  aria-label={t('星期')}
+                  value={draft.weekday}
+                  options={WEEKDAYS.map((d, i) => ({ value: String(i), label: t(d) }))}
+                  onChange={(weekday) => set({ weekday })}
+                />
+              ) : null}
+              {draft.mode === 'monthly' ? (
+                <Input
+                  aria-label={t('日期（每月第几日）')}
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={draft.day}
+                  onChange={(e) => set({ day: e.target.value })}
+                />
+              ) : null}
+              {draft.mode === 'once' ? (
+                <Input
+                  aria-label={t('执行时刻')}
+                  type="datetime-local"
+                  value={draft.date}
+                  onChange={(e) => set({ date: e.target.value })}
+                />
+              ) : draft.mode === 'custom' ? (
+                <TextField
+                  label={t('cron 表达式')}
+                  mono
+                  value={draft.cron}
+                  placeholder="*/30 9-18 * * 1-5"
+                  hint={t('分 时 日 月 周（0 = 周日），时区 {tz}', { tz: timezone })}
+                  onChange={(e) => set({ cron: e.target.value })}
+                />
+              ) : (
+                <Input
+                  aria-label={t('时间')}
+                  type="time"
+                  value={draft.time}
+                  onChange={(e) => set({ time: e.target.value })}
+                />
+              )}
+            </div>
+            <p className={preview?.error ? 'sc-preview sc-preview--error' : 'sc-preview'}>
+              {preview?.error
+                ? t.text(preview.error)
+                : preview?.next.length
+                  ? draft.mode === 'once'
+                    ? t('将在 {time} 执行', { time: formatInZone(preview.next[0]!, timezone) })
+                    : t('接下来：{times}', {
+                        times: preview.next.map((iso) => formatInZone(iso, timezone)).join(t('、')),
+                      })
+                  : null}
+            </p>
+          </section>
+        </div>
+      </Dialog>
+      <Presence>
+        {schedule?.canManage && confirmDelete ? (
+          <ConfirmActionDialog
+            title={t('删除定时任务「{name}」？', { name: schedule.name })}
+            message={t('删除后不再按计划执行，历史运行记录仍保留在聊天中。')}
+            consequences={[t('此操作不可恢复，后续触发计划将立即取消')]}
+            label={t('确认删除')}
+            done={t('已删除定时任务')}
+            run={() => schedulesApi.remove(schedule)}
+            onDone={() => {
+              setConfirmDelete(false)
+              onClose()
+            }}
+            onClose={() => setConfirmDelete(false)}
+          />
+        ) : null}
+      </Presence>
+    </>
   )
 }

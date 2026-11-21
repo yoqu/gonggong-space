@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt, toastError } from '../../lib/errors'
-import { Button, Dialog, EmptyState, GroupBox, Spinner, Switch, Tag } from '../../ui'
+import { Alert, Button, Dialog, EmptyState, GroupBox, Spinner, Switch, Tag } from '../../ui'
 import { botsText, useBotNames } from '../bots/model'
 import { STATUS_LABEL } from '../chat/RunGraphics'
 import '../groups/groups.css'
@@ -69,6 +69,7 @@ function Row({ w, onEdit, onRotate }: { w: WebhookDto; onEdit: () => void; onRot
 /** Group settings · Webhook tab: members inspect; group admins create, edit, rotate and delete. */
 export function WebhooksView({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
   const list = useWebhooks(group.id)
+  const error = useWebhooks.useError(group.id)
   const [editing, setEditing] = useState<WebhookDto | 'new' | null>(null)
   const [confirmRotate, setConfirmRotate] = useState<WebhookDto | null>(null)
   const [rotating, setRotating] = useState(false)
@@ -88,6 +89,16 @@ export function WebhooksView({ group, readOnly }: { group: GroupDto; readOnly: b
     }
   }
 
+  if (error && !list)
+    return (
+      <Alert variant="error" title={t('加载失败')} description={error}>
+        <div className="gs-retry">
+          <Button size="small" onClick={() => useWebhooks.reload(group.id)}>
+            {t('重试')}
+          </Button>
+        </div>
+      </Alert>
+    )
   if (!list) return <Spinner />
   return (
     <>

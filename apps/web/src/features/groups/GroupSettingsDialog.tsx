@@ -1,11 +1,14 @@
 import { type GroupDto, GroupParams, type JoinRequestDto, type SecretNeedDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
+import { errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
+  AlertDialog,
   AvatarEditor,
   Button,
   Dialog,
@@ -46,6 +49,7 @@ const PARAMS: { key: keyof GroupParams; label: string; max: number }[] = [
 ]
 
 type Draft = Record<keyof GroupParams, number | null>
+type PendingAction = { kind: 'close' } | { kind: 'tab'; tab: SettingsTab }
 
 const parseDraft = (d: Draft) => GroupParams.safeParse(d)
 
@@ -64,11 +68,19 @@ export function GroupSettingsDialog({
   onClose: () => void
 }) {
   const [tab, setTab] = useState(initial)
+  const [tabDirty, setTabDirty] = useState(false)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   // Reopened on another tab while still closing, the dialog is reused rather than remounted.
-  useEffect(() => setTab(initial), [initial])
+  useEffect(() => {
+    setTab(initial)
+    setTabDirty(false)
+    setPendingAction(null)
+  }, [initial])
   const [params, setParams] = useState<Draft | null>(null)
   const [savedParams, setSavedParams] = useState<Draft | null>(null)
+  const [paramsError, setParamsError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const paramsReq = useRef(0)
   const dm = group.kind === 'dm'
   const meId = useSession((s) => s.user?.id)
   const readOnly = !group.members.some((m) => m.userId === meId && m.isAdmin)
@@ -91,22 +103,67 @@ export function GroupSettingsDialog({
         ]),
     ...(pluginsOn ? [{ value: 'plugins' as const, label: t('插件'), icon: 'apps' as const }] : []),
   ]
+  const activeTab: SettingsTab = tabs.some((x) => x.value === tab) ? tab : 'basic'
+  useEffect(() => {
+    if (activeTab !== tab) setTab(activeTab)
+  }, [activeTab, tab])
+
+  const loadParams = useCallback(() => {
+    const req = ++paramsReq.current
+    setParamsError(null)
+    groupsApi.params(group.id).then(
+      (p) => {
+        if (paramsReq.current !== req) return
+        const draft = Object.fromEntries(PARAMS.map(({ key }) => [key, p[key]])) as Draft
+        setParams(draft)
+        setSavedParams(draft)
+        setParamsError(null)
+      },
+      (e) => {
+        if (paramsReq.current !== req) return
+        setParamsError(errorText(e))
+      },
+    )
+  }, [group.id])
 
   useEffect(() => {
-    groupsApi.params(group.id).then((p) => {
-      const draft = Object.fromEntries(PARAMS.map(({ key }) => [key, p[key]])) as Draft
-      setParams(draft)
-      setSavedParams(draft)
-    }, toastError)
-  }, [group.id])
+    setParams(null)
+    setSavedParams(null)
+    loadParams()
+    return () => {
+      paramsReq.current++
+    }
+  }, [loadParams])
 
   const parsed = params && parseDraft(params)
   const dirty = !!params && PARAMS.some(({ key }) => params[key] !== savedParams?.[key])
+  const hasDirty = !readOnly && (activeTab === 'params' ? dirty : tabDirty)
+
+  const requestClose = () => {
+    if (hasDirty) setPendingAction({ kind: 'close' })
+    else onClose()
+  }
+  const selectTab = (next: SettingsTab) => {
+    if (next === activeTab) return
+    if (hasDirty) setPendingAction({ kind: 'tab', tab: next })
+    else setTab(next)
+  }
+  const confirmDiscard = () => {
+    const action = pendingAction
+    setPendingAction(null)
+    setTabDirty(false)
+    if (activeTab === 'params' && savedParams) setParams(savedParams)
+    if (!action) return
+    if (action.kind === 'close') onClose()
+    else setTab(action.tab)
+  }
+
   const save = async () => {
     if (!parsed?.success) return
     setSaving(true)
     try {
       await groupsApi.saveParams(group.id, parsed.data)
+      setSavedParams(params)
       toast({ type: 'success', message: t('群级参数已保存') })
       onClose()
     } catch (e) {
@@ -116,108 +173,144 @@ export function GroupSettingsDialog({
     }
   }
 
+  const activeLabel = tabs.find((x) => x.value === activeTab)?.label ?? t('基本信息')
+
   return (
-    <Dialog
-      open
-      width={820}
-      title={`${tabs.find((x) => x.value === tab)?.label} · ${group.name}`}
-      onClose={onClose}
-      footer={
-        <>
-          <span className="gs-desc">
-            {readOnly
-              ? t('仅群管理员可修改')
-              : tab === 'params'
-                ? dirty
-                  ? t('有未保存的更改 · 保存后对新会话生效')
-                  : t('保存后对新会话生效')
-                : ''}
-          </span>
-          <span className="spacer" />
-          {tab === 'params' && !readOnly ? (
-            <Button
-              variant="primary"
-              disabled={!parsed?.success}
-              loading={saving}
-              onClick={() => void save()}
-            >
-              {t('保存')}
-            </Button>
-          ) : null}
-        </>
-      }
-    >
-      <div className="gs-settings">
-        <nav className="gs-settings__nav">
-          <span className="gs-settings__heading">{dm ? t('私聊设置') : t('群设置')}</span>
-          {tabs.map((x) => (
-            <button
-              key={x.value}
-              type="button"
-              className={cx('gs-settings__tab', x.value === tab && 'gs-settings__tab--on')}
-              aria-current={x.value === tab ? 'page' : undefined}
-              ref={x.value === tab ? revealTab : undefined}
-              onClick={() => setTab(x.value)}
-            >
-              <Icon name={x.icon} size={15} />
-              {x.label}
-            </button>
-          ))}
-        </nav>
-        <div key={tab} className="gs-settings__body">
-          {tab === 'basic' ? (
-            <BasicTab group={group} readOnly={readOnly} />
-          ) : tab === 'members' ? (
-            <MembersTab group={group} readOnly={readOnly} />
-          ) : tab === 'bots' ? (
-            <BotsView group={group} isAdmin={!readOnly} member />
-          ) : tab === 'repo' ? (
-            <RepoSettings group={group} isAdmin={!readOnly} />
-          ) : readOnly && tab === 'mcp' ? (
-            <GroupConfigView groupId={group.id} kind="mcp" />
-          ) : tab === 'mcp' ? (
-            <GroupMcpTab group={group} />
-          ) : tab === 'skill' ? (
-            <GroupSkillTab group={group} readOnly={readOnly} onClose={onClose} />
-          ) : tab === 'secrets' ? (
-            <GroupSecrets group={group} editable={!readOnly} />
-          ) : tab === 'webhooks' ? (
-            <WebhooksView group={group} readOnly={readOnly} />
-          ) : tab === 'plugins' ? (
-            <GroupPluginsTab group={group} readOnly={readOnly} />
-          ) : tab === 'feishu' ? (
-            <GroupFeishuTab group={group} />
-          ) : params ? (
-            <GroupBox>
-              {PARAMS.map((p) => (
-                <GroupRow key={p.key} label={p.label}>
-                  <Stepper
-                    aria-label={p.label}
-                    disabled={readOnly}
-                    min={1}
-                    max={p.max}
-                    width={80}
-                    value={params[p.key]}
-                    onChange={(v) => setParams({ ...params, [p.key]: v })}
-                  />
-                </GroupRow>
-              ))}
-            </GroupBox>
-          ) : (
-            <Spinner />
-          )}
+    <>
+      <Dialog
+        open
+        width={820}
+        title={`${activeLabel} · ${group.name}`}
+        closeOnBackdrop={!hasDirty}
+        onClose={requestClose}
+        footer={
+          <>
+            <span className="gs-desc">
+              {readOnly
+                ? t('仅群管理员可修改')
+                : activeTab === 'params'
+                  ? dirty
+                    ? t('有未保存的更改 · 保存后对新会话生效')
+                    : t('保存后对新会话生效')
+                  : ''}
+            </span>
+            <span className="spacer" />
+            {activeTab === 'params' && !readOnly ? (
+              <Button
+                variant="primary"
+                disabled={!parsed?.success}
+                loading={saving}
+                onClick={() => void save()}
+              >
+                {t('保存')}
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        <div className="gs-settings">
+          <nav className="gs-settings__nav">
+            <span className="gs-settings__heading">{dm ? t('私聊设置') : t('群设置')}</span>
+            {tabs.map((x) => (
+              <button
+                key={x.value}
+                type="button"
+                className={cx('gs-settings__tab', x.value === activeTab && 'gs-settings__tab--on')}
+                aria-current={x.value === activeTab ? 'page' : undefined}
+                ref={x.value === activeTab ? revealTab : undefined}
+                onClick={() => selectTab(x.value)}
+              >
+                <Icon name={x.icon} size={15} />
+                {x.label}
+              </button>
+            ))}
+          </nav>
+          <div key={activeTab} className="gs-settings__body">
+            {activeTab === 'basic' ? (
+              <BasicTab group={group} readOnly={readOnly} onDirtyChange={setTabDirty} />
+            ) : activeTab === 'members' ? (
+              <MembersTab group={group} readOnly={readOnly} />
+            ) : activeTab === 'bots' ? (
+              <BotsView group={group} isAdmin={!readOnly} member />
+            ) : activeTab === 'repo' ? (
+              <RepoSettings group={group} isAdmin={!readOnly} />
+            ) : readOnly && activeTab === 'mcp' ? (
+              <GroupConfigView groupId={group.id} kind="mcp" />
+            ) : activeTab === 'mcp' ? (
+              <GroupMcpTab group={group} onDirtyChange={setTabDirty} />
+            ) : activeTab === 'skill' ? (
+              <GroupSkillTab group={group} readOnly={readOnly} onClose={onClose} />
+            ) : activeTab === 'secrets' ? (
+              <GroupSecrets group={group} editable={!readOnly} />
+            ) : activeTab === 'webhooks' ? (
+              <WebhooksView group={group} readOnly={readOnly} />
+            ) : activeTab === 'plugins' ? (
+              <GroupPluginsTab group={group} readOnly={readOnly} />
+            ) : !readOnly && activeTab === 'feishu' ? (
+              <GroupFeishuTab group={group} />
+            ) : params ? (
+              <GroupBox>
+                {PARAMS.map((p) => (
+                  <GroupRow key={p.key} label={p.label}>
+                    <Stepper
+                      aria-label={p.label}
+                      disabled={readOnly}
+                      min={1}
+                      max={p.max}
+                      width={80}
+                      value={params[p.key]}
+                      onChange={(v) => setParams({ ...params, [p.key]: v })}
+                    />
+                  </GroupRow>
+                ))}
+              </GroupBox>
+            ) : paramsError ? (
+              <Alert variant="error" title={t('群级参数加载失败')} description={paramsError}>
+                <div className="gs-retry">
+                  <Button size="small" onClick={loadParams}>
+                    {t('重试')}
+                  </Button>
+                </div>
+              </Alert>
+            ) : (
+              <Spinner />
+            )}
+          </div>
         </div>
-      </div>
-    </Dialog>
+      </Dialog>
+      <AlertDialog
+        open={!!pendingAction}
+        title={t('有未保存的更改，确定放弃？')}
+        message={t('放弃后未保存的修改将不会保留。')}
+        onClose={() => setPendingAction(null)}
+        actions={[
+          { label: t('继续编辑'), onClick: () => setPendingAction(null) },
+          { label: t('放弃更改'), variant: 'destructive', onClick: confirmDiscard },
+        ]}
+      />
+    </>
   )
 }
 
-function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
+function BasicTab({
+  group,
+  readOnly,
+  onDirtyChange,
+}: {
+  group: GroupDto
+  readOnly: boolean
+  onDirtyChange?: (dirty: boolean) => void
+}) {
   const me = useSession((s) => s.user)
   const dm = group.kind === 'dm'
   const [name, setName] = useState(group.name)
   const [saving, setSaving] = useState(false)
   const changed = !!name.trim() && name.trim() !== group.name
+  const dirty = !readOnly && changed
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
   const save = async () => {
     if (!changed || saving) return
     setSaving(true)
@@ -428,12 +521,18 @@ function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean })
 }
 
 /** 群设置 · MCP: the group layer, overriding same-named team and platform servers (plan D8). */
-function GroupMcpTab({ group }: { group: GroupDto }) {
+function GroupMcpTab({
+  group,
+  onDirtyChange,
+}: {
+  group: GroupDto
+  onDirtyChange?: (dirty: boolean) => void
+}) {
   const layer = useMcpLayer(`/groups/${group.id}/mcp`)
   return (
     <>
       <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
-      <McpLayerList layer={layer} tag={t('群层')} />
+      <McpLayerList layer={layer} tag={t('群层')} onDirtyChange={onDirtyChange} />
       <McpSaved force={layer.savedForce} />
       <InheritedMcpList groupId={group.id} />
     </>

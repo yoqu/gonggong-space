@@ -326,4 +326,7 @@ export default {
   '收起已完成（{n} 项）': 'Collapse completed ({n})',
   收起其余项: 'Collapse remaining',
   '去绑定 ›': 'Bind now ›',
+  改为建群: 'Create group instead',
+  '将以群聊方式创建，之后可随时加人': 'Will be created as a group; more members can be added later',
+  改回私聊: 'Switch back to DM',
 } satisfies Record<string, string>

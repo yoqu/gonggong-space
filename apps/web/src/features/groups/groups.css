@@ -55,6 +55,9 @@
   font-size: var(--text-callout-size);
   color: var(--tint-red-text);
 }
+.gs-retry {
+  margin-top: var(--space-8);
+}
 .gs-note {
   font-size: var(--text-callout-size);
   color: var(--label-secondary);
@@ -215,11 +218,15 @@
 /* Settings dialog: a flush sidebar of sections and the GroupBox content */
 .gs-settings {
   display: flex;
-  min-height: 420px;
+  flex: 1;
+  min-height: 0;
   margin: calc(var(--space-4) * -1) 0;
 }
 /* The nav runs edge to edge: the body spans the panel width instead of bleeding past its own scroll box. */
 .ui-dialog__body:has(> .gs-settings) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   margin-inline: calc(var(--space-20) * -1);
   padding-inline: 0;
 }
@@ -230,6 +237,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-12) var(--space-8);
+  overflow-y: auto;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--separator);
 }
@@ -275,6 +283,8 @@
 .gs-settings__body {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -312,9 +322,11 @@
   /* One swipeable row instead of three wrapped ones. */
   .gs-settings__nav {
     width: auto;
+    flex: none;
     flex-direction: row;
     padding-inline: var(--space-12);
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
     scroll-padding-inline: var(--space-12);
@@ -334,12 +346,42 @@
   }
   .gs-settings__tab {
     flex: none;
+    min-height: 36px;
+    height: auto;
   }
   .gs-settings__body {
     padding: var(--space-12) var(--space-16);
   }
   .gs-settings__heading {
     display: none;
+  }
+  .gs-settings__body .ui-group__row {
+    flex-wrap: wrap;
+    row-gap: var(--space-8);
+  }
+  .gs-settings__body .ui-group__row > .ui-group__text {
+    min-width: 0;
+  }
+  .gs-settings__body .ui-group__text > :first-child {
+    white-space: normal;
+  }
+  .gs-settings__body .gs-value-line {
+    flex-wrap: wrap;
+  }
+  .gs-member,
+  .gs-row {
+    flex-wrap: wrap;
+  }
+  .gs-member__ops,
+  .gs-row__ops {
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+}
+@media (pointer: coarse) {
+  .gs-settings__tab {
+    min-height: 36px;
+    height: auto;
   }
 }
 

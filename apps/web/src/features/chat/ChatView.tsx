@@ -783,7 +783,7 @@ export function ChatView({
                         type="button"
                         className="pn-chathead__link chat-view__topic"
                         title={group.notice}
-                        onClick={() => inspect('group-info', 'main')}
+                        onClick={() => inspect('group-info', 'notices')}
                       >
                         {topic}
                       </button>

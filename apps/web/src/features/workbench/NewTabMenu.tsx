@@ -91,13 +91,13 @@ export function NewTabMenu({
       machine.features.includes(TERMINAL_FEATURE)
     )
   })
+  const canAddGroupTab = !!group && group.kind !== 'dm'
   const items: MenuItem[] = [
     { label: t('打开网页…'), value: 'link', icon: 'globe' },
-    ...(group
-      ? [{ label: t('添加群标签…'), value: 'group-tab', icon: 'tag' as const }, { separator: true as const }]
-      : []),
+    ...(canAddGroupTab ? [{ label: t('添加群标签…'), value: 'group-tab', icon: 'tag' as const }] : []),
     ...(bots.length
       ? [
+          { separator: true as const },
           { header: t('浏览文件') },
           ...bots.map((b) => ({ label: b.name, value: `files:${b.id}`, icon: 'folder' as const })),
         ]
@@ -161,9 +161,9 @@ export function NewTabMenu({
       >
         {children}
       </MenuButton>
+      <Presence>{linking ? <OpenLinkDialog onClose={() => setLinking(false)} /> : null}</Presence>
       <Presence>
-        {linking ? <OpenLinkDialog onClose={() => setLinking(false)} /> : null}
-        {addingGroupTab && group ? (
+        {addingGroupTab && group && group.kind !== 'dm' ? (
           <AddTabDialog group={group} onClose={() => setAddingGroupTab(false)} />
         ) : null}
       </Presence>

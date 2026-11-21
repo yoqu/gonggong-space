@@ -104,6 +104,35 @@
   white-space: nowrap;
   color: var(--label-secondary);
 }
+.pn-pinned__btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pn-pinned__btn:hover {
+  color: var(--label);
+}
+.pn-pinned__expanded {
+  --enter-y: -4px;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-8) var(--space-12);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-menu);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-menu);
+  color: var(--label);
+  font-size: var(--text-callout-size);
+  line-height: var(--text-callout-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
 .pn-pinned__close {
   appearance: none;
   border: 0;

@@ -173,4 +173,6 @@ export default {
   '选中的 Bot': 'selected Bot',
   '检查：{n} 项未完成': 'Checks: {n} remaining',
   '检查：可以开始': 'Checks: Ready',
+  插件加载失败: 'Failed to load plugins',
+  还没有可用插件: 'No plugins available yet',
 }

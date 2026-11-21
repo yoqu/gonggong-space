@@ -1,4 +1,4 @@
-import type { FeishuChatChoicesDto, GroupFromFeishuDto } from '@gonggong/protocol'
+import type { FeishuChatChoicesDto, FeishuIdentityView, GroupFromFeishuDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
@@ -18,8 +18,10 @@ import {
   Spinner,
   toast,
 } from '../../ui'
+import { useSettings } from '../settings/store'
 import '../groups/groups.css'
 import { chatListNote, FeishuLoadError, FeishuUnavailableNote } from './GroupFeishuTab'
+import './feishu.css'
 
 /**
  * 从飞书群创建: a group of the current team bound to a Feishu chat the main app and I are in, with its users who
@@ -27,7 +29,9 @@ import { chatListNote, FeishuLoadError, FeishuUnavailableNote } from './GroupFei
  * `chatId` preselects the chat (the link on the main app's card).
  */
 export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: string; onClose: () => void }) {
-  const { data, error, reload } = useGet<FeishuChatChoicesDto>('/feishu/chats')
+  const chatsQ = useGet<FeishuChatChoicesDto>('/feishu/chats')
+  const feishuMe = useGet<FeishuIdentityView>('/me/feishu')
+  const { data, error, loading, reload } = chatsQ
   const navigate = useNavigate()
   const me = useSession((s) => s.user)
   const groups = useWorkspace((s) => s.groups)
@@ -37,6 +41,7 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
   const [groupId, setGroupId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const chats = data?.chats ?? []
+  const unlinked = !!feishuMe.data && !feishuMe.data.identity
   const linkable = groups.filter(
     (g) => g.kind === 'group' && !g.feishu && g.members.some((m) => m.userId === me?.id && m.isAdmin),
   )
@@ -100,16 +105,22 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
       footer={
         <>
           <Button onClick={onClose}>{t('取消')}</Button>
-          {mode === 'create' ? (
+          {!data?.available || unlinked ? null : mode === 'create' ? (
             <Button
               variant="primary"
               disabled={!chatId || !name.trim() || creating}
+              loading={creating}
               onClick={() => void submit()}
             >
               {t('创建')}
             </Button>
           ) : (
-            <Button variant="primary" disabled={!chatId || !groupId || creating} onClick={() => void link()}>
+            <Button
+              variant="primary"
+              disabled={!chatId || !groupId || creating}
+              loading={creating}
+              onClick={() => void link()}
+            >
               {t('关联')}
             </Button>
           )}
@@ -118,14 +129,38 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
     >
       {!data ? (
         error ? (
-          <FeishuLoadError error={error} onRetry={reload} />
+          <FeishuLoadError error={error} loading={loading} onRetry={reload} />
         ) : (
           <Spinner />
         )
       ) : !data.available ? (
         <FeishuUnavailableNote />
+      ) : unlinked ? (
+        <>
+          {error ? <FeishuLoadError error={error} loading={loading} onRetry={reload} /> : null}
+          <GroupBox>
+            <GroupRow
+              className="feishu-creds"
+              label={t('绑定你的飞书账号')}
+              description={t('先绑定你的飞书账号，共工才能列出你所在的飞书群')}
+            >
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    onClose()
+                    useSettings.getState().open('account')
+                  }}
+                >
+                  {t('去绑定飞书账号')}
+                </Button>
+              </div>
+            </GroupRow>
+          </GroupBox>
+        </>
       ) : (
         <>
+          {error ? <FeishuLoadError error={error} loading={loading} onRetry={reload} /> : null}
           <SegmentedControl
             aria-label={t('接入方式')}
             value={mode}
@@ -136,16 +171,24 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
             ]}
           />
           <GroupBox>
-            <GroupRow label={t('飞书群')} description={t('列出机器人和你都在、尚未关联的飞书群')}>
-              <Button onClick={reload}>{t('刷新')}</Button>
-              <PopUpButton
-                aria-label={t('飞书群')}
-                placeholder={chats.length ? t('选择飞书群') : t('没有可关联的飞书群')}
-                disabled={!chats.length}
-                value={chatId}
-                options={chats.map((c) => ({ value: c.chatId, label: c.name }))}
-                onChange={pick}
-              />
+            <GroupRow
+              className="feishu-creds"
+              label={t('飞书群')}
+              description={t('列出机器人和你都在、尚未关联的飞书群')}
+            >
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                <Button loading={loading} onClick={reload}>
+                  {t('刷新')}
+                </Button>
+                <PopUpButton
+                  aria-label={t('飞书群')}
+                  placeholder={chats.length ? t('选择飞书群') : t('没有可关联的飞书群')}
+                  disabled={!chats.length}
+                  value={chatId}
+                  options={chats.map((c) => ({ value: c.chatId, label: c.name }))}
+                  onChange={pick}
+                />
+              </div>
             </GroupRow>
             {mode === 'create' ? (
               <GroupRow label={t('名称')}>
@@ -157,15 +200,21 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
                 />
               </GroupRow>
             ) : (
-              <GroupRow label={t('共工群')} description={t('你是群管理员、还没关联飞书群的群')}>
-                <PopUpButton
-                  aria-label={t('共工群')}
-                  placeholder={linkable.length ? t('选择共工群') : t('没有可关联的共工群')}
-                  disabled={!linkable.length}
-                  value={groupId}
-                  options={linkable.map((g) => ({ value: g.id, label: g.name }))}
-                  onChange={setGroupId}
-                />
+              <GroupRow
+                className="feishu-creds"
+                label={t('共工群')}
+                description={t('你是群管理员、还没关联飞书群的群')}
+              >
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                  <PopUpButton
+                    aria-label={t('共工群')}
+                    placeholder={linkable.length ? t('选择共工群') : t('没有可关联的共工群')}
+                    disabled={!linkable.length}
+                    value={groupId}
+                    options={linkable.map((g) => ({ value: g.id, label: g.name }))}
+                    onChange={setGroupId}
+                  />
+                </div>
               </GroupRow>
             )}
           </GroupBox>

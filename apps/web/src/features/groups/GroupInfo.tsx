@@ -19,6 +19,7 @@ import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  AlertDialog,
   Avatar,
   Button,
   ChatInfoBody,
@@ -99,7 +100,7 @@ function LoadError({ text, onRetry }: { text: string; onRetry: () => void }) {
   )
 }
 
-/** Confirms a removal; the action button stays disabled while the request is in flight. */
+/** Confirms a removal; the dialog stays locked while the request is in flight. */
 function ConfirmRemove({
   title,
   desc,
@@ -112,7 +113,11 @@ function ConfirmRemove({
   onClose: () => void
 }) {
   const [busy, setBusy] = useState(false)
+  const close = () => {
+    if (!busy) onClose()
+  }
   const run = async () => {
+    if (busy) return
     setBusy(true)
     if (await onConfirm()) onClose()
     else setBusy(false)
@@ -122,10 +127,13 @@ function ConfirmRemove({
       open
       title={title}
       width={400}
-      onClose={onClose}
+      closeOnBackdrop={false}
+      onClose={close}
       footer={
         <>
-          <Button onClick={onClose}>{t('取消')}</Button>
+          <Button disabled={busy} onClick={close}>
+            {t('取消')}
+          </Button>
           <Button variant="destructive" loading={busy} onClick={() => void run()}>
             {t('移出')}
           </Button>
@@ -246,14 +254,7 @@ function MainView({
   const [paramsFailed, setParamsFailed] = useState(false)
   const [pending, setPending] = useState<GroupPrefs | null>(null)
   const [confirm, setConfirm] = useState<'leave' | 'dissolve' | null>(null)
-  // A double click must not arm and confirm at once: the armed row takes clicks only after a beat.
-  const [settled, setSettled] = useState(false)
-  useEffect(() => {
-    setSettled(false)
-    if (!confirm) return
-    const id = setTimeout(() => setSettled(true), CONFIRM_DELAY_MS)
-    return () => clearTimeout(id)
-  }, [confirm])
+  const [busy, setBusy] = useState(false)
   const sync = useSyncStatus(group)
   const dm = group.kind === 'dm'
   const admins = group.members.filter((m) => m.isAdmin)
@@ -287,23 +288,24 @@ function MainView({
     ),
   })
 
+  const closeConfirm = () => {
+    if (!busy) setConfirm(null)
+  }
   const gone = async (fn: () => Promise<unknown>, message: string) => {
-    if (await attempt(fn)) {
+    if (busy) return
+    setBusy(true)
+    const ok = await attempt(fn)
+    setBusy(false)
+    if (ok) {
+      setConfirm(null)
       onClose()
       navigate('/')
       toast({ type: 'success', message })
     }
   }
-  const leave = () => {
-    if (confirm !== 'leave') return setConfirm('leave')
-    if (!settled) return
-    if (onlyAdmin) return setView('members')
-    void gone(() => groupsApi.leave(group.id), t('已退出群'))
-  }
-  const dissolve = () => {
-    if (confirm !== 'dissolve') return setConfirm('dissolve')
-    if (!settled) return
-    void gone(() => groupsApi.dissolve(group.id), dm ? t('已删除私聊') : t('群已解散'))
+  const confirmAction = () => {
+    if (confirm === 'leave') void gone(() => groupsApi.leave(group.id), t('已退出群'))
+    else void gone(() => groupsApi.dissolve(group.id), dm ? t('已删除私聊') : t('群已解散'))
   }
 
   /** The settings dialog, read-only for plain members. */
@@ -313,195 +315,212 @@ function MainView({
     onClick: () => onSettings(tab),
   })
   const danger: ChatInfoDanger[] = [
-    ...(canLeave
-      ? [
-          {
-            label: confirm === 'leave' && !onlyAdmin ? t('确认退出') : t('退出群'),
-            armed: confirm === 'leave' && !onlyAdmin,
-            settling: confirm === 'leave' && !settled,
-            onClick: leave,
-            note:
-              confirm === 'leave'
-                ? onlyAdmin
-                  ? t('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')
-                  : t('退出后你的 Bot 会一并移出本群，运行中的任务会直接中断。再次点击确认。')
-                : undefined,
-          },
-        ]
-      : []),
-    ...(isAdmin
-      ? [
-          {
-            label: dm
-              ? confirm === 'dissolve'
-                ? t('确认删除')
-                : t('删除私聊')
-              : confirm === 'dissolve'
-                ? t('确认解散')
-                : t('解散群'),
-            armed: confirm === 'dissolve',
-            settling: confirm === 'dissolve' && !settled,
-            onClick: dissolve,
-            note:
-              confirm === 'dissolve'
-                ? dm
-                  ? t(
-                      '删除后消息与审计记录保留；Bot 的托管工作区保留在本机，由你决定是否删除。再次点击确认。',
-                    )
-                  : t(
-                      '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。再次点击确认。',
-                    )
-                : undefined,
-          },
-        ]
-      : []),
+    ...(canLeave ? [{ label: t('退出群'), onClick: () => setConfirm('leave') }] : []),
+    ...(isAdmin ? [{ label: dm ? t('删除私聊') : t('解散群'), onClick: () => setConfirm('dissolve') }] : []),
   ]
 
   return (
-    <ChatInfoBody
-      avatar={<GroupAvatar group={group} size={56} />}
-      name={group.name}
-      tags={[
-        ...(dm
-          ? []
-          : [
-              group.visibility === 'public'
-                ? { label: t('公开频道'), tone: 'blue' as const }
-                : { label: t('私有群'), tone: 'gray' as const },
-            ]),
-        { label: GROUP_MODE_LABEL[group.mode], tone: 'gray' },
-      ]}
-      description={
-        group.repo ? `${group.repo.url} · ${group.repo.branch}` : t('未绑定仓库 · 各 Bot 使用本机目录')
-      }
-      shortcuts={[
-        ...(dm ? [] : [{ icon: 'person-2' as const, label: t('成员'), onClick: () => setView('members') }]),
-        ...(isAdmin && !dm
-          ? [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]
-          : []),
-        { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
-      ]}
-      members={dm ? [] : group.members.map((m) => ({ name: m.name }))}
-      memberCount={group.members.length}
-      onAddMember={canInvite ? () => setView('members', true) : undefined}
-      onShowAllMembers={() => setView('members')}
-      settings={[
-        {
-          rows: [
-            {
-              label: 'Bot',
-              description: (
-                <span className="gs-chips">
-                  {gBots.map((b) => (
-                    <span key={b.id} className="gs-chip">
-                      <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
-                      <span className="gs-chip__name">{b.name}</span>
-                    </span>
-                  ))}
-                </span>
+    <>
+      <ChatInfoBody
+        avatar={<GroupAvatar group={group} size={56} />}
+        name={group.name}
+        tags={[
+          ...(dm
+            ? []
+            : [
+                group.visibility === 'public'
+                  ? { label: t('公开频道'), tone: 'blue' as const }
+                  : { label: t('私有群'), tone: 'gray' as const },
+              ]),
+          { label: GROUP_MODE_LABEL[group.mode], tone: 'gray' },
+        ]}
+        description={
+          group.repo ? `${group.repo.url} · ${group.repo.branch}` : t('未绑定仓库 · 各 Bot 使用本机目录')
+        }
+        shortcuts={[
+          ...(dm ? [] : [{ icon: 'person-2' as const, label: t('成员'), onClick: () => setView('members') }]),
+          ...(isAdmin && !dm
+            ? [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]
+            : []),
+          { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
+        ]}
+        members={dm ? [] : group.members.map((m) => ({ name: m.name }))}
+        memberCount={group.members.length}
+        onAddMember={canInvite ? () => setView('members', true) : undefined}
+        onShowAllMembers={() => setView('members')}
+        settings={[
+          {
+            rows: [
+              {
+                label: 'Bot',
+                description: (
+                  <span className="gs-chips">
+                    {gBots.map((b) => (
+                      <span key={b.id} className="gs-chip">
+                        <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
+                        <span className="gs-chip__name">{b.name}</span>
+                      </span>
+                    ))}
+                  </span>
+                ),
+                value: t('{n} 个', { n: group.botIds.length }),
+                onClick: () => setView('bots'),
+              },
+              ...(group.mode === 'force'
+                ? [
+                    {
+                      label: t('同步状态'),
+                      value: sync
+                        ? `v${sync.headVersion} · ${t('{a}/{b} 一致', { a: sync.consistent, b: sync.total })}`
+                        : undefined,
+                      onClick: () => openSyncPanel(group.id),
+                    },
+                  ]
+                : []),
+              {
+                label: t('在线预览'),
+                value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
+                onClick: () => setView('previews'),
+              },
+              {
+                label: t('定时任务'),
+                value: schedules ? t('{n} 个', { n: schedules.length }) : undefined,
+                onClick: () => setView('schedules'),
+              },
+              { label: t('知识库#kb'), onClick: () => setView('knowledge') },
+              ...(dm
+                ? []
+                : [
+                    {
+                      label: t('群公告'),
+                      description: group.notice ? (
+                        <span className="pn-info__rowdesc--clamp" title={group.notice}>
+                          {group.notice}
+                        </span>
+                      ) : undefined,
+                      value: group.noticeHidden ? t('已隐藏') : group.notice ? undefined : t('暂无'),
+                      onClick: () => setView('notices'),
+                    },
+                  ]),
+            ],
+          },
+          {
+            rows: [
+              {
+                label: t('通知'),
+                control: (
+                  <Select
+                    label={t('通知')}
+                    options={NOTIFY_LEVELS}
+                    value={group.notifyLevel}
+                    onChange={(notifyLevel) => void attempt(() => groupsApi.prefs(group.id, { notifyLevel }))}
+                  />
+                ),
+              },
+              pref('pinned', t('星标')),
+              pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
+            ],
+          },
+          {
+            title: dm ? t('设置') : t('群管理'),
+            note: dm
+              ? undefined
+              : isAdmin
+                ? t('你是群管理员')
+                : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
+            rows: [
+              manage(dm ? t('私聊名称') : t('基本信息'), group.name, 'basic'),
+              ...(dm
+                ? []
+                : [
+                    manage(
+                      t('成员'),
+                      group.adminOnlyInvite ? t('仅群管理员可拉人') : t('所有成员可拉人'),
+                      'members',
+                    ),
+                  ]),
+              manage(
+                t('仓库与同步'),
+                <>
+                  <span className={group.repo ? 'gs-mono' : undefined}>
+                    {group.repo ? repoPath(group.repo.url) : t('未绑定仓库')}
+                  </span>
+                  {` · ${GROUP_MODE_LABEL[group.mode]}`}
+                </>,
+                'repo',
               ),
-              value: t('{n} 个', { n: group.botIds.length }),
-              onClick: () => setView('bots'),
-            },
-            ...(group.mode === 'force'
-              ? [
-                  {
-                    label: t('同步状态'),
-                    value: sync
-                      ? `v${sync.headVersion} · ${t('{a}/{b} 一致', { a: sync.consistent, b: sync.total })}`
-                      : undefined,
-                    onClick: () => openSyncPanel(group.id),
-                  },
-                ]
-              : []),
-            {
-              label: t('在线预览'),
-              value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
-              onClick: () => setView('previews'),
-            },
-            {
-              label: t('定时任务'),
-              value: schedules ? t('{n} 个', { n: schedules.length }) : undefined,
-              onClick: () => setView('schedules'),
-            },
-            { label: t('知识库#kb'), onClick: () => setView('knowledge') },
-            ...(dm
-              ? []
-              : [
-                  {
-                    label: t('群公告'),
-                    description: group.notice || undefined,
-                    value: group.noticeHidden ? t('已隐藏') : group.notice ? undefined : t('暂无'),
-                    onClick: () => setView('notices'),
-                  },
-                ]),
-          ],
-        },
-        {
-          rows: [
-            {
-              label: t('通知'),
-              control: (
-                <Select
-                  label={t('通知')}
-                  options={NOTIFY_LEVELS}
-                  value={group.notifyLevel}
-                  onChange={(notifyLevel) => void attempt(() => groupsApi.prefs(group.id, { notifyLevel }))}
-                />
-              ),
-            },
-            pref('pinned', t('星标')),
-            pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
-          ],
-        },
-        {
-          title: dm ? t('设置') : t('群管理'),
-          note: dm
-            ? undefined
-            : isAdmin
-              ? t('你是群管理员')
-              : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
-          rows: [
-            manage(dm ? t('私聊名称') : t('基本信息'), group.name, 'basic'),
-            ...(dm
-              ? []
-              : [
-                  manage(
-                    t('成员'),
-                    group.adminOnlyInvite ? t('仅群管理员可拉人') : t('所有成员可拉人'),
-                    'members',
-                  ),
-                ]),
-            manage(
-              t('仓库与同步'),
-              <>
-                <span className={group.repo ? 'gs-mono' : undefined}>
-                  {group.repo ? repoPath(group.repo.url) : t('未绑定仓库')}
-                </span>
-                {` · ${GROUP_MODE_LABEL[group.mode]}`}
-              </>,
-              'repo',
-            ),
-            paramsFailed
-              ? {
-                  label: t('群级参数'),
-                  value: <LoadError text={t('群级参数加载失败')} onRetry={loadParams} />,
-                }
-              : manage(t('群级参数'), params ? paramsSummary(params) : '', 'params'),
-            ...(dm
-              ? []
-              : [
-                  manage('MCP', undefined, 'mcp'),
-                  manage('Skill', undefined, 'skill'),
-                  manage(t('密钥'), undefined, 'secrets'),
-                  manage('Webhook', undefined, 'webhooks'),
-                  ...(isAdmin ? [manage(t('飞书'), undefined, 'feishu')] : []),
-                ]),
-          ],
-        },
-      ]}
-      danger={danger}
-    />
+              paramsFailed
+                ? {
+                    label: t('群级参数'),
+                    value: <LoadError text={t('群级参数加载失败')} onRetry={loadParams} />,
+                  }
+                : manage(t('群级参数'), params ? paramsSummary(params) : '', 'params'),
+              ...(dm
+                ? []
+                : [
+                    manage('MCP', undefined, 'mcp'),
+                    manage('Skill', undefined, 'skill'),
+                    manage(t('密钥'), undefined, 'secrets'),
+                    manage('Webhook', undefined, 'webhooks'),
+                    ...(isAdmin ? [manage(t('飞书'), undefined, 'feishu')] : []),
+                  ]),
+            ],
+          },
+        ]}
+        danger={danger}
+      />
+      <Presence>
+        {confirm ? (
+          <AlertDialog
+            open
+            title={
+              confirm === 'leave'
+                ? onlyAdmin
+                  ? t('先指定其他群管理员')
+                  : t('退出群「{name}」？', { name: group.name })
+                : dm
+                  ? t('删除私聊「{name}」？', { name: group.name })
+                  : t('解散群「{name}」？', { name: group.name })
+            }
+            message={
+              confirm === 'leave'
+                ? onlyAdmin
+                  ? t('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')
+                  : t('退出后你的 Bot 会一并移出本群，运行中的任务会直接中断。')
+                : dm
+                  ? t('删除后消息与审计记录保留；Bot 的托管工作区保留在本机，由你决定是否删除。')
+                  : t(
+                      '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。',
+                    )
+            }
+            onClose={closeConfirm}
+            actions={
+              confirm === 'leave' && onlyAdmin
+                ? [
+                    { label: t('取消'), onClick: closeConfirm },
+                    {
+                      label: t('前往群成员'),
+                      variant: 'primary',
+                      onClick: () => {
+                        setConfirm(null)
+                        setView('members')
+                      },
+                    },
+                  ]
+                : [
+                    { label: t('取消'), disabled: busy, onClick: closeConfirm },
+                    {
+                      label: confirm === 'leave' ? t('退出群') : dm ? t('删除私聊') : t('解散群'),
+                      variant: 'destructive',
+                      disabled: busy,
+                      onClick: confirmAction,
+                    },
+                  ]
+            }
+          />
+        ) : null}
+      </Presence>
+    </>
   )
 }
 
@@ -554,13 +573,14 @@ export function MembersView({
             placement="bottom-end"
             trigger={<Button size="small">{t('添加成员')}</Button>}
             users={candidates}
+            loading={!usersQ.data && !usersQ.error}
             defaultOpen={initialAdding}
             onOpen={() => (wanted ? usersQ.reload() : setWanted(true))}
             onAdd={(ids) => void add(ids)}
             status={
               usersQ.error ? (
                 <LoadError text={t('成员列表加载失败')} onRetry={usersQ.reload} />
-              ) : users.length ? (
+              ) : usersQ.data && !candidates.length ? (
                 <span className="pick__empty">{t('所有账号都已在群里')}</span>
               ) : undefined
             }
@@ -774,13 +794,14 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
                 <ShareRequestAction bot={b} />
                 {items.length ? (
                   <MenuButton
-                    className="ui-btn ui-btn--plain ui-btn--small"
+                    portal
+                    className="ui-btn ui-btn--ghost ui-btn--small ui-btn--icon ui-icon-btn"
                     aria-label={t('{name} 的更多操作', { name: b.name })}
                     align="end"
                     items={items}
                     onSelect={(v) => act(b, v)}
                   >
-                    <Icon name="more" size={15} />
+                    <Icon name="more" size={15} weight={2.4} />
                   </MenuButton>
                 ) : null}
               </div>
@@ -894,7 +915,6 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
 }
 
 const FOLLOW = 'follow'
-const CONFIRM_DELAY_MS = 400
 const TIER_PREFIX = 'tier:'
 
 function NoticeForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }) {

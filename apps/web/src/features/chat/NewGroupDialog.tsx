@@ -86,11 +86,13 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
   const [name, setName] = useState('')
   const [isPublic, setPublic] = useState(false)
   const [nameTouched, setNameTouched] = useState(false)
+  const [forceGroup, setForceGroup] = useState(false)
   const [botIds, setBotIds] = useState<string[]>([])
   const [people, setPeople] = useState<string[]>([])
   const [repo, setRepo] = useState<RepoDraft>(() => emptyRepo())
   const [creating, setCreating] = useState(false)
-  const users = useGet<UserBriefDto[]>('/users').data ?? []
+  const usersQ = useGet<UserBriefDto[]>('/users')
+  const users = usersQ.data ?? []
   // The Feishu chat is owned by its creator, so it needs their linked Feishu account.
   const feishuId = useGet<FeishuIdentityView>(feishu ? '/me/feishu' : null).data
   const [withFeishu, setWithFeishu] = useState(false)
@@ -101,12 +103,20 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
   }
 
   const picked = botIds.map((id) => allBots.find((b) => b.id === id)).filter((b): b is BotDto => !!b)
-  const owners = [...new Set(picked.filter((b) => b.ownerId !== me.id).map((b) => b.ownerId))]
-  const manual = people.filter((id) => !owners.includes(id))
   const only = picked.length === 1 ? picked[0] : undefined
-  // A DM is me and one Bot I may chat with privately; it can never take more members.
-  const dm = !!only && (only.ownerId === me.id || only.sharedWith.includes(me.id)) && !manual.length
+  // A DM is me and one Bot I may chat with privately; it never hijacks a group already being configured.
+  const canDm =
+    !!only &&
+    (only.ownerId === me.id || only.sharedWith.includes(me.id)) &&
+    !people.length &&
+    !nameTouched &&
+    !isPublic &&
+    !withFeishu
+  const dm = canDm && !forceGroup
   const kind: GroupKind = dm ? 'dm' : 'group'
+  // A DM with a shared bot leaves its owner out (server create.ts), so owners only join groups.
+  const owners = dm ? [] : [...new Set(picked.filter((b) => b.ownerId !== me.id).map((b) => b.ownerId))]
+  const manual = people.filter((id) => !owners.includes(id))
   const userName = (id: string) =>
     users.find((u) => u.id === id)?.name ?? allBots.find((b) => b.ownerId === id)?.ownerName ?? ''
 
@@ -286,7 +296,21 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
               onPick={(b) => setBotIds(toggle(botIds, b.id))}
             />
           </GroupBox>
-          {dm ? <p className="ng-hint">{t('将创建与它的私聊，之后不能再加人')}</p> : null}
+          {dm ? (
+            <p className="ng-hint ng-hint--row">
+              <span>{t('将创建与它的私聊，之后不能再加人')}</span>
+              <button type="button" className="ng-link" onClick={() => setForceGroup(true)}>
+                {t('改为建群')}
+              </button>
+            </p>
+          ) : forceGroup && canDm ? (
+            <p className="ng-hint ng-hint--row">
+              <span>{t('将以群聊方式创建，之后可随时加人')}</span>
+              <button type="button" className="ng-link" onClick={() => setForceGroup(false)}>
+                {t('改回私聊')}
+              </button>
+            </p>
+          ) : null}
         </section>
 
         <section className="ng-section">
@@ -328,6 +352,17 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
                 users={users.filter(
                   (u) => u.id !== me.id && !owners.includes(u.id) && !manual.includes(u.id),
                 )}
+                loading={!usersQ.data && !usersQ.error}
+                status={
+                  usersQ.error ? (
+                    <span className="ng-error">
+                      {t('成员列表加载失败')}
+                      <Button size="small" loading={usersQ.loading} onClick={usersQ.reload}>
+                        {t('重试')}
+                      </Button>
+                    </span>
+                  ) : undefined
+                }
                 onAdd={(ids) => setPeople([...people, ...ids])}
               />
             </fieldset>

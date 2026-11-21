@@ -526,16 +526,17 @@ export function Alert({
   icon?: ReactNode
   children?: ReactNode
 }) {
+  const inlineErrorIcon = variant === 'error' && !icon && !title && !children && !!description
+  const leadIcon =
+    icon ?? (variant === 'error' && !inlineErrorIcon ? <Icon name="warning" size={14} /> : null)
   return (
     <div role="alert" className={cx('ui-alert', `ui-alert--${variant}`)}>
-      {icon ? <span className="ui-alert__icon">{icon}</span> : null}
+      {leadIcon ? <span className="ui-alert__icon">{leadIcon}</span> : null}
       <div className="ui-alert__body">
         {title ? <h5 className="ui-alert__title">{title}</h5> : null}
         {description ? (
           <p className="ui-alert__desc">
-            {variant === 'error' && !title && !children ? (
-              <Icon name="warning" size={12} className="ui-alert__desc-icon" />
-            ) : null}
+            {inlineErrorIcon ? <Icon name="warning" size={12} className="ui-alert__desc-icon" /> : null}
             {description}
           </p>
         ) : null}

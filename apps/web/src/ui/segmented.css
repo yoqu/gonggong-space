@@ -73,4 +73,7 @@
   .ui-seg--small {
     height: 32px;
   }
+  .ui-seg {
+    min-height: 32px;
+  }
 }

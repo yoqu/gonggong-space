@@ -7,34 +7,57 @@ import type {
 } from '@gonggong/protocol'
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
-import { api } from '../../lib/api'
+import { ApiError, api, errorText } from '../../lib/api'
 import type { CreationDraft } from './model'
 
 /**
  * Each group's plugins (GET /groups/:id/plugins), loaded on first use. Empty while the master switch is off, and
- * also when the request fails (an older server): the chat then looks exactly as without plugins.
+ * also on 404 (an older server without the endpoint): the chat then looks exactly as without plugins.
  */
-export const usePluginStore = create<{ lists: Record<string, GroupPluginDto[]> }>()(() => ({ lists: {} }))
+export const usePluginStore = create<{
+  lists: Record<string, GroupPluginDto[]>
+  errors: Record<string, string | null>
+}>()(() => ({ lists: {}, errors: {} }))
 const loading = new Set<string>()
 
 export function loadPlugins(groupId: string) {
   if (loading.has(groupId)) return
   loading.add(groupId)
-  const done = (list: GroupPluginDto[]) =>
-    usePluginStore.setState((s) => ({ lists: { ...s.lists, [groupId]: list } }))
+  usePluginStore.setState((s) => ({ errors: { ...s.errors, [groupId]: null } }))
   api
     .get<GroupPluginDto[]>(`/groups/${groupId}/plugins`)
-    .then(done, () => done([]))
+    .then(
+      (list) =>
+        usePluginStore.setState((s) => ({
+          lists: { ...s.lists, [groupId]: list },
+          errors: { ...s.errors, [groupId]: null },
+        })),
+      (e) =>
+        usePluginStore.setState((s) =>
+          // Older servers lack this endpoint (404): degrade silently to an empty list.
+          e instanceof ApiError && e.status === 404
+            ? {
+                lists: { ...s.lists, [groupId]: [] },
+                errors: { ...s.errors, [groupId]: null },
+              }
+            : { errors: { ...s.errors, [groupId]: errorText(e) } },
+        ),
+    )
     .finally(() => loading.delete(groupId))
 }
 
 /** Undefined until loaded. */
 export function useGroupPlugins(groupId: string) {
   const list = usePluginStore((s) => s.lists[groupId])
+  const error = usePluginStore((s) => s.errors[groupId] ?? null)
   useEffect(() => {
-    if (!list) loadPlugins(groupId)
-  }, [groupId, list])
+    if (list === undefined && !error) loadPlugins(groupId)
+  }, [groupId, list, error])
   return list
+}
+
+export function useGroupPluginsError(groupId: string) {
+  return usePluginStore((s) => s.errors[groupId] ?? null)
 }
 
 /** Plugins turned on in the group. Reads what the chat view (useGroupPlugins) loaded. */

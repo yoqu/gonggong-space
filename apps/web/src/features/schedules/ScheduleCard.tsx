@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, Icon, Tag } from '../../ui'
+import { Button, ConfirmActionDialog, Icon, Presence, Tag } from '../../ui'
 import { useBotNames } from '../bots/model'
 import '../groups/groups.css'
 import { lastText, stateText } from './model'
@@ -26,7 +26,7 @@ export function ScheduleCard({
   const bots = useWorkspace((x) => x.bots)
   const groupBots = useWorkspace((x) => x.groups.find((g) => g.id === groupId)?.botIds) ?? []
   const names = useBotNames(s?.botIds ?? [])
-  const [confirming, setConfirming] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [editing, setEditing] = useState(false)
   if (!s)
     return (
@@ -71,18 +71,34 @@ export function ScheduleCard({
           <Button size="small" onClick={() => setEditing(true)}>
             {t('编辑')}
           </Button>
-          <Button
-            size="small"
-            variant={confirming ? 'destructive' : undefined}
-            onClick={() => (confirming ? void attempt(() => schedulesApi.remove(s)) : setConfirming(true))}
-          >
-            {confirming ? t('确认删除') : t('删除')}
+          <Button size="small" onClick={() => setConfirmDelete(true)}>
+            {t('删除')}
           </Button>
         </div>
       ) : null}
-      {editing ? (
-        <ScheduleDialog groupId={groupId} botIds={groupBots} schedule={s} onClose={() => setEditing(false)} />
-      ) : null}
+      <Presence>
+        {editing ? (
+          <ScheduleDialog
+            groupId={groupId}
+            botIds={groupBots}
+            schedule={s}
+            onClose={() => setEditing(false)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {confirmDelete ? (
+          <ConfirmActionDialog
+            title={t('删除定时任务「{name}」？', { name: s.name })}
+            message={t('删除后不再按计划执行，历史运行记录仍保留在聊天中。')}
+            consequences={[t('此操作不可恢复，后续触发计划将立即取消')]}
+            label={t('确认删除')}
+            done={t('已删除定时任务')}
+            run={() => schedulesApi.remove(s)}
+            onClose={() => setConfirmDelete(false)}
+          />
+        ) : null}
+      </Presence>
     </div>
   )
 }

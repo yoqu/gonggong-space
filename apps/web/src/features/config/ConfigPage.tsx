@@ -173,9 +173,21 @@ export function useMcpLayer(base: string) {
 type McpLayer = ReturnType<typeof useMcpLayer>
 
 /** The layer's servers with enable switches, the built-in row, the force option and 保存 (spec §7.4). */
-export function McpLayerList({ layer, tag }: { layer: McpLayer; tag: string }) {
+export function McpLayerList({
+  layer,
+  tag,
+  onDirtyChange,
+}: {
+  layer: McpLayer
+  tag: string
+  onDirtyChange?: (dirty: boolean) => void
+}) {
   const [adding, setAdding] = useState(false)
   const { items, edit } = layer
+  useEffect(() => {
+    onDirtyChange?.(layer.dirty)
+  }, [layer.dirty, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
   return (
     <>
       {layer.loadError ? (

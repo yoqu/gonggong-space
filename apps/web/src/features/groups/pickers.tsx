@@ -4,7 +4,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
-import { AgentIcon, Avatar, Button, Icon, type Placement, Popover, SearchField } from '../../ui'
+import { AgentIcon, Avatar, Button, Icon, type Placement, Popover, SearchField, Spinner } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { BINDING_LABEL, PRESENCE } from '../bots/model'
 import './pickers.css'
@@ -125,11 +125,12 @@ export function BotPicker({
 }
 
 /** Searchable checklist of users in a popover; 添加 hands over the ticked ones at once and closes. `status` replaces
- * the empty hint (e.g. a load error). */
+ * the empty hint when there are no candidates at all (e.g. a load error). */
 export function MemberPicker({
   trigger,
   users,
   onAdd,
+  loading,
   status,
   defaultOpen,
   onOpen,
@@ -139,6 +140,7 @@ export function MemberPicker({
   trigger: ReactElement
   users: UserBriefDto[]
   onAdd: (ids: string[]) => void
+  loading?: boolean
   status?: ReactNode
   defaultOpen?: boolean
   onOpen?: () => void
@@ -150,6 +152,18 @@ export function MemberPicker({
   const list = users.filter((u) => matchAny(q, u.name, u.account))
   // Candidates that left the list (added elsewhere meanwhile) are not handed over.
   const chosen = picked.filter((id) => users.some((u) => u.id === id))
+  const empty =
+    loading && !users.length ? (
+      <span className="pick__empty">
+        <Spinner />
+      </span>
+    ) : users.length ? (
+      <span className="pick__empty">{t('没有匹配的成员')}</span>
+    ) : status != null ? (
+      status
+    ) : (
+      <span className="pick__empty">{t('没有可添加的成员')}</span>
+    )
   return (
     <Popover
       portal
@@ -192,7 +206,7 @@ export function MemberPicker({
                 </button>
               )
             })}
-            {list.length ? null : (status ?? <span className="pick__empty">{t('没有可添加的成员')}</span>)}
+            {list.length ? null : empty}
           </div>
           <div className="pick__foot">
             <Button

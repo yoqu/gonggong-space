@@ -3,12 +3,12 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, EmptyState, GroupBox, NoSchedulesArt, Spinner, Switch, Tag } from '../../ui'
+import { Alert, Button, EmptyState, GroupBox, NoSchedulesArt, Presence, Spinner, Switch, Tag } from '../../ui'
 import { botsText, useBotNames } from '../bots/model'
 import '../groups/groups.css'
 import { lastText, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
-import { schedulesApi, timingText, useSchedules } from './store'
+import { reloadSchedules, schedulesApi, timingText, useSchedules, useSchedulesError } from './store'
 
 function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
   const bots = useWorkspace((x) => x.bots)
@@ -70,9 +70,22 @@ function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
 /** 群设置 · 定时任务: every member sees and creates them; the owner and group admins change them. */
 export function SchedulesView({ groupId }: { groupId: string }) {
   const list = useSchedules(groupId)
+  const error = useSchedulesError(groupId)
   const botIds = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.botIds) ?? []
   const [editing, setEditing] = useState<ScheduleDto | 'new' | null>(null)
-  if (!list) return <Spinner />
+  if (!list) {
+    if (error)
+      return (
+        <Alert variant="error" title={t('定时任务加载失败')} description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" onClick={() => reloadSchedules(groupId)}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      )
+    return <Spinner />
+  }
   return (
     <>
       {list.length ? (
@@ -110,14 +123,16 @@ export function SchedulesView({ groupId }: { groupId: string }) {
           }
         />
       )}
-      {editing ? (
-        <ScheduleDialog
-          groupId={groupId}
-          botIds={botIds}
-          schedule={editing === 'new' ? undefined : editing}
-          onClose={() => setEditing(null)}
-        />
-      ) : null}
+      <Presence>
+        {editing ? (
+          <ScheduleDialog
+            groupId={groupId}
+            botIds={botIds}
+            schedule={editing === 'new' ? undefined : editing}
+            onClose={() => setEditing(null)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

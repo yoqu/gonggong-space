@@ -173,13 +173,6 @@ function renderAt(path: string) {
   )
 }
 
-/** The armed danger row ignores clicks for a beat (no double-click confirming). */
-async function confirmDanger(d: HTMLElement, name: string) {
-  const btn = within(d).getByRole('button', { name })
-  await waitFor(() => expect(btn.getAttribute('aria-disabled')).toBeNull())
-  fireEvent.click(btn)
-}
-
 async function openDrawer() {
   const main = screen.getByRole('main')
   fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
@@ -635,26 +628,22 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '解散群' }))
-    expect(within(d).getByText(/解散后群归档，消息与审计记录保留/)).toBeTruthy()
-    await confirmDanger(d, '确认解散')
+    const dlg = await screen.findByRole('alertdialog', { name: '解散群「支付服务重构」？' })
+    expect(within(dlg).getByText(/解散后群归档，消息与审计记录保留/)).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '解散群' }))
     await waitFor(() => expect(screen.queryByTestId('group-item-g1')).toBeNull())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/dissolve')).toBe(true)
   })
 
-  it('arms dissolving in place: the row keeps focus, turns red, and a double click does not confirm', async () => {
+  it('lets dissolving be cancelled from the AlertDialog without sending a request', async () => {
     const calls = mockApi(routes([group()], { 'POST /groups/g1/dissolve': { ok: true } }))
     renderAt('/g/g1')
     const d = await openDrawer()
-    const row = within(d).getByRole('button', { name: '解散群' })
-    row.focus()
-    fireEvent.click(row)
-    fireEvent.click(row)
-    expect(row.textContent).toBe('确认解散')
-    expect(row.hasAttribute('data-armed')).toBe(true)
-    expect(document.activeElement).toBe(row)
+    fireEvent.click(within(d).getByRole('button', { name: '解散群' }))
+    const dlg = await screen.findByRole('alertdialog', { name: '解散群「支付服务重构」？' })
+    fireEvent.click(within(dlg).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(calls.some((c) => c.path === '/groups/g1/dissolve')).toBe(false)
-    await confirmDanger(d, '确认解散')
-    await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/dissolve')).toBe(true))
   })
 
   it('calls a DM deletion 删除私聊, offers no leaving', async () => {
@@ -673,7 +662,8 @@ describe('group settings inspector', () => {
     expect(within(d).queryByRole('region', { name: '群成员' })).toBeNull()
     expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
     fireEvent.click(within(d).getByRole('button', { name: '删除私聊' }))
-    expect(within(d).getByRole('button', { name: '确认删除' })).toBeTruthy()
+    const dlg = await screen.findByRole('alertdialog', { name: '删除私聊「小王的 Claude」？' })
+    expect(within(dlg).getByRole('button', { name: '删除私聊' })).toBeTruthy()
   })
 
   it('renames a DM without a notice', async () => {
@@ -721,8 +711,9 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
-    expect(within(d).getByText(/退出后你的 Bot 会一并移出本群/)).toBeTruthy()
-    await confirmDanger(d, '确认退出')
+    const dlg = await screen.findByRole('alertdialog', { name: '退出群「支付服务重构」？' })
+    expect(within(dlg).getByText(/退出后你的 Bot 会一并移出本群/)).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '退出群' }))
     await waitFor(() => expect(screen.queryByTestId('group-item-g1')).toBeNull())
     expect(calls.some((c) => c.path === '/groups/g1/leave')).toBe(true)
   })
@@ -741,8 +732,9 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
-    expect(within(d).getByText('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')).toBeTruthy()
-    await confirmDanger(d, '退出群')
+    const dlg = await screen.findByRole('alertdialog', { name: '先指定其他群管理员' })
+    expect(within(dlg).getByText('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '前往群成员' }))
     expect(await within(d).findByRole('heading', { name: '群成员 · 2' })).toBeTruthy()
     const li = within(d).getByTestId('member-u2')
     expect(within(li).getByText('带入 老李的 Codex')).toBeTruthy()

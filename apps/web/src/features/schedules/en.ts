@@ -67,4 +67,11 @@ export default {
   '所选候选 Bot 当前全部离线，到点会跳过':
     'All selected candidate Bots are offline; this run will be skipped',
   '将在 {time} 执行': 'Runs at {time}',
+  '删除定时任务「{name}」？': 'Delete scheduled task "{name}"?',
+  '删除后不再按计划执行，历史运行记录仍保留在聊天中。':
+    'It will stop running on schedule; past run records stay in the chat.',
+  '此操作不可恢复，后续触发计划将立即取消':
+    'This cannot be undone; upcoming runs will be canceled immediately',
+  已删除定时任务: 'Scheduled task deleted',
+  定时任务加载失败: 'Failed to load scheduled tasks',
 }

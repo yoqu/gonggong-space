@@ -28,4 +28,10 @@ export default {
   本群还没有置顶消息: 'No pinned messages in this group',
   条目已删除或无法读取: "The entry was deleted or can't be read",
   '{ago} 更新 · v{n}': 'Updated {ago} · v{n}',
+  '删除标签「{title}」？': 'Delete tab "{title}"?',
+  '所有群成员顶部标签栏将移除该入口，原内容本身不会被删除。':
+    'Removed from the top bar for all members; the original content is kept.',
+  需要时可随时重新添加该标签: 'You can add this tab back at any time',
+  已删除标签: 'Tab deleted',
+  管理标签: 'Manage tabs',
 }

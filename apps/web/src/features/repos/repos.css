@@ -17,6 +17,11 @@
 .repo-picker__trigger[aria-expanded="true"] {
   background: var(--control-track);
 }
+@media (pointer: coarse) {
+  .repo-picker__trigger {
+    min-height: 32px;
+  }
+}
 .repo-picker__path {
   min-width: 0;
   overflow: hidden;

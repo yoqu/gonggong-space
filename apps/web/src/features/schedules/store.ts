@@ -18,6 +18,8 @@ const store = createGroupStore<ScheduleDto[]>({
 })
 
 export const useSchedules = store.use
+export const useSchedulesError = store.useError
+export const reloadSchedules = store.reload
 export const resetSchedules = store.reset
 
 /** Applies a changed schedule at once; the group's `group.schedules` event follows. */

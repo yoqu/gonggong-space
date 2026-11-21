@@ -80,6 +80,11 @@ export interface PinnedBannerProps {
   icon?: Glyph
   color?: string
   action?: ReactNode
+  onClick?: () => void
+  /** Tooltip on the text body (defaults to `text` when `onClick` is set and `text` is a string). */
+  textTitle?: string
+  /** Set when clicking the text toggles an inline expanded block beneath the banner. */
+  expanded?: boolean
   onClose?: () => void
   /** Accessible name of the close button; defaults to「关闭」. */
   closeLabel?: string
@@ -93,18 +98,36 @@ export function PinnedBanner({
   icon = 'megaphone',
   color,
   action,
+  onClick,
+  textTitle,
+  expanded,
   onClose,
   closeLabel = t('关闭#close'),
   className,
   style,
 }: PinnedBannerProps) {
+  const tip = textTitle ?? (typeof text === 'string' ? text : undefined)
   return (
     <div className={cx('pn-pinned', className)} style={style} role="note">
       <span className="pn-pinned__icon" style={color ? { color } : undefined}>
         {renderGlyph(icon)}
       </span>
       {title != null && <span className="pn-pinned__title">{title}</span>}
-      <span className="pn-pinned__text">{text}</span>
+      {onClick ? (
+        <button
+          type="button"
+          className="pn-pinned__text pn-pinned__btn"
+          title={tip}
+          aria-expanded={expanded}
+          onClick={onClick}
+        >
+          {text}
+        </button>
+      ) : (
+        <span className="pn-pinned__text" title={textTitle}>
+          {text}
+        </span>
+      )}
       {action}
       {onClose && <SmallClose label={closeLabel} onClick={onClose} />}
     </div>

@@ -5,6 +5,7 @@ import { api, errorText } from './api'
 export function useGet<T>(path: string | null) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(!!path)
   const [tick, setTick] = useState(0)
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the path changes
   useEffect(() => {
@@ -13,20 +14,29 @@ export function useGet<T>(path: string | null) {
   }, [path])
   // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` re-runs the request
   useEffect(() => {
-    if (!path) return
+    if (!path) {
+      setLoading(false)
+      return
+    }
     let live = true
+    setLoading(true)
     api.get<T>(path).then(
       (d) => {
         if (!live) return
         setData(d)
         setError('')
+        setLoading(false)
       },
-      (e) => live && setError(errorText(e)),
+      (e) => {
+        if (!live) return
+        setError(errorText(e))
+        setLoading(false)
+      },
     )
     return () => {
       live = false
     }
   }, [path, tick])
   const reload = useCallback(() => setTick((t) => t + 1), [])
-  return { data, error, reload }
+  return { data, error, loading, reload }
 }

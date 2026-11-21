@@ -1,7 +1,13 @@
 import type { WebEvent } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
+import { errorText } from './api'
 import { realtime } from './realtime'
+
+interface GroupStoreState<T> {
+  values: Record<string, T>
+  errors: Record<string, string | null>
+}
 
 /**
  * Per-group cache loaded on first use, replaced by matching realtime events, and cleared on reconnect so missed
@@ -11,49 +17,91 @@ export function createGroupStore<T>(o: {
   load: (groupId: string) => Promise<T>
   onEvent: (e: WebEvent) => { groupId: string; value: T } | null
 }) {
-  const useStore = create<Record<string, T>>()(() => ({}))
+  const useStore = create<GroupStoreState<T>>()(() => ({ values: {}, errors: {} }))
   const loading = new Set<string>()
+  let unsubs: (() => void)[] = []
   let synced = false
+  let epoch = 0
 
   function sync() {
     if (synced) return
     synced = true
-    realtime.subscribe((e) => {
-      const hit = o.onEvent(e)
-      if (hit) useStore.setState({ [hit.groupId]: hit.value })
-    })
-    // Events missed while offline: the next use reloads.
-    realtime.onReconnect(() => useStore.setState({}, true))
+    unsubs = [
+      realtime.subscribe((e) => {
+        const hit = o.onEvent(e)
+        if (hit)
+          useStore.setState((s) => ({
+            values: { ...s.values, [hit.groupId]: hit.value },
+            errors: { ...s.errors, [hit.groupId]: null },
+          }))
+      }),
+      // Events missed while offline: the next use reloads.
+      realtime.onReconnect(() => useStore.setState({ values: {}, errors: {} })),
+    ]
   }
 
   function reload(groupId: string) {
     if (loading.has(groupId)) return
+    const run = epoch
     loading.add(groupId)
+    useStore.setState((s) => ({ errors: { ...s.errors, [groupId]: null } }))
     o.load(groupId)
-      .then((value) => useStore.setState({ [groupId]: value }))
-      .catch(() => {})
-      .finally(() => loading.delete(groupId))
+      .then((value) => {
+        if (epoch !== run) return
+        useStore.setState((s) => ({
+          values: { ...s.values, [groupId]: value },
+          errors: { ...s.errors, [groupId]: null },
+        }))
+      })
+      .catch((e) => {
+        if (epoch !== run) return
+        useStore.setState((s) => ({
+          errors: { ...s.errors, [groupId]: errorText(e) },
+        }))
+      })
+      .finally(() => {
+        if (epoch === run) loading.delete(groupId)
+      })
   }
 
-  function useGroup(groupId: string): T | undefined {
-    const value = useStore((s) => s[groupId])
-    useEffect(() => {
-      sync()
-      if (value === undefined) reload(groupId)
-    }, [groupId, value])
-    return value
+  function useError(groupId: string): string | null {
+    return useStore((s) => s.errors[groupId] ?? null)
   }
+
+  const useGroup = Object.assign(
+    function useGroup(groupId: string): T | undefined {
+      const value = useStore((s) => s.values[groupId])
+      const error = useStore((s) => s.errors[groupId] ?? null)
+      useEffect(() => {
+        sync()
+        if (value === undefined && !error) reload(groupId)
+      }, [groupId, value, error])
+      return value
+    },
+    { useError, reload },
+  )
 
   return {
     use: useGroup,
-    get: (groupId: string) => useStore.getState()[groupId],
-    set: (groupId: string, value: T) => useStore.setState({ [groupId]: value }),
+    useError,
+    get: (groupId: string) => useStore.getState().values[groupId],
+    set: (groupId: string, value: T) =>
+      useStore.setState((s) => ({
+        values: { ...s.values, [groupId]: value },
+        errors: { ...s.errors, [groupId]: null },
+      })),
     update: (groupId: string, fn: (prev: T | undefined) => T) =>
-      useStore.setState((all) => ({ [groupId]: fn(all[groupId]) })),
+      useStore.setState((s) => ({
+        values: { ...s.values, [groupId]: fn(s.values[groupId]) },
+        errors: { ...s.errors, [groupId]: null },
+      })),
     reload,
     /** Tests: forget loaded lists and the realtime hook-up. */
     reset: () => {
-      useStore.setState({}, true)
+      epoch++
+      for (const unsub of unsubs) unsub()
+      unsubs = []
+      useStore.setState({ values: {}, errors: {} })
       loading.clear()
       synced = false
     },
