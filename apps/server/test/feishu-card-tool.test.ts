@@ -142,8 +142,9 @@ describe('gonggong MCP feishu_send_card', () => {
     const { token, other, run } = await setup()
     const r = await run()
     const sent = t.feishu.sent.length
-    expect((await send(r.id, other, card())).status).toBe(404)
-    expect((await send((await run('completed')).id, token, card())).status).toBe(404)
+    const gone = { status: 404, body: { message: '运行不存在或已结束' } }
+    expect(await send(r.id, other, card())).toMatchObject(gone)
+    expect(await send((await run('completed')).id, token, card())).toMatchObject(gone)
     const bad = async (body: unknown, images = {}) => (await send(r.id, token, body, images)).body.message
     expect(await bad('{oops')).toBe('卡片不是合法的 JSON')
     expect(await bad({ elements: [] })).toBe(

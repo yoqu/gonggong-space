@@ -154,7 +154,17 @@ describe('schedules REST', () => {
     const w = await world()
     const { body: s } = await w.create('li', { ...daily9, botIds: [w.codex.id] })
     const url = `/api/schedules/${s.id}`
-    expect((await w.req('zhao', 'PATCH', url, { enabled: false })).status).toBe(403)
+    expect(await w.req('zhao', 'PATCH', url, { enabled: false })).toMatchObject({
+      status: 403,
+      body: { message: '仅任务主人或群管理员可操作' },
+    })
+    const stranger = await t.app.inject({
+      method: 'PATCH',
+      url,
+      headers: { cookie: await t.seed.cookie((await t.seed.user()).id) },
+      payload: { enabled: false },
+    })
+    expect([stranger.statusCode, stranger.json().message]).toEqual([404, '定时任务不存在'])
     const paused = await w.req<ScheduleDto>('li', 'PATCH', url, { enabled: false })
     expect(paused.body).toMatchObject({ enabled: false, nextRunAt: null, pausedReason: null })
     clock = new Date('2026-10-05T02:00:00Z')

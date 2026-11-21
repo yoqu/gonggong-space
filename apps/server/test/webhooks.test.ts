@@ -196,9 +196,15 @@ describe('webhooks REST management', () => {
     const liList = await w.list('li')
     expect(liList).toHaveLength(1)
     expect(liList[0]).toMatchObject({ name: 'Jenkins 部署', canManage: false, hasToken: true })
-    expect(
-      (await w.req('li', 'PATCH', `/api/webhooks/${created.body.webhook.id}`, { enabled: false })).status,
-    ).toBe(403)
+    const hookUrl = `/api/webhooks/${created.body.webhook.id}`
+    expect(await w.req('li', 'PATCH', hookUrl, { enabled: false })).toMatchObject({
+      status: 403,
+      body: { message: '仅 Webhook 主人或群管理员可操作' },
+    })
+    expect(await w.req('outsider', 'PATCH', hookUrl, { enabled: false })).toMatchObject({
+      status: 404,
+      body: { message: 'Webhook 不存在' },
+    })
 
     // Update and rotate
     const updated = await w.req<WebhookDto>('wang', 'PATCH', `/api/webhooks/${created.body.webhook.id}`, {

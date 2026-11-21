@@ -7,11 +7,11 @@ import {
 } from '@gonggong/protocol'
 import { and, asc, count, eq, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { groupMembers, runs, schedules, users } from '../../db/schema.js'
+import { runs, schedules, users } from '../../db/schema.js'
 import { type MessageKey, zh } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
-import { groupAdmins } from '../groups/service.js'
+import { groupAdmins, managesItem, requireItemManager } from '../groups/service.js'
 import { postMessage } from '../messages/service.js'
 import { type BotRunPicks, checkBotRunOptions, checkCandidateBots } from '../runs/pick.js'
 import { nextFire, timingError } from './timing.js'
@@ -62,14 +62,11 @@ export const scheduleDto = ({ s, ownerName, lastStatus }: Loaded, canManage: boo
   createdAt: s.createdAt.toISOString(),
 })
 
-const manages = (s: ScheduleRow, userId: string, admins: Set<string>) =>
-  s.ownerId === userId || admins.has(userId)
-
 /** The group's schedules as `userId` sees them. */
 export async function groupSchedules(ctx: Ctx, groupId: string, userId: string) {
   const { admins } = await groupAdmins(ctx, groupId)
   const rows = await loadSchedules(ctx, eq(schedules.groupId, groupId))
-  return { schedules: rows.map((r) => scheduleDto(r, manages(r.s, userId, admins))) }
+  return { schedules: rows.map((r) => scheduleDto(r, managesItem(r.s, userId, admins))) }
 }
 
 export async function publishSchedules(ctx: Ctx, groupId: string) {
@@ -79,7 +76,7 @@ export async function publishSchedules(ctx: Ctx, groupId: string) {
     ctx.bus.publish([userId], {
       t: 'group.schedules',
       groupId,
-      schedules: rows.map((r) => scheduleDto(r, manages(r.s, userId, admins))),
+      schedules: rows.map((r) => scheduleDto(r, managesItem(r.s, userId, admins))),
     })
 }
 
@@ -89,14 +86,8 @@ export async function scheduleById(ctx: Ctx, id: string) {
 }
 
 /** Owner or group admin (403), as a member of its group (404 otherwise). */
-export async function requireManage(ctx: Ctx, s: ScheduleRow, userId: string) {
-  const [m] = await ctx.db
-    .select({ isAdmin: groupMembers.isAdmin })
-    .from(groupMembers)
-    .where(and(eq(groupMembers.groupId, s.groupId), eq(groupMembers.userId, userId)))
-  if (!m) return fail('not_found', '定时任务不存在')
-  if (s.ownerId !== userId && !m.isAdmin) fail('forbidden', '仅任务主人或群管理员可操作')
-}
+export const requireManage = (ctx: Ctx, s: ScheduleRow, userId: string) =>
+  requireItemManager(ctx, s, userId, { missing: '定时任务不存在', forbidden: '仅任务主人或群管理员可操作' })
 
 const invalid = (e: I18nText): never => fail('invalid', e.key as MessageKey, e.params)
 

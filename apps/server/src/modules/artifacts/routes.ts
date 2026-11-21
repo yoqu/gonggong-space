@@ -43,11 +43,11 @@ import { artifacts, artifactVersions, bots, runs } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
 import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { previewOrigin } from '../previews/routes.js'
 import { publishRun } from '../runs/dto.js'
+import { machineRun } from '../runs/machine-run.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { artifactChatRoot } from './chat.js'
@@ -88,18 +88,11 @@ type RunArtifactReq = FastifyRequest<{
 
 /** The run is of a bot on this machine and its run.start sent the artifact. */
 async function requireRunArtifact(ctx: Ctx, req: RunArtifactReq) {
-  const machine = await requireMachine(ctx, req)
-  const runId = idParam(req.params.runId, '运行不存在')
-  const [row] = await ctx.db
-    .select({ run: runs })
-    .from(runs)
-    .innerJoin(bots, eq(bots.id, runs.botId))
-    .where(and(eq(runs.id, runId), eq(bots.machineId, machine.id)))
-  if (!row) return fail('not_found', '运行不存在')
+  const run = await machineRun(ctx, req)
   const a = await findArtifact(ctx.db, req.params.id)
-  if (!a || a.groupId !== row.run.groupId || !row.run.artifacts.includes(a.id))
+  if (!a || a.groupId !== run.groupId || !run.artifacts.includes(a.id))
     return fail('forbidden', '本轮没有下发这个产物')
-  return { run: row.run, a }
+  return { run, a }
 }
 
 /** The artifact's bot runs on this machine, or a run of a bot on it was sent the artifact. */

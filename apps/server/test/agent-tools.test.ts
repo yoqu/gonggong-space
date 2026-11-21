@@ -101,9 +101,15 @@ describe('gonggong tool calls', () => {
   it('only answers the calling machine during a live run', async () => {
     const w = await world()
     const live = await w.run(w.pay.id, w.claude.id)
-    expect((await w.call(live.id, 'get_group_info', {}, w.other.token)).status).toBe(404)
+    expect(await w.call(live.id, 'get_group_info', {}, w.other.token)).toMatchObject({
+      status: 404,
+      body: { message: '运行不存在' },
+    })
     expect((await w.call('not-a-uuid', 'get_group_info')).status).toBe(404)
-    expect((await w.call(live.id, 'nope')).status).toBe(404)
+    expect(await w.call(live.id, 'nope')).toMatchObject({
+      status: 404,
+      body: { message: '工具 nope 不存在' },
+    })
     const ended = await w.run(w.pay.id, w.claude.id, 'completed')
     expect((await w.call(ended.id, 'get_group_info')).body).toMatchObject({
       isError: true,

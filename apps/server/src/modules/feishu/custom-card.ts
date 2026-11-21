@@ -3,11 +3,9 @@ import { FEISHU_CARD_IMAGES_MAX } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { requireMachine } from '../../daemon/auth.js'
-import { bots, feishuMessageLinks, runs } from '../../db/schema.js'
+import { feishuMessageLinks } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
-import { LIVE } from '../runs/dto.js'
+import { machineRun } from '../runs/machine-run.js'
 import { FeishuError } from './client.js'
 import { credsOf } from './gateway.js'
 import { appOfBot, boundChat, cardBody } from './mirror.js'
@@ -49,19 +47,7 @@ export function feishuCardRoutes(ctx: Ctx) {
     await app.register(multipart)
 
     app.post<{ Params: { runId: string } }>('/api/daemon/runs/:runId/feishu-card', async (req) => {
-      const machine = await requireMachine(ctx, req)
-      const [run] = await ctx.db
-        .select({
-          id: runs.id,
-          status: runs.status,
-          groupId: runs.groupId,
-          botId: runs.botId,
-          trigger: runs.triggerMessageId,
-        })
-        .from(runs)
-        .innerJoin(bots, eq(bots.id, runs.botId))
-        .where(and(eq(runs.id, idParam(req.params.runId, '运行不存在')), eq(bots.machineId, machine.id)))
-      if (!run || !LIVE.includes(run.status)) return fail('not_found', '运行不存在或已结束')
+      const run = await machineRun(ctx, req, { live: true, missing: '运行不存在或已结束' })
 
       let raw: string | undefined
       const images = new Map<string, { name: string; data: Buffer }>()
@@ -123,7 +109,9 @@ export function feishuCardRoutes(ctx: Ctx) {
       const [trigger] = await ctx.db
         .select({ feishuMessageId: feishuMessageLinks.feishuMessageId, chatId: feishuMessageLinks.chatId })
         .from(feishuMessageLinks)
-        .where(and(eq(feishuMessageLinks.messageId, run.trigger), eq(feishuMessageLinks.kind, 'message')))
+        .where(
+          and(eq(feishuMessageLinks.messageId, run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
+        )
       const replyTo = trigger?.chatId === chat.chatId ? trigger.feishuMessageId : undefined
       const sent = await ctx.feishu.api
         .send(creds, chat.chatId, cardBody(filled), { replyTo })

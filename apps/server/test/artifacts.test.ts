@@ -295,7 +295,8 @@ describe('daemon access', () => {
     // Another artifact's content, an artifact the run was not sent, and another machine.
     expect((await get(run.id, a.id, 'theirs')).statusCode).toBe(404)
     expect((await get(run.id, b.id, 'theirs')).statusCode).toBe(403)
-    expect((await get(run.id, a.id, 'mine', w.B.token)).statusCode).toBe(404)
+    const elsewhere = await get(run.id, a.id, 'mine', w.B.token)
+    expect([elsewhere.statusCode, elsewhere.json().message]).toEqual([404, '运行不存在'])
     // Uploaded but in no version yet.
     await w.put(run.id, a.id, 'pending')
     expect((await get(run.id, a.id, 'pending')).statusCode).toBe(404)

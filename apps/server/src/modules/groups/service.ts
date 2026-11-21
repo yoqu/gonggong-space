@@ -26,7 +26,7 @@ import {
   teams,
   users,
 } from '../../db/schema.js'
-import { t, zhText } from '../../i18n/index.js'
+import { type MessageKey, t, zhText } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { summarizeBlocks } from '../../lib/text.js'
@@ -108,6 +108,25 @@ export async function groupAdmins(ctx: Ctx, groupId: string) {
     members: rows.map((r) => r.userId),
     admins: new Set(rows.filter((r) => r.isAdmin).map((r) => r.userId)),
   }
+}
+
+/** `userId` owns the group's item or is one of the group's `admins`. */
+export const managesItem = (item: { ownerId: string | null }, userId: string, admins: Set<string>) =>
+  item.ownerId === userId || admins.has(userId)
+
+/** Owner or group admin of a group's item (403 `forbidden`), as a member of its group (404 `missing` otherwise). */
+export async function requireItemManager(
+  ctx: Ctx,
+  item: { groupId: string; ownerId: string | null },
+  userId: string,
+  messages: { missing: MessageKey; forbidden: MessageKey },
+) {
+  const [m] = await ctx.db
+    .select({ isAdmin: groupMembers.isAdmin })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, item.groupId), eq(groupMembers.userId, userId)))
+  if (!m) return fail('not_found', messages.missing)
+  if (item.ownerId !== userId && !m.isAdmin) fail('forbidden', messages.forbidden)
 }
 
 /** Bots currently in the group (not removed, not deleted). */

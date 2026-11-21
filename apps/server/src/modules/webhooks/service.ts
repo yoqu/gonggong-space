@@ -8,11 +8,11 @@ import {
 } from '@gonggong/protocol'
 import { and, asc, count, eq, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { groupMembers, runs, users, webhooks } from '../../db/schema.js'
+import { runs, users, webhooks } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
-import { groupAdmins } from '../groups/service.js'
+import { groupAdmins, managesItem, requireItemManager } from '../groups/service.js'
 import type { RunRow } from '../runs/dto.js'
 import { checkBotRunOptions, checkCandidateBots } from '../runs/pick.js'
 
@@ -57,13 +57,10 @@ export const webhookDto = ({ w, ownerName, lastStatus }: Loaded, canManage: bool
   createdAt: w.createdAt.toISOString(),
 })
 
-const manages = (w: WebhookRow, userId: string, admins: Set<string>) =>
-  w.ownerId === userId || admins.has(userId)
-
 export async function groupWebhooks(ctx: Ctx, groupId: string, userId: string) {
   const { admins } = await groupAdmins(ctx, groupId)
   const rows = await loadWebhooks(ctx, eq(webhooks.groupId, groupId))
-  return { webhooks: rows.map((r) => webhookDto(r, manages(r.w, userId, admins))) }
+  return { webhooks: rows.map((r) => webhookDto(r, managesItem(r.w, userId, admins))) }
 }
 
 export async function publishWebhooks(ctx: Ctx, groupId: string) {
@@ -73,7 +70,7 @@ export async function publishWebhooks(ctx: Ctx, groupId: string) {
     ctx.bus.publish([userId], {
       t: 'group.webhooks',
       groupId,
-      webhooks: rows.map((r) => webhookDto(r, manages(r.w, userId, admins))),
+      webhooks: rows.map((r) => webhookDto(r, managesItem(r.w, userId, admins))),
     })
 }
 
@@ -83,14 +80,11 @@ export async function webhookById(ctx: Ctx, id: string) {
 }
 
 /** Owner or group admin (403), as a member of its group (404 otherwise). */
-export async function requireManageWebhook(ctx: Ctx, w: WebhookRow, userId: string) {
-  const [m] = await ctx.db
-    .select({ isAdmin: groupMembers.isAdmin })
-    .from(groupMembers)
-    .where(and(eq(groupMembers.groupId, w.groupId), eq(groupMembers.userId, userId)))
-  if (!m) return fail('not_found', 'Webhook 不存在')
-  if (w.ownerId !== userId && !m.isAdmin) fail('forbidden', '仅 Webhook 主人或群管理员可操作')
-}
+export const requireManageWebhook = (ctx: Ctx, w: WebhookRow, userId: string) =>
+  requireItemManager(ctx, w, userId, {
+    missing: 'Webhook 不存在',
+    forbidden: '仅 Webhook 主人或群管理员可操作',
+  })
 
 async function record(
   ctx: Ctx,

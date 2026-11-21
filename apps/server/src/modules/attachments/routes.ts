@@ -22,6 +22,7 @@ import {
   publishMessage,
 } from '../messages/service.js'
 import { LIVE } from '../runs/dto.js'
+import { machineRun } from '../runs/machine-run.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
 import { publishHtmlRender, serveHtmlRender } from './html-render.js'
 import {
@@ -71,15 +72,7 @@ async function sendFile(req: FastifyRequest, reply: FastifyReply, a: AttachmentR
 }
 
 async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { runId: string } }>) {
-  const machine = await requireMachine(ctx, req)
-  const runId = idParam(req.params.runId, '运行不存在')
-  const [owned] = await ctx.db
-    .select({ run: runs })
-    .from(runs)
-    .innerJoin(bots, eq(bots.id, runs.botId))
-    .where(and(eq(runs.id, runId), eq(bots.machineId, machine.id), inArray(runs.status, LIVE)))
-  if (!owned) return fail('not_found', '运行不存在或已结束')
-  const { run } = owned
+  const run = await machineRun(ctx, req, { live: true, missing: '运行不存在或已结束' })
   const params = await effectiveParams(ctx.db, run.groupId)
   const redact = (await runRedactors(ctx, run.id)).redact
   const messageId = randomUUID()

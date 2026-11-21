@@ -15,11 +15,10 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { artifacts, bots, messages, runs, services } from '../../db/schema.js'
+import { artifacts, bots, messages, services } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
 import { fail, HttpError } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { activeBots } from '../groups/service.js'
 import {
@@ -31,6 +30,7 @@ import {
 } from '../messages/service.js'
 import { requireOpenPreview } from '../previews/routes.js'
 import { requireManager } from '../previews/service.js'
+import { machineRun } from '../runs/machine-run.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { type Artifact, cardOf, findArtifact, newArtifactDir, submitVersion } from './service.js'
@@ -38,7 +38,6 @@ import { type Artifact, cardOf, findArtifact, newArtifactDir, submitVersion } fr
 // Hosted sites (托管网页): a static build on a bot's machine kept as an L0 artifact, so 作品 serves it from the
 // server's blobs while that machine is offline. The same (group, bot, dir) hosted again adds a version.
 
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 /** The daemon walks, hashes and uploads up to 200 MB before it answers site.host. */
 const HOST_TIMEOUT_MS = 5 * 60_000
 /** Prefix of a static service's command (daemon `start_static`); its `cwd` is the dir it serves. */
@@ -127,16 +126,8 @@ export function siteRoutes(ctx: Ctx) {
     app.post<{ Params: { runId: string } }>(
       '/api/daemon/runs/:runId/sites',
       async (req): Promise<SiteOpenRes> => {
-        const machine = await requireMachine(ctx, req)
-        const runId = idParam(req.params.runId, '运行不存在')
-        const [row] = await ctx.db
-          .select({ run: runs })
-          .from(runs)
-          .innerJoin(bots, eq(bots.id, runs.botId))
-          .where(and(eq(runs.id, runId), eq(bots.machineId, machine.id)))
-        if (!row || !LIVE.includes(row.run.status)) return fail('not_found', '运行不存在')
+        const run = await machineRun(ctx, req, { live: true })
         const { dir, title } = SiteOpenReq.parse(req.body)
-        const { run } = row
         const a = await openSite(ctx, {
           groupId: run.groupId,
           botId: run.botId,

@@ -118,7 +118,8 @@ describe('hosted sites', () => {
     expect((await w.host(artifactId, SITE, { source: 'run' })).statusCode).toBe(400)
     const design = await w.artifact()
     expect((await w.host(design.id, SITE)).statusCode).toBe(404)
-    expect((await w.open('dist', w.B.token)).statusCode).toBe(404)
+    const foreign = await w.open('dist', w.B.token)
+    expect([foreign.statusCode, foreign.json().message]).toEqual([404, '运行不存在'])
   })
 
   it('never checks a site out into runs', async () => {

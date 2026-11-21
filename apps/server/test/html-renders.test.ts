@@ -241,8 +241,9 @@ describe('html renders', () => {
     const w = await world()
     const run = await liveRun(w)
     const ok = { title: '图', height: '300', html: PAGE }
-    expect((await publish(run.id, w.otherToken, ok)).status).toBe(404)
-    expect((await publish((await liveRun(w, 'completed')).id, w.token, ok)).status).toBe(404)
+    const gone = { status: 404, body: { message: '运行不存在或已结束' } }
+    expect(await publish(run.id, w.otherToken, ok)).toMatchObject(gone)
+    expect(await publish((await liveRun(w, 'completed')).id, w.token, ok)).toMatchObject(gone)
     expect((await publish(run.id, w.token, { ...ok, title: '' })).status).toBe(400)
     expect((await publish(run.id, w.token, { ...ok, height: '10' })).status).toBe(400)
     expect((await publish(run.id, w.token, { ...ok, heights: '[[720]]' })).status).toBe(400)

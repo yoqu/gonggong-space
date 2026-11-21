@@ -7,14 +7,14 @@ import { HtmlRenderRef, injectHtmlRenderBootstrap } from '@gonggong/protocol'
 import { and, eq, exists, inArray, or, sql } from 'drizzle-orm'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { requireMachine } from '../../daemon/auth.js'
-import { attachments, bots, messages, runs } from '../../db/schema.js'
+import { attachments, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { requireReader } from '../groups/service.js'
 import { cardColumns, LIVE, publishRun } from '../runs/dto.js'
+import { machineRun } from '../runs/machine-run.js'
 import { runRedactors } from '../secrets/resolve.js'
 import { dataDir, openStored, safeName } from './service.js'
 
@@ -37,20 +37,7 @@ export const htmlRenderSnapshotFile = (attachmentId: string) =>
  * later; returns it (its id places it in the reply).
  */
 export async function publishHtmlRender(ctx: Ctx, req: FastifyRequest<{ Params: { runId: string } }>) {
-  const machine = await requireMachine(ctx, req)
-  const [owned] = await ctx.db
-    .select({ run: runs })
-    .from(runs)
-    .innerJoin(bots, eq(bots.id, runs.botId))
-    .where(
-      and(
-        eq(runs.id, idParam(req.params.runId, '运行不存在')),
-        eq(bots.machineId, machine.id),
-        inArray(runs.status, LIVE),
-      ),
-    )
-  if (!owned) return fail('not_found', '运行不存在或已结束')
-  const { run } = owned
+  const run = await machineRun(ctx, req, { live: true, missing: '运行不存在或已结束' })
   const fields: Record<string, string> = {}
   let html: string | null = null
   let snapshot: Buffer | null = null

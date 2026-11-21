@@ -335,8 +335,9 @@ describe('agent attachments', () => {
     const w = await world()
     const run = await liveRun(w)
     const file = { name: 'shot.png', data: PNG, type: 'image/png' }
-    expect((await sendAgentFiles(run.id, w.otherToken, [file])).status).toBe(404)
-    expect((await sendAgentFiles((await liveRun(w, 'completed')).id, w.token, [file])).status).toBe(404)
+    const gone = { status: 404, body: { message: '运行不存在或已结束' } }
+    expect(await sendAgentFiles(run.id, w.otherToken, [file])).toMatchObject(gone)
+    expect(await sendAgentFiles((await liveRun(w, 'completed')).id, w.token, [file])).toMatchObject(gone)
     expect((await sendAgentFiles(run.id, w.token, [], '')).status).toBe(400)
     const big = await sendAgentFiles(run.id, w.token, [
       { name: 'big.mp4', data: Buffer.alloc(MAX_ATTACHMENT_BYTES + 1), type: 'video/mp4' },
