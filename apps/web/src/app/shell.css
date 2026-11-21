@@ -369,8 +369,6 @@ body {
   font: inherit;
   text-align: left;
   cursor: default;
-}
-.shellbar__search {
   transition: background-color var(--motion-fast);
 }
 .shellbar__search:hover {
@@ -450,19 +448,10 @@ body {
   background: transparent;
   color: var(--label-secondary);
   cursor: default;
-}
-.sidebar__add {
   transition:
     background-color var(--motion-fast),
     color var(--motion-fast),
     opacity var(--fade-in);
-}
-.sidebar__add.sidebar__row--nested {
-  width: calc(100% - var(--space-16));
-}
-.sidebar__add:hover {
-  background: var(--control-track);
-  color: var(--label);
 }
 .sidebar__list {
   display: flex;
@@ -553,6 +542,7 @@ a.sidebar__open {
 }
 .sidebar__add:hover {
   background: var(--selection-fill);
+  color: var(--label);
 }
 .sidebar__add:focus-visible {
   outline: 2px solid var(--accent);
@@ -1024,8 +1014,16 @@ a.sidebar__open {
     width: 32px;
     height: 32px;
   }
+  .sidebar__sechead .ui-pulldown__btn {
+    width: 32px;
+    height: 32px;
+  }
   .sidebar__fold.sidebar__head {
     height: 36px;
+  }
+  .sidebar__newsection,
+  .sidebar__newsection-menu .ui-btn {
+    min-height: 36px;
   }
 }
 .sidebar__drophint {

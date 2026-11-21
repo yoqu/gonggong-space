@@ -11,7 +11,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast } from '../../ui'
+import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast, useEscape } from '../../ui'
 import { lastEditable } from './editing'
 import { MessageComposer } from './MessageComposer'
 import { PendingMessages } from './PendingMessages'
@@ -51,6 +51,7 @@ export function ThreadView({
   onBack?: () => void
   onClose: () => void
 }) {
+  useEscape(onClose)
   const tl = useTimeline(group.id, rootId)
   const me = useSession((s) => s.user)
   const latestMessages = useRef(tl.messages)

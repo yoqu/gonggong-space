@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
-import { Button, EmptyChatArt, EmptyState, FailedArt, Input, Mascot, toast, useLeaving } from '../../ui'
+import { Button, EmptyChatArt, EmptyState, FailedArt, Icon, Input, Mascot, toast, useLeaving } from '../../ui'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { uuid } from './MessageComposer'
 import './thread-inbox.css'
@@ -144,7 +144,9 @@ export function UnreadInbox({ onBack }: { onBack?: () => void }) {
     <section className="works thread-inbox" aria-label={t('全部未读')}>
       <header className="works__head">
         {onBack ? (
-          <Button size="small" variant="plain" icon="chevron-left" aria-label={t('返回')} onClick={onBack} />
+          <button type="button" className="pn-chathead__back" aria-label={t('返回')} onClick={onBack}>
+            <Icon name="chevron-left" size={20} weight={1.8} />
+          </button>
         ) : null}
         <h1 className="works__title">{t('全部未读')}</h1>
         <span className="spacer" />

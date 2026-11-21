@@ -18,7 +18,6 @@ export function LaterRow() {
       className={due > 0 ? 'pn-shortcut later-row--badge' : 'pn-shortcut'}
       data-testid="later-item"
       title={detail}
-      tabIndex={-1}
     >
       <ShortcutContent icon="bookmark" label={t('稍后处理')} detail={detail} count={due} bold={due > 0} />
     </NavLink>

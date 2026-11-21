@@ -141,11 +141,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Centre the avatar on the icon tiles (32px), not on tile + label. */
+/* Full 44px hit target for the account avatar, aligned with the nav items in the bottom bar. */
 .ui-rail--bar .ui-rail__trailing {
   flex: none;
-  justify-content: flex-start;
-  padding-top: var(--space-4);
+  justify-content: center;
   width: 44px;
   margin: 0;
+}
+.ui-rail--bar .account__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
 }

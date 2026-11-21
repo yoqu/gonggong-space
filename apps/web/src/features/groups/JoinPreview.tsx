@@ -7,7 +7,7 @@ import { teamSectionsApi, useTeamSections } from './sections'
 import './groups.css'
 
 /** A group filed under a 团队分区 that I am not in: what it is, and 加入 (public) or 申请加入 (private). */
-export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
+export function JoinPreview({ group: g, onBack }: { group: DirectoryGroupDto; onBack?: () => void }) {
   const section = useTeamSections((s) => s.sections.find((x) => x.id === g.teamSectionId))
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -17,7 +17,7 @@ export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
     setBusy(false)
   }
   const pub = g.visibility === 'public'
-  return (
+  const content = (
     <div className="chat__placeholder">
       <section className="join-preview" aria-label={t('入群预览')}>
         <Avatar name={g.name} src={g.avatar ?? undefined} shape="square" size={64} />
@@ -72,6 +72,18 @@ export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
           </>
         )}
       </section>
+    </div>
+  )
+  if (!onBack) return content
+  return (
+    <div className="join-preview__page">
+      <header className="join-preview__head">
+        <button type="button" className="pn-chathead__back" aria-label={t('返回')} onClick={onBack}>
+          <Icon name="chevron-left" size={20} weight={1.8} />
+        </button>
+        <span className="join-preview__head-title">{g.name}</span>
+      </header>
+      {content}
     </div>
   )
 }

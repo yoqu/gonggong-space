@@ -15,7 +15,6 @@ import {
   type PointerEvent,
   type ReactNode,
   useCallback,
-  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -28,7 +27,7 @@ import { groupsApi } from '../features/groups/api'
 import { channelKind } from '../features/groups/channel'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { NOTIFY_LEVELS } from '../features/groups/notify'
-import { BrowseChannelsDialog, SectionNameDialog } from '../features/groups/SidebarDialogs'
+import { type SidebarDialog, SidebarDialogHost } from '../features/groups/SidebarDialogs'
 import { sectionsApi, teamSectionsApi, useSections, useTeamSections } from '../features/groups/sections'
 import { middle } from '../features/repos/repo-access'
 import { LaterRow } from '../features/saved/LaterRow'
@@ -372,7 +371,7 @@ function ThreadsRow() {
   const { unread, mentioned } = useThreadUnread()
   const detail = unread ? t('{n} 个话题有新回复', { n: unread }) : t('我关注的话题')
   return (
-    <NavLink to="/threads" className="pn-shortcut" data-testid="threads-item" title={detail} tabIndex={-1}>
+    <NavLink to="/threads" className="pn-shortcut" data-testid="threads-item" title={detail}>
       <ShortcutContent
         icon="thread"
         label={t('话题#inbox')}
@@ -416,13 +415,13 @@ function SpaceRow({ s, tabStop }: { s: TerminalSpaceDto; tabStop: boolean }) {
 }
 
 /** A group filed under a 团队分区 that I have not joined: opens its preview to join or ask to. */
-function DirectoryRow({ d }: { d: DirectoryGroupDto }) {
+function DirectoryRow({ d, tabStop }: { d: DirectoryGroupDto; tabStop: boolean }) {
   return (
     <NavLink
       to={`/g/${d.id}`}
       className="pn-conv pn-conv--closed"
       data-testid={`directory-item-${d.id}`}
-      tabIndex={-1}
+      tabIndex={tabStop ? 0 : -1}
       onKeyDown={(e) =>
         keyNav(e, e.currentTarget.closest<HTMLElement>('.sidebar__scroll'), '.pn-conv', { select: true })
       }
@@ -507,8 +506,9 @@ function SetupGuide({
 const isDone = (g: GroupDto) => g.doneSeq != null && g.lastSeq <= g.doneSeq
 
 type Row = GroupDto | TerminalSpaceDto
-const isSpace = (r: Row): r is TerminalSpaceDto => 'cwd' in r
-const pathOf = (r: Row) => (isSpace(r) ? `/t/${r.id}` : `/g/${r.id}`)
+type NavRow = Row | DirectoryGroupDto
+const isSpace = (r: NavRow): r is TerminalSpaceDto => 'cwd' in r
+const pathOf = (r: NavRow) => (isSpace(r) ? `/t/${r.id}` : `/g/${r.id}`)
 
 /**
  * Groups, DMs and machine terminals together: pinned first, then the latest message (a terminal: its last opening)
@@ -666,10 +666,8 @@ export function Sidebar({
   const me = useSession((s) => s.user?.id)
   const [onlyFlagged, setOnlyFlagged] = useState(false)
   const [showDone, setShowDone] = useState(false)
-  /** 浏览频道, or a section to create (under `parent`) or rename. */
-  const [dialog, setDialog] = useState<
-    'browse' | { team: boolean; parent?: SidebarSectionDto; rename?: SidebarSectionDto } | null
-  >(null)
+  /** 浏览频道, or a section to create (under `parent`), rename, or delete. */
+  const [dialog, setDialog] = useState<SidebarDialog | null>(null)
   const [dropAt, setDropAt] = useState('')
   const newSection = useCallback(() => setDialog({ team: false }), [])
   const anyFlagged = groups.some((g) => g.flagged)
@@ -689,7 +687,7 @@ export function Sidebar({
   }
   const ownIds = new Set(own.map((x) => x.id))
   const teamIds = new Set(team.sections.map((x) => x.id))
-  const isOpen = (r: Row) => pathname === pathOf(r)
+  const isOpen = (r: NavRow) => pathname === pathOf(r)
   const canFile = (g: GroupDto) =>
     g.kind === 'group' && (team.canManage || !!g.members.find((m) => m.userId === me)?.isAdmin)
   const outside = onlyFlagged ? [] : team.directory
@@ -756,10 +754,10 @@ export function Sidebar({
     }
   }
   const sections = roots.filter(kept).map(view)
-  const flat = (sec: Shown): GroupDto[] => [...sec.rows, ...sec.nested.flatMap(flat)]
+  const flat = (sec: Shown): NavRow[] => [...sec.rows, ...sec.others, ...sec.nested.flatMap(flat)]
   const shownSpaces = fold(SPACES, terminals)
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
-  const rows: Row[] = [...sections.flatMap(flat), ...(showDone ? done : []), ...shownSpaces]
+  const rows: NavRow[] = [...sections.flatMap(flat), ...(showDone ? done : []), ...shownSpaces]
   const at = rows.findIndex(isOpen)
   const stop = rows[at]?.id ?? rows[0]?.id
   const scroll = useSelectionCapsule(pathname, at)
@@ -787,7 +785,7 @@ export function Sidebar({
     if (v === 'rename') setDialog({ rename: sec, team: isTeam })
     else if (v === 'child') setDialog({ parent: sec, team: isTeam })
     else if (v === 'up' || v === 'down') void attempt(() => ops.move(sec.id, v === 'up' ? -1 : 1))
-    else if (v === 'delete') void attempt(() => ops.remove(sec.id))
+    else if (v === 'delete') setDialog({ delete: sec, team: isTeam })
   }
   const head = (key: string, label: ReactNode, collapsed: boolean, actions?: ReactNode) => (
     <div className="sidebar__sechead">
@@ -879,7 +877,7 @@ export function Sidebar({
       <div className={cx('sidebar__list sidebar__list--convs', revealed === sec.key && 'sidebar__reveal')}>
         {sec.rows.map((g) => row(g, sec.key !== 'dm'))}
         {sec.others.map((d) => (
-          <DirectoryRow key={d.id} d={d} />
+          <DirectoryRow key={d.id} d={d} tabStop={d.id === stop} />
         ))}
         {loaded &&
         sec.sec &&
@@ -1020,19 +1018,7 @@ export function Sidebar({
         </div>
       </div>
       <Footer bots={bots} machines={machines} />
-      {dialog === 'browse' ? <BrowseChannelsDialog onClose={() => setDialog(null)} /> : null}
-      {dialog && typeof dialog === 'object' ? (
-        <SectionNameDialog
-          initial={dialog.rename?.name}
-          team={dialog.team}
-          parent={dialog.parent?.name}
-          onSave={(name) => {
-            const ops = dialog.team ? teamSectionsApi : sectionsApi
-            return dialog.rename ? ops.rename(dialog.rename.id, name) : ops.create(name, dialog.parent?.id)
-          }}
-          onClose={() => setDialog(null)}
-        />
-      ) : null}
+      <SidebarDialogHost dialog={dialog} onClose={() => setDialog(null)} />
     </div>
   )
 }

@@ -483,6 +483,8 @@ describe('sidebar sections', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '发布 分区操作' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '删除分区' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '删除分区「发布」？' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
     // Its conversations go back to their default section.
     await waitFor(() => expect(rowsIn('频道')).toEqual(['g1']))
     expect(screen.queryByRole('group', { name: '发布' })).toBeNull()

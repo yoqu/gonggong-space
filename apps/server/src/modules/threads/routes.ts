@@ -45,6 +45,7 @@ import { messageDto, userAuthorName } from '../messages/service.js'
 import { readThreadMentions } from '../notifications/notify.js'
 import { reactionsFor } from '../reactions/service.js'
 import { cardColumns, runDtoLoader } from '../runs/dto.js'
+import { currentTeam } from '../teams/service.js'
 import {
   isArtifactChat,
   readThread,
@@ -116,9 +117,14 @@ async function requireRoot(ctx: Ctx, rootId: string, userId: string) {
   return root
 }
 
-/** Followed threads of live groups the viewer is still in. */
-const followedBy = (userId: string) =>
-  and(eq(threadFollows.userId, userId), eq(threadFollows.following, true), isNull(groups.archivedAt))
+/** Followed threads of live groups in the current team the viewer is still in. */
+const followedBy = (userId: string, teamId: string) =>
+  and(
+    eq(threadFollows.userId, userId),
+    eq(threadFollows.following, true),
+    eq(groups.teamId, teamId),
+    isNull(groups.archivedAt),
+  )
 
 export function threadRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -264,6 +270,7 @@ export function threadRoutes(ctx: Ctx) {
 
     app.get('/api/threads', async (req): Promise<ThreadInboxDto> => {
       const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
       const { before, limit } = ThreadInboxQuery.parse(req.query)
       const lastSeq = sql<number>`(select max(m.seq) from messages m where m.thread_root_id = ${threadFollows.rootMessageId})`
       const rows = await ctx.db
@@ -276,7 +283,7 @@ export function threadRoutes(ctx: Ctx) {
         .innerJoin(groups, eq(groups.id, threadFollows.groupId))
         .where(
           and(
-            followedBy(me.id),
+            followedBy(me.id, teamId),
             sql`${lastSeq} is not null`,
             before ? sql`${lastSeq} < ${before}` : undefined,
           ),
@@ -314,6 +321,7 @@ export function threadRoutes(ctx: Ctx) {
 
     app.get('/api/threads/unread', async (req): Promise<ThreadUnreadDto> => {
       const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
       const rows = await ctx.db
         .select({ unread: stateColumns.unread, mentioned: stateColumns.mentioned })
         .from(threadFollows)
@@ -322,7 +330,7 @@ export function threadRoutes(ctx: Ctx) {
           and(eq(groupMembers.groupId, threadFollows.groupId), eq(groupMembers.userId, threadFollows.userId)),
         )
         .innerJoin(groups, eq(groups.id, threadFollows.groupId))
-        .where(followedBy(me.id))
+        .where(followedBy(me.id, teamId))
       return {
         unread: rows.filter((r) => r.unread > 0).length,
         mentioned: rows.filter((r) => r.mentioned).length,

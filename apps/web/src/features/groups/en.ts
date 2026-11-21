@@ -202,4 +202,15 @@ export default {
   '有未保存的更改 · 保存后对新会话生效': 'Unsaved changes · applies to new sessions once saved',
   已撤回申请: 'Request withdrawn',
   '已发送申请，群管理员同意后即可进入': 'Request sent; you can enter once an admin approves',
+  '删除分区「{name}」？': 'Delete section "{name}"?',
+  '删除团队分区「{name}」？': 'Delete team section "{name}"?',
+  '其中的会话和消息都会保留，并回到默认列表。':
+    'Its conversations and messages will be kept and returned to the default list.',
+  '下属 {n} 个子分区会一并删除；其中的会话和消息都会保留，并回到默认列表。':
+    '{n} {n:subsection|subsections} inside it will also be deleted. All conversations and messages will be kept and returned to the default list.',
+  '将对团队所有成员生效；其中的群和消息都会保留，并回到默认列表。':
+    'This applies to all team members. Its groups and messages will be kept and returned to the default list.',
+  '将对团队所有成员生效，下属 {n} 个子分区也会一并删除；其中的群和消息都会保留，并回到默认列表。':
+    'This applies to all team members, and {n} {n:subsection|subsections} inside it will also be deleted. All groups and messages will be kept and returned to the default list.',
+  '已删除分区「{name}」，其中的会话已保留': 'Deleted section "{name}"; its conversations were kept',
 } satisfies Record<string, string>

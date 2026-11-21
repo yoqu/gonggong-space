@@ -15,6 +15,7 @@ import {
   PanelHead,
   Spinner,
   Tag,
+  useEscape,
 } from '../../ui'
 import { openThread } from './thread'
 import { useThreadLive, useThreadPeople } from './threadSummary'
@@ -65,6 +66,7 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
 
 /** 话题 of one group in the chat's right rail: bots at work first, then the latest reply first. */
 export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () => void }) {
+  useEscape(onClose)
   const [first, setFirst] = useState<GroupThreadsDto | null>(null)
   // Pages loaded further down stay while the first page refreshes.
   const [rest, setRest] = useState<{ threads: GroupThreadItemDto[]; next: number | null } | null>(null)

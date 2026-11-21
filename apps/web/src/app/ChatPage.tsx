@@ -428,7 +428,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
             onBack={mobile ? () => navigate('/') : undefined}
           />
         ) : preview ? (
-          <JoinPreview key={preview.id} group={preview} />
+          <JoinPreview key={preview.id} group={preview} onBack={mobile ? () => navigate('/') : undefined} />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
             <Mascot action="wait" size={72} label={t('加载中')} />

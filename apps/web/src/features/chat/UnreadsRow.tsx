@@ -12,7 +12,7 @@ export function UnreadsRow() {
   const detail = groups ? t('{n} 个群有未读消息', { n: groups }) : t('没有未读消息')
   return (
     <>
-      <NavLink to="/unreads" className="pn-shortcut" data-testid="unreads-item" title={detail} tabIndex={-1}>
+      <NavLink to="/unreads" className="pn-shortcut" data-testid="unreads-item" title={detail}>
         <ShortcutContent icon="tray" label={t('全部未读')} detail={detail} bold={groups > 0} />
       </NavLink>
       <ReadAllShortcut />

@@ -1,10 +1,11 @@
-import type { ChannelDto } from '@gonggong/protocol'
+import { type ChannelDto, type SidebarSectionDto, sectionSubtree } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
-import { toastError } from '../../lib/errors'
+import { attempt, toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
 import {
+  AlertDialog,
   Avatar,
   Button,
   Dialog,
@@ -17,9 +18,10 @@ import {
   Select,
   Spinner,
   Tag,
+  toast,
 } from '../../ui'
 import { channelKind } from './channel'
-import { channelsApi } from './sections'
+import { channelsApi, sectionsApi, teamSectionsApi, useSections, useTeamSections } from './sections'
 import './groups.css'
 
 /** 新建分区 / 重命名分区: `save` gets the trimmed name. */
@@ -240,5 +242,113 @@ export function BrowseChannelsDialog({ onClose }: { onClose: () => void }) {
         />
       )}
     </Dialog>
+  )
+}
+
+export type SidebarDialog =
+  | 'browse'
+  | { team: boolean; parent?: SidebarSectionDto; rename?: SidebarSectionDto }
+  | { delete: SidebarSectionDto; team: boolean }
+
+/** Confirmation before deleting a personal or team sidebar section (cascades to subsections). */
+export function DeleteSectionDialog({
+  name,
+  team,
+  childCount,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  name: string
+  team: boolean
+  childCount: number
+  busy?: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const message = team
+    ? childCount > 0
+      ? t('将对团队所有成员生效，下属 {n} 个子分区也会一并删除；其中的群和消息都会保留，并回到默认列表。', {
+          n: childCount,
+        })
+      : t('将对团队所有成员生效；其中的群和消息都会保留，并回到默认列表。')
+    : childCount > 0
+      ? t('下属 {n} 个子分区会一并删除；其中的会话和消息都会保留，并回到默认列表。', { n: childCount })
+      : t('其中的会话和消息都会保留，并回到默认列表。')
+  return (
+    <AlertDialog
+      open
+      title={team ? t('删除团队分区「{name}」？', { name }) : t('删除分区「{name}」？', { name })}
+      message={message}
+      onClose={() => {
+        if (!busy) onClose()
+      }}
+      actions={[
+        { label: t('取消'), disabled: busy, onClick: onClose },
+        { label: t('删除'), variant: 'destructive', disabled: busy, onClick: onConfirm },
+      ]}
+    />
+  )
+}
+
+function DeleteSectionHost({
+  sec,
+  team,
+  onClose,
+}: {
+  sec: SidebarSectionDto
+  team: boolean
+  onClose: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const own = useSections((s) => s.sections)
+  const teamSecs = useTeamSections((s) => s.sections)
+  const childCount = sectionSubtree(team ? teamSecs : own, sec.id).length - 1
+  const onConfirm = async () => {
+    if (busy) return
+    setBusy(true)
+    const ok = await attempt(() => (team ? teamSectionsApi : sectionsApi).remove(sec.id))
+    if (ok) {
+      onClose()
+      toast({ type: 'success', message: t('已删除分区「{name}」，其中的会话已保留', { name: sec.name }) })
+    } else setBusy(false)
+  }
+  return (
+    <DeleteSectionDialog
+      name={sec.name}
+      team={team}
+      childCount={childCount}
+      busy={busy}
+      onConfirm={() => void onConfirm()}
+      onClose={onClose}
+    />
+  )
+}
+
+/** Renders whichever sidebar section/channel dialog is open. */
+export function SidebarDialogHost({
+  dialog,
+  onClose,
+}: {
+  dialog: SidebarDialog | null
+  onClose: () => void
+}) {
+  if (!dialog) return null
+  if (dialog === 'browse') return <BrowseChannelsDialog onClose={onClose} />
+  if ('delete' in dialog)
+    return (
+      <DeleteSectionHost key={dialog.delete.id} sec={dialog.delete} team={dialog.team} onClose={onClose} />
+    )
+  return (
+    <SectionNameDialog
+      initial={dialog.rename?.name}
+      team={dialog.team}
+      parent={dialog.parent?.name}
+      onSave={(name) => {
+        const ops = dialog.team ? teamSectionsApi : sectionsApi
+        return dialog.rename ? ops.rename(dialog.rename.id, name) : ops.create(name, dialog.parent?.id)
+      }}
+      onClose={onClose}
+    />
   )
 }

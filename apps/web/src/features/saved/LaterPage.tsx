@@ -210,7 +210,9 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
     <section className="works thread-inbox" aria-label={t('稍后处理')}>
       <header className="works__head">
         {onBack ? (
-          <Button size="small" variant="plain" icon="chevron-left" aria-label={t('返回')} onClick={onBack} />
+          <button type="button" className="pn-chathead__back" aria-label={t('返回')} onClick={onBack}>
+            <Icon name="chevron-left" size={20} weight={1.8} />
+          </button>
         ) : null}
         <h1 className="works__title">{t('稍后处理')}</h1>
         <SegmentedControl<Tab>

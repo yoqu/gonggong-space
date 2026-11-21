@@ -181,3 +181,25 @@
 - P3 群标签「添加标签」输入缺少协议头的链接时仅置灰「添加」按钮无原因提示（`group-tabs/AddTabDialog.tsx`）：输入 `example.com` 后按钮静默置灰不说明需带 `http://` 或 `https://` → 链接框非空且不匹配 `LINK` 时显示行内错误提示「请输入以 http:// 或 https:// 开头的链接」（验收：输入无协议头域名时下方实时提示）。
 - P3 产物「分享」弹窗在可见范围为「团队/全员」但未开启外部链接时副标题自相矛盾（`artifacts/share.tsx`）：上方刚说明「团队成员/所有登录用户都能查看和演示」，下方「开启分享」关闭态仍写死「未开启，只有群成员能查看」 → 关闭态文案改为「未开启，仅上方可见范围内的成员可查看」（验收：切「团队/全员」时上下两段文案一致）。
 - P3 英文界面左侧栏底部连接状态栏 `0 computers online` 右端溢出被截断（`app/Sidebar` 状态栏）：1440px 宽英文界面下状态栏右侧被裁成 `0 computers onlin` → 开启 `overflow: hidden; text-overflow: ellipsis` 并缩短英文态文案（如 `0 bots · 0 machines`）（验收：英文 1440px 下状态栏完整无裁切）。
+
+## 11-21 第 1 轮（会话导航、左侧栏分区、入群预览、收件箱与话题抽屉；桌面 1440 + 1024 窄桌面 + 深色 + 英文 + 390 触屏）
+
+已修（6 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 移动端（390px）进入未加入团队分区群 `JoinPreview` 无返回键且无底栏被困死（`app/ChatPage.tsx`、`groups/JoinPreview.tsx`、`groups/groups.css`）：`ChatPage` 未传 `onBack`、`JoinPreview` 无移动端顶栏 → 移动端传入 `onBack` 并渲染 52px 顶栏 + `.pn-chathead__back` 返回按钮（验收：390px 下可见 36×36 返回按钮并可返回会话列表）。
+- P1 侧栏快捷入口（话题 / 全部未读 / 稍后处理）与未加入目录群写死 `tabIndex={-1}` 键盘完全不可触达（`app/Sidebar.tsx`、`chat/UnreadsRow.tsx`、`saved/LaterRow.tsx`）→ 快捷入口恢复默认 Tab 可聚焦，目录群纳入 roving tab stop 与 `↑↓` 键盘导航（验收：Tab 可直达三项快捷入口；无已加入群的新成员可 Tab + 方向键遍历目录群）。
+- P1 删除个人/团队分区无二次确认直接级联删除子树（`app/Sidebar.tsx`、`groups/SidebarDialogs.tsx`、`groups/en.ts`）→ 抽出 `DeleteSectionDialog` / `SidebarDialogHost`，删除前弹 `AlertDialog` 明确提示子分区级联与全团队影响并保留会话，确认后弹成功 Toast（验收：点击「删除分区」先弹确认框，取消不发 DELETE，确认后删除并提示）。
+- P1 群内「本群话题（`GroupThreads`）」与「话题抽屉（`ThreadView`）」不支持 `Escape` 关闭且按键穿透触发底层群聊全部标已读（`chat/GroupThreads.tsx`、`chat/ThreadView.tsx`）→ 均注册 `useEscape(onClose)` 加入后开先关遮罩栈（验收：按 `Escape` 优先关闭抽屉内菜单/选人浮层，再关闭话题抽屉且不触发底层 `POST /groups/:id/read`）。
+- P1 移动端（390px）多处高频返回/分区/底栏账户按钮触控热区仅 20–24px（`chat/UnreadInbox.tsx`、`chat/ThreadInbox.tsx`、`saved/LaterPage.tsx`、`app/shell.css`、`ui/nav-rail.css`）→ 三个收件箱返回键改用 36×36 `.pn-chathead__back`，`@media (pointer: coarse)` 放大侧栏分区 `···`（32×32）与新建分区（≥36px），移动底栏 `.account__trigger` 扩至 44×44 热区（验收：390px 触屏下全部高频入口热区合规）。
+- P1 服务端 `/api/threads` 与 `/api/threads/unread` 缺失当前团队（`teamId`）隔离过滤（`apps/server/src/modules/threads/routes.ts`）→ `followedBy` 增加 `eq(groups.teamId, teamId)`，路由解析 `currentTeam(ctx, req, me.id)` 严格隔离（验收：多团队成员请求带 `X-GG-Team` 仅返回对应团队话题与未读数，跨团队头返 404）。
+
+- P2 普通成员打开 `JoinPreview` 每次必发 `GET /api/groups/:id` 触发控制台 404（`app/ChatPage.tsx`）：`useGroupOutsideList` 未排除非管理员已命中本团队目录的 `preview` → 仅 `groupsState === 'ready' && !group && (!preview || teamCanManage)` 时查询（验收：普通成员点目录群控制台与 Network 零 404）。
+- P2 侧栏底部「新建分区」菜单未启用 `portal` 向下溢出贴底压迫状态栏（`app/Sidebar.tsx`）：`<PullDownButton label={t('新建分区')} />` 遗漏 `portal` → 补传 `portal` 自动脱离滚动容器并向上翻转（验收：长侧栏底部点「新建分区」不被裁剪且不挡状态栏）。
+- P2 侧栏分区计数与实际显示行数背离且与「把会话拖到这里」矛盾、触屏仍提示拖拽（`app/Sidebar.tsx`）：星标/个人分区覆盖导致分区下可见为 0 却显示计数 `3/3` + 拖拽空态 → 覆盖导致的空分区改提示「{n} 个群已显示在星标或个人分区」，计数补 `title` 说明，触屏空分区改「长按会话可移到这里」（验收：无矛盾提示、触屏无拖拽文案）。
+- P2 工作台专注模式 `ConversationStrip` 顶部展开按钮现原生黑框且未过滤已完成会话（`app/shell.css`、`app/ConversationStrip.tsx`）：`.conv-strip__item` 缺 `border: 0; background: transparent; padding: 0;`，未复用 `isDone` 过滤且漏普通群未读点 → 清除原生边框底色、过滤已完成会话并补普通未读圆点（验收：专注模式顶部按钮风格一致、已完成群不冒出）。
+- P2 `/unreads`、`/threads`、`GroupThreads` 摘要原样渲染 Markdown 且翻页失败静默吞错/连点重复追加（`chat/UnreadInbox.tsx`、`chat/ThreadInbox.tsx`、`chat/GroupThreads.tsx`）→ 摘要统一走 `plainText` 剥离标记，翻页加互斥锁与 `root.id` 去重，失败显示错误与重试；对齐免打扰群在侧栏与 `/unreads` 的展示（验收：无原始 `**`/`##` 源码，翻页失败可见重试且连点不重复）。
+- P2 英文界面侧栏 `All unreads`（1440px）与底栏 `Notifications`（390px）截断（`app/AppRail.tsx`、`app/en.ts`、`chat/UnreadsRow.tsx`、`chat/en.ts`）→ 使用 `#nav` / `#shortcut` 短标签 `Alerts` 与 `Unreads`（验收：英文 1440px 与 390px 导航和快捷入口零省略号）。
+- P2 `GroupThreads` 与 `ThreadView` 抽屉副标题硬编码 `# ` 且缺单行省略（`chat/GroupThreads.tsx`、`chat/ThreadView.tsx`、`ui/im/panels.css`）：私聊与私有群错显 `# 名称` → 仅公开频道加 `# `，`.pn-threadpanel__sub` 补单行省略、`.pn-threadpanel__actions` 设 `flex: none`（验收：私聊无 `# `，超长群名不撑破顶栏）。
+- P3 侧栏「频道」分区头按钮被同名 `.sidebar__add` 样式污染呈 20×28 竖椭圆且分区 `···` 蓝灰配色不一（`app/shell.css`、`app/Sidebar.tsx`）→ 拆分或重置 `.sidebar__sechead .sidebar__add` 为 20×20 正圆、统一基线居中，分区 `···` 改 `variant="ghost"`（验收：桌面图标正圆对齐、分区操作统一中性灰）。
+- P3 通知面板移动端缺显式关闭键、头尾按钮高 20px 且底部说明存在孤字折行（`notifications/NotificationPanel.tsx`、`notifications.css`）→ 顶栏右侧补 `<CloseButton />`，触屏按钮 `min-height: 32px`，精简底栏文案消除孤字（验收：390px 可点 `×` 关闭且无孤字）。
+- P3 390px 移动端「稍后处理」带角标时误隐图标、`ThreadView` 关注按钮缺防重与响应即时同步（`saved/later.css`、`chat/ThreadView.tsx`）→ 仅桌面窄栏隐藏书签图标，`follow()` 加 `busy` 并直接应用接口返回态（验收：390px 三项快捷入口图标齐整，关注按钮即时切态）。
+- P3 移动端「浏览频道」分段与行按钮偏小、新成员空「频道」区无发现引导（`groups/groups.css`、`app/Sidebar.tsx`）→ 触屏分段与行按钮 `min-height: 32px`，空「频道」区提供「浏览公开频道…」快捷按钮（验收：390px 控件 ≥32px，新成员一键可发现公开频道）。

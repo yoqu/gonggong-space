@@ -244,6 +244,61 @@ describe('thread inbox', () => {
     expect((await s.asZhao.get<ThreadInboxDto>('/api/threads')).body.threads).toEqual([])
     expect((await s.asZhao.get(`/api/messages/${root.id}/thread`)).status).toBe(404)
   })
+
+  it('scopes followed threads and unread counts to the current team', async () => {
+    const alice = await t.seed.user({ name: '爱丽丝' })
+    const eve = await t.seed.user({ name: '伊芙' })
+    const carol = await t.seed.user({ name: '卡罗尔', teamId: null })
+    const teamB = await t.seed.team({ ownerId: carol.id, name: '团队B', memberIds: [eve.id] })
+    const groupA = await t.seed.group({ createdBy: alice.id, name: 'A 群', memberIds: [eve.id] })
+    const groupB = await t.seed.group({
+      createdBy: carol.id,
+      name: 'B 群',
+      memberIds: [eve.id],
+      teamId: teamB.id,
+    })
+    const teamAId = groupA.teamId
+
+    const eveCookie = await t.seed.cookie(eve.id)
+    const eveDefault = client(t, eveCookie)
+    const eveA = client(t, eveCookie, teamAId)
+    const eveB = client(t, eveCookie, teamB.id)
+    const aliceA = client(t, await t.seed.cookie(alice.id), teamAId)
+    const carolB = client(t, await t.seed.cookie(carol.id), teamB.id)
+
+    const rootA = (await send(eveA, groupA.id, 'A 话题')).body
+    await send(aliceA, groupA.id, 'A 回复', { threadRootId: rootA.id })
+
+    const rootB1 = (await send(carolB, groupB.id, 'B 话题一')).body
+    await send(carolB, groupB.id, '@伊芙 看下 B1', { threadRootId: rootB1.id })
+    const rootB2 = (await send(eveB, groupB.id, 'B 话题二')).body
+    await send(carolB, groupB.id, 'B2 回复', { threadRootId: rootB2.id })
+
+    const inbox = async (c: C) => (await c.get<ThreadInboxDto>('/api/threads')).body.threads
+    const unread = async (c: C) => (await c.get<ThreadUnreadDto>('/api/threads/unread')).body
+
+    expect((await inbox(eveA)).map((x) => [x.groupId, x.root.id])).toEqual([[groupA.id, rootA.id]])
+    expect(await unread(eveA)).toEqual({ unread: 1, mentioned: 0 })
+
+    expect((await inbox(eveB)).map((x) => [x.groupId, x.root.id])).toEqual([
+      [groupB.id, rootB2.id],
+      [groupB.id, rootB1.id],
+    ])
+    expect(await unread(eveB)).toEqual({ unread: 2, mentioned: 1 })
+
+    // Without X-GG-Team, defaults to the earliest-joined team (Team A).
+    expect((await inbox(eveDefault)).map((x) => x.root.id)).toEqual([rootA.id])
+    expect(await unread(eveDefault)).toEqual({ unread: 1, mentioned: 0 })
+
+    // Foreign team header is refused, and a user in no team gets 403.
+    const aliceAsB = client(t, await t.seed.cookie(alice.id), teamB.id)
+    expect((await aliceAsB.get('/api/threads')).status).toBe(404)
+    expect((await aliceAsB.get('/api/threads/unread')).status).toBe(404)
+    const loner = await t.seed.user({ name: '无团队用户', teamId: null })
+    const asLoner = client(t, await t.seed.cookie(loner.id))
+    expect((await asLoner.get('/api/threads')).status).toBe(403)
+    expect((await asLoner.get('/api/threads/unread')).status).toBe(403)
+  })
 })
 
 describe('thread of a root the viewer deleted', () => {

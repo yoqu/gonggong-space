@@ -354,6 +354,31 @@
   gap: var(--space-8);
 }
 
+.join-preview__page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.join-preview__head {
+  flex: none;
+  height: var(--toolbar-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-16);
+  border-bottom: 1px solid var(--separator);
+  background: var(--content-bg);
+}
+.join-preview__head-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-title-3-size);
+  line-height: var(--text-title-3-line);
+  font-weight: 600;
+}
 .join-preview {
   animation:
     ui-fade-in var(--fade-in),
