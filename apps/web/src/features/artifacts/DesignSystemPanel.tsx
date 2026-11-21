@@ -35,10 +35,9 @@ import {
   designOps,
   invalidTokens,
   loadPresets,
-  saveDesign,
 } from './designSystem'
 import { isHex, type Mode, modeOf, neutralRole, neutralScheme, seedScheme } from './palette'
-import { readArtifactFile } from './store'
+import { editArtifact, readArtifactFile } from './store'
 import { type ColorRole, colorRoles, type DesignTokens, parseTokens } from './tokens'
 import './design-system-panel.css'
 
@@ -352,7 +351,7 @@ function DesignSystemPanel({
     const ops = designOps(base, files)
     try {
       if (ops.length) {
-        await saveDesign(artifactId, (draft?.base ?? base).versionId, ops)
+        await editArtifact(artifactId, (draft?.base ?? base).versionId, ops)
         if (draft) setDraft({ ...draft, saved: true })
       }
       if (andApply && bot) {
@@ -684,7 +683,7 @@ function DesignSystemPanel({
           label={t('套用')}
           done={t('已套用预设')}
           run={async () => {
-            await saveDesign(artifactId, base.versionId, [{ kind: 'design-system', id: preset.id }])
+            await editArtifact(artifactId, base.versionId, [{ kind: 'design-system', id: preset.id }])
             setDraft(null)
           }}
           onClose={() => setPreset(null)}

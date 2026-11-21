@@ -1,6 +1,5 @@
 import type {
   ArtifactDto,
-  ArtifactVersionDto,
   BotDto,
   GgArtifactLink,
   GgArtifactManifest,
@@ -18,29 +17,13 @@ import { LINK_CARD, LINK_HEAD, layoutNodes } from '../src/features/artifacts/geo
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
+import { ORIGIN, versionAt } from './artifactFixtures'
 import { type Call, mockApi } from './mockApi'
 
 // Web pages on the canvas: an embedded page or a link card, added from the toolbar, ⌘K or a pasted URL.
 
 const at = '2026-11-17T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const PRD: GgArtifactLink = {
   id: 'prd',
   url: 'https://luhu.feishu.cn/docx/RfQ8dKm2',

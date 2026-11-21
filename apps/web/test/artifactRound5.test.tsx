@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import type {
   AnnotationDto,
   ArtifactDto,
-  ArtifactVersionDto,
   BotDto,
   GgArtifactManifest,
   GgArtifactRef,
@@ -25,29 +24,13 @@ import { resetArtifacts, useArtifactFocus } from '../src/features/artifacts/stor
 import { realtime } from '../src/lib/realtime'
 import { useStickOnResize } from '../src/lib/useStickOnResize'
 import { useToasts } from '../src/ui'
-import { type Call, mockApi } from './mockApi'
+import { bodies, item, ORIGIN, versionAt } from './artifactFixtures'
+import { mockApi } from './mockApi'
 
 // Fixes from the 4th Stitch comparison walk-through (docs/archive/2026-11/stitch-对比-第4轮.md): web P1-01…05 and P2s.
 
 const at = '2026-10-30T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const REFS: GgArtifactRef[] = [
   { id: 'r1', title: '竞品首页.png', file: 'refs/competitor.png', kind: 'image' },
   { id: 'r2', title: '需求.pdf', file: 'refs/spec.pdf', kind: 'pdf' },
@@ -134,14 +117,6 @@ const renderTab = async () => {
   await screen.findByTitle('首页')
 }
 const node = (id: string) => screen.getByTestId(`art-node-${id}`)
-const bodies = (calls: Call[], method: string, path: string) =>
-  calls.filter((c) => c.method === method && c.path === path).map((c) => c.body)
-const item = (menu: HTMLElement, name: RegExp) => {
-  const m = within(menu)
-  const [hit] = [...m.queryAllByRole('menuitem', { name }), ...m.queryAllByRole('menuitemcheckbox', { name })]
-  if (!hit) throw new Error(`no menu item ${name}`)
-  return hit
-}
 
 class NoopSocket {
   close() {}

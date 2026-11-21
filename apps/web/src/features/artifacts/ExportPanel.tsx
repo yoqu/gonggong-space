@@ -2,6 +2,7 @@ import type { BotDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { copyText } from '../../lib/clipboard'
+import { downloadUrl } from '../../lib/download'
 import { Button, Icon, RadioGroup, toast } from '../../ui'
 import { copyScreensCode, type Notify } from './actions'
 import { Panel } from './SidePanel'
@@ -12,13 +13,6 @@ type Format = 'zip' | 'code' | 'prompt' | 'brief' | 'share'
 /** GET /api/artifacts/:id/export.zip — the version's files and the prototype shell, as `<slug>-v<n>.zip`. */
 export const exportZipUrl = (artifactId: string, versionId: string) =>
   `/api/artifacts/${artifactId}/export.zip?version=${encodeURIComponent(versionId)}`
-
-export function downloadUrl(url: string) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = ''
-  a.click()
-}
 
 /**
  * Stitch's Export (capability list §9) for what 共工 hosts: the artifact as a zip, the screens' code, a PRD by the bot,

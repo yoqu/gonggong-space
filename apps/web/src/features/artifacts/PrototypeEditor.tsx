@@ -15,7 +15,7 @@ import { Button, Icon, IconButton, MenuButton, Presence, SegmentedControl, Toolt
 import { openUrl } from '../previews/store'
 import { saveEdits, sendCommand, useArtifactBot } from './actions'
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
-import type { PickedElement } from './elements'
+import { NO_SCROLL, type PickedElement } from './elements'
 import { useTextEdit } from './inPlace'
 import { capsuleOf } from './markLayout'
 import { drawerHeight, usePreviewMarks } from './previewMarks'
@@ -62,7 +62,6 @@ const FOLLOW_MS = 1500
 
 /** Around the screen: the bezel (px at 100%). */
 const BEZEL = 10
-const NO_SCROLL = { x: 0, y: 0 }
 /** How long a click beside the hotspots shows them (prototype.css `proto-hots-flash`). */
 const FLASH_MS = 800
 /** Room the whole-screen change bar takes under the device while open. */

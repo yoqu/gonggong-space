@@ -1,6 +1,7 @@
 import type { GitCommit, GitDiffDto, GitHeadCommit, GitShowDto } from '@gonggong/protocol'
 import { t } from '../../../i18n'
 import { api } from '../../../lib/api'
+import { downloadBlob } from '../../../lib/download'
 import { toastError } from '../../../lib/errors'
 import { type MenuItem, toast } from '../../../ui'
 import { type GitTarget, gitBase, gitUrls } from '../api'
@@ -156,15 +157,7 @@ async function createPatch(c: GitCommit, ctx: Context) {
       gitUrls.diff(base, c.parents[0] ?? EMPTY_TREE, c.hash, null, ctx.target.repo),
     )
     if (d.truncated) return void toast({ type: 'error', message: t('改动过大，无法创建补丁') })
-    const url = URL.createObjectURL(new Blob([d.patch ?? ''], { type: 'text/x-diff' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${c.shortHash}.patch`
-    document.body.append(a)
-    a.click()
-    a.remove()
-    // Revoked at once, some browsers drop the download before it starts.
-    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    downloadBlob(`${c.shortHash}.patch`, new Blob([d.patch ?? ''], { type: 'text/x-diff' }))
   } catch (e) {
     toastError(e)
   }

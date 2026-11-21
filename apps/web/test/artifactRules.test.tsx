@@ -1,5 +1,5 @@
-import type { ArtifactDto, ArtifactVersionDto, BotDto, GroupDto, UserDto } from '@gonggong/protocol'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import type { ArtifactDto, BotDto, GroupDto, UserDto } from '@gonggong/protocol'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
@@ -22,7 +22,8 @@ import {
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
-import { type Call, mockApi } from './mockApi'
+import { bodies, fromFrame, ORIGIN, versionAt } from './artifactFixtures'
+import { mockApi } from './mockApi'
 
 // Page business rules (rules/<screen>.md, rules/shared.md): design/app-screens-fzvz rules-view, rules-add, shared-rules.
 
@@ -186,24 +187,7 @@ describe('rules.ts', () => {
 // ── On the canvas ──
 
 const at = '2026-11-16T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const manifest = {
   title: '读书会小程序',
   device: 'mobile' as const,
@@ -262,21 +246,9 @@ const renderTab = async () => {
   render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
   await screen.findByTitle('首页')
 }
-const bodies = (calls: Call[], method: string, path: string) =>
-  calls.filter((c) => c.method === method && c.path === path).map((c) => c.body)
 const frameOf = (title: string) => document.querySelector(`iframe[title="${title}"]`) as HTMLIFrameElement
-const fromScreen = (data: Record<string, unknown>, title = '首页', file = 'screens/home.html') => {
-  const iframe = frameOf(title)
-  act(() => {
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { source: 'gg-bridge', file, ...data },
-        origin: ORIGIN,
-        source: iframe.contentWindow,
-      }),
-    )
-  })
-}
+const fromScreen = (data: Record<string, unknown>, title = '首页', file = 'screens/home.html') =>
+  fromFrame(frameOf(title), file, data)
 const select = (o: Record<string, unknown> = {}) =>
   fromScreen({
     type: 'select',

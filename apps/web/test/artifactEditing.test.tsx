@@ -1,12 +1,4 @@
-import type {
-  AnnotationDto,
-  ArtifactDto,
-  ArtifactVersionDto,
-  BotDto,
-  GroupDto,
-  MessageDto,
-  UserDto,
-} from '@gonggong/protocol'
+import type { AnnotationDto, ArtifactDto, BotDto, GroupDto, MessageDto, UserDto } from '@gonggong/protocol'
 import { BridgeToShell } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -25,35 +17,19 @@ import { MessageComposer } from '../src/features/chat/MessageComposer'
 import { UserMessage } from '../src/features/chat/TimelineItems'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
+import { bodies, fromFrame, item, ORIGIN, versionAt } from './artifactFixtures'
 import { apiError, type Call, mockApi } from './mockApi'
 import { PROTO_COMMANDS } from './protoCommands'
 
 // R3 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: Direct Edit, Mark, selection as chat context, AI commands.
 
 const at = '2026-10-29T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
 const TOKENS = `:root {
   --color-primary: #155332;
   --color-surface: #FFFFFF;
   --rounded-sm: 8px;
 }`
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const manifest = {
   title: '读书会小程序',
   device: 'mobile' as const,
@@ -146,21 +122,9 @@ const renderTab = async () => {
 const canvas = () => screen.getByRole('application', { name: '画布' })
 const node = (id: string) => screen.getByTestId(`art-node-${id}`)
 const key = (k: string, o: Record<string, unknown> = {}) => fireEvent.keyDown(canvas(), { key: k, ...o })
-const bodies = (calls: Call[], method: string, path: string) =>
-  calls.filter((c) => c.method === method && c.path === path).map((c) => c.body)
 
-const fromScreen = (data: Record<string, unknown>, title = '首页') => {
-  const iframe = screen.getByTitle(title) as HTMLIFrameElement
-  act(() => {
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { source: 'gg-bridge', file: 'screens/home.html', ...data },
-        origin: ORIGIN,
-        source: iframe.contentWindow,
-      }),
-    )
-  })
-}
+const fromScreen = (data: Record<string, unknown>, title = '首页') =>
+  fromFrame(screen.getByTitle(title) as HTMLIFrameElement, 'screens/home.html', data)
 const select = (o: Record<string, unknown> = {}) =>
   fromScreen({
     type: 'select',
@@ -179,12 +143,6 @@ const select = (o: Record<string, unknown> = {}) =>
   })
 const popover = () => screen.getByRole('dialog', { name: '编辑元素' })
 const action = (name: RegExp) => within(popover()).getByRole('button', { name })
-const item = (menu: HTMLElement, name: RegExp) => {
-  const m = within(menu)
-  const [hit] = [...m.queryAllByRole('menuitem', { name }), ...m.queryAllByRole('menuitemcheckbox', { name })]
-  if (!hit) throw new Error(`no menu item ${name}`)
-  return hit
-}
 
 class NoopSocket {
   close() {}

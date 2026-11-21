@@ -1,4 +1,4 @@
-import type { ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
+import type { ArtifactDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -28,12 +28,12 @@ import {
 } from '../src/features/artifacts/store'
 import { colorRole, colorRoles, parseTokens } from '../src/features/artifacts/tokens'
 import { realtime } from '../src/lib/realtime'
+import { item, ORIGIN, versionAt } from './artifactFixtures'
 import { mockApi } from './mockApi'
 
 // R2 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: the canvas against Stitch's (capability list §3, §4, §9).
 
 const at = '2026-10-29T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
 const TOKENS = `/* tokens */
 :root {
   --color-primary: #155332;
@@ -50,23 +50,7 @@ const TOKENS = `/* tokens */
 }
 .t-title-md { font-size: var(--text-title-md-size); }
 `
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const manifest = {
   title: '读书会小程序',
   device: 'mobile' as const,
@@ -141,12 +125,6 @@ const manifestOp = (op: string, screenId: string, extra: Record<string, unknown>
 const openContext = (id: string) => {
   fireEvent.contextMenu(node(id))
   return screen.getByRole('menu')
-}
-const item = (menu: HTMLElement, name: RegExp) => {
-  const m = within(menu)
-  const [hit] = [...m.queryAllByRole('menuitem', { name }), ...m.queryAllByRole('menuitemcheckbox', { name })]
-  if (!hit) throw new Error(`no menu item ${name}`)
-  return hit
 }
 
 class NoopSocket {

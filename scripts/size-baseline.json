@@ -1,7 +1,7 @@
 {
   "apps/web/src/app/Sidebar.tsx": 1024,
   "apps/web/src/app/shell.css": 1088,
-  "apps/web/src/features/artifacts/Canvas.tsx": 2363,
+  "apps/web/src/features/artifacts/Canvas.tsx": 2362,
   "apps/web/src/features/artifacts/artifacts.css": 1888,
   "apps/web/src/features/chat/ChatView.tsx": 1055,
   "apps/web/src/features/files/FileViewer.tsx": 1188,

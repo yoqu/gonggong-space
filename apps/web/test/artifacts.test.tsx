@@ -1,4 +1,4 @@
-import type { ArtifactCard, ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
+import type { ArtifactCard, ArtifactDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
@@ -6,26 +6,11 @@ import { ArtifactCardView } from '../src/features/artifacts/ArtifactCard'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
+import { ORIGIN, versionAt } from './artifactFixtures'
 import { mockApi } from './mockApi'
 
 const at = '2026-10-29T10:00:00Z'
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const { files: _, ...head } = version(2)
 const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   id: 'a1',
@@ -77,7 +62,6 @@ const routes = (o: Record<string, unknown> = {}) => ({
   'POST /artifacts/a1/preview': { previewId: 'pw1', origin: ORIGIN, url: '/api/previews/pw1/open' },
   ...o,
 })
-const ORIGIN = 'https://a1.preview.test'
 const tab = { kind: 'artifact' as const, artifactId: 'a1', title: '读书会小程序' }
 const renderTab = () => render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
 const canvas = () => screen.getByRole('application', { name: '画布' })

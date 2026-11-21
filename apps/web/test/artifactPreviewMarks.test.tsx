@@ -1,4 +1,4 @@
-import type { ArtifactDto, ArtifactVersionDto, BotDto, GroupDto, UserDto } from '@gonggong/protocol'
+import type { ArtifactDto, BotDto, GroupDto, UserDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -10,6 +10,7 @@ import { GUIDE_KEY } from '../src/features/artifacts/prototype'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
+import { fromFrame, ORIGIN, versionAt } from './artifactFixtures'
 import { mockApi } from './mockApi'
 
 // The prototype preview's 标注 layer: the page rules (rules/<screen>.md) as numbered marks over the screen and a
@@ -28,24 +29,7 @@ const SHARED = `# 共享规则
 | 看书单 | 可以 |
 `
 const at = '2026-11-17T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const manifest = {
   title: '读书会小程序',
   device: 'mobile' as const,
@@ -128,19 +112,8 @@ const frame = () => {
   const title = manifest.screens.find((x) => x.id === s)?.title as string
   return screen.getByTitle(title) as HTMLIFrameElement
 }
-const fromScreen = (data: Record<string, unknown>) => {
-  const iframe = frame()
-  const file = `screens/${shown().dataset.screen}.html`
-  act(() => {
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { source: 'gg-bridge', file, ...data },
-        origin: ORIGIN,
-        source: iframe.contentWindow,
-      }),
-    )
-  })
-}
+const fromScreen = (data: Record<string, unknown>) =>
+  fromFrame(frame(), `screens/${shown().dataset.screen}.html`, data)
 const ready = () =>
   fromScreen({
     type: 'ready',

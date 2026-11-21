@@ -27,6 +27,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
+import { downloadBlob, downloadUrl } from '../../lib/download'
 import { attempt, toastError } from '../../lib/errors'
 import {
   Button,
@@ -83,7 +84,6 @@ import {
 import { DesignMdNode } from './DesignMdNode'
 import { DesignSystemNode } from './DesignSystemNode'
 import type { DesignTab } from './DesignSystemPanel'
-import { saveFile, saveUrl } from './download'
 import { ElementPanel } from './ElementPanel'
 import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
@@ -158,7 +158,7 @@ import { PageEmpty } from './PageRail'
 import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
-import { connectOps } from './prototype'
+import { connectOps, typing } from './prototype'
 import { RefNode } from './RefNode'
 import { removal } from './removal'
 import { ShortcutsDialog } from './ShortcutsDialog'
@@ -299,9 +299,6 @@ export interface CanvasProps {
 const BRIEF = 'project-brief'
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
-
-const editable = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 
 const bridgeMode = (tool: Tool): BridgeMode => (tool === 'mark' || tool === 'edit' ? tool : 'preview')
 
@@ -999,8 +996,10 @@ export function Canvas({
         return
       case CMD.download:
         for (const n of picked)
-          void attempt(async () => saveFile(n.file.split('/').pop() ?? n.file, await readFile(n.file)))
-        for (const r of pickedRefs) saveUrl(r.file.split('/').pop() ?? r.title, fileUrl(r.file))
+          void attempt(async () =>
+            downloadBlob(n.file.split('/').pop() ?? n.file, new Blob([await readFile(n.file)])),
+          )
+        for (const r of pickedRefs) downloadUrl(fileUrl(r.file), r.file.split('/').pop() ?? r.title)
         return
       case CMD.upload:
         if (canEdit) filePicker.current?.click()
@@ -1101,7 +1100,7 @@ export function Canvas({
   }
   const keyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     // Keys typed in a field, or in a dialog portalled out of the canvas, are not shortcuts.
-    if (editable(e.target) || !root.current?.contains(e.target as Node)) return
+    if (typing(e.target) || !root.current?.contains(e.target as Node)) return
     const mod = e.metaKey || e.ctrlKey
     const key = e.key.toLowerCase()
     const arrow = ARROWS[e.key]
@@ -1603,7 +1602,7 @@ export function Canvas({
       tabIndex={0}
       aria-label={t('画布')}
       onKeyDown={keyDown}
-      onPaste={(e) => editable(e.target) || web.paste(e)}
+      onPaste={(e) => typing(e.target) || web.paste(e)}
       onFocus={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) escapeFrom.current = overlayMark()
       }}

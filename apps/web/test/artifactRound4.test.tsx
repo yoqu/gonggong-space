@@ -2,14 +2,13 @@ import type {
   AnnotationDto,
   ArtifactCard,
   ArtifactDto,
-  ArtifactVersionDto,
   BotDto,
   GgArtifactManifest,
   GgArtifactRef,
   GroupDto,
   UserDto,
 } from '@gonggong/protocol'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
@@ -22,30 +21,14 @@ import { layoutNodes, REF_SIZE } from '../src/features/artifacts/geometry'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
-import { type Call, mockApi } from './mockApi'
+import { bodies, fromFrame, item, ORIGIN, versionAt } from './artifactFixtures'
+import { mockApi } from './mockApi'
 
 // Round 4 of the Stitch comparison: files on the canvas (G04), region marks (G08), the queued banner (R04), the
 // annotation badge, scrolled screens, arrow keys (G10), stale thumbnails and Copy as PNG.
 
 const at = '2026-10-30T10:00:00Z'
-const ORIGIN = 'https://a1.preview.test'
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const REFS: GgArtifactRef[] = [
   { id: 'r1', title: '竞品首页.png', file: 'refs/competitor.png', kind: 'image' },
   { id: 'r2', title: '需求.pdf', file: 'refs/spec.pdf', kind: 'pdf' },
@@ -134,26 +117,8 @@ const renderTab = async () => {
 const canvas = () => screen.getByRole('application', { name: '画布' })
 const node = (id: string) => screen.getByTestId(`art-node-${id}`)
 const key = (k: string, o: Record<string, unknown> = {}) => fireEvent.keyDown(canvas(), { key: k, ...o })
-const bodies = (calls: Call[], method: string, path: string) =>
-  calls.filter((c) => c.method === method && c.path === path).map((c) => c.body)
-const fromScreen = (data: Record<string, unknown>) => {
-  const iframe = screen.getByTitle('首页') as HTMLIFrameElement
-  act(() => {
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { source: 'gg-bridge', file: 'screens/home.html', ...data },
-        origin: ORIGIN,
-        source: iframe.contentWindow,
-      }),
-    )
-  })
-}
-const item = (menu: HTMLElement, name: RegExp) => {
-  const m = within(menu)
-  const [hit] = [...m.queryAllByRole('menuitem', { name }), ...m.queryAllByRole('menuitemcheckbox', { name })]
-  if (!hit) throw new Error(`no menu item ${name}`)
-  return hit
-}
+const fromScreen = (data: Record<string, unknown>) =>
+  fromFrame(screen.getByTitle('首页') as HTMLIFrameElement, 'screens/home.html', data)
 const png = (name = '参考.png', type = 'image/png') => new File(['x'], name, { type })
 
 class NoopSocket {

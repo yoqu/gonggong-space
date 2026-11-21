@@ -1,10 +1,7 @@
 import { type ArtifactDesignSystem, type ArtifactEditOp, tokenValueOk } from '@gonggong/protocol'
 import { api } from '../../lib/api'
 import { syncDesignMd } from './designMd'
-import { loadArtifact } from './store'
 import { parseTokens, writeTokens } from './tokens'
-
-export type DesignEditOp = ArtifactEditOp
 
 /** GET /api/artifacts/:id/design-systems — the plugin's presets. */
 export type DesignSystemPreset = ArtifactDesignSystem
@@ -35,24 +32,16 @@ export const invalidTokens = (css: string) =>
     .map(([k]) => k)
 
 /** What saving the draft sends: token ops for changed tokens (or the whole tokens.css), DESIGN.md as a file op. */
-export function designOps(base: DesignFiles, draft: DesignFiles): DesignEditOp[] {
+export function designOps(base: DesignFiles, draft: DesignFiles): ArtifactEditOp[] {
   const before = tokenMap(base.css)
   const changed = [...tokenMap(draft.css)].filter(([k, v]) => before.get(k) !== v)
-  const ops: DesignEditOp[] =
+  const ops: ArtifactEditOp[] =
     changed.length > TOKEN_OPS_MAX
       ? [{ kind: 'file', path: 'tokens.css', content: draft.css }]
       : changed.map(([name, value]) => ({ kind: 'token', name, value }))
   if (draft.md !== null && draft.md !== base.md)
     ops.push({ kind: 'file', path: 'DESIGN.md', content: draft.md })
   return ops
-}
-
-export async function saveDesign(artifactId: string, baseVersionId: string, ops: DesignEditOp[]) {
-  try {
-    await api.post(`/artifacts/${artifactId}/edits`, { baseVersionId, ops })
-  } finally {
-    await loadArtifact(artifactId)
-  }
 }
 
 /**

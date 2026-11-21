@@ -1,4 +1,4 @@
-import type { ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
+import type { ArtifactDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
@@ -7,6 +7,7 @@ import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { focusArtifact, resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui/toast'
+import { versionAt } from './artifactFixtures'
 import { apiError, type Call, mockApi } from './mockApi'
 
 // R4 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: the design-system panel (Stitch capability list §5).
@@ -41,23 +42,7 @@ colors:
 
 <script>alert(1)</script>
 `
-const version = (n: number, o: Partial<ArtifactVersionDto> = {}): ArtifactVersionDto => ({
-  id: `v${n}`,
-  artifactId: 'a1',
-  n,
-  parentVersionId: n > 1 ? `v${n - 1}` : null,
-  source: 'run',
-  runId: 'r1',
-  userId: null,
-  files: [],
-  digest: 'a'.repeat(64),
-  thumbnailUrl: null,
-  stale: false,
-  issues: [],
-  createdAt: at,
-  authorName: '设计助手',
-  ...o,
-})
+const version = versionAt(at)
 const manifest = {
   title: '读书会小程序',
   device: 'mobile' as const,
