@@ -10,6 +10,7 @@ export default {
   搜索失败: 'Search failed',
   重试: 'Retry',
   没有匹配的结果: 'No matching results',
+  没有匹配的消息: 'No matching messages',
   搜索结果: 'Search results',
   '会话#conversations': 'Conversations',
   私聊: 'Direct',

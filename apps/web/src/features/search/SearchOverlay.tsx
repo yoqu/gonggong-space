@@ -15,6 +15,7 @@ import {
   Spinner,
   Tabs,
   useEscape,
+  useFocusTrap,
 } from '../../ui'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import './search.css'
@@ -30,6 +31,8 @@ const TABS: { value: Tab; label: string }[] = [
 const ICON: Record<Tab, IconName> = { msg: 'bubble', file: 'doc-code', run: 'play' }
 const DEBOUNCE_MS = 200
 const MAX_CONVERSATIONS = 5
+const TABBABLE =
+  'a[href], button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
 /**
  * Conversations whose name (a DM's is its bot's) contains every term, matched locally as you type;
@@ -81,7 +84,10 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const listId = useId()
+  const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const composingRef = useRef(false)
+  const composingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<Tab>('msg')
   const [attempt, setAttempt] = useState(0)
@@ -92,25 +98,53 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
     failed: false,
   })
   const [active, setActive] = useState(0)
-  const key = q.trim() && `${tab}:${q.trim()}:${attempt}`
+  const trimmed = q.trim()
+  const key = trimmed && `${tab}:${trimmed}:${attempt}`
   const settled = !!key && found.key === key
   const results = settled ? found.list : []
   const groups = useWorkspace((s) => s.groups)
-  const convs = matchConversations(groups, q, pathname)
+  const convs = !trimmed || tab === 'msg' ? matchConversations(groups, q, pathname) : []
   const count = convs.length + results.length
+  const safeActive = count ? Math.min(active, count - 1) : -1
   useEscape(onClose)
 
+  useEffect(() => () => clearTimeout(composingTimerRef.current), [])
+
+  // Keep Tab inside real tab stops (excluding roving-tabindex tabs and tabIndex=-1 result options).
   useEffect(() => {
-    const text = q.trim()
-    if (!text) return
+    const node = panelRef.current
+    if (!node) return
+    const onTab = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Tab' || e.defaultPrevented) return
+      const items = [...node.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => el.tabIndex >= 0)
+      const first = items[0]
+      const last = items.at(-1)
+      const at = document.activeElement
+      const inside = at instanceof HTMLElement && items.includes(at)
+      if (!first || !last) e.preventDefault()
+      else if (e.shiftKey && (at === first || at === node || !inside)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (at === last || !inside)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    node.addEventListener('keydown', onTab)
+    return () => node.removeEventListener('keydown', onTab)
+  }, [])
+  useFocusTrap(panelRef, true)
+
+  useEffect(() => {
+    if (!trimmed) return
     let live = true
     const done = (list: SearchResultDto[], failed = false) => {
       if (!live) return
-      setFound({ key: `${tab}:${text}:${attempt}`, list, failed })
+      setFound({ key: `${tab}:${trimmed}:${attempt}`, list, failed })
       setActive(0)
     }
     const timer = setTimeout(() => {
-      api.get<SearchResultDto[]>(`/search?${new URLSearchParams({ q: text, tab })}`).then(
+      api.get<SearchResultDto[]>(`/search?${new URLSearchParams({ q: trimmed, tab })}`).then(
         (list) => done(list),
         () => done([], true),
       )
@@ -119,8 +153,14 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
       live = false
       clearTimeout(timer)
     }
-  }, [q, tab, attempt])
+  }, [trimmed, tab, attempt])
 
+  const switchTab = (next: Tab) => {
+    setTab(next)
+    setActive(0)
+    // The tab is a parameter of the query; keyboard navigation stays in the input.
+    inputRef.current?.focus()
+  }
   const go = (href: string) => {
     onClose()
     navigate(href)
@@ -135,12 +175,12 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
     <button
       key={key}
       id={optionId(i)}
-      ref={i === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
+      ref={i === safeActive ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
       type="button"
       role="option"
       tabIndex={-1}
-      aria-selected={i === active}
-      className={cx('search__row', i === active && 'search__row--active')}
+      aria-selected={i === safeActive}
+      className={cx('search__row', i === safeActive && 'search__row--active')}
       onMouseMove={() => setActive(i)}
       onClick={() => go(href)}
     >
@@ -149,13 +189,14 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   )
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (!count || e.nativeEvent.isComposing) return
+    if (!count || composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       const step = e.key === 'ArrowDown' ? 1 : -1
-      setActive((i) => (i + step + count) % count)
+      setActive((i) => (Math.min(i, count - 1) + step + count) % count)
     } else if (e.key === 'Enter') {
-      const href = hrefAt(active)
+      e.preventDefault()
+      const href = safeActive >= 0 ? hrefAt(safeActive) : undefined
       if (href) go(href)
     }
   }
@@ -163,7 +204,14 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="search__backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="search" role="dialog" aria-label={t('搜索')}>
+      <div
+        ref={panelRef}
+        className="search"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('搜索')}
+        tabIndex={-1}
+      >
         <div className="search__bar">
           <Icon name="search" size={15} weight={1.7} className="search__glass" />
           <input
@@ -175,11 +223,22 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             role="combobox"
             aria-expanded={count > 0}
             aria-controls={listId}
-            aria-activedescendant={count ? optionId(active) : undefined}
+            aria-activedescendant={safeActive >= 0 ? optionId(safeActive) : undefined}
             value={q}
             onChange={(e) => {
               setQ(e.target.value)
               setActive(0)
+            }}
+            onCompositionStart={() => {
+              clearTimeout(composingTimerRef.current)
+              composingRef.current = true
+            }}
+            onCompositionEnd={() => {
+              // Safari fires Enter keydown right after compositionend with isComposing false.
+              clearTimeout(composingTimerRef.current)
+              composingTimerRef.current = setTimeout(() => {
+                composingRef.current = false
+              }, 0)
             }}
             onKeyDown={onKeyDown}
           />
@@ -189,23 +248,14 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="search__tabs">
-          <Tabs
-            size="sm"
-            items={TABS}
-            value={tab}
-            onChange={(v) => {
-              setTab(v)
-              // The tab is a parameter of the query; keyboard navigation stays in the input.
-              inputRef.current?.focus()
-            }}
-          />
+          <Tabs size="sm" items={TABS} value={tab} onChange={switchTab} />
         </div>
         <div className="search__results" data-testid="search-results">
           {count ? (
             <div id={listId} role="listbox" aria-label={t('搜索结果')} className="search__list">
               {convs.length ? (
                 <div className="search__section" role="presentation">
-                  {q.trim() ? t('会话#conversations') : t('最近')}
+                  {trimmed ? t('会话#conversations') : t('最近')}
                 </div>
               ) : null}
               {convs.map((g, i) =>
@@ -217,7 +267,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
                     <GroupAvatar group={g} size={20} />
                     <div className="search__text">
                       <div className="search__title">
-                        <Highlight text={g.name} query={q.trim()} />
+                        <Highlight text={g.name} query={trimmed} />
                       </div>
                     </div>
                     <span className="search__time">{g.kind === 'dm' ? t('私聊') : t('群聊')}</span>
@@ -244,7 +294,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
                     )}
                     <div className="search__text">
                       <div className={cx('search__title', r.kind === 'file' && 'search__title--mono')}>
-                        <Highlight text={title} query={q.trim()} />
+                        <Highlight text={title} query={trimmed} />
                       </div>
                       <div className="search__sub">{r.sub}</div>
                     </div>
@@ -276,13 +326,15 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
               }
               action={
                 tab === 'file' ? (
-                  <Button size="small" onClick={() => setTab('run')}>
+                  <Button size="small" onClick={() => switchTab('run')}>
                     {t('去「运行」里搜')}
                   </Button>
                 ) : undefined
               }
               illustration={<NoResultsArt />}
             />
+          ) : settled && tab === 'msg' && convs.length > 0 && !results.length ? (
+            <div className="search__empty search__empty--note">{t('没有匹配的消息')}</div>
           ) : null}
         </div>
       </div>

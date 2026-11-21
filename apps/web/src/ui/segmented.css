@@ -69,3 +69,8 @@
 .ui-seg__item:disabled {
   opacity: 0.45;
 }
+@media (pointer: coarse) {
+  .ui-seg--small {
+    height: 32px;
+  }
+}

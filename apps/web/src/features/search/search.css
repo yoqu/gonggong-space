@@ -27,6 +27,9 @@
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
+.search:focus-visible {
+  outline: none;
+}
 /* Pane SearchField, large: capsule on control-track with the magnifier inside. */
 .search__bar {
   display: flex;
@@ -113,6 +116,10 @@
   font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
+.search__empty--note {
+  padding: var(--space-8);
+  font-size: var(--text-subheadline-size);
+}
 .search__list {
   display: flex;
   flex-direction: column;
@@ -184,8 +191,9 @@
   color: inherit;
 }
 .search__row--active .search__title mark {
-  background: var(--glass-fill-clear);
+  background: rgba(0, 0, 0, 0.24);
   color: inherit;
+  font-weight: 600;
 }
 .search__row--active svg[data-type] {
   filter: drop-shadow(0 0 1px var(--on-accent));

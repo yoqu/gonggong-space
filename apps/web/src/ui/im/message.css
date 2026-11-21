@@ -55,6 +55,8 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-6);
+  max-width: 100%;
+  min-width: 0;
   font-size: var(--text-callout-size);
   line-height: 18px;
   color: var(--label-secondary);
@@ -281,7 +283,7 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
 /* A fingertip needs more than the 22px pill a cursor gets. */
 @media (pointer: coarse) {
   .pn-reaction {
-    height: 28px;
+    height: 32px;
   }
 }
 .pn-reaction__emoji {
@@ -411,4 +413,13 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
 .pn-msgactions > * > button[aria-haspopup] svg {
   width: 15px;
   height: 15px;
+}
+@media (pointer: coarse) {
+  .pn-msgactions {
+    height: 38px;
+  }
+  .pn-msgactions button:not([role^="menuitem"]):not([role="option"]) {
+    width: 36px;
+    height: 34px;
+  }
 }

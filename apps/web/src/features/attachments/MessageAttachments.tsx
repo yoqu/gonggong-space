@@ -1,8 +1,9 @@
 import { type Attachment, type MessageDto, RECALLED_QUOTE } from '@gonggong/protocol'
-import { type CSSProperties, useRef, useState } from 'react'
+import { type CSSProperties, useContext, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
 import { Button, FileAttachment, FileIcon, Icon, Lightbox, VideoPlayer, VoiceNote } from '../../ui'
+import { ThreadScope } from '../chat/threadSummary'
 import { openTab } from '../workbench/open'
 import { attachmentUrl, fmtSize, KIND_LABEL, kindOf, OFFICE_LABEL, officeOf } from './api'
 import './attachments.css'
@@ -11,12 +12,14 @@ import { t } from '../../i18n'
 /** The quoted bot reply / run card / message shown inside the sent message; clicking it jumps to the original. */
 export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
   const [, setParams] = useSearchParams()
+  const scope = useContext(ThreadScope)
   if (!quote) return null
   const { kind, id } = quote
   const jump = () =>
     setParams(
       (p) => {
         // A message scrolls into view and flashes; a run card opens its process.
+        if (kind === 'message' && scope) p.set('thread', scope)
         p.set(kind === 'message' ? 'msg' : 'run', id)
         return p
       },

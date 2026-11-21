@@ -70,11 +70,12 @@ export function Float({
 }
 
 /**
- * Places a portalled `.ui-float--fixed` panel in viewport coordinates next to `anchor`: below unless there is
- * more room above. `list` caps it to that room (the list scrolls) and widens it to the anchor. A fixed panel
- * would drift from its anchor, so a scroll that moved the anchor, or a width change, calls `onDrift`. Scroll events
- * land a frame late, so the one from scrolling the trigger into view (before it was clicked) must not dismiss.
- * A height-only resize is the phone's on-screen keyboard opening for a field in the panel: re-place instead.
+ * Places a portalled `.ui-float--fixed` panel in viewport coordinates next to `anchor`: above for `top-*`
+ * placements (unless below has more room and above cannot fit), below otherwise. `list` caps it to that room
+ * (the list scrolls) and widens it to the anchor. A fixed panel would drift from its anchor, so a scroll that
+ * moved the anchor, or a width change, calls `onDrift`. Scroll events land a frame late, so the one from
+ * scrolling the trigger into view (before it was clicked) must not dismiss. A height-only resize is the phone's
+ * on-screen keyboard opening for a field in the panel: re-place instead.
  */
 export function useFixedPosition(
   enabled: boolean,
@@ -102,14 +103,18 @@ export function useFixedPosition(
     // Layout size: the enter animation scales the panel, which would under-measure it.
     const { offsetWidth: w, offsetHeight: h } = el
     const room = { below: window.innerHeight - r.bottom - 2 * gap, above: r.top - 2 * gap }
-    const below = h <= room.below || room.below >= room.above
+    const below = placement.startsWith('top')
+      ? h > room.above && room.below > room.above
+      : h <= room.below || room.below >= room.above
     const height = list ? Math.min(h, below ? room.below : room.above) : h
     if (list) {
       el.style.maxHeight = `${height}px`
       el.scrollTop = scrolled
     }
-    el.style.top = `${below ? r.bottom + gap : Math.max(gap, r.top - gap - height)}px`
-    el.style.left = `${Math.max(gap, Math.min(placement.endsWith('end') ? r.right - w : r.left, window.innerWidth - gap - w))}px`
+    const top = below ? Math.min(r.bottom + gap, window.innerHeight - gap - height) : r.top - gap - height
+    const left = placement.endsWith('end') ? r.right - w : r.left
+    el.style.top = `${Math.max(gap, top)}px`
+    el.style.left = `${Math.max(gap, Math.min(left, window.innerWidth - gap - w))}px`
   }
   const replace = useRef(place)
   replace.current = place

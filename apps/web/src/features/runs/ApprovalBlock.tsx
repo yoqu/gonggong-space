@@ -332,6 +332,7 @@ export function ApprovalCard({
                 className="ui-btn ui-btn--secondary ui-btn--small"
                 aria-label={t('更多')}
                 disabled={!mine || !!busy}
+                portal
                 items={moreItems}
                 onSelect={(v) => {
                   if (v === 'session' && allow) void decide(allow, true)

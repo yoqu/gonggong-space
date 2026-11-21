@@ -53,8 +53,10 @@
 }
 .pn-composer__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
+  row-gap: var(--space-6);
 }
 .pn-composer__tool {
   flex: none;
@@ -120,6 +122,9 @@
 }
 .pn-composer__accessory {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
   min-width: 0;
   margin-left: auto;
   margin-right: var(--space-8);
@@ -139,6 +144,11 @@
   left: 8px;
   bottom: calc(100% + 6px);
   z-index: 30;
+  max-width: calc(100% - 16px);
+}
+/* Beat .pn-emoji's viewport max-width regardless of stylesheet bundle order. */
+.pn-composer-wrap > .pn-composer__popover {
+  max-width: calc(100% - 16px);
 }
 .pn-composer__send {
   appearance: none;
@@ -262,5 +272,26 @@
   }
   .pn-composer__tool--text {
     width: auto;
+  }
+}
+/* Narrow containers: put accessories on their own top line so tools and Send never overflow. */
+.pn-threadpanel .pn-composer__bar .pn-composer__accessory:not(:empty) {
+  order: -1;
+  flex: 1 0 100%;
+  margin: 0;
+}
+.pn-threadpanel .pn-composer__bar .pn-composer__accessory:not(:empty) + .pn-composer__send,
+.pn-threadpanel .pn-composer__bar .pn-composer__accessory:not(:empty) + .pn-composer__hint {
+  margin-left: auto;
+}
+@media (max-width: 767px) {
+  .pn-composer__bar .pn-composer__accessory:not(:empty) {
+    order: -1;
+    flex: 1 0 100%;
+    margin: 0;
+  }
+  .pn-composer__bar .pn-composer__accessory:not(:empty) + .pn-composer__send,
+  .pn-composer__bar .pn-composer__accessory:not(:empty) + .pn-composer__hint {
+    margin-left: auto;
   }
 }

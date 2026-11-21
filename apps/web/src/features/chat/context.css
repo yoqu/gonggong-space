@@ -71,3 +71,11 @@
   justify-content: flex-end;
   gap: var(--space-6);
 }
+@media (pointer: coarse) {
+  .ctx-meter {
+    min-height: 32px;
+  }
+  .ctx-pop__actions .ui-btn {
+    min-height: 32px;
+  }
+}

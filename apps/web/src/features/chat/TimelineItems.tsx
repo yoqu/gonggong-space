@@ -365,6 +365,12 @@ const messageTarget = (
 /** A message of the main timeline may start a thread (plan 话题); replies and events may not. */
 const threadable = (m: MessageDto) => m.kind !== 'event' && !m.threadRootId && !m.recalled
 
+const avatarCard = (name: string) => ({
+  tabIndex: -1,
+  className: 'user-card-trigger--block',
+  ariaLabel: t('查看 {name} 的名片', { name }),
+})
+
 /** Another member: avatar and name open their user card. */
 function person(m: MessageDto, avatar?: string): MessageAuthor {
   if (m.webhook) return { name: m.webhook.name }
@@ -373,7 +379,7 @@ function person(m: MessageDto, avatar?: string): MessageAuthor {
   return {
     name: m.authorName,
     avatarNode: (
-      <UserCardTrigger userId={id} groupId={m.groupId} tabIndex={-1} className="user-card-trigger--block">
+      <UserCardTrigger userId={id} groupId={m.groupId} {...avatarCard(m.authorName)}>
         <Avatar name={m.authorName} src={avatar} size={32} />
       </UserCardTrigger>
     ),
@@ -390,7 +396,7 @@ const botAuthor = (name: string, botId: string | null, groupId: string): Message
   name,
   bot: true,
   avatarNode: botId ? (
-    <BotCardTrigger botId={botId} groupId={groupId} tabIndex={-1} className="user-card-trigger--block">
+    <BotCardTrigger botId={botId} groupId={groupId} {...avatarCard(name)}>
       <BotAvatar id={botId} name={name} size={32} />
     </BotCardTrigger>
   ) : (
@@ -786,9 +792,11 @@ export const RunCard = memo(function RunCard({
   const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
   const folded = canFold && !expanded
   const body = usePresence(!folded, { timeout: 700 })
+  const thread = reply?.threadRootId ?? scope
+  const query = reply ? (thread ? `thread=${thread}&msg=${reply.id}` : `msg=${reply.id}`) : `run=${run.id}`
   const target: ActionTarget = {
     message: reply ?? null,
-    link: link(run.groupId, reply ? `msg=${reply.id}` : `run=${run.id}`),
+    link: link(run.groupId, query),
     quoteTitle: BOT_QUOTE,
     onQuote: () => {
       if (reply) return quoteMessage(reply, scope)

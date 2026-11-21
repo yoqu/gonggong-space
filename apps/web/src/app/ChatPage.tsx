@@ -1,4 +1,4 @@
-import type { GroupDto, GroupPreviewsDto } from '@gonggong/protocol'
+import type { BotDto, GroupBotStateDto, GroupDto, GroupPreviewsDto, MachineDto } from '@gonggong/protocol'
 import { Suspense, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useShallow } from 'zustand/react/shallow'
@@ -24,7 +24,7 @@ import { t } from '../i18n'
 import { api } from '../lib/api'
 import { named } from '../lib/lazy'
 import { realtime } from '../lib/realtime'
-import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence } from '../ui'
+import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence, toast } from '../ui'
 import { AppRail, isMarketPath, isWorksPath } from './AppRail'
 import { ShellBar } from './AppShell'
 import { useBackLayer } from './backLayer'
@@ -106,18 +106,78 @@ function useChatData() {
   return [state, retry] as const
 }
 
-/** `?run=<id>[&file=<path>]` from a notification or search hit opens that run's tab, then leaves the URL. */
-function useLinkedRun(groupId: string | undefined) {
+const ONLINE_BOT: readonly BotDto['presence'][] = ['online', 'running']
+
+/** Picks the best online, workspace-ready bot in `group` to read a mirror file (preferring one of mine). */
+function pickFileBot(
+  group: GroupDto,
+  bots: BotDto[],
+  machines: MachineDto[],
+  states: Record<string, GroupBotStateDto> | undefined,
+  meId: string | undefined,
+): BotDto | null {
+  const candidates = group.botIds
+    .map((id) => bots.find((b) => b.id === id))
+    .filter((b): b is BotDto => {
+      if (!b || !ONLINE_BOT.includes(b.presence)) return false
+      const machine = b.machineId ? machines.find((m) => m.id === b.machineId) : undefined
+      if (machine && !machine.online) return false
+      const state = states?.[b.id]
+      return !state || state.state === 'ready' || !!state.git
+    })
+  if (!candidates.length) return null
+  const score = (b: BotDto) => {
+    const state = states?.[b.id]
+    return (
+      (state && (state.state === 'ready' || !!state.git) ? 4 : 0) +
+      (b.ownerId === meId ? 2 : 0) +
+      (b.presence === 'online' ? 1 : 0)
+    )
+  }
+  return candidates.reduce((best, b) => (score(b) > score(best) ? b : best))
+}
+
+/**
+ * `?run=<id>[&file=<path>]` opens that run's tab; `?file=<path>` alone (a mirror file search hit) opens the
+ * file through the best available bot in the group, then removes only `run` and `file` from the URL.
+ */
+function useLinkedRun(group: GroupDto | undefined) {
   const [params, setParams] = useSearchParams()
   const run = params.get('run')
   const file = params.get('file')
   // Tabs belong to the workbench's group: wait until it has switched to the linked one.
   const bench = useWorkbench((s) => s.groupId)
+  const meId = useSession((s) => s.user?.id)
+  const { bots, machines, loaded, states } = useWorkspace(
+    useShallow((s) => ({
+      bots: s.bots,
+      machines: s.machines,
+      loaded: s.loaded,
+      states: group ? s.botStates[group.id] : undefined,
+    })),
+  )
   useEffect(() => {
-    if (!run || !groupId || bench !== groupId) return
-    openTab({ kind: 'run', runId: run, view: file ? 'diff' : 'process', file })
-    setParams({}, { replace: true })
-  }, [run, file, groupId, bench, setParams])
+    if ((!run && !file) || !group || bench !== group.id) return
+    const clear = () =>
+      setParams(
+        (p) => {
+          p.delete('run')
+          p.delete('file')
+          return p
+        },
+        { replace: true },
+      )
+    if (run) {
+      openTab({ kind: 'run', runId: run, view: file ? 'diff' : 'process', file })
+      clear()
+      return
+    }
+    if (!loaded || !file) return
+    const bot = pickFileBot(group, bots, machines, states, meId)
+    if (bot) openTab({ kind: 'file', source: { botId: bot.id, path: file } })
+    else toast({ type: 'warning', message: t('当前没有在线且已绑定工作区的 Bot，无法打开该文件') })
+    clear()
+  }, [run, file, group, bench, loaded, bots, machines, states, meId, setParams])
 }
 
 /** `?preview=<id>` from a Feishu preview card opens that preview's tab (a closed one just lands in the group). */
@@ -199,7 +259,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
   useEffect(() => () => useInspector.getState().close(), [groupId])
   // The group must be loaded, so the workbench has switched to it for good.
-  useLinkedRun(group?.id)
+  useLinkedRun(group)
   useLinkedPreview(group?.id)
   useLinkedArtifact(group?.id)
   useLinkedBot()

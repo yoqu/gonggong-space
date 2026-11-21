@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
-import { Textarea } from '../../ui'
+import { Button, Textarea, useEscape } from '../../ui'
 import { applyLocal } from './useTimeline'
 import './edit.css'
 
@@ -11,7 +11,10 @@ import './edit.css'
 export function MessageEditor({ message, onDone }: { message: MessageDto; onDone: () => void }) {
   const [body, setBody] = useState(message.body)
   const [busy, setBusy] = useState(false)
+  const empty = !body.trim() && !message.attachments.length
+  useEscape(onDone, !busy)
   const save = async () => {
+    if (busy || empty) return
     if (body === message.body) return onDone()
     setBusy(true)
     const ok = await attempt(async () => {
@@ -31,8 +34,11 @@ export function MessageEditor({ message, onDone }: { message: MessageDto; onDone
         disabled={busy}
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onDone()
-          else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+          if (e.key === 'Escape' && !e.nativeEvent.isComposing) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (!busy) onDone()
+          } else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault()
             if (!(e.ctrlKey || e.metaKey || e.altKey)) return void save()
             const { selectionStart: s, selectionEnd: end } = e.currentTarget
@@ -42,7 +48,23 @@ export function MessageEditor({ message, onDone }: { message: MessageDto; onDone
           }
         }}
       />
-      <span className="msg-edit-hint">{t('Enter 保存 · Esc 取消')}</span>
+      <div className="msg-edit__bar">
+        <span className="msg-edit-hint">{t('Enter 保存 · Esc 取消')}</span>
+        <div className="msg-edit__actions">
+          <Button size="small" disabled={busy} onClick={onDone}>
+            {t('取消')}
+          </Button>
+          <Button
+            variant="primary"
+            size="small"
+            loading={busy}
+            disabled={busy || empty}
+            onClick={() => void save()}
+          >
+            {t('保存')}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

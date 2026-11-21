@@ -119,7 +119,7 @@ describe('motion and touch CSS contract', () => {
     expect(bar).toContain('translate var(--spring-interactive)')
     expect(bar).toContain('translate: 0 4px')
     expect(msg).toMatch(/\.pn-msg:hover \.pn-msg__actions \{[^}]*translate: none;/)
-    expect(msg).toMatch(/@media \(pointer: coarse\) \{\s*\.pn-reaction \{\s*height: 28px;/)
+    expect(msg).toMatch(/@media \(pointer: coarse\) \{\s*\.pn-reaction \{\s*height: 32px;/)
     expect(ruleOf(read('ui/im/notice.css'), '.pn-notice--unread::after')).toContain(
       'var(--spring-smooth) pn-rule-draw',
     )

@@ -1,19 +1,11 @@
 import type { UserCardDto } from '@gonggong/protocol'
-import {
-  type CSSProperties,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { type CSSProperties, type ReactNode, useContext, useEffect, useLayoutEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Float, ProfileCard, Spinner } from '../../ui'
+import { Float, ProfileCard, Spinner, useOutsidePress } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
 import { mentionInChat } from '../chat/mention'
 import { ThreadScope } from '../chat/threadSummary'
@@ -63,6 +55,7 @@ function place(anchor: DOMRect, card: HTMLElement): { style: CSSProperties; abov
  */
 export function HoverCardTrigger({
   label,
+  ariaLabel,
   hover,
   card,
   version,
@@ -71,6 +64,7 @@ export function HoverCardTrigger({
   children,
 }: {
   label: string
+  ariaLabel?: string
   hover: ReturnType<typeof useHoverCard>
   card: ReactNode
   version?: unknown
@@ -78,16 +72,16 @@ export function HoverCardTrigger({
   className?: string
   children: ReactNode
 }) {
-  const { open, close, triggerProps, cardProps } = hover
-  const anchor = useRef<HTMLButtonElement>(null)
-  const panel = useRef<HTMLDivElement>(null)
+  const { open, close, anchorRef, panelRef, triggerProps, cardProps } = hover
   const [spot, setSpot] = useState<ReturnType<typeof place>>()
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-place when the content (and so the size) changes
   useLayoutEffect(() => {
-    if (open && anchor.current && panel.current)
-      setSpot(place(anchor.current.getBoundingClientRect(), panel.current))
+    if (open && anchorRef.current && panelRef.current)
+      setSpot(place(anchorRef.current.getBoundingClientRect(), panelRef.current))
   }, [open, version])
+
+  useOutsidePress([anchorRef, panelRef], close, open)
 
   useEffect(() => {
     if (!open) return
@@ -99,10 +93,11 @@ export function HoverCardTrigger({
   return (
     <>
       <button
-        ref={anchor}
+        ref={anchorRef}
         type="button"
         className={cx('user-card-trigger', className)}
         tabIndex={tabIndex}
+        aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         {...triggerProps}
@@ -111,11 +106,12 @@ export function HoverCardTrigger({
       </button>
       {createPortal(
         <Float
-          ref={panel}
+          ref={panelRef}
           open={open}
           placement={spot?.above ? 'top-start' : 'bottom-start'}
           role="dialog"
           aria-label={label}
+          tabIndex={-1}
           className="ui-popover user-card"
           style={spot?.style}
           {...cardProps}
@@ -142,12 +138,14 @@ export function UserCardTrigger({
   userId,
   groupId,
   tabIndex,
+  ariaLabel,
   className,
   children,
 }: {
   userId: string
   groupId?: string
   tabIndex?: number
+  ariaLabel?: string
   className?: string
   children: ReactNode
 }) {
@@ -160,6 +158,7 @@ export function UserCardTrigger({
   return (
     <HoverCardTrigger
       label={t('用户名片')}
+      ariaLabel={ariaLabel}
       hover={hover}
       version={card ?? error}
       tabIndex={tabIndex}

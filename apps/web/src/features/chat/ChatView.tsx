@@ -906,7 +906,7 @@ export function ChatView({
                 />
               ) : null}
               <GroupNotice group={group} readOnly={readOnly} />
-              <PinnedMessages groupId={group.id} onLocate={locateMessage} />
+              <PinnedMessages groupId={group.id} readOnly={readOnly || closed} onLocate={locateMessage} />
               {readOnly ? null : <WorkspaceBanner group={group} />}
               {readOnly ? null : <SecretBanner groupId={group.id} />}
             </div>

@@ -165,3 +165,24 @@
   pointer-events: none;
   animation: var(--fade-out) ui-fade-out forwards;
 }
+.ui-menu--popover.ui-menu--fixed {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  z-index: 60;
+}
+@media (pointer: coarse) {
+  .ui-menu__item {
+    min-height: 36px;
+    height: auto;
+  }
+}
+@media (max-width: 640px) {
+  .ui-menu {
+    max-width: calc(100vw - 16px);
+  }
+  .ui-menu--sub {
+    min-width: 160px;
+    max-width: calc(100vw - 16px);
+  }
+}

@@ -351,9 +351,14 @@ export function Message({
     const place = () => {
       if (bar.current) placeActions(bar.current)
     }
+    const mo = new MutationObserver(() => {
+      if (host.dataset.actions === 'open') place()
+    })
+    mo.observe(host, { attributes: true, attributeFilter: ['data-actions'] })
     host.addEventListener('pointerenter', place)
     host.addEventListener('focusin', place)
     return () => {
+      mo.disconnect()
       host.removeEventListener('pointerenter', place)
       host.removeEventListener('focusin', place)
     }
@@ -456,14 +461,16 @@ function placeActions(bar: HTMLElement) {
   delete bar.dataset.place
   const box = clip.getBoundingClientRect()
   const b = bar.getBoundingClientRect()
-  if (b.right <= box.right && b.left >= box.left) return
+  if (b.right <= box.right && b.left >= box.left && b.top >= box.top) return
   const row = bar.parentElement.getBoundingClientRect()
+  const host = bar.closest<HTMLElement>('.pn-msg')?.getBoundingClientRect()
+  const origin = host && host.bottom > host.top ? host.top : row.top
   const top =
     row.top - b.height - ACTIONS_GAP >= box.top
-      ? -b.height - ACTIONS_GAP
+      ? row.top - origin - b.height - ACTIONS_GAP
       : row.bottom + ACTIONS_GAP + b.height <= box.bottom
-        ? row.height + ACTIONS_GAP
-        : box.top - row.top + ACTIONS_GAP
+        ? row.bottom - origin + ACTIONS_GAP
+        : box.top - origin + ACTIONS_GAP
   bar.dataset.place = 'flip'
   bar.style.setProperty('--actions-top', `${top}px`)
 }

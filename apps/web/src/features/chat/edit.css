@@ -1,16 +1,38 @@
 .msg-edit {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  min-width: min(360px, 60vw);
+  gap: var(--space-6);
+  width: min(460px, 100%);
+  min-width: min(260px, 100%);
   --enter-y: 4px;
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
+.msg-edit__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.msg-edit__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-inline-start: auto;
+}
 .msg-edit-hint {
   color: var(--label-tertiary);
   font-size: var(--text-footnote-size);
+}
+@media (pointer: coarse) {
+  .msg-edit-hint {
+    display: none;
+  }
+  .msg-edit__actions .ui-btn {
+    min-height: 32px;
+  }
 }
 .tl-edited {
   margin-inline-start: var(--space-4);

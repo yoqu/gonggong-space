@@ -130,4 +130,6 @@ export default {
   '和 Bot 私聊，或拉上同事建群': 'Chat with a Bot one-on-one, or start a group with teammates',
   '和你的 Bot 私聊，或拉上同事建群，把任务交给它。':
     'Chat with your Bot one-on-one, or start a group with teammates, and hand it a task.',
+  '当前没有在线且已绑定工作区的 Bot，无法打开该文件':
+    'No online Bot with a workspace is available to open this file',
 } satisfies Record<string, string>

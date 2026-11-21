@@ -40,12 +40,14 @@ export function BotCardTrigger({
   botId,
   groupId,
   tabIndex,
+  ariaLabel,
   className,
   children,
 }: {
   botId: string
   groupId: string
   tabIndex?: number
+  ariaLabel?: string
   className?: string
   children: ReactNode
 }) {
@@ -62,6 +64,7 @@ export function BotCardTrigger({
   return (
     <HoverCardTrigger
       label={t('Bot 名片')}
+      ariaLabel={ariaLabel}
       hover={hover}
       tabIndex={tabIndex}
       className={className}

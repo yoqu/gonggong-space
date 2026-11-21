@@ -203,3 +203,40 @@
 - P3 通知面板移动端缺显式关闭键、头尾按钮高 20px 且底部说明存在孤字折行（`notifications/NotificationPanel.tsx`、`notifications.css`）→ 顶栏右侧补 `<CloseButton />`，触屏按钮 `min-height: 32px`，精简底栏文案消除孤字（验收：390px 可点 `×` 关闭且无孤字）。
 - P3 390px 移动端「稍后处理」带角标时误隐图标、`ThreadView` 关注按钮缺防重与响应即时同步（`saved/later.css`、`chat/ThreadView.tsx`）→ 仅桌面窄栏隐藏书签图标，`follow()` 加 `busy` 并直接应用接口返回态（验收：390px 三项快捷入口图标齐整，关注按钮即时切态）。
 - P3 移动端「浏览频道」分段与行按钮偏小、新成员空「频道」区无发现引导（`groups/groups.css`、`app/Sidebar.tsx`）→ 触屏分段与行按钮 `min-height: 32px`，空「频道」区提供「浏览公开频道…」快捷按钮（验收：390px 控件 ≥32px，新成员一键可发现公开频道）。
+
+## 11-21 第 2 轮（聊天消息流交互、消息操作/编辑/置顶、表情反应、富交互卡片、输入框 @ / 候选与芯片、全局搜索 ⌘K；桌面 1440 + 深色 + 390 触屏）
+
+已修（13 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 消息悬停条「表情回应」浮层（`ReactionPicker`）未启用 `portal` 且 `top-start` 向右溢出裁切掉 `❤️`/`😂`（`ui/popover.tsx`、`reactions/ReactionPicker.tsx`、`reactions/reactions.css`）→ `useFixedPosition` 按 `top-*` 优先置顶并钳制水平视口边界，`ReactionPicker` 改 `portal placement="top-end"` 并同步样式选择器与触屏反应热区（验收：1440 与 390 下 6 枚表情全数可见无裁切）。
+- P1 消息内联编辑器（`MessageEditor`）无「保存/取消」按钮且 `Escape` 穿透关闭话题抽屉、窄栏溢出（`chat/MessageEditor.tsx`、`chat/edit.css`、`chat/en.ts`）→ 补底部「取消」「保存」按钮（空内容无附件禁用）、接入 `useEscape` 与 `stopPropagation` 隔离、窄栏改 `width: min(460px, 100%); min-width: min(260px, 100%)`（验收：390px 触屏可点按钮保存/取消，话题内编辑按 Esc 仅退出编辑）。
+- P1 顶部置顶条（`PinnedMessages`）取消置顶零确认且只读态仍可点报 403、展开列表缺 `Esc`/点外关闭（`chat/PinnedMessages.tsx`、`chat/ChatView.tsx`、`chat/en.ts`、`ui/im/notice.css`）→ 接入 `AlertDialog` 二次确认与成功 Toast、`readOnly` 隐藏取消按钮、多置顶顶栏不放歧义 `×`、展开列表注册 `useEscape`/`useOutsidePress`、触屏关闭键扩至 32×32（验收：取消置顶先确认、只读无关闭键、列表可 Esc 收起）。
+- P1 消息操作条 `···` 菜单（`MenuButton`）未 `portal` 致末条消息底边平切、390px 下二级子菜单越屏（`ui/menu.tsx`、`ui/menu.css`、`chat/MessageActions.tsx`、`runs/ApprovalBlock.tsx`）→ `MenuButton` 新增 `portal` 固定定位与视口翻转钳制、640px 以下子菜单水平钳制、触屏菜单项 `min-height: 36px`（验收：末条消息与 390px 子菜单完整不裁切）。
+- P1 话题抽屉（`ThreadView`）中 `RunCard`「复制链接」与 `MessageQuote` 引用跳转丢失 `thread=` 参数导致找不到消息（`chat/TimelineItems.tsx`、`attachments/MessageAttachments.tsx`）→ 均读取 `ThreadScope` 补齐 `thread=` 参数（验收：话题内复制链接与点击引用直达话题目标消息）。
+- P1 390px 移动端消息头元信息硬裁切无省略、消息操作条与反应按钮热区过小、首条长按操作条冲出顶部（`ui/im/message.css`、`ui/im/message.tsx`）→ `.pn-msg__meta` 补 `max-width: 100%; min-width: 0`，粗指针下 `.pn-msgactions` 38px/按钮 36×34px、`.pn-reaction` 32px，监听 `data-actions="open"` 触发 `placeActions` 翻转（验收：390px 消息头正常省略、触控热区 ≥32px、顶部消息长按不越界）。
+- P1 用户/Bot 名片触发器头像按钮全量缺失 `aria-label`、触屏点空白关不掉、键盘无法 Tab 进名片（`chat/TimelineItems.tsx`、`users/UserCard.tsx`、`users/BotCard.tsx`、`users/useHoverCard.ts`、`users/en.ts`）→ 头像触发器补 `ariaLabel`、接入 `useOutsidePress`、支持 Tab 进出名片与 Esc 归还焦点（验收：`missingA11y` 清零，触屏点外即关，键盘可操作名片按钮）。
+- P1 全局搜索 `⌘K › 文件` 点击仓库镜像文件（无 `run` 的 `?file=`）为死链且残留 URL 参数（`app/ChatPage.tsx`、`app/en.ts`）→ `useLinkedRun` 消费无 `run` 的 `?file=` 选最优在线就绪 Bot 打开工作台文件标签（全离线给明确提示），仅清理 `run`/`file` 参数（验收：镜像文件点击直达工作台预览或给出原因提示，URL 无残留）。
+- P1 全局搜索 `⌘K` 在「文件/运行」标签混入「会话」吞掉空态引导、切标签 `active` 越界、Safari 中文 IME 按 Enter 误跳转（`search/SearchOverlay.tsx`、`search/search.css`、`search/en.ts`）→ 仅空查询或「消息」标签展示会话、补「没有匹配的消息」提示、切标签复位 `active` 并钳制 `safeActive`、补 Safari IME 守卫（验收：`文件` 0 命中正确显示空态与「去『运行』里搜」，拼音选词回车不误跳）。
+- P1 全局搜索 `⌘K` 缺焦点陷阱与 `aria-modal`、不能再按 `⌘K` 关闭、选中行 `<mark>` 对比度崩坏（`search/SearchOverlay.tsx`、`search/search.css`、`app/AppShell.tsx`）→ 补 `aria-modal="true"` 与 Tab 焦点循环及关闭归还、`⌘K` 改开关切换、`<mark>` 改 `rgba(0, 0, 0, 0.24)` 保障四套主题高对比（验收：四主题高亮清晰、Tab 不逃逸、再按 ⌘K 关闭）。
+- P1 `ui/im/Composer` 内置 `EmojiPicker` 绕过 `useEscape` 穿透关闭话题/标已读、与 `@` 浮层叠压且窄栏裁切（`ui/im/composer.tsx`、`ui/im/pickers.css`、`ui/im/composer.css`）→ 改用 `useEscape`/`useOutsidePress` + IME 守卫 + 关闭归还焦点、与外部 `popover` 互斥、响应式宽度与 8 列自适应网格（验收：Esc 仅关表情面板不穿透、双浮层不重叠、320px 窄栏不裁切）。
+- P1 `@`/`/` 候选浮层无法点空白关闭、移动光标后卡死劫持按键、非空草稿后点 `/` 工具按钮失效（`ui/im/composer.tsx`、`chat/MessageComposer.tsx`）→ 暴露 `onCaretChange` 实时同步光标、`MessageComposer` 接入 `useEscape`/`useOutsidePress`、`/` 按钮按光标自动前置空格插入并支持切换（验收：390px 点外即关、移走光标浮层收起、正文后点 `/` 正常弹命令）。
+- P1 输入框底栏不折行致 390px 手机与 360px 话题抽屉模型芯片挤成单字/顶出发送键，且多处触控热区 <32px（`ui/im/composer.css`、`chat/MessageComposer.tsx`、`chat/run-config.css`、`chat/context.css`、`ui/segmented.css`）→ 窄屏与话题内 `.pn-composer__accessory` 自动置顶成独立行、话题/画布隐藏群级 `✦ 创作`、粗指针下模型芯片/上下文/小分段控件 `≥32px`（验收：窄栏与 390px 双 Bot 芯片可读且发送键永不溢出）。
+
+- P2 运行卡中断区块「丢弃本轮改动」与触发运行中 Bot 的消息「撤回」均缺二次确认与按钮加载态（`runs/InterruptBlock.tsx`、`chat/MessageActions.tsx`）→ 两处高危操作均弹 Pane `AlertDialog` 写明后果并区分按钮 `loading`（验收：点击先确认，取消不发请求，提交中按钮有加载态）。
+- P2 390px 移动端相邻运行卡宽度呈 170–320px 锯齿参差（`chat/timeline.css`）→ `@media (max-width: 767px)` 下含 `.run-mcard`/`.tl-webhook-card` 的 `.pn-msg__row` 设 `align-self: stretch`、`.pn-msg__bare` 设 `width: 100%`（验收：390px 下所有状态运行卡右缘齐平）。
+- P2 置顶条文字链接 `chat-pins__link` 为 `display: inline` 致 390px 布局盒宽越屏（`chat/timeline.css`）→ 改为 `display: block; max-width: 100%`（验收：390px 下 `right <= 390`，焦点框四边完整）。
+- P2 Markdown 内联文件引用（`FileRef`）吞掉离线/403/网络错误一律误报「工作区里没找到」且无防连点（`chat/Markdown.tsx`）→ 仅 404 报没找到，其余走 `toastError(e)` 并加 `busy` 防重（验收：Bot 离线时点击文件路径提示真实离线原因）。
+- P2 富交互块 `Mermaid` 在 `hc-dark` 渲染亮色主题黑底黑字、缺加载态与全屏放大，`Actions` 提交缺按钮 `loading`（`rich/theme.ts`、`rich/Mermaid.tsx`、`rich/Actions.tsx`）→ `isDark()` 改 `endsWith('dark')`，Mermaid 补加载态及全屏查看/复制源码，`Actions` 按点击项设 `loading` 并为只读态补提示（验收：`hc-dark` 清晰可读，加载与提交反馈明确）。
+- P2 消息流活跃副标题、事件时间、`已编辑` 与计划折叠按钮误用 `--label-tertiary`（对比度 ~2:1，深色隐形）（`chat/timeline.css`、`chat/edit.css`、`chat/run-plan.css`、`chat/task-dock.css`）→ 统一改用 `var(--label-secondary)`（验收：浅/深色下对比度 ≥4.5:1）。
+- P2 `@` 候选浮层「所有人」头像错显「有人」、1 人群仍置顶压过 Bot 且英文搜不到 `@all`/`@everyone`（`chat/ComposerCandidates.tsx`）→ `members.length > 1` 才显示且排在 Bot 后，复用 `.pn-mentionpicker__all` `@` 图标并支持英文关键词匹配（验收：无「有人」头像，1 人群不显 `@所有人`，`@`+Enter 优先选中 Bot）。
+- P2 候选浮层鼠标悬停与键盘选中双蓝冲突、运行中 Bot 蓝点在蓝底隐身、禁用命令可被高亮吞 Enter（`chat/ComposerCandidates.tsx`、`chat/composer.css`、`chat/MessageComposer.tsx`）→ 用 `onMouseEnter` 驱动单一 `aria-selected` 高亮，状态点加描边，初始化与上下键跳过禁用项（验收：任意时刻仅一条蓝高亮，禁用命令自动跳过）。
+- P2 输入框孤立 `@` 与 `/` 命令误报「未 @ 不会触发 Bot」，390px 移动端缺失 `@所有人` 警告、附件上传中发送键无等待提示（`chat/MessageComposer.tsx`）→ 修正 `hint` 条件排除 `command` 与空 `@`，移动端补 `@所有人` 轻量提示，上传中传等待提示/态（验收：输入 `/stop` 无矛盾警告，手机输入 `@所有人` 有提示）。
+- P2 `@` 搜文件等待期间闪现误导「没有匹配的成员或 Bot」、`/` 与 `#` 无加载/空态且分组缺分割线（`chat/ComposerCandidates.tsx`、`chat/composer.css`）→ 暴露远程 `loading` 态，区分「没有匹配的成员、Bot 或文件 / 命令 / 作品」，分组间加分割线（验收：输入 `@src` 先见加载态，`/xyz` 显示无匹配命令）。
+- P2 `RunConfigChips` 临时修改模型后缺单条恢复默认入口、「设为本群默认」无成功 Toast 且可能闪回旧值（`chat/RunConfigChips.tsx`）→ 菜单补「恢复本群默认」，保存成功弹 Toast 并同步更新本地 `botStates`，只读态提供可聚焦说明（验收：可一键取消单条指定，保存默认即时反馈不闪烁）。
+- P2 全局搜索 `⌘K` 缺一键清除键、390px 软键盘下纵向溢出、英文模式过期运行归档图标失效且报错缺警示图标（`search/SearchOverlay.tsx`、`search/search.css`、`packages/protocol`、`server/search/routes.ts`）→ 补清除按钮与 `100dvh` 约束，协议增 `purged?: boolean` 替代中文子串判断，报错态加 `⚠` 图标并补 ARIA 属性（验收：390px 软键盘不越界，英文归档图标正确）。
+- P2 上下文容量浮层（`ContextMeter` / `ContextRing`）压缩失败丢字、Safari IME 误发、`≥ 阈值` 显示「还剩 0」，桌面端 `ContextBadge` 指引 `/new` 漏 `@Bot`（`chat/ContextMeter.tsx`、`chat/ContextRing.tsx`、`apps/desktop/src/lib/ContextBadge.tsx`）→ 失败保留已填文本并加提交 `loading` 与 Safari IME 守卫、修正阈值文案与色彩判定、桌面端补 `@{bot}`（验收：失败不丢字、无「还剩 0」、桌面端提示命令直接可用）。
+- P2 待发队列（`PendingMessages` / `pending.ts`）失败态重复两套重发按钮、跨群切丢被拒草稿与画布选区、红字缺 `⚠`（`chat/PendingMessages.tsx`、`chat/pending.ts`、`chat/MessageComposer.tsx`、`chat/chat.css`）→ 合并为单一左对齐失败条（含 `⚠` + 原因 + 重发/删除），按群/话题队列保存被拒草稿与选区（验收：无重复重发按钮，切群不丢草稿与选区）。
+- P3 表情回应并发失败回滚覆盖相邻操作、`QuestionBlock` 漏答无剩余题数提示、`RemindDialog` 过去时间置灰无行内红字（`reactions/store.ts`、`reactions/ReactionBar.tsx`、`runs/QuestionBlock.tsx`、`saved/SaveMenu.tsx`）→ 按当前 store 态精准回滚并加在途锁，补缺答与时间错误提示（验收：并发点表情互不覆盖，置灰原因可见）。
+- P3 390px 移动端系统事件折叠头（18px）与运行卡底部「查看过程」（20px）触控高度偏小（`chat/timeline.css`）→ `@media (pointer: coarse)` 下统一 `min-height: 32px`（验收：触屏热区 ≥32px）。
+- P3 移动端输入框 16px 字号配 19px 固定行高显拥挤（`ui/im/composer.css`、`chat/composer.css`）→ 引入 `--composer-line-height` 移动端升至 `22px`（验收：多行中文与 `@提及` 舒适对齐）。
+- P3 全局搜索 `⌘K` 右侧 `esc 关闭` 大小写与 `<Kbd>` 风格不统一（`search/SearchOverlay.tsx`、`search/en.ts`）→ 统一使用 `<Kbd>Esc</Kbd>`（验收：与 `ShellBar` 快捷键视觉一致）。
+- P3 话题抽屉（`ThreadView`）发送新回复时未自动滚底展示待发消息行（`chat/ThreadView.tsx`、`chat/pending.ts`）→ `useOnQueued` 按 `(groupId, thread)` 订阅并在入队时滚底（验收：话题上翻后发新回复立即滚底可见「发送中」）。

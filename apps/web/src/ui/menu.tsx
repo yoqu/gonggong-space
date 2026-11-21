@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { cx } from '../lib/cx'
 import { Icon, type IconName } from './icon'
 import { useEscape, useOutsidePress } from './overlay'
@@ -55,6 +56,9 @@ export interface MenuProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelec
 }
 
 const ITEM = '[role^="menuitem"]:not(:disabled)'
+const MENU_GAP = 4
+const EDGE = 8
+const NARROW_WIDTH = 640
 
 const itemValue = (it: { label: ReactNode; value?: string }) => it.value ?? String(it.label)
 
@@ -68,7 +72,9 @@ function clipBox(el: HTMLElement) {
   const box = { top: 0, left: 0, right: window.innerWidth, bottom: window.innerHeight }
   for (let p = el.parentElement; p; p = p.parentElement) {
     const s = getComputedStyle(p)
-    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
+    const ox = s.overflowX || s.overflow
+    const oy = s.overflowY || s.overflow
+    if ((!ox || ox === 'visible') && (!oy || oy === 'visible')) continue
     const r = p.getBoundingClientRect()
     box.top = Math.max(box.top, r.top)
     box.left = Math.max(box.left, r.left)
@@ -119,12 +125,31 @@ export function Menu({
   }, [])
 
   // A submenu that would be clipped opens to the left and/or grows upward instead.
+  // On narrow viewports, clamp horizontally so the submenu stays inside the viewport.
   useLayoutEffect(() => {
     const menu = own.current
     if (!isSubmenu || !menu) return
+    menu.style.left = ''
+    menu.style.right = ''
     const r = menu.getBoundingClientRect()
     const box = clipBox(menu)
-    setSubFlip(cx(r.right > box.right && 'ui-menu--sub-start', r.bottom > box.bottom && 'ui-menu--sub-up'))
+    const flipUp = r.bottom > box.bottom
+    if (window.innerWidth <= NARROW_WIDTH && menu.parentElement) {
+      const p = menu.parentElement.getBoundingClientRect()
+      const w = menu.offsetWidth || r.width
+      const minLeft = box.left + EDGE
+      const maxLeft = Math.max(minLeft, box.right - EDGE - w)
+      const roomRight = box.right - EDGE - (p.right + 1)
+      const roomLeft = p.left - 1 - (box.left + EDGE)
+      const openLeft = w > roomRight && roomLeft >= roomRight
+      const desired = openLeft ? p.left - 1 - w : p.right + 1
+      const clamped = Math.max(minLeft, Math.min(desired, maxLeft))
+      menu.style.left = `${clamped - p.left}px`
+      menu.style.right = 'auto'
+      setSubFlip(cx(flipUp && 'ui-menu--sub-up'))
+      return
+    }
+    setSubFlip(cx(r.right > box.right && 'ui-menu--sub-start', flipUp && 'ui-menu--sub-up'))
   }, [isSubmenu])
 
   const setRef = (el: HTMLDivElement | null) => {
@@ -280,6 +305,8 @@ export interface MenuButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   align?: 'start' | 'end'
   /** Open upward, for triggers pinned to the bottom of the window. */
   placement?: 'below' | 'above'
+  /** Fix the menu in document.body so an overflow-clipping ancestor cannot clip it. */
+  portal?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
@@ -289,6 +316,7 @@ export function MenuButton({
   onSelect,
   align = 'start',
   placement = 'below',
+  portal,
   onOpenChange,
   onClick,
   onKeyDown,
@@ -300,14 +328,59 @@ export function MenuButton({
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDivElement>(null)
+  const placed = useRef({ top: 0, left: 0, width: 0 })
   const presence = usePresence(open)
   // Opens on the other side of the trigger when its own side would be clipped and the other has more room.
   const [side, setSide] = useState(placement)
   // Likewise lines up with the trigger's other edge when its own edge would push the menu out of the clip box.
   const [edge, setEdge] = useState(align)
+  const setOpen = (next: boolean) => {
+    if (next) {
+      setSide(placement)
+      setEdge(align)
+    }
+    setOpenState(next)
+    onOpenChange?.(next)
+  }
+  const close = (refocus = true) => {
+    setOpen(false)
+    if (refocus) trigger.current?.focus()
+  }
+  const drift = useRef(() => close(false))
+  drift.current = () => close(false)
+
+  const placeFixed = () => {
+    const el = menu.current
+    const btn = trigger.current
+    if (!portal || !open || !el || !btn) return
+    const t = btn.getBoundingClientRect()
+    placed.current = { top: t.top, left: t.left, width: window.innerWidth }
+    // Layout size: the enter animation scales the menu, which would under-measure getBoundingClientRect().
+    const { offsetWidth: w, offsetHeight: h } = el
+    const room = { below: window.innerHeight - t.bottom - MENU_GAP - EDGE, above: t.top - MENU_GAP - EDGE }
+    let nextSide = placement
+    if (placement === 'below' && h > room.below && room.above > room.below) nextSide = 'above'
+    else if (placement === 'above' && h > room.above && room.below > room.above) nextSide = 'below'
+    const rawTop = nextSide === 'below' ? t.bottom + MENU_GAP : t.top - MENU_GAP - h
+    const rawLeft = align === 'end' ? t.right - w : t.left
+    let nextEdge = align
+    if (align === 'end' && rawLeft < EDGE) nextEdge = 'start'
+    else if (align === 'start' && rawLeft + w > window.innerWidth - EDGE) nextEdge = 'end'
+    el.style.top = `${Math.max(EDGE, Math.min(rawTop, window.innerHeight - EDGE - h))}px`
+    el.style.left = `${Math.max(EDGE, Math.min(rawLeft, window.innerWidth - EDGE - w))}px`
+    setSide(nextSide)
+    setEdge(nextEdge)
+  }
+  const replace = useRef(placeFixed)
+  replace.current = placeFixed
+
   useLayoutEffect(() => {
     const el = menu.current
     if (!open || !el || !trigger.current) return
+    if (portal) {
+      replace.current()
+      return
+    }
     const r = el.getBoundingClientRect()
     const t = trigger.current.getBoundingClientRect()
     const box = clipBox(el)
@@ -319,21 +392,48 @@ export function MenuButton({
     if (align === 'end' && r.left < box.left && reach.start > reach.end) setEdge('start')
     else if (align === 'start' && r.right > box.right && reach.end > reach.start) setEdge('end')
     else setEdge(align)
-  }, [open, placement, align])
-  const setOpen = (next: boolean) => {
-    if (next) {
-      setSide(placement)
-      setEdge(align)
+  }, [open, portal, placement, align])
+
+  // A fixed menu would drift on scroll or width resize; re-place on height-only resize (mobile keyboard).
+  useEffect(() => {
+    if (!portal || !open) return
+    const scrolled = (e: Event) => {
+      const r = trigger.current?.getBoundingClientRect()
+      const moved = !r || r.top !== placed.current.top || r.left !== placed.current.left
+      if (moved && !menu.current?.contains(e.target as Node)) drift.current()
     }
-    setOpenState(next)
-    onOpenChange?.(next)
-  }
-  const close = () => {
-    setOpen(false)
-    trigger.current?.focus()
-  }
-  useEscape(close, open)
-  useOutsidePress([root], () => setOpen(false), open)
+    const resized = () => (window.innerWidth === placed.current.width ? replace.current() : drift.current())
+    document.addEventListener('scroll', scrolled, true)
+    window.addEventListener('resize', resized)
+    return () => {
+      document.removeEventListener('scroll', scrolled, true)
+      window.removeEventListener('resize', resized)
+    }
+  }, [portal, open])
+
+  useEscape(() => close(true), open)
+  useOutsidePress([root, menu], () => close(false), open)
+
+  const panel = presence.mounted ? (
+    <Menu
+      ref={menu}
+      items={items}
+      autoFocus
+      focusMenu={byPointer}
+      className={cx(
+        'ui-menu--popover',
+        portal && 'ui-menu--fixed',
+        edge === 'end' && 'ui-menu--end',
+        side === 'above' && 'ui-menu--above',
+      )}
+      data-state={presence.state}
+      onAnimationEnd={presence.onAnimationEnd}
+      onSelect={(value) => {
+        close(true)
+        onSelect(value)
+      }}
+    />
+  ) : null
 
   return (
     <div ref={root} className="ui-menu-anchor">
@@ -357,25 +457,7 @@ export function MenuButton({
         }}
         {...rest}
       />
-      {presence.mounted ? (
-        <Menu
-          ref={menu}
-          items={items}
-          autoFocus
-          focusMenu={byPointer}
-          className={cx(
-            'ui-menu--popover',
-            edge === 'end' && 'ui-menu--end',
-            side === 'above' && 'ui-menu--above',
-          )}
-          data-state={presence.state}
-          onAnimationEnd={presence.onAnimationEnd}
-          onSelect={(value) => {
-            close()
-            onSelect(value)
-          }}
-        />
-      ) : null}
+      {portal && panel ? createPortal(panel, document.body) : panel}
     </div>
   )
 }

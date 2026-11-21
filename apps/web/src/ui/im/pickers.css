@@ -74,6 +74,7 @@
 
 .pn-emoji {
   width: 312px;
+  max-width: calc(100vw - 24px);
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -96,7 +97,7 @@
 }
 .pn-emoji__grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 2px;
   max-height: 176px;
   overflow: auto;
@@ -105,8 +106,10 @@
   appearance: none;
   border: 0;
   background: transparent;
-  width: 34px;
-  height: 34px;
+  width: 100%;
+  max-width: 34px;
+  aspect-ratio: 1;
+  justify-self: center;
   padding: 0;
   border-radius: var(--radius-field);
   font-size: 20px;
@@ -131,6 +134,10 @@
 .pn-emoji--fixed .pn-emoji__grid {
   grid-template-columns: none;
   grid-auto-flow: column;
+}
+.pn-emoji--fixed .pn-emoji__cell {
+  width: 34px;
+  height: 34px;
 }
 .pn-emoji__empty {
   padding: var(--space-16) 0;

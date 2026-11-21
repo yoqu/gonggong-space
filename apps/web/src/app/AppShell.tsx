@@ -114,9 +114,9 @@ export function AppShell() {
   useTitleCount()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
-        set('search')
+        set(useShellOverlay.getState().overlay === 'search' ? null : 'search')
       }
     }
     document.addEventListener('keydown', onKey)

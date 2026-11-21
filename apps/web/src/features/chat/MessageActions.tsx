@@ -350,6 +350,7 @@ function Bar({ menu }: { menu: MessageMenuState }) {
         aria-label={t('更多')}
         title={t('更多')}
         align="end"
+        portal
         items={menu.more}
         onSelect={menu.select}
         onOpenChange={setMore}

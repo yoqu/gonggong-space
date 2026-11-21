@@ -13,7 +13,7 @@ import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
-import { Checkbox, Composer } from '../../ui'
+import { Checkbox, Composer, useEscape, useOutsidePress } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { useCanvasChat } from '../artifacts/chatRoot'
@@ -217,6 +217,7 @@ export const MessageComposer = memo(function MessageComposer({
   )
   const canvasFocus = useCanvasContext((s) => s.focus)
   const editingFocus = useEditing((s) => s.focus)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
@@ -272,6 +273,10 @@ export const MessageComposer = memo(function MessageComposer({
   } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates, !!scope)
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
+  const popoverShown = Boolean(token && (open || empty))
+
+  useEscape(() => setDismissed(true), popoverShown)
+  useOutsidePress([wrapRef], () => setDismissed(true), popoverShown)
 
   const focused = () => (document.activeElement === input.current ? input.current : null)
 
@@ -486,6 +491,7 @@ export const MessageComposer = memo(function MessageComposer({
   const chips = appending || quote || canvas || foreground || uploads.items.length > 0
   return (
     <div
+      ref={wrapRef}
       className={cx('composer', shake && 'composer--shake')}
       onAnimationEnd={(e) => e.animationName === 'composer-shake' && setShake(false)}
     >
@@ -494,6 +500,10 @@ export const MessageComposer = memo(function MessageComposer({
       <Composer
         value={draft}
         onChange={change}
+        onCaretChange={setCaret}
+        onEmojiOpenChange={(emojiOpen) => {
+          if (emojiOpen) setDismissed(true)
+        }}
         onSend={() => void send()}
         canSend={
           variations ? hasText(draft) : (hasText(draft) || uploads.items.length > 0) && !uploads.uploading
@@ -528,10 +538,33 @@ export const MessageComposer = memo(function MessageComposer({
             },
           },
           { icon: 'smile', label: t('表情') },
-          { icon: 'slash', label: t('命令'), onClick: () => change(`${draft}/`) },
+          {
+            icon: 'slash',
+            label: t('命令'),
+            onClick: () => {
+              if (popoverShown && token?.char === '/') {
+                setDismissed(true)
+                input.current?.focus()
+                return
+              }
+              const el = focused()
+              const c = el?.selectionStart ?? draft.length
+              const end = el?.selectionEnd ?? c
+              if (c === end && /(?:^|\s)\/$/.test(draft.slice(0, c))) {
+                pendingCaret.current = c
+                setCaret(c)
+                setDismissed(false)
+                setActive(0)
+                input.current?.focus()
+                return
+              }
+              const slash = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' /' : '/'
+              change(draft.slice(0, c) + slash + draft.slice(end), c + slash.length)
+            },
+          },
           { icon: 'paperclip', label: t('附件'), onClick: () => filePicker.current?.click() },
           { icon: 'image', label: t('图片'), onClick: () => imagePicker.current?.click() },
-          ...(plugins.length
+          ...(plugins.length && !scope
             ? [
                 {
                   icon: <span className="composer__spark">✦</span>,
@@ -597,7 +630,7 @@ export const MessageComposer = memo(function MessageComposer({
           'aria-activedescendant': open && current >= 0 ? `${listId}-${current}` : undefined,
         }}
         popover={
-          token && (open || empty) ? (
+          popoverShown && token ? (
             <CandidatePopover
               id={listId}
               char={token.char}

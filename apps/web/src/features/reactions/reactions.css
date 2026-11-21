@@ -25,6 +25,13 @@
   cursor: default;
   transition: transform var(--spring-interactive);
 }
+@media (pointer: coarse) {
+  .reaction-pill__emoji {
+    justify-content: center;
+    height: 100%;
+    min-width: 32px;
+  }
+}
 .reaction-pill__emoji:active {
   transform: scale(0.9);
 }
@@ -41,9 +48,9 @@
   text-decoration: underline;
 }
 
-/* The fixed six-emoji picker is a compact row. It sits inside the glass hover bar, where a nested backdrop blur
-   cannot sample the page, so it takes the opaque content surface instead of see-through glass. */
-.reaction-picker > .ui-popover {
+/* The fixed six-emoji picker is a compact row. Portalled onto document.body, it takes the opaque content
+   surface and compact spacing instead of the default wide glass popover. */
+.ui-popover:has(> .pn-emoji--fixed) {
   min-width: 0;
   background: var(--content-bg);
   -webkit-backdrop-filter: none;
