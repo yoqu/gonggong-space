@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { matchAny } from '../../lib/match'
+import { localDate } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -26,8 +27,6 @@ import {
 } from '../../ui'
 import { TeamAvatar } from '../teams/TeamAvatar'
 import { AdminPage, countLine } from './AdminPage'
-
-const day = (iso: string) => new Date(iso).toLocaleDateString()
 
 /** 管理后台 · 团队 (plan §5): create a team for an owner, archive / restore, reassign the owner. */
 export function TeamsPage() {
@@ -118,7 +117,7 @@ export function TeamsPage() {
               width: 120,
               secondary: true,
               sortable: true,
-              render: (x) => day(x.createdAt),
+              render: (x) => localDate(x.createdAt),
             },
             {
               key: 'archivedAt',

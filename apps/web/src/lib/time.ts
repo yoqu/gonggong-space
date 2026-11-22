@@ -6,7 +6,13 @@ export const dateLocale = locale === 'en' ? 'en-US' : 'zh-CN'
 /** Local IANA time zone name (e.g. `Asia/Shanghai`). */
 export const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-export const pad = (n: number) => String(n).padStart(2, '0')
+export const pad = (n: number | string) => String(n).padStart(2, '0')
+
+/** Local date formatted in the app locale (`gg.locale`). */
+export const localDate = (iso: string) => new Date(iso).toLocaleDateString(dateLocale)
+
+/** Local date and time formatted in the app locale (`gg.locale`). */
+export const localDateTime = (iso: string) => new Date(iso).toLocaleString(dateLocale)
 
 /** Local HH:mm. */
 export const hm = (iso: string) => {

@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
+import { localDate } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, Icon, type MenuItem, Presence, Table } from '../../ui'
 import { FeishuAppTag } from './FeishuAppTag'
@@ -20,8 +21,6 @@ type ChatRow = FeishuOverviewChatDto & { id: string }
 
 /** Why a bot's app is not working, in one line: the connection error first, then the pending dev config. */
 const botReason = (b: FeishuOverviewBotDto) => b.app?.error ?? b.app?.configError ?? ''
-
-const date = (iso: string) => new Date(iso).toLocaleDateString()
 
 /** 管理后台 · 飞书 at a glance (GET /admin/feishu/overview). */
 export const useFeishuOverview = () => useGet<FeishuOverviewDto>('/admin/feishu/overview')
@@ -136,7 +135,7 @@ export function FeishuOverviewTables({ data, reload }: { data: FeishuOverviewDto
             { key: 'groupName', title: t('共工群') },
             { key: 'teamName', title: t('团队'), secondary: true },
             { key: 'chatName', title: t('飞书群') },
-            { key: 'boundAt', title: t('关联时间'), secondary: true, render: (c) => date(c.boundAt) },
+            { key: 'boundAt', title: t('关联时间'), secondary: true, render: (c) => localDate(c.boundAt) },
             {
               key: 'bots',
               title: t('Bot 入群'),

@@ -205,8 +205,8 @@ describe('Round 2 Consolidation — Slice 1 (Admin, Analytics, Search)', () => {
 
     await screen.findByText('新分类记录')
     // Stale loadMore row must not appear; actor reset to all so 王五 is visible.
+    expect(await screen.findByText('已载入 1 条')).toBeTruthy()
     expect(screen.queryByText('过期分页记录')).toBeNull()
-    expect(screen.getByText('已载入 1 条')).toBeTruthy()
   })
 
   it('P0-5: ConversationStatsPanel Statuses shows <1% instead of 0% for sub-1% non-zero buckets', async () => {

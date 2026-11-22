@@ -16,6 +16,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
 import { matchAny } from '../../lib/match'
+import { localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -879,7 +880,7 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
                 <p className="gs-notice__body">{n.body}</p>
                 <div className="gs-bot__meta gs-notice__meta">
                   <span>
-                    {n.authorName} · {new Date(n.createdAt).toLocaleString()}
+                    {n.authorName} · {localDateTime(n.createdAt)}
                   </span>
                   {current ? (
                     <Tag tone="blue">{group.noticeHidden ? t('当前 · 已隐藏') : t('当前')}</Tag>

@@ -8,6 +8,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
+import { localDate } from '../../lib/time'
 import { Button, Dialog, Icon, SegmentedControl, Switch } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
 import { setArtifactVisibility } from './store'
@@ -97,8 +98,7 @@ const VISIBILITY_NOTE: Record<ArtifactVisibility, string> = {
   all: t('所有登录用户都能查看和演示，只有群成员能修改'),
 }
 
-const expiry = (at: string | null) =>
-  at ? t('链接 {date} 到期', { date: new Date(at).toLocaleDateString() }) : ''
+const expiry = (at: string | null) => (at ? t('链接 {date} 到期', { date: localDate(at) }) : '')
 
 /** The share link to a screen of the prototype (the shell plays `#play:<id>`). */
 export const screenLink = (url: string, screen?: string) => (screen ? `${url}#play:${screen}` : url)

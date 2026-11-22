@@ -9,7 +9,7 @@ import type {
 } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
-import { ago, browserTimeZone, dateLocale } from '../../lib/time'
+import { ago, browserTimeZone, localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -282,11 +282,7 @@ const COLUMNS: Record<string, TableColumn<Row>> = {
     secondary: true,
     sortValue: (r) => (r.lastActiveAt ? Date.parse(r.lastActiveAt) : 0),
     render: (r) =>
-      r.lastActiveAt ? (
-        <span title={new Date(r.lastActiveAt).toLocaleString(dateLocale)}>{ago(r.lastActiveAt)}</span>
-      ) : (
-        '—'
-      ),
+      r.lastActiveAt ? <span title={localDateTime(r.lastActiveAt)}>{ago(r.lastActiveAt)}</span> : '—',
   },
 }
 

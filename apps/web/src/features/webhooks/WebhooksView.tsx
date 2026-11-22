@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt, toastError } from '../../lib/errors'
+import { localDateTime } from '../../lib/time'
 import { Alert, Button, Dialog, EmptyState, GroupBox, Spinner, Switch, Tag } from '../../ui'
 import { botsText, useBotNames } from '../bots/model'
 import { STATUS_LABEL } from '../chat/RunGraphics'
@@ -17,7 +18,7 @@ import { WebhookDialog, WebhookUrlDialog } from './WebhookDialog'
 
 function lastCallText(w: WebhookDto) {
   if (!w.lastCalledAt) return t('尚未调用')
-  const when = new Date(w.lastCalledAt).toLocaleString()
+  const when = localDateTime(w.lastCalledAt)
   const status = w.lastStatus ? STATUS_LABEL[w.lastStatus] : undefined
   return status ? t('最近调用 {at}（{status}）', { at: when, status }) : t('最近调用 {at}', { at: when })
 }

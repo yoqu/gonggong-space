@@ -5,7 +5,7 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { matchAny } from '../../lib/match'
 import { realtime } from '../../lib/realtime'
-import { ago } from '../../lib/time'
+import { ago, localDateTime } from '../../lib/time'
 import {
   Alert,
   EmptyState,
@@ -37,9 +37,7 @@ function lastHeartbeat(m: AdminMachineDto) {
 
 /** Latest measurement reported by the daemon. */
 function Net({ text, at }: { text: string; at: string | null }) {
-  return (
-    <span title={at ? t('测量于 {time}', { time: new Date(at).toLocaleString() }) : undefined}>{text}</span>
-  )
+  return <span title={at ? t('测量于 {time}', { time: localDateTime(at) }) : undefined}>{text}</span>
 }
 
 /** 管理后台 · 机器: every machine plus the network quality last measured by each daemon (spec §8.5). */
@@ -233,9 +231,7 @@ export function MachinesPage() {
               sortable: true,
               sortValue: (m) => (m.online ? Number.POSITIVE_INFINITY : Date.parse(m.lastSeenAt ?? '') || 0),
               render: (m) => (
-                <span title={m.lastSeenAt ? new Date(m.lastSeenAt).toLocaleString() : undefined}>
-                  {lastHeartbeat(m)}
-                </span>
+                <span title={m.lastSeenAt ? localDateTime(m.lastSeenAt) : undefined}>{lastHeartbeat(m)}</span>
               ),
             },
           ]}

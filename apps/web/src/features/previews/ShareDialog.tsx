@@ -5,7 +5,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import { dateLocale } from '../../lib/time'
+import { localDateTime } from '../../lib/time'
 import { Button, Dialog, GroupBox, PopUpButton, Tag, TextField } from '../../ui'
 
 const DAYS = [1, 3, 7, 30].map((d) => ({ value: String(d), label: t('{n} 天', { n: d }) }))
@@ -18,8 +18,6 @@ export const shareState = (s: PreviewShareDto) =>
       : Date.parse(s.expiresAt) <= Date.now()
         ? t('已过期')
         : t('预览已关闭')
-
-const when = (iso: string) => new Date(iso).toLocaleString(dateLocale)
 
 /** Public links of one preview (plan P8): always expiring; the full link is shown once, right after creating it. */
 export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose: () => void }) {
@@ -95,7 +93,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
                 <span className="pv-muted">
                   {t('{name} 生成 · {expires} 到期 · 访问 {n} 次', {
                     name: s.createdByName,
-                    expires: when(s.expiresAt),
+                    expires: localDateTime(s.expiresAt),
                     n: s.visitCount,
                   })}
                 </span>

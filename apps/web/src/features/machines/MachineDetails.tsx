@@ -5,6 +5,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { AgentIcon, Disclosure, EmptyState, Icon, type IconName, Tabs, TextField, toast } from '../../ui'
 import { MachineAgentsPanel } from '../agents/webSource'
@@ -25,7 +26,7 @@ const cpuText = (m: MachineDto) =>
     .join(' · ') || null
 export const hardwareText = (m: MachineDto) =>
   [cpuText(m), memoryText(m.system?.memoryBytes)].filter(Boolean).join(' · ') || null
-const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '--')
+const dateText = (iso: string | null) => (iso ? localDateTime(iso) : '--')
 export const OS_ICON: Record<MachineDto['os'], IconName> = {
   macos: 'apple',
   linux: 'linux',

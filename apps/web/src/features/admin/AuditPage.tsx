@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { matchAny } from '../../lib/match'
-import { pad } from '../../lib/time'
+import { localDateTime, pad } from '../../lib/time'
 import {
   Alert,
   Button,
@@ -63,7 +63,7 @@ function AuditDialog({ record, onClose }: { record: AuditDto; onClose: () => voi
     <Dialog
       open
       title={t('审计记录')}
-      message={new Date(record.at).toLocaleString()}
+      message={localDateTime(record.at)}
       width={520}
       onClose={onClose}
       actions={[{ label: t('完成'), variant: 'primary', onClick: onClose, autoFocus: true }]}

@@ -4,7 +4,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { matchAny } from '../../lib/match'
-import { dateLocale } from '../../lib/time'
+import { localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -21,7 +21,7 @@ import { AdminPage } from '../admin/AdminPage'
 import { shareState } from './ShareDialog'
 
 const DAY = 86400_000
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(dateLocale) : '—')
+const when = (iso: string | null) => (iso ? localDateTime(iso) : '—')
 
 /** 管理后台 · 公开链接 (plan P8): every public preview link across groups; revoke or extend any of them. */
 export function SharesPage() {

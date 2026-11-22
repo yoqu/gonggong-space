@@ -10,6 +10,7 @@ import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { attempt } from '../../lib/errors'
+import { localDate } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -237,7 +238,7 @@ export function ListingDetail({
                   <span className="cfg__name">r{v.revision}</span>
                   <ReviewTag status={v.reviewStatus} />
                   <span className="mkt-detail__by">
-                    {[v.createdBy, new Date(v.createdAt).toLocaleDateString()].filter(Boolean).join(' · ')}
+                    {[v.createdBy, localDate(v.createdAt)].filter(Boolean).join(' · ')}
                   </span>
                 </span>
               }

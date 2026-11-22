@@ -252,7 +252,7 @@ describe('machine details sections', () => {
       expect(tab(name).disabled).toBe(false)
       fireEvent.click(tab(name))
       const note = screen.getByRole('region', { name: '电脑离线' })
-      expect(note.textContent).toContain(new Date(lastSeenAt).toLocaleString())
+      expect(note.textContent).toContain(new Date(lastSeenAt).toLocaleString('zh-CN'))
       expect(note.textContent).toContain('共工空间客户端')
       expect(within(note).getByText('gg run')).toBeTruthy()
     }
