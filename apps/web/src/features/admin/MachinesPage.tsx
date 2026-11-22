@@ -3,11 +3,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { matchAny } from '../../lib/match'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import {
   Alert,
-  Button,
   EmptyState,
   NoMachinesArt,
   NoResultsArt,
@@ -19,9 +19,8 @@ import {
   ToolbarButton,
   ToolbarGroup,
 } from '../../ui'
-import { hardwareText, osText } from '../machines/MachineDetails'
-import '../machines/machines.css'
 import { hasUpdate } from '../agents/model'
+import { hardwareText, osText } from '../machines/MachineDetails'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
 import { AdminPage, countLine } from './AdminPage'
 
@@ -85,10 +84,8 @@ export function MachinesPage() {
     }
   }, [load])
   const old = machines?.filter(outdated) ?? []
-  const q = query.trim().toLowerCase()
-  const shown = machines?.filter(
-    (m) => !q || `${m.name} ${m.hostname} ${m.ownerName}`.toLowerCase().includes(q),
-  )
+  const q = query.trim()
+  const shown = machines?.filter((m) => matchAny(q, m.name, m.hostname, m.ownerName))
   const online = machines?.filter((m) => m.online).length ?? 0
 
   return (
@@ -117,13 +114,7 @@ export function MachinesPage() {
       search={<SearchField placeholder={t('搜索电脑或主人')} value={query} onChange={setQuery} />}
     >
       {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={() => void load()}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert variant="error" description={error} retrying={loading} onRetry={() => void load()} />
       ) : null}
       {shown ? (
         <Table<AdminMachineDto>

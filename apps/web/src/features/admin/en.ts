@@ -2,8 +2,6 @@ export default {
   管理后台: 'Admin console',
   共工空间: 'Gonggong Space',
   返回消息: 'Back to messages',
-  即将上线: 'Coming soon',
-  '该页面正在开发中。': 'This page is under construction.',
   全部: 'All',
   审批: 'Approvals',
   同步: 'Sync',
@@ -76,7 +74,6 @@ export default {
   账号与角色: 'Accounts & roles',
   '创建账号、分配角色、重置密码；停用会立即断开该成员的所有电脑与登录。':
     "Create accounts, assign roles and reset passwords. Disabling immediately disconnects all of the member's computers and sessions.",
-  '所有群的模式、仓库与权威副本状态。': 'Mode, repo and authoritative copy state of every group.',
   配置: 'Configuration',
   系统参数: 'System parameters',
   '平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。':
@@ -87,8 +84,6 @@ export default {
   观测: 'Observability',
   用量: 'Usage',
   '公开链接#nav': 'Public links',
-  'Bot 预览的外部公开链接：到期或收回后立即失效，访问记入审计。':
-    'Public links to Bot previews: they stop working once expired or revoked, and every visit is audited.',
   运行与会话: 'Runs & sessions',
   '附件#nav': 'Attachments',
   电脑连接: 'Computer connections',
@@ -201,8 +196,6 @@ export default {
   '账号 {account}  初始密码 {password}': 'Account {account}  Initial password {password}',
   '已创建账号 {account}，账号和初始密码已复制，首次登录需修改密码':
     'Created account {account}. Account and initial password copied; the password must be changed on first login',
-  '已创建账号 {account}，首次登录需修改密码':
-    'Created account {account}. The password must be changed on first login',
   '编辑成员 {name}': 'Edit member {name}',
   新建成员: 'New member',
   首次登录需修改初始密码: 'The initial password must be changed on first login',
@@ -256,8 +249,6 @@ export default {
   '对方成为所有者（未加入则自动加入）；原所有者改为管理员。':
     'They become an owner (joining if needed); the previous owners become admins.',
   选择账号: 'Choose an account',
-  '各群与私聊的定时任务，可停用或删除任意任务。':
-    'Scheduled tasks of every group and direct chat; turn off or delete any of them.',
   '各群与私聊的定时任务：到点由候选 Bot 中第一个可用的执行。可在此停用或删除任意任务。':
     'Scheduled tasks of every group and direct chat: the first available candidate Bot runs each. Turn off or delete any of them here.',
   '{n} 个任务': '{n} {n:task|tasks}',

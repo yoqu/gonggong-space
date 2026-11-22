@@ -14,7 +14,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { fmtTokens } from '../../lib/format'
 import { realtime } from '../../lib/realtime'
-import { ago } from '../../lib/time'
+import { ago, browserTimeZone } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, ChatHeader, Tag } from '../../ui'
 import { choiceLabel, machineDefault } from '../agents/model'
@@ -22,7 +22,7 @@ import { RUN_STATUS } from '../chat/TimelineItems'
 import { FeishuAppTag } from '../feishu/FeishuAppTag'
 import { effectiveProvider } from '../machines/providers'
 import { stepText } from '../runs/mcp'
-import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
+import { Trend, UsageBars, WINDOW } from '../usage/UsagePage'
 import { agentLabel } from './AgentConfig'
 import { approvalText } from './ApprovalFields'
 import { BotAvatar, botRole, roleOf } from './avatars'
@@ -166,7 +166,7 @@ function Usage({ botId, groupCount, mine }: { botId: string; groupCount: number;
   const q = `days=${WINDOW}&botId=${botId}`
   const byUser = useGet<UsageRowDto[]>(`/usage?by=user&${q}`).data
   const byGroup = useGet<UsageRowDto[]>(mine ? null : `/usage?by=group&${q}`).data
-  const daily = useGet<UsageDayDto[]>(`/usage/daily?${q}&tz=${encodeURIComponent(TZ)}`).data
+  const daily = useGet<UsageDayDto[]>(`/usage/daily?${q}&tz=${encodeURIComponent(browserTimeZone)}`).data
   const sum = (k: 'runs' | 'totalTokens' | 'unreported') => (byUser ?? []).reduce((n, r) => n + r[k], 0)
   const tiles = [
     { label: t('token 合计'), value: byUser ? fmtTokens(sum('totalTokens')) : '--' },

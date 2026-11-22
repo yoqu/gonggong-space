@@ -1,10 +1,11 @@
 import type { UsageDayDto, UsageRowDto } from '@gonggong/protocol'
 import { useState } from 'react'
+import { t } from '../../i18n'
 import { fmtTokens } from '../../lib/format'
+import { browserTimeZone } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Button,
   Dialog,
   EmptyState,
   NoDataArt,
@@ -17,8 +18,7 @@ import {
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
 import { TeamFilter } from '../admin/TeamFilter'
-import './usage.css'
-import { t } from '../../i18n'
+import { Delta, dayLabel, peakOf, ShareCard, sharePct } from './metrics'
 
 type By = 'bot' | 'user' | 'group'
 type Metric = 'totalTokens' | 'runs' | 'unreported'
@@ -29,7 +29,6 @@ const TABS: { value: By; label: string }[] = [
   { value: 'group', label: t('按群') },
 ]
 export const WINDOW = 30
-export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 /** GET /api/usage; `rows` stays null while loading. */
 export function useUsage(query: string) {
@@ -85,18 +84,6 @@ function colorsFor(rows: UsageRowDto[]) {
 
 const sumOf = (xs: { [k in Metric]: number }[], k: Metric) => xs.reduce((n, x) => n + x[k], 0)
 
-function Delta({ daily, metric }: { daily: UsageDayDto[]; metric: Metric }) {
-  const prev = sumOf(daily.slice(0, -WINDOW), metric)
-  if (!prev) return null
-  const pct = Math.round(((sumOf(daily.slice(-WINDOW), metric) - prev) / prev) * 100)
-  return (
-    <span className="usage-stat__delta">
-      <span>{pct ? `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%` : t('持平')}</span>
-      <span>{t('较前 {n} 天', { n: WINDOW })}</span>
-    </span>
-  )
-}
-
 function Stats({ rows, by, daily }: { rows: UsageRowDto[]; by: By; daily: UsageDayDto[] | null }) {
   const tiles: { label: string; value: string; metric?: Metric }[] = [
     { label: t('token 合计'), value: fmtTokens(sumOf(rows, 'totalTokens')), metric: 'totalTokens' },
@@ -117,14 +104,18 @@ function Stats({ rows, by, daily }: { rows: UsageRowDto[]; by: By; daily: UsageD
               <Sparkline values={daily.slice(-WINDOW).map((d) => d[tile.metric as Metric])} />
             ) : null}
           </div>
-          {daily && tile.metric ? <Delta daily={daily} metric={tile.metric} /> : null}
+          {daily && tile.metric ? (
+            <Delta
+              now={sumOf(daily.slice(-WINDOW), tile.metric)}
+              before={sumOf(daily.slice(0, -WINDOW), tile.metric)}
+              days={WINDOW}
+            />
+          ) : null}
         </div>
       ))}
     </div>
   )
 }
-
-const dayParts = (day: string) => day.split('-').slice(1).map(Number) as [number, number]
 
 /** Daily columns for the last 30 days; token or run count. */
 export function Trend({ daily }: { daily: UsageDayDto[] }) {
@@ -133,11 +124,11 @@ export function Trend({ daily }: { daily: UsageDayDto[] }) {
   const tokens = metric === 'totalTokens'
   const fmt = (n: number) => (tokens ? `${fmtTokens(n)} tokens` : t('{n} 轮', { n }))
   const points = days.map((d) => {
-    const [m, dd] = dayParts(d.day)
+    const { label, tick } = dayLabel(d.day)
     const lines = [`${fmtTokens(d.totalTokens)} tokens`, t('{n} 轮', { n: d.runs })]
     return {
-      label: t('{m}月{d}日', { m, d: dd }),
-      tick: `${m}/${dd}`,
+      label,
+      tick,
       value: d[metric],
       lines: [
         ...(tokens ? lines : lines.reverse()),
@@ -145,7 +136,7 @@ export function Trend({ daily }: { daily: UsageDayDto[] }) {
       ],
     }
   })
-  const peak = points.reduce((a, b) => (b.value > a.value ? b : a), points[0] ?? { label: '', value: 0 })
+  const peak = peakOf(points)
   const summary =
     t(tokens ? '近 {n} 天每日 token：合计 {total}' : '近 {n} 天每日运行轮次：合计 {total}', {
       n: WINDOW,
@@ -171,11 +162,6 @@ export function Trend({ daily }: { daily: UsageDayDto[] }) {
   )
 }
 
-const pctOf = (v: number, total: number) => {
-  const p = (v / total) * 100
-  return p < 1 ? '<1%' : `${Math.round(p)}%`
-}
-
 /** Token share of the top five, the rest folded into 其他. */
 function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, string> }) {
   const total = sumOf(rows, 'totalTokens')
@@ -183,37 +169,26 @@ function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, stri
   const shown = rows.filter((r) => colors.has(r.key)).sort((a, b) => b.totalTokens - a.totalTokens)
   const rest = total - sumOf(shown, 'totalTokens')
   const parts = [
-    ...shown.map((r) => ({ key: r.key, name: r.name, value: r.totalTokens, color: colors.get(r.key) })),
-    ...(rest ? [{ key: '', name: t('其他'), value: rest, color: OTHER }] : []),
+    ...shown.map((r) => ({
+      key: r.key,
+      name: r.name,
+      value: r.totalTokens,
+      color: colors.get(r.key),
+      display: fmtTokens(r.totalTokens),
+    })),
+    ...(rest ? [{ key: '', name: t('其他'), value: rest, color: OTHER, display: fmtTokens(rest) }] : []),
   ]
   return (
-    <section className="usage-card">
-      <div className="usage-card__head">
-        <span className="usage-card__title">{t('token 分布')}</span>
-        <span className="usage-card__meta">{t('合计 {total} tokens', { total: fmtTokens(total) })}</span>
-      </div>
-      <div
-        className="usage-share"
-        role="img"
-        aria-label={t('token 分布：{parts}', {
-          parts: parts.map((p) => `${p.name} ${pctOf(p.value, total)}`).join(t('，')),
-        })}
-      >
-        {parts.map((p) => (
-          <span key={p.key} style={{ flexGrow: p.value, background: p.color }} />
-        ))}
-      </div>
-      <ul className="usage-legend" aria-label={t('token 分布图例')}>
-        {parts.map((p) => (
-          <li key={p.key}>
-            <span className="usage-legend__swatch" style={{ background: p.color }} aria-hidden="true" />
-            <span className="usage-legend__name">{p.name}</span>
-            <span className="usage-legend__value">{fmtTokens(p.value)}</span>
-            <span className="usage-legend__pct">{pctOf(p.value, total)}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ShareCard
+      title={t('token 分布')}
+      meta={t('合计 {total} tokens', { total: fmtTokens(total) })}
+      barLabel={t('token 分布：{parts}', {
+        parts: parts.map((p) => `${p.name} ${sharePct(p.value, total)}`).join(t('，')),
+      })}
+      legendLabel={t('token 分布图例')}
+      parts={parts}
+      total={total}
+    />
   )
 }
 
@@ -231,27 +206,24 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
     reload,
   } = useGet<UsageRowDto[]>(`${base}?by=${by}&days=${WINDOW}${team}`)
   // Twice the window so the tiles can compare against the prior period.
-  const daily = useGet<UsageDayDto[]>(`${base}/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(TZ)}${team}`)
+  const daily = useGet<UsageDayDto[]>(
+    `${base}/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(browserTimeZone)}${team}`,
+  )
   const max = Math.max(1, ...(rows ?? []).map((r) => r.totalTokens))
   const colors = colorsFor(rows ?? [])
   return (
     <>
       <Tabs value={by} onChange={setBy} items={TABS} />
       {error || daily.error ? (
-        <Alert variant="error" description={error || daily.error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button
-              size="small"
-              loading={loading || daily.loading}
-              onClick={() => {
-                reload()
-                daily.reload()
-              }}
-            >
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          description={error || daily.error}
+          retrying={loading || daily.loading}
+          onRetry={() => {
+            reload()
+            daily.reload()
+          }}
+        />
       ) : null}
       {rows?.length ? (
         <>

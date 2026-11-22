@@ -249,33 +249,6 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   min-width: 0;
   max-width: 100%;
 }
-.admin-audit__summary {
-  text-wrap: pretty;
-  overflow-wrap: anywhere;
-}
-.admin-audit__detail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin: 0;
-  font-size: var(--text-subheadline-size);
-}
-.admin-audit__detail > div {
-  display: flex;
-  gap: var(--space-8);
-}
-.admin-audit__detail dt {
-  flex: none;
-  color: var(--label-secondary);
-}
-.admin-audit__detail dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
-}
-.admin-more {
-  align-self: center;
-}
 
 /* 系统参数 */
 .admin-params {

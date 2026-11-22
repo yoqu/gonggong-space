@@ -135,15 +135,7 @@ export function UsersPage() {
       }
       search={<SearchField placeholder={t('搜索姓名或账号')} value={query} onChange={setQuery} />}
     >
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={load}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={load} /> : null}
       {shown ? (
         <Table<AdminUserDto>
           aria-label={t('账号列表')}

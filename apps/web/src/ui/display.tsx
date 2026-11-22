@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode, useId } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
-import { type Glyph, renderGlyph } from './controls'
+import { Button, type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
 import { RollingNumber } from './rolling-number'
 import './display.css'
@@ -432,6 +432,8 @@ export interface GroupRowProps {
   onClick?: () => void
   /** Centered red label; put it in a GroupBox of its own. */
   destructive?: boolean
+  /** Vertical layout: label/description above full-width children (e.g. credential forms). */
+  stacked?: boolean
   className?: string
   children?: ReactNode
 }
@@ -445,6 +447,7 @@ export function GroupRow({
   chevron,
   onClick,
   destructive,
+  stacked,
   className,
   children,
 }: GroupRowProps) {
@@ -475,6 +478,7 @@ export function GroupRow({
         'ui-group__row',
         'ui-group__row--button',
         destructive && 'ui-group__row--danger',
+        stacked && 'ui-group__row--stacked',
         className,
       )}
       onClick={onClick}
@@ -482,7 +486,7 @@ export function GroupRow({
       {inner}
     </button>
   ) : (
-    <div className={cx('ui-group__row', className)}>{inner}</div>
+    <div className={cx('ui-group__row', stacked && 'ui-group__row--stacked', className)}>{inner}</div>
   )
 }
 
@@ -518,15 +522,21 @@ export function Alert({
   title,
   description,
   icon,
+  onRetry,
+  retrying,
+  retryLabel,
   children,
 }: {
   variant?: 'info' | 'success' | 'warning' | 'error'
   title?: ReactNode
   description?: ReactNode
   icon?: ReactNode
+  onRetry?: () => void
+  retrying?: boolean
+  retryLabel?: string
   children?: ReactNode
 }) {
-  const inlineErrorIcon = variant === 'error' && !icon && !title && !children && !!description
+  const inlineErrorIcon = variant === 'error' && !icon && !title && !children && !onRetry && !!description
   const leadIcon =
     icon ?? (variant === 'error' && !inlineErrorIcon ? <Icon name="warning" size={14} /> : null)
   return (
@@ -541,6 +551,13 @@ export function Alert({
           </p>
         ) : null}
         {children}
+        {onRetry ? (
+          <div className="ui-alert__retry">
+            <Button size="small" loading={retrying} onClick={onRetry}>
+              {retryLabel ?? t('重试')}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   )

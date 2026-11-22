@@ -1,11 +1,13 @@
 import { type MeDto, SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
+import { useUnsavedWarn } from '../../lib/unsaved'
+import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
@@ -31,15 +33,7 @@ type Toggle =
 
 /** GET /api/admin/params; null until loaded (or when it fails — callers only use it for auxiliary copy). */
 export function useSystemParams(enabled = true) {
-  const [params, setParams] = useState<SystemParams | null>(null)
-  useEffect(() => {
-    if (!enabled) return
-    api
-      .get<SystemParams>('/admin/params')
-      .then(setParams)
-      .catch(() => {})
-  }, [enabled])
-  return params
+  return useGet<SystemParams>(enabled ? '/admin/params' : null).data
 }
 
 type Values = Record<Key, number | null>
@@ -74,38 +68,41 @@ export function ParamsPage() {
   const [busy, setBusy] = useState(false)
   const [applying, setApplying] = useState<string | null>(null)
 
+  const loadSeqRef = useRef(0)
+
   const reset = (p: SystemParams) => {
     setSaved(p)
     setForm(toForm(p))
   }
   const loadParams = useCallback(() => {
+    const seq = ++loadSeqRef.current
     setLoading(true)
     setError('')
     return api
       .get<SystemParams>('/admin/params')
       .then((p) => {
+        if (seq !== loadSeqRef.current) return
         setSaved(p)
         setForm(toForm(p))
       })
-      .catch((e) => setError(errorText(e)))
-      .finally(() => setLoading(false))
+      .catch((e) => {
+        if (seq === loadSeqRef.current) setError(errorText(e))
+      })
+      .finally(() => {
+        if (seq === loadSeqRef.current) setLoading(false)
+      })
   }, [])
   useEffect(() => {
     void loadParams()
+    return () => {
+      loadSeqRef.current++
+    }
   }, [loadParams])
 
   const changed = saved && form ? SYSTEM_PARAM_VIEW.filter(({ key }) => form[key] !== saved[key]) : []
   const dirty = changed.length > 0
 
-  useEffect(() => {
-    if (!dirty) return
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
+  useUnsavedWarn(dirty)
 
   /** Switches apply at once, apart from the numeric form. */
   async function apply(patch: Partial<Pick<SystemParams, Toggle>>, message: string) {
@@ -149,15 +146,12 @@ export function ParamsPage() {
       desc={t('平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。')}
     >
       {error ? (
-        <Alert variant="error" description={error}>
-          {!saved ? (
-            <div style={{ marginTop: 'var(--space-8)' }}>
-              <Button size="small" loading={loading} onClick={() => void loadParams()}>
-                {t('重试')}
-              </Button>
-            </div>
-          ) : null}
-        </Alert>
+        <Alert
+          variant="error"
+          description={error}
+          retrying={loading}
+          onRetry={!saved ? () => void loadParams() : undefined}
+        />
       ) : null}
       {saved ? (
         <section className="admin-params">

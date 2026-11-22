@@ -5,7 +5,6 @@ import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Button,
   EmptyState,
   NoGroupsArt,
   NoResultsArt,
@@ -83,15 +82,7 @@ export function GroupsPage() {
       }
       search={<SearchField placeholder={t('搜索群或仓库')} value={query} onChange={setQuery} />}
     >
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {shown ? (
         <Table<AdminGroupDto>
           aria-label={t('群列表')}

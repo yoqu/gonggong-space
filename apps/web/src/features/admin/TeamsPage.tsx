@@ -7,7 +7,6 @@ import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Button,
   ConfirmActionDialog,
   Dialog,
   EmptyState,
@@ -72,15 +71,7 @@ export function TeamsPage() {
       }
       search={<SearchField placeholder={t('搜索团队或所有者')} value={query} onChange={setQuery} />}
     >
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {shown ? (
         <Table<AdminTeamDto>
           aria-label={t('团队列表')}
@@ -246,13 +237,13 @@ function TeamDialog({
         )}
         <FormRow label={t('所有者')}>
           {usersQ.error && !usersQ.data ? (
-            <Alert variant="error" title={t('加载账号列表失败')} description={usersQ.error}>
-              <div style={{ marginTop: 'var(--space-8)' }}>
-                <Button size="small" loading={usersQ.loading} onClick={usersQ.reload}>
-                  {t('重试')}
-                </Button>
-              </div>
-            </Alert>
+            <Alert
+              variant="error"
+              title={t('加载账号列表失败')}
+              description={usersQ.error}
+              retrying={usersQ.loading}
+              onRetry={usersQ.reload}
+            />
           ) : !usersQ.data ? (
             <Spinner />
           ) : (

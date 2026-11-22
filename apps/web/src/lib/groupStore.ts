@@ -16,6 +16,8 @@ interface GroupStoreState<T> {
 export function createGroupStore<T>(o: {
   load: (groupId: string) => Promise<T>
   onEvent: (e: WebEvent) => { groupId: string; value: T } | null
+  /** `'clear'` drops cached values so the next render reloads; `'reload'` refreshes loaded groups in place. */
+  reconnect?: 'clear' | 'reload'
 }) {
   const useStore = create<GroupStoreState<T>>()(() => ({ values: {}, errors: {} }))
   const loading = new Set<string>()
@@ -35,8 +37,16 @@ export function createGroupStore<T>(o: {
             errors: { ...s.errors, [hit.groupId]: null },
           }))
       }),
-      // Events missed while offline: the next use reloads.
-      realtime.onReconnect(() => useStore.setState({ values: {}, errors: {} })),
+      // Events missed while offline: drop cached values or refresh loaded groups in place.
+      realtime.onReconnect(() => {
+        if (o.reconnect === 'reload') {
+          const { values, errors } = useStore.getState()
+          const ids = new Set([...Object.keys(values), ...Object.keys(errors).filter((k) => errors[k])])
+          for (const groupId of ids) reload(groupId)
+        } else {
+          useStore.setState({ values: {}, errors: {} })
+        }
+      }),
     ]
   }
 
@@ -64,15 +74,16 @@ export function createGroupStore<T>(o: {
       })
   }
 
-  function useError(groupId: string): string | null {
-    return useStore((s) => s.errors[groupId] ?? null)
+  function useError(groupId: string | null): string | null {
+    return useStore((s) => (groupId ? (s.errors[groupId] ?? null) : null))
   }
 
   const useGroup = Object.assign(
-    function useGroup(groupId: string): T | undefined {
-      const value = useStore((s) => s.values[groupId])
-      const error = useStore((s) => s.errors[groupId] ?? null)
+    function useGroup(groupId: string | null): T | undefined {
+      const value = useStore((s) => (groupId ? s.values[groupId] : undefined))
+      const error = useStore((s) => (groupId ? (s.errors[groupId] ?? null) : null))
       useEffect(() => {
+        if (!groupId) return
         sync()
         if (value === undefined && !error) reload(groupId)
       }, [groupId, value, error])

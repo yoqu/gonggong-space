@@ -91,13 +91,12 @@ export function WebhooksView({ group, readOnly }: { group: GroupDto; readOnly: b
 
   if (error && !list)
     return (
-      <Alert variant="error" title={t('加载失败')} description={error}>
-        <div className="gs-retry">
-          <Button size="small" onClick={() => useWebhooks.reload(group.id)}>
-            {t('重试')}
-          </Button>
-        </div>
-      </Alert>
+      <Alert
+        variant="error"
+        title={t('加载失败')}
+        description={error}
+        onRetry={() => useWebhooks.reload(group.id)}
+      />
     )
   if (!list) return <Spinner />
   return (

@@ -86,15 +86,7 @@ export function SchedulesPage() {
       }
       search={<SearchField placeholder={t('搜索任务、群或 Bot')} value={query} onChange={setQuery} />}
     >
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {data ? (
         <div className="sc-stats">
           {[

@@ -1,4 +1,8 @@
 .admin-audit__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
   min-width: 0;
   max-width: 100%;
 }
@@ -15,4 +19,42 @@
 
 .admin-audit__filters .ui-seg__item {
   flex: 0 0 auto;
+}
+
+.admin-audit__table {
+  min-width: 0;
+}
+.admin-audit__table:not(.ui-table--cards) .ui-table__head,
+.admin-audit__table:not(.ui-table--cards) .ui-table__row {
+  min-width: 640px;
+}
+
+.admin-audit__summary {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.admin-audit__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  font-size: var(--text-subheadline-size);
+}
+.admin-audit__detail > div {
+  display: flex;
+  gap: var(--space-8);
+}
+.admin-audit__detail dt {
+  flex: none;
+  color: var(--label-secondary);
+}
+.admin-audit__detail dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.admin-more {
+  align-self: center;
 }

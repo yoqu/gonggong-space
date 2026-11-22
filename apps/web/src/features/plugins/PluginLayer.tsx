@@ -5,7 +5,7 @@ import {
   type PluginDto,
   type SkillFile,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -28,6 +28,7 @@ import {
   toast,
 } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
+import { FolderInput, kb } from '../config/SkillLayer'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
 import {
   agentsText,
@@ -43,8 +44,6 @@ import { PluginTile, pluginIcon } from './PluginTile'
 import { loadPlugins, togglePlugin, useGroupPlugins, useGroupPluginsError } from './store'
 import '../config/config.css'
 import './plugins.css'
-
-const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`)
 
 /** A plugin's manifest at a glance: title, name and version, layer, agents, secrets, license and source. */
 function PluginInfo({ p, extra }: { p: PluginDto; extra?: ReactNode }) {
@@ -81,27 +80,9 @@ function PluginInfo({ p, extra }: { p: PluginDto; extra?: ReactNode }) {
   )
 }
 
-/** `webkitdirectory` is not in React's input attributes. */
-function FolderInput({ onFiles }: { onFiles: (files: File[]) => void }) {
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => ref.current?.setAttribute('webkitdirectory', ''), [])
-  return (
-    <input
-      ref={ref}
-      type="file"
-      hidden
-      aria-label={t('上传文件夹')}
-      onChange={(e) => {
-        onFiles([...(e.target.files ?? [])])
-        e.target.value = ''
-      }}
-    />
-  )
-}
-
 /** 上传文件夹… / 上传 zip…: a new plugin, or a new version of the layer's plugin of the same name. */
 function PluginUpload({ base, onDone }: { base: string; onDone: () => void }) {
-  const folder = useRef<HTMLSpanElement>(null)
+  const folder = useRef<HTMLInputElement>(null)
   const zip = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const upload = async (read: Promise<SkillFile[]>) => {
@@ -125,11 +106,15 @@ function PluginUpload({ base, onDone }: { base: string; onDone: () => void }) {
     }
   }
   return (
-    <span className="plg-upload" ref={folder}>
-      <Button disabled={busy} onClick={() => folder.current?.querySelector('input')?.click()}>
+    <span className="plg-upload">
+      <Button disabled={busy} onClick={() => folder.current?.click()}>
         {t('上传文件夹…')}
       </Button>
-      <FolderInput onFiles={(fs) => void upload(folderSkillFiles(fs))} />
+      <FolderInput
+        inputRef={folder}
+        label={t('上传文件夹')}
+        onFiles={(fs) => void upload(folderSkillFiles(fs))}
+      />
       <Button disabled={busy} onClick={() => zip.current?.click()}>
         {t('上传 zip…')}
       </Button>
@@ -248,13 +233,7 @@ export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; 
         {t('启用后群成员可以在「创作」和 / 候选里使用。下一轮任务生效，不打断正在运行的任务。')}
       </div>
       {error ? (
-        <Alert variant="error" title={t('插件加载失败')} description={error}>
-          <div className="cfg__retry">
-            <Button size="small" onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert variant="error" title={t('插件加载失败')} description={error} onRetry={reload} />
       ) : null}
       {error && !list ? null : list === undefined ? (
         <Spinner />

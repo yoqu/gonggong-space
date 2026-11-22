@@ -6,7 +6,6 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
-import { AdminPlaceholder } from '../src/features/admin/AdminPage'
 import {
   ComingSoonArt,
   EmptyState,
@@ -95,15 +94,6 @@ describe('empty state illustrations', () => {
   it('shrink in compact empty states', () => {
     render(<EmptyState compact title="暂无通知" illustration={<NoNotificationsArt />} />)
     expect(emptyArt('暂无通知')?.closest('.ui-empty--compact')).toBeTruthy()
-  })
-
-  it('mark pages that are not delivered yet', () => {
-    render(
-      <MemoryRouter>
-        <AdminPlaceholder item={{ path: 'x', label: '占位', icon: 'gear', color: 'red', desc: '说明' }} />
-      </MemoryRouter>,
-    )
-    expect(emptyArt('即将上线')).toBeTruthy()
   })
 
   it('fill empty admin tables, telling "none yet" from "no match"', async () => {

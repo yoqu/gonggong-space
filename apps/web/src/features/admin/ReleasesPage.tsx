@@ -5,10 +5,11 @@ import {
   RELEASE_PLATFORMS,
   type ReleaseKind,
 } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
@@ -69,72 +70,90 @@ function UpdateCell({ row }: { row: Row }) {
   return <Tag tone="green">{t('已发布')}</Tag>
 }
 
+type UploadItem = DropFile & { id: number }
+
 /** 管理后台 · 客户端发布: the daemon and gg-cast builds online daemons download (plan D17), uploaded from dist/<version>/. */
 export function ReleasesPage() {
   const [release, setRelease] = useState<DaemonRelease | null | undefined>(undefined)
-  const [machines, setMachines] = useState<AdminMachineDto[]>([])
-  const [uploads, setUploads] = useState<DropFile[]>([])
+  const machines = useGet<AdminMachineDto[]>('/admin/machines').data ?? []
+  const [uploads, setUploads] = useState<UploadItem[]>([])
   const [removing, setRemoving] = useState<{ kind: ReleaseKind; platform: string } | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [editingNotes, setEditingNotes] = useState(false)
+  const editingNotesRef = useRef(false)
+  editingNotesRef.current = editingNotes
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const loadSeqRef = useRef(0)
+  const nextUploadIdRef = useRef(1)
+  const uploadQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   const loadRelease = useCallback(() => {
+    const seq = ++loadSeqRef.current
     setLoading(true)
     setError('')
     return api
       .get<DaemonRelease | null>('/admin/daemon-release')
       .then((r) => {
+        if (seq !== loadSeqRef.current) return
         setRelease(r)
-        setNotes(r?.releaseNotes ?? '')
+        if (!editingNotesRef.current) setNotes(r?.releaseNotes ?? '')
       })
-      .catch((e) => setError(errorText(e)))
-      .finally(() => setLoading(false))
+      .catch((e) => {
+        if (seq === loadSeqRef.current) setError(errorText(e))
+      })
+      .finally(() => {
+        if (seq === loadSeqRef.current) setLoading(false)
+      })
   }, [])
 
   useEffect(() => {
     void loadRelease()
-    api
-      .get<AdminMachineDto[]>('/admin/machines')
-      .then(setMachines)
-      .catch(() => {})
+    return () => {
+      loadSeqRef.current++
+    }
   }, [loadRelease])
 
-  // Sequential: each upload read-modify-writes the one release record.
-  async function upload(files: File[]) {
-    const start = uploads.length
-    const set = (i: number, f: Partial<DropFile>) =>
-      setUploads((list) => list.map((u, j) => (j === start + i ? { ...u, ...f } : u)))
+  // Sequential across files and overlapping drops: each upload read-modify-writes the one release record.
+  function upload(files: File[]) {
+    const batch = files.map((file) => ({
+      id: nextUploadIdRef.current++,
+      file,
+    }))
+    const setById = (id: number, f: Partial<DropFile>) =>
+      setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...f } : u)))
     setUploads((list) => [
       ...list,
-      ...files.map((f) => ({ name: f.name, size: fmtSize(f.size), progress: 0 })),
+      ...batch.map(({ id, file }) => ({ id, name: file.name, size: fmtSize(file.size), progress: 0 })),
     ])
-    for (const [i, file] of files.entries()) {
-      if (file.name !== 'RELEASE_NOTES.md' && !parseReleaseFile(file.name)) {
-        set(i, {
-          progress: undefined,
-          error: t('不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg'),
-        })
-        continue
+    uploadQueueRef.current = uploadQueueRef.current.then(async () => {
+      for (const { id, file } of batch) {
+        if (file.name !== 'RELEASE_NOTES.md' && !parseReleaseFile(file.name)) {
+          setById(id, {
+            progress: undefined,
+            error: t('不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg'),
+          })
+          continue
+        }
+        const form = new FormData()
+        form.append('file', file)
+        try {
+          const next = await postForm<DaemonRelease & { warning?: string }>(
+            '/api/admin/daemon-release/files',
+            form,
+            (p) => setById(id, { progress: p }),
+          ).done
+          setRelease(next)
+          if (!editingNotesRef.current) setNotes(next.releaseNotes ?? '')
+          if (next.warning) toast({ type: 'warning', message: next.warning })
+          setById(id, { progress: 100 })
+        } catch (e) {
+          setById(id, { progress: undefined, error: errorText(e) })
+        }
       }
-      const form = new FormData()
-      form.append('file', file)
-      try {
-        const next = await postForm<DaemonRelease & { warning?: string }>(
-          '/api/admin/daemon-release/files',
-          form,
-          (p) => set(i, { progress: p }),
-        ).done
-        setRelease(next)
-        setNotes(next.releaseNotes ?? '')
-        if (next.warning) toast({ type: 'warning', message: next.warning })
-        set(i, { progress: 100 })
-      } catch (e) {
-        set(i, { progress: undefined, error: errorText(e) })
-      }
-    }
+    })
+    return uploadQueueRef.current
   }
 
   async function saveNotes() {
@@ -184,13 +203,7 @@ export function ReleasesPage() {
       }
     >
       {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={() => void loadRelease()}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert variant="error" description={error} retrying={loading} onRetry={() => void loadRelease()} />
       ) : null}
       {release ? (
         <div className="admin-release-notes">

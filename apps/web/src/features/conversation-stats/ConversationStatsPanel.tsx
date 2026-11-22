@@ -9,11 +9,10 @@ import type {
 } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
-import { ago, dateLocale } from '../../lib/time'
+import { ago, browserTimeZone, dateLocale } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Button,
   EmptyState,
   NoDataArt,
   SegmentedControl,
@@ -26,8 +25,7 @@ import {
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { STATUS_LABEL } from '../chat/RunGraphics'
 import { fmtWorked } from '../runs/activity'
-import { TZ } from '../usage/UsagePage'
-import '../usage/usage.css'
+import { Delta, dayLabel, peakOf, ShareCard, sharePct } from '../usage/metrics'
 import './conversation-stats.css'
 
 type Row = ConversationStatsRowDto & { id: string }
@@ -55,17 +53,6 @@ const STATUS_COLOR: Record<RunStatus, string> = {
 
 const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '—')
 const rate = (r: { completedRuns: number; endedRuns: number }) => pct(r.completedRuns, r.endedRuns)
-
-function Delta({ now, before, days }: { now: number; before: number; days: number }) {
-  if (!before) return null
-  const p = Math.round(((now - before) / before) * 100)
-  return (
-    <span className="usage-stat__delta">
-      <span>{p ? `${p > 0 ? '↑' : '↓'} ${Math.abs(p)}%` : t('持平')}</span>
-      <span>{t('较前 {n} 天', { n: days })}</span>
-    </span>
-  )
-}
 
 function Tiles({ o, days }: { o: ConversationOverviewDto; days: number }) {
   const { current: c, previous: p } = o
@@ -126,10 +113,10 @@ function Trend({ daily, days }: { daily: ConversationDayDto[]; days: number }) {
   const [metric, setMetric] = useState<DayMetric>('userMessages')
   const label = DAY_METRICS.find((m) => m.value === metric)?.label ?? ''
   const points = daily.map((d) => {
-    const [m, dd] = d.day.split('-').slice(1).map(Number) as [number, number]
+    const { label: day, tick } = dayLabel(d.day)
     return {
-      label: t('{m}月{d}日', { m, d: dd }),
-      tick: `${m}/${dd}`,
+      label: day,
+      tick,
       value: d[metric],
       lines: [
         `${label} ${d[metric]}`,
@@ -138,7 +125,7 @@ function Trend({ daily, days }: { daily: ConversationDayDto[]; days: number }) {
     }
   })
   const total = daily.reduce((n, d) => n + d[metric], 0)
-  const peak = points.reduce((a, b) => (b.value > a.value ? b : a), points[0] ?? { label: '', value: 0 })
+  const peak = peakOf(points)
   const summary =
     t('近 {n} 天每日{metric}：合计 {total}', { n: days, metric: label, total }) +
     (peak.value ? t('，峰值 {day} {value}', { day: peak.label, value: peak.value }) : '')
@@ -174,38 +161,23 @@ function Statuses({ statuses }: { statuses: ConversationOverviewDto['statuses'] 
   ].map(([status, count]) => ({ status, count }))
   const total = merged.reduce((n, s) => n + s.count, 0)
   if (!total) return null
+  const parts = merged.map((s) => ({
+    key: s.status,
+    name: statusLabel(s.status),
+    value: s.count,
+    color: statusColor(s.status),
+  }))
   return (
-    <section className="usage-card">
-      <div className="usage-card__head">
-        <span className="usage-card__title">{t('运行状态分布')}</span>
-        <span className="usage-card__meta">{t('{n} 轮', { n: total })}</span>
-      </div>
-      <div
-        className="usage-share"
-        role="img"
-        aria-label={t('运行状态：{parts}', {
-          parts: merged.map((s) => `${statusLabel(s.status)} ${pct(s.count, total)}`).join(t('，')),
-        })}
-      >
-        {merged.map((s) => (
-          <span key={s.status} style={{ flexGrow: s.count, background: statusColor(s.status) }} />
-        ))}
-      </div>
-      <ul className="usage-legend" aria-label={t('运行状态图例')}>
-        {merged.map((s) => (
-          <li key={s.status}>
-            <span
-              className="usage-legend__swatch"
-              style={{ background: statusColor(s.status) }}
-              aria-hidden="true"
-            />
-            <span className="usage-legend__name">{statusLabel(s.status)}</span>
-            <span className="usage-legend__value">{s.count}</span>
-            <span className="usage-legend__pct">{pct(s.count, total)}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ShareCard
+      title={t('运行状态分布')}
+      meta={t('{n} 轮', { n: total })}
+      barLabel={t('运行状态：{parts}', {
+        parts: parts.map((p) => `${p.name} ${sharePct(p.value, total)}`).join(t('，')),
+      })}
+      legendLabel={t('运行状态图例')}
+      parts={parts}
+      total={total}
+    />
   )
 }
 
@@ -368,15 +340,7 @@ function Details({
   return (
     <>
       <Tabs value={tab.value} onChange={setBy} items={tabs} />
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {rows === null ? (
         error ? null : (
           <Spinner size={18} />
@@ -424,7 +388,9 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
     error,
     loading,
     reload,
-  } = useGet<ConversationOverviewDto>(path('/overview', `days=${days}&tz=${encodeURIComponent(TZ)}`))
+  } = useGet<ConversationOverviewDto>(
+    path('/overview', `days=${days}&tz=${encodeURIComponent(browserTimeZone)}`),
+  )
   const {
     data: ops,
     error: opsError,
@@ -439,15 +405,7 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
         onChange={setWin}
         items={WINDOWS.map((n) => ({ value: n, label: t('近 {n} 天', { n: Number(n) }) }))}
       />
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {o ? (
         <>
           <Tiles o={o} days={days} />
@@ -456,13 +414,7 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
           {ops ? (
             <Ops ops={ops} days={days} />
           ) : opsError ? (
-            <Alert variant="error" description={opsError}>
-              <div style={{ marginTop: 'var(--space-8)' }}>
-                <Button size="small" loading={opsLoading} onClick={reloadOps}>
-                  {t('重试')}
-                </Button>
-              </div>
-            </Alert>
+            <Alert variant="error" description={opsError} retrying={opsLoading} onRetry={reloadOps} />
           ) : null}
         </>
       ) : error ? null : (

@@ -23,12 +23,10 @@ export interface AdminItem {
   icon: IconName
   /** A `var(--system-*)` sidebar icon color. */
   color: string
-  /** Page description, also used by the placeholder until a slice supplies `element`. */
-  desc: string
-  element?: ReactNode
+  element: ReactNode
 }
 
-/** Route table + left nav of 管理后台.dc.html (sysadmins only). Slices add their page by setting `element` on their item. */
+/** Route table + left nav of 管理后台.dc.html (sysadmins only). */
 export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
   {
     head: t('管理'),
@@ -38,7 +36,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('账号与角色'),
         icon: 'person-2',
         color: 'var(--system-blue)',
-        desc: t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有电脑与登录。'),
         element: <UsersPage />,
       },
       {
@@ -46,7 +43,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('团队#nav'),
         icon: 'contacts',
         color: 'var(--system-teal)',
-        desc: t('全部团队的所有者、成员数与状态；团队内的成员、邀请与配置由团队管理员在团队设置中管理。'),
         element: <TeamsPage />,
       },
       {
@@ -54,9 +50,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('Bot#nav'),
         icon: 'bot',
         color: 'var(--system-purple)',
-        desc: t(
-          '查看所有 Bot 的归属、绑定与状态；可为任何成员新建，创建时直接绑定到 Bot 主人的电脑和 Agent。',
-        ),
         element: <BotsAdminPage />,
       },
       {
@@ -64,7 +57,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('群#nav'),
         icon: 'hashtag',
         color: 'var(--system-green)',
-        desc: t('所有群的模式、仓库与权威副本状态。'),
         element: <GroupsPage />,
       },
       {
@@ -72,7 +64,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('定时任务'),
         icon: 'clock',
         color: 'var(--system-orange)',
-        desc: t('各群与私聊的定时任务，可停用或删除任意任务。'),
         element: <SchedulesPage />,
       },
     ],
@@ -85,7 +76,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('配置中心'),
         icon: 'plug',
         color: 'var(--system-orange)',
-        desc: t('仓库基线之上依次叠加平台层、团队层与群层 MCP，同名时下层覆盖上层；不修改仓库文件。'),
         element: <ConfigPage />,
       },
       {
@@ -93,7 +83,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('系统参数'),
         icon: 'slider-horizontal',
         color: 'var(--system-gray)',
-        desc: t('平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。'),
         element: <ParamsPage />,
       },
       {
@@ -101,9 +90,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('飞书'),
         icon: 'send',
         color: 'var(--system-blue)',
-        desc: t(
-          '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。',
-        ),
         element: <FeishuAdminPage />,
       },
       {
@@ -111,9 +97,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('客户端发布'),
         icon: 'download',
         color: 'var(--system-blue)',
-        desc: t(
-          '成员电脑上的共工客户端连上后会自动升级到这里的版本，实时画面组件会在首次使用时按需下载；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。',
-        ),
         element: <ReleasesPage />,
       },
     ],
@@ -126,7 +109,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('电脑#nav'),
         icon: 'server',
         color: 'var(--system-indigo)',
-        desc: t('查看所有电脑的系统、硬件、客户端版本、在线状态与网络质量记录。'),
         element: <MachinesPage />,
       },
       {
@@ -134,7 +116,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('会话统计'),
         icon: 'bubble',
         color: 'var(--system-green)',
-        desc: t('全站会话、消息与运行概览，可按会话、成员、Bot、团队查看明细。'),
         element: <ConversationStatsPage />,
       },
       {
@@ -142,7 +123,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('用量'),
         icon: 'chart-bar',
         color: 'var(--system-teal)',
-        desc: t('按 Bot、触发人、群汇总 token 用量。'),
         element: <UsagePage />,
       },
       {
@@ -150,7 +130,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('公开链接#nav'),
         icon: 'link',
         color: 'var(--system-cyan)',
-        desc: t('Bot 预览的外部公开链接：到期或收回后立即失效，访问记入审计。'),
         element: <SharesPage />,
       },
       {
@@ -158,7 +137,6 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('审计记录'),
         icon: 'doc-text',
         color: 'var(--system-brown)',
-        desc: t('审批、提问、同步事件、管理员操作，永久保存。'),
         element: <AuditPage />,
       },
     ],

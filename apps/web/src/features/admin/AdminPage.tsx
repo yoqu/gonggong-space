@@ -1,9 +1,7 @@
 import type { ReactNode } from 'react'
 import { useSession } from '../../app/session'
-import { t } from '../../i18n'
-import { ComingSoonArt, EmptyState, Toolbar } from '../../ui'
+import { Toolbar } from '../../ui'
 import { AccountMenu, ROLE_LABEL } from '../auth/AccountMenu'
-import type { AdminItem } from './nav'
 
 function Account() {
   const user = useSession((s) => s.user)
@@ -58,18 +56,5 @@ export function AdminPage({
         {children}
       </div>
     </>
-  )
-}
-
-/** Stands in for pages other slices have not delivered yet. */
-export function AdminPlaceholder({ item }: { item: AdminItem }) {
-  return (
-    <AdminPage title={item.label} desc={item.desc}>
-      <EmptyState
-        illustration={<ComingSoonArt />}
-        title={t('即将上线')}
-        description={t('该页面正在开发中。')}
-      />
-    </AdminPage>
   )
 }

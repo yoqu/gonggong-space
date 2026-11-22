@@ -7,7 +7,7 @@ import {
   type SkillVersionDetailDto,
   type SkillVersionDto,
 } from '@gonggong/protocol'
-import { useEffect, useRef, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { ago } from '../../lib/time'
@@ -38,7 +38,7 @@ description: ${t('说明这个 skill 做什么、什么时候使用')}
 
 `
 
-const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`)
+export const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`)
 
 type Dialogs =
   | { kind: 'edit'; skill: SkillDto | null }
@@ -72,7 +72,7 @@ export function SkillLayerView({ base }: { base: string }) {
 
 /** One layer's skills under `base` (`/admin/skills`, `/teams/:id/skills`, `/groups/:id/skills`); every change saves at once. */
 export function SkillLayerList({ base, tag }: { base: string; tag: string }) {
-  const { data, error, reload } = useGet<SkillDto[]>(base)
+  const { data, error, loading, reload } = useGet<SkillDto[]>(base)
   const [open, setOpen] = useState<Dialogs | null>(null)
   const close = () => setOpen(null)
   const done = () => {
@@ -92,13 +92,13 @@ export function SkillLayerList({ base, tag }: { base: string; tag: string }) {
   return (
     <>
       {error ? (
-        <Alert variant="error" title={t('配置加载失败')} description={error}>
-          <div className="cfg__retry">
-            <Button size="small" onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          title={t('配置加载失败')}
+          description={error}
+          retrying={loading}
+          onRetry={reload}
+        />
       ) : null}
       {data?.length === 0 ? (
         <EmptyState
@@ -204,15 +204,24 @@ export function InheritedSkillList({ groupId }: { groupId: string }) {
 }
 
 /** `webkitdirectory` is not in React's input attributes. */
-export function FolderInput({ onFiles }: { onFiles: (files: File[]) => void }) {
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => ref.current?.setAttribute('webkitdirectory', ''), [])
+export function FolderInput({
+  inputRef,
+  label = t('导入文件夹'),
+  onFiles,
+}: {
+  inputRef?: RefObject<HTMLInputElement | null>
+  label?: string
+  onFiles: (files: File[]) => void
+}) {
+  const localRef = useRef<HTMLInputElement>(null)
+  const ref = inputRef ?? localRef
+  useEffect(() => ref.current?.setAttribute('webkitdirectory', ''), [ref])
   return (
     <input
       ref={ref}
       type="file"
       hidden
-      aria-label={t('导入文件夹')}
+      aria-label={label}
       onChange={(e) => {
         onFiles([...(e.target.files ?? [])])
         e.target.value = ''
@@ -240,7 +249,7 @@ function SkillEditorDialog({
   const [newPath, setNewPath] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const folder = useRef<HTMLDivElement>(null)
+  const folder = useRef<HTMLInputElement>(null)
   const zip = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (detail.data && !files) setFiles(detail.data.files)
@@ -302,11 +311,11 @@ function SkillEditorDialog({
         { label: t('保存'), variant: 'primary', onClick: () => void save(), disabled: !files || busy },
       ]}
     >
-      <div className="skill-ed__bar" ref={folder}>
-        <Button size="small" onClick={() => folder.current?.querySelector('input')?.click()}>
+      <div className="skill-ed__bar">
+        <Button size="small" onClick={() => folder.current?.click()}>
           {t('导入文件夹…')}
         </Button>
-        <FolderInput onFiles={(fs) => void replace(folderSkillFiles(fs))} />
+        <FolderInput inputRef={folder} onFiles={(fs) => void replace(folderSkillFiles(fs))} />
         <Button size="small" onClick={() => zip.current?.click()}>
           {t('导入 zip…')}
         </Button>

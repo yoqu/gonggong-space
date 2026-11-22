@@ -1,14 +1,15 @@
 import {
-  GONGGONG_TOOLS,
+  GONGGONG_TOOL_TITLES,
   type InheritedMcpDto,
   type McpServer,
   type McpServerDto,
   type SecretDto,
 } from '@gonggong/protocol'
-import { type CSSProperties, useCallback, useEffect, useId, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api, errorText } from '../../lib/api'
+import { useUnsavedWarn } from '../../lib/unsaved'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -48,7 +49,7 @@ const DESC = t('仓库基线之上依次叠加平台层、团队层与群层 MCP
 const RESERVED = 'gonggong'
 const BUILTIN_TOOLS = [
   t('向群成员提问'),
-  ...Object.values(GONGGONG_TOOLS).map((tool) => t.text({ key: tool.title })),
+  ...Object.values(GONGGONG_TOOL_TITLES).map((key) => t.text({ key })),
 ].join(t('、'))
 
 type CType = 'mcp' | 'skill' | 'plugin' | 'prompt' | 'secret' | 'review'
@@ -109,19 +110,35 @@ export function useMcpLayer(base: string) {
   const [force, setForce] = useState(false)
   const [savedForce, setSavedForce] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const reqRef = useRef(0)
 
   const load = useCallback(async () => {
+    const req = ++reqRef.current
+    setLoading(true)
     try {
-      setItems((await api.get<McpServerDto[]>(base)).map(fromDto))
+      const next = (await api.get<McpServerDto[]>(base)).map(fromDto)
+      if (req !== reqRef.current) return
+      setItems(next)
       setRemoved([])
       setLoadError('')
     } catch (e) {
-      setLoadError(errorText(e))
+      if (req === reqRef.current) setLoadError(errorText(e))
+    } finally {
+      if (req === reqRef.current) setLoading(false)
     }
   }, [base])
   useEffect(() => {
+    setItems(null)
+    setRemoved([])
+    setForce(false)
+    setSavedForce(null)
+    setLoadError('')
     void load()
+    return () => {
+      reqRef.current++
+    }
   }, [load])
 
   const edit = (next: Item[]) => {
@@ -164,6 +181,7 @@ export function useMcpLayer(base: string) {
     setForce,
     savedForce,
     busy,
+    loading,
     loadError,
     load,
     save,
@@ -191,13 +209,13 @@ export function McpLayerList({
   return (
     <>
       {layer.loadError ? (
-        <Alert variant="error" title={t('配置加载失败')} description={layer.loadError}>
-          <div className="cfg__retry">
-            <Button size="small" onClick={() => void layer.load()}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          title={t('配置加载失败')}
+          description={layer.loadError}
+          retrying={layer.loading}
+          onRetry={() => void layer.load()}
+        />
       ) : null}
       <GroupBox>
         {items?.map((i) => (
@@ -316,15 +334,7 @@ export function ConfigPage() {
   const bots = useWorkspace((s) => s.bots)
   const { items, enabledNames } = layer
 
-  useEffect(() => {
-    if (!layer.dirty) return
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [layer.dirty])
+  useUnsavedWarn(layer.dirty)
 
   return (
     <AdminPage

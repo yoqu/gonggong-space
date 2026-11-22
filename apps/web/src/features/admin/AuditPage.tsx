@@ -1,7 +1,8 @@
 import type { AuditDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { matchAny } from '../../lib/match'
 import { pad } from '../../lib/time'
 import {
   Alert,
@@ -111,7 +112,7 @@ export function AuditPanel({
   base: string
   teamId?: string
   keyword?: string
-  onLoaded?: (n: number) => void
+  onLoaded?: (n: number | null) => void
 }) {
   const [category, setCategory] = useState<string | undefined>()
   const [actor, setActor] = useState('')
@@ -122,6 +123,7 @@ export function AuditPanel({
   const [error, setError] = useState('')
   const [open, setOpen] = useState<AuditDto | null>(null)
   const [tick, setTick] = useState(0)
+  const genRef = useRef(0)
 
   const fetchPage = useCallback(
     (before?: number) => {
@@ -135,9 +137,14 @@ export function AuditPanel({
     [base, category, teamId],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset actor filter when query scope changes
+  useEffect(() => {
+    setActor('')
+  }, [base, category, teamId])
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` triggers manual retry
   useEffect(() => {
-    let cancelled = false
+    const gen = ++genRef.current
     setRows(null)
     setMore(false)
     setLoadingMore(false)
@@ -145,50 +152,49 @@ export function AuditPanel({
     setLoading(true)
     fetchPage()
       .then((page) => {
-        if (cancelled) return
+        if (gen !== genRef.current) return
         setRows(page)
         setMore(page.length === PAGE)
       })
       .catch((e) => {
-        if (!cancelled) setError(errorText(e))
+        if (gen === genRef.current) setError(errorText(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (gen === genRef.current) setLoading(false)
       })
     return () => {
-      cancelled = true
+      genRef.current++
     }
   }, [fetchPage, tick])
   useEffect(() => {
-    if (rows) onLoaded?.(rows.length)
+    onLoaded?.(rows ? rows.length : null)
   }, [rows, onLoaded])
 
   async function loadMore() {
     if (loadingMore) return
+    const gen = genRef.current
     setLoadingMore(true)
     setError('')
     try {
       const page = await fetchPage(rows?.at(-1)?.id)
+      if (gen !== genRef.current) return
       setRows((r) => [...(r ?? []), ...page])
       setMore(page.length === PAGE)
     } catch (e) {
-      setError(errorText(e))
+      if (gen === genRef.current) setError(errorText(e))
     } finally {
-      setLoadingMore(false)
+      if (gen === genRef.current) setLoadingMore(false)
     }
   }
 
   const actors = [...new Set(rows?.map(actorOf))]
-  const q = keyword.trim().toLowerCase()
   const shown = rows?.filter(
-    (a) =>
-      (!actor || actorOf(a) === actor) &&
-      (!q || [a.summary, a.groupName ?? '', actorOf(a)].some((s) => s.toLowerCase().includes(q))),
+    (a) => (!actor || actorOf(a) === actor) && matchAny(keyword, a.summary, a.groupName ?? '', actorOf(a)),
   )
 
   return (
     <>
-      <div className="admin-filters admin-audit__filters">
+      <div className="admin-audit__filters">
         <SegmentedControl
           aria-label={t('类型')}
           items={FILTERS.map((f) => ({ value: f.category ?? ALL, label: f.label }))}
@@ -203,22 +209,17 @@ export function AuditPanel({
         />
       </div>
       {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button
-              size="small"
-              loading={rows ? loadingMore : loading}
-              onClick={() => (rows ? void loadMore() : setTick((n) => n + 1))}
-            >
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          description={error}
+          retrying={rows ? loadingMore : loading}
+          onRetry={() => (rows ? void loadMore() : setTick((n) => n + 1))}
+        />
       ) : null}
       <div data-testid="audit-list">
         {shown ? (
           <Table<AuditDto>
-            className="admin-grid"
+            className="admin-audit__table"
             aria-label={t('审计记录列表')}
             rows={shown}
             multiple={false}

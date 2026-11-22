@@ -3,6 +3,9 @@ import { locale, t } from '../i18n'
 /** BCP 47 tag for `Intl` date formatting. */
 export const dateLocale = locale === 'en' ? 'en-US' : 'zh-CN'
 
+/** Local IANA time zone name (e.g. `Asia/Shanghai`). */
+export const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
 export const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Local HH:mm. */

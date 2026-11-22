@@ -36,7 +36,8 @@ export function BotsAdminPage() {
   const [teamId, setTeamId] = useState('')
   const live = useWorkspace((s) => s.bots)
   const { data, error, loading, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
-  const teamNames = new Map((useGet<AdminTeamDto[]>('/admin/teams').data ?? []).map((x) => [x.id, x.name]))
+  const teams = useGet<AdminTeamDto[]>('/admin/teams').data ?? []
+  const teamNames = new Map(teams.map((x) => [x.id, x.name]))
   // biome-ignore lint/correctness/useExhaustiveDependencies: the open team's live bot updates re-fetch every team's list
   useEffect(() => reload(), [live, reload])
   const bots = data ?? []
@@ -78,7 +79,7 @@ export function BotsAdminPage() {
       subtitle={countLine(t('{n} 个 Bot', { n: bots.length }), shown.length, bots.length)}
       actions={
         <ToolbarGroup>
-          <TeamFilter value={teamId} onChange={changeTeam} />
+          <TeamFilter value={teamId} onChange={changeTeam} teams={teams} />
           <ToolbarButton
             icon="plus"
             label={t('新建 Bot…')}
@@ -89,15 +90,7 @@ export function BotsAdminPage() {
       }
       search={<SearchField placeholder={t('搜索 Bot、主人或电脑')} value={query} onChange={setQuery} />}
     >
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {bots.length ? (
         <div className="bots-page__body">
           <Table<BotDto>

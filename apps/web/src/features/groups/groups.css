@@ -55,9 +55,6 @@
   font-size: var(--text-callout-size);
   color: var(--tint-red-text);
 }
-.gs-retry {
-  margin-top: var(--space-8);
-}
 .gs-note {
   font-size: var(--text-callout-size);
   color: var(--label-secondary);

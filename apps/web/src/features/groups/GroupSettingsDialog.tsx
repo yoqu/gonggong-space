@@ -265,13 +265,12 @@ export function GroupSettingsDialog({
                 ))}
               </GroupBox>
             ) : paramsError ? (
-              <Alert variant="error" title={t('群级参数加载失败')} description={paramsError}>
-                <div className="gs-retry">
-                  <Button size="small" onClick={loadParams}>
-                    {t('重试')}
-                  </Button>
-                </div>
-              </Alert>
+              <Alert
+                variant="error"
+                title={t('群级参数加载失败')}
+                description={paramsError}
+                onRetry={loadParams}
+              />
             ) : (
               <Spinner />
             )}

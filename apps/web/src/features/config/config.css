@@ -117,9 +117,6 @@
 .cfg__mono textarea {
   font-family: var(--font-mono);
 }
-.cfg__retry {
-  margin-top: var(--space-8);
-}
 .cfg__hint {
   font-size: var(--text-footnote-size);
   color: var(--label-secondary);

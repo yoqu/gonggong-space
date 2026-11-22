@@ -617,4 +617,5 @@ export default {
   '上传图片…': 'Upload image…',
   '编辑…': 'Edit…',
   恢复默认: 'Reset to default',
+  重试: 'Retry',
 } satisfies Record<string, string>

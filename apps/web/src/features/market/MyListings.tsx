@@ -329,7 +329,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState<PublishRes | null>(null)
-  const folder = useRef<HTMLDivElement>(null)
+  const folder = useRef<HTMLInputElement>(null)
   const zip = useRef<HTMLInputElement>(null)
 
   const read = async (load: Promise<SkillFile[]>) => {
@@ -462,11 +462,11 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             ]}
           />
           {source === 'folder' ? (
-            <div className="mkt-source" ref={folder}>
-              <Button size="small" onClick={() => folder.current?.querySelector('input')?.click()}>
+            <div className="mkt-source">
+              <Button size="small" onClick={() => folder.current?.click()}>
                 {t('选择文件夹…')}
               </Button>
-              <FolderInput onFiles={(fs) => void read(folderSkillFiles(fs))} />
+              <FolderInput inputRef={folder} onFiles={(fs) => void read(folderSkillFiles(fs))} />
               {files ? <span className="gs-note">{t('已读取 {n} 个文件', { n: files.length })}</span> : null}
             </div>
           ) : source === 'zip' ? (
