@@ -5,25 +5,40 @@ import {
   type RunSyncDone,
   TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groups, messages, notifications, runs, syncReplicas, teams, users } from '../../db/schema.js'
+import {
+  bots,
+  groupMembers,
+  groups,
+  messages,
+  notifications,
+  runs,
+  syncReplicas,
+  teams,
+  users,
+} from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { startSweep } from '../../lib/sweep.js'
 import { sysParams } from '../admin/params.js'
-import { voidApprovals } from '../approvals/service.js'
-import { memberIds, postEvent } from '../messages/service.js'
+import { type VoidReason, voidApprovals } from '../approvals/service.js'
+import { publishBots } from '../bots/dto.js'
+import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { voidQuestions } from '../questions/service.js'
-import { publishRun, type RunRow } from './dto.js'
+import { settleSchedule } from '../schedules/engine.js'
+import { forgetRedactors } from '../secrets/resolve.js'
+import { settleWebhook } from '../webhooks/service.js'
+import { controlsRun, publishRun, type RunRow, UNFINISHED, WAITING } from './dto.js'
 import { schedule } from './scheduler.js'
 import { runStep } from './step.js'
+import { forgetStream } from './streams.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 type User = { id: string; name: string }
 
-const WAITING = ['queued', 'offline_wait']
 const DISCARD_TIMEOUT_MS = 60_000
 /** How long a stopped live run waits for the daemon's run.done before the server ends it (a hung agent, or a daemon
  * that lost the run). A mutable box so tests can shorten it. */
@@ -65,13 +80,43 @@ export type StopTarget =
 const EDITED_STEP = '消息已编辑，已重新运行'
 
 /**
+ * Cleans up a run that ended without the daemon's run.done (force-stopped, reconciled on reconnect, stopped while
+ * waiting/offline, or expired): closes live stream/redactors, voids open prompts, publishes card + bot presence,
+ * settles schedules/webhooks, and closes relay chains.
+ */
+export async function teardownRun(
+  ctx: Ctx,
+  run: RunRow,
+  o: {
+    voidReason?: VoidReason
+    reschedule?: boolean
+    publishBot?: boolean
+    notifyChain?: boolean
+  } = {},
+) {
+  await forgetStream(run.id)
+  forgetRedactors(run.id)
+  if (o.voidReason) {
+    await voidApprovals(ctx, run.id, o.voidReason)
+    await voidQuestions(ctx, run.id)
+  }
+  await publishRun(ctx, run)
+  if (o.reschedule) await schedule(ctx, run.botId)
+  if (o.publishBot !== false) await publishBots(ctx, eq(bots.id, run.botId))
+  await settleSchedule(ctx, run)
+  await settleWebhook(ctx, run)
+  if (o.notifyChain !== false) await notifyChainDone(ctx, run)
+}
+
+/**
  * Plan D7. Waiting runs end at once; live ones get `run.cancel` and end on the daemon's run.done (see
  * `stoppedDone`). Every stopped run records who stopped it, which also ends its relay chain.
  */
 export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<RunRow[]> {
+  const chain = 'runId' in target && !!target.chain
   const scope =
     'runId' in target
-      ? inArray(runs.id, target.chain ? await chainIds(ctx.db, target.runId) : [target.runId])
+      ? inArray(runs.id, chain ? await chainIds(ctx.db, target.runId) : [target.runId])
       : target.botIds?.length
         ? inArray(runs.botId, target.botIds)
         : undefined
@@ -79,11 +124,12 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
     .select({ run: runs, machineId: bots.machineId })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
-    .where(and(eq(runs.groupId, target.groupId), notInArray(runs.status, [...TERMINAL_RUN_STATUS]), scope))
+    .where(and(chain ? undefined : eq(runs.groupId, target.groupId), inArray(runs.status, UNFINISHED), scope))
   const edited = 'edited' in target && target.edited
   const stopped: RunRow[] = []
   for (const { run, machineId } of targets) {
     const step = edited ? runStep(EDITED_STEP) : stopStep(by.name, run)
+    const voidReason: VoidReason = chain || run.hop > 1 ? 'chain_stopped' : 'stopped'
     // Marked before run.cancel goes out, so the daemon's run.done always finds who stopped it.
     const live = !WAITING.includes(run.status) && !!machineId && ctx.hub.isOnline(machineId)
     const [row] = await ctx.db
@@ -93,7 +139,7 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
           ? { stoppedBy: by.id, ...(edited && step) }
           : { stoppedBy: by.id, status: 'interrupted', ...step, endedAt: ctx.now() },
       )
-      .where(and(eq(runs.id, run.id), notInArray(runs.status, [...TERMINAL_RUN_STATUS])))
+      .where(and(eq(runs.id, run.id), inArray(runs.status, UNFINISHED)))
       .returning()
     if (!row) continue
     if (live && machineId) {
@@ -102,21 +148,21 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
         () => void forceStopped(ctx, row.id, step).catch((e) => console.error('stop:', e)),
         stopGrace.ms,
       ).unref()
+      await publishRun(ctx, row)
+      // Also republishes the run, as running again while the daemon winds the turn down.
+      await voidApprovals(ctx, row.id, voidReason)
+      await voidQuestions(ctx, row.id)
+    } else {
+      await teardownRun(ctx, row, { voidReason, publishBot: false, notifyChain: false })
     }
-    await publishRun(ctx, row)
-    // Also republishes the run, as running again while the daemon winds the turn down.
-    await voidApprovals(
-      ctx,
-      row.id,
-      ('chain' in target && target.chain) || row.hop > 1 ? 'chain_stopped' : 'stopped',
-    )
-    await voidQuestions(ctx, row.id)
     stopped.push(row)
   }
-  for (const botId of new Set(stopped.filter((r) => r.status === 'interrupted').map((r) => r.botId))) {
+  const ended = stopped.filter((r) => r.status === 'interrupted')
+  for (const botId of new Set(ended.map((r) => r.botId))) {
     await schedule(ctx, botId)
+    await publishBots(ctx, eq(bots.id, botId))
   }
-  for (const run of stopped) if (run.status === 'interrupted') await notifyChainDone(ctx, run)
+  for (const run of ended) await notifyChainDone(ctx, run)
   return stopped
 }
 
@@ -125,14 +171,10 @@ async function forceStopped(ctx: Ctx, runId: string, step: Partial<RunRow>) {
   const [row] = await ctx.db
     .update(runs)
     .set({ status: 'interrupted', ...step, endedAt: ctx.now() })
-    .where(
-      and(eq(runs.id, runId), isNotNull(runs.stoppedBy), notInArray(runs.status, [...TERMINAL_RUN_STATUS])),
-    )
+    .where(and(eq(runs.id, runId), isNotNull(runs.stoppedBy), inArray(runs.status, UNFINISHED)))
     .returning()
   if (!row) return
-  await publishRun(ctx, row)
-  await schedule(ctx, row.botId)
-  await notifyChainDone(ctx, row)
+  await teardownRun(ctx, row, { voidReason: 'ended', reschedule: true })
 }
 
 /**
@@ -270,12 +312,11 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     .select({ run: runs, ownerId: bots.ownerId, machineId: bots.machineId })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .innerJoin(groupMembers, and(eq(groupMembers.groupId, runs.groupId), eq(groupMembers.userId, user.id)))
     .where(eq(runs.id, runId))
-  if (!row || !(await memberIds(ctx, row.run.groupId)).includes(user.id))
-    return fail('not_found', '运行不存在')
+  if (!row) return fail('not_found', '运行不存在')
   const { run, ownerId, machineId } = row
-  if (![run.triggerUserId, run.originUserId, ownerId].includes(user.id))
-    return fail('forbidden', '仅发起人或 Bot 主人可选择')
+  if (!controlsRun(run, ownerId, user.id)) return fail('forbidden', '仅发起人或 Bot 主人可选择')
   if (run.interrupt !== 'pending') return fail('conflict', '已处理过本轮改动')
   const record = (detail: Record<string, unknown>) =>
     audit(ctx, {
@@ -398,7 +439,7 @@ export async function expireOfflineRuns(ctx: Ctx) {
       .where(and(eq(runs.id, run.id), eq(runs.status, 'offline_wait')))
       .returning()
     if (!row) continue
-    await publishRun(ctx, row)
+    await teardownRun(ctx, row, { notifyChain: false })
     await notify(ctx, row.triggerUserId ?? row.originUserId, 'offline_expired', {
       groupId: row.groupId,
       groupName,
@@ -413,12 +454,5 @@ export async function expireOfflineRuns(ctx: Ctx) {
 
 /** Periodic offline-expiry sweep; returns a function that stops it and waits for a sweep in flight. */
 export function startOfflineExpiry(ctx: Ctx, everyMs = 30_000) {
-  let running = Promise.resolve()
-  const timer = setInterval(() => {
-    running = running.then(() => expireOfflineRuns(ctx)).catch((err) => console.error('offline expiry:', err))
-  }, everyMs)
-  return async () => {
-    clearInterval(timer)
-    await running
-  }
+  return startSweep('offline expiry', () => expireOfflineRuns(ctx), everyMs)
 }

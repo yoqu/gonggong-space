@@ -1,17 +1,22 @@
-import type { MessageDto, RunStart, ServerToDaemon } from '@gonggong/protocol'
+import type { MessageDto, RunStart, ServerToDaemon, WebEvent } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   approvals,
   auditLogs,
+  bots,
   groupBots,
   groupRepos,
   groups,
+  machines,
   messages,
   notifications,
+  runEvents,
   runs,
+  schedules,
 } from '../src/db/schema.js'
 import { callTool } from '../src/modules/agent-tools/service.js'
+import { reconcileRuns } from '../src/modules/runs/reconcile.js'
 import {
   expireOfflineRuns,
   isChainStopped,
@@ -536,5 +541,188 @@ describe('offline expiry and chain notifications', () => {
       (r) => r.status === 'completed',
     )
     expect(await w.runsOf(w.claude.id)).toHaveLength(1)
+  })
+
+  it('stop-chain reaches relay hops handed off to another group', async () => {
+    const w = await world()
+    const groupB = await t.seed.group({
+      createdBy: w.wang.id,
+      memberIds: [w.li.id],
+      botIds: [w.claude.id, w.codex.id],
+    })
+    await t.db.update(groupBots).set({ workspaceState: 'ready' }).where(eq(groupBots.groupId, groupB.id))
+    await w.say(w.as.li, '@小王的 Claude 开始')
+    const [root] = await w.runsOf(w.claude.id)
+    const [mB] = await t.db
+      .insert(messages)
+      .values({
+        groupId: groupB.id,
+        kind: 'bot',
+        authorBotId: w.claude.id,
+        body: '@老李的 Codex 跨群接力',
+        meta: { mentions: [w.codex.id] },
+      })
+      .returning()
+    const [hop2] = await t.db
+      .insert(runs)
+      .values({
+        groupId: groupB.id,
+        botId: w.codex.id,
+        triggerMessageId: mB!.id,
+        originUserId: root!.originUserId,
+        parentRunId: root!.id,
+        hop: 2,
+        status: 'running',
+        startedAt: clock,
+      })
+      .returning()
+
+    const res = await w.as.zhao.post(`/api/runs/${root!.id}/stop-chain`)
+    expect(res).toMatchObject({ status: 200, body: { stopped: 2 } })
+    expect((await w.run(root!.id)).stoppedBy).toBe(w.zhao.id)
+    expect((await w.run(hop2!.id)).stoppedBy).toBe(w.zhao.id)
+    expect(
+      w.sent
+        .filter((m) => m.t === 'run.cancel')
+        .map((m) => (m as { runId: string }).runId)
+        .sort(),
+    ).toEqual([root!.id, hop2!.id].sort())
+  })
+})
+
+describe('teardown consistency and soft-deleted bots', () => {
+  it('finalizing a live run of a soft-deleted bot finishes cleanly without dispatching queued runs', async () => {
+    const w = await world()
+    await w.say(w.as.li, '@小王的 Claude 第一轮')
+    await w.say(w.as.li, '@小王的 Claude 第二轮')
+    const [first, second] = await w.runsOf(w.claude.id)
+    expect([first!.status, second!.status]).toEqual(['running', 'queued'])
+    const startsBefore = w.starts().length
+
+    await t.db.update(bots).set({ deletedAt: clock }).where(eq(bots.id, w.claude.id))
+    w.done(first!.id, { outcome: 'completed', reply: '好了' })
+    const finished = await until(
+      () => w.run(first!.id),
+      (r) => r.status === 'completed' && !r.finalizing,
+    )
+    expect(finished.finalizing).toBe(false)
+    expect((await w.run(second!.id)).status).toBe('queued')
+    expect(w.starts()).toHaveLength(startsBefore)
+
+    // Reconciling a lost live run of the soft-deleted bot does not throw 404 either.
+    await t.db.update(runs).set({ status: 'running', startedAt: clock }).where(eq(runs.id, second!.id))
+    await reconcileRuns(t.ctx, w.machine.id, [])
+    expect((await w.run(second!.id)).status).toBe('interrupted')
+  })
+
+  it('forceStopped drops late events, updates bot presence, and settles scheduled runs; reconcileRuns settles schedules too', async () => {
+    stopGrace.ms = 50
+    const w = await world()
+    await t.db
+      .update(machines)
+      .set({ agents: [{ kind: 'claude', available: true, version: '1.0.0', path: null }] })
+      .where(eq(machines.id, w.machine.id))
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(w.wang.id, (e) => seen.push(e))
+
+    const [sched] = await t.db
+      .insert(schedules)
+      .values({
+        groupId: w.g.id,
+        ownerId: w.li.id,
+        name: '日报',
+        prompt: '写日报',
+        botIds: [w.claude.id],
+        cron: '0 9 * * *',
+        timezone: 'Asia/Shanghai',
+      })
+      .returning()
+    const [m1] = await t.db
+      .insert(messages)
+      .values({
+        groupId: w.g.id,
+        kind: 'user',
+        authorUserId: w.li.id,
+        body: '@小王的 Claude 写日报',
+        meta: { mentions: [w.claude.id], scheduleOf: sched!.id },
+      })
+      .returning()
+    const [r1] = await t.db
+      .insert(runs)
+      .values({
+        groupId: w.g.id,
+        botId: w.claude.id,
+        triggerMessageId: m1!.id,
+        triggerUserId: w.li.id,
+        originUserId: w.li.id,
+        status: 'running',
+        startedAt: clock,
+      })
+      .returning()
+    await t.db.update(schedules).set({ lastRunId: r1!.id }).where(eq(schedules.id, sched!.id))
+
+    // Cache r1 as live in the run engine's owners map.
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'run.event',
+      runId: r1!.id,
+      event: { kind: 'status', status: 'running', step: '准备中' },
+    })
+    await until(
+      () => t.db.select().from(runEvents).where(eq(runEvents.runId, r1!.id)),
+      (rows) => rows.length === 1,
+    )
+
+    await stopRuns(t.ctx, { groupId: w.g.id, runId: r1!.id }, { id: w.zhao.id, name: '赵敏' })
+    await until(
+      () => w.run(r1!.id),
+      (r) => r.status === 'interrupted',
+    )
+
+    // Bot presence transitioned back to online and schedule failStreak incremented.
+    await until(
+      async () => seen,
+      (evs) =>
+        evs.some((e) => e.t === 'bot.updated' && e.bot.id === w.claude.id && e.bot.presence === 'online'),
+    )
+    await until(
+      async () => (await t.db.select().from(schedules).where(eq(schedules.id, sched!.id)))[0]?.failStreak,
+      (n) => n === 1,
+    )
+
+    // Late run.event from the daemon is dropped.
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'run.event',
+      runId: r1!.id,
+      event: { kind: 'status', status: 'running', step: '迟到事件' },
+    })
+    await new Promise((r) => setTimeout(r, 80))
+    expect(await t.db.select().from(runEvents).where(eq(runEvents.runId, r1!.id))).toHaveLength(1)
+
+    // Reconciling a live scheduled run also settles the schedule.
+    const [m2] = await t.db
+      .insert(messages)
+      .values({
+        groupId: w.g.id,
+        kind: 'user',
+        authorUserId: w.li.id,
+        body: '@小王的 Claude 写日报2',
+        meta: { mentions: [w.claude.id], scheduleOf: sched!.id },
+      })
+      .returning()
+    const [r2] = await t.db
+      .insert(runs)
+      .values({
+        groupId: w.g.id,
+        botId: w.claude.id,
+        triggerMessageId: m2!.id,
+        triggerUserId: w.li.id,
+        originUserId: w.li.id,
+        status: 'running',
+        startedAt: clock,
+      })
+      .returning()
+    await t.db.update(schedules).set({ lastRunId: r2!.id }).where(eq(schedules.id, sched!.id))
+    await reconcileRuns(t.ctx, w.machine.id, [])
+    expect((await t.db.select().from(schedules).where(eq(schedules.id, sched!.id)))[0]?.failStreak).toBe(2)
   })
 })

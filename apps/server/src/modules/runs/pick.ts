@@ -6,9 +6,9 @@ import { fail, HttpError } from '../../lib/errors.js'
 import { assertPick, botCatalog, checkPick, isEmptyPick } from '../bots/config.js'
 import { activeBots } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
+import { UNFINISHED } from './dto.js'
 
-/** Run statuses that still occupy a bot or keep a task/webhook busy. */
-export const UNFINISHED = ['queued', 'offline_wait', 'running', 'awaiting_approval', 'awaiting_answer']
+export { UNFINISHED }
 
 export type BotRunPicks = Record<string, RunConfigPick>
 const samePick = (a: RunConfigPick, b: RunConfigPick | undefined) =>

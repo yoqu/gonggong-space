@@ -12,12 +12,12 @@ import {
 } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { openFile } from '../../lib/seal.js'
-import { publishBot } from '../bots/dto.js'
+import { publishBots } from '../bots/dto.js'
 import { requireMember } from '../groups/service.js'
 import { authorName, messageDto, postEvent, publishMessage } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
-import { publishRun, type RunRow } from '../runs/dto.js'
-import { ACTIVE, schedule } from '../runs/scheduler.js'
+import { LIVE, publishRun, type RunRow, UNFINISHED } from '../runs/dto.js'
+import { schedule } from '../runs/scheduler.js'
 import { closeStoppedChoice } from '../runs/stop.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { onlineMachine } from '../workspaces/provision.js'
@@ -29,7 +29,6 @@ import { raiseIssue } from './store.js'
 
 /** Larger conflict sides are not previewed. */
 const PREVIEW_MAX = 1024 * 1024
-const PENDING = ['queued', 'offline_wait', ...ACTIVE]
 
 /** The replica of `botId` in a force group, for a group admin or the bot's owner. */
 async function requireDecider(ctx: Ctx, userId: string, groupId: string, botId: string) {
@@ -112,7 +111,7 @@ async function mergeRun(ctx: Ctx, groupId: string, conflictId: string) {
     .where(
       and(
         eq(runs.groupId, groupId),
-        inArray(runs.status, PENDING),
+        inArray(runs.status, UNFINISHED),
         sql`${messages.meta}->'syncResolve'->>'conflictId' = ${conflictId}`,
       ),
     )
@@ -267,7 +266,7 @@ export async function requeueRun(ctx: Ctx, run: RunRow, issue: 'drift' | 'held')
         startedAt: null,
         sync: { outcome: 'waiting', issue },
       })
-      .where(and(eq(runs.id, run.id), inArray(runs.status, ACTIVE)))
+      .where(and(eq(runs.id, run.id), inArray(runs.status, LIVE)))
       .returning()
     if (!row) return null
     const [prev] = await tx
@@ -297,5 +296,5 @@ export async function requeueRun(ctx: Ctx, run: RunRow, issue: 'drift' | 'held')
   // Its owner is told by the sync.state report that came with it.
   if (back.raised) await publishSync(ctx, run.groupId)
   await schedule(ctx, run.botId)
-  await publishBot(ctx, run.botId)
+  await publishBots(ctx, eq(bots.id, run.botId))
 }

@@ -257,10 +257,19 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
   }
 }
 
-/** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. */
+/** Run statuses holding a live turn, waiting to start, or still unfinished. */
 export const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+export const WAITING = ['queued', 'offline_wait']
+export const UNFINISHED = [...WAITING, ...LIVE]
 
-/** `withLive` also returns the group's live runs whose trigger is not among `triggerMessageIds`. */
+/** Whether `userId` may operate on `run`: its initiator (chain origin) or its bot's owner. */
+export const controlsRun = (
+  run: { originUserId: string | null; triggerUserId?: string | null },
+  botOwnerId: string,
+  userId: string,
+): boolean => userId === run.originUserId || userId === botOwnerId
+
+/** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. `withLive` also returns the group's live runs whose trigger is not among `triggerMessageIds`. */
 export async function listRuns(
   ctx: Ctx,
   groupId: string,
@@ -307,6 +316,7 @@ export const publishRun = (ctx: Ctx, run: CardRow) => publishRuns(ctx, [run])
 
 /** Pushes several run cards with one load. */
 export async function publishRuns(ctx: Ctx, rows: CardRow[]) {
+  if (!rows.length) return
   const toDto = await runDtoLoader(ctx, rows)
   for (const run of rows) {
     ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })

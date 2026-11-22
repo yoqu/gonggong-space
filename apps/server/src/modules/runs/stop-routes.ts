@@ -7,6 +7,7 @@ import { bots, groupMembers, messages, runs } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
+import { controlsRun } from './dto.js'
 import { chooseInterrupt, stopRuns } from './stop.js'
 import { rerunFor } from './trigger.js'
 
@@ -90,7 +91,7 @@ export function stopRoutes(ctx: Ctx) {
         .where(eq(runs.id, id))
       if (!row) return fail('not_found', '运行不存在')
       const { run, message } = row
-      if (user.id !== run.originUserId && user.id !== row.ownerId)
+      if (!controlsRun(run, row.ownerId, user.id))
         return fail('forbidden', '只有触发人或 Bot 主人可以重新运行')
       if (run.hop !== 1) return fail('conflict', '接力运行不能单独重新运行，请到原群消息重新触发')
       if (run.status !== 'interrupted' && run.status !== 'expired')

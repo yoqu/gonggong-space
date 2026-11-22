@@ -29,7 +29,7 @@ import { pluginHint } from '../agent-tools/plugins.js'
 import { runArtifacts } from '../artifacts/service.js'
 import { runAccess } from '../bots/access.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
-import { publishBot } from '../bots/dto.js'
+import { publishBots } from '../bots/dto.js'
 import { gitIdentity } from '../bots/git.js'
 import { runTier } from '../bots/tier.js'
 import { boundChat } from '../feishu/mirror.js'
@@ -48,16 +48,16 @@ import { inMainTimeline } from '../threads/service.js'
 import { DEFAULT_WEBHOOK_PROMPT } from '../webhooks/service.js'
 import { splitExtras, unreadyGroups } from '../workspaces/state.js'
 import { fitBudget } from './context-budget.js'
-import { publishRuns, type RunRow } from './dto.js'
+import { LIVE, publishRuns, type RunRow, WAITING } from './dto.js'
 import { runStep } from './step.js'
 import { interruptNote } from './stop.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 type Bot = typeof bots.$inferSelect
 
-const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
-export const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+export { LIVE as ACTIVE } from './dto.js'
+
 const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'), startedAt: null }
 /** The run waits for the client's upgrade. */
 const OUTDATED = {
@@ -82,8 +82,8 @@ export async function schedule(ctx: Ctx, botId: string) {
       .from(bots)
       .innerJoin(teams, eq(teams.id, bots.teamId))
       .where(eq(bots.id, botId))
-    // Plan D15: an archived team's bots are no longer dispatched.
-    if (!row || row.archivedAt) return { out: [], dispatches: [] }
+    // Plan D15: an archived team's or deleted bot's runs are no longer dispatched.
+    if (!row || row.archivedAt || row.bot.deletedAt) return { out: [], dispatches: [] }
     const { bot } = row
     const waiting = await tx
       .select({ run: runs, meta: messages.meta, thread: messages.threadRootId, mode: groups.mode })
@@ -102,7 +102,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       .from(runs)
       .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
-      .where(and(eq(runs.botId, botId), inArray(runs.status, ACTIVE), isNull(runs.continuationOf)))
+      .where(and(eq(runs.botId, botId), inArray(runs.status, LIVE), isNull(runs.continuationOf)))
     const unready = await unreadyGroups(tx, botId)
     let busy = active.length
     // One turn per session and bot: its next turn waits for the previous one (spec §8.9). Threads have their own
@@ -262,7 +262,7 @@ export async function schedule(ctx: Ctx, botId: string) {
   }
   const settled = changed.out.map((r) => unsent.get(r.id) ?? r)
   await publishRuns(ctx, settled)
-  if (settled.some((r) => r.status === 'running')) await publishBot(ctx, botId)
+  if (settled.some((r) => r.status === 'running')) await publishBots(ctx, eq(bots.id, botId))
   await sendDueInits(ctx, botId)
 }
 

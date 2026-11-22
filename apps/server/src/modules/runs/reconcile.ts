@@ -1,15 +1,10 @@
 import { and, eq, inArray, notInArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, runs } from '../../db/schema.js'
-import { voidApprovals } from '../approvals/service.js'
-import { publishBot } from '../bots/dto.js'
-import { voidQuestions } from '../questions/service.js'
-import { publishRun } from './dto.js'
-import { forgetStream } from './engine.js'
+import { publishBots } from '../bots/dto.js'
+import { LIVE } from './dto.js'
 import { runStep } from './step.js'
-import { notifyChainDone } from './stop.js'
-
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+import { teardownRun } from './stop.js'
 
 /**
  * On hello: live runs of this machine's bots that the daemon no longer executes were lost with a daemon restart
@@ -27,12 +22,6 @@ export async function reconcileRuns(ctx: Ctx, machineId: string, activeRuns: str
       ),
     )
     .returning()
-  for (const run of lost) {
-    await forgetStream(run.id)
-    await voidApprovals(ctx, run.id, 'ended')
-    await voidQuestions(ctx, run.id)
-    await publishRun(ctx, run)
-    await notifyChainDone(ctx, run)
-  }
-  for (const botId of new Set(lost.map((r) => r.botId))) await publishBot(ctx, botId)
+  for (const run of lost) await teardownRun(ctx, run, { voidReason: 'ended', publishBot: false })
+  for (const botId of new Set(lost.map((r) => r.botId))) await publishBots(ctx, eq(bots.id, botId))
 }

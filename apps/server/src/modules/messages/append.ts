@@ -6,9 +6,8 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { voidApprovals } from '../approvals/service.js'
 import { voidQuestions } from '../questions/service.js'
+import { controlsRun, LIVE } from '../runs/dto.js'
 import { hasRun, triggerRuns } from '../runs/trigger.js'
-
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
 export type AppendTarget = { runId: string; machineId: string }
 
@@ -25,7 +24,7 @@ export async function appendTarget(
     .innerJoin(bots, eq(bots.id, runs.botId))
     .where(and(eq(runs.id, idParam(runId, '运行不存在')), eq(runs.groupId, groupId)))
   if (!row) return fail('not_found', '运行不存在')
-  if (userId !== row.run.originUserId && userId !== row.ownerId)
+  if (!controlsRun(row.run, row.ownerId, userId))
     return fail('forbidden', '仅触发人或 Bot 主人可以打断并追加')
   if (!LIVE.includes(row.run.status) || !row.machineId || !ctx.hub.isOnline(row.machineId))
     return fail('conflict', '该运行已结束，请直接发送')

@@ -888,4 +888,56 @@ describe('run process', () => {
     const outsider = await t.seed.user({ name: '外人' })
     expect((await w.session(r5, outsider.id)).statusCode).toBe(404)
   })
+
+  it('isolates thread sessionId and /session rounds from main timeline and detached scheduled runs', async () => {
+    const w = await world()
+    const rounds = async (runId: string) =>
+      (await w.session(runId)).json<RunSessionDto>().rounds.map((r) => [r.run.id, r.prompt])
+    const turn = async (
+      body: string,
+      o: { threadRootId?: string; meta?: Record<string, unknown>; done?: Record<string, unknown> } = {},
+    ) => {
+      const [m] = await t.db
+        .insert(messages)
+        .values({
+          groupId: w.group.id,
+          kind: 'user',
+          authorUserId: w.alice.id,
+          body,
+          meta: { mentions: [w.bot.id], ...o.meta },
+          threadRootId: o.threadRootId ?? null,
+        })
+        .returning()
+      await triggerRuns(t.ctx, m!)
+      const { runId } = await w.box.next<RunStart>()
+      w.done(runId, { newSessionReason: null, ...o.done })
+      await w.ended(runId)
+      return runId
+    }
+
+    const m1 = await turn('@bot 主线1', { done: { sessionId: 'sess-main', newSessionReason: 'first' } })
+    const [root] = await t.db
+      .insert(messages)
+      .values({ groupId: w.group.id, kind: 'user', authorUserId: w.alice.id, body: '话题根', meta: {} })
+      .returning()
+    const t1 = await turn('@bot 话题1', {
+      threadRootId: root!.id,
+      done: { sessionId: 'sess-thread', newSessionReason: 'first' },
+    })
+    const sched = await turn('@bot 定时巡检', {
+      meta: { scheduleOf: '00000000-0000-0000-0000-000000000001' },
+      done: { sessionId: 'sess-sched', newSessionReason: 'schedule' },
+    })
+    const t2 = await turn('@bot 话题2', {
+      threadRootId: root!.id,
+      done: { sessionId: 'sess-thread' },
+    })
+    const m2 = await turn('@bot 主线2', { done: { sessionId: 'sess-main' } })
+
+    expect((await w.detail(t2)).sessionId).toBe('sess-thread')
+    expect((await w.detail(m2)).sessionId).toBe('sess-main')
+    expect(await rounds(t2)).toEqual([[t1, '@bot 话题1']])
+    expect(await rounds(m2)).toEqual([[m1, '@bot 主线1']])
+    expect(await rounds(sched)).toEqual([])
+  })
 })

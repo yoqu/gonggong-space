@@ -5,22 +5,26 @@ import {
   type RunEventsDto,
   type RunSessionDto,
 } from '@gonggong/protocol'
-import { and, asc, desc, eq, gte, isNotNull, lt, lte, max, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, max, ne, or, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
-import { groupBots, groupMembers, messages, runEvents, runs } from '../../db/schema.js'
+import { groupBots, groupMembers, messages, runEvents, runs, threadSessions } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { open } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { authorName } from '../messages/service.js'
 import { runDtoLoader } from './dto.js'
-import { flushStream, liveContext } from './engine.js'
 import { openEvent } from './sealed.js'
+import { flushStream, liveContext } from './streams.js'
 
 /** Most rounds the session list returns; older ones are rarely worth scrolling back to. */
 const SESSION_ROUNDS = 50
+
+/** Thread id when `run` ran in a thread session (not a main-timeline turn whose reply was placed in a thread). */
+const sessionThread = (run: Pick<typeof runs.$inferSelect, 'threadRootId' | 'triggerMessageId'>) =>
+  run.threadRootId && run.threadRootId !== run.triggerMessageId ? run.threadRootId : null
 
 /** A long stream is stored as consecutive rows (see appendStream); clients get it back as one event. */
 function joinStreams(events: RunDetailDto['events']) {
@@ -100,17 +104,23 @@ export function runRoutes(ctx: Ctx) {
     app.get('/api/runs/:id', async (req): Promise<RunDetailDto> => {
       const row = await visibleRun(req)
       const events = await eventsSince(row.run.id, RunDetailQuery.parse(req.query).since)
-      const [gb] = await ctx.db
-        .select({ sessionId: groupBots.sessionId })
-        .from(groupBots)
-        .where(and(eq(groupBots.groupId, row.run.groupId), eq(groupBots.botId, row.run.botId)))
+      const thread = sessionThread(row.run)
+      const [sess] = thread
+        ? await ctx.db
+            .select({ sessionId: threadSessions.sessionId })
+            .from(threadSessions)
+            .where(and(eq(threadSessions.rootMessageId, thread), eq(threadSessions.botId, row.run.botId)))
+        : await ctx.db
+            .select({ sessionId: groupBots.sessionId })
+            .from(groupBots)
+            .where(and(eq(groupBots.groupId, row.run.groupId), eq(groupBots.botId, row.run.botId)))
       const toDto = await runDtoLoader(ctx, [row.run])
       return {
         run: toDto(row.run),
         patch: row.run.patch && open(row.run.patch),
         patchRepos: row.run.patchRepos,
         purged: row.run.purgedAt !== null,
-        sessionId: gb?.sessionId ?? null,
+        sessionId: sess?.sessionId ?? null,
         settings: row.run.settings,
         retentionDays: (await sysParams(ctx.db)).runRetentionDays,
         events,
@@ -145,8 +155,17 @@ export function runRoutes(ctx: Ctx) {
     // A session starts at the latest round that opened a new one (every fresh session reports its reason).
     app.get('/api/runs/:id/session', async (req): Promise<RunSessionDto> => {
       const { run } = await visibleRun(req)
+      if (run.newSessionReason === 'schedule') return { rounds: [] }
       const until = run.startedAt ?? ctx.now()
-      const same = and(eq(runs.groupId, run.groupId), eq(runs.botId, run.botId))
+      const thread = sessionThread(run)
+      const same = and(
+        eq(runs.groupId, run.groupId),
+        eq(runs.botId, run.botId),
+        thread
+          ? and(eq(runs.threadRootId, thread), ne(runs.threadRootId, runs.triggerMessageId))
+          : or(isNull(runs.threadRootId), eq(runs.threadRootId, runs.triggerMessageId)),
+        or(isNull(runs.newSessionReason), ne(runs.newSessionReason, 'schedule')),
+      )
       const [first] = await ctx.db
         .select({ at: max(runs.startedAt) })
         .from(runs)
