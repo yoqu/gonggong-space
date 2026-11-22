@@ -1,7 +1,8 @@
-import type { AccessLevel, BotAccess, TriggerScope } from '@gonggong/protocol'
+import type { AccessLevel, BotAccess, TriggerScope, UserBriefDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
-import { AlertDialog, FormRow, Select, TokenField } from '../../ui'
+import { AlertDialog, Button, FormRow, IconButton, Select } from '../../ui'
+import { MemberPicker } from '../groups/pickers'
 
 /** A non-owner audience's choice: a run level, or 不可触发 (kept as `triggerScope`). */
 export type AudienceLevel = AccessLevel | 'deny'
@@ -34,13 +35,33 @@ export const audienceValue = (bot: { triggerScope: TriggerScope; access: BotAcce
   others: bot.triggerScope === 'all' ? bot.access.others : 'deny',
 })
 
-/** Back to the bot's fields; a denied audience keeps its stored level for when it is let in again. */
-export function audiencePatch(v: AudienceValue, saved: BotAccess) {
+/** Keeps the invariant `others !== 'deny' => trusted !== 'deny'`: opening 其他成员 also opens 信任名单. */
+export function applyAudienceLevel(
+  value: AudienceValue,
+  who: keyof AudienceValue,
+  level: AudienceLevel,
+): AudienceValue {
+  if (who === 'others' && level !== 'deny' && value.trusted === 'deny') {
+    return { trusted: level, others: level }
+  }
+  return { ...value, [who]: level }
+}
+
+/** Back to the bot's fields; a denied audience keeps its stored level unless demoMode forbids sending dormant full. */
+export function audiencePatch(v: AudienceValue, saved: BotAccess, demo = false) {
   const triggerScope: TriggerScope = v.others !== 'deny' ? 'all' : v.trusted !== 'deny' ? 'list' : 'self'
-  const access: BotAccess = {
+  const raw: BotAccess = {
     trusted: v.trusted === 'deny' ? saved.trusted : v.trusted,
     others: v.others === 'deny' ? saved.others : v.others,
   }
+  const changed = raw.trusted !== saved.trusted || raw.others !== saved.others
+  const access: BotAccess =
+    demo && changed
+      ? {
+          trusted: v.trusted === 'deny' && raw.trusted === 'full' ? 'ask' : raw.trusted,
+          others: v.others === 'deny' && raw.others === 'full' ? 'ask' : raw.others,
+        }
+      : raw
   return { triggerScope, access }
 }
 
@@ -50,22 +71,31 @@ export function AudienceFields({
   demo,
   value,
   onChange,
-  listNames,
-  suggestions,
+  list,
+  users,
+  ownerId,
   onListChange,
 }: {
   canEdit: boolean
   demo?: boolean
   value: AudienceValue
   onChange: (value: AudienceValue) => void
-  listNames: string[]
-  suggestions: { label: string; detail?: string }[]
-  onListChange: (names: string[]) => void
+  list: string[]
+  users: UserBriefDto[]
+  ownerId: string
+  onListChange: (ids: string[]) => void
 }) {
   const [confirming, setConfirming] = useState<keyof AudienceValue | null>(null)
+  const nameCounts = new Map<string, number>()
+  for (const u of users) nameCounts.set(u.name, (nameCounts.get(u.name) ?? 0) + 1)
+  const memberLabel = (id: string) => {
+    const u = users.find((x) => x.id === id)
+    if (!u) return '--'
+    return (nameCounts.get(u.name) ?? 0) > 1 ? `${u.name} (${u.account})` : u.name
+  }
   const pick = (who: keyof AudienceValue, level: AudienceLevel) => {
     if (level === 'full' && value[who] !== 'full') return setConfirming(who)
-    onChange({ ...value, [who]: level })
+    onChange(applyAudienceLevel(value, who, level))
   }
   const options = (who: keyof AudienceValue) =>
     LEVELS.map((l) => ({
@@ -93,17 +123,36 @@ export function AudienceFields({
     <>
       {row('trusted', t('信任名单'), t('名单里的成员发起的任务按这个方式审批。'))}
       {value.trusted !== 'deny' ? (
-        <FormRow label={t('名单成员')}>
+        <FormRow label={t('名单成员')} align="top">
           {canEdit ? (
-            <TokenField
-              aria-label={t('名单成员')}
-              placeholder={t('输入成员姓名')}
-              value={listNames}
-              suggestions={suggestions}
-              onChange={(tokens) => onListChange(tokens.map((x) => (typeof x === 'string' ? x : x.label)))}
-            />
+            <>
+              {list.length ? (
+                <ul className="bot-shares" aria-label={t('名单成员')}>
+                  {list.map((id) => {
+                    const label = memberLabel(id)
+                    return (
+                      <li key={id} className="bot-shares__row">
+                        <span>{label}</span>
+                        <IconButton
+                          size="small"
+                          title={t('移除 {name}', { name: label })}
+                          onClick={() => onListChange(list.filter((x) => x !== id))}
+                        >
+                          {'minus' as const}
+                        </IconButton>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+              <MemberPicker
+                trigger={<Button size="small">{t('添加成员…')}</Button>}
+                users={users.filter((u) => u.id !== ownerId && !list.includes(u.id))}
+                onAdd={(ids) => onListChange([...list, ...ids.filter((id) => !list.includes(id))])}
+              />
+            </>
           ) : (
-            <span>{listNames.join(t('、')) || '--'}</span>
+            <span>{list.map(memberLabel).join(t('、')) || '--'}</span>
           )}
         </FormRow>
       ) : null}
@@ -123,7 +172,7 @@ export function AudienceFields({
             label: t('确定允许'),
             variant: 'destructive',
             onClick: () => {
-              if (confirming) onChange({ ...value, [confirming]: 'full' })
+              if (confirming) onChange(applyAudienceLevel(value, confirming, 'full'))
               setConfirming(null)
             },
           },

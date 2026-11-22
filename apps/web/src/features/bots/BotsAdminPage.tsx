@@ -1,13 +1,13 @@
 import type { AdminTeamDto, BotDto, UserBriefDto, UserDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  AlertDialog,
   Button,
+  DiscardChangesDialog,
   EmptyState,
   NoBotsArt,
   NoResultsArt,
@@ -38,8 +38,15 @@ export function BotsAdminPage() {
   const { data, error, loading, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
   const teams = useGet<AdminTeamDto[]>('/admin/teams').data ?? []
   const teamNames = new Map(teams.map((x) => [x.id, x.name]))
+  const firstLive = useRef(true)
   // biome-ignore lint/correctness/useExhaustiveDependencies: the open team's live bot updates re-fetch every team's list
-  useEffect(() => reload(), [live, reload])
+  useEffect(() => {
+    if (firstLive.current) {
+      firstLive.current = false
+      return
+    }
+    reload()
+  }, [live, reload])
   const bots = data ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailDirty, setDetailDirty] = useState(false)
@@ -182,6 +189,7 @@ export function BotsAdminPage() {
               me={me}
               users={users}
               onDirtyChange={setDetailDirty}
+              onChanged={reload}
             />
           ) : null}
         </div>
@@ -219,15 +227,10 @@ export function BotsAdminPage() {
           />
         ) : null}
       </Presence>
-      <AlertDialog
+      <DiscardChangesDialog
         open={!!pendingSwitch}
-        title={t('有未保存的更改，确定放弃？')}
-        message={t('放弃后未保存的修改将不会保留。')}
-        onClose={() => setPendingSwitch(null)}
-        actions={[
-          { label: t('继续编辑'), onClick: () => setPendingSwitch(null) },
-          { label: t('放弃更改'), variant: 'destructive', onClick: confirmDiscard },
-        ]}
+        onCancel={() => setPendingSwitch(null)}
+        onDiscard={confirmDiscard}
       />
     </AdminPage>
   )

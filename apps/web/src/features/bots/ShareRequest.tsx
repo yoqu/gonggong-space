@@ -8,6 +8,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import { Button, Dialog, Input, Tag, ToolbarButton, ToolbarGroup } from '../../ui'
+import './bots.css'
 
 /** Opens the caller's DM with the bot, starting one when there is none. */
 export function useDm(bot: BotDto | null) {

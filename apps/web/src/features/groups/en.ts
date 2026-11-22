@@ -34,10 +34,6 @@ export default {
     "Messages and audit records are kept; the Bot's managed workspace stays on your machine for you to delete or keep.",
   '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。':
     "The group is archived with its messages and audit records; force-sync archives are purged after 30 days; each Bot's managed workspace is kept for its owner to delete or keep.",
-  '有未保存的更改，确定放弃？': 'Discard unsaved changes?',
-  '放弃后未保存的修改将不会保留。': 'Your unsaved changes will be lost.',
-  继续编辑: 'Keep editing',
-  放弃更改: 'Discard changes',
   '未绑定仓库 · 各 Bot 使用本机目录': 'No repo · each Bot uses a local folder',
   成员: 'Members',
   公告: 'Notice',
@@ -155,8 +151,8 @@ export default {
   '工作区…': 'Workspaces…',
   '选择工作区…': 'Choose workspace…',
   '；': '; ',
-  '本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全允许」时仅指定名单可触发。':
-    'Approval in this group follows the Bot\'s global setting by default and applies to running turns at once; at "Allow everything" only the listed people can trigger it.',
+  '本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；单独设置时会覆盖主人的审批方式，并对其他成员作为权限上限。':
+    "Approval in this group follows the Bot's global setting by default and applies to running turns at once; a group override replaces the owner's approval mode and acts as a ceiling for other members.",
   公开频道: 'Public channel',
   私有群: 'Private group',
   显示: 'Show',

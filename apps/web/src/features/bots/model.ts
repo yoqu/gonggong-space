@@ -88,6 +88,16 @@ export const reportedAgent = (m: MachineDto, kind: AgentKind) =>
 /** Offline and never reported: whether an agent is installed is not known yet (待检测, not 未安装). */
 export const agentsUndetected = (m: MachineDto) => !m.online && m.agents.length === 0
 
+/** Why an agent on a machine is not ready yet: never probed while offline vs. probed and not installed. */
+export const agentUnavailableText = (
+  machine: MachineDto | undefined,
+  agent: string,
+  machineName = machine?.name ?? '',
+) =>
+  machine && agentsUndetected(machine)
+    ? t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine: machineName, agent })
+    : t('{machine} 未上报 {agent}。在这台电脑安装并重新检测后自动可用。', { machine: machineName, agent })
+
 /**
  * Whether a machine's client can run an agent: one from before the agent was added never offers it. Features are
  * known only while the machine is connected, so an agent the client has reported counts too (offline, reconnecting).
@@ -100,7 +110,7 @@ const saveBot = (bot: BotDto) => {
   return bot
 }
 
-/** PATCH /bots/:id; approval, rules and the git identity are the owner's alone (plan J9). */
+/** PATCH /bots/:id; approval rules, AI review and the git identity are the owner's alone (plan J9). */
 export type BotPatch = Partial<
   Pick<
     BotDto,
@@ -113,8 +123,6 @@ export type BotPatch = Partial<
     | 'model'
     | 'effort'
     | 'concurrency'
-    | 'approval'
-    | 'allowlist'
     | 'alwaysAllow'
     | 'aiReview'
     | 'gitName'
@@ -133,6 +141,7 @@ export const botsApi = {
     avatar: BotRole
     model: string | null
     effort: string | null
+    provider?: string
   }) => api.post<BotDto>('/bots', body).then(saveBot),
   update: (id: string, body: BotPatch) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
   uploadAvatar: (id: string, image: Blob) =>

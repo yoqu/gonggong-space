@@ -135,7 +135,7 @@ export function ApprovalFields({
           <span>{APPROVAL_MODE_LABEL[mode]}</span>
         )}
       </FormRow>
-      {mode !== 'full' && (owner || value.alwaysAllow.length) ? (
+      {(mode !== 'full' && owner) || value.alwaysAllow.length > 0 ? (
         <FormRow
           label={t('已允许的命令')}
           align="top"

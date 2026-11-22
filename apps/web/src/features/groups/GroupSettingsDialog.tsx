@@ -8,10 +8,10 @@ import { attempt, toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  AlertDialog,
   AvatarEditor,
   Button,
   Dialog,
+  DiscardChangesDialog,
   GroupBox,
   GroupRow,
   Icon,
@@ -277,15 +277,10 @@ export function GroupSettingsDialog({
           </div>
         </div>
       </Dialog>
-      <AlertDialog
+      <DiscardChangesDialog
         open={!!pendingAction}
-        title={t('有未保存的更改，确定放弃？')}
-        message={t('放弃后未保存的修改将不会保留。')}
-        onClose={() => setPendingAction(null)}
-        actions={[
-          { label: t('继续编辑'), onClick: () => setPendingAction(null) },
-          { label: t('放弃更改'), variant: 'destructive', onClick: confirmDiscard },
-        ]}
+        onCancel={() => setPendingAction(null)}
+        onDiscard={confirmDiscard}
       />
     </>
   )

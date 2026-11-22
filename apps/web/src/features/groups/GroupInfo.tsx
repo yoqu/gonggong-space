@@ -811,7 +811,9 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
         })}
       </GroupBox>
       <div className="gs-foot">
-        {t('本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全允许」时仅指定名单可触发。')}
+        {t(
+          '本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；单独设置时会覆盖主人的审批方式，并对其他成员作为权限上限。',
+        )}
       </div>
       <Presence>
         {removing ? (

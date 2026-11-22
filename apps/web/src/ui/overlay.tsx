@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { Button, type ButtonVariant, Checkbox, CloseButton } from './controls'
 import { usePresence } from './presence'
@@ -489,6 +490,30 @@ export function AlertDialog({
           <AlertContent titleId={titleId} {...props} />
         </div>
       )}
+    />
+  )
+}
+
+/** Confirms discarding unsaved changes before closing a dialog or switching away. */
+export function DiscardChangesDialog({
+  open,
+  onCancel,
+  onDiscard,
+}: {
+  open: boolean
+  onCancel: () => void
+  onDiscard: () => void
+}) {
+  return (
+    <AlertDialog
+      open={open}
+      title={t('有未保存的更改，确定放弃？')}
+      message={t('放弃后未保存的修改将不会保留。')}
+      onClose={onCancel}
+      actions={[
+        { label: t('继续编辑'), onClick: onCancel },
+        { label: t('放弃更改'), variant: 'destructive', onClick: onDiscard },
+      ]}
     />
   )
 }

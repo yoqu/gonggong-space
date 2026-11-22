@@ -26,19 +26,15 @@ import {
   Button,
   Form,
   FormRow,
-  PathControl,
   Presence,
-  SegmentedControl,
   Stepper,
   TabView,
   TextField,
-  TokenField,
   toast,
 } from '../../ui'
 import { FeishuAppForm } from '../feishu/FeishuAppForm'
 import { effectiveProvider, providerBlocked, useProviderSwitch } from '../machines/providers'
 import { UsageBars, useUsage } from '../usage/UsagePage'
-import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfig'
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
 import { AudienceFields, type AudienceValue, audiencePatch, audienceValue } from './AudienceFields'
@@ -46,9 +42,18 @@ import { avatarSrc, BotAvatar, botRole, RolePicker, roleFace, roleHint } from '.
 import { BotAgentSettingRows, cleanOverrides } from './BotAgentSettings'
 import { choiceProvider, ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { BotShares } from './BotShares'
+import { DefaultWorkspaceRow } from './DefaultWorkspaceField'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import { MachineLink } from './MachineLink'
-import { agentCliVersion, agentOutdated, agentsUndetected, type BotPatch, botsApi, confirmBot } from './model'
+import {
+  agentCliVersion,
+  agentOutdated,
+  agentsUndetected,
+  agentUnavailableText,
+  type BotPatch,
+  botsApi,
+  confirmBot,
+} from './model'
 import './bots.css'
 
 const MAX_CONCURRENCY = 8
@@ -72,19 +77,13 @@ function warning(bot: BotDto, userName: (id: string) => string, machine: Machine
         agent,
       }),
     }
-  if (bot.presence === 'agent_missing' && machine && agentsUndetected(machine))
+  if (bot.presence === 'agent_missing') {
+    const undetected = !!machine && agentsUndetected(machine)
     return {
-      title: t('{agent} 待检测', { agent }),
-      desc: t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine: machine.name, agent }),
+      title: undetected ? t('{agent} 待检测', { agent }) : t('{agent} 未安装', { agent }),
+      desc: agentUnavailableText(machine, agent, machine?.name ?? bot.machineName ?? ''),
     }
-  if (bot.presence === 'agent_missing')
-    return {
-      title: t('{agent} 未安装', { agent }),
-      desc: t('{machine} 未上报 {agent}。在这台电脑安装并重新检测后自动可用。', {
-        machine: bot.machineName ?? '',
-        agent,
-      }),
-    }
+  }
   if (agentOutdated(bot))
     return {
       title: t('agent 版本低于适配器要求'),
@@ -113,17 +112,6 @@ export function BotWarning({ bot, users, owner }: { bot: BotDto; users: UserBrie
       ) : null}
     </Alert>
   )
-}
-
-/** Path as a clickable NSPathControl; a segment reopens the picker at that folder. */
-export function WorkspacePath({ path, onPick }: { path: string; onPick: (start: string) => void }) {
-  const parts = path.split('/').filter(Boolean)
-  const items = parts.map((p, i) => ({
-    id: `/${parts.slice(0, i + 1).join('/')}`,
-    label: p,
-    icon: 'folder' as const,
-  }))
-  return <PathControl items={items} maxItems={3} onSelect={onPick} aria-label={t('默认工作区路径')} />
 }
 
 function weekUsage(rows: UsageRowDto[]) {
@@ -171,6 +159,7 @@ export function BotDetail({
   plain,
   tab: initialTab = 'basic',
   onDirtyChange,
+  onChanged,
 }: {
   bot: BotDto
   me: UserDto
@@ -179,11 +168,13 @@ export function BotDetail({
   plain?: boolean
   tab?: BotTab
   onDirtyChange?: (dirty: boolean) => void
+  onChanged?: () => void
 }) {
   const owner = me.id === bot.ownerId
   const canEdit = owner || me.role === 'sysadmin'
   const demo = useSession((s) => s.tenancy?.demoMode)
   const [tab, setTab] = useState<string>(initialTab)
+  useEffect(() => setTab(initialTab), [initialTab])
   const [name, setName] = useState(bot.name)
   const [avatar, setAvatar] = useState(botRole(bot))
   const [prompt, setPrompt] = useState(bot.systemPrompt)
@@ -205,10 +196,6 @@ export function BotDetail({
   const [overrides, setOverrides] = useState(bot.agentSettings)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  /** false = closed; otherwise the folder the picker opens at. */
-  const [picking, setPicking] = useState<string | null | false>(false)
-  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '--'
-  const idOf = (name: string) => users.find((u) => u.name === name)?.id
 
   const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
   const reason = providerBlocked(me.id, bot.ownerId, machine)
@@ -232,7 +219,7 @@ export function BotDetail({
   const modelChanged = config.model !== bot.model
   const effortChanged = config.effort !== bot.effort
 
-  const scoped = audiencePatch(audience, bot.access)
+  const scoped = audiencePatch(audience, bot.access, !!demo)
   // Unchanged values are left out: one the catalog no longer lists would be refused.
   const patch: BotPatch = {
     ...(name.trim() !== bot.name && { name: name.trim() }),
@@ -262,13 +249,22 @@ export function BotDetail({
 
   const commit = async () => {
     setSaving(true)
+    let changed = false
     try {
-      if (Object.keys(patch).length) await botsApi.update(bot.id, patch)
-      if (workspace !== bot.defaultWorkspace) await botsApi.setDefaultWorkspace(bot.id, workspace)
+      if (Object.keys(patch).length) {
+        await botsApi.update(bot.id, patch)
+        changed = true
+      }
+      if (workspace !== bot.defaultWorkspace) {
+        await botsApi.setDefaultWorkspace(bot.id, workspace)
+        changed = true
+      }
+      changed = true
       toast({ type: 'success', message: t('{name} 已保存 · 下一次新开会话时生效', { name: name.trim() }) })
     } catch (e) {
       toastError(e)
     } finally {
+      if (changed) onChanged?.()
       setSaving(false)
     }
   }
@@ -323,8 +319,14 @@ export function BotDetail({
                 src={bot.avatarUrl ?? avatarSrc(roleFace(avatar, bot.agentKind))}
               />
             }
-            onUpload={(image) => botsApi.uploadAvatar(bot.id, image)}
-            onRemove={() => botsApi.removeAvatar(bot.id)}
+            onUpload={async (image) => {
+              await botsApi.uploadAvatar(bot.id, image)
+              onChanged?.()
+            }}
+            onRemove={async () => {
+              await botsApi.removeAvatar(bot.id)
+              onChanged?.()
+            }}
           />
         </FormRow>
       ) : null}
@@ -393,47 +395,12 @@ export function BotDetail({
         onChange={setOverrides}
       />
       {owner && bot.machineId ? (
-        <FormRow
-          label={t('默认工作区')}
-          align="top"
+        <DefaultWorkspaceRow
+          machineId={bot.machineId}
+          value={workspace}
           hint={t('未绑定仓库的群和私聊中自动使用；绑定仓库的群默认自动克隆')}
-        >
-          <div
-            className="bots-detail__workspace"
-            data-testid="default-workspace"
-            title={workspace ?? undefined}
-          >
-            {workspace ? (
-              <WorkspacePath path={workspace} onPick={setPicking} />
-            ) : (
-              <span className="bots-detail__unset">{t('未设置')}</span>
-            )}
-          </div>
-          <div className="bots-detail__buttons">
-            <Button size="small" onClick={() => setPicking(workspace)}>
-              {t('选择…')}
-            </Button>
-            {workspace ? (
-              <Button size="small" onClick={() => setWorkspace(null)}>
-                {t('清除')}
-              </Button>
-            ) : null}
-          </div>
-          <Presence>
-            {picking !== false ? (
-              <DirPicker
-                machineId={bot.machineId}
-                title={t('默认工作区')}
-                start={picking}
-                onPick={(path) => {
-                  setWorkspace(path)
-                  setPicking(false)
-                }}
-                onClose={() => setPicking(false)}
-              />
-            ) : null}
-          </Presence>
-        </FormRow>
+          onChange={setWorkspace}
+        />
       ) : null}
     </Form>
   )
@@ -459,9 +426,10 @@ export function BotDetail({
         demo={demo}
         value={audience}
         onChange={setAudience}
-        listNames={list.map(userName)}
-        suggestions={users.map((u) => ({ label: u.name, detail: u.account }))}
-        onListChange={(names) => setList(names.map(idOf).filter((id): id is string => !!id))}
+        list={list}
+        users={users}
+        ownerId={bot.ownerId}
+        onListChange={setList}
       />
     </Form>
   )
@@ -576,7 +544,16 @@ export function BotDetail({
       ) : null}
       {switcher.dialog}
       <Presence>
-        {deleting ? <DeleteBotDialog bot={bot} onClose={() => setDeleting(false)} /> : null}
+        {deleting ? (
+          <DeleteBotDialog
+            bot={bot}
+            onDone={() => {
+              setDeleting(false)
+              onChanged?.()
+            }}
+            onClose={() => setDeleting(false)}
+          />
+        ) : null}
       </Presence>
     </aside>
   )

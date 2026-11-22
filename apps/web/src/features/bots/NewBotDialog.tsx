@@ -9,12 +9,12 @@ import {
   type MachineDto,
   type UserDto,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useId, useState } from 'react'
+import { type ReactNode, useEffect, useId, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
-import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
+import { useGet } from '../../lib/useGet'
 import {
   AgentIcon,
   Alert,
@@ -26,7 +26,6 @@ import {
   FormRow,
   type ModalAction,
   PopUpButton,
-  Presence,
   RadioGroup,
   Spinner,
   TextField,
@@ -35,7 +34,6 @@ import {
 import { BindCodePanel, useBindCode } from '../machines/BindCodePanel'
 import { OS_LABEL } from '../machines/model'
 import { providerBlocked } from '../machines/providers'
-import { DirPicker } from '../workspaces/DirPicker'
 import type { AgentConfig } from './AgentConfig'
 import { avatarSrc, RolePicker, roleFace, roleHint } from './avatars'
 import {
@@ -45,9 +43,10 @@ import {
   useMachineProviders,
   useProviderCatalog,
 } from './BotProvider'
-import { WorkspacePath } from './BotSettings'
-import { agentsUndetected, botsApi, clientRuns, reportedAgent } from './model'
+import { DefaultWorkspaceRow } from './DefaultWorkspaceField'
+import { agentsUndetected, agentUnavailableText, botsApi, clientRuns, reportedAgent } from './model'
 import { useDm } from './ShareRequest'
+import './bots.css'
 
 interface Props {
   me: UserDto
@@ -163,11 +162,6 @@ function Shell({
   )
 }
 
-const missingText = (machine: string, agent: string) =>
-  t('{machine} 未上报 {agent}。在这台电脑安装并重新检测后自动可用。', { machine, agent })
-const undetectedText = (machine: string, agent: string) =>
-  t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine, agent })
-
 const RESULT_VARIANT = {
   pending: 'info',
   warn: 'warning',
@@ -204,10 +198,7 @@ function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
           : bot.presence === 'agent_missing'
             ? {
                 tone: 'warn',
-                desc: (machine && agentsUndetected(machine) ? undetectedText : missingText)(
-                  bot.machineName ?? '',
-                  agent,
-                ),
+                desc: agentUnavailableText(machine, agent, bot.machineName ?? ''),
               }
             : { tone: 'ok', desc: t('已就绪，可以在群里 @ 它了') }
   return (
@@ -224,11 +215,17 @@ function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
 
 /** 新建 Bot (管理后台.dc.html): who and what it is, then where it runs, previewing the resulting binding. */
 export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
-  const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
+  const ownersReq = useGet<BotOwnerDto[]>('/bots/owners')
+  const owners = useMemo(
+    () =>
+      ownersReq.data
+        ? [...ownersReq.data].sort((a, b) => Number(b.id === me.id) - Number(a.id === me.id))
+        : null,
+    [ownersReq.data, me.id],
+  )
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<BotDto | null>(null)
-  const [picking, setPicking] = useState<string | null | false>(false)
   const [more, setMore] = useState(false)
   const [roles, setRoles] = useState(false)
   const liveMachines = useWorkspace((s) => s.machines)
@@ -244,17 +241,10 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   }
 
   useEffect(() => {
-    api
-      .get<BotOwnerDto[]>('/bots/owners')
-      .then((list) => {
-        const sorted = [...list].sort((a, b) => Number(b.id === me.id) - Number(a.id === me.id))
-        setOwners(sorted)
-        const first = sorted[0]
-        if (!first) return
-        setDraft(draftFor(first, first.machines, '', machineId))
-      })
-      .catch(toastError)
-  }, [me.id, machineId])
+    const first = owners?.[0]
+    if (!first) return
+    setDraft((prev) => prev ?? draftFor(first, first.machines, '', machineId))
+  }, [owners, machineId])
 
   const owner = owners?.find((o) => o.id === draft?.ownerId)
   if (created && live) {
@@ -279,6 +269,18 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
       </Shell>
     )
   }
+  if (ownersReq.error && !owners)
+    return (
+      <Shell onClose={onClose}>
+        <Alert
+          variant="error"
+          title={t('加载失败')}
+          description={ownersReq.error}
+          retrying={ownersReq.loading}
+          onRetry={ownersReq.reload}
+        />
+      </Shell>
+    )
   if (!owners || !draft || !owner)
     return (
       <Shell onClose={onClose}>
@@ -308,7 +310,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
       ? {
           tone: 'warn',
           title: t('绑定后暂不可用'),
-          desc: (agentsUndetected(m) ? undetectedText : missingText)(m.name, agentName),
+          desc: agentUnavailableText(m, agentName),
         }
       : self
         ? {
@@ -541,35 +543,13 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
         ) : null}
 
         {more && self && m?.online ? (
-          <FormRow
-            label={t('默认工作区')}
+          <DefaultWorkspaceRow
+            machineId={m.id}
+            value={draft.workspace}
             hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认自动克隆。')}
-          >
-            <div className="newbot__inline">
-              {draft.workspace ? (
-                <WorkspacePath path={draft.workspace} onPick={setPicking} />
-              ) : (
-                <span className="newbot__muted">{t('未设置')}</span>
-              )}
-              <Button size="small" onClick={() => setPicking(draft.workspace)}>
-                {t('选择目录…')}
-              </Button>
-            </div>
-            <Presence>
-              {picking !== false ? (
-                <DirPicker
-                  machineId={m.id}
-                  title={t('默认工作区')}
-                  start={picking}
-                  onPick={(workspace) => {
-                    set({ workspace })
-                    setPicking(false)
-                  }}
-                  onClose={() => setPicking(false)}
-                />
-              ) : null}
-            </Presence>
-          </FormRow>
+            pickLabel={t('选择目录…')}
+            onChange={(workspace) => set({ workspace })}
+          />
         ) : null}
       </Form>
       <div className={result.tone === 'offline' ? 'newbot__alert--neutral' : undefined}>

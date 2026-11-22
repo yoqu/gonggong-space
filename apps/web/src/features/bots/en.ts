@@ -102,7 +102,6 @@ export default {
     'Used automatically in groups without a repo and in direct chats; groups with a repo use an automatic clone by default',
   '选择…': 'Choose…',
   清除: 'Clear',
-  输入成员姓名: 'Enter member names',
   '同时执行的任务上限，超出的在这台电脑排队': 'Max concurrent tasks; extra ones queue on this computer',
   '{n} 个': '{n}',
   '近 7 天用量': 'Usage (last 7 days)',

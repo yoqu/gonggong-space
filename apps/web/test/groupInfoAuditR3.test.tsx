@@ -520,4 +520,16 @@ describe('R3B P1-5: BotsView row MenuButton uses portal and ghost icon button', 
     expect(menu.parentElement).toBe(document.body)
     expect(container.contains(menu)).toBe(false)
   })
+
+  it('explains group approval override as owner replacement and ceiling for others without stale full-tier copy', () => {
+    mockApi({ 'GET /bots/b2/share-requests': [] })
+    const { container } = render(
+      <MemoryRouter>
+        <BotsView group={group()} isAdmin member />
+      </MemoryRouter>,
+    )
+    const foot = container.querySelector('.gs-foot')?.textContent ?? ''
+    expect(foot).toContain('单独设置时会覆盖主人的审批方式，并对其他成员作为权限上限')
+    expect(foot).not.toContain('本群为「完全允许」时仅指定名单可触发')
+  })
 })
