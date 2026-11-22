@@ -124,7 +124,20 @@ export class HostedLiveKit implements LiveKit {
         // already gone
       }
     }
-    this.port ??= await freePort()
+    if (this.port !== null) return this.run(bin, this.port)
+    // freePort only probes: another process may bind the port before livekit-server does.
+    for (let attempt = 1; ; attempt++) {
+      this.port = await freePort()
+      try {
+        return await this.run(bin, this.port)
+      } catch (err) {
+        this.port = null
+        if (attempt === 3 || !/address already in use/.test(String(err))) throw err
+      }
+    }
+  }
+
+  private async run(bin: string, port: number) {
     const child = spawn(bin, [], {
       env: { ...process.env, LIVEKIT_CONFIG: JSON.stringify(this.config()) },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -146,7 +159,7 @@ export class HostedLiveKit implements LiveKit {
     child.once('exit', () => void this.onExit(child))
     await mkdir(this.opts.dir, { recursive: true })
     await writeFile(this.pidFile, String(child.pid))
-    await Promise.race([waitHealthy(this.port), exited])
+    await Promise.race([waitHealthy(port), exited])
     this.ready = true
     this.backoff = 1000
   }

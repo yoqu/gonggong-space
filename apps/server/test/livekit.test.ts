@@ -115,6 +115,19 @@ describe('hosted LiveKit', () => {
     expect(() => process.kill(last, 0)).toThrow()
   })
 
+  it('picks another signaling port when the one it chose was taken before the server bound it', async () => {
+    const fake = fakeBinary()
+    const bin = join(fake.dir, 'busy-once')
+    writeFileSync(
+      bin,
+      `#!/bin/sh\nif [ ! -f "${fake.dir}/tried" ]; then touch "${fake.dir}/tried"; echo "listen EADDRINUSE: address already in use" >&2; exit 1; fi\nexec "${fake.bin}"\n`,
+    )
+    chmodSync(bin, 0o755)
+    lk = new HostedLiveKit({ dir: fake.dir, bin, udpPort: 17882, tcpPort: 17881 })
+    const ep = await lk.endpoint()
+    expect(await (await fetch(ep.api)).text()).toBe('OK')
+  })
+
   it('says why it cannot start', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'gonggong-livekit-'))
     const bin = join(dir, 'livekit-server')
