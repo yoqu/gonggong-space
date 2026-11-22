@@ -6,6 +6,7 @@ import { ago } from '../../lib/time'
 import { Button, Icon, Popover, SearchField, Spinner } from '../../ui'
 import { setEditing } from './editing'
 import { loadGroupArtifacts, useGroupArtifacts } from './groupArtifacts'
+import { runnerText } from './runner'
 import { openArtifact } from './store'
 import './group-works.css'
 
@@ -54,13 +55,7 @@ export function GroupWorksTab({ groupId }: { groupId: string }) {
 
 function WorkRow({ a, groupId, close }: { a: ArtifactDto; groupId: string; close: () => void }) {
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === (a.runner?.botId ?? a.botId)))
-  const runner =
-    a.runner &&
-    (a.runner.status === 'running'
-      ? t('{name} 运行中', { name: bot?.name ?? 'Bot' })
-      : a.runner.status === 'awaiting_answer'
-        ? t('{name} 等待回答', { name: bot?.name ?? 'Bot' })
-        : t('{name} 等待审批', { name: bot?.name ?? 'Bot' }))
+  const runner = a.runner && runnerText(a.runner.status, bot?.name)
   const open = () => {
     close()
     openArtifact(a.id, a.title)

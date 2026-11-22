@@ -28,6 +28,7 @@ import { IssuesButton } from './IssuesButton'
 import { MoveDialog } from './MoveDialog'
 import { PageRail, useRail } from './PageRail'
 import { PrototypeEditor } from './PrototypeEditor'
+import { RUNNER, runnerText } from './runner'
 import { ShareDialog, useArtifactManager } from './share'
 import {
   archiveArtifact,
@@ -519,12 +520,6 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   )
 }
 
-const RUNNER = {
-  running: t('运行中'),
-  awaiting_approval: t('等待审批'),
-  awaiting_answer: t('等待回答'),
-}
-
 /** A bot's live run has the artifact: who and what, without locking anything (its version merges in). */
 function Runner({ status, name }: { status: keyof typeof RUNNER; name: string | undefined }) {
   return (
@@ -535,7 +530,7 @@ function Runner({ status, name }: { status: keyof typeof RUNNER; name: string | 
       title={t('你可以继续编辑，AI 交稿时自动合并；同一文件冲突时保留为候选版本')}
     >
       {status === 'running' ? <Spinner size={11} /> : <i className="art-runner__dot" aria-hidden="true" />}
-      {name ?? 'Bot'} · {RUNNER[status]}
+      {runnerText(status, name)}
     </span>
   )
 }

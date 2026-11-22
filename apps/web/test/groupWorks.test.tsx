@@ -64,7 +64,7 @@ describe('作品 in the group tab bar', () => {
     expect(tab.textContent).toContain('2')
     fireEvent.click(tab)
     const pop = await screen.findByRole('dialog', { name: '本群作品' })
-    expect(within(pop).getByText('共字君 运行中')).toBeTruthy()
+    expect(within(pop).getByText('共字君 · 运行中')).toBeTruthy()
     const rows = within(pop).getAllByRole('listitem')
     expect(rows[0]?.textContent).toContain('codex俱乐部小程序原型')
     fireEvent.click(within(rows[1] as HTMLElement).getByRole('button', { name: '继续对话' }))

@@ -15,7 +15,7 @@ import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
-import { continues, eventFolds, isRich, unreadStart } from '../src/features/chat/grouping'
+import { continues, eventFolds, replyFiles, unreadStart } from '../src/features/chat/grouping'
 import { RunStatusIcon } from '../src/features/chat/RunGraphics'
 import { fmtDuration, RUN_STATUS } from '../src/features/chat/TimelineItems'
 import { EmptyChatArt, EmptyState } from '../src/ui'
@@ -267,20 +267,10 @@ describe('unread divider position', () => {
   })
 })
 
-describe('bot reply layout (C2)', () => {
-  it('keeps plain text in a bubble and moves code, tables, files and attachments into the card', () => {
-    expect(isRich(msg({ body: '好的，已经处理完了' }))).toBe(false)
-    expect(isRich(msg({ body: '```ts\nconst a = 1\n```' }))).toBe(true)
-    expect(isRich(msg({ body: '| a | b |\n| --- | --- |\n| 1 | 2 |' }))).toBe(true)
-    expect(isRich(msg({ body: '已修改 `src/a.ts`' }))).toBe(true)
-    expect(
-      isRich(
-        msg({
-          body: '见附件',
-          attachments: [{ id: 'a1', name: 'x.log', size: 1, mime: 'text/plain', messageId: 'm1' }],
-        }),
-      ),
-    ).toBe(true)
+describe('reply files', () => {
+  it('lists the paths a reply names but not technology names', () => {
+    expect(replyFiles('已修改 `src/a.ts`，基于 Node.js 与 Vue.js')).toEqual(['src/a.ts'])
+    expect(replyFiles('好的，已经处理完了')).toEqual([])
   })
 })
 

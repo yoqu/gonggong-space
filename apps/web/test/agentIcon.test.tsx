@@ -2,7 +2,7 @@ import { AGENT_KINDS, AGENT_META, type MachineDto } from '@gonggong/protocol'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { AGENT_FIGURES } from '../src/features/bots/agentFigures'
-import { clientRuns, machineAgents } from '../src/features/bots/model'
+import { clientRuns } from '../src/features/bots/model'
 import { AgentIcon } from '../src/ui'
 
 describe('AgentIcon', () => {
@@ -45,6 +45,5 @@ describe('agent registry in the web app', () => {
     expect(clientRuns(machine(['gemini']), 'gemini')).toBe(true)
     expect(clientRuns(machine([], ['gemini']), 'gemini')).toBe(true)
     expect(clientRuns(null, 'antigravity')).toBe(true)
-    expect(machineAgents(machine(['pi']))).toEqual(['claude', 'codex', 'pi'])
   })
 })

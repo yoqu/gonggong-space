@@ -1,5 +1,4 @@
 import {
-  AGENT_KINDS,
   AGENT_META,
   type AgentKind,
   agentConfigLabel,
@@ -95,9 +94,6 @@ export const agentsUndetected = (m: MachineDto) => !m.online && m.agents.length 
  */
 export const clientRuns = (m: MachineDto | null | undefined, kind: AgentKind) =>
   !m || clientRunsAgent(m.features, kind) || m.agents.some((a) => a.kind === kind)
-
-/** The agents a machine's client can run. */
-export const machineAgents = (m: MachineDto | null | undefined) => AGENT_KINDS.filter((k) => clientRuns(m, k))
 
 const saveBot = (bot: BotDto) => {
   useWorkspace.getState().applyEvent({ t: 'bot.updated', bot })
