@@ -1,7 +1,17 @@
 import type { RunStart, ServerToDaemon } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { groupBots, messages, runs, teamMembers, users } from '../src/db/schema.js'
+import {
+  groupBots,
+  groupMembers,
+  groups,
+  messages,
+  runs,
+  teamMembers,
+  teams,
+  users,
+} from '../src/db/schema.js'
+import { originAdmin } from '../src/modules/agent-tools/layers.js'
 import { schedule } from '../src/modules/runs/scheduler.js'
 import { createTestApp, type TestApp } from './support/app.js'
 
@@ -190,5 +200,45 @@ describe('management tools', () => {
 
     await t.db.update(users).set({ role: 'sysadmin' }).where(eq(users.id, w.alice.id))
     expect((await startFor(w, w.alice.id)).hiddenTools).not.toContain('client_release_publish')
+  })
+
+  it('hides layer writes when a group admin is in an archived group, left the team, or its team is archived', async () => {
+    const w = await world()
+    const ga = await t.seed.user({ name: '林冲' })
+    const dispatch = async (a: Awaited<ReturnType<typeof w.queued>>) => {
+      await schedule(t.ctx, w.bot.id)
+      await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.id, a.run.id))
+      return (w.sent as RunStart[]).find((m) => m.runId === a.run.id)!
+    }
+    const promote = (groupId: string) =>
+      t.db
+        .update(groupMembers)
+        .set({ isAdmin: true })
+        .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, ga.id)))
+
+    // Live group + live team: plain group admin gets layer writes.
+    const live = await w.queued(ga.id)
+    await promote(live.group.id)
+    expect((await dispatch(live)).hiddenTools).not.toContain('mcp_create')
+
+    // Archived group: group admin loses layer writes (matches isLayerAdmin / requireAdmin).
+    const archivedGroup = await w.queued(ga.id)
+    await promote(archivedGroup.group.id)
+    await t.db.update(groups).set({ archivedAt: new Date() }).where(eq(groups.id, archivedGroup.group.id))
+    expect((await dispatch(archivedGroup)).hiddenTools).toEqual(expect.arrayContaining(WRITES))
+
+    // Removed from the team: stale group_members.is_admin no longer grants layer writes.
+    const removed = await w.queued(ga.id)
+    await promote(removed.group.id)
+    await t.db.delete(teamMembers).where(eq(teamMembers.userId, ga.id))
+    expect((await dispatch(removed)).hiddenTools).toEqual(expect.arrayContaining(WRITES))
+
+    // Archived team: scheduler skips dispatch (plan D15), and originAdmin itself reports no admin access.
+    const archivedTeam = await w.queued(w.alice.id)
+    await t.db.update(teams).set({ archivedAt: new Date() }).where(eq(teams.id, archivedTeam.group.teamId))
+    expect(await originAdmin(t.db, { groupId: archivedTeam.group.id, originUserId: w.alice.id })).toEqual({
+      sysadmin: false,
+      any: false,
+    })
   })
 })

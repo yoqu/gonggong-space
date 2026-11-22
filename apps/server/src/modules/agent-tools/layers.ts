@@ -62,8 +62,24 @@ export async function originAdmin(db: Pick<Db, 'select'>, run: Pick<Run, 'groupI
       .where(eq(users.id, run.originUserId)),
     db
       .select({ isAdmin: groupMembers.isAdmin })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, run.groupId), eq(groupMembers.userId, run.originUserId))),
+      .from(groups)
+      .innerJoin(
+        groupMembers,
+        and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, run.originUserId)),
+      )
+      .innerJoin(
+        teamMembers,
+        and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, run.originUserId)),
+      )
+      .innerJoin(teams, eq(teams.id, groups.teamId))
+      .where(
+        and(
+          eq(groups.id, run.groupId),
+          eq(groupMembers.isAdmin, true),
+          isNull(groups.archivedAt),
+          isNull(teams.archivedAt),
+        ),
+      ),
     db
       .select({ role: teamMembers.role })
       .from(groups)
