@@ -95,6 +95,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   systemPrompt: '',
   tier: 'workspace',
   triggerScope: 'all',
+  access: { trusted: 'ask', others: 'auto' },
   triggerList: [],
   concurrency: 2,
   createdBy: 'u1',
@@ -629,7 +630,7 @@ describe('bot detail', () => {
     await waitFor(() => expect(useWorkspace.getState().bots[0]?.avatarUrl).toBeNull())
   })
 
-  it('forces the trigger list for the full tier and saves', async () => {
+  it('sets the owner, the trusted list and everyone else apart; 完全允许 for others is confirmed', async () => {
     routes['GET /api/bots'] = () => [bot({ triggerScope: 'list', triggerList: ['u2'] })]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
@@ -640,22 +641,46 @@ describe('bot detail', () => {
     for (const t of ['每次问我', '帮我审批', '完全允许'])
       expect(within(detail).getByRole('radio', { name: t })).toBeTruthy()
     expect(within(detail).queryByRole('radio', { name: '只读' })).toBeNull()
-    fireEvent.click(within(detail).getByRole('radio', { name: '任何群成员' }))
     fireEvent.click(within(detail).getByRole('radio', { name: '完全允许' }))
-    expect(within(detail).getByText(/不再询问，Bot 可以执行任何操作/)).toBeTruthy()
     expect(within(detail).queryByRole('combobox', { name: '已允许的命令' })).toBeNull()
-    expect(within(detail).queryByRole('alert')).toBeNull()
-    const anyone = within(detail).getByRole('radio', { name: '任何群成员' })
-    expect(anyone.hasAttribute('disabled')).toBe(true)
-    expect(anyone.closest('[title]')?.getAttribute('title')).toBe('完全允许只能由触发名单里的人触发')
-    expect(within(detail).getByText('完全允许只能由触发名单里的人触发')).toBeTruthy()
-    expect(within(detail).getByRole('combobox', { name: '触发名单' })).toBeTruthy()
-    expect(within(detail).getByRole('radio', { name: '指定名单' }).getAttribute('aria-checked')).toBe('true')
+    const others = within(detail).getByRole('button', { name: '其他成员' })
+    expect(others.textContent).toContain('不可触发')
+    fireEvent.click(others)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /完全允许/ }))
+    const confirm = await screen.findByRole('alertdialog')
+    expect(within(confirm).getByText('允许其他成员完全控制这台电脑？')).toBeTruthy()
+    fireEvent.click(within(confirm).getByRole('button', { name: '取消' }))
+    expect(within(detail).getByRole('button', { name: '其他成员' }).textContent).toContain('不可触发')
+    fireEvent.click(within(detail).getByRole('button', { name: '其他成员' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /自动审批/ }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
         avatar: 'role-abacus',
         tier: 'full',
+        triggerScope: 'all',
+      }),
+    )
+  })
+
+  it('confirms 完全允许 for the trusted list and keeps it out of reach while everyone else may trigger', async () => {
+    routes['GET /api/bots'] = () => [bot({ triggerList: ['u2'] })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    fireEvent.click(within(detail).getByRole('button', { name: '信任名单' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: /不可触发/ }).getAttribute('aria-disabled')).toBe(
+      'true',
+    )
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /完全允许/ }))
+    const confirm = await screen.findByRole('alertdialog')
+    expect(within(confirm).getByText('允许名单成员完全控制这台电脑？')).toBeTruthy()
+    fireEvent.click(within(confirm).getByRole('button', { name: '确定允许' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
+        access: { trusted: 'full', others: 'auto' },
       }),
     )
   })
@@ -822,7 +847,7 @@ describe('bot detail', () => {
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
     const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
-    expect(body).toEqual({ tier: 'full', triggerScope: 'list' })
+    expect(body).toEqual({ tier: 'full' })
   })
 
   it('lets the owner set the git commit identity, blank = default', async () => {
@@ -1213,7 +1238,8 @@ describe('bot page profile', () => {
     expect(row(page, '运行配置', '模型')).toBe('模型Opus · 高')
     expect(row(page, '运行配置', '默认工作区')).toBe('默认工作区~/pay')
     expect(row(page, '权限', '审批方式')).toBe('审批方式帮我审批 · 已允许 tail')
-    await waitFor(() => expect(row(page, '权限', '触发范围')).toBe('触发范围指定名单 · 李建国'))
+    await waitFor(() => expect(row(page, '权限', '信任名单')).toBe('信任名单需要审批 · 李建国'))
+    expect(row(page, '权限', '其他成员')).toBe('其他成员不可触发')
     expect(row(page, '高级', '并发上限')).toBe('并发上限3 个群并行')
     expect(row(page, '高级', 'Git 提交身份')).toBe('Git 提交身份CC <cc@corp.com>')
     await waitFor(() => expect(row(page, '高级', '飞书应用')).toBe('飞书应用已接通'))

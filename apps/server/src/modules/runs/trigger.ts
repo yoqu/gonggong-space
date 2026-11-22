@@ -2,6 +2,7 @@ import type { ProtocolKey, RepoAccessReason } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, messages, runs, users } from '../../db/schema.js'
+import { audienceOf } from '../bots/access.js'
 import { botRepliesInThreadOf, groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { postEvent, postMessage } from '../messages/service.js'
@@ -12,16 +13,13 @@ import { schedule } from './scheduler.js'
 import { runStep } from './step.js'
 import { isChainStopped } from './stop.js'
 
-type Target = Pick<
-  typeof bots.$inferSelect,
-  'id' | 'binding' | 'ownerId' | 'tier' | 'triggerScope' | 'triggerList'
->
+type Target = Pick<typeof bots.$inferSelect, 'binding' | 'ownerId' | 'triggerScope' | 'triggerList'>
 
 /** Why `origin` may not trigger `bot` (spec §3.6), or null when allowed. The owner is always allowed. */
 function refusal(bot: Target, origin: string): ProtocolKey | null {
   if (bot.binding !== 'bound') return 'Bot 未绑定或未确认，不能被触发'
   if (origin === bot.ownerId) return null
-  const scope = bot.tier === 'full' && bot.triggerScope === 'all' ? 'list' : bot.triggerScope
+  const scope = bot.triggerScope
   if (scope === 'all' || (scope === 'list' && bot.triggerList.includes(origin))) return null
   return scope === 'self' ? '该 Bot 仅允许主人触发，未启动运行' : '该 Bot 仅允许指定名单触发，未启动运行'
 }
@@ -53,14 +51,12 @@ async function createRuns(ctx: Ctx, t: Trigger) {
       binding: bots.binding,
       machineId: bots.machineId,
       ownerId: bots.ownerId,
-      tier: bots.tier,
       triggerScope: bots.triggerScope,
       triggerList: bots.triggerList,
       name: bots.name,
       ownerName: users.name,
       workspaceState: groupBots.workspaceState,
       workspaceReason: groupBots.workspaceReason,
-      groupTier: groupBots.tier,
       // A DM someone opened with a bot shared with them: the share itself allows it.
       sharedDm: sql<boolean>`${groups.kind} = 'dm' and ${groups.createdBy} <> ${bots.ownerId}`,
     })
@@ -80,10 +76,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
   const noticeThread = t.threadRootId === t.messageId ? null : t.threadRootId
   await Promise.all(
     targets.map(async (bot) => {
-      const refused = refusal(
-        { ...bot, tier: bot.groupTier ?? bot.tier },
-        t.anyScope || bot.sharedDm ? bot.ownerId : t.originUserId,
-      )
+      const refused = refusal(bot, t.anyScope || bot.sharedDm ? bot.ownerId : t.originUserId)
       if (!refused && bot.workspaceState === 'unbound')
         await adoptManaged(ctx, t.groupId, bot, bot.name, noticeThread)
       if (!refused && bot.workspaceState === 'confirm')
@@ -113,6 +106,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
           triggerMessageId: t.messageId,
           triggerUserId: t.triggerUserId,
           originUserId: t.originUserId,
+          audience: audienceOf(bot, t.originUserId, bot.sharedDm),
           parentRunId: t.parentRunId,
           threadRootId: t.threadRootId,
           hop: t.hop,

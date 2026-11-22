@@ -1,6 +1,6 @@
 # ACP 与 daemon 协议 · 现状
 
-> 范围：daemon 与服务端的连接与消息、能力协商与版本兼容、daemon 用 ACP 驱动 Agent（会话、权限、MCP、系统提示词）、运行生命周期与审批、网页终端、重连与离线。只写仍有效的决定，以代码为准，更新于 2026-11-15。
+> 范围：daemon 与服务端的连接与消息、能力协商与版本兼容、daemon 用 ACP 驱动 Agent（会话、权限、MCP、系统提示词）、运行生命周期与审批、网页终端、重连与离线。只写仍有效的决定，以代码为准，更新于 2026-11-22。
 
 ## 契约与 fixture
 - 全部线上消息在 `packages/protocol/src/daemon/`（zod，`daemon.ts` 为桶文件）：`DaemonToServer`（d2s）、`ServerToDaemon`（s2d），按字段 `t` 区分（如 `run.start`、`run.done`）；Rust 镜像在 `crates/gonggong/src/protocol/`（serde，子模块与 TS `src/daemon/` 对齐）。
@@ -62,7 +62,7 @@
 - Agent 的 `session/request_permission` 先在 daemon 本机判定（`session.rs` `permission_in`、`local.rs` `decide`）：内置 gonggong 工具直接放行；full 档全部放行（不保留红线）。
 - 非 full 档：红线命令（`floor_hit`）和推送基准分支（`protectBase`）一律问主人；其余按 `approval`（ask / allowlist / all）+ `alwaysAllow` + 工作区内读写规则判定，可本地放行（规则见 `local.rs` 与 `local/trust.rs`：临时目录、工作区外只读、脚本内容、团队 CLI 只读、功能分支推送）。AI 预审已移除；`approval.request` 的 `review` 与 `ai_*` 原因只来自旧客户端。
 - 需要人决定时发 `approval.request`（带 `reason`、`options`、`remember`、`rememberSession`、`review`、`mcp`）；本地或 AI 放行的发 `approval.ai_approved` 只记审计。
-- 服务端（`modules/approvals/service.ts`）：脱敏后入库，只有 Bot 主人能决定，过期按 `approvalTimeoutMin` 自动选拒绝；运行结束或 /stop 作废（`voidReason`）；「始终允许」写回 `bots.alwaysAllow`；改到 full 档时自动批准挂起请求。
+- 服务端（`modules/approvals/service.ts`）：脱敏后入库，只有 Bot 主人能决定，过期按 `approvalTimeoutMin` 自动选拒绝；别人发起、该人群为「自动审批」的运行立即拒绝（见 供应商与Agent设置 · 按人群分档）；运行结束或 /stop 作废（`voidReason`）；「始终允许」写回 `bots.alwaysAllow`；改到 full 档时自动批准挂起请求。
 - 决定以 `approval.decision` 回 daemon（`optionId` null = 取消，`session: true` = 本会话不再问）；等待决定不阻塞 ACP 消息分发。
 - 审批规则、白名单只存服务端、只有 Bot 主人能改，随 `run.start` 下发、下一轮生效；机器 token 没有写 Bot 的接口。
 

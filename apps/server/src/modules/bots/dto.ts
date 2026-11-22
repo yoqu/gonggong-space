@@ -106,6 +106,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       tier: bot.tier as BotDto['tier'],
       triggerScope: bot.triggerScope as BotDto['triggerScope'],
       triggerList: bot.triggerList,
+      access: bot.access,
       concurrency: bot.concurrency,
       createdBy: bot.createdBy,
       defaultWorkspace: bot.defaultWorkspace,

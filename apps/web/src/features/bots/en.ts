@@ -24,8 +24,8 @@ export default {
     "Building, testing, linting, formatting, git, viewing files, and reading or writing inside the workspace and the temporary directory (/tmp) run right away (this trusts the repository's scripts); anything else comes to you as an approval card.",
   'Claude 和 Codex（OpenAI 官方登录）改由 agent 内置的自动审核把关；被它拦下的操作会让 agent 换个做法，不发卡片。内置审核不可用时（第三方供应商、不支持的模型）按上面的方式审批，运行过程里会注明本次由谁审。':
     "Claude and Codex (official OpenAI login) hand approvals to the Agent's built-in review instead. What it blocks makes the Agent try another way, without a card. Where the built-in review is unavailable (third-party providers, unsupported models) approvals work as above; the run says who reviewed.",
-  '不再询问，Bot 可以执行任何操作；能触发它的人发起的任务都不会被拦截，包括危险命令，建议只给自己用的群或 Bot 开启。':
-    'Never asks: the Bot may do anything, and nothing anyone who can trigger it starts is stopped, dangerous commands included. Turn this on only for your own groups or Bots.',
+  '你发起的任务不再询问，Bot 可以执行任何操作，包括危险命令；别人发起的按下面「信任名单」「其他成员」的设置审批。':
+    'Tasks you start never ask: the Bot may do anything, dangerous commands included. Tasks others start follow the "Trusted list" and "Everyone else" settings below.',
   'Bot 只能读取，其余操作都发审批卡片给你。':
     'The Bot can only read; everything else comes to you as an approval card.',
   '审批卡片上选「批准，不再询问」会加到这里；以这些前缀开头的命令（或 tool:工具名）自动批准，删除后再次询问。':
@@ -55,7 +55,6 @@ export default {
   所在群: 'Groups',
   谁用了: 'Used by',
   按群: 'By group',
-  触发范围: 'Who can trigger',
   并发上限: 'Concurrency limit',
   '{n} 个群并行': '{n} {n:group|groups} in parallel',
   默认工作区: 'Default workspace',
@@ -74,8 +73,6 @@ export default {
   '使用电脑默认（当前：{name}）': 'Computer default (now {name})',
   供应商: 'Provider',
   '读取中…': 'Loading…',
-  完全允许只能由触发名单里的人触发:
-    'With "Allow everything" only the people on the trigger list can trigger it',
   '等待 {owner} 确认': 'Waiting for {owner} to confirm',
   '{creator} 为 {owner} 创建并绑定到 {machine}。电脑主人在通知或 Bot 详情中确认后才能使用。':
     '{creator} created it for {owner} and bound it to {machine}. It can be triggered once the computer owner confirms in notifications or Bot details.',
@@ -105,7 +102,6 @@ export default {
     'Used automatically in groups without a repo and in direct chats; groups with a repo use an automatic clone by default',
   '选择…': 'Choose…',
   清除: 'Clear',
-  触发名单: 'Trigger list',
   输入成员姓名: 'Enter member names',
   '同时执行的任务上限，超出的在这台电脑排队': 'Max concurrent tasks; extra ones queue on this computer',
   '{n} 个': '{n}',
@@ -286,4 +282,24 @@ export default {
     "Wears its agent's look by default, so you can tell at a glance which one it is",
   创建后可拉入群: 'Can be added to groups after creation',
   '最后在线 {time}': 'Last online {time}',
+  自动审批: 'Auto-approve',
+  信任名单: 'Trusted list',
+  名单成员: 'List members',
+  其他成员: 'Everyone else',
+  确定允许: 'Allow',
+  '不再询问，Bot 可以执行任何操作，包括危险命令。':
+    'Never asks; the Bot may do anything, dangerous commands included.',
+  '按「帮我审批」的规则自动放行，规则拦下的操作直接拒绝，不打扰你。':
+    'Allowed by the "Review for me" rules; whatever they stop is rejected without bothering you.',
+  '只读命令自动放行，其余操作发审批卡片给你。':
+    'Read-only commands run; everything else sends you an approval card.',
+  'Bot 只能读取，其余操作发审批卡片给你。':
+    'The Bot can only read; everything else sends you an approval card.',
+  '@ 它不会启动运行。': 'Mentioning it starts no run.',
+  '名单里的成员发起的任务按这个方式审批。': 'Tasks started by members on the list are approved this way.',
+  '群里其余成员发起的任务按这个方式审批；接力的任务按最初发起人算。':
+    "Tasks started by everyone else in the group are approved this way; relayed tasks count as their first initiator's.",
+  '允许{who}完全控制这台电脑？': 'Let {who} fully control this computer?',
+  '他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。':
+    'Their tasks will no longer ask you: the Bot may do anything on your computer, including dangerous commands such as deleting files or pushing code.',
 } satisfies Record<string, string>

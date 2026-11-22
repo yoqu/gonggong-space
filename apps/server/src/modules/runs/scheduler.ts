@@ -4,8 +4,8 @@ import {
   type ContextMessage,
   clientRunsAgent,
   type GitProtocol,
+  type RunAudience,
   type RunStart,
-  type Tier,
   UI_BLOCKS_GUIDE,
 } from '@gonggong/protocol'
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, max, ne, or, type SQL, sql } from 'drizzle-orm'
@@ -27,6 +27,7 @@ import { feishuHint } from '../agent-tools/feishu.js'
 import { originAdmin } from '../agent-tools/layers.js'
 import { pluginHint } from '../agent-tools/plugins.js'
 import { runArtifacts } from '../artifacts/service.js'
+import { runAccess } from '../bots/access.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
 import { gitIdentity } from '../bots/git.js'
@@ -417,6 +418,7 @@ export async function buildRunStart(
   }
   // A /new request wins over any session id a still-running turn reported after the request.
   const resumeSessionId = detached || session.newReason ? null : session.id
+  const access = runAccess(bot, gb.tier, run.audience as RunAudience | null)
   const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, granted, hosted] =
     await Promise.all([
       // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
@@ -434,7 +436,7 @@ export async function buildRunStart(
       boundChat(tx, run.groupId),
       run.parentRunId ? relayNote(tx, run.parentRunId, at) : [],
       meta.scheduleOf ? scheduleNote(tx, meta.scheduleOf, at) : null,
-      runTier(tx, (gb.tier ?? bot.tier) as Tier),
+      runTier(tx, access.tier),
       synced ? runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
       // A resumed session that already got the knowledge base only hears what changed since.
       command
@@ -510,7 +512,7 @@ export async function buildRunStart(
       approval: bot.approval as Approval,
       allowlist: bot.allowlist,
       alwaysAllow: bot.alwaysAllow,
-      aiReview: bot.aiReview,
+      aiReview: access.aiReview,
       git: gitIdentity(bot),
       agentSettings: bot.agentSettings,
       ...config,

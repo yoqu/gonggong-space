@@ -4,6 +4,7 @@ import {
   type AiReview,
   type ApprovalMcp,
   type ArtifactFile,
+  type BotAccess,
   type DiffRepo,
   type GitActionArgs,
   type GitActionDetail,
@@ -245,6 +246,8 @@ export const bots = pgTable('bots', {
   /** 'all' | 'list' | 'self' */
   triggerScope: text('trigger_scope').notNull().default('all'),
   triggerList: jsonb('trigger_list').$type<string[]>().notNull().default([]),
+  /** How it runs for the trigger list and for everyone else (protocol BotAccess); the owner's is tier + aiReview. */
+  access: jsonb('access').$type<BotAccess>().notNull().default({ trusted: 'ask', others: 'auto' }),
   concurrency: integer('concurrency').notNull().default(2),
   /** Legacy, always 'ask': 审批方式 is the tier plus aiReview now (migration 0106 folded the other modes in). */
   approval: text('approval').notNull().default('ask'),
@@ -829,6 +832,8 @@ export const runs = pgTable(
     originUserId: uuid('origin_user_id')
       .notNull()
       .references(() => users.id),
+    /** Whose level it runs at (protocol RunAudience); null on runs before it = the bot's own tier. */
+    audience: text('audience'),
     parentRunId: uuid('parent_run_id'),
     hop: integer('hop').notNull().default(1),
     /**

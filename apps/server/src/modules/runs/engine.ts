@@ -367,6 +367,7 @@ async function onContinue(ctx: Ctx, machineId: string, msg: Extract<DaemonMsg, {
       triggerMessageId: run.triggerMessageId,
       triggerUserId: run.triggerUserId,
       originUserId: run.originUserId,
+      audience: run.audience,
       threadRootId: run.threadRootId,
       continuationOf: run.id,
       status: 'running',

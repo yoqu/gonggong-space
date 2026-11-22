@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AgentSettingValues } from '../agent-settings.js'
-import { AgentKind, Allowlist, Tier, TriggerScope } from '../common.js'
+import { AgentKind, Allowlist, BotAccess, Tier, TriggerScope } from '../common.js'
 import {
   GitActionArgs,
   GitActionDetail,
@@ -485,6 +485,7 @@ export const UpdateBotReq = z.object({
   tier: Tier.optional(),
   triggerScope: TriggerScope.optional(),
   triggerList: z.array(z.string()).optional(),
+  access: BotAccess.optional(),
   concurrency: z.number().int().min(1).max(8).optional(),
   model: z.string().nullable().optional(),
   effort: z.string().nullable().optional(),

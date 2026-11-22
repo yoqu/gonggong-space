@@ -69,6 +69,7 @@ const bot: BotDto = {
   systemPrompt: '',
   tier: 'workspace',
   triggerScope: 'all',
+  access: { trusted: 'ask', others: 'auto' },
   triggerList: [],
   concurrency: 2,
   createdBy: 'u1',

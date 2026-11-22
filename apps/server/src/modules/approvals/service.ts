@@ -3,6 +3,7 @@ import {
   type ApprovalAiApproved,
   type ApprovalRequest,
   type PermissionOption,
+  type RunAudience,
 } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -10,6 +11,7 @@ import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { audit, teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { startSweep } from '../../lib/sweep.js'
+import { levelOf } from '../bots/access.js'
 import { normalizeAllowlist } from '../bots/allowlist.js'
 import { publishBot } from '../bots/dto.js'
 import { groupParams } from '../groups/params.js'
@@ -82,6 +84,12 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       createdAt: ctx.now(),
     })
     .returning()) as [Approval]
+  // 自动审批 for someone other than the owner: what the rules left is refused, the owner is not disturbed.
+  if (levelOf(row.bot, row.run.audience as RunAudience | null) === 'auto') {
+    const reject = req.options.find((o) => o.kind === 'reject_once')
+    await settle(ctx, { a, groupId: row.group.id, machineId }, 'rejected', reject?.optionId ?? null, null)
+    return
+  }
   await syncRun(ctx, req.runId, runStep('等待审批：{title}', { title: req.title }))
   await notify(ctx, row.bot.ownerId, 'approval', {
     groupId: row.group.id,

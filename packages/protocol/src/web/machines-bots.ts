@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AgentSettings, AgentSettingValues } from '../agent-settings.js'
-import { AgentKind, Approval, DiffRepo, Tier, TriggerScope } from '../common.js'
+import { AgentKind, Approval, BotAccess, DiffRepo, Tier, TriggerScope } from '../common.js'
 import {
   AgentCatalog,
   AgentState,
@@ -213,6 +213,8 @@ export const BotDto = z.object({
   tier: Tier,
   triggerScope: TriggerScope,
   triggerList: z.array(z.string()),
+  /** Levels for others than the owner (see BotAccess). */
+  access: BotAccess,
   concurrency: z.number().int(),
   createdBy: z.string(),
   /** Version of this agent kind last reported by the bound machine. */

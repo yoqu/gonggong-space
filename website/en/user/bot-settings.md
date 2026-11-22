@@ -1,6 +1,6 @@
 # Bot settings and permissions
 
-This page covers the settings in Bot details: name and appearance, provider and model, default workspace, approval mode, trigger scope, concurrency, Git commit identity, sharing, and deleting a Bot.
+This page covers the settings in Bot details: name and appearance, provider and model, default workspace, approval mode, trusted list and everyone else, concurrency, Git commit identity, sharing, and deleting a Bot.
 
 ## Open Bot details
 
@@ -71,7 +71,7 @@ See [Repositories and workspaces](/en/user/repos-workspaces).
 
 ### Approval mode
 
-Decides what happens when the Bot wants to do something risky. Pick one of three:
+Decides what happens when the Bot wants to do something risky in tasks **you** start. Pick one of three (for tasks others start, see [Trusted list and everyone else](#trusted-list-and-everyone-else) below):
 
 | Option | Meaning |
 | --- | --- |
@@ -84,7 +84,7 @@ Under 「每次问我」 (Ask me every time) and 「帮我审批」 (Review for 
 **Built-in review**: under 「帮我审批」 (Review for me), Claude Code (official login) and Codex (official OpenAI login) are gated by the agent's own built-in auto-review instead. Operations it blocks make the agent try another approach, without sending a card. Built-in review isn't available with third-party providers or unsupported models; approvals then work as described above, and the run's process notes who reviewed it.
 
 ::: danger Allow everything
-With 「完全允许」 (Allow everything), the Bot never asks before running any command, and nothing is blocked for tasks started by anyone who can trigger it — dangerous commands included. That's why it **only allows a specified list to trigger it**: when you choose Allow everything and the trigger scope is 「任何群成员」 (Any group member), it switches automatically to 「指定名单」 (Specified list), and 「任何群成员」 (Any group member) can't be selected. Turn it on only for groups or Bots that you alone use.
+With 「完全允许」 (Allow everything), the Bot never asks before running any command, dangerous commands included. This only covers tasks you start yourself; when others @ it, the mode you set for them below applies — they are neither refused nor given Allow everything just because you turned it on.
 :::
 
 Older Bots may still be on the 「只读」 (Read-only) tier: the Bot can only read, and everything else sends an approval card. Once you switch to another mode, this option no longer appears.
@@ -101,15 +101,26 @@ The allowlist for 「每次问我」 (Ask me every time) and 「帮我审批」 
 
 For handling approval cards and how rules are generated, see [Approvals and questions](/en/user/approvals).
 
-### Trigger scope
+### Trusted list and everyone else
 
-Decides whose @ in a group puts the Bot to work:
+When others @ it, they fall into two groups by who started the task, each with its own mode:
+
+- **「信任名单」 (Trusted list)**: members on the list (type member names to add them). People who DM this Bot through a share count here too.
+- **「其他成员」 (Everyone else)**: everyone else in the group.
+
+Relayed (hand_off) tasks count as started by whoever started the chain.
 
 | Option | Meaning |
 | --- | --- |
-| 任何群成员 (Any group member) | Every member of the groups the Bot is in can trigger it |
-| 指定名单 (Specified list) | Only members on the list can trigger it. When selected, a 「触发名单」 (Trigger list) appears; type member names to add them |
-| 仅本人 (Owner only) | Only the Bot owner can trigger it |
+| 完全允许 (Allow everything) | Never asks; the Bot can do anything. Choosing it asks you to confirm once more |
+| 自动审批 (Auto-approve) | Allowed by the 「帮我审批」 (Review for me) rules; whatever they stop (dangerous commands included) is **rejected outright** without a card bothering you, and the agent tries another way |
+| 需要审批 (Needs approval) | Read-only commands run; everything else sends you an approval card |
+| 只读 (Read-only) | The Bot can only read; everything else sends you an approval card |
+| 不可触发 (Cannot be triggered) | An @ starts no run; the run card shows 「无权触发」 (Not allowed) |
+
+New Bots default to Needs approval for the trusted list and Auto-approve for everyone else. While everyone else may trigger it, the trusted list can't be set to Cannot be triggered.
+
+A group's own 「本群审批方式」 (Approval in this group) is a ceiling for both groups: set to Read-only there, list members and everyone else can only read in that group; for you it still replaces your mode.
 
 ## Advanced
 

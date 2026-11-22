@@ -52,6 +52,7 @@ const bot = {
   reasoningEffort: null,
   systemPrompt: '',
   triggerScope: 'all',
+  access: { trusted: 'ask', others: 'auto' },
   concurrency: 2,
   approvalMode: 'ask',
   teamId: 't1',

@@ -77,7 +77,7 @@ The steps on the card give the reason. Common ones:
 
 ### It shows "Not allowed"
 
-You're not in this Bot's trigger scope. Ask the Bot owner to add you to the 「指定名单」 (Specified list) in the Bot settings, or change the trigger scope to 「任何群成员」 (Any group member). Note that a Bot whose approval mode is 「完全允许」 (Allow everything) can only be triggered by people on the trigger list. See [Bot settings and permissions](/en/user/bot-settings).
+The Bot owner set the group you fall into to 「不可触发」 (Cannot be triggered). Ask them to add you to the 「信任名单」 (Trusted list) under Bot settings · Access, or to give 「其他成员」 (Everyone else) another mode. See [Bot settings and permissions](/en/user/bot-settings).
 
 ### "has no workspace yet, so this was not run" or "machine cannot reach the repo"
 

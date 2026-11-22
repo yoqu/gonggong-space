@@ -86,12 +86,11 @@ describe('per-group tier', () => {
     expect((await w.start()).bot.tier).toBe('workspace')
   })
 
-  it('a full override limits triggers to the explicit list like a full bot', async () => {
+  it('a full override lets everyone else in at their own level', async () => {
     const w = await world()
     await w.setTier(w.owners, w.g1.id, 'full')
     await w.trigger(w.g1.id, w.member.id)
-    const [run] = await t.db.select().from(runs).where(eq(runs.groupId, w.g1.id))
-    expect(run!.status).toBe('forbidden')
+    expect((await w.start()).bot).toMatchObject({ tier: 'workspace', aiReview: true })
   })
 
   it('raising a live run to full tells the daemon and approves its pending requests', async () => {

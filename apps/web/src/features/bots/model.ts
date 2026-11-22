@@ -109,6 +109,7 @@ export type BotPatch = Partial<
     | 'tier'
     | 'triggerScope'
     | 'triggerList'
+    | 'access'
     | 'model'
     | 'effort'
     | 'concurrency'

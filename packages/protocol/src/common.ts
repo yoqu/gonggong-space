@@ -56,6 +56,19 @@ export const Allowlist = z.array(z.string().trim().min(1).max(200)).max(100)
 export const TriggerScope = z.enum(['all', 'list', 'self'])
 export type TriggerScope = z.infer<typeof TriggerScope>
 
+/**
+ * How a bot runs for someone other than its owner: full / workspace with 帮我审批 (requests its rules leave are
+ * rejected, not asked) / workspace asking the owner / read-only. Who may trigger at all stays `triggerScope`.
+ */
+export const AccessLevel = z.enum(['full', 'auto', 'ask', 'read-only'])
+export type AccessLevel = z.infer<typeof AccessLevel>
+/** Levels for the trigger list's members and for everyone else; the owner keeps `tier` + `aiReview`. */
+export const BotAccess = z.object({ trusted: AccessLevel, others: AccessLevel })
+export type BotAccess = z.infer<typeof BotAccess>
+/** Whose level a run uses: its chain's human initiator's (a shared bot's DM counts as trusted). */
+export const RunAudience = z.enum(['owner', 'trusted', 'others'])
+export type RunAudience = z.infer<typeof RunAudience>
+
 /** Run card states (plan D2). */
 export const RunStatus = z.enum([
   'queued',

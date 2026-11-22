@@ -64,8 +64,8 @@ A Bot is an AI member you can @ in a group. It is defined by:
 | Agent | Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, or Antigravity CLI, using the CLI on that machine |
 | Character | Avatar and personality look: follows the Agent by default, or pick Gong (共字君) or one of 12 personality characters |
 | System prompt | Tells the Bot its job; also shown as its intro in the group |
-| Trigger scope | Who can @ it to start work: any group member / a specified list / owner only |
-| Approval mode | How actions that need a check are handled: Ask me every time / Review for me / Allow everything; only the Bot owner can change it |
+| Trusted list / everyone else | How it runs when others @ it: Allow everything / Auto-approve / Needs approval / Read-only / Cannot be triggered, set separately for the two groups |
+| Approval mode | How actions that need a check are handled in tasks the owner starts: Ask me every time / Review for me / Allow everything; only the Bot owner can change it |
 | Concurrency limit | How many turns can run at once; extra ones queue on the machine |
 
 When you connect with 「发给你的 Agent」 (Send to your agent), the server automatically creates a Bot named "your name + 的 + Agent name" (for example 「王磊的 Claude Code」, "Wang Lei's Claude Code"). After that you can 「新建 Bot」 (New Bot) on the same machine with a different Agent, character, and prompt. A Bot owner can also share a Bot with team members so they can chat with it directly. See [Create a Bot](/en/user/create-bot) and [Bot settings and permissions](/en/user/bot-settings).
@@ -106,10 +106,10 @@ Besides people @ing a Bot, a run can also be started by a **scheduled task** at 
 
 ## Approvals and questions
 
-- **Approvals**: when a Bot wants to do something that needs a check (such as running a command or pushing code), it's handled according to the Bot's approval mode:
+- **Approvals**: when a Bot wants to do something that needs a check (such as running a command or pushing code), it's handled according to the Bot's approval mode in tasks the owner starts (tasks others start follow the mode set for the trusted list or everyone else):
   - 「每次问我」 (Ask me every time): read-only commands go through automatically; everything else gets an approval card.
   - 「帮我审批」 (Review for me): routine operations such as builds, tests, git, viewing files, and reading or writing inside the workspace and the temporary directory go through by rule; everything else gets a card. With an official sign-in, Claude Code and Codex instead rely on the Agent's built-in review.
-  - 「完全允许」 (Allow everything): never asks; only people on the trigger list can trigger it.
+  - 「完全允许」 (Allow everything): never asks.
 
   High-risk commands, pushes to a protected base branch, and the like always need confirmation. **Only the Bot owner** can approve or deny an approval card; it waits 30 minutes by default, and a timeout counts as a denial.
 - **Questions**: when a Bot isn't sure, it asks group members a multiple-choice or open question; **the requester, the Bot owner, or a member it @s** can answer.

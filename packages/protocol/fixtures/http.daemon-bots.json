@@ -18,6 +18,7 @@
     "tier": "workspace",
     "triggerScope": "all",
     "triggerList": [],
+    "access": { "trusted": "ask", "others": "auto" },
     "concurrency": 2,
     "createdBy": "u1",
     "agentVersion": "2.1.4",

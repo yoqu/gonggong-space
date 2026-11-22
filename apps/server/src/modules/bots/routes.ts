@@ -356,18 +356,11 @@ export function botRoutes(ctx: Ctx) {
         assertBotAgentSettings(bot.agentKind as AgentKind, body.agentSettings)
       }
       if (body.alwaysAllow) body.alwaysAllow = normalizeAllowlist(body.alwaysAllow)
-      await assertTierAllowed(ctx, body.tier)
+      await assertTierAllowed(ctx, body.tier, body.access)
       const name = body.name?.trim()
       if (name !== undefined) {
         if (!name) fail('invalid', '名称不能为空')
         await assertNameFree(ctx, name, bot.id)
-      }
-      const tier = body.tier ?? bot.tier
-      let triggerScope = body.triggerScope ?? bot.triggerScope
-      // Spec 3.6: a full-tier bot may only be triggered by an explicit list.
-      if (tier === 'full' && triggerScope === 'all') {
-        if (body.triggerScope === 'all') fail('invalid', '「完全允许」方式只能给指定成员使用')
-        triggerScope = 'list'
       }
       if (body.triggerList) await assertUsers(ctx, bot.teamId, body.triggerList)
       if (body.model !== undefined || body.effort !== undefined) {
@@ -377,10 +370,8 @@ export function botRoutes(ctx: Ctx) {
         if (body.model !== undefined && body.effort === undefined)
           body.effort = fitEffort(catalog, body.model, bot.effort) === bot.effort ? bot.effort : null
       }
-      await ctx.db
-        .update(bots)
-        .set({ ...body, name, tier, triggerScope })
-        .where(eq(bots.id, bot.id))
+      const values = { ...body, ...(name !== undefined && { name }) }
+      if (Object.keys(values).length) await ctx.db.update(bots).set(values).where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
       const from = { alwaysAllow: bot.alwaysAllow, aiReview: bot.aiReview }
       const approval = {
@@ -400,7 +391,11 @@ export function botRoutes(ctx: Ctx) {
             to: approval,
           },
         })
-      if (tier !== bot.tier) await applyTier(ctx, user.id, bot.id)
+      const accessChanged =
+        body.access &&
+        (body.access.trusted !== bot.access.trusted || body.access.others !== bot.access.others)
+      // A new trigger list moves people between levels only from their next run.
+      if ((body.tier && body.tier !== bot.tier) || accessChanged) await applyTier(ctx, user.id, bot.id)
       if (name !== undefined && name !== bot.name) await publishDmsOf(ctx, bot.id)
       return publishBot(ctx, bot.id)
     })

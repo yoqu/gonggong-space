@@ -25,10 +25,11 @@ import { stepText } from '../runs/mcp'
 import { Trend, UsageBars, WINDOW } from '../usage/UsagePage'
 import { agentLabel } from './AgentConfig'
 import { approvalText } from './ApprovalFields'
+import { AUDIENCE_LEVEL_LABEL, audienceValue } from './AudienceFields'
 import { BotAvatar, botRole, roleOf } from './avatars'
 import { useMachineProviders } from './BotProvider'
 import { type BotTab, BotWarning } from './BotSettings'
-import { agentCliVersion, agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
+import { agentCliVersion, agentLine, PRESENCE } from './model'
 import { ShareRequestAction, useDm } from './ShareRequest'
 import './bots.css'
 import { t } from '../../i18n'
@@ -249,6 +250,7 @@ function Profile({
     : [t('模型'), agentLabel(bot.catalog, bot.model, bot.effort)]
   const role = roleOf(botRole(bot), bot.agentKind)
   const names = (ids: string[]) => ids.map((id) => users.find((u) => u.id === id)?.name ?? '--').join(t('、'))
+  const audience = audienceValue(bot)
   const sections: [string, Row[], ReactNode?][] = [
     [
       t('基本信息'),
@@ -292,11 +294,12 @@ function Profile({
       [
         [t('审批方式'), approvalText(bot)],
         [
-          t('触发范围'),
-          bot.triggerScope === 'list'
-            ? `${TRIGGER_SCOPE_LABEL.list} · ${names(bot.triggerList) || '--'}`
-            : TRIGGER_SCOPE_LABEL[bot.triggerScope],
+          t('信任名单'),
+          audience.trusted === 'deny'
+            ? AUDIENCE_LEVEL_LABEL.deny
+            : `${AUDIENCE_LEVEL_LABEL[audience.trusted]} · ${names(bot.triggerList) || '--'}`,
         ],
+        [t('其他成员'), AUDIENCE_LEVEL_LABEL[audience.others]],
       ],
     ],
     [

@@ -74,7 +74,12 @@ async function world() {
   const owner = await t.seed.user({ name: '王磊' })
   const viewer = await t.seed.user({ name: '陈晨' })
   const { machine, token } = await t.seed.machine(owner.id)
-  const bot = await t.seed.bot({ ownerId: owner.id, name: '小王的 Claude', machineId: machine.id })
+  const bot = await t.seed.bot({
+    ownerId: owner.id,
+    name: '小王的 Claude',
+    machineId: machine.id,
+    access: { trusted: 'ask', others: 'ask' },
+  })
   const group = await t.seed.group({ createdBy: viewer.id, memberIds: [owner.id], botIds: [bot.id] })
   const d = await daemon(token)
   const ownerWeb = watch(owner.id)
@@ -381,7 +386,7 @@ describe('approvals', () => {
     expect(bot!.rules).toEqual([])
   })
 
-  it('sends the bot 帮我审批 switch with run.start', async () => {
+  it("sends the owner's 帮我审批 switch with their run.start", async () => {
     const w = await world()
     await t.db.update(bots).set({ aiReview: true }).where(eq(bots.id, w.bot.id))
     const [m] = await t.db
@@ -389,7 +394,7 @@ describe('approvals', () => {
       .values({
         groupId: w.group.id,
         kind: 'user',
-        authorUserId: w.viewer.id,
+        authorUserId: w.owner.id,
         body: '@小王的 Claude 跑下构建',
         meta: { mentions: [w.bot.id] },
       })

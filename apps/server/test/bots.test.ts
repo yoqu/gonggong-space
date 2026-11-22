@@ -227,7 +227,7 @@ describe('GET /api/bots', () => {
 })
 
 describe('PATCH /api/bots/:id', () => {
-  it('lets the owner and sysadmins edit, and enforces the full-tier trigger list', async () => {
+  it('lets the owner and sysadmins edit, and no longer narrows a full-tier bot to its list', async () => {
     const wang = await actor()
     const li = await actor()
     const admin = await actor({ role: 'sysadmin' })
@@ -235,14 +235,12 @@ describe('PATCH /api/bots/:id', () => {
     const url = `/api/bots/${bot.id}`
 
     expect((await li.req('PATCH', url, { systemPrompt: 'x' })).statusCode).toBe(403)
-    expect((await wang.req('PATCH', url, { tier: 'full', triggerScope: 'all' })).statusCode).toBe(400)
     expect((await wang.req('PATCH', url, { triggerScope: 'list', triggerList: ['nope'] })).statusCode).toBe(
       400,
     )
 
     const full = await wang.req('PATCH', url, { tier: 'full', triggerList: [li.user.id] })
-    expect(full.json()).toMatchObject({ tier: 'full', triggerScope: 'list', triggerList: [li.user.id] })
-    expect((await wang.req('PATCH', url, { triggerScope: 'all' })).statusCode).toBe(400)
+    expect(full.json()).toMatchObject({ tier: 'full', triggerScope: 'all', triggerList: [li.user.id] })
 
     const byAdmin = await admin.req('PATCH', url, { systemPrompt: '只读分析', tier: 'read-only' })
     expect(byAdmin.json()).toMatchObject({ systemPrompt: '只读分析', tier: 'read-only' })

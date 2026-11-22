@@ -217,6 +217,7 @@ describe('connection status', () => {
       binding: 'bound',
       presence: 'online',
       triggerScope: 'all',
+      access: { trusted: 'ask', others: 'auto' },
       triggerList: [],
       sharedWith: [],
     } as unknown as BotDto
@@ -243,6 +244,7 @@ describe('connection status', () => {
         binding: 'bound',
         presence,
         triggerScope: 'all',
+        access: { trusted: 'ask', others: 'auto' },
         triggerList: [],
         sharedWith: [],
       }) as unknown as BotDto

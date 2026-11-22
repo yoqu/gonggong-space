@@ -116,7 +116,7 @@ async function until<T>(read: () => Promise<T>, pred: (v: T) => boolean) {
 }
 
 describe('trigger scope', () => {
-  it('applies all / list / self, always lets the owner in, and forces list on full tier', async () => {
+  it('applies all / list / self and always lets the owner in, full tier or not', async () => {
     const w = await world()
     const all = await w.bot('全员')
     const list = await w.bot('名单', { triggerScope: 'list', triggerList: [w.bob.id] })
@@ -162,13 +162,10 @@ describe('trigger scope', () => {
 
     const carol = await statusOf(w.carol.id)
     expect(allowed).toContain(carol.all)
-    expect([carol.list, carol.self, carol.full]).toEqual(['forbidden', 'forbidden', 'forbidden'])
+    expect(allowed).toContain(carol.full)
+    expect([carol.list, carol.self]).toEqual(['forbidden', 'forbidden'])
     expect(carol.steps.sort()).toEqual(
-      [
-        '该 Bot 仅允许主人触发，未启动运行',
-        '该 Bot 仅允许指定名单触发，未启动运行',
-        '该 Bot 仅允许指定名单触发，未启动运行',
-      ].sort(),
+      ['该 Bot 仅允许主人触发，未启动运行', '该 Bot 仅允许指定名单触发，未启动运行'].sort(),
     )
   })
 

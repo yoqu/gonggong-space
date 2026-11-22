@@ -1,11 +1,11 @@
 import {
   AGENT_META,
+  type BotAccess,
   type BotDto,
   INHERIT_PROVIDER,
   type MachineDto,
   OFFICIAL_PROVIDER,
   type ProviderStoreView,
-  type TriggerScope,
   type UsageRowDto,
   type UserBriefDto,
   type UserDto,
@@ -41,24 +41,16 @@ import { UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfig'
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
+import { AudienceFields, type AudienceValue, audiencePatch, audienceValue } from './AudienceFields'
 import { avatarSrc, BotAvatar, botRole, RolePicker, roleFace, roleHint } from './avatars'
 import { BotAgentSettingRows, cleanOverrides } from './BotAgentSettings'
 import { choiceProvider, ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { BotShares } from './BotShares'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import { MachineLink } from './MachineLink'
-import {
-  agentCliVersion,
-  agentOutdated,
-  agentsUndetected,
-  type BotPatch,
-  botsApi,
-  confirmBot,
-  TRIGGER_SCOPE_LABEL,
-} from './model'
+import { agentCliVersion, agentOutdated, agentsUndetected, type BotPatch, botsApi, confirmBot } from './model'
 import './bots.css'
 
-const FULL_HINT = t('完全允许只能由触发名单里的人触发')
 const MAX_CONCURRENCY = 8
 
 function warning(bot: BotDto, userName: (id: string) => string, machine: MachineDto | undefined) {
@@ -164,6 +156,7 @@ function UsageTab({ bot }: { bot: BotDto }) {
 export type BotTab = 'basic' | 'run' | 'access' | 'advanced' | 'feishu' | 'share'
 
 const sameList = (a: string[], b: string[]) => a.join('\n') === b.join('\n')
+const sameAccess = (a: BotAccess, b: BotAccess) => a.trusted === b.trusted && a.others === b.others
 const sameMap = (a: Record<string, string>, b: Record<string, string>) =>
   Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => b[k] === v)
 
@@ -198,7 +191,7 @@ export function BotDetail({
   /** null = the bot's provider is kept. */
   const [provider, setProvider] = useState<string | null>(null)
   const [config, setConfig] = useState<AgentConfig>({ model: bot.model, effort: bot.effort })
-  const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
+  const [audience, setAudience] = useState<AudienceValue>(audienceValue(bot))
   const [list, setList] = useState(bot.triggerList)
   const [concurrency, setConcurrency] = useState(bot.concurrency)
   const [approval, setApproval] = useState<ApprovalValue>({
@@ -239,13 +232,15 @@ export function BotDetail({
   const modelChanged = config.model !== bot.model
   const effortChanged = config.effort !== bot.effort
 
+  const scoped = audiencePatch(audience, bot.access)
   // Unchanged values are left out: one the catalog no longer lists would be refused.
   const patch: BotPatch = {
     ...(name.trim() !== bot.name && { name: name.trim() }),
     ...(avatar !== botRole(bot) && { avatar }),
     ...(prompt !== bot.systemPrompt && { systemPrompt: prompt }),
     ...(tier !== bot.tier && { tier }),
-    ...(scope !== bot.triggerScope && { triggerScope: scope }),
+    ...(scoped.triggerScope !== bot.triggerScope && { triggerScope: scoped.triggerScope }),
+    ...(!sameAccess(scoped.access, bot.access) && { access: scoped.access }),
     ...(!sameList(list, bot.triggerList) && { triggerList: list }),
     ...(!together && modelChanged && { model: config.model }),
     ...(!together && effortChanged && { effort: config.effort }),
@@ -457,47 +452,17 @@ export function BotDetail({
           (bot.agentKind === 'claude' || bot.agentKind === 'codex') &&
           !!machine?.features.includes('builtinReview')
         }
-        onChange={(v) => {
-          setApproval(v)
-          if (v.tier === 'full' && scope === 'all') setScope('list')
-        }}
+        onChange={setApproval}
       />
-      <FormRow label={t('触发范围')} hint={tier === 'full' ? FULL_HINT : undefined}>
-        <div title={tier === 'full' ? FULL_HINT : undefined}>
-          <SegmentedControl<TriggerScope>
-            aria-label={t('触发范围')}
-            size="small"
-            value={scope}
-            onChange={setScope}
-            items={[
-              { value: 'all', label: TRIGGER_SCOPE_LABEL.all, disabled: !canEdit || tier === 'full' },
-              { value: 'list', label: TRIGGER_SCOPE_LABEL.list, disabled: !canEdit },
-              { value: 'self', label: TRIGGER_SCOPE_LABEL.self, disabled: !canEdit },
-            ]}
-          />
-        </div>
-      </FormRow>
-      {scope === 'list' ? (
-        <FormRow label={t('触发名单')}>
-          {canEdit ? (
-            <TokenField
-              aria-label={t('触发名单')}
-              placeholder={t('输入成员姓名')}
-              value={list.map(userName)}
-              suggestions={users.map((u) => ({ label: u.name, detail: u.account }))}
-              onChange={(tokens) =>
-                setList(
-                  tokens
-                    .map((t) => idOf(typeof t === 'string' ? t : t.label))
-                    .filter((id): id is string => !!id),
-                )
-              }
-            />
-          ) : (
-            <span>{list.map(userName).join(t('、')) || '--'}</span>
-          )}
-        </FormRow>
-      ) : null}
+      <AudienceFields
+        canEdit={canEdit}
+        demo={demo}
+        value={audience}
+        onChange={setAudience}
+        listNames={list.map(userName)}
+        suggestions={users.map((u) => ({ label: u.name, detail: u.account }))}
+        onListChange={(names) => setList(names.map(idOf).filter((id): id is string => !!id))}
+      />
     </Form>
   )
 

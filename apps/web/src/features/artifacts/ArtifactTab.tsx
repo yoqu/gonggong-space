@@ -28,7 +28,7 @@ import { IssuesButton } from './IssuesButton'
 import { MoveDialog } from './MoveDialog'
 import { PageRail, useRail } from './PageRail'
 import { PrototypeEditor } from './PrototypeEditor'
-import { RUNNER, runnerText } from './runner'
+import { type RUNNER, runnerText } from './runner'
 import { ShareDialog, useArtifactManager } from './share'
 import {
   archiveArtifact,

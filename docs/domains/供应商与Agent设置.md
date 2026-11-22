@@ -73,6 +73,8 @@
 
 ## 权限档位映射
 - 档位 `Tier`：`full` 完全允许、`workspace` 需要审批、`read-only` 只读；Bot 默认 `bots.tier`，群可覆盖 `group_bots.tier`；演示模式不许 full（`modules/bots/tier.ts`）。
+- 按人群分档（`modules/bots/access.ts`）：运行按链头真人的 `runs.audience`（owner / trusted / others，建运行时定，后台继续沿用）取档。主人用 `bots.tier` + `aiReview`（群覆盖直接替换）；触发名单成员（含共享私聊的人）和其他成员用 `bots.access` 的 full / auto / ask / read-only，换成 tier + aiReview，群覆盖对他们是上限。「不可触发」仍是 `triggerScope`（list = 其他成员不可触发，self = 两类都不可）；full 不再强制只许名单触发。
+- 别人的运行在 auto 档时，daemon 发来的审批请求服务端立即选拒绝，不通知主人；ask / read-only 仍问主人。改 `access` 或 `tier` 时在跑的轮次按各自人群重算，升到 full 的自动批准挂起请求。
 - 档位改动对运行中的轮次立即生效（`run.tier`）；升到 full 时自动批准待审请求。
 - ACP 模式映射（`turn.rs` `mode_for`）：Claude bypassPermissions / acceptEdits / default；Codex agent-full-access / workspace-write / read-only（不用 `agent`，它把审批交给 Codex 自己的审查模型）。
 - 插件 Agent 取清单 `tiers`：Gemini yolo / autoEdit / default；CodeBuddy 同 Claude；Antigravity auto / accept-edits / default（auto 才让子 agent 跑安全命令：agy 不把子 agent 的审批发到 ACP）；DeepSeek 用 `DSH_PERMISSION_MODE` 环境变量且改档重启；pi 无档位。
