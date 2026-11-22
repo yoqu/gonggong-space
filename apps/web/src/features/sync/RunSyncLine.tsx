@@ -6,8 +6,7 @@ import { t } from '../../i18n'
 import { Button, ChatNotice, Icon, Presence } from '../../ui'
 import { ConflictDialog } from './ConflictDialog'
 import { reasonText } from './model'
-import { SyncPanel } from './SyncPanel'
-import { useSyncStatus } from './store'
+import { openSyncPanel, useSyncStatus } from './store'
 import './sync.css'
 
 /** Group admins and the bot's owner may settle its replica (F11, F12). */
@@ -37,10 +36,6 @@ function Settle({
   conflictId?: string | null
 }) {
   const allowed = useCanSettle(groupId, botId)
-  const me = useSession((s) => s.user?.id)
-  const isAdmin = useWorkspace(
-    (s) => !!s.groups.find((g) => g.id === groupId)?.members.some((m) => m.userId === me && m.isAdmin),
-  )
   const botName = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.name ?? '')
   const status = useSyncStatus({ id: groupId, mode: 'force' })
   const [open, setOpen] = useState(false)
@@ -48,6 +43,12 @@ function Settle({
   if (status.replicas.find((r) => r.botId === botId)?.issue !== issue)
     return <span className="sync-muted">{t('已处理')}</span>
   if (!allowed) return null
+  if (issue === 'drift')
+    return (
+      <Button size="small" variant="plain" onClick={() => openSyncPanel(groupId, botId)}>
+        {t('处理')}
+      </Button>
+    )
   return (
     <>
       <Button size="small" variant="plain" onClick={() => setOpen(true)}>
@@ -55,22 +56,13 @@ function Settle({
       </Button>
       <Presence>
         {open ? (
-          issue === 'held' ? (
-            <ConflictDialog
-              groupId={groupId}
-              botId={botId}
-              conflictId={conflictId}
-              botName={botName}
-              onClose={() => setOpen(false)}
-            />
-          ) : (
-            <SyncPanel
-              groupId={groupId}
-              focusBotId={botId}
-              isAdmin={isAdmin}
-              onClose={() => setOpen(false)}
-            />
-          )
+          <ConflictDialog
+            groupId={groupId}
+            botId={botId}
+            conflictId={conflictId}
+            botName={botName}
+            onClose={() => setOpen(false)}
+          />
         ) : null}
       </Presence>
     </>

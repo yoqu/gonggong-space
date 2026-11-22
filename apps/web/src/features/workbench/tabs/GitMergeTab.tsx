@@ -126,7 +126,12 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
         />
       </div>
     )
-  if (read.error) return <Alert variant="error" description={read.error} />
+  if (read.error)
+    return (
+      <div className="gm">
+        <Alert variant="error" description={read.error} onRetry={read.reload} />
+      </div>
+    )
   if (!read.data)
     return (
       <div className="gm gm--loading">
@@ -173,10 +178,15 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
       />
     </div>
   )
-  const footer = (apply: ReactNode) => (
+  const notices = (
     <>
       {owner ? null : <Alert description={t('解决冲突需要 Bot 主人批准后才会写入')} />}
       {error ? <Alert variant="error" description={error} /> : null}
+    </>
+  )
+  const footer = (apply: ReactNode) => (
+    <>
+      {notices}
       <div className="gm-foot">
         <Button size="small" disabled={busy} onClick={() => void finish({ side: 'ours' })}>
           {t('全部接受你的')}
@@ -208,6 +218,7 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
               did={mine ? SIDE[mine.ours] : ''}
               text={data.ours}
               action={busy ? <Spinner size={12} /> : t('保留你的版本')}
+              disabled={busy}
               onPick={() => void finish({ side: 'ours' })}
               tone="ours"
             />
@@ -217,12 +228,12 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
               did={mine ? SIDE[mine.theirs] : ''}
               text={data.theirs}
               action={busy ? <Spinner size={12} /> : t('保留他们的版本')}
+              disabled={busy}
               onPick={() => void finish({ side: 'theirs' })}
               tone="theirs"
             />
           </div>
-          {owner ? null : <Alert description={t('解决冲突需要 Bot 主人批准后才会写入')} />}
-          {error ? <Alert variant="error" description={error} /> : null}
+          {notices}
         </div>
       </div>
     )
@@ -635,6 +646,7 @@ function SideCard({
   did,
   text,
   action,
+  disabled,
   onPick,
   tone,
 }: {
@@ -643,6 +655,7 @@ function SideCard({
   did: string
   text: string | null
   action: ReactNode
+  disabled?: boolean
   onPick: () => void
   tone: Side
 }) {
@@ -656,7 +669,7 @@ function SideCard({
       {text != null ? (
         <pre className="gm-side__text">{text.length > 4000 ? `${text.slice(0, 4000)}…` : text}</pre>
       ) : null}
-      <Button size="small" variant="primary" onClick={onPick}>
+      <Button size="small" variant="primary" disabled={disabled} onClick={onPick}>
         {action}
       </Button>
     </section>

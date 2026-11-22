@@ -6,11 +6,11 @@ import {
   type GitChange,
   type GitCompareDto,
 } from '@gonggong/protocol'
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { api, errorText } from '../../../lib/api'
+import { api } from '../../../lib/api'
 import { cx } from '../../../lib/cx'
 import {
   Button,
@@ -29,7 +29,7 @@ import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { BotFileViewer, baseName } from '../../files/FileViewer'
 import { fileNav, filesOf, sortEntries } from '../../files/nav'
-import { gitBase, gitUrls, shortRev, useGitRefs } from '../../git/api'
+import { gitBase, gitUrls, shortRev, useGitGet, useGitRefs } from '../../git/api'
 import { ChangeList, ChangeMark } from '../../git/changes'
 import { RefList } from '../../git/RefList'
 import { openTab } from '../open'
@@ -89,29 +89,19 @@ interface Compare {
 }
 
 /** Changes of the browsed version against the compare base; null while off or loading. */
-function useCompare(url: string | null) {
-  const [state, setState] = useState<Compare | null>(null)
-  useEffect(() => {
-    if (!url) return
-    let live = true
-    const done = (changes: GitChange[], error: string | null) =>
-      live &&
-      setState({
-        url,
-        changes,
-        error,
-        byPath: new Map(changes.map((c) => [c.path, c])),
-        dirs: new Set(changes.flatMap((c) => chain(parentOf(c.path)))),
-      })
-    api.get<GitCompareDto>(url).then(
-      (r) => done(r.changes, null),
-      (e: unknown) => done([], errorText(e)),
-    )
-    return () => {
-      live = false
+function useCompare(url: string | null, stamp: string): Compare | null {
+  const { data, error } = useGitGet<GitCompareDto>(url, stamp)
+  return useMemo(() => {
+    if (!url || (!data && !error)) return null
+    const changes = data?.changes ?? []
+    return {
+      url,
+      changes,
+      error,
+      byPath: new Map(changes.map((c) => [c.path, c])),
+      dirs: new Set(changes.flatMap((c) => chain(parentOf(c.path)))),
     }
-  }, [url])
-  return url && state?.url === url ? state : null
+  }, [url, data, error])
 }
 
 function RefPickerList({
@@ -290,7 +280,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
         : `${files}/tree?path=${encodeURIComponent(dir)}${ignored ? '&ignored=1' : ''}`,
     ['', ...expanded],
   )
-  const compare = useCompare(tab.base ? gitUrls.compare(repo, tab.base, rev) : null)
+  const compare = useCompare(tab.base ? gitUrls.compare(repo, tab.base, rev) : null, rev ? '' : stamp)
   const hits = useSearch(groupId, tab.botId, rev ? '' : query)
   const showTree = wide ? !collapsed : treeOpen
 

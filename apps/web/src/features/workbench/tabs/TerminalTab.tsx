@@ -3,13 +3,22 @@ import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
 import { lazyTerminalUI } from '../../terminal/lazy'
-import { patchTerminalSession } from '../../terminal/TerminalView'
 import type { TerminalViewProps } from '../../terminal/view'
 import type { TabMeta, TabProps } from '../types'
 
 const terminalUI = lazyTerminalUI<TerminalViewProps>(() =>
   import('../../terminal/TerminalView').then((module) => ({ default: module.TerminalViewGuard })),
 )
+
+/** Updates a terminal tab's session id in its original group, even if the user switched chats meanwhile. */
+export function patchTerminalSession(groupId: string, key: string, sessionId: string | undefined) {
+  const state = useWorkbench.getState()
+  const bench = state.benches[groupId]
+  const tab = bench?.tabs.find((item) => item.kind === 'terminal' && item.botId === key)
+  if (!bench || !tab || tab.kind !== 'terminal') return
+  const next = { ...tab, sessionId }
+  state.replace(`terminal:${tab.botId}`, next, groupId)
+}
 
 export function TerminalTab({ tab, active }: TabProps<'terminal'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
@@ -22,6 +31,7 @@ export function TerminalTab({ tab, active }: TabProps<'terminal'>) {
         botId={tab.botId}
         active={active}
         onSession={(sessionId) => patchTerminalSession(groupId, tab.botId, sessionId)}
+        onExit={() => patchTerminalSession(groupId, tab.botId, undefined)}
       />
     </Suspense>
   )

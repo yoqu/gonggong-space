@@ -6,6 +6,7 @@ import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
 import { Button, ChatHeader, DeniedArt, EmptyState, FailedArt, Icon, Presence } from '../../ui'
 import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
+import { machineSupportsTerminal } from '../terminal/spaces'
 import { MachineDetails, MachineName, OS_ICON, osText } from './MachineDetails'
 import { OS_LABEL } from './model'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
@@ -34,11 +35,7 @@ export function MachinePage({
   const owner = useSession((s) => s.user?.id === machine.ownerId)
   const [revoking, setRevoking] = useState(false)
   const [terminal, setTerminal] = useState(false)
-  const terminals =
-    owner &&
-    machine.online &&
-    (machine.os === 'macos' || machine.os === 'linux') &&
-    machine.features.includes(TERMINAL_DIR_FEATURE)
+  const terminals = owner && machineSupportsTerminal(machine, TERMINAL_DIR_FEATURE)
   return (
     <section className="machine-page" aria-label={t('电脑详情')}>
       {owner ? null : (

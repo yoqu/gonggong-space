@@ -211,7 +211,8 @@ export const fmtDuration = (ms: number) => {
   return h ? `${h}:${mmss}` : mmss
 }
 
-const usageTotal = (u: RunDto['usage']) => u?.totalTokens ?? (u?.inputTokens ?? 0) + (u?.outputTokens ?? 0)
+export const usageTotal = (u: RunDto['usage']) =>
+  u?.totalTokens ?? (u?.inputTokens ?? 0) + (u?.outputTokens ?? 0)
 
 export function fmtUsage(u: RunDto['usage']) {
   const total = usageTotal(u)

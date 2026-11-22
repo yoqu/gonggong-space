@@ -1,10 +1,10 @@
 import type { GroupDto, SyncPreviewDto, SyncPreviewReason } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
-import { errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   Button,
   ConfirmActionDialog,
@@ -19,7 +19,8 @@ import {
   toast,
 } from '../../ui'
 import { groupsApi } from '../groups/api'
-import { syncApi, useSyncStatus } from './store'
+import '../groups/groups.css'
+import { useSyncStatus } from './store'
 import './sync.css'
 
 const EXCLUDED: Record<SyncPreviewReason, string> = {
@@ -41,15 +42,9 @@ function plan(b: Bot, baseId: string | null): { label: string; tone: TagTone } {
 
 /** 切换为强制同步 (§3.5): pick the base Bot, see what happens to every Bot, confirm. */
 function EnableWizard({ group, onCancel }: { group: GroupDto; onCancel: () => void }) {
-  const [preview, setPreview] = useState<SyncPreviewDto | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: preview, error, reload } = useGet<SyncPreviewDto>(`/groups/${group.id}/sync/preview`)
   const [baseId, setBaseId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const load = () => {
-    setError(null)
-    syncApi.preview(group.id).then(setPreview, (e) => setError(errorText(e)))
-  }
-  useEffect(load, [group.id])
 
   if (error)
     return (
@@ -57,7 +52,7 @@ function EnableWizard({ group, onCancel }: { group: GroupDto; onCancel: () => vo
         title={error}
         action={
           <>
-            <Button size="small" onClick={load}>
+            <Button size="small" onClick={reload}>
               {t('重试')}
             </Button>
             <Button size="small" onClick={onCancel}>

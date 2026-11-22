@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { tabKey, useWorkbench, type WorkbenchTab } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
-import { patchTerminalSession } from '../src/features/terminal/TerminalView'
 import { NewTabMenu } from '../src/features/workbench/NewTabMenu'
 import { TabContent, TabLabel } from '../src/features/workbench/TabContent'
+import { patchTerminalSession } from '../src/features/workbench/tabs/TerminalTab'
 
 vi.mock('../src/features/terminal/TerminalView', async (orig) => {
   const actual = await orig<typeof import('../src/features/terminal/TerminalView')>()

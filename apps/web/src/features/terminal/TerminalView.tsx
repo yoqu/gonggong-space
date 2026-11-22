@@ -3,12 +3,12 @@ import { SearchAddon } from '@xterm/addon-search'
 import { Terminal } from '@xterm/xterm'
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
-import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { Button, Dialog, EmptyState, Presence, Spinner, toast } from '../../ui'
-import { openFileAt } from '../workbench/tabs/DiffTab'
+import { openFileAt } from '../workbench/open'
 import { createTerminal, endTerminal, openSpaceSession, resolveTerminalLink, terminalSocketUrl } from './api'
 import { attachTerminalKeyboard } from './keyboard'
 import { createTerminalLinkProvider } from './links'
@@ -44,11 +44,10 @@ function control(e: MessageEvent): Message | null {
   return { type, value }
 }
 
-function sessionFor(groupId: string, botId: string, size: { cols: number; rows: number }) {
-  const key = `${groupId}:${botId}`
+function sessionFor(key: string, create: () => Promise<string>) {
   let pending = pendingCreates.get(key)
   if (pending) return pending
-  const request = createTerminal(groupId, botId, size).then((dto) => dto.sessionId)
+  const request = create()
   pending = request.finally(() => pendingCreates.delete(key))
   pendingCreates.set(key, pending)
   return pending
@@ -93,6 +92,9 @@ export function TerminalView({
   const connect = useRef<(() => void) | null>(null)
   const started = useRef(false)
   const socket = useRef<WebSocket>(null)
+  const settledRef = useRef(false)
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const sessionGone = useRef(false)
   const shown = useRef(active)
   const callbacks = useRef({ onSession, onExit, onError })
   const [phase, setPhase] = useState<Phase>('loading')
@@ -117,9 +119,15 @@ export function TerminalView({
     if (!el) return
     let disposed = false
     let attachedSession = activeSessionId
-    let settled = false
+    settledRef.current = false
+    sessionGone.current = false
     let attempts = 0
-    let reconnect: ReturnType<typeof setTimeout> | undefined
+    const clearReconnect = () => {
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current)
+        reconnectRef.current = undefined
+      }
+    }
     const term = new Terminal({
       allowProposedApi: true,
       fontFamily: 'var(--font-mono)',
@@ -184,15 +192,15 @@ export function TerminalView({
         send(JSON.stringify({ op: 'resize', sessionId: attachedSession, cols, rows }))
     })
     const finish = (code: number | null, reason: string | null) => {
-      settled = true
-      if (reconnect) clearTimeout(reconnect)
+      settledRef.current = true
+      clearReconnect()
       setPhase('exited')
       setExit({ code, reason })
       callbacks.current.onExit?.(code, reason)
     }
     const fail = (message: string) => {
-      settled = true
-      if (reconnect) clearTimeout(reconnect)
+      settledRef.current = true
+      clearReconnect()
       setPhase('error')
       setError(message)
       callbacks.current.onError?.(message)
@@ -212,7 +220,10 @@ export function TerminalView({
           fail(t('没有权限使用此终端，仅电脑主人可访问'))
         } else if (message.type === 'reset') {
           // The socket closes right after a reset and reconnects from `after`; only a session that stays missing ends.
-          if (value.code === 'not_found' && attempts >= MAX_MISSING_ATTEMPTS) fail(t('终端不存在或已结束'))
+          if (value.code === 'not_found' && attempts >= MAX_MISSING_ATTEMPTS) {
+            sessionGone.current = true
+            fail(t('终端不存在或已结束'))
+          }
         } else if (message.type === 'exit' || (value.status && value.status !== 'running')) {
           finish(
             typeof value.exitCode === 'number' ? value.exitCode : null,
@@ -243,12 +254,12 @@ export function TerminalView({
         if (!disposed && shown.current) fit.fit()
       }
       const retry = () => {
-        if (disposed || settled || reconnect) return
+        if (disposed || settledRef.current || reconnectRef.current) return
         setPhase('loading')
-        reconnect = setTimeout(
+        reconnectRef.current = setTimeout(
           () => {
-            reconnect = undefined
-            if (!disposed && !settled) attach(id)
+            reconnectRef.current = undefined
+            if (!disposed && !settledRef.current) attach(id)
           },
           Math.min(5_000, 500 * 2 ** attempts++),
         )
@@ -257,7 +268,7 @@ export function TerminalView({
         retry()
       }
       ws.onclose = (event) => {
-        if (!disposed && !settled && event.code !== 1000) retry()
+        if (!disposed && !settledRef.current && event.code !== 1000) retry()
       }
       return ws
     }
@@ -268,9 +279,11 @@ export function TerminalView({
       const size = { cols: term.cols, rows: term.rows }
       const open = () =>
         spaceId
-          ? openSpaceSession(spaceId, size).then((dto) => dto.sessionId)
+          ? sessionFor(`space:${spaceId}`, () => openSpaceSession(spaceId, size).then((dto) => dto.sessionId))
           : groupId && botId
-            ? sessionFor(groupId, botId, size)
+            ? sessionFor(`bot:${groupId}:${botId}`, () =>
+                createTerminal(groupId, botId, size).then((dto) => dto.sessionId),
+              )
             : null
       if (activeSessionId) attach(activeSessionId)
       else {
@@ -304,7 +317,7 @@ export function TerminalView({
     theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => {
       disposed = true
-      if (reconnect) clearTimeout(reconnect)
+      clearReconnect()
       observer.disconnect()
       theme.disconnect()
       input.dispose()
@@ -332,18 +345,22 @@ export function TerminalView({
   }, [active])
 
   const end = async () => {
-    if (!currentSession) return
+    if (!currentSession || ending) return
     setEnding(true)
     try {
       await endTerminal(currentSession)
       setConfirming(false)
+      settledRef.current = true
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current)
+        reconnectRef.current = undefined
+      }
       setPhase('exited')
       setExit({ code: null, reason: 'user' })
       onExit?.(null, 'user')
-      socket.current?.close()
+      socket.current?.close(1000)
     } catch (e) {
-      setPhase('error')
-      setError(errorText(e))
+      toastError(e)
     } finally {
       setEnding(false)
     }
@@ -357,7 +374,9 @@ export function TerminalView({
     setPhase('loading')
     setError(null)
     setExit(null)
-    if (phase === 'exited') {
+    const canCreate = Boolean(spaceId || (groupId && botId))
+    if (phase === 'exited' || (sessionGone.current && canCreate)) {
+      sessionGone.current = false
       setActiveSessionId(undefined)
       setCurrentSession(undefined)
     }
@@ -426,9 +445,16 @@ export function TerminalView({
             role="alertdialog"
             title={t('结束终端？')}
             message={t('这会终止 Shell 及其中正在运行的进程。仅关闭标签页会保留终端。')}
-            onClose={() => setConfirming(false)}
+            onClose={() => {
+              if (!ending) setConfirming(false)
+            }}
             actions={[
-              { label: t('取消'), onClick: () => setConfirming(false), autoFocus: true },
+              {
+                label: t('取消'),
+                disabled: ending,
+                onClick: () => setConfirming(false),
+                autoFocus: true,
+              },
               {
                 label: ending ? t('正在结束…') : t('结束终端'),
                 variant: 'destructive',
@@ -441,16 +467,6 @@ export function TerminalView({
       </Presence>
     </section>
   )
-}
-
-/** Opens a newly created session in its original group, even if the user switched chats meanwhile. */
-export function patchTerminalSession(groupId: string, key: string, sessionId: string) {
-  const state = useWorkbench.getState()
-  const bench = state.benches[groupId]
-  const tab = bench?.tabs.find((item) => item.kind === 'terminal' && item.botId === key)
-  if (!bench || !tab || tab.kind !== 'terminal') return
-  const next = { ...tab, sessionId }
-  state.replace(`terminal:${tab.botId}`, next, groupId)
 }
 
 export function TerminalViewGuard(props: TerminalViewProps) {

@@ -14,7 +14,7 @@ import { useSession } from '../../../app/session'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { api } from '../../../lib/api'
+import { api, errorText } from '../../../lib/api'
 import { copyWithToast } from '../../../lib/clipboard'
 import { cx } from '../../../lib/cx'
 import { attempt } from '../../../lib/errors'
@@ -41,7 +41,7 @@ import { OFFICIAL_NAME } from '../../agents/model'
 import { agentLabel } from '../../bots/AgentConfig'
 import { BotAvatar, useBotCostume } from '../../bots/avatars'
 import { RunPlan } from '../../chat/RunPlan'
-import { fmtDuration, fmtUsage, RUN_STATUS } from '../../chat/TimelineItems'
+import { fmtDuration, fmtUsage, RUN_STATUS, usageTotal } from '../../chat/TimelineItems'
 import { DiffPane } from '../../diff/DiffPane'
 import type { DiffSource } from '../../diff/store'
 import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDiff'
@@ -57,9 +57,8 @@ import { approvalText, buildSteps, questionText } from '../../runs/process'
 import { QuestionCard } from '../../runs/QuestionBlock'
 import type { Step } from '../../runs/steps'
 import { SOURCE_LABEL } from '../../secrets/api'
-import { openTab } from '../open'
+import { locateFile, openFileAt, openTab } from '../open'
 import type { TabMeta, TabProps } from '../types'
-import { locateFile, openFileAt } from './DiffTab'
 import '../../runs/runs.css'
 
 type RunView = TabProps<'run'>['tab']['view']
@@ -159,7 +158,7 @@ function useRunDetail(runId: string, active: boolean) {
                 }
           })
         },
-        (e: Error) => alive && mine === seq && setError(e.message),
+        (e: unknown) => alive && mine === seq && setError(errorText(e)),
       )
     }
     load()
@@ -410,7 +409,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
         ) : !source ? null : view === 'process' ? (
           <div className="run-tab__column">
             <Pending run={detail.run} />
-            <EarlierRounds key={`${runId}:earlier`} runId={runId} root={root} />
+            <EarlierRounds key={`${runId}:earlier`} runId={runId} root={root} active={active} />
             {detail.purged ? (
               <>
                 <div className="run-tab__empty">{PURGED}</div>
@@ -525,8 +524,7 @@ function useFollow(ref: RefObject<HTMLDivElement | null>, on: boolean, steps: un
 function RunContext({ detail }: { detail: RunDetailDto }) {
   const last = useMemo(() => lastContext(detail.events, detail.live), [detail.events, detail.live])
   if (detail.purged) {
-    const u = detail.run.usage
-    const total = u ? (u.inputTokens ?? 0) + (u.outputTokens ?? 0) : 0
+    const total = usageTotal(detail.run.usage)
     return (
       <div className="run-tab__empty">
         {total > 0 ? t('本轮共 {n} tokens，分项已随过程清理', { n: fmtTokens(total) }) : PURGED}
@@ -582,17 +580,23 @@ const workedMs = (run?: RunDto) =>
   run?.startedAt && run.endedAt ? Date.parse(run.endedAt) - Date.parse(run.startedAt) : null
 
 /** Earlier rounds of this run's agent session, revealed one per click above it so the conversation reads on. */
-function EarlierRounds({ runId, root }: { runId: string; root: string | null }) {
+function EarlierRounds({ runId, root, active }: { runId: string; root: string | null; active: boolean }) {
   const [rounds, setRounds] = useState<RunSessionDto['rounds']>([])
   const [shown, setShown] = useState(0)
   useEffect(() => {
+    let alive = true
     api.get<RunSessionDto>(`/runs/${runId}/session`).then(
       (d) => {
+        if (!alive) return
         setRounds(d.rounds)
         useRunInfo.setState((s) => ({ rounds: { ...s.rounds, [runId]: d.rounds.length + 1 } }))
       },
-      (e: Error) => toast({ type: 'error', message: t('无法加载上一轮：{error}', { error: e.message }) }),
+      (e: unknown) =>
+        alive && toast({ type: 'error', message: t('无法加载上一轮：{error}', { error: errorText(e) }) }),
     )
+    return () => {
+      alive = false
+    }
   }, [runId])
   const left = rounds.length - shown
   return (
@@ -604,16 +608,26 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
         </button>
       ) : null}
       {rounds.slice(left).map((r) => (
-        <PastRound key={r.run.id} run={r.run} prompt={r.prompt} root={root} />
+        <PastRound key={r.run.id} run={r.run} prompt={r.prompt} root={root} active={active} />
       ))}
       {shown > 0 ? <div className="run-rounds__divider">{t('本轮')}</div> : null}
     </>
   )
 }
 
-function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: string | null }) {
+function PastRound({
+  run,
+  prompt,
+  root,
+  active,
+}: {
+  run: RunDto
+  prompt: string
+  root: string | null
+  active: boolean
+}) {
   const [open, setOpen] = useState(true)
-  const { detail, error } = useRunDetail(run.id, true)
+  const { detail, error } = useRunDetail(run.id, active && open)
   // The round's head shows its trigger already.
   const steps = useMemo(() => (detail ? buildSteps(detail, { trigger: false }) : []), [detail])
   const worked = workedMs(run)
@@ -654,7 +668,7 @@ async function stopTask(runId: string, taskId: string) {
     const { sent } = await api.post<TaskStopRes>(`/runs/${runId}/tasks/${encodeURIComponent(taskId)}/stop`)
     if (!sent) throw new Error(t('Bot 所在电脑离线'))
   } catch (e) {
-    toast({ type: 'error', message: t('停止失败：{error}', { error: (e as Error).message }) })
+    toast({ type: 'error', message: t('停止失败：{error}', { error: errorText(e) }) })
     throw e
   }
 }

@@ -100,6 +100,11 @@
 .bench__pane[hidden] {
   display: none;
 }
+.bench-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
 
 /* Tabs scroll sideways; the ⌄ menu lists them all. */
 .bench-tabs {

@@ -8,7 +8,12 @@ import './web-tab.css'
 export function LinkTab({ tab }: TabProps<'link'>) {
   const [reload, setReload] = useState(0)
   // Our own origin unsandboxed would reach the app's session: keep it in an opaque origin.
-  const ours = new URL(tab.url, location.href).origin === location.origin
+  let ours = true
+  try {
+    ours = new URL(tab.url, location.href).origin === location.origin
+  } catch {
+    // Malformed URL stays maximally sandboxed instead of crashing the workbench.
+  }
   return (
     <div className="wt-web">
       <div className="wt-web__bar">

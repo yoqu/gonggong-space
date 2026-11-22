@@ -80,10 +80,12 @@ const mocks = vi.hoisted(() => {
       events.push({ type: 'fit', target: this })
     }
   }
-  const create = vi.fn(() => {
+  const create = vi.fn<(...args: unknown[]) => Promise<TerminalDto>>(() => {
     events.push({ type: 'create', target: null })
+    return Promise.resolve({} as TerminalDto)
   })
-  return { Terminal, FitAddon, create, end: vi.fn(), events }
+  const openSpace = vi.fn<(...args: unknown[]) => Promise<TerminalDto>>()
+  return { Terminal, FitAddon, create, openSpace, end: vi.fn(), events }
 })
 
 vi.mock('@xterm/xterm', () => ({ Terminal: mocks.Terminal }))
@@ -98,6 +100,7 @@ vi.mock('@xterm/addon-search', () => ({
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 vi.mock('../src/features/terminal/api', () => ({
   createTerminal: mocks.create,
+  openSpaceSession: mocks.openSpace,
   endTerminal: mocks.end,
   terminalSocketUrl: (id: string, after = 0) => `ws://terminals/${id}${after ? `?after=${after}` : ''}`,
   resolveTerminalLink: vi.fn(),
@@ -174,6 +177,7 @@ beforeEach(() => {
     mocks.events.push({ type: 'create', target: null })
     return Promise.resolve(dto)
   })
+  mocks.openSpace.mockReset().mockResolvedValue(dto)
   mocks.end.mockReset().mockResolvedValue(undefined)
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -348,6 +352,60 @@ describe('terminal view', () => {
     const sockets = Socket.instances.length
     await act(async () => vi.advanceTimersByTimeAsync(10_000))
     expect(Socket.instances).toHaveLength(sockets)
+    vi.useRealTimers()
+  })
+
+  it('deduplicates openSpaceSession calls under StrictMode', async () => {
+    render(
+      <StrictMode>
+        <TerminalView spaceId="sp1" active />
+      </StrictMode>,
+    )
+    await waitFor(() => expect(mocks.openSpace).toHaveBeenCalledTimes(1))
+    expect(mocks.openSpace).toHaveBeenCalledWith('sp1', { cols: 80, rows: 24 })
+  })
+
+  it('creates a fresh PTY on reconnect after a persisted session stays not_found', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const freshId = 'fresh-session-id'
+    mocks.create.mockResolvedValueOnce({ ...dto, sessionId: freshId })
+    render(<TerminalView sessionId={sessionId} groupId="g1" botId="b1" active />)
+    for (let i = 0; i < 6; i++) {
+      act(() => {
+        lastSocket().open()
+        lastSocket().json({ op: 'reset', code: 'not_found', status: 'running' })
+        lastSocket().disconnect(1011)
+      })
+      await act(async () => vi.advanceTimersByTimeAsync(5_000))
+    }
+    expect(screen.getByText('终端不存在或已结束')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重新连接' }))
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(lastSocket().url).toBe(`ws://terminals/${freshId}`))
+    vi.useRealTimers()
+  })
+
+  it('keeps the live terminal running when endTerminal fails and does not reconnect after it succeeds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    mocks.end.mockRejectedValueOnce(new Error('network blip'))
+    render(<TerminalView sessionId={sessionId} active />)
+    act(() => {
+      lastSocket().open()
+      lastSocket().json({ status: 'running' })
+    })
+    fireEvent.click(screen.getByRole('button', { name: '结束终端…' }))
+    const dialog = within(screen.getByRole('alertdialog', { name: '结束终端？' }))
+    fireEvent.click(dialog.getByRole('button', { name: '结束终端' }))
+    await waitFor(() => expect(mocks.end).toHaveBeenCalledTimes(1))
+    expect(screen.getByText('终端运行中')).toBeTruthy()
+
+    mocks.end.mockResolvedValueOnce(undefined)
+    fireEvent.click(dialog.getByRole('button', { name: '结束终端' }))
+    await waitFor(() => expect(screen.getAllByText('终端已结束').length).toBeGreaterThan(0))
+    const count = Socket.instances.length
+    act(() => lastSocket().disconnect(1006))
+    await act(async () => vi.advanceTimersByTimeAsync(5_000))
+    expect(Socket.instances).toHaveLength(count)
     vi.useRealTimers()
   })
 })

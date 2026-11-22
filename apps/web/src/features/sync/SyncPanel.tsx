@@ -46,11 +46,19 @@ function Replica({
   const state = STATE[shown]
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [conflict, setConflict] = useState(false)
+  const [busy, setBusy] = useState(false)
   const row = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focus) row.current?.scrollIntoView?.({ block: 'center' })
   }, [focus])
   const join = (force: boolean) => syncApi.join(groupId, r.botId, force)
+  const runAction = (fn: () => Promise<unknown>, okMsg: string) => {
+    if (busy) return
+    setBusy(true)
+    void fn()
+      .then(() => toast({ type: 'success', message: okMsg }), toastError)
+      .finally(() => setBusy(false))
+  }
   const joinable = canAct && r.state === 'excluded' && r.workspace === 'managed'
   // Uncommitted changes would block a plain join again: they must be discarded (or cleaned up on the machine).
   const dirty = r.issue === 'dirty'
@@ -84,12 +92,7 @@ function Replica({
       </span>
       <span className="sync-row__actions">
         {joinable && !dirty ? (
-          <Button
-            size="small"
-            onClick={() =>
-              void join(false).then(() => toast({ type: 'success', message: t('已开始加入') }), toastError)
-            }
-          >
+          <Button size="small" disabled={busy} onClick={() => runAction(() => join(false), t('已开始加入'))}>
             {t('加入')}
           </Button>
         ) : null}
@@ -102,10 +105,9 @@ function Replica({
           <>
             <Button
               size="small"
+              disabled={busy}
               onClick={() =>
-                void syncApi
-                  .drift(groupId, r.botId, 'submit')
-                  .then(() => toast({ type: 'success', message: t('已开始提交本地改动') }), toastError)
+                runAction(() => syncApi.drift(groupId, r.botId, 'submit'), t('已开始提交本地改动'))
               }
             >
               {t('提交本地改动')}
@@ -219,21 +221,33 @@ function Versions({ groupId, head }: { groupId: string; head: number }) {
   const [more, setMore] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const seqRef = useRef(0)
 
   const page = (before?: number) => {
+    const mine = ++seqRef.current
     setBusy(true)
     setError(null)
     syncApi
       .versions(groupId, before)
       .then((r) => {
+        if (seqRef.current !== mine) return
         setList((l) => (before && l ? [...l, ...r] : r))
         setMore(r.length === VERSIONS_PAGE)
       })
-      .catch((e) => setError(errorText(e)))
-      .finally(() => setBusy(false))
+      .catch((e) => {
+        if (seqRef.current === mine) setError(errorText(e))
+      })
+      .finally(() => {
+        if (seqRef.current === mine) setBusy(false)
+      })
   }
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new head version reloads the newest page
-  useEffect(() => page(), [groupId, head])
+  useEffect(() => {
+    page()
+    return () => {
+      seqRef.current++
+    }
+  }, [groupId, head])
 
   if (error && !list)
     return (
@@ -246,7 +260,7 @@ function Versions({ groupId, head }: { groupId: string; head: number }) {
         }
       />
     )
-  if (!list) return null
+  if (!list) return <Spinner />
   if (!list.length) return <EmptyState title={t('还没有版本')} />
   return (
     <>
@@ -255,6 +269,9 @@ function Versions({ groupId, head }: { groupId: string; head: number }) {
           <Version key={v.version} v={v} />
         ))}
       </GroupBox>
+      {error ? (
+        <Alert variant="error" description={error} onRetry={() => page(list.at(-1)?.version)} />
+      ) : null}
       {more ? (
         <div className="sync-more">
           <Button size="small" disabled={busy} onClick={() => page(list.at(-1)?.version)}>
@@ -296,7 +313,12 @@ export function SyncPanel({
             description={
               <>
                 {t('正在切换为强制同步，等待基准 Bot 提交工作区文件…')}
-                {isAdmin ? <div>{t('可在同步模式设置中切回分区模式以取消')}</div> : null}
+                {isAdmin ? (
+                  <>
+                    <br />
+                    {t('可在同步模式设置中切回分区模式以取消')}
+                  </>
+                ) : null}
               </>
             }
           />

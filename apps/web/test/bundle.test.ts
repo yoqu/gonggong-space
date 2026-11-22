@@ -46,8 +46,15 @@ it('keeps the English dictionary and conditionally shown UI out of the first loa
     '/PluginLayer.tsx',
     '/node_modules/mermaid/',
     '/node_modules/pinyin-pro/',
+    '/node_modules/@xterm/',
   ]
   expect(lazy.filter((name) => modules.some((id) => id.includes(name)))).toEqual([])
+  const workbench = chunks.find((c) => c.moduleIds.some((id) => id.endsWith('/workbench/Workbench.tsx')))
+  expect(workbench).toBeDefined()
+  expect(workbench?.moduleIds.some((id) => id.includes('/node_modules/@xterm/'))).toBe(false)
+  const xterm = chunks.find((c) => c.moduleIds.some((id) => id.includes('/node_modules/@xterm/')))
+  expect(xterm).toBeDefined()
+  expect(workbench?.imports).not.toContain(xterm?.fileName)
   // The i18n module awaits the dictionary: a chunk the dictionary imported back would never finish loading.
   const dict = chunks.find((c) => c.moduleIds.some((id) => id.endsWith('/i18n/en.ts')))
   expect(dict?.imports).toEqual([])

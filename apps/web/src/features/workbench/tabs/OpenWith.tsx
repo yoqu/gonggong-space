@@ -25,6 +25,22 @@ const APPS: Record<OpenApp, { name: string; icon: string | null }> = {
 
 const KEY = 'gg.openWith'
 
+function loadSaved(): string | null {
+  try {
+    return localStorage.getItem(KEY)
+  } catch {
+    return null
+  }
+}
+
+function savePick(app: OpenApp) {
+  try {
+    localStorage.setItem(KEY, app)
+  } catch {
+    // storage unavailable (private mode): choice lasts for this render only
+  }
+}
+
 const AppIcon = ({ app }: { app: OpenApp }) => {
   const icon = APPS[app].icon
   return icon ? <img className="open-with__icon" src={icon} alt="" /> : <Icon name="folder" size={16} />
@@ -37,7 +53,7 @@ const AppIcon = ({ app }: { app: OpenApp }) => {
 export function OpenWith({ groupId, botId }: { groupId: string; botId: string }) {
   const base = `/groups/${groupId}/bots/${botId}`
   const { data } = useGet<OpenAppsDto>(`${base}/open-apps`)
-  const [saved, setSaved] = useState(() => localStorage.getItem(KEY))
+  const [saved, setSaved] = useState(loadSaved)
   const apps = data?.apps ?? []
   if (!apps.length) return null
   const current = apps.find((a) => a === saved) ?? (apps[0] as OpenApp)
@@ -50,7 +66,7 @@ export function OpenWith({ groupId, botId }: { groupId: string; botId: string })
     }
   }
   const pick = (app: OpenApp) => {
-    localStorage.setItem(KEY, app)
+    savePick(app)
     setSaved(app)
     void open(app)
   }

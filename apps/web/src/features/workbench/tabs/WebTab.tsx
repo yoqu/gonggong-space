@@ -8,6 +8,7 @@ import { PREVIEW_STATE } from '../../previews/PreviewCard'
 import { ShareDialog } from '../../previews/ShareDialog'
 import { openUrl, usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
+import { PreviewClosed, usePreviewTabMeta } from './previewTab'
 import './web-tab.css'
 
 const VIEWPORTS = ['fit', '1440', '1024', '768', '390'] as const
@@ -138,18 +139,16 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
               }
             />
           </div>
-        ) : state?.status === 'offline' ? (
+        ) : state?.status === 'stopped' ? (
           <EmptyState
             icon="desktop"
             title={t('服务已停止 · 等待 Bot 重新发布')}
             description={t('恢复在线后自动重新加载')}
           />
+        ) : state?.status === 'offline' ? (
+          <EmptyState icon="desktop" title={t('电脑离线')} description={t('恢复在线后自动重新加载')} />
         ) : state?.status === 'closed' ? (
-          <EmptyState
-            icon="desktop"
-            title={t('预览已关闭')}
-            action={<Button onClick={() => useWorkbench.getState().closeTab(key)}>{t('关闭标签页')}</Button>}
-          />
+          <PreviewClosed icon="desktop" tabKey={key} />
         ) : null}
       </div>
       <Presence>
@@ -160,10 +159,5 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
 }
 
 export function useWebTabMeta(tab: TabProps<'web'>['tab']): TabMeta {
-  const state = usePreview(tab.previewId)
-  return {
-    icon: 'desktop',
-    title: state?.preview?.title ?? t('预览'),
-    ...(state ? { status: state.status === 'online' ? 'online' : 'offline' } : {}),
-  }
+  return usePreviewTabMeta(tab.previewId, 'desktop', t('预览'))
 }

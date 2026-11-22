@@ -226,4 +226,29 @@ describe('terminal keyboard', () => {
     window.dispatchEvent(new Event('focus'))
     expect(terminal.focused).toBe(0)
   })
+
+  it('falls back to execCommand copy when navigator.clipboard is unavailable (plain HTTP)', async () => {
+    const prevClipboard = navigator.clipboard
+    const prevExec = document.execCommand
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    const exec = vi.fn().mockReturnValue(true)
+    document.execCommand = exec
+    try {
+      const dispose = attachTerminalKeyboard(terminal, {
+        host,
+        active: () => true,
+        macOS: false,
+        onSearch,
+        onError,
+      })
+      const event = key('C', { ctrlKey: true, shiftKey: true })
+      expect(terminal.keyHandler?.(event)).toBe(false)
+      await vi.waitFor(() => expect(exec).toHaveBeenCalledWith('copy'))
+      expect(onError).not.toHaveBeenCalled()
+      dispose()
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', { value: prevClipboard, configurable: true })
+      document.execCommand = prevExec
+    }
+  })
 })

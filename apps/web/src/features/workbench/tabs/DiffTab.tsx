@@ -5,16 +5,8 @@ import { t } from '../../../i18n'
 import { DiffPane } from '../../diff/DiffPane'
 import { useWorkspaceDiff } from '../../diff/useWorkspaceDiff'
 import { gitBase, gitUrls } from '../../git/api'
-import { openTab } from '../open'
+import { locateFile, openFileAt } from '../open'
 import type { TabMeta, TabProps } from '../types'
-
-/** 「在文件浏览器中定位」: the bot's files tab, opened at the file's folder with the file selected. */
-export const locateFile = (botId: string, path: string) =>
-  openTab({ kind: 'files', botId, dir: path.split('/').slice(0, -1).join('/'), selected: path })
-
-/** 跳到源文件: the bot's file opened at a line. */
-export const openFileAt = (botId: string, path: string, line: number) =>
-  openTab({ kind: 'file', source: { botId, path, line: { from: line, to: line } } })
 
 /** A bot workspace's changes in this group: uncommitted work or the branch against main (design §4.4). */
 export function DiffTab({ tab, tabKey, active }: TabProps<'diff'>) {

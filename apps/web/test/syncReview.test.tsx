@@ -91,14 +91,23 @@ afterEach(() => {
 const line = (sync: RunSyncDone, botId = 'b1') => render(<RunSyncLine run={{ groupId: 'g1', botId, sync }} />)
 
 describe('run card: a turn waiting for its replica', () => {
-  it('local edits: 处理 opens the sync panel focused on the bot', async () => {
+  it('local edits: 处理 opens the single sync panel focused on the bot with settings wired', async () => {
+    const onSettings = vi.fn()
     mockApi({ 'GET /groups/g1/sync': status([replica({ state: 'drift', issue: 'drift', files: ['x'] })]) })
-    line({ outcome: 'waiting', issue: 'drift' })
+    render(
+      <>
+        <SyncBar group={{ id: 'g1', mode: 'force' }} isAdmin onSettings={onSettings} />
+        <RunSyncLine run={{ groupId: 'g1', botId: 'b1', sync: { outcome: 'waiting', issue: 'drift' } }} />
+      </>,
+    )
     const s = screen.getByTestId('run-sync')
     expect(s.textContent).toContain('等待处理本地改动')
     fireEvent.click(await within(s).findByRole('button', { name: '处理' }))
-    expect(await screen.findByRole('dialog', { name: '同步状态' })).toBeTruthy()
+    const dialog = await screen.findByRole('dialog', { name: '同步状态' })
+    expect(dialog).toBeTruthy()
     expect((await screen.findByTestId('replica-b1')).className).toContain('sync-row--focus')
+    fireEvent.click(within(dialog).getByRole('button', { name: '同步模式设置' }))
+    expect(onSettings).toHaveBeenCalledTimes(1)
   })
 
   it('a held conflict: 处理 opens the conflict dialog; others see no button', async () => {
@@ -216,6 +225,19 @@ describe('loading the sync status', () => {
     expect(screen.getByRole('button', { name: /v15/ })).toBeTruthy()
     expect(await screen.findByRole('button', { name: /v16/ })).toBeTruthy()
     expect(calls.filter((c) => c.path === '/groups/g1/sync')).toHaveLength(2)
+  })
+
+  it('unsubscribes realtime listeners on resetSync', async () => {
+    const offSub = vi.fn()
+    const offRec = vi.fn()
+    vi.spyOn(realtime, 'subscribe').mockReturnValue(offSub)
+    vi.spyOn(realtime, 'onReconnect').mockReturnValue(offRec)
+    mockApi({ 'GET /groups/g1/sync': status([replica()]) })
+    render(<SyncBar group={{ id: 'g1', mode: 'force' }} />)
+    await screen.findByRole('button', { name: /v15/ })
+    resetSync()
+    expect(offSub).toHaveBeenCalledTimes(1)
+    expect(offRec).toHaveBeenCalledTimes(1)
   })
 })
 

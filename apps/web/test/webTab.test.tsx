@@ -97,10 +97,19 @@ describe('web tab', () => {
     expect(frame().getAttribute('src')).toBe('/api/previews/p1/open?path=%2Fdashboard%3Fx%3D1')
   })
 
-  it('shows the offline state and reloads once the preview is back online', async () => {
-    mockApi({ 'GET /groups/g1/previews': list([preview({ status: 'offline' })]) })
+  it('shows the stopped state and reloads once the preview is back online', async () => {
+    mockApi({ 'GET /groups/g1/previews': list([preview({ status: 'stopped' })]) })
     render(<WebTab tab={tab} tabKey="web:p1" active />)
     await screen.findByText('服务已停止 · 等待 Bot 重新发布')
+    expect(screen.queryByTitle('登录页')).toBeNull()
+    emit([preview()])
+    expect(frame().getAttribute('src')).toBe('/api/previews/p1/open?path=%2Flogin')
+  })
+
+  it('shows the offline state when the machine is offline and reloads once back online', async () => {
+    mockApi({ 'GET /groups/g1/previews': list([preview({ status: 'offline' })]) })
+    render(<WebTab tab={tab} tabKey="web:p1" active />)
+    await screen.findByText('电脑离线')
     expect(screen.queryByTitle('登录页')).toBeNull()
     emit([preview()])
     expect(frame().getAttribute('src')).toBe('/api/previews/p1/open?path=%2Flogin')

@@ -8,3 +8,11 @@ export function openTab(tab: WorkbenchTab): boolean {
   toast({ type: 'error', message: t('标签页已满（最多 {n} 个），请先关闭一些', { n: WORKBENCH_MAX_TABS }) })
   return false
 }
+
+/** 「在文件浏览器中定位」: the bot's files tab, opened at the file's folder with the file selected. */
+export const locateFile = (botId: string, path: string) =>
+  openTab({ kind: 'files', botId, dir: path.split('/').slice(0, -1).join('/'), selected: path })
+
+/** 跳到源文件: the bot's file opened at a line. */
+export const openFileAt = (botId: string, path: string, line: number) =>
+  openTab({ kind: 'file', source: { botId, path, line: { from: line, to: line } } })

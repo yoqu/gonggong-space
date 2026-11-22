@@ -7,7 +7,8 @@ import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { Button, Dialog, GroupBox, Input, Select } from '../../ui'
 import { DirPicker } from '../workspaces/DirPicker'
-import { createTerminalSpace } from './spaces'
+import { createTerminalSpace, machineSupportsTerminal } from './spaces'
+import './terminal.css'
 
 const baseName = (path: string) => path.replace(/\/+$/, '').split('/').pop() ?? ''
 
@@ -25,13 +26,7 @@ export function NewTerminalDialog({
   const me = useSession((s) => s.user?.id)
   const navigate = useNavigate()
   const machines = useWorkspace((s) => s.machines)
-  const usable = machines.filter(
-    (m) =>
-      m.ownerId === me &&
-      m.online &&
-      (m.os === 'macos' || m.os === 'linux') &&
-      m.features.includes(TERMINAL_DIR_FEATURE),
-  )
+  const usable = machines.filter((m) => m.ownerId === me && machineSupportsTerminal(m, TERMINAL_DIR_FEATURE))
   const [machineId, setMachineId] = useState<string | null>(
     machine ?? (usable.length === 1 ? (usable[0]?.id ?? null) : null),
   )
@@ -65,22 +60,26 @@ export function NewTerminalDialog({
         width={520}
         closeOnBackdrop={false}
         title={t('新建终端')}
-        onClose={onClose}
+        onClose={() => {
+          if (!creating) onClose()
+        }}
         footer={
           <>
-            <Button onClick={onClose}>{t('取消')}</Button>
-            <Button variant="primary" disabled={!ready} onClick={() => void submit()}>
+            <Button disabled={creating} onClick={onClose}>
+              {t('取消')}
+            </Button>
+            <Button variant="primary" disabled={!ready} loading={creating} onClick={() => void submit()}>
               {t('创建')}
             </Button>
           </>
         }
       >
-        <div className="ng">
+        <div className="nt-form">
           {tabs}
           {usable.length ? (
             <>
-              <section className="ng-section">
-                <h3 className="ng-section__title">{t('电脑')}</h3>
+              <section className="nt-section">
+                <h3 className="nt-section__title">{t('电脑')}</h3>
                 <Select
                   label={t('电脑')}
                   options={usable.map((m) => ({ value: m.id, label: m.name }))}
@@ -88,10 +87,10 @@ export function NewTerminalDialog({
                   onChange={setMachineId}
                 />
               </section>
-              <section className="ng-section">
-                <h3 className="ng-section__title">{t('目录')}</h3>
+              <section className="nt-section">
+                <h3 className="nt-section__title">{t('目录')}</h3>
                 <GroupBox>
-                  <div className="ng-name ng-dir">
+                  <div className="nt-field nt-dir">
                     <Input
                       mono
                       aria-label={t('目录')}
@@ -105,10 +104,10 @@ export function NewTerminalDialog({
                   </div>
                 </GroupBox>
               </section>
-              <section className="ng-section">
-                <h3 className="ng-section__title">{t('名称')}</h3>
+              <section className="nt-section">
+                <h3 className="nt-section__title">{t('名称')}</h3>
                 <GroupBox>
-                  <div className="ng-name">
+                  <div className="nt-field">
                     <Input
                       aria-label={t('名称')}
                       value={name}
@@ -121,14 +120,14 @@ export function NewTerminalDialog({
                   </div>
                 </GroupBox>
               </section>
-              <p className="ng-hint">
+              <p className="nt-hint">
                 {t(
                   '终端会作为一个会话出现在左侧，只有你能打开；Shell 闲置 24 小时后结束，再次打开会新开一个。',
                 )}
               </p>
             </>
           ) : (
-            <p className="ng-hint">
+            <p className="nt-hint">
               {t('没有可用的电脑：需要你的一台在线的 macOS 或 Linux 电脑，且共工客户端已升级到最新版本。')}
             </p>
           )}

@@ -116,3 +116,38 @@
   background: var(--control-track);
   color: var(--label-secondary);
 }
+
+/* New terminal dialog: self-contained so MachinePage doesn't rely on chat.css. */
+.nt-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+.nt-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.nt-section__title {
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--text-subheadline-size);
+  font-weight: 500;
+  color: var(--label-secondary);
+}
+.nt-field {
+  padding: var(--space-6) var(--space-8);
+}
+.nt-field .ui-input {
+  width: 100%;
+}
+.nt-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.nt-hint {
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}

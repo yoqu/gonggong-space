@@ -116,11 +116,6 @@ export function GitLog({
   const authorOf = useRef(new Map<string, string>())
   for (const c of log.commits) authorOf.current.set(c.hash, c.author)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh once each time the tab is shown
-  useEffect(() => {
-    if (active && git) refreshGitQuietly(groupId, tab.botId)
-  }, [active, groupId, tab.botId])
-
   const select = (hash: string) => {
     if (current().commit !== hash) update({ commit: hash, file: null })
   }
@@ -430,6 +425,11 @@ export function GitLog({
 export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
   const patch = useWorkbench((s) => s.patch)
+  const hasGit = useWorkspace((s) => !!s.botStates[groupId]?.[tab.botId]?.git)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh once each time the standalone tab is shown
+  useEffect(() => {
+    if (active && hasGit) refreshGitQuietly(groupId, tab.botId)
+  }, [active, groupId, tab.botId])
   // Filters set from a timer must not overwrite a newer change.
   const current = () =>
     (useWorkbench.getState().benches[groupId]?.tabs.find((x) => keyOf(x) === tabKey) as LogTab | undefined) ??

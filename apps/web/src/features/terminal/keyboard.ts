@@ -1,4 +1,5 @@
 import type { Terminal } from '@xterm/xterm'
+import { copyText } from '../../lib/clipboard'
 
 type KeyboardTerminal = Pick<
   Terminal,
@@ -23,7 +24,6 @@ const editing = (element: Element | null) =>
 export function attachTerminalKeyboard(terminal: KeyboardTerminal, options: TerminalKeyboardOptions) {
   const { host, active, onSearch, onError } = options
   const macOS = options.macOS ?? /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-  const clipboard = options.clipboard ?? navigator.clipboard
   const listeners = new AbortController()
   let disposed = false
   let restoreFocus = false
@@ -34,10 +34,7 @@ export function attachTerminalKeyboard(terminal: KeyboardTerminal, options: Term
     if (!selection) return true
     event.preventDefault()
     void Promise.resolve()
-      .then(() => {
-        if (!clipboard) throw new Error('Clipboard unavailable')
-        return clipboard.writeText(selection)
-      })
+      .then(() => (options.clipboard ? options.clipboard.writeText(selection) : copyText(selection)))
       .catch(() => {
         if (!disposed && active()) onError()
       })

@@ -1,6 +1,24 @@
-import type { TerminalSpaceCreateReq, TerminalSpaceDto } from '@gonggong/protocol'
+import {
+  type MachineDto,
+  TERMINAL_FEATURE,
+  type TerminalSpaceCreateReq,
+  type TerminalSpaceDto,
+} from '@gonggong/protocol'
 import { create } from 'zustand'
 import { api } from '../../lib/api'
+
+/** Whether a machine can host a web terminal (online macOS/Linux with the required daemon feature). */
+export function machineSupportsTerminal(
+  machine: Pick<MachineDto, 'online' | 'os' | 'features'> | undefined,
+  feature: string = TERMINAL_FEATURE,
+): boolean {
+  return (
+    !!machine &&
+    machine.online &&
+    (machine.os === 'macos' || machine.os === 'linux') &&
+    machine.features.includes(feature)
+  )
+}
 
 /** My machine terminals, listed among the conversations. */
 export const useTerminalSpaces = create<{ spaces: TerminalSpaceDto[] }>()(() => ({ spaces: [] }))

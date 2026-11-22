@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
+import { parseHttpUrl } from '../../lib/links'
 import { Dialog, Form, FormRow, SegmentedControl, Select, Spinner, TextField } from '../../ui'
 import { useKnowledge } from '../knowledge/api'
 import { groupTabsApi } from './store'
@@ -26,7 +27,6 @@ const ENTRIES: { value: GroupTabEntry; label: string }[] = [
   { value: 'schedules', label: t('定时任务') },
   { value: 'git-log', label: t('Git 日志') },
 ]
-const LINK = /^https?:\/\/\S+$/i
 const FORM = 'add-group-tab'
 
 /** ＋ of the tab bar: a link (its page title filled in, editable), a knowledge entry, a workspace file or an entry. */
@@ -47,9 +47,10 @@ export function AddTabDialog({ group, onClose }: { group: GroupDto; onClose: () 
   const [error, setError] = useState('')
   const kb = useKnowledge(group.id, '')
 
-  const link = url.trim()
+  const parsedLink = parseHttpUrl(url, false)
+  const link = parsedLink?.url ?? ''
   useEffect(() => {
-    if (kind !== 'link' || !LINK.test(link)) return
+    if (kind !== 'link' || !link) return
     let live = true
     setFetching(true)
     const timer = setTimeout(() => {
@@ -70,7 +71,7 @@ export function AddTabDialog({ group, onClose }: { group: GroupDto; onClose: () 
 
   const target: GroupTabTargetReq | null =
     kind === 'link'
-      ? LINK.test(link)
+      ? link
         ? { kind, url: link }
         : null
       : kind === 'knowledge'

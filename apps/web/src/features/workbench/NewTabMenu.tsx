@@ -4,26 +4,20 @@ import { useSession } from '../../app/session'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { parseHttpUrl } from '../../lib/links'
 import { Dialog, MenuButton, type MenuItem, Presence, TextField } from '../../ui'
 import { AddTabDialog } from '../group-tabs/AddTabDialog'
+import { machineSupportsTerminal } from '../terminal/spaces'
 import { openTab } from './open'
-
-const LINK = /^https?:\/\/\S+$/i
-
-/** A typed address: `example.com` means https. */
-const normalize = (url: string) => {
-  const v = url.trim()
-  return !v || /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`
-}
+import './workbench.css'
 
 function OpenLinkDialog({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
-  const link = normalize(url)
-  const valid = LINK.test(link)
+  const link = parseHttpUrl(url, true)
   const submit = () => {
-    if (!valid) return
-    if (openTab({ kind: 'link', url: link, title: title.trim() || new URL(link).host })) onClose()
+    if (!link) return
+    if (openTab({ kind: 'link', url: link.url, title: title.trim() || link.parsed.host })) onClose()
   }
   const enter = (e: KeyboardEvent) => {
     if (e.key !== 'Enter') return
@@ -38,10 +32,10 @@ function OpenLinkDialog({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       actions={[
         { label: t('取消'), onClick: onClose },
-        { label: t('打开'), variant: 'primary', disabled: !valid, onClick: submit },
+        { label: t('打开'), variant: 'primary', disabled: !link, onClick: submit },
       ]}
     >
-      <div className="git-form">
+      <div className="bench-link-form">
         <TextField
           label={t('网址')}
           placeholder="https://"
@@ -84,12 +78,7 @@ export function NewTabMenu({
   const withGit = bots.filter((b) => states?.[b.id]?.git)
   const withTerminal = bots.filter((b) => {
     const machine = machines.find((m) => m.id === b.machineId)
-    return (
-      b.ownerId === me?.id &&
-      machine?.online &&
-      machine.os !== 'windows' &&
-      machine.features.includes(TERMINAL_FEATURE)
-    )
+    return b.ownerId === me?.id && machineSupportsTerminal(machine, TERMINAL_FEATURE)
   })
   const canAddGroupTab = !!group && group.kind !== 'dm'
   const items: MenuItem[] = [
