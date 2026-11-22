@@ -64,6 +64,7 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
   // Pages loaded further down stay while the first page refreshes.
   const [rest, setRest] = useState<{ threads: GroupThreadItemDto[]; next: number | null } | null>(null)
   const [failed, setFailed] = useState(false)
+  const [moreFailed, setMoreFailed] = useState(false)
   const loadingMore = useRef(false)
   const liveRoots = useThreadLive((s) => s.roots)
   const url = `/groups/${group.id}/threads`
@@ -117,11 +118,12 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
   const more = async () => {
     if (next === null || loadingMore.current) return
     loadingMore.current = true
+    setMoreFailed(false)
     try {
       const page = await api.get<GroupThreadsDto>(`${url}?cursor=${next}`)
       setRest((r) => ({ threads: [...(r?.threads ?? []), ...page.threads], next: page.next }))
     } catch {
-      setFailed(true)
+      setMoreFailed(true)
     } finally {
       loadingMore.current = false
     }
@@ -168,6 +170,7 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
         <div
           className="group-threads__list"
           onScroll={(e) => {
+            if (moreFailed) return
             const el = e.currentTarget
             if (el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_END_PX) void more()
           }}
@@ -175,7 +178,16 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
           {rows.map((x) => (
             <Row key={x.root.id} item={x} live={isLive(x)} />
           ))}
-          {next !== null ? <Spinner /> : null}
+          {moreFailed ? (
+            <div className="group-threads__more-err">
+              <span>{t('加载更多失败')}</span>
+              <Button size="small" variant="plain" onClick={() => void more()}>
+                {t('重试')}
+              </Button>
+            </div>
+          ) : next !== null ? (
+            <Spinner />
+          ) : null}
         </div>
       )}
     </aside>

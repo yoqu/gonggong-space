@@ -83,3 +83,12 @@
   border-radius: 0 var(--radius-small) var(--radius-small) 0;
   background: var(--accent);
 }
+.group-threads__more-err {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-8) 0;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}

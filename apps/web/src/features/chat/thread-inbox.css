@@ -61,6 +61,15 @@
   flex-wrap: wrap;
   gap: var(--space-4);
 }
+.thread-inbox__composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.thread-inbox__reply-bar {
+  display: flex;
+  justify-content: flex-end;
+}
 @media (hover: hover) {
   .thread-inbox__card:hover {
     background: var(--quote-fill);

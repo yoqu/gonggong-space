@@ -1,5 +1,5 @@
 import type { UsageDayDto, UsageRowDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { fmtTokens } from '../../lib/format'
 import { browserTimeZone } from '../../lib/time'
@@ -39,7 +39,7 @@ export function useUsage(query: string) {
 function Bar({ value, max, color = 'var(--system-blue)' }: { value: number; max: number; color?: string }) {
   return (
     <span className="usage-bar" aria-hidden="true">
-      <span style={{ width: `${(value / max) * 100}%`, background: color }} />
+      {value > 0 ? <span style={{ width: `${(value / max) * 100}%`, background: color }} /> : null}
     </span>
   )
 }
@@ -198,6 +198,7 @@ function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, stri
  */
 export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; teamId?: string }) {
   const [by, setBy] = useState<By>('bot')
+  const scope = `${base}|${teamId}`
   const team = teamId ? `&teamId=${teamId}` : ''
   const {
     data: rows,
@@ -205,12 +206,20 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
     loading,
     reload,
   } = useGet<UsageRowDto[]>(`${base}?by=${by}&days=${WINDOW}${team}`)
+  // Keep previous rows of the same scope while switching `by` so Stats/Trend/Share never collapse and flash.
+  const [cached, setCached] = useState<{ scope: string; by: By; rows: UsageRowDto[] } | null>(null)
+  useEffect(() => {
+    if (rows !== null) setCached({ scope, by, rows })
+  }, [scope, by, rows])
+  const visible = rows ?? (cached?.scope === scope ? cached.rows : null)
+  const visibleBy = rows !== null ? by : cached?.scope === scope ? cached.by : by
   // Twice the window so the tiles can compare against the prior period.
   const daily = useGet<UsageDayDto[]>(
     `${base}/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(browserTimeZone)}${team}`,
   )
-  const max = Math.max(1, ...(rows ?? []).map((r) => r.totalTokens))
-  const colors = colorsFor(rows ?? [])
+  const hasDaily = !!daily.data?.some((d) => d.runs > 0 || d.totalTokens > 0)
+  const max = Math.max(1, ...(visible ?? []).map((r) => r.totalTokens))
+  const colors = colorsFor(visible ?? [])
   return (
     <>
       <Tabs value={by} onChange={setBy} items={TABS} />
@@ -225,13 +234,9 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
           }}
         />
       ) : null}
-      {rows?.length ? (
-        <>
-          <Stats rows={rows} by={by} daily={daily.data} />
-          {daily.data ? <Trend daily={daily.data} /> : null}
-          <Share rows={rows} colors={colors} />
-        </>
-      ) : null}
+      {visible?.length ? <Stats rows={visible} by={visibleBy} daily={daily.data} /> : null}
+      {daily.data && (hasDaily || visible?.length) ? <Trend daily={daily.data} /> : null}
+      {visible?.length ? <Share rows={visible} colors={colors} /> : null}
       {rows === null ? (
         error ? null : (
           <Spinner size={18} />

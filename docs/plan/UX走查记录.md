@@ -315,6 +315,19 @@
 - P1 终端空间切换会话不重置 `ended` 状态、终端出错/退出态无重连或新开入口、剪贴板失败静默丢失且重命名/删除缺防重入（`terminal/TerminalSpacePage.tsx`、`TerminalView.tsx`、`view.ts`）→ 切换 `space.id` 重置 `ended`/`failed`、错误态与退出态遮罩均提供「重新连接 / 新开 Shell」主按钮、剪贴板失败改为 `toast` 提示、重命名未改动按 Enter 不提交并补保存/删除防重入（验收：从已结束终端切至运行中终端顶栏按钮正确置灰，出错/退出态可一键恢复）。
 - P1 同步冲突弹窗加载失败误显「冲突已处理」且缺少竞态保护（`sync/ConflictDialog.tsx`、`sync/en.ts`）：`syncApi.conflicts` 失败时直接 `setConflict(null)` 导致界面误报已处理 → 区分 `loadError` 态展示「读取冲突失败」与「重试」按钮，为 `ConflictDialog` 与 `Preview` 补 `cancelled` 竞态清理（验收：冲突接口报错时显示错误与重试按钮，不再误报「冲突已处理」）。
 
+## 11-21 第 6 轮（管理后台手机端导航、话题收件箱与本群话题、用量与会话统计、通知弹层与全局搜索、供应商编辑器；桌面 1440 + 深色 + 390 触屏）
+
+已修（2 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 话题收件箱点「回复」展开输入框后无按钮可收起、`<button>` 内非法嵌套 `<p>`、分页失败静默且按钮无防重入；本群话题与话题收件箱摘要原样裸露 Markdown 源码、且本群话题翻页失败后 `<Spinner>` 无限转圈无重试（`chat/ThreadInbox.tsx`、`GroupThreads.tsx`、`en.ts`）→ 统一剥离 Markdown 语法生成纯文本摘要、`Line` 改 `<span>`、回复框补「收起回复」按钮、分页失败显式提示与重试（验收：展开回复框可一键收起，Markdown 消息摘要无 `#`/`**`/`\`` 源码，翻页失败可点重试）。
+- P1 用量页切换「按 Bot / 按触发人 / 按群」整页卸载塌缩闪烁，且 0 token「未上报」行因 `min-width: 3px` 误画占比柱；会话统计 `ops` 运营接口失败静默消失且切单团队后「按团队」Tab 状态残留（`usage/UsagePage.tsx`、`conversation-stats/ConversationStatsPanel.tsx`）→ 每日趋势图独立于维度切换并保留上一维度数据防塌缩、`value <= 0` 不画柱体、运营失败渲染错误告警、切单团队自动复位维度为「按会话」（验收：切换用量维度页面不闪跳，0 token 行无色柱，`ops` 报错可见）。
+
+- P2 会话统计 9 张指标卡在 1440px 下排成 7+2 极不均衡，且「成功率」副文案 `已结束 28 轮，完成 27 轮` 在窄卡中把单字「轮」孤立折行（`conversation-stats/ConversationStatsPanel.tsx`、`usage/usage.css`）→ 会话统计卡片网格改 `minmax(180px, 1fr)` 或按 3×3 排布，副文案精简为 `27 / 28 轮完成`（验收：1440px 下指标卡均衡成行、无孤立单字折行）。
+- P2 全局搜索浮层在 390px 手机端缺少一键清空 `×` 按钮，选中态蓝底 `<mark>` 对比度偏低，且背景遮罩过透导致底层页面插画清晰透出干扰阅读（`search/SearchOverlay.tsx`、`search.css`）→ 非空时输入框右侧加清除 `×` 按钮、提升 `.search__row--active mark` 对比度、移动端加深 `.search__backdrop` 遮罩（验收：手机端可一键清空关键词，选中项高亮清晰，背景插画不再透出干扰）。
+- P2 供应商编辑器表单校验失败仅在弹窗最底端显示一行红字，展开「高级」或双协议端点后用户点击底部「保存」看不到视口外错误提示（`machines/ProviderEditor.tsx`）→ 校验失败时自动滚动错误提示入视口或将错误 `<Alert>` 固定在操作栏上方（验收：展开高级项后未填必填项点保存，错误提示立即可见）。
+- P3 用量页底部说明仍写死「Codex 适配器未上报的轮次计为「未上报」」（`usage/UsagePage.tsx`），而系统现已支持 12 个 Agent → 改为「未上报 token 的轮次计为「未上报」，不计入 token 合计」（验收：说明文案不限定单一 Agent）。
+- P3 通知弹层「全部标为已读」「清除已读」缺防重入态、空列表时顶栏仍留两个置灰按钮，已处理项整卡 `opacity: 0.55` 在毛玻璃底上对比度偏低（`notifications/NotificationPanel.tsx`、`notifications.css`）→ 补 `busy` 防重入、空态隐藏空操作、已处理项仅弱化正文保留标题对比度（验收：空态顶栏清爽，已处理项标题清晰可辨）。
+- P3 会话统计「每日趋势」5 项指标分段器在 390px 手机端紧凑塞满整行无左右可滚提示（`usage/usage.css`）→ 为窄屏 `.usage-card__head .ui-seg` 补溢出渐隐提示（验收：390px 英文/中文下均明确可滚动无硬裁切）。
+
 - P2 终端搜索栏（`Cmd+F`）缺少 `Enter`/`Shift+Enter` 跳转与关闭按钮（`terminal/TerminalView.tsx`、`terminal.css`）：仅渲染裸 `<input>` 无占位提示，输入后按 Enter 不跳转下一匹配且无鼠标关闭入口 → 补 `Enter`/`Shift+Enter` 调 `findNext`/`findPrevious`、占位提示与关闭 `×` 按钮（验收：打开终端搜索后可键盘上下翻找匹配并可点 `×` 关闭）。
 - P2 新建终端输入相对路径或 `~/...` 时「创建」按钮静默置灰无原因提示（`terminal/NewTerminalDialog.tsx`）：仅要求 `cwd.trim().startsWith('/')` 却未提示格式要求，且创建中无加载态文案 → 目录非空且不以 `/` 开头时显示行内错误「请输入以 / 开头的绝对路径」，提交中显示「创建中…」并禁用取消（验收：输入 `~/code` 时输入框下方明确提示需绝对路径）。
 - P2 飞书管理「重定向 URL」缺一键复制按钮，且「接入进度」第 4 步按钮在窄屏贴边（`feishu/FeishuAdminPage.tsx`、`FeishuOverview.tsx`）：重定向 URL 仅静态 `<code>` 需手动拖选；第 4 步按钮文案较长在 390px 紧贴卡片右缘 → 重定向 URL 右侧加一键复制按钮（带 ✓ 反馈），进度卡片按钮文案精简为「复制登录地址」（验收：可一键复制重定向 URL，390px 下进度卡片留白均衡）。

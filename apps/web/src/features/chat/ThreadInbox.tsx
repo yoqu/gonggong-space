@@ -17,11 +17,11 @@ const REFRESH_MS = 300
 
 function Line({ m }: { m: MessageDto }) {
   return (
-    <p className="thread-inbox__line">
+    <span className="thread-inbox__line">
       <b>{m.authorName}</b>
       <span>{messageSnippet(m)}</span>
       <time dateTime={m.createdAt}>{ago(m.createdAt)}</time>
-    </p>
+    </span>
   )
 }
 
@@ -87,14 +87,21 @@ function Card({
       </button>
       {group ? (
         replying ? (
-          <MessageComposer
-            group={group}
-            thread={item.root.id}
-            onSent={() => {
-              setReplying(false)
-              onSent()
-            }}
-          />
+          <div className="thread-inbox__composer">
+            <MessageComposer
+              group={group}
+              thread={item.root.id}
+              onSent={() => {
+                setReplying(false)
+                onSent()
+              }}
+            />
+            <div className="thread-inbox__reply-bar">
+              <Button size="small" variant="plain" onClick={() => setReplying(false)}>
+                {t('收起回复')}
+              </Button>
+            </div>
+          </div>
         ) : (
           <span className="thread-inbox__actions">
             <Button
@@ -125,6 +132,7 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
   const [list, setList] = useState<ThreadInboxItemDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [more, setMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const { leaving, leave } = useLeaving()
 
   const load = useCallback(async () => {
@@ -155,13 +163,16 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
 
   const older = async () => {
     const last = list?.at(-1)?.latest.at(-1)?.seq
-    if (!last) return
+    if (!last || loadingMore) return
+    setLoadingMore(true)
     try {
       const { threads } = await api.get<ThreadInboxDto>(`/threads?before=${last}`)
       setList((l) => [...(l ?? []), ...threads])
       setMore(threads.length === 20)
-    } catch {
-      setFailed(true)
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -255,7 +266,13 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
             />
           ))}
           {more ? (
-            <Button size="small" variant="plain" onClick={() => void older()}>
+            <Button
+              size="small"
+              variant="plain"
+              loading={loadingMore}
+              disabled={loadingMore}
+              onClick={() => void older()}
+            >
               {t('加载更多')}
             </Button>
           ) : null}

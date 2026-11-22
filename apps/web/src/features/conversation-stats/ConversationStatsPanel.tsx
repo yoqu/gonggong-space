@@ -7,7 +7,7 @@ import type {
   ConversationStatsRowDto,
   RunStatus,
 } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { ago, browserTimeZone, localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
@@ -324,6 +324,9 @@ function Details({
   platform: boolean
 }) {
   const [by, setBy] = useState<ConversationStatsBy>('conversation')
+  useEffect(() => {
+    if (!platform && by === 'team') setBy('conversation')
+  }, [platform, by])
   const tabs = platform ? TABS : TABS.filter((x) => x.value !== 'team')
   const tab = tabs.find((x) => x.value === by) ?? tabs[0]!
   const {

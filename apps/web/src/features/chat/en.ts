@@ -329,4 +329,6 @@ export default {
   改为建群: 'Create group instead',
   '将以群聊方式创建，之后可随时加人': 'Will be created as a group; more members can be added later',
   改回私聊: 'Switch back to DM',
+  收起回复: 'Hide reply',
+  加载更多失败: "Couldn't load more",
 } satisfies Record<string, string>
