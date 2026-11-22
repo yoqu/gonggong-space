@@ -6,14 +6,12 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
-import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
+import { useRealtimeRefresh } from '../../lib/useRealtimeRefresh'
 import { Badge, Button, EmptyChatArt, EmptyState, FailedArt, Icon, Mascot, toast, useLeaving } from '../../ui'
 import { MessageComposer } from './MessageComposer'
 import './thread-inbox.css'
 import { messageSnippet } from './snippet'
-
-const REFRESH_MS = 300
 
 function Line({ m }: { m: MessageDto }) {
   return (
@@ -145,21 +143,7 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
       setFailed(true)
     }
   }, [])
-  useEffect(() => {
-    void load()
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const off = realtime.subscribe((e) => {
-      if (e.t !== 'thread.state') return
-      clearTimeout(timer)
-      timer = setTimeout(() => void load(), REFRESH_MS)
-    })
-    const offReconnect = realtime.onReconnect(() => void load())
-    return () => {
-      clearTimeout(timer)
-      off()
-      offReconnect()
-    }
-  }, [load])
+  useRealtimeRefresh(load, (e) => e.t === 'thread.state')
 
   const older = async () => {
     const last = list?.at(-1)?.latest.at(-1)?.seq

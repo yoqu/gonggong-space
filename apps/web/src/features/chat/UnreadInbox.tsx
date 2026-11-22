@@ -1,11 +1,11 @@
 import type { UnreadsDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
+import { useRealtimeRefresh } from '../../lib/useRealtimeRefresh'
 import { Button, EmptyChatArt, EmptyState, FailedArt, Icon, Input, Mascot, toast, useLeaving } from '../../ui'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { uuid } from './MessageComposer'
@@ -13,8 +13,6 @@ import './thread-inbox.css'
 import { messageSnippet } from './snippet'
 
 type Item = UnreadsDto['groups'][number]
-
-const REFRESH_MS = 300
 
 function Reply({ groupId }: { groupId: string }) {
   const [body, setBody] = useState('')
@@ -102,22 +100,8 @@ export function UnreadInbox({ onBack }: { onBack?: () => void }) {
       setFailed(true)
     }
   }, [])
-  useEffect(() => {
-    void load()
-    let timer: ReturnType<typeof setTimeout> | undefined
-    // Only arrivals add to the list; reading elsewhere leaves cards in place until the page is opened again.
-    const off = realtime.subscribe((e) => {
-      if (e.t !== 'message.new') return
-      clearTimeout(timer)
-      timer = setTimeout(() => void load(), REFRESH_MS)
-    })
-    const offReconnect = realtime.onReconnect(() => void load())
-    return () => {
-      clearTimeout(timer)
-      off()
-      offReconnect()
-    }
-  }, [load])
+  // Only arrivals add to the list; reading elsewhere leaves cards in place until the page is opened again.
+  useRealtimeRefresh(load, (e) => e.t === 'message.new')
 
   const read = (groupId: string) => {
     leave(groupId, () => setList((l) => l?.filter((x) => x.group.id !== groupId) ?? null))

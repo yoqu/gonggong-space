@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { realtime } from '../../lib/realtime'
+import { toastError } from '../../lib/errors'
 import { ago, fullTime } from '../../lib/time'
+import { useRealtimeRefresh } from '../../lib/useRealtimeRefresh'
 import {
   Button,
   EmptyState,
@@ -26,7 +27,6 @@ import './later.css'
 import { messageSnippet } from '../chat/snippet'
 
 type Tab = 'open' | 'done'
-const REFRESH_MS = 300
 const PAGE = 30
 
 /** Where 跳到原消息 goes: a thread reply opens its thread. */
@@ -141,6 +141,7 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
   const [list, setList] = useState<SavedMessageDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [more, setMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const { leaving, leave } = useLeaving()
 
   const load = useCallback(async () => {
@@ -153,35 +154,25 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
       setFailed(true)
     }
   }, [tab])
-  useEffect(() => {
-    setList(null)
-    void load()
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const off = realtime.subscribe((e) => {
-      if (e.t !== 'saved.changed') return
-      clearTimeout(timer)
-      timer = setTimeout(() => void load(), REFRESH_MS)
-    })
-    const offReconnect = realtime.onReconnect(() => void load())
-    return () => {
-      clearTimeout(timer)
-      off()
-      offReconnect()
-    }
-  }, [load])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab starts from the loading view
+  useEffect(() => setList(null), [tab])
+  useRealtimeRefresh(load, (e) => e.t === 'saved.changed')
 
   const older = async () => {
     const last = list?.at(-1)
     const cursor = tab === 'done' ? last?.doneAt : last?.createdAt
-    if (!cursor) return
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
     try {
       const { items } = await api.get<SavedListDto>(
         `/saved?state=${tab}&before=${encodeURIComponent(cursor)}`,
       )
       setList((l) => [...(l ?? []), ...items])
       setMore(items.length === PAGE)
-    } catch {
-      setFailed(true)
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -255,7 +246,13 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
             />
           ))}
           {more ? (
-            <Button size="small" variant="plain" onClick={() => void older()}>
+            <Button
+              size="small"
+              variant="plain"
+              loading={loadingMore}
+              disabled={loadingMore}
+              onClick={() => void older()}
+            >
               {t('加载更多')}
             </Button>
           ) : null}

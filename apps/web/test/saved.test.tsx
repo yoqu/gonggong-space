@@ -7,7 +7,7 @@ import { useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { remindLabel, remindPresets, useSaved } from '../src/features/saved/store'
-import { mockApi } from './mockApi'
+import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
   id: 'u1',
@@ -260,6 +260,40 @@ describe('稍后处理 page actions', () => {
         }),
       ),
     )
+  })
+})
+
+describe('稍后处理 加载更多', () => {
+  const page = Array.from({ length: 30 }, (_, i) =>
+    saved({
+      message: msg({ seq: i + 1, body: `第 ${i + 1} 条稍后` }),
+      createdAt: new Date(Date.UTC(2026, 10, 8, 2, 30 - i)).toISOString(),
+    }),
+  )
+  const olderPath = `GET /saved?state=open&before=${encodeURIComponent(page[29]!.createdAt)}`
+
+  it('fires one request on a double click', async () => {
+    let release: (v: unknown) => void = () => {}
+    const calls = renderAt('/later', {
+      'GET /saved?state=open': { items: page },
+      [olderPath]: () => new Promise((r) => (release = () => r({ items: [] }))),
+    })
+    const more = await screen.findByRole('button', { name: '加载更多' })
+    fireEvent.click(more)
+    fireEvent.click(more)
+    await act(async () => release(undefined))
+    expect(calls.filter((c) => c.path.includes('&before=')).length).toBe(1)
+  })
+
+  it('toasts a failure and keeps the list', async () => {
+    renderAt('/later', {
+      'GET /saved?state=open': { items: page },
+      [olderPath]: apiError(500, 'internal', '服务器出错了'),
+    })
+    fireEvent.click(await screen.findByRole('button', { name: '加载更多' }))
+    expect(await screen.findByText('服务器出错了')).toBeTruthy()
+    expect(screen.getByTestId('later-m1')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '加载更多' })).toBeTruthy()
   })
 })
 
