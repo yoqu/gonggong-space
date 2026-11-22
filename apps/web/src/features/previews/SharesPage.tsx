@@ -3,11 +3,11 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { matchAny } from '../../lib/match'
 import { dateLocale } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Button,
   ConfirmActionDialog,
   EmptyState,
   Presence,
@@ -43,10 +43,8 @@ export function SharesPage() {
       setExtendingId(null)
     }
   }
-  const q = query.trim().toLowerCase()
-  const shown = rows?.filter(
-    (s) => !q || `${s.previewTitle} ${s.groupName} ${s.botName} ${s.createdByName}`.toLowerCase().includes(q),
-  )
+  const q = query.trim()
+  const shown = rows?.filter((s) => matchAny(q, s.previewTitle, s.groupName, s.botName, s.createdByName))
   const active = rows?.filter((s) => s.active).length ?? 0
   return (
     <AdminPage
@@ -55,15 +53,7 @@ export function SharesPage() {
       subtitle={rows ? t('{n} 条 · {active} 条有效', { n: rows.length, active }) : undefined}
       search={<SearchField placeholder={t('搜索预览、群或创建人')} value={query} onChange={setQuery} />}
     >
-      {error ? (
-        <Alert variant="error" description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={loading} onClick={reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="error" description={error} retrying={loading} onRetry={reload} /> : null}
       {shown ? (
         <Table<PreviewShareDto>
           aria-label={t('公开链接列表')}

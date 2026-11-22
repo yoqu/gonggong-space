@@ -1,20 +1,19 @@
 import { AgentsPanel } from '@web/features/agents/AgentsPanel'
-import type { AgentsSource } from '@web/features/agents/source'
-import { Icon, Skeleton } from '@web/ui'
-import { useEffect, useState } from 'react'
+import { Alert, Icon, Skeleton } from '@web/ui'
+import { useCallback, useEffect, useState } from 'react'
 import { desktopSource } from '../agentsSource'
 import { t } from '../i18n'
 import { ipc, type MachineBot } from '../ipc'
-import { fail } from '../lib/ui'
+import { useIpc } from '../lib/useIpc'
 import type { PageProps } from '.'
 
 /** The Web's Agent page of a machine (same components), on this machine's files. */
 export function AgentsPage(_: PageProps) {
-  const [source, setSource] = useState<AgentsSource | null>(null)
+  const loadSource = useCallback(() => ipc.agentFeatures().then(desktopSource), [])
+  const sourceQ = useIpc(loadSource)
   const [bots, setBots] = useState<MachineBot[]>([])
 
   useEffect(() => {
-    ipc.agentFeatures().then((f) => setSource(desktopSource(f)), fail)
     ipc.bots().then(setBots, () => {})
   }, [])
 
@@ -28,7 +27,18 @@ export function AgentsPage(_: PageProps) {
           )}
         </span>
       </p>
-      {source ? <AgentsPanel source={source} bots={bots} /> : <Skeleton variant="conversation" count={2} />}
+      {sourceQ.data ? (
+        <AgentsPanel source={sourceQ.data} bots={bots} />
+      ) : sourceQ.error ? (
+        <Alert
+          variant="error"
+          description={sourceQ.error}
+          retrying={sourceQ.loading}
+          onRetry={() => void sourceQ.reload()}
+        />
+      ) : (
+        <Skeleton variant="conversation" count={2} />
+      )}
     </>
   )
 }

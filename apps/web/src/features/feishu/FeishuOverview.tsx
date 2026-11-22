@@ -2,11 +2,11 @@ import type { FeishuOverviewBotDto, FeishuOverviewChatDto, FeishuOverviewDto } f
 import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router'
 import { t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
-import { copyText } from '../../lib/clipboard'
+import { api } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Icon, type MenuItem, Presence, Table, toast } from '../../ui'
+import { Button, Icon, type MenuItem, Presence, Table } from '../../ui'
 import { FeishuAppTag } from './FeishuAppTag'
 import { feishuHintText } from './FeishuIssueEvent'
 import './feishu.css'
@@ -52,15 +52,7 @@ export function FeishuProgress({ data }: { data: FeishuOverviewDto }) {
                 {s.title}
               </span>
               {!s.done && i === 3 ? (
-                <Button
-                  size="small"
-                  onClick={() =>
-                    void copyText(loginUrl).then(
-                      () => toast({ type: 'success', message: t('已复制登录地址') }),
-                      toastError,
-                    )
-                  }
-                >
+                <Button size="small" onClick={() => void copyWithToast(loginUrl, t('已复制登录地址'))}>
                   {t('复制登录地址，发给同事验证')}
                 </Button>
               ) : null}
@@ -95,7 +87,7 @@ export function FeishuOverviewTables({ data, reload }: { data: FeishuOverviewDto
       await api.post(`/bots/${b.botId}/feishu/configure`, {})
       reload()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   }
 

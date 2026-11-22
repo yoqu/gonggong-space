@@ -187,3 +187,66 @@ it('uses 在线预览 in sidebar and explains without internal tool names', asyn
     'Bot 开放的网页与后台服务由这台电脑运行。在这里操作与在 Web 群里效果相同，群成员会立即看到变化。',
   )
 })
+
+it('matches Web on offline bound previews and exited/failed orphan services, and shows error+retry on IPC failure', async () => {
+  const payload: Tunnels = {
+    previews: [
+      {
+        ...LIST.previews[0]!,
+        id: 'p_off',
+        title: '离线页',
+        status: 'offline',
+        serviceId: 'sv1',
+      },
+    ],
+    services: [
+      LIST.services[0]!,
+      {
+        id: 'sv_exited',
+        name: 'old-worker',
+        groupName: '数据分析',
+        botName: '数据助手',
+        command: 'python old.py',
+        cwd: 'jobs',
+        port: null,
+        status: 'exited',
+      },
+      {
+        id: 'sv_failed',
+        name: 'broken-worker',
+        groupName: '数据分析',
+        botName: '数据助手',
+        command: 'python bad.py',
+        cwd: 'jobs',
+        port: null,
+        status: 'failed',
+      },
+      {
+        id: 'sv_starting',
+        name: 'boot-worker',
+        groupName: '数据分析',
+        botName: '数据助手',
+        command: 'python boot.py',
+        cwd: 'jobs',
+        port: null,
+        status: 'starting',
+      },
+    ],
+  }
+  m.tunnels.mockRejectedValueOnce(new Error('IPC 断开')).mockResolvedValue(payload)
+
+  render(<TunnelsPage go={() => {}} />)
+  expect(await screen.findByText(/IPC 断开/)).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '重试' }))
+
+  const offline = await row('离线页')
+  fireEvent.click(offline.getByRole('button', { name: '离线页 的更多操作' }))
+  expect(screen.queryByRole('menuitem', { name: '仅暂停后台进程（保留卡片）' })).toBeNull()
+  expect(screen.getByRole('menuitem', { name: '查看技术详情' })).toBeTruthy()
+  fireEvent.click(offline.getByRole('button', { name: '关闭' }))
+  await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p_off', false))
+
+  expect((await row('old-worker')).queryByRole('button', { name: '停止' })).toBeNull()
+  expect((await row('broken-worker')).queryByRole('button', { name: '停止' })).toBeNull()
+  expect((await row('boot-worker')).getByRole('button', { name: '停止' })).toBeTruthy()
+})

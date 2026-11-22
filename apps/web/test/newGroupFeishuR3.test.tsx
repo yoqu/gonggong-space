@@ -459,7 +459,7 @@ describe('FeishuGroupDialog & GroupFeishuTab · R3A P1-3', () => {
     )
     const refresh = await screen.findByRole('button', { name: '刷新' })
     const row = refresh.closest('.ui-group__row') as HTMLElement
-    expect(row.classList.contains('feishu-creds')).toBe(true)
+    expect(row.classList.contains('ui-group__row--stacked')).toBe(true)
     expect((refresh.parentElement as HTMLElement).style.flexWrap).toBe('wrap')
 
     const failReq = deferred<Response>()
@@ -471,7 +471,7 @@ describe('FeishuGroupDialog & GroupFeishuTab · R3A P1-3', () => {
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('读取飞书群信息失败：timeout')
     expect(alert.querySelector('.ui-alert__icon svg')).toBeTruthy()
-    expect(container.querySelector('.feishu-creds')).toBeTruthy()
+    expect(container.querySelector('.ui-group__row--stacked')).toBeTruthy()
   })
 })
 

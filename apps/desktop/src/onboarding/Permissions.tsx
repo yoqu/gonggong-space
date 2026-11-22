@@ -1,8 +1,9 @@
 import type { Permission } from '@gonggong/protocol'
-import { Button, GroupBox, Icon, Tag, toast } from '@web/ui'
+import { Button, GroupBox, Icon, Tag } from '@web/ui'
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { ipc } from '../ipc'
+import { fail } from '../lib/ui'
 import { PERMISSIONS, refreshPermissions, usePermissions } from '../permissions'
 import { TitleBar } from '../shell/TitleBar'
 
@@ -30,7 +31,7 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
 
   const request = async (kind: Permission) => {
     setAsked((a) => (a.includes(kind) ? a : [...a, kind]))
-    await ipc.requestPermission(kind).catch((e) => toast({ type: 'error', message: String(e) }))
+    await ipc.requestPermission(kind).catch(fail)
   }
 
   const done = list.length > 0 && list.every((p) => p.granted)

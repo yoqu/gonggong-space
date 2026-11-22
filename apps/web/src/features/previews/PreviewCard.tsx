@@ -1,11 +1,11 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useState } from 'react'
-import { api } from '../../lib/api'
-import { toastError } from '../../lib/errors'
+import { attempt } from '../../lib/errors'
 import { Icon, IconButton } from '../../ui'
 import './previews.css'
 import { t } from '../../i18n'
 import { ControlRequests } from './control'
+import { startPreview } from './meta'
 import { PreviewActions } from './PreviewActions'
 import { openInWorkbench, previewIcon, snapshotUrl, usePreviews } from './store'
 
@@ -54,13 +54,8 @@ export function PreviewCard({
   const gui = p?.kind === 'gui'
   const reopen = async () => {
     setReopening(true)
-    try {
-      await api.post(`/previews/${previewId}/start`)
-    } catch (e) {
-      toastError(e)
-    } finally {
-      setReopening(false)
-    }
+    await attempt(() => startPreview(previewId))
+    setReopening(false)
   }
   return (
     <div className={p ? 'pv-card' : 'pv-card pv-card--gone'}>

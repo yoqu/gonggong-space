@@ -2,11 +2,23 @@ import { AGENT_META, type AgentState, ProviderStoreView } from '@gonggong/protoc
 import { choiceLabel, machineDefault } from '@web/features/agents/model'
 import { approvalText } from '@web/features/bots/ApprovalFields'
 import { avatarSrc, faceOf } from '@web/features/bots/avatars'
-import { Avatar, Button, EmptyState, GroupBox, GroupRow, Icon, Skeleton, Tag, type TagTone } from '@web/ui'
+import {
+  Alert,
+  Avatar,
+  Button,
+  EmptyState,
+  GroupBox,
+  GroupRow,
+  Icon,
+  Skeleton,
+  Tag,
+  type TagTone,
+} from '@web/ui'
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { ipc, type MachineBot } from '../ipc'
 import { fail } from '../lib/ui'
+import { useIpc } from '../lib/useIpc'
 import type { PageProps } from '.'
 
 /** 「Kimi / kimi-k2」 of its own provider, else 「继承机器默认（X / 模型）」; the bot's own model wins either way. */
@@ -31,12 +43,12 @@ function status(b: MachineBot, agent: AgentState | undefined): { text: string; t
  * are changed on the Web; the machine's providers and defaults on the Agent page.
  */
 export function BotsPage({ go }: PageProps) {
-  const [bots, setBots] = useState<MachineBot[] | null>(null)
+  const botsQ = useIpc(ipc.bots)
+  const bots = botsQ.data
   const [agents, setAgents] = useState<AgentState[]>([])
   const [providers, setProviders] = useState<ProviderStoreView | null>(null)
 
   useEffect(() => {
-    ipc.bots().then(setBots, fail)
     ipc.tools().then((s) => setAgents(s.agents), fail)
     ipc
       .providers({ action: 'list' })
@@ -45,7 +57,16 @@ export function BotsPage({ go }: PageProps) {
 
   return (
     <>
-      {bots ? null : <Skeleton variant="conversation" count={3} />}
+      {bots ? null : botsQ.error ? (
+        <Alert
+          variant="error"
+          description={botsQ.error}
+          retrying={botsQ.loading}
+          onRetry={() => void botsQ.reload()}
+        />
+      ) : (
+        <Skeleton variant="conversation" count={3} />
+      )}
       {bots?.length === 0 ? (
         <EmptyState
           icon="bot"

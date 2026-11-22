@@ -1,5 +1,4 @@
 import type { GroupPreviewsDto, PreviewDto } from '@gonggong/protocol'
-import { useRef } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { api } from '../../lib/api'
 import { createGroupStore } from '../../lib/groupStore'
@@ -15,6 +14,7 @@ const store = createGroupStore<GroupPreviewsDto>({
           value: { previews: e.previews, services: e.services, manageableBotIds: e.manageableBotIds },
         }
       : null,
+  reconnect: 'reload',
 })
 
 export const usePreviews = store.use
@@ -25,14 +25,10 @@ export type PreviewStatus = PreviewDto['status'] | 'closed'
 /** A workbench tab's preview and its state; undefined until the group's list first loads. */
 export function usePreview(previewId: string) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
-  const list = usePreviews(groupId)
-  // A realtime reconnect clears the list for a moment: keep the last answer so the tab does not flash.
-  const last = useRef<{ preview: PreviewDto | undefined; status: PreviewStatus } | undefined>(undefined)
-  if (list) {
-    const preview = list.previews.find((p) => p.id === previewId)
-    last.current = { preview, status: preview ? preview.status : 'closed' }
-  }
-  return last.current
+  const list = usePreviews(groupId || null)
+  if (!list) return undefined
+  const preview = list.previews.find((p) => p.id === previewId)
+  return { preview, status: (preview ? preview.status : 'closed') as PreviewStatus }
 }
 
 export const openUrl = (previewId: string, path = '/') =>

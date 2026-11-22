@@ -20,7 +20,7 @@ import {
 } from '../../ui'
 import { useSettings } from '../settings/store'
 import '../groups/groups.css'
-import { chatListNote, FeishuLoadError, FeishuUnavailableNote } from './GroupFeishuTab'
+import { bindFeishuChat, chatListNote, FeishuLoadError, FeishuUnavailableNote } from './GroupFeishuTab'
 import './feishu.css'
 
 /**
@@ -57,10 +57,10 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
   }, [data])
 
   const link = async () => {
+    if (!groupId || !chatId) return
     setCreating(true)
     try {
-      await api.put(`/groups/${groupId}/feishu`, { chatId })
-      toast({ type: 'success', message: t('已关联飞书群') })
+      await bindFeishuChat(groupId, chatId)
       onClose()
       navigate(`/g/${groupId}`)
     } catch (e) {
@@ -140,7 +140,7 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
           {error ? <FeishuLoadError error={error} loading={loading} onRetry={reload} /> : null}
           <GroupBox>
             <GroupRow
-              className="feishu-creds"
+              stacked
               label={t('绑定你的飞书账号')}
               description={t('先绑定你的飞书账号，共工才能列出你所在的飞书群')}
             >
@@ -171,11 +171,7 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
             ]}
           />
           <GroupBox>
-            <GroupRow
-              className="feishu-creds"
-              label={t('飞书群')}
-              description={t('列出机器人和你都在、尚未关联的飞书群')}
-            >
+            <GroupRow stacked label={t('飞书群')} description={t('列出机器人和你都在、尚未关联的飞书群')}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                 <Button loading={loading} onClick={reload}>
                   {t('刷新')}
@@ -200,11 +196,7 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
                 />
               </GroupRow>
             ) : (
-              <GroupRow
-                className="feishu-creds"
-                label={t('共工群')}
-                description={t('你是群管理员、还没关联飞书群的群')}
-              >
+              <GroupRow stacked label={t('共工群')} description={t('你是群管理员、还没关联飞书群的群')}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                   <PopUpButton
                     aria-label={t('共工群')}

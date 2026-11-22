@@ -40,7 +40,7 @@ export function PathValue({ path, leaf = 'folder' }: { path: string; leaf?: Icon
     <PathControl
       aria-label={shown}
       items={items.map((it, i) => ({ ...it, icon: i === items.length - 1 ? leaf : 'folder' }))}
-      onSelect={(id) => ipc.reveal(id).catch((e) => toast({ type: 'error', message: String(e) }))}
+      onSelect={(id) => ipc.reveal(id).catch(fail)}
     />
   )
 }

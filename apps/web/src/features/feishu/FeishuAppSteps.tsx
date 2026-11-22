@@ -1,9 +1,10 @@
 import type { FeishuAppDto, FeishuAppView } from '@gonggong/protocol'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
+import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Icon, type IconName, toast } from '../../ui'
+import { Button, Icon, type IconName } from '../../ui'
 import './feishu.css'
 
 const FEISHU_ADMIN = 'https://www.feishu.cn/admin'
@@ -27,7 +28,7 @@ export function useFeishuApp(path: string) {
       await api.post<FeishuAppView>(`${path}/configure`, {})
       reload()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     } finally {
       setRetrying(false)
     }

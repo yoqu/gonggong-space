@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { type AppInfo, ipc, type Overview, onSnapshot, type Snapshot } from './ipc'
 
@@ -29,14 +28,4 @@ export async function connectDaemon() {
 /** Binding details change on login / unbind / revocation. */
 export async function refreshInfo() {
   useDaemon.setState({ info: await ipc.appInfo() })
-}
-
-/** Current time, re-rendered every `ms` for relative labels ("上次 3 秒前"). */
-export function useNow(ms = 1000) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), ms)
-    return () => clearInterval(t)
-  }, [ms])
-  return now
 }

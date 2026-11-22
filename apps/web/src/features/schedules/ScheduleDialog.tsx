@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
+import { browserTimeZone } from '../../lib/time'
 import { Button, Dialog, Input, PopUpButton, Presence, SegmentedControl, TextArea, TextField } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
@@ -21,7 +22,7 @@ const MODES: { value: Mode; label: string }[] = [
   { value: 'custom', label: t('自定义') },
 ]
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
-const BROWSER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
+const BROWSER_TZ = browserTimeZone
 const pad = (n: number | string) => String(n).padStart(2, '0')
 
 interface Draft {

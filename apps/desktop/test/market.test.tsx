@@ -132,7 +132,13 @@ it('filters both lists by the search text', async () => {
   expect(screen.queryByText('wiki')).toBeNull()
   expect(screen.getByText('「我的 Skill」里没有匹配的条目')).toBeTruthy()
 
-  fireEvent.change(screen.getByRole('searchbox', { name: '搜索 Skill 和插件' }), { target: { value: 'zzz' } })
+  fireEvent.change(screen.getByRole('searchbox', { name: '搜索 Skill 和插件' }), {
+    target: { value: 'ctdzsk' },
+  })
+  expect(screen.getAllByText('wiki').length).toBeGreaterThan(0)
+  expect(screen.queryByText('review')).toBeNull()
+
+  fireEvent.change(screen.getByRole('searchbox', { name: '搜索 Skill 和插件' }), { target: { value: 'qqq' } })
   expect(screen.getByText('没有匹配的条目')).toBeTruthy()
 })
 

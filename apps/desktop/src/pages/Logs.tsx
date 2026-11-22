@@ -13,7 +13,7 @@ import {
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type Check, type CheckStatus, ipc, type LogLevel, type LogLine, type NetResult } from '../ipc'
-import { Section } from '../lib/ui'
+import { fail, Section } from '../lib/ui'
 import { openGuide } from '../permissions'
 import type { PageProps } from '.'
 
@@ -41,8 +41,6 @@ const LEVELS: { value: LogLevel; label: string }[] = [
 ]
 const LOG_LIMIT = 500
 const REFRESH_MS = 2000
-
-const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 
 /** Overlapping refreshes may both bring a line: only those after the last one shown count. */
 function appendLines(prev: LogLine[], next: LogLine[]): LogLine[] {

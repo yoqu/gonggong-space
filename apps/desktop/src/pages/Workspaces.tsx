@@ -13,13 +13,14 @@ import {
   type TagTone,
   toast,
 } from '@web/ui'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import logo from '../assets/logo.svg'
 import { t } from '../i18n'
-import { ipc, type WorkspaceRow, type WorkspaceState, type Workspaces } from '../ipc'
+import { ipc, type WorkspaceRow, type WorkspaceState } from '../ipc'
 import { ContextBadge } from '../lib/ContextBadge'
 import { revealLabel, tildify } from '../lib/labels'
-import { Section } from '../lib/ui'
+import { fail, Section } from '../lib/ui'
+import { useIpc } from '../lib/useIpc'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
@@ -34,8 +35,6 @@ type Row = WorkspaceRow & { id: string }
 
 const RESET_RELOAD_MS = 2000
 
-const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
-
 /** A sync backup is `<groupId>/<MMDD-HHMMSS>-<botId>[-n]`: named after the group and Bot when a workspace row knows them. */
 function backupLabel(name: string, rows: WorkspaceRow[]) {
   const m = /^([^/]+)\/(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)-(.+)$/.exec(name)
@@ -48,22 +47,17 @@ function backupLabel(name: string, rows: WorkspaceRow[]) {
 
 export function WorkspacesPage(_: PageProps) {
   const os = useDaemon((s) => s.info?.machine.os)
-  const [data, setData] = useState<Workspaces | null>(null)
+  const { data, error, loading, reload: load } = useIpc(ipc.workspaces)
   // Kept after closing so the alert keeps its text while it animates out.
   const [doomed, setDoomed] = useState<WorkspaceRow | null>(null)
   const [confirming, setConfirming] = useState(false)
-
-  const load = useCallback(() => ipc.workspaces().then(setData, fail), [])
-  useEffect(() => {
-    load()
-  }, [load])
 
   const resetCd = async (w: WorkspaceRow) => {
     try {
       await ipc.resetCd(w.groupId, w.botId)
       toast({ type: 'success', message: t('已请求 {bot} 改回托管工作区，结果见群消息', { bot: w.bot }) })
       // The binding flips once this machine answers the server's workspace.cd.
-      setTimeout(load, RESET_RELOAD_MS)
+      setTimeout(() => void load(), RESET_RELOAD_MS)
     } catch (e) {
       fail(e)
     }
@@ -80,7 +74,11 @@ export function WorkspacesPage(_: PageProps) {
     await load()
   }
 
-  if (!data) return <Skeleton count={4} />
+  if (!data) {
+    if (error)
+      return <Alert variant="error" description={error} retrying={loading} onRetry={() => void load()} />
+    return <Skeleton count={4} />
+  }
 
   const columns: TableColumn<Row>[] = [
     { key: 'group', title: t('群'), width: '1.2fr' },

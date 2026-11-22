@@ -6,7 +6,7 @@ import { attempt } from '../../lib/errors'
 import { Alert, Button, EmptyState, GroupBox, NoSchedulesArt, Presence, Spinner, Switch, Tag } from '../../ui'
 import { botsText, useBotNames } from '../bots/model'
 import '../groups/groups.css'
-import { lastText, stateText } from './model'
+import { lastTextFor, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
 import { reloadSchedules, schedulesApi, timingText, useSchedules, useSchedulesError } from './store'
 
@@ -25,7 +25,7 @@ function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
     await attempt(() => schedulesApi.run(s))
     setRunning(false)
   }
-  const last = lastText(s, (id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))
+  const last = lastTextFor(s, bots)
   return (
     <div className="gs-row" data-testid={`schedule-${s.id}`}>
       <span className="gs-row__main">
@@ -76,13 +76,12 @@ export function SchedulesView({ groupId }: { groupId: string }) {
   if (!list) {
     if (error)
       return (
-        <Alert variant="error" title={t('定时任务加载失败')} description={error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" onClick={() => reloadSchedules(groupId)}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          title={t('定时任务加载失败')}
+          description={error}
+          onRetry={() => reloadSchedules(groupId)}
+        />
       )
     return <Spinner />
   }

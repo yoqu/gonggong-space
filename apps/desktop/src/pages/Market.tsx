@@ -1,6 +1,18 @@
 import type { InstallDto, ListingSummary, MarketListingDto } from '@gonggong/protocol'
 import { StatusTag, statusNote, TYPE_LABEL, targetLabels, VersionTags } from '@web/features/market/status'
-import { Alert, Button, Drawer, EmptyState, GroupBox, GroupRow, SearchField, Skeleton, Tag } from '@web/ui'
+import { matchAny } from '@web/lib/match'
+import {
+  Alert,
+  Button,
+  Drawer,
+  EmptyState,
+  GroupBox,
+  GroupRow,
+  Presence,
+  SearchField,
+  Skeleton,
+  Tag,
+} from '@web/ui'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { ipc } from '../ipc'
@@ -33,8 +45,7 @@ const OpenButton = () => (
   </Button>
 )
 
-const matches = (l: ListingSummary, q: string) =>
-  !q || [l.title, l.name, l.description].some((s) => s.toLowerCase().includes(q))
+const matches = (l: ListingSummary, q: string) => matchAny(q, l.title, l.name, l.description)
 
 function List<T>({
   state,
@@ -199,7 +210,7 @@ export function MarketPage(_: PageProps) {
           )}
         />
       </Section>
-      {open ? <Detail open={open} onClose={() => setOpen(null)} /> : null}
+      <Presence>{open ? <Detail open={open} onClose={() => setOpen(null)} /> : null}</Presence>
     </>
   )
 }

@@ -3,7 +3,7 @@ import { Icon, Popover } from '../../ui'
 import './previews.css'
 import { t } from '../../i18n'
 import { PreviewActions } from './PreviewActions'
-import { PREVIEW_STATE } from './PreviewCard'
+import { DevtoolsLogin, loginNote, PREVIEW_STATE } from './PreviewCard'
 import { previewIcon, snapshotUrl, usePreviews } from './store'
 
 /** Pinned above the composer: every open preview tunnel of the group, for all members. */
@@ -36,7 +36,9 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
     >
       {(close) => (
         <div className="pv-pop">
-          {p.snapshotAt ? (
+          {p.awaiting === 'login' ? (
+            <DevtoolsLogin preview={p} />
+          ) : p.snapshotAt ? (
             <img
               className="pv-pop__shot"
               src={snapshotUrl(p)}
@@ -52,8 +54,14 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
             <PreviewActions preview={p} share={false} onDone={close} />
           </div>
           <div className="pv-card__meta">
-            {p.botName} · {PREVIEW_STATE[p.status].label}
-            {p.port ? ` · :${p.port}` : ''}
+            {p.awaiting === 'login' ? (
+              loginNote(p)
+            ) : (
+              <>
+                {p.botName} · {PREVIEW_STATE[p.status].label}
+                {p.port ? ` · :${p.port}` : ''}
+              </>
+            )}
           </div>
           {service ? (
             <div className="pv-card__meta pv-mono" title={service.command}>

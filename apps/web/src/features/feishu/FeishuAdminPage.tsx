@@ -82,22 +82,20 @@ export function FeishuAdminPage() {
       )}
     >
       {paramsError ? (
-        <Alert variant="error" description={paramsError}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={paramsLoading} onClick={() => void loadParams()}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          description={paramsError}
+          retrying={paramsLoading}
+          onRetry={() => void loadParams()}
+        />
       ) : null}
       {overview.error ? (
-        <Alert variant="error" description={overview.error}>
-          <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button size="small" loading={overview.loading} onClick={overview.reload}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="error"
+          description={overview.error}
+          retrying={overview.loading}
+          onRetry={overview.reload}
+        />
       ) : null}
       {autoSignup === null && !paramsError && paramsLoading ? <Spinner size={18} /> : null}
       {overview.data ? <FeishuProgress data={overview.data} /> : null}
@@ -157,7 +155,7 @@ export function FeishuAdminPage() {
           <h2 className="admin-params__title">{t('主应用')}</h2>
           <GroupBox>
             <GroupRow
-              className="feishu-creds"
+              stacked
               label={t('凭证')}
               description={t('在飞书开发者后台「凭证与基础信息」中获取；保存前会向飞书校验。')}
             >

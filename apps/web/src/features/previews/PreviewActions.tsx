@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
-import { toastError } from '../../lib/errors'
+import { attempt, toastError } from '../../lib/errors'
 import { go } from '../../lib/go'
 import { Icon, IconButton, Presence, toast } from '../../ui'
+import { startPreview } from './meta'
 import { ShareDialog } from './ShareDialog'
 import { openInWorkbench, openUrl } from './store'
 
@@ -25,16 +26,11 @@ export function PreviewActions({
   const [busy, setBusy] = useState<string>()
   const [sharing, setSharing] = useState(false)
   const demo = useSession((s) => s.tenancy?.demoMode)
-  const run = async (key: string, path: string, body?: unknown) => {
+  const run = async (key: string, request: () => Promise<unknown>) => {
     setBusy(key)
-    try {
-      await api.post(path, body)
-      if (key === 'stop') onDone?.()
-    } catch (e) {
-      toastError(e)
-    } finally {
-      setBusy(undefined)
-    }
+    const ok = await attempt(request)
+    if (ok && key === 'stop') onDone?.()
+    setBusy(undefined)
   }
   // 托管到服务器: a static site goes up as a work; any other page is handed to its bot to build and host.
   const host = async () => {
@@ -96,7 +92,7 @@ export function PreviewActions({
               size="small"
               title={t('启动服务')}
               disabled={busy === 'start'}
-              onClick={() => void run('start', `/previews/${p.id}/start`)}
+              onClick={() => void run('start', () => startPreview(p.id))}
             >
               {'play' as const}
             </IconButton>
@@ -121,7 +117,7 @@ export function PreviewActions({
               size="small"
               title={t('重新截图')}
               disabled={busy === 'shot'}
-              onClick={() => void run('shot', `/previews/${p.id}/snapshot`)}
+              onClick={() => void run('shot', () => api.post(`/previews/${p.id}/snapshot`))}
             >
               {'arrow-clockwise' as const}
             </IconButton>
@@ -131,7 +127,7 @@ export function PreviewActions({
             title={stopLabel}
             className="pv-actions__stop"
             disabled={busy === 'stop'}
-            onClick={() => void run('stop', `/previews/${p.id}/close`, { stopService: true })}
+            onClick={() => void run('stop', () => api.post(`/previews/${p.id}/close`, { stopService: true }))}
           >
             {'stop' as const}
           </IconButton>

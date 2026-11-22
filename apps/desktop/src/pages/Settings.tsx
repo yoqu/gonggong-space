@@ -20,7 +20,7 @@ import { locale, setLocale, t } from '../i18n'
 import { ipc, type Mirror, type Settings } from '../ipc'
 import { formatEnv, parseEnv } from '../lib/env'
 import { host } from '../lib/labels'
-import { PathValue } from '../lib/ui'
+import { fail, PathValue } from '../lib/ui'
 import { useRestartToUpdate } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
@@ -145,7 +145,7 @@ export function SettingsPage(_: PageProps) {
   const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
-    ipc.settings().then(setSettings, (e) => toast({ type: 'error', message: String(e) }))
+    ipc.settings().then(setSettings, fail)
   }, [])
 
   const toggle =
@@ -155,7 +155,7 @@ export function SettingsPage(_: PageProps) {
         await save(on)
         setSettings((s) => s && { ...s, [key]: on })
       } catch (e) {
-        toast({ type: 'error', message: String(e) })
+        fail(e)
       }
     }
 
@@ -175,7 +175,7 @@ export function SettingsPage(_: PageProps) {
       setSettings((s) => s && { ...s, env })
       toast({ type: 'success', message: t('环境变量已保存') })
     } catch (e) {
-      toast({ type: 'error', message: String(e) })
+      fail(e)
     }
   }
 
@@ -294,7 +294,7 @@ export function SettingsPage(_: PageProps) {
         )}
         actions={[
           { label: t('取消'), onClick: () => setConfirming(false) },
-          { label: t('解除绑定'), variant: 'destructive', onClick: () => ipc.unbind() },
+          { label: t('解除绑定'), variant: 'destructive', onClick: () => void ipc.unbind().catch(fail) },
         ]}
       />
     </>

@@ -1,6 +1,7 @@
 import { CastRetry } from '@web/features/previews/CastRetry'
 import { DevtoolsGuide } from '@web/features/previews/DevtoolsGuide'
 import {
+  Alert,
   Button,
   EmptyState,
   GroupBox,
@@ -9,18 +10,17 @@ import {
   Skeleton,
   Tag,
   type TagTone,
-  toast,
 } from '@web/ui'
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback } from 'react'
 import { t } from '../i18n'
 import { type CastComponent, ipc, type Tunnels } from '../ipc'
-import { PathValue, Section } from '../lib/ui'
+import { fail, PathValue, Section } from '../lib/ui'
+import { useIpc } from '../lib/useIpc'
 import { openGuide, PERMISSIONS, usePermissions } from '../permissions'
 import type { PageProps } from '.'
 
 type LivePreview = Tunnels['previews'][number]
 
-const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 /** Watchers come and go on the Web; this page follows without a push channel. */
 const REFRESH_MS = 5000
 
@@ -46,20 +46,13 @@ const COMPONENT: Record<CastComponent['source'], { text: string; tone: TagTone; 
 
 /** 实时画面: everything live previews need on this machine — the gg-cast publisher, permissions and what is live. */
 export function LivePage(_: PageProps) {
-  const [component, setComponent] = useState<CastComponent | null>(null)
-  const [previews, setPreviews] = useState<LivePreview[] | null>(null)
+  const componentQ = useIpc(ipc.castComponent)
+  const loadLive = useCallback(() => ipc.tunnels().then((all) => all.previews.filter(isLive)), [])
+  const previewsQ = useIpc(loadLive, { pollMs: REFRESH_MS })
   const permissions = usePermissions((s) => s.list)
-  const load = useCallback(
-    () => ipc.tunnels().then((all) => setPreviews(all.previews.filter(isLive)), fail),
-    [],
-  )
-
-  useEffect(() => {
-    ipc.castComponent().then(setComponent, fail)
-    void load()
-    const timer = setInterval(() => void load(), REFRESH_MS)
-    return () => clearInterval(timer)
-  }, [load])
+  const component = componentQ.data
+  const previews = previewsQ.data
+  const load = previewsQ.reload
 
   const close = async (p: LivePreview) => {
     try {
@@ -74,25 +67,34 @@ export function LivePage(_: PageProps) {
   return (
     <>
       <Section title={t('推流组件')}>
-        <GroupBox>
-          {c && component ? (
-            <div className="dk-row">
-              <span className="dk-tile" style={{ background: 'var(--system-red)' }}>
-                <Icon name="record" size={16} />
-              </span>
-              <div className="dk-row__main">
-                <span className="dk-row__title">
-                  <span className="dk-strong">{t('实时画面组件')}</span>
-                  <Tag tone={c.tone}>{c.text}</Tag>
+        {!component && componentQ.error ? (
+          <Alert
+            variant="error"
+            description={componentQ.error}
+            retrying={componentQ.loading}
+            onRetry={() => void componentQ.reload()}
+          />
+        ) : (
+          <GroupBox>
+            {c && component ? (
+              <div className="dk-row">
+                <span className="dk-tile" style={{ background: 'var(--system-red)' }}>
+                  <Icon name="record" size={16} />
                 </span>
-                <span className="dk-sub">{c.desc}</span>
-                {'path' in component ? <PathValue path={component.path} leaf="doc" /> : null}
+                <div className="dk-row__main">
+                  <span className="dk-row__title">
+                    <span className="dk-strong">{t('实时画面组件')}</span>
+                    <Tag tone={c.tone}>{c.text}</Tag>
+                  </span>
+                  <span className="dk-sub">{c.desc}</span>
+                  {'path' in component ? <PathValue path={component.path} leaf="doc" /> : null}
+                </div>
               </div>
-            </div>
-          ) : (
-            <Skeleton count={1} />
-          )}
-        </GroupBox>
+            ) : (
+              <Skeleton count={1} />
+            )}
+          </GroupBox>
+        )}
       </Section>
       {permissions.length ? (
         <Section title={t('系统权限')}>
@@ -175,6 +177,13 @@ export function LivePage(_: PageProps) {
               )
             })}
           </GroupBox>
+        ) : previewsQ.error ? (
+          <Alert
+            variant="error"
+            description={previewsQ.error}
+            retrying={previewsQ.loading}
+            onRetry={() => void previewsQ.reload()}
+          />
         ) : (
           <Skeleton count={2} />
         )}

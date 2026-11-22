@@ -1,13 +1,14 @@
 import { toolTitle } from '@web/features/runs/mcp'
+import { useNow } from '@web/lib/now'
 import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type DaemonStatus, ipc, type MachineBot, type Tunnels } from '../ipc'
 import { ContextBadge } from '../lib/ContextBadge'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
-import { Section } from '../lib/ui'
+import { fail, Section } from '../lib/ui'
 import { openGuide, PERMISSIONS, useMissing } from '../permissions'
-import { useDaemon, useNow } from '../store'
+import { useDaemon } from '../store'
 import type { PageProps } from '.'
 import { isLive } from './Live'
 
@@ -164,7 +165,7 @@ function Stat({ k, v, s }: { k: string; v: ReactNode; s: ReactNode }) {
 
 function Rebind() {
   return (
-    <Button size="small" onClick={() => ipc.unbind()}>
+    <Button size="small" onClick={() => void ipc.unbind().catch(fail)}>
       {t('重新绑定')}
     </Button>
   )
@@ -179,8 +180,8 @@ function ConnAlert({
   version?: string
   protocol?: number
 }) {
-  const now = useNow()
   const c = status.conn
+  const now = useNow(c.state === 'offline')
   if (c.state === 'offline') {
     const sec = Math.max(0, Math.ceil((c.retryAtMs - now) / 1000))
     return (
@@ -246,10 +247,11 @@ function PermissionsAlert() {
 
 function BlockedAlert({ message }: { message: string }) {
   return (
-    <Alert variant="error" title={t('共工客户端未运行')} description={message}>
-      <Button size="small" onClick={() => ipc.startDaemon().catch(() => {})}>
-        {t('重试')}
-      </Button>
-    </Alert>
+    <Alert
+      variant="error"
+      title={t('共工客户端未运行')}
+      description={message}
+      onRetry={() => void ipc.startDaemon().catch(() => {})}
+    />
   )
 }

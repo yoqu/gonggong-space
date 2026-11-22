@@ -36,6 +36,18 @@ export interface PreviewTechInfo {
   command: string | null
 }
 
+/** Whether a preview's bound background service can be paused while keeping the preview card. */
+export const canPausePreview = (preview: { status: string }, service: unknown | null) =>
+  Boolean(service && preview.status === 'online')
+
+/** Whether closing a preview should also stop its bound service (`offline` previews only close the record). */
+export const shouldStopServiceOnClose = (preview: { status: string; serviceId: string | null }) =>
+  preview.status !== 'offline' && Boolean(preview.serviceId)
+
+/** Whether a background service is active and can be stopped. */
+export const canStopService = (service: { status: string }) =>
+  service.status === 'running' || service.status === 'starting'
+
 /** Extracts underlying technical metadata hidden behind the row's "查看技术详情" toggle. */
 export function previewTechInfo(
   preview: { kind: string; port: number | null; path: string; serviceName: string | null },

@@ -1,4 +1,4 @@
-import type { ScheduleDto } from '@gonggong/protocol'
+import type { BotDto, ScheduleDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import { STATUS_LABEL } from '../chat/RunGraphics'
 import { at } from './store'
@@ -22,3 +22,7 @@ export const lastText = (s: ScheduleDto, botName: (id: string) => string) =>
         result: s.lastStatus ? STATUS_LABEL[s.lastStatus] : t('跳过#schedule'),
       })
     : null
+
+/** Last-firing text using the workspace bot list to resolve `lastBotId`. */
+export const lastTextFor = (s: ScheduleDto, bots: readonly Pick<BotDto, 'id' | 'name'>[]) =>
+  lastText(s, (id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))

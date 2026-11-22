@@ -1,12 +1,13 @@
+import { useNow } from '@web/lib/now'
 import { t } from '../i18n'
-import { useDaemon, useNow } from '../store'
+import { useDaemon } from '../store'
 
 export function StatusLine() {
-  const now = useNow()
   const info = useDaemon((s) => s.info)
   const snapshot = useDaemon((s) => s.snapshot)
   const status = snapshot.phase === 'running' ? snapshot.status : null
   const online = status?.conn.state === 'online'
+  const now = useNow(online && Boolean(status?.lastHeartbeatMs))
   const beat = status?.lastHeartbeatMs
     ? t('上次 {n} 秒前', { n: Math.max(0, Math.round((now - status.lastHeartbeatMs) / 1000)) })
     : t('尚未发送')

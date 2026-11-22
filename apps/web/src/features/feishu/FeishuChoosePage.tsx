@@ -41,7 +41,7 @@ export function FeishuChoosePage() {
 
   async function bind(e: FormEvent) {
     e.preventDefault()
-    if (phase !== 'idle') return
+    if (phase !== 'idle' || creating) return
     if (!account.trim() || !password) return fail(account.trim() ? t('请输入密码') : t('请输入账号'))
     setPhase('busy')
     setError('')
@@ -54,7 +54,9 @@ export function FeishuChoosePage() {
   }
 
   async function create() {
+    if (phase !== 'idle' || creating) return
     setCreating(true)
+    setError('')
     try {
       enter(await api.post<MeDto>(`${base}/create`))
     } catch (err) {

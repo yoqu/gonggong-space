@@ -123,11 +123,6 @@
 .ui-btn.sc-admin-del {
   color: var(--tint-red-text);
 }
-@media (max-width: 640px) {
-  .sc-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
 .sc-tag {
   display: inline-flex;

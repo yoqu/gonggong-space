@@ -5,7 +5,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { locale, t } from '../../i18n'
 import { ApiError, api } from '../../lib/api'
-import { copyText } from '../../lib/clipboard'
+import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
@@ -28,6 +28,21 @@ import { feishuStartUrl } from './login'
 import './feishu.css'
 
 const list = (names: string[]) => names.join(locale === 'en' ? ', ' : '、')
+
+/** Binds a Gonggong group to a Feishu chat and reports whether any group bots failed to be pulled in. */
+export async function bindFeishuChat(groupId: string, chatId: string) {
+  const v = await api.put<GroupFeishuView>(`/groups/${groupId}/feishu`, { chatId })
+  const failedBots = (v?.bots ?? []).filter((b) => b.appId && !b.inChat).length
+  toast(
+    failedBots
+      ? {
+          type: 'info',
+          message: t('已关联飞书群 · {n} 个 Bot 没能拉入，原因见下方', { n: failedBots }),
+        }
+      : { type: 'success', message: t('已关联飞书群') },
+  )
+  return { view: v, failedBots }
+}
 
 /** Who a created chat pulls in and who it leaves out (unlinked members, bots without an app). */
 function createConsequences(v: GroupFeishuView) {
@@ -149,19 +164,11 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
 
   // Bots and members are pulled in on binding; a bot Feishu refused is listed below with why and a retry.
   const bind = async () => {
+    if (!chatId) return
     setBusy(true)
     try {
-      const v = await api.put<GroupFeishuView>(path, { chatId })
+      await bindFeishuChat(group.id, chatId)
       reload()
-      const out = v.bots.filter((b) => b.appId && !b.inChat).length
-      toast(
-        out
-          ? {
-              type: 'info',
-              message: t('已关联飞书群 · {n} 个 Bot 没能拉入，原因见下方', { n: out }),
-            }
-          : { type: 'success', message: t('已关联飞书群') },
-      )
     } catch (e) {
       toastError(e)
     } finally {
@@ -224,11 +231,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       {data.chat ? (
         <>
           <GroupBox>
-            <GroupRow
-              className="feishu-creds"
-              label={t('飞书群')}
-              description={t('一个共工群只能关联一个飞书群')}
-            >
+            <GroupRow stacked label={t('飞书群')} description={t('一个共工群只能关联一个飞书群')}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                 <span className="gs-value" style={{ textAlign: 'left' }}>
                   {data.chat.name}
@@ -345,12 +348,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
               ) : data.mainAppName ? (
                 <Button
                   size="small"
-                  onClick={() =>
-                    void copyText(data.mainAppName ?? '').then(
-                      () => toast({ type: 'success', message: t('已复制机器人名') }),
-                      toastError,
-                    )
-                  }
+                  onClick={() => void copyWithToast(data.mainAppName ?? '', t('已复制机器人名'))}
                 >
                   {t('复制机器人名')}
                 </Button>
@@ -361,11 +359,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           </GroupBox>
           <h3 className="feishu-section">{t('选择飞书群')}</h3>
           <GroupBox>
-            <GroupRow
-              className="feishu-creds"
-              label={t('飞书群')}
-              description={chatListNote(data.mainAppName)}
-            >
+            <GroupRow stacked label={t('飞书群')} description={chatListNote(data.mainAppName)}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                 <Button disabled={busy} loading={loading} onClick={reload}>
                   {t('刷新')}
@@ -458,36 +452,40 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           />
         ) : null}
       </Presence>
-      {creating && !data.chat ? (
-        <ConfirmActionDialog
-          title={t('创建飞书群')}
-          message={t('确定新建飞书群「{name}」并关联到本群？', { name: group.name })}
-          consequences={createConsequences(data)}
-          label={t('创建')}
-          done={t('已创建并关联飞书群')}
-          run={() => api.post(`${path}/chat`, {})}
-          onDone={() => {
-            setCreating(false)
-            reload()
-          }}
-          onClose={() => setCreating(false)}
-        />
-      ) : null}
-      {unbinding && data.chat ? (
-        <ConfirmActionDialog
-          title={t('取消关联飞书群')}
-          message={t('确定取消关联飞书群 {name}？', { name: data.chat.name })}
-          consequences={[t('飞书群里 @Bot 将不再触发运行'), t('已同步的消息保留')]}
-          label={t('取消关联')}
-          done={t('已取消关联飞书群')}
-          run={() => api.del(path)}
-          onDone={() => {
-            setUnbinding(false)
-            reload()
-          }}
-          onClose={() => setUnbinding(false)}
-        />
-      ) : null}
+      <Presence>
+        {creating && !data.chat ? (
+          <ConfirmActionDialog
+            title={t('创建飞书群')}
+            message={t('确定新建飞书群「{name}」并关联到本群？', { name: group.name })}
+            consequences={createConsequences(data)}
+            label={t('创建')}
+            done={t('已创建并关联飞书群')}
+            run={() => api.post(`${path}/chat`, {})}
+            onDone={() => {
+              setCreating(false)
+              reload()
+            }}
+            onClose={() => setCreating(false)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {unbinding && data.chat ? (
+          <ConfirmActionDialog
+            title={t('取消关联飞书群')}
+            message={t('确定取消关联飞书群 {name}？', { name: data.chat.name })}
+            consequences={[t('飞书群里 @Bot 将不再触发运行'), t('已同步的消息保留')]}
+            label={t('取消关联')}
+            done={t('已取消关联飞书群')}
+            run={() => api.del(path)}
+            onDone={() => {
+              setUnbinding(false)
+              reload()
+            }}
+            onClose={() => setUnbinding(false)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

@@ -3,39 +3,36 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
-import { Button, EmptyState, GroupBox, NoTabsArt, PullDownButton, Spinner, Tag, type TagTone } from '../../ui'
-import { mergePreviewsAndServices, previewTechInfo } from './merge'
+import { Alert, Button, EmptyState, GroupBox, NoTabsArt, PullDownButton, Spinner, Tag } from '../../ui'
+import {
+  canPausePreview,
+  canStopService,
+  mergePreviewsAndServices,
+  previewTechInfo,
+  shouldStopServiceOnClose,
+} from './merge'
+import { PREVIEW_BADGE, PreviewTechDetails, previewKindLabel, SERVICE_STATE, startPreview } from './meta'
 import './previews.css'
 import { openInWorkbench, openUrl, usePreviews } from './store'
-
-const PREVIEW_BADGE: Record<PreviewDto['status'], { text: string; tone: TagTone }> = {
-  online: { text: t('在线'), tone: 'green' },
-  stopped: { text: t('服务已停止'), tone: 'orange' },
-  offline: { text: t('离线'), tone: 'gray' },
-}
-
-const SERVICE_STATE: Record<ServiceDto['status'], { text: string; tone: TagTone }> = {
-  starting: { text: t('启动中'), tone: 'orange' },
-  running: { text: t('运行中'), tone: 'green' },
-  exited: { text: t('已退出'), tone: 'gray' },
-  failed: { text: t('启动失败'), tone: 'red' },
-}
-
-const act = (path: string, body?: unknown) => attempt(() => api.post(path, body))
-
-function kindLabel(p: PreviewDto) {
-  if (p.kind === 'static') return t('静态页面')
-  if (p.kind === 'gui') return t('桌面应用')
-  if (p.kind === 'miniprogram') return t('小程序')
-  return p.serviceId ? t('网页应用') : p.port ? t('外部端口 {port}', { port: p.port }) : t('外部端口')
-}
 
 /**
  * 群设置 · 在线预览: previews and orphan background services in this group; managers can open, stop, pause or restart.
  */
 export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: () => void }) {
   const list = usePreviews(groupId)
-  if (!list) return <Spinner />
+  const error = usePreviews.useError(groupId)
+  if (!list) {
+    if (error)
+      return (
+        <Alert
+          variant="error"
+          title={t('加载失败')}
+          description={error}
+          onRetry={() => usePreviews.reload(groupId)}
+        />
+      )
+    return <Spinner />
+  }
   const { items, backgroundServices } = mergePreviewsAndServices(list.previews, list.services)
   return (
     <>
@@ -68,7 +65,14 @@ function Lists({
   onOpen?: () => void
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [busyKey, setBusyKey] = useState<string | null>(null)
   const toggleTech = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+  const act = async (key: string, request: () => Promise<unknown>) => {
+    if (busyKey === key) return
+    setBusyKey(key)
+    await attempt(request)
+    setBusyKey((cur) => (cur === key ? null : cur))
+  }
 
   return (
     <>
@@ -84,7 +88,7 @@ function Lists({
               const showTech = Boolean(expanded[p.id] && tech)
               const web = p.kind === 'http' || p.kind === 'static'
               const menuItems = [
-                ...(p.canManage && service && p.status === 'online'
+                ...(p.canManage && canPausePreview(p, service)
                   ? [{ label: t('仅暂停后台进程（保留卡片）'), value: 'pause' }]
                   : []),
                 ...(tech ? [{ label: showTech ? t('收起技术详情') : t('查看技术详情'), value: 'tech' }] : []),
@@ -109,7 +113,7 @@ function Lists({
                         <Tag tone={badge.tone}>{badge.text}</Tag>
                       </span>
                       <span className="pv-muted">
-                        {[p.botName, kindLabel(p), p.status === 'stopped' ? t('卡片保留中') : '']
+                        {[p.botName, previewKindLabel(p), p.status === 'stopped' ? t('卡片保留中') : '']
                           .filter(Boolean)
                           .join(' · ')}
                       </span>
@@ -120,14 +124,20 @@ function Lists({
                           <Button
                             variant="primary"
                             size="small"
-                            onClick={() => void act(`/previews/${p.id}/start`)}
+                            disabled={busyKey === `start:${p.id}`}
+                            onClick={() => void act(`start:${p.id}`, () => startPreview(p.id))}
                           >
                             {t('重新启动')}
                           </Button>
                           <Button
                             variant="plain"
                             size="small"
-                            onClick={() => void act(`/previews/${p.id}/close`, { stopService: false })}
+                            disabled={busyKey === `close:${p.id}`}
+                            onClick={() =>
+                              void act(`close:${p.id}`, () =>
+                                api.post(`/previews/${p.id}/close`, { stopService: false }),
+                              )
+                            }
                           >
                             {t('彻底关闭')}
                           </Button>
@@ -149,10 +159,13 @@ function Lists({
                             <Button
                               variant="plain"
                               size="small"
+                              disabled={busyKey === `close:${p.id}`}
                               onClick={() =>
-                                void act(`/previews/${p.id}/close`, {
-                                  stopService: p.status !== 'offline' && Boolean(p.serviceId),
-                                })
+                                void act(`close:${p.id}`, () =>
+                                  api.post(`/previews/${p.id}/close`, {
+                                    stopService: shouldStopServiceOnClose(p),
+                                  }),
+                                )
                               }
                             >
                               {p.status === 'offline'
@@ -177,23 +190,17 @@ function Lists({
                           portal
                           items={menuItems}
                           onSelect={(value) => {
-                            if (value === 'pause' && service) void act(`/services/${service.id}/stop`)
+                            if (value === 'pause' && service)
+                              void act(`stop-svc:${service.id}`, () =>
+                                api.post(`/services/${service.id}/stop`),
+                              )
                             else if (value === 'tech') toggleTech(p.id)
                           }}
                         />
                       ) : null}
                     </span>
                   </div>
-                  {showTech && tech ? (
-                    <div className="pv-tech">
-                      {tech.port !== null ? (
-                        <span>{t('端口 {port}', { port: `127.0.0.1:${tech.port}` })}</span>
-                      ) : null}
-                      {tech.path ? <span>{t('路径 {path}', { path: tech.path })}</span> : null}
-                      {tech.serviceName ? <span>{t('服务 {name}', { name: tech.serviceName })}</span> : null}
-                      {tech.command ? <span>$ {tech.command}</span> : null}
-                    </div>
-                  ) : null}
+                  {showTech && tech ? <PreviewTechDetails tech={tech} /> : null}
                 </div>
               )
             })}
@@ -226,8 +233,13 @@ function Lists({
                         .join(' · ')}
                     </span>
                   </span>
-                  {s.canManage && (s.status === 'running' || s.status === 'starting') ? (
-                    <Button variant="plain" size="small" onClick={() => void act(`/services/${s.id}/stop`)}>
+                  {s.canManage && canStopService(s) ? (
+                    <Button
+                      variant="plain"
+                      size="small"
+                      disabled={busyKey === `stop-svc:${s.id}`}
+                      onClick={() => void act(`stop-svc:${s.id}`, () => api.post(`/services/${s.id}/stop`))}
+                    >
                       {t('停止')}
                     </Button>
                   ) : null}

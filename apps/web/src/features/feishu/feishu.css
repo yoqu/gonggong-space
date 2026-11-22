@@ -5,11 +5,6 @@
   min-width: 0;
 }
 
-.ui-group__row.feishu-creds {
-  flex-direction: column;
-  align-items: stretch;
-}
-
 .feishu-app .ui-alert__desc {
   overflow-wrap: anywhere;
 }

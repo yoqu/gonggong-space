@@ -3,10 +3,10 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { Button, Icon, Presence, Tag } from '../../ui'
-import { useBotNames } from '../bots/model'
+import { botsText, useBotNames } from '../bots/model'
 import '../groups/groups.css'
 import { DeleteScheduleDialog } from './DeleteScheduleDialog'
-import { lastText, stateText } from './model'
+import { lastTextFor, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
 import { schedulesApi, timingText, useSchedules } from './store'
 import './schedules.css'
@@ -45,7 +45,7 @@ export function ScheduleCard({
         </div>
       </div>
     )
-  const last = lastText(s, (id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))
+  const last = lastTextFor(s, bots)
   return (
     <div className="sc-card" data-state={s.enabled ? 'on' : 'off'}>
       <div className="sc-card__head">
@@ -55,7 +55,7 @@ export function ScheduleCard({
       </div>
       <div className="sc-card__body">
         <span>
-          {timingText(s)} · {names.join(' → ')}
+          {timingText(s)} · {botsText(s, names)}
         </span>
         <span className="gs-muted">{fallback}</span>
         <span className="gs-muted">

@@ -27,6 +27,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
   const [days, setDays] = useState(String(PREVIEW_SHARE_DEFAULT_DAYS))
   const [created, setCreated] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
   const load = useCallback(
     () =>
       api
@@ -50,11 +51,15 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
     setBusy(false)
   }
   const revoke = async (s: PreviewShareDto) => {
+    if (revokingId === s.id) return
+    setRevokingId(s.id)
     try {
       await api.post(`/preview-shares/${s.id}/revoke`)
       await load()
     } catch (e) {
       toastError(e)
+    } finally {
+      setRevokingId((cur) => (cur === s.id ? null : cur))
     }
   }
   const copy = () =>
@@ -96,7 +101,12 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
                 </span>
               </span>
               {s.active ? (
-                <Button variant="plain" size="small" onClick={() => void revoke(s)}>
+                <Button
+                  variant="plain"
+                  size="small"
+                  disabled={revokingId === s.id}
+                  onClick={() => void revoke(s)}
+                >
                   {t('收回')}
                 </Button>
               ) : null}
