@@ -366,6 +366,7 @@ describe('machine identity', () => {
 
   it('renames a machine; the label survives hellos and clears back to the hostname', async () => {
     const { machine, token } = await t.seed.machine(owner.id, { name: 'wanglei-mbp' })
+    const bot = await t.seed.bot({ ownerId: owner.id, machineId: machine.id })
     const rename = (name: string, c = cookie) =>
       t.app.inject({
         method: 'PATCH',
@@ -383,9 +384,17 @@ describe('machine identity', () => {
       t: 'machine.updated',
       machine: expect.objectContaining({ name: '办公室 Mac' }),
     })
+    expect(got).toContainEqual({
+      t: 'bot.updated',
+      bot: expect.objectContaining({ id: bot.id, machineName: '办公室 Mac' }),
+    })
+    const botRes = await t.app.inject({ method: 'GET', url: `/api/bots/${bot.id}`, headers: { cookie } })
+    expect(botRes.json()).toMatchObject({ machineName: '办公室 Mac' })
     await hello(token)
     const list = await t.app.inject({ method: 'GET', url: '/api/machines', headers: { cookie } })
     expect(list.json()).toEqual([expect.objectContaining({ name: '办公室 Mac', system })])
     expect((await rename('')).json()).toMatchObject({ name: 'wanglei-mbp' })
+    const botAfter = await t.app.inject({ method: 'GET', url: `/api/bots/${bot.id}`, headers: { cookie } })
+    expect(botAfter.json()).toMatchObject({ machineName: 'wanglei-mbp' })
   })
 })

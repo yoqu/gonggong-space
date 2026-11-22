@@ -1,5 +1,5 @@
 import { type BotShareRequestDto, BotShareRequestReq, type ShareApprovedDto } from '@gonggong/protocol'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { botShareRequests, botShares, bots, users } from '../../db/schema.js'
@@ -12,19 +12,10 @@ import { mirrorShareDecision } from '../notifications/feishu.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { requireTeam } from '../teams/service.js'
 import { publishBot } from './dto.js'
+import { canManage, loadBot } from './routes.js'
 import { dmsOf, isSharedWith, setShares } from './shares.js'
 
 type IdParams = { Params: { id: string } }
-
-async function liveBot(ctx: Ctx, rawId: string) {
-  const [bot] = await ctx.db
-    .select()
-    .from(bots)
-    .where(eq(bots.id, idParam(rawId, 'Bot 不存在')))
-  return bot && !bot.deletedAt ? bot : fail('not_found', 'Bot 不存在')
-}
-
-const canDecide = (user: SessionUser, ownerId: string) => user.id === ownerId || user.role === 'sysadmin'
 
 /** A pending request the caller may decide, with its bot. */
 async function pending(ctx: Ctx, user: SessionUser, rawId: string) {
@@ -32,9 +23,15 @@ async function pending(ctx: Ctx, user: SessionUser, rawId: string) {
     .select({ req: botShareRequests, bot: bots })
     .from(botShareRequests)
     .innerJoin(bots, eq(bots.id, botShareRequests.botId))
-    .where(and(eq(botShareRequests.id, idParam(rawId, '申请不存在')), eq(botShareRequests.status, 'pending')))
+    .where(
+      and(
+        eq(botShareRequests.id, idParam(rawId, '申请不存在')),
+        eq(botShareRequests.status, 'pending'),
+        isNull(bots.deletedAt),
+      ),
+    )
   if (!row) return fail('not_found', '申请不存在或已处理')
-  if (!canDecide(user, row.bot.ownerId)) return fail('forbidden', '只有 Bot 主人或系统管理员可以处理共享申请')
+  if (!canManage(user, row.bot)) return fail('forbidden', '只有 Bot 主人或系统管理员可以处理共享申请')
   return row
 }
 
@@ -111,7 +108,7 @@ export function shareRequestRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.post<IdParams>('/api/bots/:id/share-requests', async (req): Promise<BotShareRequestDto> => {
       const user = await requireUser(ctx, req)
-      const bot = await liveBot(ctx, req.params.id)
+      const bot = await loadBot(ctx, req.params.id)
       await requireTeam(ctx, user.id, bot.teamId)
       const { reason } = BotShareRequestReq.parse(req.body ?? {})
       if (bot.ownerId === user.id) return fail('invalid', '这是你自己的 Bot')
@@ -142,7 +139,7 @@ export function shareRequestRoutes(ctx: Ctx) {
     // The owner (or a sysadmin) sees every pending request; anyone else only their own.
     app.get<IdParams>('/api/bots/:id/share-requests', async (req): Promise<BotShareRequestDto[]> => {
       const user = await requireUser(ctx, req)
-      const bot = await liveBot(ctx, req.params.id)
+      const bot = await loadBot(ctx, req.params.id)
       await requireTeam(ctx, user.id, bot.teamId)
       const rows = await ctx.db
         .select({ req: botShareRequests, userName: users.name })
@@ -152,7 +149,7 @@ export function shareRequestRoutes(ctx: Ctx) {
           and(
             eq(botShareRequests.botId, bot.id),
             eq(botShareRequests.status, 'pending'),
-            canDecide(user, bot.ownerId) ? undefined : eq(botShareRequests.userId, user.id),
+            canManage(user, bot) ? undefined : eq(botShareRequests.userId, user.id),
           ),
         )
         .orderBy(asc(botShareRequests.createdAt))

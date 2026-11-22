@@ -24,11 +24,12 @@ const botRole = (avatar: string | null): BotAvatar =>
 // Rows written before AgentState (AgentInfo, a subset) read with the new fields' defaults.
 const AgentStates = AgentState.array()
 export const machineAgents = (m: MachineRow): AgentState[] => AgentStates.parse(m.agents)
+const machineDisplayName = (m: { label: string | null; name: string }) => m.label ?? m.name
 
 export const machineDto = (ctx: Ctx, m: MachineRow): MachineDto => ({
   id: m.id,
   ownerId: m.ownerId,
-  name: m.label ?? m.name,
+  name: machineDisplayName(m),
   hostname: m.name,
   os: m.os as MachineDto['os'],
   arch: m.arch,
@@ -99,7 +100,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       followAgent: bot.avatar === 'role-agent',
       avatarUrl: avatarUrl(bot.avatarImage),
       machineId: bot.machineId,
-      machineName: machine?.name ?? null,
+      machineName: machine ? machineDisplayName(machine) : null,
       binding: bot.binding as BotDto['binding'],
       presence: presence(ctx, bot, agent, running.has(bot.id)),
       systemPrompt: bot.systemPrompt,

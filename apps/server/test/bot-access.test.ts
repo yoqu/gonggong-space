@@ -3,6 +3,8 @@ import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { approvals, type bots, messages, notifications, runs, systemParams } from '../src/db/schema.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
+import { autoRejects, runAccess } from '../src/modules/bots/access.js'
+import { stopRuns } from '../src/modules/runs/stop.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -120,10 +122,33 @@ describe('per-audience access', () => {
     const w = await world({ tier: 'workspace', access: { trusted: 'full', others: 'auto' } })
     await w.owners.put(`/api/groups/${w.group.id}/bots/${w.bot.id}/tier`, { tier: 'read-only' })
     expect((await w.run(w.friend.id)).bot.tier).toBe('read-only')
-    expect((await w.run(w.other.id)).bot.tier).toBe('read-only')
+    expect((await w.run(w.other.id)).bot).toMatchObject({ tier: 'read-only', aiReview: false })
     await w.owners.put(`/api/groups/${w.group.id}/bots/${w.bot.id}/tier`, { tier: 'full' })
     expect((await w.run(w.owner.id)).bot.tier).toBe('full')
     expect((await w.run(w.other.id)).bot.tier).toBe('workspace')
+  })
+
+  it('clears aiReview whenever the resolved tier is not workspace', () => {
+    const access = { trusted: 'ask', others: 'auto' } as const
+    expect(runAccess({ tier: 'workspace', aiReview: false, access }, 'read-only', 'others')).toEqual({
+      tier: 'read-only',
+      aiReview: false,
+    })
+    expect(autoRejects({ tier: 'workspace', aiReview: false, access }, 'read-only', 'others')).toBe(false)
+    expect(autoRejects({ tier: 'workspace', aiReview: false, access }, null, 'others')).toBe(true)
+    expect(autoRejects({ tier: 'workspace', aiReview: true, access }, null, 'owner')).toBe(false)
+    expect(runAccess({ tier: 'workspace', aiReview: true, access }, 'read-only', 'owner')).toEqual({
+      tier: 'read-only',
+      aiReview: false,
+    })
+    expect(runAccess({ tier: 'read-only', aiReview: true, access }, null, 'owner')).toEqual({
+      tier: 'read-only',
+      aiReview: false,
+    })
+    expect(runAccess({ tier: 'full', aiReview: true, access }, null, 'owner')).toEqual({
+      tier: 'full',
+      aiReview: false,
+    })
   })
 
   it('a shared DM runs at the trusted level', async () => {
@@ -181,6 +206,31 @@ describe('per-audience access', () => {
     expect(a!.status).toBe('pending')
   })
 
+  it('does not auto-reject under 自动审批 when a group read-only override caps the run', async () => {
+    const w = await world({ access: { trusted: 'ask', others: 'auto' } })
+    await w.owners.put(`/api/groups/${w.group.id}/bots/${w.bot.id}/tier`, { tier: 'read-only' })
+    await w.trigger(w.other.id)
+    const { runId } = await w.start()
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: `${runId}/1`,
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: 'ls',
+      options: OPTIONS,
+    })
+    await expect.poll(async () => (await w.runOf(runId)).status).toBe('awaiting_approval')
+    const [a] = await t.db.select().from(approvals)
+    expect(a!.status).toBe('pending')
+    await expect
+      .poll(
+        async () =>
+          (await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))).length,
+      )
+      .toBe(1)
+  })
+
   it('raising a level to full lifts live runs of that audience only, approving their requests', async () => {
     const w = await world({ access: { trusted: 'ask', others: 'ask' } })
     await w.trigger(w.friend.id)
@@ -203,17 +253,52 @@ describe('per-audience access', () => {
       access: { trusted: 'full', others: 'ask' },
     })
     expect(res.body.access).toEqual({ trusted: 'full', others: 'ask' })
+    const rows = await t.db.select().from(approvals)
+    const otherApproval = rows.find((a) => a.runId === other.runId)!
+    expect(otherApproval.status).toBe('pending')
+    // Decide the untouched run as a FIFO sentinel: no run.tier should precede it for other.runId.
+    expect(
+      (await w.owners.post(`/api/runs/${other.runId}/approvals/${otherApproval.id}`, { optionId: 'reject' }))
+        .status,
+    ).toBe(200)
     const sent = [await w.d.next(), await w.d.next(), await w.d.next()]
     expect(sent).toContainEqual({ t: 'run.tier', runId: friend.runId, tier: 'full' })
-    expect(sent).toContainEqual({ t: 'run.tier', runId: other.runId, tier: 'workspace' })
     expect(sent).toContainEqual({
       t: 'approval.decision',
       runId: friend.runId,
       requestId: `${friend.runId}/1`,
       optionId: 'allow',
     })
-    const rows = await t.db.select().from(approvals)
-    expect(rows.find((a) => a.runId === other.runId)!.status).toBe('pending')
+    expect(sent).toContainEqual({
+      t: 'approval.decision',
+      runId: other.runId,
+      requestId: `${other.runId}/1`,
+      optionId: 'reject',
+    })
+    expect(sent.some((m) => m.t === 'run.tier' && m.runId === other.runId)).toBe(false)
+  })
+
+  it('changing access.trusted does not overwrite one-shot fullAccessForRun on an unaffected run', async () => {
+    const w = await world({ access: { trusted: 'ask', others: 'ask' } })
+    await w.trigger(w.friend.id)
+    const friend = await w.start()
+    const g2 = await t.seed.group({ createdBy: w.owner.id, memberIds: [w.other.id], botIds: [w.bot.id] })
+    await w.trigger(w.other.id, g2.id)
+    const other = await w.start()
+
+    expect((await w.owners.post(`/api/runs/${other.runId}/full-access`, {})).status).toBe(204)
+    expect(await w.d.next()).toEqual({ t: 'run.tier', runId: other.runId, tier: 'full' })
+
+    expect(
+      (await w.owners.patch(`/api/bots/${w.bot.id}`, { access: { trusted: 'full', others: 'ask' } })).status,
+    ).toBe(200)
+    await stopRuns(t.ctx, { groupId: g2.id, runId: other.runId }, w.owner)
+
+    const sent = [await w.d.next(), await w.d.next()]
+    expect(sent).toEqual([
+      { t: 'run.tier', runId: friend.runId, tier: 'full' },
+      { t: 'run.cancel', runId: other.runId },
+    ])
   })
 
   it('only those who manage the bot change access; demo mode refuses full for anyone', async () => {

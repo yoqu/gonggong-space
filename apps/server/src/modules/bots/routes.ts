@@ -13,8 +13,6 @@ import {
   GroupBotTierReq,
   INHERIT_PROVIDER,
   modelName,
-  RunStatus,
-  TERMINAL_RUN_STATUS,
   type Tier,
   UpdateBotReq,
 } from '@gonggong/protocol'
@@ -44,7 +42,9 @@ import { teamParams } from '../groups/params.js'
 import { publishDmsOf } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
+import { UNFINISHED } from '../runs/dto.js'
 import { stepI18nOf } from '../runs/step.js'
+import { stopRuns } from '../runs/stop.js'
 import { leaveBots } from '../sync/switch.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
 import { splitExtras, updateBotState } from '../workspaces/state.js'
@@ -64,9 +64,6 @@ import { applyTier, assertTierAllowed, TIER_LABEL } from './tier.js'
 
 type BotRow = typeof bots.$inferSelect
 type IdParams = { Params: { id: string } }
-
-// Listed rather than NOT IN the terminal ones, so runs_bot_status narrows by status too.
-const UNENDED = RunStatus.options.filter((s) => !TERMINAL_RUN_STATUS.includes(s))
 
 export async function loadBot(ctx: Ctx, rawId: string) {
   const id = idParam(rawId, 'Bot 不存在')
@@ -88,6 +85,7 @@ async function assertNameFree(ctx: Ctx, name: string, exceptId?: string) {
 /** Trigger lists name members of the bot's team. */
 async function assertUsers(ctx: Ctx, teamId: string, ids: string[]) {
   const unique = [...new Set(ids)]
+  if (!unique.length) return
   const found = unique.every(isUuid)
     ? await ctx.db
         .select({ id: teamMembers.userId })
@@ -97,9 +95,11 @@ async function assertUsers(ctx: Ctx, teamId: string, ids: string[]) {
   if (found.length !== unique.length) fail('invalid', '指定名单包含不存在的成员')
 }
 
+export const canManage = (user: { id: string; role: string }, bot: { ownerId: string }) =>
+  user.id === bot.ownerId || user.role === 'sysadmin'
+
 export function assertCanManage(user: SessionUser, bot: BotRow) {
-  if (user.id !== bot.ownerId && user.role !== 'sysadmin')
-    fail('forbidden', '只有 Bot 主人或系统管理员可以修改该 Bot')
+  if (!canManage(user, bot)) fail('forbidden', '只有 Bot 主人或系统管理员可以修改该 Bot')
 }
 
 /** Sysadmin actions on someone else's bot are audited (spec 9: all admin operations). */
@@ -197,8 +197,7 @@ export function botRoutes(ctx: Ctx) {
     app.get<IdParams>('/api/bots/:id/activity', async (req): Promise<BotPlaceDto[]> => {
       const user = await requireUser(ctx, req)
       const bot = await loadBot(ctx, req.params.id)
-      if (user.id !== bot.ownerId && user.role !== 'sysadmin')
-        fail('forbidden', '仅 Bot 主人或系统管理员可查看该 Bot 的工作情况')
+      if (!canManage(user, bot)) fail('forbidden', '仅 Bot 主人或系统管理员可查看该 Bot 的工作情况')
       const places = await ctx.db
         .select({
           groupId: groups.id,
@@ -226,7 +225,7 @@ export function botRoutes(ctx: Ctx) {
           startedAt: runs.startedAt,
         })
         .from(runs)
-        .where(and(eq(runs.botId, bot.id), inArray(runs.status, UNENDED)))
+        .where(and(eq(runs.botId, bot.id), inArray(runs.status, UNFINISHED)))
         .orderBy(desc(runs.queuedAt))
       const extras = places.length
         ? await ctx.db
@@ -362,7 +361,10 @@ export function botRoutes(ctx: Ctx) {
         if (!name) fail('invalid', '名称不能为空')
         await assertNameFree(ctx, name, bot.id)
       }
-      if (body.triggerList) await assertUsers(ctx, bot.teamId, body.triggerList)
+      if (body.triggerList) {
+        body.triggerList = [...new Set(body.triggerList)]
+        await assertUsers(ctx, bot.teamId, body.triggerList)
+      }
       if (body.model !== undefined || body.effort !== undefined) {
         const catalog = await pickCatalog(ctx, bot)
         assertPick(catalog, { model: body.model, effort: body.effort }, bot.model)
@@ -395,7 +397,8 @@ export function botRoutes(ctx: Ctx) {
         body.access &&
         (body.access.trusted !== bot.access.trusted || body.access.others !== bot.access.others)
       // A new trigger list moves people between levels only from their next run.
-      if ((body.tier && body.tier !== bot.tier) || accessChanged) await applyTier(ctx, user.id, bot.id)
+      if ((body.tier && body.tier !== bot.tier) || accessChanged)
+        await applyTier(ctx, user.id, bot.id, undefined, { bot })
       if (name !== undefined && name !== bot.name) await publishDmsOf(ctx, bot.id)
       return publishBot(ctx, bot.id)
     })
@@ -438,7 +441,7 @@ export function botRoutes(ctx: Ctx) {
             : '{user} 将 {bot} 在本群的审批方式恢复为跟随全局（{tier}）',
           { user: user.name, bot: bot.name, tier: { key: TIER_LABEL[tier ?? (bot.tier as Tier)] } },
         )
-        await applyTier(ctx, user.id, bot.id, groupId)
+        await applyTier(ctx, user.id, bot.id, groupId, { groupTier: gb.tier })
         return reply.status(204).send()
       },
     )
@@ -502,6 +505,11 @@ export function botRoutes(ctx: Ctx) {
         .update(groupBots)
         .set({ removedAt: ctx.now() })
         .where(and(eq(groupBots.botId, bot.id), isNull(groupBots.removedAt)))
+      const unfinished = await ctx.db
+        .selectDistinct({ groupId: runs.groupId })
+        .from(runs)
+        .where(and(eq(runs.botId, bot.id), inArray(runs.status, UNFINISHED)))
+      for (const { groupId } of unfinished) await stopRuns(ctx, { groupId, botIds: [bot.id] }, user)
       await leaveBots(ctx, [bot.id])
       await ctx.db.delete(feishuApps).where(eq(feishuApps.botId, bot.id))
       await reloadFeishu(ctx)

@@ -193,6 +193,7 @@ export function machineRoutes(ctx: Ctx) {
       await ctx.db.update(machines).set({ label }).where(eq(machines.id, id))
       const dto = machineDto(ctx, { ...m, label })
       ctx.bus.publish([m.ownerId], { t: 'machine.updated', machine: dto })
+      await publishBots(ctx, eq(bots.machineId, id))
       return dto
     })
 

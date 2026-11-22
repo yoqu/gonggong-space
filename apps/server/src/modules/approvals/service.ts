@@ -7,17 +7,16 @@ import {
 } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
+import { approvals, auditLogs, bots, groupBots, groups, runs } from '../../db/schema.js'
 import { audit, teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { startSweep } from '../../lib/sweep.js'
-import { levelOf } from '../bots/access.js'
+import { autoRejects } from '../bots/access.js'
 import { normalizeAllowlist } from '../bots/allowlist.js'
-import { publishBot } from '../bots/dto.js'
+import { publishBots } from '../bots/dto.js'
 import { groupParams } from '../groups/params.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
-import { approvalDto, publishRun } from '../runs/dto.js'
-import { redact } from '../runs/redact.js'
+import { approvalDto, LIVE, publishRun } from '../runs/dto.js'
 import { runStep } from '../runs/step.js'
 import { runRedactors } from '../secrets/resolve.js'
 
@@ -28,7 +27,6 @@ export type VoidReason = 'stopped' | 'chain_stopped' | 'ended'
 const TICK_MS = 15_000
 /** Allowlist's max length: the owner must still be able to save the list. */
 const ALWAYS_MAX = 100
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
 const scope = {
   a: approvals,
@@ -52,15 +50,16 @@ export async function timeoutMin(ctx: Ctx, group: typeof groups.$inferSelect) {
 
 /** A live run's permission request from the machine running it: store it, await the owner, notify them. */
 export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: ApprovalRequest) {
-  const r = (await runRedactors(ctx, raw.runId)).redact
-  const req = { ...raw, title: r(raw.title), detail: r(raw.detail) }
   const [row] = await ctx.db
-    .select({ run: runs, bot: bots, group: groups })
+    .select({ run: runs, bot: bots, group: groups, groupTier: groupBots.tier })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
-    .where(and(eq(runs.id, req.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
+    .leftJoin(groupBots, and(eq(groupBots.groupId, runs.groupId), eq(groupBots.botId, runs.botId)))
+    .where(and(eq(runs.id, raw.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
   if (!row) return
+  const r = (await runRedactors(ctx, raw.runId)).redact
+  const req = { ...raw, title: r(raw.title), detail: r(raw.detail) }
   const expiresAt = new Date(ctx.now().getTime() + (await timeoutMin(ctx, row.group)) * 60_000)
   const [a] = (await ctx.db
     .insert(approvals)
@@ -72,8 +71,8 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       detail: req.detail,
       reason: req.reason,
       options: req.options,
-      remember: rememberable(raw.remember),
-      rememberSession: raw.rememberSession.filter((r) => redact(r) === r),
+      remember: rememberable(raw.remember, r),
+      rememberSession: raw.rememberSession.filter((entry) => r(entry) === entry),
       review: req.review && { ...req.review, rationale: r(req.review.rationale) },
       mcp: req.mcp && {
         ...req.mcp,
@@ -85,7 +84,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
     })
     .returning()) as [Approval]
   // 自动审批 for someone other than the owner: what the rules left is refused, the owner is not disturbed.
-  if (levelOf(row.bot, row.run.audience as RunAudience | null) === 'auto') {
+  if (autoRejects(row.bot, row.groupTier, row.run.audience as RunAudience | null)) {
     const reject = req.options.find((o) => o.kind === 'reject_once')
     await settle(ctx, { a, groupId: row.group.id, machineId }, 'rejected', reject?.optionId ?? null, null)
     return
@@ -157,8 +156,10 @@ export async function decideApproval(
 }
 
 /** Rules the bot settings can hold and show: valid allowlist entries without secrets. */
-const rememberable = (rules: string[]) =>
-  normalizeAllowlist(rules).filter((r) => Allowlist.element.safeParse(r).success && redact(r) === r)
+const rememberable = (rules: string[], r: (s: string) => string) =>
+  normalizeAllowlist(rules).filter(
+    (entry) => Allowlist.element.safeParse(entry).success && r(entry) === entry,
+  )
 
 /** 始终允许 persists the request's rules on the bot (A4); the row lock keeps concurrent decisions from dropping each other's. */
 async function alwaysAllow(ctx: Ctx, actorUserId: string, botId: string, a: Approval) {
@@ -184,7 +185,7 @@ async function alwaysAllow(ctx: Ctx, actorUserId: string, botId: string, a: Appr
     action: 'bot.always_allow',
     detail: { botId, name: changed.name, added: changed.added, approvalId: a.id },
   })
-  await publishBot(ctx, botId)
+  await publishBots(ctx, eq(bots.id, botId))
 }
 
 /** The run's tier was raised to full: its pending requests are approved on the actor's behalf. */

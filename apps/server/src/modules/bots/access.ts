@@ -33,11 +33,22 @@ export function runAccess(
   audience: RunAudience | null,
 ): { tier: Tier; aiReview: boolean } {
   const level = levelOf(bot, audience)
-  if (!level) return { tier: (groupTier ?? bot.tier) as Tier, aiReview: bot.aiReview }
+  if (!level) {
+    const tier = (groupTier ?? bot.tier) as Tier
+    return { tier, aiReview: tier === 'workspace' && bot.aiReview }
+  }
   const own = LEVEL[level]
   const cap = groupTier as Tier | null
-  return cap && RANK[cap] < RANK[own.tier] ? { tier: cap, aiReview: own.aiReview } : own
+  return cap && RANK[cap] < RANK[own.tier]
+    ? { tier: cap, aiReview: cap === 'workspace' && own.aiReview }
+    : own
 }
+
+export const autoRejects = (
+  bot: { tier: string; aiReview: boolean; access: BotAccess },
+  groupTier: string | null,
+  audience: RunAudience | null,
+) => (audience === 'trusted' || audience === 'others' ? runAccess(bot, groupTier, audience).aiReview : false)
 
 export const hasFull = (access: BotAccess | undefined) =>
   !!access && (access.trusted === 'full' || access.others === 'full')

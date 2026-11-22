@@ -38,6 +38,7 @@ import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { assertPick, choiceCatalog, pickCatalog, providersCmd } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
+import { canManage, loadBot } from '../bots/routes.js'
 import { ownMachine, quietErrors, relay, requireFeature } from '../machines/relay.js'
 import { providerStateRoutes } from './state.js'
 
@@ -323,12 +324,8 @@ export function providerRoutes(ctx: Ctx) {
     // Whoever may pick a model for the bot: its owner, sysadmins and the members of its groups.
     const pickable = async (req: FastifyRequest<{ Params: Params }>) => {
       const me = await requireUser(ctx, req)
-      const [bot] = await ctx.db
-        .select()
-        .from(bots)
-        .where(and(eq(bots.id, idParam(req.params.id, 'Bot 不存在')), isNull(bots.deletedAt)))
-      if (!bot) return fail('not_found', 'Bot 不存在')
-      if (bot.ownerId !== me.id && me.role !== 'sysadmin') {
+      const bot = await loadBot(ctx, req.params.id)
+      if (!canManage(me, bot)) {
         const [seat] = await ctx.db
           .select({ groupId: groupBots.groupId })
           .from(groupBots)

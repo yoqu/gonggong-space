@@ -239,8 +239,12 @@ describe('PATCH /api/bots/:id', () => {
       400,
     )
 
-    const full = await wang.req('PATCH', url, { tier: 'full', triggerList: [li.user.id] })
+    const full = await wang.req('PATCH', url, { tier: 'full', triggerList: [li.user.id, li.user.id] })
     expect(full.json()).toMatchObject({ tier: 'full', triggerScope: 'all', triggerList: [li.user.id] })
+
+    const cleared = await wang.req('PATCH', url, { triggerList: [] })
+    expect(cleared.statusCode).toBe(200)
+    expect(cleared.json()).toMatchObject({ triggerList: [] })
 
     const byAdmin = await admin.req('PATCH', url, { systemPrompt: '只读分析', tier: 'read-only' })
     expect(byAdmin.json()).toMatchObject({ systemPrompt: '只读分析', tier: 'read-only' })
@@ -404,6 +408,65 @@ describe('DELETE /api/bots/:id', () => {
       .where(and(eq(groupBots.groupId, g.id), eq(groupBots.botId, bot.id)))
     expect(gb?.removedAt).not.toBeNull()
     expect(seen).toContainEqual({ t: 'bot.removed', botId: bot.id })
+  })
+
+  it('stops unfinished runs (interrupts queued runs and cancels live runs)', async () => {
+    const wang = await actor()
+    const { machine, token } = await t.seed.machine(wang.user.id, { agents: CLAUDE })
+    const bot = await t.seed.bot({ ownerId: wang.user.id, machineId: machine.id })
+    const g = await t.seed.group({ createdBy: wang.user.id, botIds: [bot.id] })
+    const ws = t.ws('/ws/daemon')
+    const box = inbox(ws)
+    await box.opened
+    ws.send(
+      JSON.stringify({
+        t: 'hello',
+        protocol: PROTOCOL_VERSION,
+        token,
+        daemonVersion: '0.1.0',
+        machine: { name: 'mbp', os: 'macos', arch: 'aarch64' },
+        agents: CLAUDE,
+      }),
+    )
+    expect(await box.next()).toMatchObject({ t: 'welcome' })
+
+    const [m1] = await t.db
+      .insert(messages)
+      .values({ groupId: g.id, kind: 'user', authorUserId: wang.user.id, body: '@b 1' })
+      .returning()
+    const [m2] = await t.db
+      .insert(messages)
+      .values({ groupId: g.id, kind: 'user', authorUserId: wang.user.id, body: '@b 2' })
+      .returning()
+    const [liveRun] = await t.db
+      .insert(runs)
+      .values({
+        groupId: g.id,
+        botId: bot.id,
+        triggerMessageId: m1!.id,
+        originUserId: wang.user.id,
+        status: 'running',
+      })
+      .returning()
+    const [queuedRun] = await t.db
+      .insert(runs)
+      .values({
+        groupId: g.id,
+        botId: bot.id,
+        triggerMessageId: m2!.id,
+        originUserId: wang.user.id,
+        status: 'queued',
+      })
+      .returning()
+
+    expect((await wang.req('DELETE', `/api/bots/${bot.id}`)).statusCode).toBe(204)
+    expect(await box.next()).toEqual({ t: 'run.cancel', runId: liveRun!.id })
+    const [afterLive] = await t.db.select().from(runs).where(eq(runs.id, liveRun!.id))
+    const [afterQueued] = await t.db.select().from(runs).where(eq(runs.id, queuedRun!.id))
+    expect(afterLive?.stoppedBy).toBe(wang.user.id)
+    expect(afterQueued?.status).toBe('interrupted')
+    expect(afterQueued?.stoppedBy).toBe(wang.user.id)
+    ws.close()
   })
 })
 

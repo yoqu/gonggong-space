@@ -7,12 +7,23 @@ import {
 } from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { approvals, auditLogs, bots, groups, messages, notifications, runs } from '../src/db/schema.js'
+import {
+  approvals,
+  auditLogs,
+  bots,
+  groups,
+  messages,
+  notifications,
+  runs,
+  secrets,
+} from '../src/db/schema.js'
+import { seal } from '../src/lib/seal.js'
 import { summarize } from '../src/modules/admin/audit.js'
 import { expireApprovals, voidApprovals } from '../src/modules/approvals/service.js'
 import { listRuns } from '../src/modules/runs/dto.js'
 import { MASK } from '../src/modules/runs/redact.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
+import { forgetRedactors } from '../src/modules/secrets/resolve.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -22,7 +33,10 @@ beforeEach(async () => {
   clock = new Date('2026-09-23T10:00:00Z')
   t = await createTestApp({ now: () => clock })
 })
-afterEach(() => t.close())
+afterEach(() => {
+  forgetRedactors()
+  return t.close()
+})
 
 async function daemon(token: string) {
   const ws = t.ws('/ws/daemon')
@@ -612,6 +626,32 @@ describe('始终允许 rules', () => {
     // A rule holding a secret would leak it into the bot settings; it is not offered.
     const secret = 'curl -H "Authorization: Bearer abcDEF0123456789xyz" x'
     expect((await more(w, runId, 3, [secret, 'tail', 'x'.repeat(201)])).remember).toEqual(['tail'])
+  })
+
+  it('filters custom group secrets out of remember and rememberSession', async () => {
+    const w = await world()
+    const val = 'custom-group-val-987654'
+    await t.db.insert(secrets).values({
+      scope: 'group',
+      groupId: w.group.id,
+      name: 'DEPLOY_KEY',
+      value: seal(val),
+    })
+    const { runId } = await w.request('req-1', OPTIONS)
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-secret',
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: `deploy --val ${val}`,
+      options: OPTIONS,
+      remember: [`deploy --val ${val}`, 'tail'],
+      rememberSession: [`deploy --val ${val}`, 'node'],
+    })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    expect(run.approvals[1]!.remember).toEqual(['tail'])
+    expect(run.approvals[1]!.rememberSession).toEqual(['node'])
   })
 
   it('allow_always merges remember into the bot alwaysAllow, deduped, broadcasts the bot and audits', async () => {

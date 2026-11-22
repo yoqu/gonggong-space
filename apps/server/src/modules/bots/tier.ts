@@ -7,6 +7,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { approvePending } from '../approvals/service.js'
+import { LIVE } from '../runs/dto.js'
 import { hasFull, runAccess } from './access.js'
 
 export const TIER_LABEL: Record<Tier, ProtocolKey> = {
@@ -15,9 +16,12 @@ export const TIER_LABEL: Record<Tier, ProtocolKey> = {
   full: '完全允许',
 }
 
+const effectiveTier = (tier: Tier, demoMode: boolean): Tier =>
+  tier === 'full' && demoMode ? 'workspace' : tier
+
 /** Demo visitors must not drive a bot to run anything outside its workspace on the host's machine. */
 export async function runTier(db: Pick<Db, 'select'>, tier: Tier): Promise<Tier> {
-  return tier === 'full' && (await sysParams(db)).demoMode ? 'workspace' : tier
+  return effectiveTier(tier, (await sysParams(db)).demoMode)
 }
 
 export async function assertTierAllowed(ctx: Ctx, tier: Tier | null | undefined, access?: BotAccess) {
@@ -25,13 +29,16 @@ export async function assertTierAllowed(ctx: Ctx, tier: Tier | null | undefined,
     fail('forbidden', '演示模式下不能使用「完全允许」审批方式')
 }
 
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+export type PrevTier = {
+  bot?: Pick<typeof bots.$inferSelect, 'tier' | 'aiReview' | 'access'>
+  groupTier?: string | null
+}
 
 /**
  * Live runs follow a tier or access change at once instead of from the next turn; raised to full, their pending
  * requests are approved by `actorId`. `groupId` = only that group's runs (its override changed).
  */
-export async function applyTier(ctx: Ctx, actorId: string, botId: string, groupId?: string) {
+export async function applyTier(ctx: Ctx, actorId: string, botId: string, groupId?: string, prev?: PrevTier) {
   const live = await ctx.db
     .select({ runId: runs.id, audience: runs.audience, bot: bots, groupTier: groupBots.tier })
     .from(runs)
@@ -40,10 +47,21 @@ export async function applyTier(ctx: Ctx, actorId: string, botId: string, groupI
     .where(
       and(eq(runs.botId, botId), inArray(runs.status, LIVE), groupId ? eq(runs.groupId, groupId) : undefined),
     )
+  if (!live.length) return
+  const { demoMode } = await sysParams(ctx.db)
   for (const r of live) {
-    const tier = await runTier(ctx.db, runAccess(r.bot, r.groupTier, r.audience as RunAudience | null).tier)
-    if (r.bot.machineId) ctx.hub.send(r.bot.machineId, { t: 'run.tier', runId: r.runId, tier })
-    if (tier === 'full') await approvePending(ctx, r.runId, actorId)
+    const audience = r.audience as RunAudience | null
+    const after = effectiveTier(runAccess(r.bot, r.groupTier, audience).tier, demoMode)
+    if (prev) {
+      const before = effectiveTier(
+        runAccess(prev.bot ?? r.bot, prev.groupTier !== undefined ? prev.groupTier : r.groupTier, audience)
+          .tier,
+        demoMode,
+      )
+      if (after === before) continue
+    }
+    if (r.bot.machineId) ctx.hub.send(r.bot.machineId, { t: 'run.tier', runId: r.runId, tier: after })
+    if (after === 'full') await approvePending(ctx, r.runId, actorId)
   }
 }
 

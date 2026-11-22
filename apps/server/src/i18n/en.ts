@@ -352,7 +352,6 @@ export const en = {
   'Agent 设置只有 Bot 主人能修改': "Only the Bot's owner can change its agent settings",
   'Bot 不能覆盖 Agent 设置「{id}」': 'A Bot cannot override the agent setting "{id}"',
   'Agent 设置「{id}」的取值无效': 'Invalid value for the agent setting "{id}"',
-  '「完全允许」方式只能给指定成员使用': 'The "Allow everything" mode can only be used with an allowlist',
   '该 Bot 不在群内': 'This Bot is not in the group',
   只有电脑主人可以确认: "Only the computer's owner can confirm",
   '该 Bot 无需确认': "This Bot doesn't need confirming",

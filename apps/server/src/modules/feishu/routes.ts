@@ -5,13 +5,11 @@ import {
   type FeishuRegisterDto,
   FeishuRegisterReq,
 } from '@gonggong/protocol'
-import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
-import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
+import { assertCanManage, loadBot } from '../bots/routes.js'
 import { appDto, botApp, mainApp, removeApp, saveApp } from './apps.js'
 import { configureApp } from './config.js'
 import type { FeishuAppRow } from './gateway.js'
@@ -24,13 +22,8 @@ type IdParams = { Params: { id: string } }
 export function feishuRoutes(ctx: Ctx) {
   const manageableBot = async (req: Parameters<typeof requireUser>[1], rawId: string) => {
     const user = await requireUser(ctx, req)
-    const [bot] = await ctx.db
-      .select()
-      .from(bots)
-      .where(and(eq(bots.id, idParam(rawId, 'Bot 不存在')), isNull(bots.deletedAt)))
-    if (!bot) return fail('not_found', 'Bot 不存在')
-    if (user.id !== bot.ownerId && user.role !== 'sysadmin')
-      return fail('forbidden', '只有 Bot 主人或系统管理员可以修改该 Bot')
+    const bot = await loadBot(ctx, rawId)
+    assertCanManage(user, bot)
     return { user, bot }
   }
 

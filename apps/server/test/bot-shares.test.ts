@@ -1,7 +1,7 @@
 import type { BotDto, GroupDto, TimelineDto, UsageRowDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, groupBots, messages, notifications, runs } from '../src/db/schema.js'
+import { auditLogs, botShares, groupBots, messages, notifications, runs } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -231,5 +231,15 @@ describe('申请共享', () => {
     expect((await request(p, p.asWang)).status).toBe(400)
     const outsider = client(t, await t.seed.cookie(p.outsider.id))
     expect((await request(p, outsider)).status).toBe(404)
+  })
+
+  it('refuses to approve or reject a share request after the bot is deleted', async () => {
+    const p = await people()
+    const r1 = await request(p, p.asLi)
+    const r2 = await request(p, p.asZhao)
+    expect((await p.asWang.del(`/api/bots/${p.bot.id}`)).status).toBe(204)
+    expect((await p.asWang.post(`/api/share-requests/${r1.body.id}/approve`)).status).toBe(404)
+    expect((await p.asWang.post(`/api/share-requests/${r2.body.id}/reject`)).status).toBe(404)
+    expect(await t.db.select().from(botShares).where(eq(botShares.botId, p.bot.id))).toEqual([])
   })
 })
