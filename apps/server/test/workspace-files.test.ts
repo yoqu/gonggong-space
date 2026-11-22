@@ -186,6 +186,15 @@ describe('files browser routes', () => {
     expect((await w.outsiders.get(w.url('raw', 'path=a.png'))).status).toBe(404)
     expect((await w.members.get(w.url('tree', '', w.stray.id))).status).toBe(404)
 
+    // The hello's reconnect catch-up writes `ready` asynchronously; let it land before overriding the state.
+    const state = async () =>
+      (
+        await t.db
+          .select({ s: groupBots.workspaceState })
+          .from(groupBots)
+          .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
+      )[0]?.s
+    await vi.waitFor(async () => expect(await state()).toBe('ready'))
     await t.db
       .update(groupBots)
       .set({ workspaceState: 'unbound' })
