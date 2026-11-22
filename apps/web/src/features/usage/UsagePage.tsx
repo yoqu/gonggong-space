@@ -4,6 +4,7 @@ import { fmtTokens } from '../../lib/format'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  Button,
   Dialog,
   EmptyState,
   NoDataArt,
@@ -223,7 +224,12 @@ function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, stri
 export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; teamId?: string }) {
   const [by, setBy] = useState<By>('bot')
   const team = teamId ? `&teamId=${teamId}` : ''
-  const { data: rows, error } = useGet<UsageRowDto[]>(`${base}?by=${by}&days=${WINDOW}${team}`)
+  const {
+    data: rows,
+    error,
+    loading,
+    reload,
+  } = useGet<UsageRowDto[]>(`${base}?by=${by}&days=${WINDOW}${team}`)
   // Twice the window so the tiles can compare against the prior period.
   const daily = useGet<UsageDayDto[]>(`${base}/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(TZ)}${team}`)
   const max = Math.max(1, ...(rows ?? []).map((r) => r.totalTokens))
@@ -231,7 +237,22 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
   return (
     <>
       <Tabs value={by} onChange={setBy} items={TABS} />
-      {error || daily.error ? <Alert variant="error" description={error || daily.error} /> : null}
+      {error || daily.error ? (
+        <Alert variant="error" description={error || daily.error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button
+              size="small"
+              loading={loading || daily.loading}
+              onClick={() => {
+                reload()
+                daily.reload()
+              }}
+            >
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {rows?.length ? (
         <>
           <Stats rows={rows} by={by} daily={daily.data} />

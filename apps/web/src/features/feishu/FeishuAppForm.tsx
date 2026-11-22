@@ -78,7 +78,12 @@ export function FeishuAppForm({
           <Button size="small" variant="plain" onClick={() => setReplacing(true)}>
             {t('更换应用…')}
           </Button>
-          <Button size="small" variant="plain" onClick={() => setRemoving(true)}>
+          <Button
+            size="small"
+            variant="plain"
+            className="feishu-app__danger"
+            onClick={() => setRemoving(true)}
+          >
             {removeLabel}
           </Button>
           {blocked ? <span className="feishu-app__blocked">{blocked}</span> : null}
@@ -124,6 +129,7 @@ export function FeishuAppForm({
             <Button
               size="small"
               disabled={busy || !appId.trim() || !appSecret.trim()}
+              loading={busy}
               onClick={() => void save()}
             >
               {app ? t('更换') : t('接入#verb')}

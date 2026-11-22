@@ -5,7 +5,18 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { dateLocale } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import { Alert, EmptyState, SearchField, Spinner, Table, Tag } from '../../ui'
+import {
+  Alert,
+  Button,
+  ConfirmActionDialog,
+  EmptyState,
+  Presence,
+  SearchField,
+  Spinner,
+  Table,
+  Tag,
+  toast,
+} from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { shareState } from './ShareDialog'
 
@@ -14,18 +25,22 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(dateLoc
 
 /** 管理后台 · 公开链接 (plan P8): every public preview link across groups; revoke or extend any of them. */
 export function SharesPage() {
-  const { data: rows, error, reload } = useGet<PreviewShareDto[]>('/admin/preview-shares')
+  const { data: rows, error, loading, reload } = useGet<PreviewShareDto[]>('/admin/preview-shares')
   const [query, setQuery] = useState('')
-  const act = async (action: string, s: PreviewShareDto) => {
+  const [revoking, setRevoking] = useState<PreviewShareDto | null>(null)
+  const [extendingId, setExtendingId] = useState<string | null>(null)
+  const extend = async (s: PreviewShareDto) => {
+    if (extendingId) return
+    setExtendingId(s.id)
     try {
-      if (action === 'revoke') await api.post(`/preview-shares/${s.id}/revoke`)
-      else {
-        const expiresAt = new Date(Math.max(Date.parse(s.expiresAt), Date.now()) + 7 * DAY).toISOString()
-        await api.patch(`/admin/preview-shares/${s.id}`, { expiresAt })
-      }
+      const expiresAt = new Date(Math.max(Date.parse(s.expiresAt), Date.now()) + 7 * DAY).toISOString()
+      await api.patch(`/admin/preview-shares/${s.id}`, { expiresAt })
+      toast({ type: 'success', message: t('已延长 7 天') })
       reload()
     } catch (e) {
       toastError(e)
+    } finally {
+      setExtendingId(null)
     }
   }
   const q = query.trim().toLowerCase()
@@ -40,7 +55,15 @@ export function SharesPage() {
       subtitle={rows ? t('{n} 条 · {active} 条有效', { n: rows.length, active }) : undefined}
       search={<SearchField placeholder={t('搜索预览、群或创建人')} value={query} onChange={setQuery} />}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {shown ? (
         <Table<PreviewShareDto>
           aria-label={t('公开链接列表')}
@@ -56,7 +79,7 @@ export function SharesPage() {
                 ]
               : []
           }
-          onRowAction={(action, s) => void act(action, s)}
+          onRowAction={(action, s) => (action === 'revoke' ? setRevoking(s) : void extend(s))}
           emptyText={<EmptyState compact title={q ? t('没有匹配的公开链接') : t('还没有公开链接')} />}
           columns={[
             { key: 'previewTitle', title: t('预览'), sortable: true },
@@ -88,6 +111,23 @@ export function SharesPage() {
       ) : error ? null : (
         <Spinner />
       )}
+      <Presence>
+        {revoking ? (
+          <ConfirmActionDialog
+            title={t('要收回公开链接「{title}」吗？', { title: revoking.previewTitle })}
+            message={t('收回后该链接立即失效，外部访客将无法继续打开此预览。')}
+            consequences={[t('原链接无法恢复，如需外部分享需重新生成公开链接')]}
+            label={t('确认收回')}
+            done={t('已收回公开链接')}
+            run={() => api.post(`/preview-shares/${revoking.id}/revoke`)}
+            onDone={() => {
+              setRevoking(null)
+              reload()
+            }}
+            onClose={() => setRevoking(null)}
+          />
+        ) : null}
+      </Presence>
     </AdminPage>
   )
 }

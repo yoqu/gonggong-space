@@ -162,4 +162,12 @@ export default {
   '已交给 Bot 构建并托管': 'Asked the Bot to build and host it',
   已托管到服务器: 'Hosted on the server',
   打开作品: 'Open work',
+  '已延长 7 天': 'Extended by 7 days',
+  '要收回公开链接「{title}」吗？': 'Revoke public link "{title}"?',
+  '收回后该链接立即失效，外部访客将无法继续打开此预览。':
+    'The link stops working immediately and external visitors can no longer open this preview.',
+  '原链接无法恢复，如需外部分享需重新生成公开链接':
+    'The link cannot be restored; create a new public link if you need to share it again',
+  确认收回: 'Revoke link',
+  已收回公开链接: 'Public link revoked',
 } satisfies Record<string, string>

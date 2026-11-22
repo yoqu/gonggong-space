@@ -1,5 +1,5 @@
 import { type MeDto, SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -70,21 +70,29 @@ export function ParamsPage() {
   const [saved, setSaved] = useState<SystemParams | null>(null)
   const [form, setForm] = useState<Values | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [applying, setApplying] = useState<string | null>(null)
 
   const reset = (p: SystemParams) => {
     setSaved(p)
     setForm(toForm(p))
   }
-  useEffect(() => {
-    api
+  const loadParams = useCallback(() => {
+    setLoading(true)
+    setError('')
+    return api
       .get<SystemParams>('/admin/params')
       .then((p) => {
         setSaved(p)
         setForm(toForm(p))
       })
       .catch((e) => setError(errorText(e)))
+      .finally(() => setLoading(false))
   }, [])
+  useEffect(() => {
+    void loadParams()
+  }, [loadParams])
 
   const changed = saved && form ? SYSTEM_PARAM_VIEW.filter(({ key }) => form[key] !== saved[key]) : []
   const dirty = changed.length > 0
@@ -101,6 +109,9 @@ export function ParamsPage() {
 
   /** Switches apply at once, apart from the numeric form. */
   async function apply(patch: Partial<Pick<SystemParams, Toggle>>, message: string) {
+    const key = Object.keys(patch)[0] ?? ''
+    if (applying) return
+    setApplying(key)
     try {
       const next = await api.put<SystemParams>('/admin/params', patch)
       const keys = Object.keys(patch) as Toggle[]
@@ -112,6 +123,8 @@ export function ParamsPage() {
       toast({ type: 'success', message })
     } catch (err) {
       toastError(err)
+    } finally {
+      setApplying(null)
     }
   }
 
@@ -135,7 +148,17 @@ export function ParamsPage() {
       title={t('系统参数')}
       desc={t('平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。')}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          {!saved ? (
+            <div style={{ marginTop: 'var(--space-8)' }}>
+              <Button size="small" loading={loading} onClick={() => void loadParams()}>
+                {t('重试')}
+              </Button>
+            </div>
+          ) : null}
+        </Alert>
+      ) : null}
       {saved ? (
         <section className="admin-params">
           <h2 className="admin-params__title">{t('账号')}</h2>
@@ -148,6 +171,7 @@ export function ParamsPage() {
                 ariaLabel={t('开放自助注册')}
                 label={saved.registrationOpen ? t('已开放') : t('已关闭#off')}
                 checked={saved.registrationOpen}
+                disabled={applying === 'registrationOpen'}
                 onChange={(v) =>
                   void apply({ registrationOpen: v }, v ? t('已开放自助注册') : t('已关闭自助注册'))
                 }
@@ -166,6 +190,7 @@ export function ParamsPage() {
                 ariaLabel={t('单团队模式')}
                 label={saved.singleTeamMode ? t('已开启') : t('已关闭#off')}
                 checked={saved.singleTeamMode}
+                disabled={applying === 'singleTeamMode'}
                 onChange={(v) =>
                   void apply({ singleTeamMode: v }, v ? t('已开启单团队模式') : t('已关闭单团队模式'))
                 }
@@ -178,8 +203,12 @@ export function ParamsPage() {
                 value={saved.teamCreation}
                 onChange={(v) => void apply({ teamCreation: v }, t('建团队权限已保存'))}
                 items={[
-                  { value: 'all' as const, label: t('所有人') },
-                  { value: 'sysadmin' as const, label: t('仅系统管理员') },
+                  { value: 'all' as const, label: t('所有人'), disabled: applying === 'teamCreation' },
+                  {
+                    value: 'sysadmin' as const,
+                    label: t('仅系统管理员'),
+                    disabled: applying === 'teamCreation',
+                  },
                 ]}
               />
             </GroupRow>
@@ -199,6 +228,7 @@ export function ParamsPage() {
                 ariaLabel={t('插件')}
                 label={saved.pluginsEnabled ? t('已开启') : t('已关闭#off')}
                 checked={saved.pluginsEnabled}
+                disabled={applying === 'pluginsEnabled'}
                 onChange={(v) => void apply({ pluginsEnabled: v }, v ? t('已开启插件') : t('已关闭插件'))}
               />
             </GroupRow>
@@ -212,6 +242,7 @@ export function ParamsPage() {
                 ariaLabel={t('插件代码')}
                 label={saved.pluginCodeEnabled ? t('已开启') : t('已关闭#off')}
                 checked={saved.pluginCodeEnabled}
+                disabled={applying === 'pluginCodeEnabled'}
                 onChange={(v) =>
                   void apply({ pluginCodeEnabled: v }, v ? t('已开启插件代码') : t('已关闭插件代码'))
                 }
@@ -236,6 +267,7 @@ export function ParamsPage() {
                 ariaLabel={t('演示模式')}
                 label={saved.demoMode ? t('已开启') : t('已关闭#off')}
                 checked={saved.demoMode}
+                disabled={applying === 'demoMode'}
                 onChange={(v) => void apply({ demoMode: v }, v ? t('已开启演示模式') : t('已关闭演示模式'))}
               />
             </GroupRow>
@@ -290,7 +322,7 @@ export function ParamsPage() {
           <Button disabled={busy} onClick={() => reset(saved)}>
             {t('放弃')}
           </Button>
-          <Button variant="primary" disabled={busy} onClick={() => void save()}>
+          <Button variant="primary" disabled={busy} loading={busy} onClick={() => void save()}>
             {t('保存')}
           </Button>
         </section>

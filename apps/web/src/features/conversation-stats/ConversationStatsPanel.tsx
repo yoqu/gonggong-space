@@ -13,6 +13,7 @@ import { ago, dateLocale } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  Button,
   EmptyState,
   NoDataArt,
   SegmentedControl,
@@ -158,8 +159,20 @@ function Trend({ daily, days }: { daily: ConversationDayDto[]; days: number }) {
   )
 }
 
+const statusKey = (s: string): string => (s === 'succeeded' ? 'completed' : s)
+const statusLabel = (s: string): string => STATUS_LABEL[statusKey(s) as RunStatus] ?? s
+const statusColor = (s: string): string => STATUS_COLOR[statusKey(s) as RunStatus] ?? 'var(--system-gray)'
+
 function Statuses({ statuses }: { statuses: ConversationOverviewDto['statuses'] }) {
-  const total = statuses.reduce((n, s) => n + s.count, 0)
+  // Fold legacy status values (e.g. historical `succeeded` rows) into canonical keys so legend & bar stay complete.
+  const merged = [
+    ...statuses.reduce((m, s) => {
+      const key = statusKey(s.status)
+      m.set(key, (m.get(key) ?? 0) + s.count)
+      return m
+    }, new Map<string, number>()),
+  ].map(([status, count]) => ({ status, count }))
+  const total = merged.reduce((n, s) => n + s.count, 0)
   if (!total) return null
   return (
     <section className="usage-card">
@@ -171,22 +184,22 @@ function Statuses({ statuses }: { statuses: ConversationOverviewDto['statuses'] 
         className="usage-share"
         role="img"
         aria-label={t('运行状态：{parts}', {
-          parts: statuses.map((s) => `${STATUS_LABEL[s.status]} ${pct(s.count, total)}`).join(t('，')),
+          parts: merged.map((s) => `${statusLabel(s.status)} ${pct(s.count, total)}`).join(t('，')),
         })}
       >
-        {statuses.map((s) => (
-          <span key={s.status} style={{ flexGrow: s.count, background: STATUS_COLOR[s.status] }} />
+        {merged.map((s) => (
+          <span key={s.status} style={{ flexGrow: s.count, background: statusColor(s.status) }} />
         ))}
       </div>
       <ul className="usage-legend" aria-label={t('运行状态图例')}>
-        {statuses.map((s) => (
+        {merged.map((s) => (
           <li key={s.status}>
             <span
               className="usage-legend__swatch"
-              style={{ background: STATUS_COLOR[s.status] }}
+              style={{ background: statusColor(s.status) }}
               aria-hidden="true"
             />
-            <span className="usage-legend__name">{STATUS_LABEL[s.status]}</span>
+            <span className="usage-legend__name">{statusLabel(s.status)}</span>
             <span className="usage-legend__value">{s.count}</span>
             <span className="usage-legend__pct">{pct(s.count, total)}</span>
           </li>
@@ -252,7 +265,7 @@ function Ops({ ops, days }: { ops: ConversationOpsDto; days: number }) {
           rows={f.reasons.map((x) => ({ ...x, id: `${x.status}:${x.step}` }))}
           multiple={false}
           columns={[
-            { key: 'status', title: t('状态'), width: 96, render: (x) => STATUS_LABEL[x.status] },
+            { key: 'status', title: t('状态'), width: 96, render: (x) => statusLabel(x.status) },
             { key: 'step', title: t('失败原因'), render: (x) => x.step || '—' },
             { key: 'count', title: t('轮次'), width: 72, align: 'right' },
           ]}
@@ -345,12 +358,25 @@ function Details({
   const [by, setBy] = useState<ConversationStatsBy>('conversation')
   const tabs = platform ? TABS : TABS.filter((x) => x.value !== 'team')
   const tab = tabs.find((x) => x.value === by) ?? tabs[0]!
-  const { data: rows, error } = useGet<ConversationStatsRowDto[]>(path('', `by=${tab.value}&days=${days}`))
+  const {
+    data: rows,
+    error,
+    loading,
+    reload,
+  } = useGet<ConversationStatsRowDto[]>(path('', `by=${tab.value}&days=${days}`))
   const columns = tab.columns.filter((c) => platform || c !== 'team').map((c) => COLUMNS[c]!)
   return (
     <>
       <Tabs value={tab.value} onChange={setBy} items={tabs} />
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {rows === null ? (
         error ? null : (
           <Spinner size={18} />
@@ -393,10 +419,18 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
   const platform = base.startsWith('/admin/')
   const team = teamId ? `&teamId=${teamId}` : ''
   const path = (sub: string, q: string) => `${base}${sub}?${q}${team}`
-  const { data: o, error } = useGet<ConversationOverviewDto>(
-    path('/overview', `days=${days}&tz=${encodeURIComponent(TZ)}`),
-  )
-  const { data: ops } = useGet<ConversationOpsDto>(path('/ops', `days=${days}`))
+  const {
+    data: o,
+    error,
+    loading,
+    reload,
+  } = useGet<ConversationOverviewDto>(path('/overview', `days=${days}&tz=${encodeURIComponent(TZ)}`))
+  const {
+    data: ops,
+    error: opsError,
+    loading: opsLoading,
+    reload: reloadOps,
+  } = useGet<ConversationOpsDto>(path('/ops', `days=${days}`))
   return (
     <>
       <SegmentedControl
@@ -405,13 +439,31 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
         onChange={setWin}
         items={WINDOWS.map((n) => ({ value: n, label: t('近 {n} 天', { n: Number(n) }) }))}
       />
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {o ? (
         <>
           <Tiles o={o} days={days} />
           <Trend daily={o.daily} days={days} />
           <Statuses statuses={o.statuses} />
-          {ops ? <Ops ops={ops} days={days} /> : null}
+          {ops ? (
+            <Ops ops={ops} days={days} />
+          ) : opsError ? (
+            <Alert variant="error" description={opsError}>
+              <div style={{ marginTop: 'var(--space-8)' }}>
+                <Button size="small" loading={opsLoading} onClick={reloadOps}>
+                  {t('重试')}
+                </Button>
+              </div>
+            </Alert>
+          ) : null}
         </>
       ) : error ? null : (
         <Spinner size={18} />

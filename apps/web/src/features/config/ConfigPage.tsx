@@ -264,7 +264,12 @@ export function McpLayerList({
         <Button disabled={!items} onClick={() => setAdding(true)}>
           {t('添加 MCP…')}
         </Button>
-        <Button variant="primary" disabled={!layer.dirty || layer.busy} onClick={() => void layer.save()}>
+        <Button
+          variant="primary"
+          disabled={!layer.dirty || layer.busy}
+          loading={layer.busy}
+          onClick={() => void layer.save()}
+        >
           {t('保存')}
         </Button>
       </div>
@@ -311,6 +316,16 @@ export function ConfigPage() {
   const bots = useWorkspace((s) => s.bots)
   const { items, enabledNames } = layer
 
+  useEffect(() => {
+    if (!layer.dirty) return
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [layer.dirty])
+
   return (
     <AdminPage
       title={TITLE}
@@ -340,7 +355,7 @@ export function ConfigPage() {
             <EmptyState
               illustration={<UnsupportedArt />}
               title={t('暂不支持 {type}', { type: CTYPES.find((c) => c.value === ctype)?.label ?? '' })}
-              description={t('目前只能配置 MCP、Skill 与密钥。')}
+              description={t('目前支持配置 MCP、Skill、插件、密钥与待审核条目。')}
             />
           ) : (
             <McpLayerList layer={layer} tag={t('平台层')} />

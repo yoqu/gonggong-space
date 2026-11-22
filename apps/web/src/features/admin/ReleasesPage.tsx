@@ -5,16 +5,17 @@ import {
   RELEASE_PLATFORMS,
   type ReleaseKind,
 } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import {
   Alert,
-  AlertDialog,
   Button,
+  ConfirmActionDialog,
   type DropFile,
   DropZone,
+  Presence,
   Spinner,
   Table,
   Tag,
@@ -75,23 +76,31 @@ export function ReleasesPage() {
   const [uploads, setUploads] = useState<DropFile[]>([])
   const [removing, setRemoving] = useState<{ kind: ReleaseKind; platform: string } | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
 
-  useEffect(() => {
-    api
+  const loadRelease = useCallback(() => {
+    setLoading(true)
+    setError('')
+    return api
       .get<DaemonRelease | null>('/admin/daemon-release')
       .then((r) => {
         setRelease(r)
         setNotes(r?.releaseNotes ?? '')
       })
       .catch((e) => setError(errorText(e)))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    void loadRelease()
     api
       .get<AdminMachineDto[]>('/admin/machines')
       .then(setMachines)
       .catch(() => {})
-  }, [])
+  }, [loadRelease])
 
   // Sequential: each upload read-modify-writes the one release record.
   async function upload(files: File[]) {
@@ -148,23 +157,6 @@ export function ReleasesPage() {
     }
   }
 
-  async function remove() {
-    if (!removing) return
-    try {
-      setRelease(await api.del<DaemonRelease>(`/admin/daemon-release/${removing.kind}/${removing.platform}`))
-      toast({
-        type: 'success',
-        message: t('已移除 {kind}（{platform}）', {
-          kind: KIND_LABEL[removing.kind],
-          platform: removing.platform,
-        }),
-      })
-    } catch (e) {
-      toastError(e)
-    }
-    setRemoving(null)
-  }
-
   const count = (key: string) => machines.filter((m) => `${m.os}-${m.arch}` === key).length
   const keys = new Set<string>([
     ...RELEASE_PLATFORMS,
@@ -191,7 +183,15 @@ export function ReleasesPage() {
             : t('尚未发布')
       }
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={() => void loadRelease()}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {release ? (
         <div className="admin-release-notes">
           <div className="admin-release-notes__head">
@@ -201,9 +201,27 @@ export function ReleasesPage() {
                 {t('编辑版本说明')}
               </Button>
             ) : (
-              <Button size="small" variant="primary" disabled={savingNotes} onClick={() => void saveNotes()}>
-                {savingNotes ? t('保存中…') : t('保存版本说明')}
-              </Button>
+              <span style={{ display: 'inline-flex', gap: 'var(--space-8)' }}>
+                <Button
+                  size="small"
+                  disabled={savingNotes}
+                  onClick={() => {
+                    setNotes(release.releaseNotes ?? '')
+                    setEditingNotes(false)
+                  }}
+                >
+                  {t('取消')}
+                </Button>
+                <Button
+                  size="small"
+                  variant="primary"
+                  disabled={savingNotes}
+                  loading={savingNotes}
+                  onClick={() => void saveNotes()}
+                >
+                  {savingNotes ? t('保存中…') : t('保存版本说明')}
+                </Button>
+              </span>
             )}
           </div>
           {editingNotes ? (
@@ -272,29 +290,37 @@ export function ReleasesPage() {
           onRowAction={(kind, r) => setRemoving({ kind: kind as ReleaseKind, platform: r.id })}
         />
       )}
-      {removing ? (
-        <AlertDialog
-          open
-          title={t('要移除 {platform} 的 {kind} 吗？', {
-            platform: removing.platform,
-            kind: KIND_LABEL[removing.kind],
-          })}
-          message={
-            {
-              builds: t('该平台的电脑将不再自动升级，直到重新上传。'),
-              cast: t('该平台的电脑将无法推送实时画面，直到重新上传。'),
-              desktop: t('成员将无法在「绑定新电脑」中下载该平台的安装包，直到重新上传。'),
-              update: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
-              signature: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
-            }[removing.kind]
-          }
-          onClose={() => setRemoving(null)}
-          actions={[
-            { label: t('取消'), onClick: () => setRemoving(null) },
-            { label: t('移除'), variant: 'destructive', onClick: () => void remove() },
-          ]}
-        />
-      ) : null}
+      <Presence>
+        {removing ? (
+          <ConfirmActionDialog
+            title={t('要移除 {platform} 的 {kind} 吗？', {
+              platform: removing.platform,
+              kind: KIND_LABEL[removing.kind],
+            })}
+            message={
+              {
+                builds: t('该平台的电脑将不再自动升级，直到重新上传。'),
+                cast: t('该平台的电脑将无法推送实时画面，直到重新上传。'),
+                desktop: t('成员将无法在「绑定新电脑」中下载该平台的安装包，直到重新上传。'),
+                update: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
+                signature: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
+              }[removing.kind]
+            }
+            consequences={[t('已安装的客户端不会受影响，但新连接与更新检查将不再获取此产物')]}
+            label={t('移除')}
+            done={t('已移除 {kind}（{platform}）', {
+              kind: KIND_LABEL[removing.kind],
+              platform: removing.platform,
+            })}
+            run={async () => {
+              setRelease(
+                await api.del<DaemonRelease>(`/admin/daemon-release/${removing.kind}/${removing.platform}`),
+              )
+            }}
+            onClose={() => setRemoving(null)}
+          />
+        ) : null}
+      </Presence>
     </AdminPage>
   )
 }

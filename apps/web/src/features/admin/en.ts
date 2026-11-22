@@ -283,4 +283,6 @@ export default {
   已启用定时任务: 'Scheduled task enabled',
   已停用定时任务: 'Scheduled task disabled',
   加载账号列表失败: 'Failed to load accounts',
+  '已安装的客户端不会受影响，但新连接与更新检查将不再获取此产物':
+    'Installed clients keep working, but new connections and update checks will no longer fetch this build',
 }

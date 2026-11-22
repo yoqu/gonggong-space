@@ -54,7 +54,8 @@ export default {
   配置加载失败: 'Failed to load configuration',
   重试: 'Retry',
   '暂不支持 {type}': '{type} is not supported yet',
-  '目前只能配置 MCP、Skill 与密钥。': 'Only MCP, skills and secrets can be configured for now.',
+  '目前支持配置 MCP、Skill、插件、密钥与待审核条目。':
+    'MCP servers, skills, plugins, secrets, and pending reviews can be configured here.',
   未保存: 'Unsaved',
   '删除 {name}': 'Delete {name}',
   '启用 {name}': 'Enable {name}',

@@ -7,6 +7,7 @@ import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import {
   Alert,
+  Button,
   EmptyState,
   NoMachinesArt,
   NoResultsArt,
@@ -51,18 +52,19 @@ export function MachinesPage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<AdminMachineDto | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
-  const load = useCallback(
-    () =>
-      api
-        .get<AdminMachineDto[]>('/admin/machines')
-        .then((list) => {
-          setMachines(list)
-          setError('')
-        })
-        .catch((e) => setError(errorText(e))),
-    [],
-  )
+  const load = useCallback(() => {
+    setLoading(true)
+    return api
+      .get<AdminMachineDto[]>('/admin/machines')
+      .then((list) => {
+        setMachines(list)
+        setError('')
+      })
+      .catch((e) => setError(errorText(e)))
+      .finally(() => setLoading(false))
+  }, [])
   useEffect(() => {
     void load()
     // A hidden tab skips the poll and catches up once shown.
@@ -114,7 +116,15 @@ export function MachinesPage() {
       }
       search={<SearchField placeholder={t('搜索电脑或主人')} value={query} onChange={setQuery} />}
     >
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={loading} onClick={() => void load()}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {shown ? (
         <Table<AdminMachineDto>
           aria-label={t('电脑列表')}

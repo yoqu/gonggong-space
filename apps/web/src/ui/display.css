@@ -306,6 +306,23 @@
 .ui-group__row + .ui-group__row {
   border-top: 1px solid var(--separator);
 }
+@media (max-width: 640px) {
+  .ui-group__row:not(.ui-group__row--danger):not(.feishu-creds) {
+    flex-wrap: wrap;
+    row-gap: var(--space-8);
+  }
+  .ui-group__row:not(.ui-group__row--danger):not(.feishu-creds) > .ui-group__text {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+  .ui-group__row:not(.ui-group__row--danger):not(.feishu-creds) .ui-group__text > :first-child {
+    white-space: normal;
+  }
+  .ui-group__row:not(.ui-group__row--danger):not(.feishu-creds) > :not(:first-child) {
+    max-width: 100%;
+    margin-left: auto;
+  }
+}
 .ui-group__desc {
   font-size: var(--text-subheadline-size);
   line-height: 14px;

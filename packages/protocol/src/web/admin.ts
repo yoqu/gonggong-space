@@ -84,7 +84,16 @@ export const CastBuildDto = z.object({ version: z.string(), url: z.string(), sha
 export type CastBuildDto = z.infer<typeof CastBuildDto>
 
 // ── Audit (spec §9, §13) ────────────────────────────────────────────────────
-export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command', 'preview'])
+export const AuditCategory = z.enum([
+  'approval',
+  'question',
+  'lock',
+  'admin',
+  'run',
+  'command',
+  'preview',
+  'schedule',
+])
 export const AuditQuery = z.object({
   category: AuditCategory.optional(),
   /** 管理后台 filter; the team endpoint sets it itself. */

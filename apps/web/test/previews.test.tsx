@@ -508,6 +508,7 @@ describe('管理后台 · 公开链接', () => {
     )
     fireEvent.click(within(row).getByRole('button', { name: '操作' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '收回' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '确认收回' }))
     await waitFor(() => expect(within(row).getByText('已收回')).toBeTruthy())
     vi.useRealTimers()
   })

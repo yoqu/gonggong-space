@@ -1,9 +1,9 @@
 import type { SystemParams } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, GroupBox, GroupRow, Switch, TextField, toast, useFlash } from '../../ui'
+import { Alert, Button, GroupBox, GroupRow, Spinner, Switch, TextField, toast, useFlash } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { FeishuAppForm } from './FeishuAppForm'
 import { FeishuOverviewTables, FeishuProgress, useFeishuOverview } from './FeishuOverview'
@@ -18,17 +18,30 @@ const trimUrl = (url: string) => url.trim().replace(/\/+$/, '')
 export function FeishuAdminPage() {
   const overview = useFeishuOverview()
   const [autoSignup, setAutoSignup] = useState<boolean | null>(null)
+  const [paramsError, setParamsError] = useState('')
+  const [paramsLoading, setParamsLoading] = useState(true)
+  const [toggling, setToggling] = useState(false)
   const [publicUrl, setPublicUrl] = useState('')
   const [urlDraft, setUrlDraft] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
   const [urlSaved, flashUrlSaved] = useFlash()
-  useEffect(() => {
-    api.get<SystemParams>('/admin/params').then((p) => {
-      setAutoSignup(p.feishuAutoSignup)
-      setPublicUrl(p.publicUrl ?? '')
-      setUrlDraft(p.publicUrl || window.location.origin)
-    }, toastError)
+
+  const loadParams = useCallback(() => {
+    setParamsLoading(true)
+    setParamsError('')
+    return api
+      .get<SystemParams>('/admin/params')
+      .then((p) => {
+        setAutoSignup(p.feishuAutoSignup)
+        setPublicUrl(p.publicUrl ?? '')
+        setUrlDraft(p.publicUrl || window.location.origin)
+      })
+      .catch((e) => setParamsError(errorText(e)))
+      .finally(() => setParamsLoading(false))
   }, [])
+  useEffect(() => {
+    void loadParams()
+  }, [loadParams])
 
   const saveUrl = async () => {
     setSavingUrl(true)
@@ -48,12 +61,16 @@ export function FeishuAdminPage() {
   }
 
   const toggle = async (v: boolean) => {
+    if (toggling) return
+    setToggling(true)
     try {
       const next = await api.put<SystemParams>('/admin/params', { feishuAutoSignup: v })
       setAutoSignup(next.feishuAutoSignup)
       toast({ type: 'success', message: v ? t('已开启飞书自动开户') : t('已关闭飞书自动开户') })
     } catch (e) {
       toastError(e)
+    } finally {
+      setToggling(false)
     }
   }
 
@@ -64,6 +81,25 @@ export function FeishuAdminPage() {
         '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。',
       )}
     >
+      {paramsError ? (
+        <Alert variant="error" description={paramsError}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={paramsLoading} onClick={() => void loadParams()}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+      {overview.error ? (
+        <Alert variant="error" description={overview.error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button size="small" loading={overview.loading} onClick={overview.reload}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+      {autoSignup === null && !paramsError && paramsLoading ? <Spinner size={18} /> : null}
       {overview.data ? <FeishuProgress data={overview.data} /> : null}
       {autoSignup !== null ? (
         <section className="admin-params">
@@ -83,7 +119,7 @@ export function FeishuAdminPage() {
                 </>
               }
             >
-              <span className="gs-value-line">
+              <span className="feishu-url-line">
                 <TextField
                   aria-label={t('对外地址')}
                   placeholder="https://…"
@@ -129,6 +165,7 @@ export function FeishuAdminPage() {
                 path="/admin/feishu"
                 removeLabel={t('移除主应用')}
                 blocked={publicUrl ? undefined : t('先保存对外地址')}
+                onChange={overview.reload}
               />
             </GroupRow>
           </GroupBox>
@@ -147,6 +184,7 @@ export function FeishuAdminPage() {
                 ariaLabel={t('飞书自动开户')}
                 label={autoSignup ? t('已开启') : t('已关闭#off')}
                 checked={autoSignup}
+                disabled={toggling}
                 onChange={(v) => void toggle(v)}
               />
             </GroupRow>

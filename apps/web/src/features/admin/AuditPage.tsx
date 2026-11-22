@@ -34,6 +34,7 @@ const FILTERS: { label: string; category?: string }[] = [
   { label: t('同步'), category: 'lock' },
   { label: t('管理'), category: 'admin' },
   { label: t('运行'), category: 'run' },
+  { label: t('定时任务'), category: 'schedule' },
   { label: t('预览'), category: 'preview' },
 ]
 const TONE: Record<string, TagTone> = {
@@ -41,11 +42,14 @@ const TONE: Record<string, TagTone> = {
   question: 'purple',
   lock: 'blue',
   run: 'green',
+  schedule: 'blue',
   preview: 'gray',
+  command: 'gray',
 }
-const TYPE: Record<string, string> = Object.fromEntries(
-  FILTERS.filter((f) => f.category).map((f) => [f.category, f.label]),
-)
+const TYPE: Record<string, string> = {
+  ...Object.fromEntries(FILTERS.filter((f) => f.category).map((f) => [f.category, f.label])),
+  command: t('命令'),
+}
 
 const SYSTEM = t('系统')
 const actorOf = (a: AuditDto) => a.actorName ?? SYSTEM
@@ -113,9 +117,11 @@ export function AuditPanel({
   const [actor, setActor] = useState('')
   const [rows, setRows] = useState<AuditDto[] | null>(null)
   const [more, setMore] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [open, setOpen] = useState<AuditDto | null>(null)
+  const [tick, setTick] = useState(0)
 
   const fetchPage = useCallback(
     (before?: number) => {
@@ -129,12 +135,14 @@ export function AuditPanel({
     [base, category, teamId],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` triggers manual retry
   useEffect(() => {
     let cancelled = false
     setRows(null)
     setMore(false)
     setLoadingMore(false)
     setError('')
+    setLoading(true)
     fetchPage()
       .then((page) => {
         if (cancelled) return
@@ -144,10 +152,13 @@ export function AuditPanel({
       .catch((e) => {
         if (!cancelled) setError(errorText(e))
       })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [fetchPage])
+  }, [fetchPage, tick])
   useEffect(() => {
     if (rows) onLoaded?.(rows.length)
   }, [rows, onLoaded])
@@ -155,6 +166,7 @@ export function AuditPanel({
   async function loadMore() {
     if (loadingMore) return
     setLoadingMore(true)
+    setError('')
     try {
       const page = await fetchPage(rows?.at(-1)?.id)
       setRows((r) => [...(r ?? []), ...page])
@@ -190,7 +202,19 @@ export function AuditPanel({
           onChange={setActor}
         />
       </div>
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error ? (
+        <Alert variant="error" description={error}>
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button
+              size="small"
+              loading={rows ? loadingMore : loading}
+              onClick={() => (rows ? void loadMore() : setTick((n) => n + 1))}
+            >
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       <div data-testid="audit-list">
         {shown ? (
           <Table<AuditDto>
@@ -235,7 +259,12 @@ export function AuditPanel({
         )}
       </div>
       {more ? (
-        <Button className="admin-more" disabled={loadingMore} onClick={() => void loadMore()}>
+        <Button
+          className="admin-more"
+          loading={loadingMore}
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+        >
           {loadingMore ? t('加载中') : t('加载更多')}
         </Button>
       ) : null}

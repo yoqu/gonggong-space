@@ -29,7 +29,25 @@
   font-family: var(--font-mono);
   color: var(--label-secondary);
   overflow-wrap: anywhere;
-  word-break: break-all;
+  word-break: break-word;
+}
+
+.feishu-app__danger.ui-btn--plain {
+  color: var(--tint-red-text);
+}
+
+.feishu-url-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: 100%;
+  min-width: 0;
+}
+.feishu-url-line > .ui-field {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .feishu-app__fields {
@@ -208,9 +226,19 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+  min-width: 0;
   padding: 10px 12px;
   border-radius: var(--radius-field);
   background: var(--control-fill);
+}
+.feishu-progress .ui-btn {
+  max-width: 100%;
+  height: auto;
+  min-height: var(--control-small);
+  padding-block: var(--space-4);
+  white-space: normal;
+  text-align: left;
+  line-height: var(--text-subheadline-line);
 }
 
 .feishu-progress__title {
@@ -262,10 +290,10 @@
     flex-direction: column;
     align-items: stretch;
   }
-  .feishu-url-row .gs-value-line {
+  .feishu-url-row .feishu-url-line {
     width: 100%;
   }
-  .feishu-url-row .gs-value-line .ui-field {
+  .feishu-url-row .feishu-url-line .ui-field {
     flex: 1;
     min-width: 0;
   }
