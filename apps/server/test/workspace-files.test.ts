@@ -77,6 +77,10 @@ async function world() {
   const bot = await t.seed.bot({ ownerId: owner.id, name: 'CC专家', machineId: machine.id })
   const stray = await t.seed.bot({ ownerId: owner.id, name: 'other', machineId: machine.id })
   const group = await t.seed.group({ createdBy: owner.id, memberIds: [member.id], botIds: [bot.id] })
+  await t.db
+    .update(groupBots)
+    .set({ workspaceState: 'ready' })
+    .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
   const cookie = await t.seed.cookie(member.id)
   const members = client(t, cookie)
   const outsiders = client(t, await t.seed.cookie(outsider.id))
@@ -186,15 +190,6 @@ describe('files browser routes', () => {
     expect((await w.outsiders.get(w.url('raw', 'path=a.png'))).status).toBe(404)
     expect((await w.members.get(w.url('tree', '', w.stray.id))).status).toBe(404)
 
-    // The hello's reconnect catch-up writes `ready` asynchronously; let it land before overriding the state.
-    const state = async () =>
-      (
-        await t.db
-          .select({ s: groupBots.workspaceState })
-          .from(groupBots)
-          .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
-      )[0]?.s
-    await vi.waitFor(async () => expect(await state()).toBe('ready'))
     await t.db
       .update(groupBots)
       .set({ workspaceState: 'unbound' })

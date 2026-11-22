@@ -6,9 +6,8 @@ import { requireMachine } from '../../daemon/auth.js'
 import { bots, groupBots, groupRepos, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { LIVE } from '../runs/dto.js'
 import { announceCd, requestCd } from './cd.js'
-
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
 type PairParams = { Params: { groupId: string; botId: string } }
 

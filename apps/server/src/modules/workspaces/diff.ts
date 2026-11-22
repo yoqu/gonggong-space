@@ -10,13 +10,13 @@ import { idParam } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { activeBots, requireMember } from '../groups/service.js'
+import { LIVE } from '../runs/dto.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
 import { currentRepo, extraRepos, onlineMachine } from './provision.js'
 import { botDirs, splitExtras } from './state.js'
 
 /** Large repos take a while to write a tree and diff it. */
 const DIFF_TIMEOUT_MS = 10_000
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const OFFLINE = 'Bot 离线，无法读取工作区改动'
 
 const Query = z.object({ scope: DiffScope, runId: z.string().optional() })

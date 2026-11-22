@@ -156,9 +156,34 @@ describe('desktop app previews', () => {
     )
 
     const wang = client(t, await t.seed.cookie(w.wang.id))
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'cast.state',
+      previewId: p.id,
+      state: 'live',
+      error: null,
+      missing: [],
+    })
+    const live = async () =>
+      (await w.liClient.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)).body.previews.find(
+        (x) => x.id === p.id,
+      )?.live
+    await vi.waitFor(async () => expect((await live())?.state).toBe('live'))
+
     expect((await wang.post(`/api/previews/${p.id}/close`)).status).toBe(204)
     expect(again.at(-1)).toEqual({ t: 'cast.sync', casts: [] })
     expect((await w.liClient.post(`/api/previews/${p.id}/watch`)).status).toBe(404)
+
+    // Late cast.state after close must be ignored, and reopening shows clean live: null.
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'cast.state',
+      previewId: p.id,
+      state: 'failed',
+      error: 'late',
+      missing: [],
+    })
+    await new Promise((r) => setTimeout(r, 50))
+    expect((await wang.post(`/api/previews/${p.id}/start`)).status).toBe(204)
+    expect(await live()).toBeNull()
   })
 
   it("shows the machine's gg-cast state on the card", async () => {

@@ -19,6 +19,7 @@ import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { publishBot } from '../bots/dto.js'
+import { loadBot } from '../bots/routes.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { groupLocalPaths } from '../repos/service.js'
@@ -36,11 +37,7 @@ const FIND_TIMEOUT_MS = 20_000
 
 /** A live bot the caller owns: its machine's directories are only ever shown to or bound by its owner (plan W7). */
 async function ownBot(ctx: Ctx, userId: string, rawId: string) {
-  const [bot] = await ctx.db
-    .select()
-    .from(bots)
-    .where(and(eq(bots.id, idParam(rawId, 'Bot 不存在')), isNull(bots.deletedAt)))
-  if (!bot) return fail('not_found', 'Bot 不存在')
+  const bot = await loadBot(ctx, rawId)
   return bot.ownerId === userId ? bot : fail('forbidden', '只有 Bot 主人可以操作其工作区')
 }
 

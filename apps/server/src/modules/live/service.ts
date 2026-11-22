@@ -124,18 +124,46 @@ export async function reapWatches(ctx: Ctx) {
     if (fpsOf(ctx, previewId) !== entry.sent) machines.add(entry.machineId)
   }
   for (const machineId of machines) await syncCasts(ctx, machineId)
-  for (const [previewId, c] of live(ctx).controls) {
-    const requests = c.requests.filter((r) => watchedBy(ctx, previewId, r.id))
-    const lapsed = c.controller && !watchedBy(ctx, previewId, c.controller.id)
-    if (!lapsed && requests.length === c.requests.length) continue
-    c.requests = requests
-    if (lapsed) await serially(ctx, () => setController(ctx, previewId, null))
-    const [p] = await ctx.db
-      .select({ groupId: previews.groupId })
-      .from(previews)
-      .where(eq(previews.id, previewId))
-    if (p) await publishPreviews(ctx, p.groupId)
+  for (const previewId of [...live(ctx).controls.keys()]) {
+    try {
+      const changed = await serially(ctx, async () => {
+        const c = live(ctx).controls.get(previewId)
+        if (!c) return false
+        const lapsed = !!(c.controller && !watchedBy(ctx, previewId, c.controller.id))
+        if (lapsed) await setController(ctx, previewId, null)
+        const requests = c.requests.filter((r) => watchedBy(ctx, previewId, r.id))
+        const requestsChanged = requests.length !== c.requests.length
+        if (requestsChanged) c.requests = requests
+        if (!c.controller && !c.requests.length) live(ctx).controls.delete(previewId)
+        return lapsed || requestsChanged
+      })
+      if (!changed) continue
+      const [p] = await ctx.db
+        .select({ groupId: previews.groupId })
+        .from(previews)
+        .where(eq(previews.id, previewId))
+      if (p) await publishPreviews(ctx, p.groupId)
+    } catch (err) {
+      console.error('live reap:', err)
+    }
   }
+}
+
+/** Drops live watch, cast and control state for a closed preview, revoking any active input permission. */
+export async function clearPreviewLive(ctx: Ctx, previewId: string) {
+  const s = live(ctx)
+  s.watches.delete(previewId)
+  s.casts.delete(previewId)
+  await serially(ctx, async () => {
+    const c = s.controls.get(previewId)
+    if (!c) return
+    const controllerId = c.controller?.id
+    try {
+      if (controllerId) await allowInput(ctx, previewId, controllerId, false)
+    } finally {
+      s.controls.delete(previewId)
+    }
+  })
 }
 
 function serially<T>(ctx: Ctx, fn: () => Promise<T>): Promise<T> {
@@ -174,6 +202,7 @@ export async function control(ctx: Ctx, preview: Preview, user: Member, req: Con
         await setController(ctx, preview.id, null)
         break
     }
+    if (!c.controller && !c.requests.length) live(ctx).controls.delete(preview.id)
   })
   await publishPreviews(ctx, preview.groupId)
 }
@@ -204,7 +233,7 @@ async function recordCastState(ctx: Ctx, machineId: string, msg: CastStateMsg) {
   const [p] = await ctx.db
     .select({ groupId: previews.groupId })
     .from(previews)
-    .where(and(eq(previews.id, msg.previewId), eq(previews.machineId, machineId)))
+    .where(and(eq(previews.id, msg.previewId), eq(previews.machineId, machineId), isNull(previews.closedAt)))
   if (!p) return
   const next = { state: msg.state, error: msg.error, missing: msg.missing, devtools: msg.devtools }
   // What waits on the machine's owner fails the same way every few seconds: the first retryAt stands.

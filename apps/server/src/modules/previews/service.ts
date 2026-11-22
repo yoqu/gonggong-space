@@ -11,7 +11,7 @@ import { refuse } from '../agent-tools/service.js'
 import { dataDir } from '../attachments/service.js'
 import { mirrorPreviews } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
-import { castState, controlOf, syncCasts } from '../live/service.js'
+import { castState, clearPreviewLive, controlOf, syncCasts } from '../live/service.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { closePortListener, openPortListener } from './gateway.js'
 import { restartService, syncPreviews } from './services.js'
@@ -512,6 +512,7 @@ export async function startPreview(ctx: Ctx, p: Preview) {
 
 async function closePreview(ctx: Ctx, preview: Preview) {
   await ctx.db.update(previews).set({ closedAt: ctx.now() }).where(eq(previews.id, preview.id))
+  await clearPreviewLive(ctx, preview.id).catch((err) => console.error('clear live preview:', err))
   await closePortListener(ctx, preview.id)
   await syncPreviews(ctx, preview.machineId)
   await syncCasts(ctx, preview.machineId)

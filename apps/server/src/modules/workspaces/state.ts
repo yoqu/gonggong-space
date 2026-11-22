@@ -63,11 +63,12 @@ export async function updateBotState(
       | 'newSessionReason'
     >
   >,
+  where?: SQL,
 ) {
   const [row] = await ctx.db
     .update(groupBots)
     .set(patch)
-    .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
+    .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId), where))
     .returning()
   if (!row) return null
   return publishBotState(ctx, row)

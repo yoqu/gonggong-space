@@ -25,7 +25,7 @@ type BotRef = { id: string; name: string; machineId: string | null }
  * An ensure / cd request awaiting its daemon's answer. Only the latest request per (group, bot) is kept.
  * 'default' = a cd to the bot's default workspace made on join (plan W2–W4).
  */
-export interface Pending {
+interface Pending {
   kind: 'ensure' | 'cd' | 'default'
   machineId: string
   groupId: string
@@ -39,18 +39,28 @@ export interface Pending {
   /** The request was part of the bot joining the group (event wording). */
   joined: boolean
 }
-const pending = new Map<string, Pending>()
+const pendingMaps = new WeakMap<Ctx, Map<string, Pending>>()
+const SKIP_RECONNECT = ['ready', 'unbound', 'confirm']
+
+function pendingOf(ctx: Ctx) {
+  let map = pendingMaps.get(ctx)
+  if (!map) {
+    map = new Map()
+    pendingMaps.set(ctx, map)
+  }
+  return map
+}
 
 /** Registers a request about to be sent; returns its requestId. */
-function track(p: Pending) {
+function track(ctx: Ctx, p: Pending) {
+  const map = pendingOf(ctx)
   const requestId = randomUUID()
-  for (const [id, active] of pending)
-    if (active.groupId === p.groupId && active.botId === p.botId) pending.delete(id)
-  pending.set(requestId, p)
+  for (const [id, active] of map) if (active.groupId === p.groupId && active.botId === p.botId) map.delete(id)
+  map.set(requestId, p)
   return requestId
 }
 
-const forget = (requestId: string) => pending.delete(requestId)
+const forget = (ctx: Ctx, requestId: string) => pendingOf(ctx).delete(requestId)
 
 const MANAGED = {
   workspaceKind: 'managed',
@@ -137,7 +147,7 @@ async function sendCd(
   const machineId = onlineMachine(ctx, bot.machineId)
   if (!machineId) return false
   const repo = await currentRepo(ctx, groupId, bot.id)
-  const requestId = track({
+  const requestId = track(ctx, {
     kind,
     machineId,
     groupId,
@@ -156,7 +166,7 @@ async function sendCd(
     force,
     names: await workspaceNames(ctx, groupId, bot.id),
   })
-  if (!sent) forget(requestId)
+  if (!sent) forget(ctx, requestId)
   return sent
 }
 
@@ -287,15 +297,19 @@ async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: stri
  * (the daemon creates `_empty` on first run); otherwise the daemon is asked to clone.
  */
 export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, reconnect = false) {
+  const guard = reconnect ? notInArray(groupBots.workspaceState, SKIP_RECONNECT) : undefined
   if (reconnect) {
     const [row] = await ctx.db
       .select({ state: groupBots.workspaceState })
       .from(groupBots)
       .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, bot.id)))
-    if (!row || ['ready', 'unbound', 'confirm'].includes(row.state)) return
+    if (!row || SKIP_RECONNECT.includes(row.state)) return
   }
   const repo = await currentRepo(ctx, groupId, bot.id)
-  if (!repo) return void (await updateBotState(ctx, groupId, bot.id, { workspaceState: 'ready' }))
+  if (!repo) {
+    await updateBotState(ctx, groupId, bot.id, { workspaceState: 'ready' }, guard)
+    return
+  }
   const { extraRepos: extras } = splitExtras(
     await extraRepos(ctx, groupId, repo.protocol),
     await botDirs(ctx, groupId, bot.id),
@@ -303,15 +317,22 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
   const extrasKey = extras.map((r) => `${r.id}@${r.branch}`).join()
   const machineId = onlineMachine(ctx, bot.machineId)
   // Written before sending so a fast answer can't be overwritten by this state.
-  await updateBotState(ctx, groupId, bot.id, { workspaceState: machineId ? 'cloning' : 'pending' })
-  if (!machineId) return
-  for (const [id, p] of pending)
+  const updated = await updateBotState(
+    ctx,
+    groupId,
+    bot.id,
+    { workspaceState: machineId ? 'cloning' : 'pending' },
+    guard,
+  )
+  if (!updated || !machineId) return
+  const map = pendingOf(ctx)
+  for (const [id, p] of map)
     if (p.kind === 'ensure' && p.groupId === groupId && p.botId === bot.id) {
       // Already asked on this connection (going offline clears pending): a reconnect catch-up can race a join.
       if (p.machineId === machineId && p.repoId === repo.id && p.extras === extrasKey) return
-      pending.delete(id)
+      map.delete(id)
     }
-  const requestId = track({
+  const requestId = track(ctx, {
     kind: 'ensure',
     machineId,
     groupId,
@@ -332,13 +353,13 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
     names,
   }
   if (!ctx.hub.send(machineId, msg)) {
-    forget(requestId)
-    await updateBotState(ctx, groupId, bot.id, { workspaceState: 'pending' })
+    forget(ctx, requestId)
+    await updateBotState(ctx, groupId, bot.id, { workspaceState: 'pending' }, guard)
   }
 }
 
 async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
-  const req = msg.requestId ? pending.get(msg.requestId) : undefined
+  const req = msg.requestId ? pendingOf(ctx).get(msg.requestId) : undefined
   if (msg.requestId && !req) return
   if (req && (req.machineId !== machineId || req.groupId !== msg.groupId || req.botId !== msg.botId)) return
   const [row] = await ctx.db
@@ -361,7 +382,7 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
       ),
     )
   if (!row) return
-  if (req && msg.state !== 'cloning') forget(msg.requestId as string)
+  if (req && msg.state !== 'cloning') forget(ctx, msg.requestId as string)
   // Answers for the group's previous repo are stale.
   if (req && ((await currentRepo(ctx, msg.groupId))?.id ?? null) !== req.repoId) return
   if (req?.kind === 'default') return onDefault(ctx, req, msg, row.name)
@@ -460,13 +481,13 @@ async function onOnline(ctx: Ctx, machineId: string) {
         isNull(bots.deletedAt),
         isNull(groupBots.removedAt),
         isNull(groups.archivedAt),
-        notInArray(groupBots.workspaceState, ['ready', 'unbound', 'confirm']),
+        notInArray(groupBots.workspaceState, SKIP_RECONNECT),
       ),
     )
   for (const { groupId, cdPath, state, ...bot } of rows) {
     // A request already sent on this connection is still being answered by the daemon.
     if (
-      [...pending.values()].some(
+      [...pendingOf(ctx).values()].some(
         (p) => p.machineId === machineId && p.groupId === groupId && p.botId === bot.id,
       )
     )
@@ -476,7 +497,7 @@ async function onOnline(ctx: Ctx, machineId: string) {
       .select({ state: groupBots.workspaceState, cdPath: groupBots.cdPath })
       .from(groupBots)
       .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, bot.id)))
-    if (!current || ['ready', 'unbound', 'confirm'].includes(current.state)) continue
+    if (!current || SKIP_RECONNECT.includes(current.state)) continue
     if (current.state !== state && current.cdPath)
       await requestCd(ctx, { groupId, botId: bot.id, path: current.cdPath })
     else if (cdPath) await sendCd(ctx, groupId, bot, cdPath, 'default')
@@ -495,7 +516,8 @@ export function startWorkspaceEngine(ctx: Ctx) {
   }
   const online = (machineId: string) => enqueue(() => onOnline(ctx, machineId))
   const offline = (machineId: string) => {
-    for (const [id, p] of pending) if (p.machineId === machineId) pending.delete(id)
+    const map = pendingOf(ctx)
+    for (const [id, p] of map) if (p.machineId === machineId) map.delete(id)
   }
   ctx.hub.on('message', onMessage)
   ctx.hub.on('online', online)
@@ -505,5 +527,6 @@ export function startWorkspaceEngine(ctx: Ctx) {
     ctx.hub.off('online', online)
     ctx.hub.off('offline', offline)
     await chain
+    pendingOf(ctx).clear()
   }
 }

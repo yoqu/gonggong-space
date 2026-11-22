@@ -1,6 +1,6 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { arch, platform } from 'node:os'
@@ -90,6 +90,8 @@ export class HostedLiveKit implements LiveKit {
   private child: ChildProcess | null = null
   private ready = false
   private starting: Promise<void> | null = null
+  private startAbort: AbortController | null = null
+  private restartTimer: ReturnType<typeof setTimeout> | null = null
   private closed = false
   private backoff = 1000
 
@@ -100,12 +102,14 @@ export class HostedLiveKit implements LiveKit {
   }
 
   async endpoint(): Promise<LiveKitEndpoint> {
+    if (this.closed) throw new Error('LiveKit 已停止')
     if (!this.ready) {
       this.starting ??= this.start().finally(() => {
         this.starting = null
       })
       await this.starting
     }
+    if (this.closed || !this.ready || this.port === null) throw new Error('LiveKit 已停止')
     return { url: null, api: `http://127.0.0.1:${this.port}`, key: this.key, secret: this.secret }
   }
 
@@ -116,30 +120,41 @@ export class HostedLiveKit implements LiveKit {
   private async start() {
     if (this.closed) throw new Error('LiveKit 已停止')
     const bin = await this.binary()
-    const left = Number(await readFile(this.pidFile, 'utf8').catch(() => ''))
-    if (left) {
+    if (this.closed) throw new Error('LiveKit 已停止')
+    const left = Number((await readFile(this.pidFile, 'utf8').catch(() => '')).trim())
+    if (Number.isInteger(left) && left > 0) {
       try {
         process.kill(left, 'SIGKILL')
       } catch {
         // already gone
       }
     }
-    if (this.port !== null) return this.run(bin, this.port)
-    // freePort only probes: another process may bind the port before livekit-server does.
-    for (let attempt = 1; ; attempt++) {
-      this.port = await freePort()
+    if (this.closed) throw new Error('LiveKit 已停止')
+    if (this.port !== null) {
       try {
         return await this.run(bin, this.port)
       } catch (err) {
+        if (this.closed || !/address already in use/.test(String(err))) throw err
         this.port = null
-        if (attempt === 3 || !/address already in use/.test(String(err))) throw err
+      }
+    }
+    // freePort only probes: another process may bind the port before livekit-server does.
+    for (let attempt = 1; ; attempt++) {
+      if (this.closed) throw new Error('LiveKit 已停止')
+      const port = await freePort()
+      if (this.closed) throw new Error('LiveKit 已停止')
+      try {
+        return await this.run(bin, port)
+      } catch (err) {
+        if (this.closed || attempt === 3 || !/address already in use/.test(String(err))) throw err
       }
     }
   }
 
   private async run(bin: string, port: number) {
+    if (this.closed) throw new Error('LiveKit 已停止')
     const child = spawn(bin, [], {
-      env: { ...process.env, LIVEKIT_CONFIG: JSON.stringify(this.config()) },
+      env: { ...process.env, LIVEKIT_CONFIG: JSON.stringify(this.config(port)) },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const tail: string[] = []
@@ -149,25 +164,57 @@ export class HostedLiveKit implements LiveKit {
         tail.splice(0, Math.max(0, tail.length - 20))
       })
     this.child = child
+    const ac = new AbortController()
+    this.startAbort = ac
     // Listen before any await: a binary that fails at once may exit while the pid file is written.
-    const exited = new Promise<never>((_, reject) =>
-      child.once('exit', (code) =>
-        reject(new Error(`livekit-server 退出（${code ?? 'signal'}）：${tail.join('\n')}`)),
-      ),
-    )
+    // Wait for 'close' rather than 'exit' so stdout/stderr flush into `tail` before rejecting.
+    const exited = new Promise<never>((_, reject) => {
+      const stop = (err: Error) => {
+        reject(err)
+        ac.abort(err)
+      }
+      child.once('close', (code, signal) =>
+        stop(new Error(`livekit-server 退出（${code ?? signal ?? 'signal'}）：${tail.join('\n')}`)),
+      )
+      child.once('error', (err) => stop(new Error(`livekit-server 启动失败：${err.message}`)))
+    })
     exited.catch(() => {})
-    child.once('exit', () => void this.onExit(child))
-    await mkdir(this.opts.dir, { recursive: true })
-    await writeFile(this.pidFile, String(child.pid))
-    await Promise.race([waitHealthy(port), exited])
-    this.ready = true
-    this.backoff = 1000
+    child.once('exit', () => this.onExit(child))
+    try {
+      await mkdir(this.opts.dir, { recursive: true })
+      if (this.closed) throw new Error('LiveKit 已停止')
+      if (
+        this.child === child &&
+        child.pid !== undefined &&
+        child.exitCode === null &&
+        child.signalCode === null
+      )
+        writeFileSync(this.pidFile, String(child.pid))
+      await Promise.race([exited, waitHealthy(port, ac.signal)])
+      if (this.closed) throw new Error('LiveKit 已停止')
+      if (this.child !== child) await exited
+      this.port = port
+      this.ready = true
+      this.backoff = 1000
+      if (this.restartTimer) {
+        clearTimeout(this.restartTimer)
+        this.restartTimer = null
+      }
+    } catch (err) {
+      ac.abort()
+      await terminate(child)
+      if (this.child === child) this.child = null
+      rmSync(this.pidFile, { force: true })
+      throw err
+    } finally {
+      if (this.startAbort === ac) this.startAbort = null
+    }
   }
 
-  private config() {
+  private config(port: number) {
     const { udpPort, tcpPort, nodeIp } = this.opts
     return {
-      port: this.port,
+      port,
       bind_addresses: ['127.0.0.1'],
       rtc: {
         udp_port: udpPort,
@@ -180,19 +227,30 @@ export class HostedLiveKit implements LiveKit {
     }
   }
 
-  private async onExit(child: ChildProcess) {
+  private onExit(child: ChildProcess) {
     if (this.child !== child) return
     const wasReady = this.ready
     this.child = null
     this.ready = false
-    await rm(this.pidFile, { force: true })
+    rmSync(this.pidFile, { force: true })
     if (this.closed || !wasReady) return
-    console.error(`livekit-server exited; restarting in ${this.backoff} ms`)
-    setTimeout(
-      () => void this.endpoint().catch((err) => console.error('livekit-server:', err)),
-      this.backoff,
-    ).unref()
+    this.scheduleRestart()
+  }
+
+  private scheduleRestart() {
+    if (this.closed || this.restartTimer) return
+    const delay = this.backoff
     this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS)
+    console.error(`livekit-server exited; restarting in ${delay} ms`)
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = null
+      if (this.closed) return
+      void this.endpoint().catch((err) => {
+        console.error('livekit-server:', err)
+        if (!this.closed && !this.ready) this.scheduleRestart()
+      })
+    }, delay)
+    this.restartTimer.unref()
   }
 
   /** GONGGONG_LIVEKIT_BIN, then one downloaded before, then one on PATH (brew), then the official release. */
@@ -230,18 +288,41 @@ export class HostedLiveKit implements LiveKit {
 
   async close() {
     this.closed = true
-    const child = this.child
-    if (!child) return
-    // An already exited child never emits 'exit' again.
-    if (child.exitCode === null && child.signalCode === null) {
-      const gone = new Promise((r) => child.once('exit', r))
-      child.kill('SIGTERM')
-      const timer = setTimeout(() => child.kill('SIGKILL'), 5000)
-      await gone
-      clearTimeout(timer)
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer)
+      this.restartTimer = null
     }
-    await rm(this.pidFile, { force: true })
+    this.startAbort?.abort(new Error('LiveKit 已停止'))
+    await this.starting?.catch(() => {})
+    const child = this.child
+    this.child = null
+    this.ready = false
+    if (child) await terminate(child)
+    rmSync(this.pidFile, { force: true })
   }
+}
+
+async function terminate(child: ChildProcess) {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return
+  const gone = new Promise<void>((resolve) => {
+    child.once('exit', () => resolve())
+    child.once('error', () => resolve())
+  })
+  try {
+    child.kill('SIGTERM')
+  } catch {
+    return
+  }
+  const timer = setTimeout(() => {
+    try {
+      child.kill('SIGKILL')
+    } catch {
+      // already gone
+    }
+  }, 5000)
+  timer.unref()
+  await gone
+  clearTimeout(timer)
 }
 
 function freePort() {
@@ -255,16 +336,33 @@ function freePort() {
   })
 }
 
-async function waitHealthy(port: number) {
+function sleep(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) return resolve()
+    const onAbort = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+async function waitHealthy(port: number, signal: AbortSignal) {
   const until = Date.now() + READY_MS
-  while (Date.now() < until) {
-    const ok = await fetch(`http://127.0.0.1:${port}/`).then(
+  while (!signal.aborted && Date.now() < until) {
+    const ok = await fetch(`http://127.0.0.1:${port}/`, { signal }).then(
       (r) => r.ok,
       () => false,
     )
     if (ok) return
-    await new Promise((r) => setTimeout(r, 100))
+    if (signal.aborted) break
+    await sleep(100, signal)
   }
+  if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : new Error('LiveKit 已停止')
   throw new Error(`livekit-server 在 ${READY_MS / 1000} 秒内没有就绪`)
 }
 

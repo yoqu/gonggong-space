@@ -389,6 +389,66 @@ describe('provisioning', () => {
     await new Promise((r) => setTimeout(r, 200))
     expect((await w.stateOf(g.id)).state).toBe('cloning')
   })
+
+  it('does not overwrite a concurrent transition to unbound or confirm during ensureWorkspace reconnect', async () => {
+    const w = await world()
+    const botRef = { id: w.bot.id, name: w.bot.name, machineId: w.a.machine.id }
+
+    const raceOnSecondSelect = (groupId: string, nextState: 'unbound' | 'confirm') => {
+      let selects = 0
+      const db = new Proxy(t.ctx.db, {
+        get(target, prop, receiver) {
+          if (prop !== 'select') return Reflect.get(target, prop, receiver)
+          return (...args: unknown[]) => {
+            selects++
+            const q = (target.select as (...a: unknown[]) => unknown)(...args)
+            if (selects !== 2) return q
+            const origFrom = (q as { from: (...a: unknown[]) => unknown }).from.bind(q)
+            return {
+              from: (...fArgs: unknown[]) => {
+                const afterFrom = origFrom(...fArgs) as { where: (...a: unknown[]) => Promise<unknown> }
+                const origWhere = afterFrom.where.bind(afterFrom)
+                return {
+                  ...afterFrom,
+                  where: async (...wArgs: unknown[]) => {
+                    await t.db
+                      .update(groupBots)
+                      .set({ workspaceState: nextState })
+                      .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, w.bot.id)))
+                    return origWhere(...wArgs)
+                  },
+                }
+              },
+            }
+          }
+        },
+      })
+      return { ...t.ctx, db }
+    }
+
+    // Repo-less group: concurrent transition to 'unbound' must not be overwritten to 'ready'.
+    const plain = await w.createGroup({ repo: false })
+    await t.db
+      .update(groupBots)
+      .set({ workspaceState: 'pending' })
+      .where(and(eq(groupBots.groupId, plain.id), eq(groupBots.botId, w.bot.id)))
+    await ensureWorkspace(raceOnSecondSelect(plain.id, 'unbound'), plain.id, botRef, true)
+    expect((await w.stateOf(plain.id)).state).toBe('unbound')
+
+    // Repo group: concurrent transition to 'confirm' must not be overwritten to 'cloning' or send workspace.ensure.
+    const repoGroup = await w.createGroup()
+    const d = await daemon(w.a.token)
+    d.send(reply(await joinEnsure(d, repoGroup.id)))
+    await until(async () => (await w.stateOf(repoGroup.id)).state === 'ready')
+    await t.db
+      .update(groupBots)
+      .set({ workspaceState: 'pending' })
+      .where(and(eq(groupBots.groupId, repoGroup.id), eq(groupBots.botId, w.bot.id)))
+    await ensureWorkspace(raceOnSecondSelect(repoGroup.id, 'confirm'), repoGroup.id, botRef, true)
+    expect((await w.stateOf(repoGroup.id)).state).toBe('confirm')
+    const late = Promise.race([d.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])
+    expect(await late).toBe('quiet')
+  })
 })
 
 describe('rebinding the repo', () => {

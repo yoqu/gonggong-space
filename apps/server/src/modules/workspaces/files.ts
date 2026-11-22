@@ -41,6 +41,7 @@ const TIMEOUT_MS = 10_000
 const FORWARDED = ['range', 'if-range', 'if-none-match']
 const RETURNED = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'cache-control']
 const INLINE = new Set<string>(INLINE_FILE_MIMES)
+const KNOWN_OPEN_APPS = new Set<string>(OPEN_APPS)
 
 /** Relative to the workspace root, without leading or trailing slashes ('' = the root). */
 const Query = z.object({
@@ -58,11 +59,10 @@ const offline = (bot: string) => fail('conflict', '{bot} 离线，无法读取�
 /** GET /api/groups/:id/bots/:botId/files/{tree,text,find,raw} — the read-only files browser (group members). */
 export function workspaceFileRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    /** The member-visible bot and its workspace, with the query. */
-    async function target(req: Req) {
+    /** The member-visible bot in this group, once its workspace is set up. */
+    async function memberBot(req: Req) {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const query = Query.parse(req.query)
       const botId = idParam(req.params.botId, 'Bot 不存在')
       const bot = (await activeBots(ctx, group.id)).find((b) => b.id === botId)
       if (!bot) return fail('not_found', '该 Bot 不在群内')
@@ -72,8 +72,14 @@ export function workspaceFileRoutes(ctx: Ctx) {
         .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
       if (gb?.state === 'unbound' || gb?.state === 'confirm')
         return fail('conflict', '{bot} 尚未设置工作区', { bot: bot.name })
-      const workspace = { repo: await currentRepo(ctx, group.id), cdPath: gb?.cdPath ?? null }
-      return { groupId: group.id, bot, workspace, query }
+      return { me, groupId: group.id, bot, cdPath: gb?.cdPath ?? null }
+    }
+
+    /** The member-visible bot and its workspace. */
+    async function target(req: Req) {
+      const base = await memberBot(req)
+      const workspace = { repo: await currentRepo(ctx, base.groupId), cdPath: base.cdPath }
+      return { me: base.me, groupId: base.groupId, bot: base.bot, workspace }
     }
 
     async function ask<T extends Answer['t']>(t: Awaited<ReturnType<typeof target>>, msg: AskBody, reply: T) {
@@ -95,21 +101,19 @@ export function workspaceFileRoutes(ctx: Ctx) {
     }
 
     /** Opening the workspace in a local app is for the owner of the bot's machine only. */
-    async function owned(req: Req) {
-      const t = await target(req)
-      const me = await requireUser(ctx, req)
+    async function owned<T extends { me: { id: string }; bot: { machineId: string | null } }>(t: T) {
       const [m] = t.bot.machineId
         ? await ctx.db
             .select({ ownerId: machines.ownerId })
             .from(machines)
             .where(eq(machines.id, t.bot.machineId))
         : []
-      if (m?.ownerId !== me.id) return fail('forbidden', '只有 Bot 所在电脑的主人可以用本地应用打开')
-      return { ...t, me }
+      if (m?.ownerId !== t.me.id) return fail('forbidden', '只有 Bot 所在电脑的主人可以用本地应用打开')
+      return t
     }
 
     app.get('/api/groups/:id/bots/:botId/open-apps', async (req: Req): Promise<OpenAppsDto> => {
-      const t = await owned(req)
+      const t = await owned(await memberBot(req))
       const machineId = onlineMachine(ctx, t.bot.machineId)
       if (!machineId) return offline(t.bot.name)
       const res =
@@ -119,12 +123,11 @@ export function workspaceFileRoutes(ctx: Ctx) {
           'apps.list.result',
           TIMEOUT_MS,
         )) ?? offline(t.bot.name)
-      const known = new Set<string>(OPEN_APPS)
-      return { apps: res.apps.filter((a): a is OpenAppsDto['apps'][number] => known.has(a)) }
+      return { apps: res.apps.filter((a): a is OpenAppsDto['apps'][number] => KNOWN_OPEN_APPS.has(a)) }
     })
 
     app.post('/api/groups/:id/bots/:botId/open', async (req: Req, reply: FastifyReply) => {
-      const t = await owned(req)
+      const t = await owned(await target(req))
       const { app: openWith } = OpenWorkspaceReq.parse(req.body)
       await ask(t, { t: 'workspace.open', app: openWith }, 'workspace.open.result')
       await audit(ctx, {
@@ -139,14 +142,14 @@ export function workspaceFileRoutes(ctx: Ctx) {
 
     app.get('/api/groups/:id/bots/:botId/files/tree', async (req: Req): Promise<FilesTreeDto> => {
       const t = await target(req)
-      const { path, ignored } = t.query
+      const { path, ignored } = Query.parse(req.query)
       const res = await ask(t, { t: 'files.tree', path, showIgnored: ignored === '1' }, 'files.tree.result')
       return { path, entries: res.entries, truncated: res.truncated }
     })
 
     app.get('/api/groups/:id/bots/:botId/files/text', async (req: Req): Promise<FileTextDto> => {
       const t = await target(req)
-      const { path } = t.query
+      const { path } = Query.parse(req.query)
       if (!path) return fail('invalid', '缺少文件路径')
       const res = await ask(t, { t: 'files.read', path, maxBytes: FILE_TEXT_MAX_BYTES }, 'files.read.result')
       return { path, size: res.size, binary: res.binary, mime: res.mime, text: res.text }
@@ -167,7 +170,7 @@ export function workspaceFileRoutes(ctx: Ctx) {
      */
     app.get('/api/groups/:id/bots/:botId/files/raw', async (req: Req, reply: FastifyReply) => {
       const t = await target(req)
-      const { path } = t.query
+      const { path } = Query.parse(req.query)
       if (!path) return fail('invalid', '缺少文件路径')
       const conn = t.bot.machineId ? ctx.tunnels.get(t.bot.machineId) : undefined
       if (!conn) return offline(t.bot.name)

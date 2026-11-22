@@ -9,7 +9,7 @@ import {
   type LiveTokenDto,
   WatchReq,
 } from '@gonggong/protocol'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { fail } from '../../lib/errors.js'
@@ -24,19 +24,28 @@ import { CAST_KINDS, control, controlOf, retryCast, watch } from './service.js'
 
 const PREFIX = '/livekit'
 
-/** A preview streamed through LiveKit. */
-async function requireLivePreview(ctx: Ctx, id: string) {
-  const preview = await requireOpenPreview(ctx, id)
+/** An open live preview the caller may access as a member of its group. */
+async function requireMemberLivePreview(ctx: Ctx, req: FastifyRequest) {
+  const user = await requireUser(ctx, req)
+  const preview = await requireOpenPreview(ctx, (req.params as { id: string }).id)
+  await requireMember(ctx, preview.groupId, user.id)
   if (!CAST_KINDS.includes(preview.kind)) fail('invalid', '这个预览没有实时画面')
-  return preview
+  return { user, preview }
+}
+
+/** An open live preview belonging to the authenticating machine. */
+async function requireMachineLivePreview(ctx: Ctx, req: FastifyRequest) {
+  const machine = await requireMachine(ctx, req)
+  const preview = await requireOpenPreview(ctx, (req.params as { id: string }).id)
+  if (preview.machineId !== machine.id) return fail('not_found', '预览不存在或已关闭')
+  if (!CAST_KINDS.includes(preview.kind)) fail('invalid', '这个预览没有实时画面')
+  return { machine, preview }
 }
 
 export function liveRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.post('/api/previews/:id/live', async (req): Promise<LiveTokenDto> => {
-      const user = await requireUser(ctx, req)
-      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
-      await requireMember(ctx, preview.groupId, user.id)
+      const { user, preview } = await requireMemberLivePreview(ctx, req)
       const ep = await ctx.livekit.endpoint()
       // One identity per viewer connection: several tabs of one member must not kick each other out.
       const identity = `u:${user.id}:${randomBytes(4).toString('hex')}`
@@ -46,9 +55,7 @@ export function liveRoutes(ctx: Ctx) {
     })
 
     app.post('/api/previews/:id/control', async (req, reply) => {
-      const user = await requireUser(ctx, req)
-      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
-      await requireMember(ctx, preview.groupId, user.id)
+      const { user, preview } = await requireMemberLivePreview(ctx, req)
       const body = ControlReq.parse(req.body)
       if ((body.action === 'request' || body.action === 'grant') && (await sysParams(ctx.db)).demoMode)
         fail('forbidden', '演示模式下实时画面只能观看')
@@ -58,26 +65,20 @@ export function liveRoutes(ctx: Ctx) {
     })
 
     app.post('/api/previews/:id/watch', async (req, reply) => {
-      const user = await requireUser(ctx, req)
-      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
-      await requireMember(ctx, preview.groupId, user.id)
+      const { user, preview } = await requireMemberLivePreview(ctx, req)
       await watch(ctx, preview, user.id, WatchReq.parse(req.body ?? {}).fps)
       return reply.status(204).send()
     })
 
     app.post('/api/previews/:id/live/retry', async (req, reply) => {
-      const user = await requireUser(ctx, req)
-      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
-      await requireMember(ctx, preview.groupId, user.id)
+      const { preview } = await requireMemberLivePreview(ctx, req)
       retryCast(ctx, preview)
       return reply.status(204).send()
     })
 
     /** The machine owner's 立即重试, from the desktop app's 实时画面 page. */
     app.post('/api/daemon/previews/:id/live/retry', async (req, reply) => {
-      const machine = await requireMachine(ctx, req)
-      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
-      if (preview.machineId !== machine.id) return fail('not_found', '预览不存在或已关闭')
+      const { preview } = await requireMachineLivePreview(ctx, req)
       retryCast(ctx, preview)
       return reply.status(204).send()
     })
@@ -92,9 +93,7 @@ export function liveRoutes(ctx: Ctx) {
     })
 
     app.post('/api/daemon/previews/:id/cast', async (req): Promise<CastTokenDto> => {
-      const machine = await requireMachine(ctx, req)
-      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
-      if (preview.machineId !== machine.id) return fail('not_found', '预览不存在或已关闭')
+      const { preview } = await requireMachineLivePreview(ctx, req)
       const ep = await ctx.livekit.endpoint()
       return { url: ep.url, token: await liveTokens.publisher(ep, preview.id) }
     })
@@ -103,9 +102,13 @@ export function liveRoutes(ctx: Ctx) {
     app.get(`${PREFIX}/*`, async (req, reply) => {
       const port = ctx.livekit.signalPort
       if (!port) return fail('not_found', '实时画面服务未启动')
-      const res = await fetch(`http://127.0.0.1:${port}${req.url.slice(PREFIX.length)}`)
-      reply.status(res.status).header('content-type', res.headers.get('content-type') ?? 'text/plain')
-      return reply.send(await res.text())
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}${req.url.slice(PREFIX.length)}`)
+        reply.status(res.status).header('content-type', res.headers.get('content-type') ?? 'text/plain')
+        return reply.send(await res.text())
+      } catch {
+        return reply.status(502).header('content-type', 'text/plain').send('Bad Gateway')
+      }
     })
   }
 }

@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import type { GroupPreviewsDto, LiveTokenDto } from '@gonggong/protocol'
 import { TokenVerifier } from 'livekit-server-sdk'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { previews } from '../src/db/schema.js'
 import type { LiveKit } from '../src/modules/live/livekit.js'
 import { reapWatches } from '../src/modules/live/service.js'
@@ -14,17 +14,24 @@ const SECRET = 'test-secret-'.repeat(3)
 /** LiveKit's RoomService (Twirp, JSON): lists `participants` for any room and records permission updates. */
 async function fakeRoomService(participants: () => string[]) {
   const updates: { identity: string; canPublishData: boolean }[] = []
+  let gate: { arrived: () => void; release: Promise<void> } | null = null
   const server = createServer((req, res) => {
     let body = ''
     req.on('data', (c) => {
       body += c
     })
-    req.on('end', () => {
+    req.on('end', async () => {
       const json = JSON.parse(body || '{}')
       res.setHeader('content-type', 'application/json')
       if (req.url?.endsWith('/ListParticipants')) {
         res.end(JSON.stringify({ participants: participants().map((identity) => ({ identity })) }))
         return
+      }
+      if (gate) {
+        const g = gate
+        gate = null
+        g.arrived()
+        await g.release
       }
       updates.push({ identity: json.identity, canPublishData: !!json.permission?.canPublishData })
       res.end(JSON.stringify({ identity: json.identity }))
@@ -32,7 +39,19 @@ async function fakeRoomService(participants: () => string[]) {
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
   const api = `http://127.0.0.1:${(server.address() as { port: number }).port}`
-  return { api, updates, close: () => new Promise((r) => server.close(r)) }
+  const pauseNextUpdate = () => {
+    let arrived!: () => void
+    let release!: () => void
+    const reached = new Promise<void>((r) => {
+      arrived = r
+    })
+    const hold = new Promise<void>((r) => {
+      release = r
+    })
+    gate = { arrived, release: hold }
+    return { reached, release }
+  }
+  return { api, updates, pauseNextUpdate, close: () => new Promise((r) => server.close(r)) }
 }
 
 let t: TestApp
@@ -78,6 +97,7 @@ async function world() {
     wang,
     li,
     zhao,
+    machine,
     group,
     preview: p!,
     w: await as(wang.id),
@@ -173,5 +193,79 @@ describe('control of a live preview (plan P14)', () => {
     const outsider = await t.seed.user()
     const o = client(t, await t.seed.cookie(outsider.id))
     expect(await control(o, w, { action: 'request' })).toBe(404)
+  })
+
+  it('does not strip a newly granted controller or drop fresh requests when reapWatches races with grant', async () => {
+    const w = await world()
+    connected = [`u:${w.li.id}:aa`, `u:${w.zhao.id}:bb`]
+    await w.l.post(`/api/previews/${w.preview.id}/watch`)
+    await w.z.post(`/api/previews/${w.preview.id}/watch`)
+    await control(w.l, w, { action: 'request' })
+    await control(w.w, w, { action: 'grant', userId: w.li.id })
+    await control(w.z, w, { action: 'request' })
+
+    // Let li's lease lapse while zhao stays active.
+    clock += 40_000
+    await w.z.post(`/api/previews/${w.preview.id}/watch`)
+    clock += 30_000
+
+    const pause = rooms.pauseNextUpdate()
+    const granting = control(w.w, w, { action: 'grant', userId: w.zhao.id })
+    await pause.reached
+
+    // While grant(zhao) is mid-flight, reapWatches runs concurrently and li starts watching + requests again.
+    const reaping = reapWatches(t.ctx)
+    await w.l.post(`/api/previews/${w.preview.id}/watch`)
+    const requesting = control(w.l, w, { action: 'request' })
+
+    pause.release()
+    expect(await granting).toBe(204)
+    await reaping
+    expect(await requesting).toBe(204)
+
+    expect(await state(w.w, w)).toEqual({
+      controller: { id: w.zhao.id, name: '赵六' },
+      requests: [{ id: w.li.id, name: '李建国' }],
+    })
+    expect(rooms.updates.at(-1)).toEqual({ identity: `u:${w.zhao.id}:bb`, canPublishData: true })
+  })
+
+  it('revokes control and clears live cast and control state when a preview is closed', async () => {
+    const w = await world()
+    connected = [`u:${w.li.id}:aa`]
+    await w.l.post(`/api/previews/${w.preview.id}/watch`)
+    await control(w.l, w, { action: 'request' })
+    await control(w.w, w, { action: 'grant', userId: w.li.id })
+    await control(w.z, w, { action: 'request' })
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'cast.state',
+      previewId: w.preview.id,
+      state: 'live',
+      error: null,
+      missing: [],
+    })
+    const previewDto = async () =>
+      (await w.w.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)).body.previews.find(
+        (p) => p.id === w.preview.id,
+      )
+    await vi.waitFor(async () => expect((await previewDto())?.live?.state).toBe('live'))
+
+    expect((await w.w.post(`/api/previews/${w.preview.id}/close`)).status).toBe(204)
+    expect(rooms.updates.at(-1)).toEqual({ identity: `u:${w.li.id}:aa`, canPublishData: false })
+
+    // A late cast.state after close must be ignored.
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'cast.state',
+      previewId: w.preview.id,
+      state: 'failed',
+      error: 'stale error',
+      missing: [],
+    })
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect((await w.w.post(`/api/previews/${w.preview.id}/start`)).status).toBe(204)
+    const reopened = await previewDto()
+    expect(reopened?.live).toBeNull()
+    expect(reopened?.control).toEqual({ controller: null, requests: [] })
   })
 })
