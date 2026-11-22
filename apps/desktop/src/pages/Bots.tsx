@@ -1,5 +1,5 @@
 import { AGENT_META, type AgentState, ProviderStoreView } from '@gonggong/protocol'
-import { choiceLabel, machineDefault } from '@web/features/agents/model'
+import { botProviderText } from '@web/features/agents/model'
 import { approvalText } from '@web/features/bots/ApprovalFields'
 import { avatarSrc, faceOf } from '@web/features/bots/avatars'
 import {
@@ -20,15 +20,6 @@ import { ipc, type MachineBot } from '../ipc'
 import { fail } from '../lib/ui'
 import { useIpc } from '../lib/useIpc'
 import type { PageProps } from '.'
-
-/** 「Kimi / kimi-k2」 of its own provider, else 「继承机器默认（X / 模型）」; the bot's own model wins either way. */
-function providerText(b: MachineBot, view: ProviderStoreView) {
-  const own = view.bots[b.id]
-  const model = b.model ?? null
-  if (own) return choiceLabel(view, { provider: own, model })
-  const d = machineDefault(view, b.agentKind)
-  return t('使用电脑默认（{name}）', { name: choiceLabel(view, { ...d, model: model ?? d.model }) })
-}
 
 function status(b: MachineBot, agent: AgentState | undefined): { text: string; tone: TagTone } {
   if (b.binding === 'pending_confirm') return { text: t('待确认'), tone: 'orange' }
@@ -119,7 +110,7 @@ export function BotsPage({ go }: PageProps) {
               {providers ? (
                 <GroupRow label={t('供应商/模型')} wideValue>
                   <span className="dk-inline">
-                    {providerText(b, providers)}
+                    {botProviderText(providers, b)}
                     <Button variant="plain" size="small" onClick={() => ipc.openBotInWeb(b.id).catch(fail)}>
                       {t('在 Web 中管理')}
                     </Button>

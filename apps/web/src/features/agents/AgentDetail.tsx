@@ -1,10 +1,4 @@
-import {
-  type AgentKind,
-  type AgentState,
-  agentMeta,
-  fieldsFor,
-  type ProviderStoreView,
-} from '@gonggong/protocol'
+import { type AgentState, agentMeta, fieldsFor, type ProviderStoreView } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
@@ -12,9 +6,9 @@ import { copyWithToast } from '../../lib/clipboard'
 import { Button, GroupBox, GroupRow, Icon, IconButton, Presence, toast } from '../../ui'
 import { AgentSettingsBox } from '../machines/AgentSettingsPanel'
 import { OfficialEditor } from '../machines/ProviderEditor'
-import { effectiveProvider, SwitchNote, switchLines, useProviderSwitch } from '../machines/providers'
+import { SwitchNote, switchLines, useProviderSwitch } from '../machines/providers'
 import { SaveStatus, useSaves } from '../machines/save'
-import { choiceLabel, choiceValue, machineDefault, parseChoice } from './model'
+import { botProviderText, choiceValue, machineDefault, parseChoice } from './model'
 import { ProviderModelPicker } from './ProviderModelPicker'
 import type { AgentBotRef, AgentLocal, AgentsSource } from './source'
 
@@ -201,7 +195,7 @@ export function AgentDetail({
               <GroupRow
                 key={b.id}
                 label={b.name}
-                value={view ? botLine(view, a.kind, b.id) : undefined}
+                value={view ? botProviderText(view, b) : undefined}
                 onClick={source.openBot ? () => source.openBot?.(b.id) : undefined}
               />
             ))
@@ -213,11 +207,6 @@ export function AgentDetail({
     </div>
   )
 }
-
-const botLine = (view: ProviderStoreView, agent: AgentKind, botId: string) =>
-  view.bots[botId]
-    ? choiceLabel(view, effectiveProvider(view, agent, botId))
-    : t('使用电脑默认（{name}）', { name: choiceLabel(view, machineDefault(view, agent)) })
 
 /** 默认「供应商/模型」 of the agent on this machine, switched at once; the official login's extras beside it. */
 function DefaultBox({

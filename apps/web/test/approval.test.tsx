@@ -275,9 +275,24 @@ describe('ApprovalBlock', () => {
       '王磊 已批准 · 10:21',
     ],
     [
+      approval({ status: 'approved', decidedByName: null, decidedAt: NOW.toISOString() }),
+      {},
+      '已批准 · 10:21',
+    ],
+    [
       approval({ status: 'rejected', decidedByName: '王磊', decidedAt: NOW.toISOString() }),
       {},
       '王磊 已拒绝 · 10:21 · agent 将自行绕路',
+    ],
+    [
+      approval({ status: 'rejected', decidedByName: null, decidedAt: NOW.toISOString() }),
+      {},
+      '按规则自动拒绝 · 10:21 · agent 将自行绕路',
+    ],
+    [
+      approval({ status: 'rejected', decidedByName: null, decidedAt: null }),
+      {},
+      '按规则自动拒绝 · agent 将自行绕路',
     ],
     [
       approval({ status: 'expired', decidedAt: NOW.toISOString() }),
@@ -297,10 +312,63 @@ describe('ApprovalBlock', () => {
     [approval({ status: 'void', voidReason: 'ended' }), { status: 'completed' }, '运行已结束，请求已失效'],
   ] as const)('shows the outcome %#', (a, o, text) => {
     login('u1', '王磊')
-    render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)
-    expect(screen.getByText(text)).toBeTruthy()
+    const { container } = render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)
+    expect(container.querySelector('.approval__done > span:last-child')?.textContent).toBe(text)
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
     expect(screen.getByText(/未被只读规则或已保存的允许规则覆盖/)).toBeTruthy()
+  })
+
+  it('shows auto-rejected and unnamed outcomes cleanly in English', async () => {
+    localStorage.setItem('gg.locale', 'en')
+    vi.resetModules()
+    try {
+      const { useSession: useEnSession } = await import('../src/app/session')
+      const { useWorkspace: useEnWorkspace } = await import('../src/app/workspace')
+      const { ApprovalBlock: EnApprovalBlock } = await import('../src/features/runs/ApprovalBlock')
+      const { approvalText: enApprovalText } = await import('../src/features/runs/process')
+      useEnWorkspace.setState({ bots: [bot] })
+      useEnSession.setState({
+        user: {
+          id: 'u1',
+          account: 'u1',
+          name: '王磊',
+          role: 'member',
+          mustChangePassword: false,
+          disabled: false,
+          gitProtocol: 'auto',
+          email: null,
+          avatar: null,
+        },
+        status: 'ready',
+      })
+
+      const autoRejected = approval({ status: 'rejected', decidedByName: null, decidedAt: NOW.toISOString() })
+      const { container, rerender } = render(<EnApprovalBlock run={run([autoRejected])} />)
+      const doneText = () => container.querySelector('.approval__done > span:last-child')?.textContent
+      expect(doneText()).toBe('Auto-rejected by rule · 10:21 · the Agent will try another way')
+      expect(doneText()).not.toContain('Rejected by')
+      expect(enApprovalText(autoRejected)).toBe('Auto-rejected by rule')
+
+      rerender(
+        <EnApprovalBlock
+          run={run([approval({ status: 'rejected', decidedByName: null, decidedAt: null })])}
+        />,
+      )
+      expect(doneText()).toBe('Auto-rejected by rule · the Agent will try another way')
+
+      const unnamedApproved = approval({
+        status: 'approved',
+        decidedByName: null,
+        decidedAt: NOW.toISOString(),
+      })
+      rerender(<EnApprovalBlock run={run([unnamedApproved])} />)
+      expect(doneText()).toBe('Approved · 10:21')
+      expect(doneText()).not.toContain('Approved by')
+      expect(enApprovalText(unnamedApproved)).toBe('Approved')
+    } finally {
+      localStorage.setItem('gg.locale', 'zh')
+      vi.resetModules()
+    }
   })
 
   it('offers 本次会话不再问 with the rules it trusts, sent as an allow with session', async () => {

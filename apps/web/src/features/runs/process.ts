@@ -13,9 +13,9 @@ export function approvalText(a: ApprovalDto) {
     case 'pending':
       return t('等待 Bot 主人审批')
     case 'approved':
-      return t('{name} 已批准', { name: a.decidedByName ?? '' }).trim()
+      return a.decidedByName ? t('{name} 已批准', { name: a.decidedByName }) : t('已批准')
     case 'rejected':
-      return t('{name} 已拒绝', { name: a.decidedByName ?? '' }).trim()
+      return a.decidedByName ? t('{name} 已拒绝', { name: a.decidedByName }) : t('按规则自动拒绝')
     case 'expired':
       return t('超时未审批，已自动拒绝')
     case 'void':

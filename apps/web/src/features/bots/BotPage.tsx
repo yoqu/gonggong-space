@@ -17,10 +17,10 @@ import { realtime } from '../../lib/realtime'
 import { ago, browserTimeZone } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, ChatHeader, Tag } from '../../ui'
-import { choiceLabel, machineDefault } from '../agents/model'
+import { botProviderText } from '../agents/model'
 import { RUN_STATUS } from '../chat/TimelineItems'
 import { FeishuAppTag } from '../feishu/FeishuAppTag'
-import { effectiveProvider } from '../machines/providers'
+import { providerBlocked } from '../machines/providers'
 import { stepText } from '../runs/mcp'
 import { Trend, UsageBars, WINDOW } from '../usage/UsagePage'
 import { agentLabel } from './AgentConfig'
@@ -223,11 +223,13 @@ const unset = () => <span className="bot-page__muted">{t('未设置')}</span>
  */
 function Profile({
   bot,
+  meId,
   users,
   canEdit,
   onSettings,
 }: {
   bot: BotDto
+  meId: string
   users: UserBriefDto[]
   canEdit: boolean
   onSettings: (tab?: BotTab) => void
@@ -235,18 +237,10 @@ function Profile({
   const feishu = useGet<FeishuAppView>(canEdit ? `/bots/${bot.id}/feishu` : null).data
   const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
   const wantProvider =
-    canEdit &&
-    !!machine?.online &&
-    machine.features.includes('providers') &&
-    AGENT_META[bot.agentKind].login !== 'own'
+    !providerBlocked(meId, bot.ownerId, machine) && AGENT_META[bot.agentKind].login !== 'own'
   const [view] = useMachineProviders(wantProvider ? bot.machineId : null, !wantProvider)
   const modelRow: Row = view
-    ? [
-        t('供应商/模型'),
-        view.bots[bot.id]
-          ? choiceLabel(view, effectiveProvider(view, bot.agentKind, bot.id))
-          : `${choiceLabel(view, machineDefault(view, bot.agentKind))}（${t('使用电脑默认')}）`,
-      ]
+    ? [t('供应商/模型'), botProviderText(view, bot)]
     : [t('模型'), agentLabel(bot.catalog, bot.model, bot.effort)]
   const role = roleOf(botRole(bot), bot.agentKind)
   const names = (ids: string[]) => ids.map((id) => users.find((u) => u.id === id)?.name ?? '--').join(t('、'))
@@ -434,7 +428,7 @@ export function BotPage({
             </div>
           ) : null}
           <div className="bot-page__side">
-            <Profile bot={bot} users={users} canEdit={canView} onSettings={onSettings} />
+            <Profile bot={bot} meId={me.id} users={users} canEdit={canView} onSettings={onSettings} />
           </div>
         </div>
       </div>

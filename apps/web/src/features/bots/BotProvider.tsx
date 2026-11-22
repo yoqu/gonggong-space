@@ -10,10 +10,17 @@ import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, FormRow, PopUpButton } from '../../ui'
+import { FormRow, PopUpButton } from '../../ui'
 import { choiceValue, machineDefault, parseChoice } from '../agents/model'
 import { ProviderModelPicker } from '../agents/ProviderModelPicker'
-import { type AgentConfig, AgentConfigFields, type CatalogRefresh, effortOptions } from './AgentConfig'
+import {
+  type AgentConfig,
+  AgentConfigFields,
+  type CatalogRefresh,
+  EffortField,
+  RefreshButton,
+  withModel,
+} from './AgentConfig'
 import { reportedAgent } from './model'
 
 /** The machine's provider store (design §4.2), read live from it; null while asked or when `blocked`. */
@@ -105,7 +112,6 @@ export function ProviderModelFields({
       </>
     )
   const models = !!machine?.features.includes('protocolProviders')
-  const efforts = effortOptions(catalog, value.config.model)
   return (
     <>
       <FormRow
@@ -128,21 +134,27 @@ export function ProviderModelFields({
                 provider: next.provider,
                 // A new provider starts from its default model and levels.
                 config: models
-                  ? { model: next.model, effort: same ? value.config.effort : null }
+                  ? same
+                    ? withModel(catalog, value.config.effort, next.model)
+                    : { model: next.model, effort: null }
                   : same
                     ? value.config
                     : { model: null, effort: null },
               })
             }}
           />
-          {refresh && models ? (
-            <Button size="small" loading={refresh.busy} onClick={refresh.run}>
-              {t('刷新模型')}
-            </Button>
-          ) : null}
+          {models ? <RefreshButton refresh={refresh} /> : null}
         </div>
       </FormRow>
-      {models ? null : (
+      {models ? (
+        <EffortField
+          catalog={catalog}
+          model={value.config.model}
+          effort={value.config.effort}
+          disabled={disabled}
+          onChange={(effort) => onChange({ ...value, config: { ...value.config, effort } })}
+        />
+      ) : (
         // An older client takes no model with the provider: the bot's own model, from its catalog.
         <AgentConfigFields
           catalog={catalog}
@@ -152,17 +164,6 @@ export function ProviderModelFields({
           onChange={(config) => onChange({ ...value, config })}
         />
       )}
-      {models && efforts.length ? (
-        <FormRow label={t('推理强度')}>
-          <PopUpButton
-            aria-label={t('推理强度')}
-            value={value.config.effort ?? ''}
-            disabled={disabled}
-            options={efforts}
-            onChange={(v) => onChange({ ...value, config: { ...value.config, effort: v || null } })}
-          />
-        </FormRow>
-      ) : null}
     </>
   )
 }

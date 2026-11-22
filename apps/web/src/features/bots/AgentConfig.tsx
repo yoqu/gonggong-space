@@ -93,12 +93,40 @@ export interface CatalogRefresh {
   busy: boolean
 }
 
-function RefreshButton({ refresh }: { refresh?: CatalogRefresh }) {
+export function RefreshButton({ refresh }: { refresh?: CatalogRefresh }) {
   if (!refresh) return null
   return (
     <Button size="small" loading={refresh.busy} onClick={refresh.run}>
       {t('刷新模型')}
     </Button>
+  )
+}
+
+export function EffortField({
+  catalog,
+  model,
+  effort,
+  disabled,
+  onChange,
+}: {
+  catalog: AgentCatalog | null
+  model: string | null
+  effort: string | null
+  disabled?: boolean
+  onChange: (effort: string | null) => void
+}) {
+  const efforts = effortOptions(catalog, model)
+  if (!efforts.length) return null
+  return (
+    <FormRow label={t('推理强度')}>
+      <PopUpButton
+        aria-label={t('推理强度')}
+        value={effort ?? ''}
+        disabled={disabled}
+        options={efforts}
+        onChange={(v) => onChange(v || null)}
+      />
+    </FormRow>
   )
 }
 
@@ -125,7 +153,6 @@ export function AgentConfigFields({
         </div>
       </FormRow>
     )
-  const efforts = effortOptions(catalog, value.model)
   return (
     <>
       <FormRow label={t('模型')} hint={t('群内可临时切换，发消息时也可单条指定')}>
@@ -140,17 +167,13 @@ export function AgentConfigFields({
           <RefreshButton refresh={refresh} />
         </div>
       </FormRow>
-      {efforts.length ? (
-        <FormRow label={t('推理强度')}>
-          <PopUpButton
-            aria-label={t('推理强度')}
-            value={value.effort ?? ''}
-            disabled={disabled}
-            options={efforts}
-            onChange={(v) => onChange({ ...value, effort: v || null })}
-          />
-        </FormRow>
-      ) : null}
+      <EffortField
+        catalog={catalog}
+        model={value.model}
+        effort={value.effort}
+        disabled={disabled}
+        onChange={(effort) => onChange({ ...value, effort })}
+      />
     </>
   )
 }

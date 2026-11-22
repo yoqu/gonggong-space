@@ -2,7 +2,7 @@ import type { ApprovalDto, RunDetailDto, RunDto } from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
 import { diffCells, findFile, parsePatch } from '../src/features/diff/patch'
 import { filePaths } from '../src/features/runs/paths'
-import { buildSteps } from '../src/features/runs/process'
+import { approvalText, buildSteps } from '../src/features/runs/process'
 
 const patch = [
   'diff --git a/src/a.ts b/src/a.ts',
@@ -593,6 +593,15 @@ describe('compaction steps', () => {
     })
     expect(one('running', { status: 'cancelled' })).toMatchObject({ label: '压缩已取消' })
     expect(one('completed', {})).toMatchObject({ label: '压缩上下文未完成', running: false })
+  })
+})
+
+describe('approvalText', () => {
+  it('distinguishes named decisions from auto-rejected or unnamed ones', () => {
+    expect(approvalText(approval({ status: 'approved', decidedByName: '王磊' }))).toBe('王磊 已批准')
+    expect(approvalText(approval({ status: 'approved', decidedByName: null }))).toBe('已批准')
+    expect(approvalText(approval({ status: 'rejected', decidedByName: '王磊' }))).toBe('王磊 已拒绝')
+    expect(approvalText(approval({ status: 'rejected', decidedByName: null }))).toBe('按规则自动拒绝')
   })
 })
 

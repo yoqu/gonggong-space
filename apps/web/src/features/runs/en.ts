@@ -30,7 +30,10 @@ export default {
   '已失效#status': 'Expired',
   '不再询问：{rules}': "Won't ask again: {rules}",
   '{name} 已批准 · {at}': 'Approved by {name} · {at}',
+  '已批准 · {at}': 'Approved · {at}',
   '{name} 已拒绝 · {at} · agent 将自行绕路': 'Rejected by {name} · {at} · the Agent will try another way',
+  '按规则自动拒绝 · {at} · agent 将自行绕路': 'Auto-rejected by rule · {at} · the Agent will try another way',
+  '按规则自动拒绝 · agent 将自行绕路': 'Auto-rejected by rule · the Agent will try another way',
   '超时未处理，已自动拒绝 · {at} · agent 将自行绕路':
     'No response in time, rejected automatically · {at} · the Agent will try another way',
   '权限请求 · {kind}': 'Permission request · {kind}',
@@ -200,6 +203,7 @@ export default {
   '等待 Bot 主人审批': "Waiting for the Bot owner's approval",
   '{name} 已批准': 'Approved by {name}',
   '{name} 已拒绝': 'Rejected by {name}',
+  按规则自动拒绝: 'Auto-rejected by rule',
   '超时未审批，已自动拒绝': 'Not approved in time; rejected automatically',
   '续用上次会话，补送上次被 @ 以来的群消息': 'Resumed the last session with group messages since the last @',
   '首次会话，补送此前的群消息': 'First session, with earlier group messages',

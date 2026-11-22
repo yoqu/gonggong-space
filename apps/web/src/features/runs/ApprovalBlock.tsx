@@ -68,9 +68,16 @@ function outcome(a: ApprovalDto) {
   const at = a.decidedAt ? hm(a.decidedAt) : ''
   switch (a.status) {
     case 'approved':
-      return t('{name} 已批准 · {at}', { name: a.decidedByName ?? '', at })
+      if (a.decidedByName)
+        return at
+          ? t('{name} 已批准 · {at}', { name: a.decidedByName, at })
+          : t('{name} 已批准', { name: a.decidedByName })
+      return at ? t('已批准 · {at}', { at }) : t('已批准')
     case 'rejected':
-      return t('{name} 已拒绝 · {at} · agent 将自行绕路', { name: a.decidedByName ?? '', at })
+      if (a.decidedByName) return t('{name} 已拒绝 · {at} · agent 将自行绕路', { name: a.decidedByName, at })
+      return at
+        ? t('按规则自动拒绝 · {at} · agent 将自行绕路', { at })
+        : t('按规则自动拒绝 · agent 将自行绕路')
     case 'expired':
       return t('超时未处理，已自动拒绝 · {at} · agent 将自行绕路', { at })
     case 'void':

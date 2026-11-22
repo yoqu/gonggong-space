@@ -10,6 +10,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkspace } from '../src/app/workspace'
+import { botProviderText } from '../src/features/agents/model'
+import { BotPage } from '../src/features/bots/BotPage'
 import { BotDetail } from '../src/features/bots/BotSettings'
 import { mockApi } from './mockApi'
 
@@ -324,6 +326,152 @@ describe('bot provider and model', () => {
     renderDetail(bot(), { ...me, id: 'u9', role: 'sysadmin' })
     fireEvent.click(await screen.findByRole('button', { name: '模型' }))
     await waitFor(() => expect(screen.getByRole('menuitemcheckbox', { name: 'kimi-k2' })).toBeTruthy())
+  })
+
+  it('resets effort to null when switching to a model on the same provider that does not support it', async () => {
+    const richKimi: AgentCatalog = {
+      current: 'kimi-for-coding',
+      efforts: [],
+      effort: null,
+      models: [
+        { value: 'kimi-for-coding', name: 'kimi-for-coding', efforts: [], effort: null },
+        { value: 'kimi-k2', name: 'kimi-k2', efforts: ['low', 'high', 'max'].map(level), effort: 'low' },
+        { value: 'kimi-fast', name: 'kimi-fast', efforts: ['low', 'high'].map(level), effort: 'low' },
+      ],
+    }
+    const view: ProviderStoreView = {
+      ...VIEW,
+      bots: { b1: 'p1' },
+      providers: [
+        provider('p1', 'Kimi', 'anthropic', { modelOptions: ['kimi-for-coding', 'kimi-k2', 'kimi-fast'] }),
+      ],
+    }
+    const calls = mockApi({
+      'GET /machines/m1/providers': view,
+      'GET /bots/b1/catalog': { catalog: richKimi },
+      'PUT /bots/b1/provider': view,
+    })
+    renderDetail(bot({ model: 'kimi-k2', effort: 'max' }))
+    const select = await screen.findByRole('button', { name: '供应商/模型' })
+    await waitFor(() => expect(select.textContent).toBe('Kimi / kimi-k2'))
+    expect((await screen.findByRole('button', { name: '推理强度' })).textContent).toBe('最高')
+
+    // Switch to a model on the same provider that supports low/high but not max → effort resets to null.
+    fireEvent.click(select)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi / kimi-fast' }))
+    expect(screen.getByRole('button', { name: '推理强度' }).textContent).toBe('默认（低）')
+
+    // Pick high, switch to a model with no efforts → effort resets to null and saves as null.
+    fireEvent.click(screen.getByRole('button', { name: '推理强度' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '高' }))
+    fireEvent.click(select)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi / kimi-for-coding' }))
+    expect(screen.queryByRole('button', { name: '推理强度' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({
+        choice: 'p1',
+        model: 'kimi-for-coding',
+        effort: null,
+      }),
+    )
+  })
+})
+
+describe('botProviderText and BotPage provider row', () => {
+  it('formats own provider, custom model and machine default in Chinese', () => {
+    const withOwn: ProviderStoreView = { ...VIEW, bots: { b1: 'p1' } }
+    expect(botProviderText(withOwn, { id: 'b1', agentKind: 'claude', model: 'kimi-k2' })).toBe(
+      'Kimi / kimi-k2',
+    )
+    expect(botProviderText(withOwn, { id: 'b1', agentKind: 'claude', model: null })).toBe('Kimi')
+    expect(botProviderText(VIEW, { id: 'b1', agentKind: 'claude', model: 'kimi-for-coding' })).toBe(
+      '使用电脑默认（Kimi / kimi-for-coding）',
+    )
+    expect(botProviderText(VIEW, { id: 'b1', agentKind: 'claude', model: null })).toBe(
+      '使用电脑默认（Kimi / kimi-k2）',
+    )
+    expect(botProviderText(VIEW, { id: 'b1', agentKind: 'gemini', model: null })).toBe(
+      '使用电脑默认（官方登录）',
+    )
+  })
+
+  it('formats botProviderText in English without Chinese parentheses', async () => {
+    localStorage.setItem('gg.locale', 'en')
+    vi.resetModules()
+    try {
+      const { botProviderText: enBotProviderText } = await import('../src/features/agents/model')
+      const withOwn: ProviderStoreView = { ...VIEW, bots: { b1: 'p1' } }
+      expect(enBotProviderText(withOwn, { id: 'b1', agentKind: 'claude', model: 'kimi-k2' })).toBe(
+        'Kimi / kimi-k2',
+      )
+      expect(enBotProviderText(VIEW, { id: 'b1', agentKind: 'claude', model: null })).toBe(
+        'Computer default (Kimi / kimi-k2)',
+      )
+      expect(enBotProviderText(VIEW, { id: 'b1', agentKind: 'claude', model: 'kimi-for-coding' })).toBe(
+        'Computer default (Kimi / kimi-for-coding)',
+      )
+      expect(enBotProviderText(VIEW, { id: 'b1', agentKind: 'gemini', model: null })).toBe(
+        'Computer default (Official login)',
+      )
+    } finally {
+      localStorage.setItem('gg.locale', 'zh')
+      vi.resetModules()
+    }
+  })
+
+  it('shows botProviderText on BotPage and skips /providers for a non-owner sysadmin', async () => {
+    const calls = mockApi({
+      'GET /bots/b1/activity': [],
+      'GET /users': [],
+      'GET /usage': [],
+      'GET /usage/daily': [],
+      'GET /bots/b1/feishu': null,
+      'GET /machines/m1/providers': VIEW,
+    })
+    const { rerender } = render(
+      <MemoryRouter>
+        <BotPage bot={bot({ model: null })} me={me} onSettings={() => {}} />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('使用电脑默认（Kimi / kimi-k2）')).toBeTruthy()
+    expect(calls.some((c) => c.path.includes('/providers'))).toBe(true)
+
+    mockApi({
+      'GET /bots/b1/activity': [],
+      'GET /users': [],
+      'GET /usage': [],
+      'GET /usage/daily': [],
+      'GET /bots/b1/feishu': null,
+      'GET /machines/m1/providers': { ...VIEW, bots: { b1: 'p1' } },
+    })
+    rerender(
+      <MemoryRouter>
+        <BotPage key="own" bot={bot({ model: 'kimi-for-coding' })} me={me} onSettings={() => {}} />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('Kimi / kimi-for-coding')).toBeTruthy()
+
+    const adminCalls = mockApi({
+      'GET /bots/b1/activity': [],
+      'GET /users': [],
+      'GET /usage': [],
+      'GET /usage/daily': [],
+      'GET /bots/b1/feishu': null,
+    })
+    rerender(
+      <MemoryRouter>
+        <BotPage
+          key="admin"
+          bot={bot({ model: 'sonnet' })}
+          me={{ ...me, id: 'u9', role: 'sysadmin' }}
+          onSettings={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(adminCalls.some((c) => c.path.includes('/bots/b1/feishu'))).toBe(true))
+    expect(adminCalls.some((c) => c.path.includes('/providers'))).toBe(false)
   })
 })
 

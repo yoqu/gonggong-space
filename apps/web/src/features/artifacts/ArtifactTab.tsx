@@ -28,7 +28,7 @@ import { IssuesButton } from './IssuesButton'
 import { MoveDialog } from './MoveDialog'
 import { PageRail, useRail } from './PageRail'
 import { PrototypeEditor } from './PrototypeEditor'
-import { type RUNNER, runnerText } from './runner'
+import { type RunnerStatus, runnerText } from './runner'
 import { ShareDialog, useArtifactManager } from './share'
 import {
   archiveArtifact,
@@ -298,7 +298,6 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
         {renaming ? (
           <TitleField title={a.title} onDone={rename} />
         ) : (
-          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: a shortcut; the menu renames from the keyboard
           <h2 className="art-bar__title" title={a.title} onDoubleClick={() => setRenaming(true)}>
             {a.title}
           </h2>
@@ -521,7 +520,7 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
 }
 
 /** A bot's live run has the artifact: who and what, without locking anything (its version merges in). */
-function Runner({ status, name }: { status: keyof typeof RUNNER; name: string | undefined }) {
+function Runner({ status, name }: { status: RunnerStatus; name: string | undefined }) {
   return (
     <span
       className="art-runner"

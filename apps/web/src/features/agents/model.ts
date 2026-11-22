@@ -124,6 +124,18 @@ export const machineDefault = (view: ProviderStoreView, agent: AgentKind): Agent
 export const choiceLabel = (view: ProviderStoreView, d: AgentDefault) =>
   d.model ? `${providerName(view, d.provider)} / ${d.model}` : providerName(view, d.provider)
 
+/** `Kimi / kimi-k2` of its own provider, else `使用电脑默认（Kimi / kimi-k2）`; the bot's own model wins either way. */
+export function botProviderText(
+  view: ProviderStoreView,
+  bot: { id: string; agentKind: AgentKind; model?: string | null },
+) {
+  const own = view.bots[bot.id]
+  const model = bot.model ?? null
+  if (own) return choiceLabel(view, { provider: own, model })
+  const d = machineDefault(view, bot.agentKind)
+  return t('使用电脑默认（{name}）', { name: choiceLabel(view, { ...d, model: model ?? d.model }) })
+}
+
 /** A picker value: provider id (or `official` / `inherit`) and model ('' = the default). */
 export const choiceValue = (provider: string, model: string | null) => `${provider}\n${model ?? ''}`
 export const parseChoice = (value: string): AgentDefault => {
