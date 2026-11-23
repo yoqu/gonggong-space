@@ -1078,6 +1078,10 @@ export const en = {
   批注不存在: 'Annotation not found',
   只能修改自己的批注: 'You can only change your own annotations',
   批注位置与产物类型不符: "The comment's place doesn't fit this kind of artifact",
+  '只能上传图片（PNG、JPG、WebP、GIF）或视频（MP4、WebM、MOV）':
+    'Only images (PNG, JPG, WebP, GIF) or videos (MP4, WebM, MOV) can be uploaded',
+  文件已被其他人修改: 'The file was changed by someone else',
+  '群里没有可用的 Bot': 'No available Bot in this group',
   // ArtifactFiles' own messages (packages/protocol), answered by the ZodError handler
   属性值不合法: 'Invalid attribute value',
   样式值不合法: 'Invalid style value',

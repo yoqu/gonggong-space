@@ -143,9 +143,9 @@ run pnpm typecheck
 run pnpm lint
 $tools && run node --test tools/*.test.mjs
 if $vendor; then
-  [ -d vendor/open-artifact/node_modules ] || run npm --prefix vendor/open-artifact ci --no-audit --no-fund
-  run npm --prefix vendor/open-artifact run typecheck
-  run npm --prefix vendor/open-artifact test
+  [ -d vendor/open-artifact/node_modules ] || (cd vendor/open-artifact && run npm ci --no-audit --no-fund)
+  (cd vendor/open-artifact && run npm run typecheck)
+  (cd vendor/open-artifact && run npm test)
 fi
 $protocol && run pnpm --filter @gonggong/protocol test
 $desktop && run pnpm --filter @gonggong/desktop test

@@ -206,6 +206,8 @@ export const ArtifactDto = z.object({
   /** Hosted static site (uploaded built dir, not an editable design artifact). */
   site: z.boolean().optional(),
   kind: ArtifactKind,
+  /** Platform editor build version pinned at creation (null for prototype/site). */
+  editorVersion: z.string().nullable().optional(),
   /** The caller's access; sent by GET /api/artifacts/:id. */
   access: ArtifactAccess.optional(),
   /** The team of the artifact's group; sent by GET /api/artifacts/:id so deep links can switch teams. */

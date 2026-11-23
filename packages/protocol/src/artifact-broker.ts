@@ -64,3 +64,118 @@ export const CapToPage = z.discriminatedUnion('openArtifact', [
   z.object({ openArtifact: z.literal('cap_rewired'), gen: Gen, caps: z.array(CapName).optional() }),
 ])
 export type CapToPage = z.infer<typeof CapToPage>
+
+// ── Broker-facing server endpoints (docs/plan/产物容器-S0-spike.md §6) ─────────────────────────────────────────
+
+export const ArtifactPublishFile = z.object({
+  content: z.string(),
+  encoding: z.enum(['utf8', 'base64']).default('utf8'),
+  /** Expected current sha256 (`null` = must not exist yet; omitted = unconditional write). */
+  ifMatch: z.string().nullable().optional(),
+})
+export type ArtifactPublishFile = z.infer<typeof ArtifactPublishFile>
+
+/** POST /api/artifacts/:id/publish — per-file `ifMatch` atomic batch (`null` deletes a path). */
+export const ArtifactPublishReq = z.object({
+  batch: z.record(z.string(), ArtifactPublishFile.nullable()),
+  /** Sender's tab/session id so the Shell suppresses self-echoes of `artifact.files`. */
+  clientId: z.string().max(64).optional(),
+})
+export type ArtifactPublishReq = z.infer<typeof ArtifactPublishReq>
+
+export const ArtifactPublishConflict = z.object({
+  path: z.string(),
+  expected: z.string().nullable(),
+  actual: z.string().nullable(),
+})
+export type ArtifactPublishConflict = z.infer<typeof ArtifactPublishConflict>
+
+export const ArtifactPublishRes = z.object({
+  versionId: z.string(),
+  n: z.number().int().min(1),
+  hashes: z.record(z.string(), z.string().nullable()),
+  coalesced: z.boolean().optional(),
+})
+export type ArtifactPublishRes = z.infer<typeof ArtifactPublishRes>
+
+/** POST /api/artifacts/:id/assets — image or video upload keyed by 32-hex sha256 prefix. */
+export const ArtifactAssetRes = z.object({
+  id: z.string().regex(/^[0-9a-f]{32}$/),
+  url: z.string().regex(/^\/_blob\/[0-9a-f]{32}$/),
+  sizeBytes: z.number().int().min(0),
+  contentType: z.string(),
+})
+export type ArtifactAssetRes = z.infer<typeof ArtifactAssetRes>
+
+export const ArtifactHistoryAuthor = z.object({
+  kind: z.enum(['person', 'agent', 'system']),
+  id: z.string(),
+  name: z.string(),
+})
+export type ArtifactHistoryAuthor = z.infer<typeof ArtifactHistoryAuthor>
+
+export const ArtifactHistoryFileChange = z.object({
+  path: z.string(),
+  op: z.enum(['added', 'edited', 'deleted']),
+})
+export type ArtifactHistoryFileChange = z.infer<typeof ArtifactHistoryFileChange>
+
+export const ArtifactHistoryVersionDto = z.object({
+  id: z.string(),
+  n: z.number().int().min(1),
+  first: z.string(),
+  at: z.string(),
+  author: ArtifactHistoryAuthor,
+  files: z.array(ArtifactHistoryFileChange),
+  current: z.literal(true).optional(),
+})
+export type ArtifactHistoryVersionDto = z.infer<typeof ArtifactHistoryVersionDto>
+
+/** GET /api/artifacts/:id/versions/history */
+export const ArtifactHistoryListRes = z.object({
+  versions: z.array(ArtifactHistoryVersionDto),
+  notices: z.array(z.unknown()),
+  canRestore: z.boolean(),
+})
+export type ArtifactHistoryListRes = z.infer<typeof ArtifactHistoryListRes>
+
+/** GET /api/artifacts/:id/versions/:vid/diff?path=… */
+export const ArtifactHistoryDiffRes = z.object({
+  path: z.string(),
+  n: z.number().int().min(1),
+  op: z.enum(['added', 'edited', 'deleted']),
+  before: z.string().nullable(),
+  after: z.string().nullable(),
+  binary: z.literal(true).optional(),
+  tooLarge: z.literal(true).optional(),
+})
+export type ArtifactHistoryDiffRes = z.infer<typeof ArtifactHistoryDiffRes>
+
+/** POST /api/artifacts/:id/versions/:vid/restore-files — restores all or selected paths as a new version. */
+export const ArtifactRestoreFilesReq = z.object({
+  paths: z.array(z.string().min(1)).max(500).optional(),
+  clientId: z.string().max(64).optional(),
+})
+export type ArtifactRestoreFilesReq = z.infer<typeof ArtifactRestoreFilesReq>
+
+export const ArtifactRestoreFilesRes = z.object({
+  version: z.number().int().min(1).nullable(),
+  changed: z.array(z.string()),
+})
+export type ArtifactRestoreFilesRes = z.infer<typeof ArtifactRestoreFilesRes>
+
+/** POST /api/artifacts/:id/agent-send — broker `agent.send` into the artifact's AI chat. */
+export const ArtifactAgentSendReq = z.object({
+  text: z.string().trim().min(1).max(4000),
+  title: z.string().max(200).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
+  botId: z.string().optional(),
+})
+export type ArtifactAgentSendReq = z.infer<typeof ArtifactAgentSendReq>
+
+export const ArtifactAgentSendRes = z.object({
+  status: z.enum(['delivered', 'queued', 'failed']),
+  messageId: z.string().optional(),
+  reason: z.string().optional(),
+})
+export type ArtifactAgentSendRes = z.infer<typeof ArtifactAgentSendRes>

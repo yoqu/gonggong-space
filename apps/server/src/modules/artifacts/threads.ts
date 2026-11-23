@@ -15,6 +15,7 @@ import { artifactThreadMessages, artifactThreads, bots, users } from '../../db/s
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { readBlob } from './blobs.js'
+import { publishArtifactThreads } from './events.js'
 import { elementsOf } from './html.js'
 import { type Artifact, requireArtifact, requireVersion, type Version } from './service.js'
 
@@ -163,7 +164,9 @@ export async function createThread(ctx: Ctx, me: Me, a: Artifact, r: CreateArtif
       .values({ threadId: th.id, authorKind: 'user', authorId: me.id, text: r.text, to: r.to })
     return th.id
   })
-  return one(ctx, id)
+  const created = await one(ctx, id)
+  await publishArtifactThreads(ctx, a)
+  return created
 }
 
 /** A thread of an artifact `userId` may change. */
@@ -186,30 +189,35 @@ export async function updateThread(ctx: Ctx, me: Me, id: string, r: UpdateArtifa
     patch.status = r.status
     patch.resolvedBy = r.status === 'resolved' ? me.id : null
   }
-  if (Object.keys(patch).length)
+  if (Object.keys(patch).length) {
     await ctx.db.update(artifactThreads).set(patch).where(eq(artifactThreads.id, th.id))
+    await publishArtifactThreads(ctx, a)
+  }
   return one(ctx, th.id)
 }
 
 /** DELETE /api/artifact-threads/:id — its author only. */
 export async function deleteThread(ctx: Ctx, userId: string, id: string) {
-  const { th } = await requireThread(ctx, id, userId)
+  const { th, a } = await requireThread(ctx, id, userId)
   if (th.createdBy !== userId) fail('forbidden', '只能修改自己的批注')
   await ctx.db.delete(artifactThreads).where(eq(artifactThreads.id, th.id))
+  await publishArtifactThreads(ctx, a)
 }
 
 /** POST /api/artifact-threads/:id/messages */
 export async function replyThread(ctx: Ctx, me: Me, id: string, r: ArtifactThreadMessageReq) {
-  const { th } = await requireThread(ctx, id, me.id)
+  const { th, a } = await requireThread(ctx, id, me.id)
   await ctx.db
     .insert(artifactThreadMessages)
     .values({ threadId: th.id, authorKind: 'user', authorId: me.id, text: r.text, to: r.to })
-  return one(ctx, th.id)
+  const updated = await one(ctx, th.id)
+  await publishArtifactThreads(ctx, a)
+  return updated
 }
 
 /** One of the thread's messages that `userId` wrote. */
 async function ownMessage(ctx: Ctx, userId: string, id: string, messageId: string) {
-  const { th } = await requireThread(ctx, id, userId)
+  const { th, a } = await requireThread(ctx, id, userId)
   const msgs = await ctx.db
     .select()
     .from(artifactThreadMessages)
@@ -217,7 +225,7 @@ async function ownMessage(ctx: Ctx, userId: string, id: string, messageId: strin
     .orderBy(asc(artifactThreadMessages.at), asc(artifactThreadMessages.id))
   const m = msgs.find((x) => x.id === messageId) ?? fail('not_found', '批注不存在')
   if (m.authorKind !== 'user' || m.authorId !== userId) fail('forbidden', '只能修改自己的批注')
-  return { th, m, first: msgs[0]?.id === m.id }
+  return { th, a, m, first: msgs[0]?.id === m.id }
 }
 
 /** PATCH /api/artifact-threads/:id/messages/:messageId */
@@ -228,23 +236,28 @@ export async function editThreadMessage(
   messageId: string,
   r: EditArtifactThreadMessageReq,
 ) {
-  const { th, m } = await ownMessage(ctx, userId, id, messageId)
+  const { th, a, m } = await ownMessage(ctx, userId, id, messageId)
   await ctx.db
     .update(artifactThreadMessages)
     .set({ text: r.text, ...(r.to && { to: r.to }), editedAt: ctx.now() })
     .where(eq(artifactThreadMessages.id, m.id))
-  return one(ctx, th.id)
+  const updated = await one(ctx, th.id)
+  await publishArtifactThreads(ctx, a)
+  return updated
 }
 
 /** DELETE /api/artifact-threads/:id/messages/:messageId — the first takes the thread with it (null). */
 export async function deleteThreadMessage(ctx: Ctx, userId: string, id: string, messageId: string) {
-  const { th, m, first } = await ownMessage(ctx, userId, id, messageId)
+  const { th, a, m, first } = await ownMessage(ctx, userId, id, messageId)
   if (first) {
     await ctx.db.delete(artifactThreads).where(eq(artifactThreads.id, th.id))
+    await publishArtifactThreads(ctx, a)
     return null
   }
   await ctx.db.delete(artifactThreadMessages).where(eq(artifactThreadMessages.id, m.id))
-  return one(ctx, th.id)
+  const updated = await one(ctx, th.id)
+  await publishArtifactThreads(ctx, a)
+  return updated
 }
 
 /** POST /api/artifact-threads/:id/messages/:messageId/reactions — toggles `userId`'s reaction on a message. */
@@ -255,7 +268,7 @@ export async function reactThreadMessage(
   messageId: string,
   r: ReactArtifactThreadMessageReq,
 ) {
-  const { th } = await requireThread(ctx, id, userId)
+  const { th, a } = await requireThread(ctx, id, userId)
   const [m] = isUuid(messageId)
     ? await ctx.db
         .select()
@@ -283,5 +296,7 @@ export async function reactThreadMessage(
     .update(artifactThreadMessages)
     .set({ reactions: next })
     .where(eq(artifactThreadMessages.id, m.id))
-  return one(ctx, th.id)
+  const updated = await one(ctx, th.id)
+  await publishArtifactThreads(ctx, a)
+  return updated
 }

@@ -2,18 +2,27 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
   type AnnotationDto,
+  ArtifactAgentSendReq,
+  type ArtifactAgentSendRes,
+  type ArtifactAssetRes,
   type ArtifactChatDto,
   ArtifactCommandReq,
   type ArtifactDesignSystem,
   type ArtifactDto,
   ArtifactEditReq,
   ArtifactFavoritesReq,
+  type ArtifactHistoryDiffRes,
+  type ArtifactHistoryListRes,
   ArtifactLinkMetaReq,
   type ArtifactLinkMetaRes,
   type ArtifactManifestRes,
   ArtifactMoveReq,
   ArtifactPatchReq,
   type ArtifactPluginCommandDto,
+  ArtifactPublishReq,
+  type ArtifactPublishRes,
+  ArtifactRestoreFilesReq,
+  type ArtifactRestoreFilesRes,
   ArtifactScreenId,
   type ArtifactShareDto,
   ArtifactShareReq,
@@ -59,13 +68,23 @@ import { currentTeam } from '../teams/service.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { artifactChatRoot } from './chat.js'
-import { sendCommand, sendThreads } from './commands.js'
+import { sendAgentMessage, sendCommand, sendThreads } from './commands.js'
 import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
 import { artifactHistory } from './history.js'
 import { pluginCommands, pluginDesignSystems } from './kit.js'
 import { artifactLinkMeta } from './link-meta.js'
 import { moveArtifact } from './move.js'
+import {
+  ASSET_UPLOAD_MAX_BYTES,
+  diffVersionFile,
+  listHistoryVersions,
+  PublishConflictError,
+  publishFiles,
+  restoreVersionFiles,
+  uploadArtifactAsset,
+  versionFilesByNumber,
+} from './publish.js'
 import {
   type Artifact,
   artifactDetail,
@@ -210,6 +229,9 @@ export function artifactRoutes(ctx: Ctx) {
         'image/webp',
         'image/gif',
         'image/svg+xml',
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
         'application/pdf',
         'text/plain',
         'text/markdown',
@@ -391,11 +413,38 @@ export function artifactRoutes(ctx: Ctx) {
       },
     )
 
+    app.get<{ Params: { id: string } }>(
+      '/api/artifacts/:id/versions/history',
+      async (req): Promise<ArtifactHistoryListRes> => {
+        const me = await requireUser(ctx, req)
+        const { a, access } = await viewArtifact(ctx, req.params.id, me.id)
+        return listHistoryVersions(ctx, a, access === 'edit')
+      },
+    )
+
+    app.get<{ Params: { id: string; n: string } }>(
+      '/api/artifacts/:id/versions/by-number/:n/files',
+      async (req) => {
+        const me = await requireUser(ctx, req)
+        const { a } = await viewArtifact(ctx, req.params.id, me.id)
+        return versionFilesByNumber(ctx, a, Number(req.params.n))
+      },
+    )
+
     app.get<{ Params: { id: string; vid: string } }>(
       '/api/artifacts/:id/versions/:vid',
       async (req): Promise<ArtifactVersionDetail> => {
         const me = await requireUser(ctx, req)
         return versionDetail(ctx, (await viewArtifact(ctx, req.params.id, me.id)).a, req.params.vid)
+      },
+    )
+
+    app.get<{ Params: { id: string; vid: string }; Querystring: { path?: string } }>(
+      '/api/artifacts/:id/versions/:vid/diff',
+      async (req): Promise<ArtifactHistoryDiffRes> => {
+        const me = await requireUser(ctx, req)
+        const { a } = await viewArtifact(ctx, req.params.id, me.id)
+        return diffVersionFile(ctx, a, req.params.vid, req.query.path ?? '')
       },
     )
 
@@ -406,6 +455,16 @@ export function artifactRoutes(ctx: Ctx) {
         const a = await requireArtifact(ctx, req.params.id, me.id)
         await restoreVersion(ctx, a, req.params.vid)
         return artifactDetail(ctx, (await findArtifact(ctx.db, a.id)) as Artifact)
+      },
+    )
+
+    app.post<{ Params: { id: string; vid: string } }>(
+      '/api/artifacts/:id/versions/:vid/restore-files',
+      async (req): Promise<ArtifactRestoreFilesRes> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const body = ArtifactRestoreFilesReq.parse(req.body ?? {})
+        return restoreVersionFiles(ctx, a, me, req.params.vid, body.paths, body.clientId)
       },
     )
 
@@ -432,12 +491,12 @@ export function artifactRoutes(ctx: Ctx) {
       },
     )
 
-    // Source for the code view: always plain text, never rendered on the main site.
+    // Source for the code view and broker reads: always plain text, never rendered on the main site.
     app.get<{ Params: { id: string; '*': string }; Querystring: { version?: string } }>(
       '/api/artifacts/:id/files/*',
       async (req, reply) => {
         const me = await requireUser(ctx, req)
-        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const { a } = await viewArtifact(ctx, req.params.id, me.id)
         const v = await requireVersion(ctx.db, a, req.query.version)
         const file = v.files.find((f) => f.path === req.params['*']) ?? fail('not_found', '文件不存在')
         return reply
@@ -500,6 +559,52 @@ export function artifactRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const a = await requireArtifact(ctx, req.params.id, me.id)
         return setShare(ctx, me, a, ArtifactShareReq.parse(req.body), req)
+      },
+    )
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/publish', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const body = ArtifactPublishReq.parse(req.body)
+      try {
+        const out: ArtifactPublishRes = await publishFiles(ctx, me, a, body)
+        return out
+      } catch (e) {
+        if (e instanceof PublishConflictError)
+          return reply
+            .status(409)
+            .send({ error: 'conflict', message: t('文件已被其他人修改'), paths: e.paths })
+        if (e instanceof QuotaExceeded) return quotaFull(reply)
+        throw e
+      }
+    })
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/assets', async (req, reply) => {
+      const body = req.body as Readable | undefined
+      try {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        if (!body || typeof body.pipe !== 'function')
+          return fail('invalid', '只能上传图片（PNG、JPG、WebP、GIF）或视频（MP4、WebM、MOV）')
+        const bytes = await readAll(body, ASSET_UPLOAD_MAX_BYTES, () =>
+          fail('invalid', '文件不能超过 {mb} MB', { mb: ASSET_UPLOAD_MAX_BYTES / 1024 / 1024 }),
+        )
+        const out: ArtifactAssetRes = await uploadArtifactAsset(a, req.headers['content-type'], bytes)
+        return out
+      } catch (e) {
+        if (!(e instanceof QuotaExceeded)) throw e
+        return quotaFull(reply)
+      } finally {
+        body?.resume?.()
+      }
+    })
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/agent-send',
+      async (req): Promise<ArtifactAgentSendRes> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return sendAgentMessage(ctx, me, a, ArtifactAgentSendReq.parse(req.body))
       },
     )
 
