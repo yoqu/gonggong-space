@@ -15,6 +15,7 @@ import type {
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { artifacts, messages } from '../src/db/schema.js'
+import { CURRENT_EDITOR_VERSION } from '../src/modules/artifacts/editors.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld } from './support/artifacts.js'
 
@@ -433,6 +434,8 @@ describe('preview origin /__oa/<type>@<ver>/ serving, project/* passthrough & CS
     expect((await previewGet(host, '/__oa/unknown@current/index.html', { cookie: pvCookie })).status).toBe(
       404,
     )
+    // Platform editor version is read from vendor/open-artifact/UPSTREAM (7-char commit hash)
+    expect(CURRENT_EDITOR_VERSION).toMatch(/^[0-9a-f]{7}$/)
   })
 })
 

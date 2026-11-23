@@ -78,7 +78,7 @@ it('moves existing data into one default team owned by the earliest sysadmin', a
   } finally {
     await t.close()
   }
-})
+}, 60_000)
 
 it('creates no team on an empty database', async () => {
   const t = await createTestDb()

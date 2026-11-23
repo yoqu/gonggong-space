@@ -1,0 +1,224 @@
+.art-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.art-shell__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.art-shell__stage {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.art-shell__site,
+.art-shell__editor {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.art-shell__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.art-shell__pins {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.art-shell__pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-capsule);
+  border: 2px solid var(--content-bg);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--system-orange);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.art-shell__pin--sent {
+  background: var(--accent-fill);
+}
+
+.art-shell__pin--resolved {
+  background: var(--system-green);
+  opacity: 0.72;
+}
+
+.art-shell__pin--active {
+  transform: translate(-50%, -50%) scale(1.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.art-shell__pin-pop {
+  position: absolute;
+  z-index: 8;
+  width: 280px;
+  max-width: calc(100% - 24px);
+  padding: 10px;
+  border-radius: var(--radius-menu);
+  background: var(--content-bg);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-menu);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.art-shell__pin-coord {
+  font-size: 12px;
+  color: var(--label-secondary);
+}
+
+.art-shell__pin-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.art-shell__saved {
+  font-size: 12px;
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+
+.art-shell__thread--active {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-radius: var(--radius-field);
+}
+
+.art-shell__replies {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0 10px;
+  border-left: 2px solid var(--separator);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.art-shell__replies li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.art-shell__replies time {
+  color: var(--label-secondary);
+  font-size: 11px;
+}
+
+.art-shell__reply-box {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.art-shell__reply-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.art-shell__history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.art-shell__ver {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-field);
+  border: 1px solid transparent;
+}
+
+.art-shell__ver:hover {
+  background: var(--group-bg);
+}
+
+.art-shell__ver--active {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.art-shell__ver-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.art-shell__ver-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.art-shell__ver-meta {
+  font-size: 12px;
+  color: var(--label-secondary);
+  margin-top: 2px;
+}
+
+.art-shell__chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 8px;
+}
+
+.art-shell__chat .art-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+.art-shell__chat .art-composer {
+  position: static;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+}

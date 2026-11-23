@@ -108,7 +108,7 @@ export async function serveArtifact(
     const [, editorType, editorVer, sub] = oa
     const ver = editorVer ?? a.editorVersion ?? CURRENT_EDITOR_VERSION
     const csp = editorCsp(parent ?? "'self'")
-    if (sub && sub.startsWith('project/')) {
+    if (sub?.startsWith('project/')) {
       const f = v.files.find((x) => x.path === sub)
       if (!f) return { status: 404, key: '文件不存在' }
       const etag = `"${f.hash}"`

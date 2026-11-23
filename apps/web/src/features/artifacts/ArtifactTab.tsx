@@ -1,4 +1,4 @@
-import type { ArtifactVersionDto } from '@gonggong/protocol'
+import type { ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { t } from '../../i18n'
@@ -30,7 +30,9 @@ import { PageRail, useRail } from './PageRail'
 import { PrototypeEditor } from './PrototypeEditor'
 import { type RunnerStatus, runnerText } from './runner'
 import { ShareDialog, useArtifactManager } from './share'
+import { ArtifactShell } from './shell/ArtifactShell'
 import {
+  type ArtifactEntry,
   archiveArtifact,
   artifactFileUrl,
   duplicateArtifact,
@@ -83,9 +85,40 @@ const PROJECT = {
   archive: 'archive',
 } as const
 
-export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
-  const entry = useArtifact(tab.artifactId)
+export function ArtifactTab(props: TabProps<'artifact'>) {
+  const entry = useArtifact(props.tab.artifactId)
   const a = entry?.artifact
+  if (!entry) return <Spinner />
+  if (!a)
+    return (
+      <EmptyState
+        icon="grid"
+        title={t('产物已删除或无法读取')}
+        description={entry.error}
+        action={<Button onClick={() => void loadArtifact(props.tab.artifactId)}>{t('重试')}</Button>}
+      />
+    )
+  // Non-prototype artifacts (`site`, `slides`, `whiteboard`, `motion`) run in the unified Shell.
+  const kind = a.kind ?? (a.site ? 'site' : 'prototype')
+  if (kind !== 'prototype')
+    return (
+      <ArtifactShell
+        artifact={a.kind ? a : { ...a, kind }}
+        versions={entry.versions}
+        tabKey={props.tabKey}
+        active={props.active}
+      />
+    )
+  return <PrototypeArtifactTab {...props} entry={entry} artifact={a} />
+}
+
+function PrototypeArtifactTab({
+  tab,
+  tabKey,
+  active,
+  entry,
+  artifact: a,
+}: TabProps<'artifact'> & { entry: ArtifactEntry; artifact: ArtifactDto }) {
   /** A past version looked at, read-only; null = the head. */
   const [viewing, setViewing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -169,25 +202,14 @@ export function ArtifactTab({ tab, tabKey, active }: TabProps<'artifact'>) {
   }
 
   const rail = useRail()
-  const isSite = !!a?.site
+  const isSite = !!a.site
   const siteFrame = useRef<HTMLIFrameElement>(null)
   // In front, the canvas has its own composer, talking to its AI 对话 and never to the group.
   const chatRoot = useFrontCanvasChat(
-    a?.groupId ?? '',
+    a.groupId,
     tab.artifactId,
-    active && !proto && !isSite && !!a && a.access !== 'view',
+    active && !proto && !isSite && a.access !== 'view',
   )
-
-  if (!entry) return <Spinner />
-  if (!a)
-    return (
-      <EmptyState
-        icon="grid"
-        title={t('产物已删除或无法读取')}
-        description={entry.error}
-        action={<Button onClick={() => void loadArtifact(tab.artifactId)}>{t('重试')}</Button>}
-      />
-    )
 
   const projectAction = async (value: string) => {
     if (value === PROJECT.rename) return setRenaming(true)

@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SERVER_ROOT = resolve(HERE, '../../../..')
+const SERVER_ROOT = resolve(HERE, '../../..')
 const REPO_ROOT = resolve(SERVER_ROOT, '../..')
 
 const EDITOR_TYPES = new Set(['slides', 'whiteboard', 'motion'])

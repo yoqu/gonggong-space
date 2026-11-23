@@ -472,7 +472,7 @@ export async function sendAgentMessage(
   const head = a.headVersionId ? await requireVersion(ctx.db, a, null) : null
   const note = [
     '[编辑器请求：上面这条消息的完整上下文]',
-    `产物「${a.title}」（类型 ${a.kind}，目录 ${a.dir}/` + (head ? `，当前版本 v${head.n}）：` : '）：'),
+    `产物「${a.title}」（类型 ${a.kind}，目录 ${a.dir}/${head ? `，当前版本 v${head.n}）：` : '）：'}`,
     ...(r.title ? [`标题：${r.title}`] : []),
     `用户请求：${r.text}`,
     ...(r.context ? ['', fenceUntrusted('ARTIFACT_CONTEXT', r.context)] : []),
