@@ -45,4 +45,5 @@
 - `docs/plan/群内多工作区-开发计划.md` — 群内多工作区开发计划 — 进行中
 - `docs/plan/群Webhook-方案.md` — 群 Webhook（入站开放接口）方案 — 代码已完成，待部署后配置 Jenkins
 - `docs/plan/远程控制-低延迟改造-设计.md` — 远程控制低延迟改造 · 设计 — 进行中
+- `docs/plan/连接器-方案.md` — 连接器（对标 WorkBuddy）调研与方案 — 评审中
 - `docs/plan/预览工作台-待办.md` — 预览工作台 · 待办 — 进行中
