@@ -7,7 +7,7 @@ import {
   type RunEvent,
 } from '@gonggong/protocol'
 import { t } from '../../i18n'
-import { connectorOfServer } from '../connectors/store'
+import { connectorOfCommand, connectorOfServer } from '../connectors/store'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
 
@@ -39,14 +39,17 @@ export function mcpLabel(server: string, tool: string) {
 export const CONFIG_ECHO = /^已切换[^：]+：|^Switched (?!to ).+ to /
 
 /** A tool title made readable when it names an MCP call (Claude `mcp__s__t`, Codex `mcp.s.t`, Gemini
- * `t (s MCP Server)`); config echoes are blank so the run card shows its working label instead. */
+ * `t (s MCP Server)`) or runs a skill-based connector's script; config echoes are blank so the run card shows its
+ * working label instead. */
 export function toolTitle(title: string) {
   if (CONFIG_ECHO.test(title)) return ''
   const gemini = /^(.+) \((.+) MCP Server\)$/.exec(title)
   const [, server, tool] = gemini
     ? [title, gemini[2], gemini[1]]
     : (/^mcp__(.+?)__(.+)$/.exec(title) ?? /^mcp\.([^.]+)\.(.+)$/.exec(title) ?? [])
-  return server && tool ? mcpLabel(server, tool) : title
+  if (server && tool) return mcpLabel(server, tool)
+  const connector = connectorOfCommand(title)
+  return connector ? `${connector} · ${title}` : title
 }
 
 export const stepText = (r: { step: string; stepI18n?: I18nText }) =>

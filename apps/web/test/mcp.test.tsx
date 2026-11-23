@@ -51,6 +51,19 @@ describe('MCP tool names', () => {
     useConnectorStore.setState({ lists: {}, errors: {} })
   })
 
+  it("names a command running a skill-based connector's script by the connector's title", () => {
+    const dw = {
+      id: 'c1',
+      manifest: { name: 'dw', title: '数仓', entry: 'dw-query', contributes: { mcp: [] } },
+    }
+    useConnectorStore.setState({ lists: { g1: [dw as unknown as ConnectorDto] }, errors: {} })
+    const cmd =
+      "printf '%s' '{}' | python3 /h/.gonggong/plugins/dw-ab12/skills/dw-query/scripts/dw_ai.py sources"
+    expect(toolTitle(cmd)).toBe(`数仓 · ${cmd}`)
+    expect(toolTitle('python3 /x/skills/dw-query-old/run.py')).toBe('python3 /x/skills/dw-query-old/run.py')
+    useConnectorStore.setState({ lists: {}, errors: {} })
+  })
+
   it('hides session config echoes from the run card step', () => {
     expect(toolTitle('已切换推理强度：High')).toBe('')
     expect(toolTitle('已切换模型：Opus')).toBe('')

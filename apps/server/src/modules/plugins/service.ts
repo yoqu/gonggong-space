@@ -564,6 +564,15 @@ export async function runPlugins(
     /** Plugins with a creation skill, for the system prompt. */
     creations: usable.filter((r) => createsArtifacts(r.version.manifest)).map((r) => r.plugin.name),
     commands: chatCommands(usable.map((r) => r.version.manifest)),
+    /** Connectors the bot gets this turn, for the system prompt. */
+    connected: usable
+      .filter((r) => r.version.manifest.category === 'connector')
+      .map(({ plugin, version: { manifest: m } }) => ({
+        name: plugin.name,
+        title: m.title,
+        description: m.description,
+        entry: m.entry,
+      })),
     /** Enabled connectors held back only for want of the originator's secrets, for the system prompt. */
     unconnected: on
       .filter((r) => r.version.manifest.category === 'connector' && blocked(r) === 'secret')

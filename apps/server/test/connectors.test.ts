@@ -48,7 +48,7 @@ async function world() {
   const zhao = await t.seed.user({ name: '赵敏' })
   const out = await t.seed.user({ name: '路人' })
   const root = await t.seed.user({ name: '根', role: 'sysadmin', teamId: null })
-  const { machine } = await t.seed.machine(wang.id, { daemonVersion: '0.9.0' })
+  const { machine, token } = await t.seed.machine(wang.id, { daemonVersion: '0.9.0' })
   const bot = await t.seed.bot({ ownerId: wang.id, name: 'Claude', machineId: machine.id })
   const group = await t.seed.group({ createdBy: li.id, memberIds: [wang.id, zhao.id], botIds: [bot.id] })
   const as = async (u: { id: string }) => client(t, await t.seed.cookie(u.id))
@@ -63,7 +63,32 @@ async function world() {
   const base = `/api/groups/${group.id}/connectors`
   const list = async (who: keyof typeof api = 'zhao') =>
     (await api[who].get<ConnectorList>(base)).body.connectors
-  return { wang, li, zhao, bot, group, api, upload, base, list }
+  /** A run Zhao started, and a gonggong tool call from its agent. */
+  const call = async (name: string, args: unknown) => {
+    const [m] = await t.db
+      .insert(messages)
+      .values({ groupId: group.id, kind: 'user', authorUserId: zhao.id, body: '@Claude 查数', meta: {} })
+      .returning()
+    const [r] = await t.db
+      .insert(runs)
+      .values({
+        groupId: group.id,
+        botId: bot.id,
+        triggerMessageId: m!.id,
+        originUserId: zhao.id,
+        status: 'running',
+      })
+      .returning()
+    return (
+      await t.app.inject({
+        method: 'POST',
+        url: `/api/daemon/runs/${r!.id}/tools/${name}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { arguments: args },
+      })
+    ).json<{ text: string; isError?: boolean }>()
+  }
+  return { wang, li, zhao, bot, group, api, upload, base, list, call }
 }
 
 const brief = (c: ConnectorDto) => ({
@@ -190,6 +215,36 @@ describe('connectors', () => {
     const after = await build()
     expect(after.plugins.map((p) => p.name)).toEqual(['dw'])
     expect(after.bot.systemPrompt).not.toContain('未连接的连接器')
+    expect(after.bot.systemPrompt).toContain('已连接的连接器')
+    expect(after.bot.systemPrompt).toContain('Claude、CodeBuddy 用 dw:dw')
+  })
+
+  it('lets the agent ask the originator to connect a personal connector the team has no definition for yet', async () => {
+    const w = await world()
+    await w.upload(plugin('dw', '数仓', [{ name: 'DW_KEY', mode: 'personal' }]))
+    await w.upload(plugin('modao', '墨刀', [{ name: 'MODAO_TOKEN' }]))
+
+    const asked = await w.call('secret_request', { names: ['DW_KEY'] })
+    expect(asked.isError, asked.text).toBeFalsy()
+    expect(asked.text).toContain('请发起人填写：DW_KEY')
+    const [def] = await t.db.select().from(secrets).where(eq(secrets.name, 'DW_KEY'))
+    expect(def).toMatchObject({ scope: 'team', teamId: w.group.teamId, mode: 'personal' })
+    const card = (await t.db.select().from(messages).where(eq(messages.kind, 'event'))).map(
+      (m) => (m.meta as { secretCard?: { audience: string; names: string[] } }).secretCard,
+    )
+    expect(card).toEqual([expect.objectContaining({ audience: 'origin', names: ['DW_KEY'] })])
+    // Filling the card connects as the 连接器 dialog does: usable by the group's bots wherever they run.
+    const id = (card[0] as unknown as { id: string }).id
+    expect(
+      (await w.api.zhao.post(`/api/secret-requests/${id}`, { values: { DW_KEY: 'dw-zhao-1' } })).status,
+    ).toBe(200)
+    expect((await w.list())[0]).toMatchObject({ connected: true, missing: [] })
+    // Asked again once it is there: no empty card.
+    expect((await w.call('secret_request', { names: ['DW_KEY'] })).text).toContain('本轮已可用')
+
+    const shared = await w.call('secret_request', { names: ['MODAO_TOKEN'] })
+    expect(shared).toMatchObject({ isError: true })
+    expect(shared.text).toContain('团队共享密钥')
   })
 
   it('shows a connector listing’s examples in its market detail', async () => {

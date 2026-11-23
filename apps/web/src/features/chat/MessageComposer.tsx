@@ -29,6 +29,7 @@ import { useQuote } from '../attachments/quote'
 import { ConnectorDialog } from '../connectors/ConnectorDialog'
 import { ConnectorMenu } from '../connectors/ConnectorMenu'
 import { useConnectors } from '../connectors/store'
+import { tryDraft } from '../connectors/tryDraft'
 import { openCreation, useCreationPlugins } from '../plugins/store'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
@@ -681,9 +682,9 @@ export const MessageComposer = memo(function MessageComposer({
             id={connectorId}
             inGroup={group.kind !== 'dm'}
             onClose={() => setConnectorId(null)}
-            onTry={(text) => {
+            onTry={(c, text) => {
               setConnectorId(null)
-              change(draft.trim() ? `${draft.trimEnd()}\n${text}` : text)
+              change(tryDraft(draft, text, c, groupBots, !soleDm && !mentioned.length))
             }}
           />
         ) : null}

@@ -456,7 +456,7 @@ export async function buildRunStart(
     ])
   const plugins = granted?.refs ?? []
   const creations = granted?.creations ?? []
-  const unconnected = command ? null : connectorHint(granted?.unconnected ?? [])
+  const unconnected = command ? null : connectorHint(granted?.connected ?? [], granted?.unconnected ?? [])
   const context = recent?.kept.reverse() ?? []
   const fallbackContext = replay?.kept.reverse() ?? []
   const omitted = !recent || recent.complete ? 0 : (await countContext(tx, since)) - context.length

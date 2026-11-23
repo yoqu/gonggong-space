@@ -4,6 +4,7 @@ import {
   ConnectReq,
   CreateSecretReq,
   type PluginManifest,
+  type SecretRequirement,
   secretSpecsOf,
 } from '@gonggong/protocol'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -17,7 +18,7 @@ import { nearest, specDescription } from '../secrets/needs.js'
 import { visibleSecrets } from '../secrets/resolve.js'
 import { clearPersonal, createSecret, setPersonal } from '../secrets/service.js'
 import { enabledSkills } from '../skills/service.js'
-import { groupPluginDtos, groupPluginList, pluginsOn, requirePluginsOn } from './service.js'
+import { groupPluginDtos, groupPluginList, pluginsOn, requirePluginsOn, skillLine } from './service.js'
 
 const isConnector = (m: PluginManifest) => m.category === 'connector'
 
@@ -112,20 +113,62 @@ async function connect(
   })
   const extra = { connector: plugin.name }
   for (const { spec, def, value } of plan) {
-    if (!def)
-      await createSecret(
-        ctx,
-        { scope: 'team', teamId, groupId: null },
-        CreateSecretReq.parse({ name: spec.name, description: specDescription(spec), mode: spec.mode }),
-        userId,
-        extra,
-      ).catch((e) => {
-        // A concurrent connect may have made it first: then it is there to fill.
-        if (!(e instanceof HttpError && e.code === 'conflict')) throw e
-      })
+    if (!def) await defineFor(ctx, teamId, userId, spec, plugin.name)
     await setPersonal(ctx, { userId, teamId, name: spec.name }, value, true, 'secret.set', extra)
   }
   return plugin.id
+}
+
+/** The team's per-member definition of a connector's personal secret, made from its declaration. */
+async function defineFor(
+  ctx: Ctx,
+  teamId: string,
+  userId: string,
+  spec: SecretRequirement,
+  connector: string,
+) {
+  await createSecret(
+    ctx,
+    { scope: 'team', teamId, groupId: null },
+    CreateSecretReq.parse({ name: spec.name, description: specDescription(spec), mode: spec.mode }),
+    userId,
+    { connector },
+  ).catch((e) => {
+    // A concurrent connect may have made it first: then it is there to fill.
+    if (!(e instanceof HttpError && e.code === 'conflict')) throw e
+  })
+}
+
+/** Secret names the group's enabled connectors declare. */
+export async function connectorSecretNames(db: Ctx['db'], groupId: string) {
+  return new Set(
+    (await groupPluginList(db, groupId))
+      .filter((r) => r.enabledInGroup && isConnector(r.version.manifest))
+      .flatMap((r) => secretSpecsOf(r.version.manifest).map((s) => s.name)),
+  )
+}
+
+/**
+ * For secret_request: a secret `name` the team has no definition of, declared by a connector enabled in the group.
+ * A personal one gets its per-member definition in the team so the originator can be asked for their value (as
+ * connecting would make it); a shared one is for a team admin. Null when no connector declares it.
+ */
+export async function defineConnectorSecret(
+  ctx: Ctx,
+  run: { groupId: string; originUserId: string },
+  teamId: string,
+  name: string,
+): Promise<{ title: string; shared: boolean } | null> {
+  const found = (await groupPluginList(ctx.db, run.groupId))
+    .filter((r) => r.enabledInGroup && isConnector(r.version.manifest))
+    .flatMap((r) => {
+      const spec = secretSpecsOf(r.version.manifest).find((s) => s.name === name)
+      return spec ? [{ plugin: r.plugin, title: r.version.manifest.title, spec }] : []
+    })[0]
+  if (!found) return null
+  if (found.spec.mode === 'shared') return { title: found.title, shared: true }
+  await defineFor(ctx, teamId, run.originUserId, found.spec, found.plugin.name)
+  return { title: found.title, shared: false }
 }
 
 async function disconnect(ctx: Ctx, groupId: string, teamId: string, userId: string, pluginId: string) {
@@ -136,18 +179,29 @@ async function disconnect(ctx: Ctx, groupId: string, teamId: string, userId: str
 }
 
 /**
- * Connectors enabled in the group but held back from the run for want of the originator's secrets (agent-facing:
- * not translated); null when there are none.
+ * What the run's agent is told about the group's connectors (agent-facing: not translated): the ones it gets this turn
+ * and how to reach them, and the ones held back for want of the originator's connection; null when there are none.
  */
 export function connectorHint(
+  connected: { name: string; title: string; description: string; entry: string | null }[],
   unconnected: { name: string; title: string; description: string; missing: string[] }[],
 ) {
-  if (!unconnected.length) return null
-  return [
-    '未连接的连接器：本群开启了以下连接器，但发起人还没连接（缺少密钥），本轮用不了：',
-    ...unconnected.map((c) => `- ${c.title}（${c.name}）：${c.description} 缺少：${c.missing.join('、')}`),
-    '需要用到时，调用 gonggong 的 secret_request（names 填缺少的密钥名）请发起人填写，填完后下一轮即可使用；若提示本群没有该密钥定义，请发起人在输入框的「连接器」里连接。',
-  ].join('\n')
+  const out: string[] = []
+  if (connected.length)
+    out.push(
+      '已连接的连接器：发起人已用自己的账号连接以下外部系统，相关请求优先用它们（凭据已注入，不要向用户索要）：',
+      ...connected.map(
+        (c) =>
+          `- ${c.title}（${c.name}）：${c.description}${c.entry ? ` ${skillLine(c.name, c.entry)}` : ''}`,
+      ),
+    )
+  if (unconnected.length)
+    out.push(
+      '未连接的连接器：本群开启了以下连接器，但发起人还没连接（缺少密钥），本轮用不了：',
+      ...unconnected.map((c) => `- ${c.title}（${c.name}）：${c.description} 缺少：${c.missing.join('、')}`),
+      '需要用到时，调用 gonggong 的 secret_request（names 填缺少的密钥名）给发起人发连接卡片，填完后下一轮即可使用；也可以请发起人点输入框的「连接器」按钮自己连接。',
+    )
+  return out.length ? out.join('\n') : null
 }
 
 export function connectorRoutes(ctx: Ctx, app: FastifyInstance) {

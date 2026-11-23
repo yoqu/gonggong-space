@@ -1,4 +1,4 @@
-import { SECRET_MIN_LENGTH, secretSpecsOf } from '@gonggong/protocol'
+import { type ConnectorDto, SECRET_MIN_LENGTH, secretSpecsOf } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
@@ -35,7 +35,7 @@ export function ConnectorDialog({
   id: string
   /** A group, not a dm: others there see what the bot answers with my account. */
   inGroup: boolean
-  onTry: (text: string) => void
+  onTry: (c: ConnectorDto, text: string) => void
   onClose: () => void
 }) {
   const c = useConnectorStore((s) => s.lists[groupId]?.find((x) => x.id === id))
@@ -90,7 +90,7 @@ export function ConnectorDialog({
             <Button
               variant="primary"
               disabled={!examples[0]}
-              onClick={() => examples[0] && onTry(examples[0])}
+              onClick={() => examples[0] && onTry(c, examples[0])}
             >
               {t('去试试')}
             </Button>
@@ -152,7 +152,7 @@ export function ConnectorDialog({
           <section className="cn-detail__tries" aria-label={t('试试这样用')}>
             <div className="cfg__eyebrow">{t('试试这样用')}</div>
             {examples.map((x) => (
-              <button key={x} type="button" className="cn-try" onClick={() => onTry(x)}>
+              <button key={x} type="button" className="cn-try" onClick={() => onTry(c, x)}>
                 <span>{x}</span>
                 <Icon name="arrow-turn-down-right" size={14} />
               </button>

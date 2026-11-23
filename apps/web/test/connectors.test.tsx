@@ -321,7 +321,7 @@ describe('连接器详情弹窗', () => {
     expect(within(dialog).queryByText(/Bot 的回复群内可见/)).toBeNull()
   })
 
-  it('去试试 and the example cards fill the composer without sending', async () => {
+  it('去试试 and the example cards fill the composer @-ing the bot, without sending', async () => {
     const calls = mockApi(routes([meegle]))
     renderChat()
     let menu = await openMenu()
@@ -329,7 +329,7 @@ describe('连接器详情弹窗', () => {
     let dialog = await screen.findByRole('dialog', { name: '飞书项目' })
     fireEvent.click(within(dialog).getByRole('button', { name: '去试试' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '飞书项目' })).toBeNull())
-    expect(box().value).toBe('我这周有哪些待办')
+    expect(box().value).toBe('@设计助手 我这周有哪些待办')
 
     fireEvent.change(box(), { target: { value: '' } })
     menu = await openMenu()
@@ -338,7 +338,7 @@ describe('连接器详情弹窗', () => {
     const tries = within(dialog).getByRole('region', { name: '试试这样用' })
     fireEvent.click(within(tries).getByRole('button', { name: '列出本迭代的缺陷' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '飞书项目' })).toBeNull())
-    expect(box().value).toBe('列出本迭代的缺陷')
+    expect(box().value).toBe('@设计助手 列出本迭代的缺陷')
     expect(calls.some((c) => c.method === 'POST' && c.path.includes('/messages'))).toBe(false)
   })
 

@@ -57,3 +57,11 @@ export function connectorOfServer(server: string) {
         return c.manifest.title
   return undefined
 }
+
+/** The connector title behind a command that runs a script of a connector's entry skill (a skill-based connector). */
+export function connectorOfCommand(command: string) {
+  for (const list of Object.values(useConnectorStore.getState().lists))
+    for (const c of list)
+      if (c.manifest.entry && command.includes(`/skills/${c.manifest.entry}/`)) return c.manifest.title
+  return undefined
+}
