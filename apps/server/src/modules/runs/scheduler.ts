@@ -38,6 +38,7 @@ import { knowledgeContext } from '../knowledge/context.js'
 import { substitute } from '../mcp/secrets.js'
 import { enabledMcpServers } from '../mcp/service.js'
 import { type MessageMeta, userAuthorName } from '../messages/service.js'
+import { connectorHint } from '../plugins/connectors.js'
 import { askPluginTrust, commandPrompt, runPlugins } from '../plugins/service.js'
 import { runNeeds, runNeedsNote } from '../secrets/needs.js'
 import { resolveSecrets } from '../secrets/resolve.js'
@@ -455,6 +456,7 @@ export async function buildRunStart(
     ])
   const plugins = granted?.refs ?? []
   const creations = granted?.creations ?? []
+  const unconnected = command ? null : connectorHint(granted?.unconnected ?? [])
   const context = recent?.kept.reverse() ?? []
   const fallbackContext = replay?.kept.reverse() ?? []
   const omitted = !recent || recent.complete ? 0 : (await countContext(tx, since)) - context.length
@@ -504,6 +506,7 @@ export async function buildRunStart(
           : []),
         ...(command ? [] : [UI_BLOCKS_GUIDE]),
         ...(command || !creations.length ? [] : [pluginHint(creations)]),
+        ...(unconnected ? [unconnected] : []),
         bot.systemPrompt,
       ]
         .filter((s) => s.trim())

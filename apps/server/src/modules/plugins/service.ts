@@ -1,5 +1,6 @@
 import {
   compareVersions,
+  type GroupPluginDto,
   type McpServer,
   PLUGIN_MANIFEST,
   PLUGIN_MAX_BYTES,
@@ -478,6 +479,22 @@ export async function botStates(ctx: Ctx, groupId: string, originUserId: string,
   )
 }
 
+/** The group's plugins with each bot's blocker for a turn `userId` starts. */
+export async function groupPluginDtos(ctx: Ctx, groupId: string, userId: string): Promise<GroupPluginDto[]> {
+  const [rows, states] = await Promise.all([
+    groupPluginList(ctx.db, groupId),
+    botStates(ctx, groupId, userId),
+  ])
+  return rows.map((r) => ({
+    ...pluginDto(r),
+    enabledInGroup: r.enabledInGroup,
+    bots: states.map((b) => ({
+      botId: b.id,
+      blocker: pluginBlocker(r.version.manifest, b.state, r.version.id),
+    })),
+  }))
+}
+
 /** A plugin's MCP servers as the run gets them: `<plugin>-<name>`, secrets filled in, the group's overrides applied. */
 function pluginMcp(name: string, m: PluginManifest, env: Record<string, string>, off: Set<string>) {
   // Every name is in the manifest's `secrets`, which the run has (else the plugin is blocked).
@@ -546,6 +563,15 @@ export async function runPlugins(
     /** Plugins with a creation skill, for the system prompt. */
     creations: usable.filter((r) => r.version.manifest.entry).map((r) => r.plugin.name),
     commands: chatCommands(usable.map((r) => r.version.manifest)),
+    /** Enabled connectors held back only for want of the originator's secrets, for the system prompt. */
+    unconnected: on
+      .filter((r) => r.version.manifest.category === 'connector' && blocked(r) === 'secret')
+      .map(({ plugin, version: { manifest: m } }) => ({
+        name: plugin.name,
+        title: m.title,
+        description: m.description,
+        missing: m.secrets.filter((n) => !(n in env)),
+      })),
     asks: on
       .filter((r) => blocked(r) === 'trust')
       .map((r) => ({ pluginId: r.plugin.id, versionId: r.version.id })),

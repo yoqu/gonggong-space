@@ -212,7 +212,12 @@ describe('group design systems', () => {
 })
 
 describe('connector manifest', () => {
-  const connector = { ...base, category: 'connector', entry: null, connector: { examples: ['查一下上周新注册用户'] } }
+  const connector = {
+    ...base,
+    category: 'connector',
+    entry: null,
+    connector: { examples: ['查一下上周新注册用户'] },
+  }
   it('needs the connector section exactly with the connector category', () => {
     expect(PluginManifest.safeParse(connector).success).toBe(true)
     expect(PluginManifest.safeParse({ ...connector, connector: undefined }).success).toBe(false)

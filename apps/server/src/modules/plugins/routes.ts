@@ -1,7 +1,6 @@
 import {
   CreateGroupDesignSystemReq,
   CreationReq,
-  type GroupPluginDto,
   type SkillFile,
   TogglePluginReq,
   UploadPluginReq,
@@ -28,6 +27,7 @@ import { listingSummary } from '../market/service.js'
 import { type Authorize, eachLayer } from '../mcp/routes.js'
 import { ACTIVE } from '../runs/scheduler.js'
 import { requireTeam } from '../teams/service.js'
+import { connectorRoutes } from './connectors.js'
 import { createCreation, dismissDraft } from './creations.js'
 import {
   createDesignSystem,
@@ -37,13 +37,12 @@ import {
 } from './designSystems.js'
 import { presetSync } from './presets.js'
 import {
-  botStates,
   deletePlugin,
+  groupPluginDtos,
   groupPluginList,
   inLayer,
   listed,
   listingSnapshot,
-  pluginBlocker,
   pluginDto,
   pluginsOn,
   requirePluginsOn,
@@ -98,20 +97,7 @@ function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Au
 /** Plugins in effect for a group with its switch and per-bot availability; off entirely without the master switch. */
 function groupRoutes(ctx: Ctx, app: FastifyInstance) {
   type P = { Params: { id: string; pluginId?: string } }
-  const list = async (groupId: string, userId: string): Promise<GroupPluginDto[]> => {
-    const [rows, states] = await Promise.all([
-      groupPluginList(ctx.db, groupId),
-      botStates(ctx, groupId, userId),
-    ])
-    return rows.map((r) => ({
-      ...pluginDto(r),
-      enabledInGroup: r.enabledInGroup,
-      bots: states.map((b) => ({
-        botId: b.id,
-        blocker: pluginBlocker(r.version.manifest, b.state, r.version.id),
-      })),
-    }))
-  }
+  const list = (groupId: string, userId: string) => groupPluginDtos(ctx, groupId, userId)
 
   app.get<P>('/api/groups/:id/plugins', async (req) => {
     const me = await requireUser(ctx, req)
@@ -287,5 +273,6 @@ export function pluginRoutes(ctx: Ctx) {
     fileRoutes(ctx, app)
     daemonRoutes(ctx, app)
     trustRoutes(ctx, app)
+    connectorRoutes(ctx, app)
   }
 }

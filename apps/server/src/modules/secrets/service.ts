@@ -345,7 +345,11 @@ export async function setPersonal(
   return done
 }
 
-export async function clearPersonal(ctx: Ctx, key: { userId: string; teamId: string; name: string }) {
+export async function clearPersonal(
+  ctx: Ctx,
+  key: { userId: string; teamId: string; name: string },
+  extra?: Extra,
+) {
   const gone = await ctx.db
     .delete(personalSecrets)
     .where(
@@ -362,6 +366,6 @@ export async function clearPersonal(ctx: Ctx, key: { userId: string; teamId: str
       key.userId,
       'secret.clear',
       { layer: 'personal', teamId: key.teamId, groupId: null },
-      { name: key.name },
+      { name: key.name, ...extra },
     )
 }
