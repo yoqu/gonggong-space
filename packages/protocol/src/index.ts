@@ -1,6 +1,7 @@
 export * from './agent-settings.js'
 export * from './agents.js'
 export * from './artifact-broker.js'
+export * from './connectors.js'
 export * from './artifact-daemon.js'
 export * from './artifact-kind.js'
 export * from './artifact-links.js'

@@ -30,13 +30,26 @@ export const PluginCategory = z.enum([
   'tool',
   'agent',
   'provider',
+  'connector',
 ])
 export type PluginCategory = z.infer<typeof PluginCategory>
 /** The market's four shelves, by what a plugin is for. */
-export const PluginShelf = z.enum(['creation', 'tool', 'agent', 'provider'])
+export const PluginShelf = z.enum(['creation', 'tool', 'agent', 'provider', 'connector'])
 export type PluginShelf = z.infer<typeof PluginShelf>
 export const shelfOf = (c: PluginCategory): PluginShelf =>
-  c === 'tool' || c === 'agent' || c === 'provider' ? c : 'creation'
+  c === 'tool' || c === 'agent' || c === 'provider' || c === 'connector' ? c : 'creation'
+
+/**
+ * A connector (plan 连接器-方案): an outside system a person connects once (its required secrets) and then just
+ * asks for. Personal when a required secret is personal or overridable, else shared (a team admin connects it).
+ */
+export const PluginConnector = z.object({
+  /** 「试试这样用」: prompts filled into the chat box. */
+  examples: z.array(z.string().min(1).max(200)).max(6).default([]),
+  /** 「如何获取」: where to get the key. */
+  docs: z.string().url().optional(),
+})
+export type PluginConnector = z.infer<typeof PluginConnector>
 export const shelfCategories = (s: PluginShelf) => PluginCategory.options.filter((c) => shelfOf(c) === s)
 
 /** A form field of the creation panel (第 3 步「内容与参数」); its value is passed to the agent as `label：value`. */
@@ -372,6 +385,8 @@ export const PluginManifest = z
     secrets: SecretRequirements.default([]),
     /** Every declared secret; absent in snapshots stored before declarations (read them with `secretSpecsOf`). */
     secretSpecs: SecretRequirements.optional(),
+    /** Present exactly when the category is `connector` (absent in older snapshots). */
+    connector: PluginConnector.optional(),
     /** Optional (plan Skill市场 D11): left out rather than made up. */
     license: z.string().min(1).max(40).optional(),
     /**
@@ -414,6 +429,8 @@ export const PluginManifest = z
       ctx.addIssue({ code: 'custom', path: ['composer', 'prompt'], message: '必须是一个 text 输入项' })
     if (!m.entry && (m.templates.length || m.designSystems.length || m.inputs.length || m.composer))
       ctx.addIssue({ code: 'custom', path: ['entry'], message: '有模板、设计系统或输入项时必须填写' })
+    if ((m.category === 'connector') !== !!m.connector)
+      ctx.addIssue({ code: 'custom', path: ['connector'], message: '连接器类插件必须且只能由它填写' })
     const need = requiredPermissions(m.contributes)
     if (need.join() !== [...new Set(m.permissions)].sort().join())
       ctx.addIssue({ code: 'custom', path: ['permissions'], message: `必须正好是 [${need.join(', ')}]` })

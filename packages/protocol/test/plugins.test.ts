@@ -210,3 +210,16 @@ describe('group design systems', () => {
     expect(groupDesignSystemId(AUTO_DESIGN_SYSTEM)).toBeNull()
   })
 })
+
+describe('connector manifest', () => {
+  const connector = { ...base, category: 'connector', entry: null, connector: { examples: ['查一下上周新注册用户'] } }
+  it('needs the connector section exactly with the connector category', () => {
+    expect(PluginManifest.safeParse(connector).success).toBe(true)
+    expect(PluginManifest.safeParse({ ...connector, connector: undefined }).success).toBe(false)
+    expect(PluginManifest.safeParse({ ...base, connector: { examples: [] } }).success).toBe(false)
+  })
+  it('defaults examples', () => {
+    const m = PluginManifest.parse({ ...connector, connector: {} })
+    expect(m.connector).toEqual({ examples: [] })
+  })
+})
