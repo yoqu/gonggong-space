@@ -299,6 +299,9 @@ export default {
   '群里其余成员发起的任务按这个方式审批；接力的任务按最初发起人算。':
     "Tasks started by everyone else in the group are approved this way; relayed tasks count as their first initiator's.",
   '允许{who}完全控制这台电脑？': 'Let {who} fully control this computer?',
+  信任名单和其他成员: 'Trusted list and everyone else',
+  '开启「其他成员」会同时将「信任名单」设为完全允许。他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。':
+    'Turning on "Everyone else" also sets "Trusted list" to Allow everything. Their tasks will no longer ask you: the Bot may do anything on your computer, including dangerous commands such as deleting files or pushing code.',
   '他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。':
     'Their tasks will no longer ask you: the Bot may do anything on your computer, including dangerous commands such as deleting files or pushing code.',
 } satisfies Record<string, string>

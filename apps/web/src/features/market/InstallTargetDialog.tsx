@@ -134,7 +134,7 @@ export function InstallTargetDialog({
     target?.teamId ?? null,
   )
   const submit = async () => {
-    if (!target) return
+    if (!target || busy) return
     if (!ask && secrets.invalid) return setError(secrets.invalid)
     setBusy(true)
     setError('')
@@ -161,19 +161,23 @@ export function InstallTargetDialog({
       setBusy(false)
     }
   }
+  const close = () => {
+    if (!busy) onClose()
+  }
   return (
     <Dialog
       open
       title={t('引入「{name}」', { name: listing.title })}
       width={520}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: ask ? t('申请引入') : t('引入'),
           variant: 'primary',
           disabled: !target || there || busy || (!ask && (secrets.loading || secrets.cancelled)),
+          loading: busy,
           onClick: () => void submit(),
         },
       ]}

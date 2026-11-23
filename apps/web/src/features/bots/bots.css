@@ -137,20 +137,18 @@
   min-width: 0;
 }
 
-/* Avatar picker: two rows of presets, the checked one ringed in the accent color */
+/* Avatar picker: responsive grid of presets, the checked one ringed in the accent color */
 .role-picker {
   align-self: stretch;
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
   gap: 6px;
-}
-/* The admin side panel is narrower than a dialog: the presets wrap to five per row instead of squeezing seven. */
-.bots-detail:not(.bots-detail--plain) .role-picker {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 .role-card {
   position: relative;
+  min-width: 0;
+  overflow: hidden;
   display: grid;
   align-content: start;
   justify-items: center;

@@ -13,7 +13,7 @@ import { createThread, deleteThread, editThreadMessage, listThreads, updateThrea
 // first message is its note.
 
 const dto = (th: ArtifactThreadDto): AnnotationDto => {
-  if (th.anchor.kind !== 'prototype') return fail('not_found', '批注不存在')
+  if (typeof th.anchor === 'string' || th.anchor.kind !== 'prototype') return fail('not_found', '批注不存在')
   const { file, ggId, selector, rect, snippet } = th.anchor
   return {
     id: th.id,
@@ -33,7 +33,9 @@ const dto = (th: ArtifactThreadDto): AnnotationDto => {
 }
 
 export async function listAnnotations(ctx: Ctx, a: Artifact, versionId: string | undefined) {
-  return (await listThreads(ctx, a, versionId)).filter((th) => th.anchor.kind === 'prototype').map(dto)
+  return (await listThreads(ctx, a, versionId))
+    .filter((th) => typeof th.anchor !== 'string' && th.anchor.kind === 'prototype')
+    .map(dto)
 }
 
 export async function createAnnotation(
@@ -47,6 +49,8 @@ export async function createAnnotation(
     await createThread(ctx, me, a, {
       versionId,
       anchor: { kind: 'prototype', ...place },
+      label: place.selector || place.file,
+      location: {},
       text: note,
       to: [],
     }),

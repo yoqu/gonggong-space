@@ -333,7 +333,9 @@ describe('versions and submit', () => {
       kind: 'prototype',
     }
     expect(ArtifactDto.parse(dto)).toEqual(dto)
+    expect(ArtifactDto.parse({ ...dto, teamId: 't1' }).teamId).toBe('t1')
     expect(ArtifactDto.safeParse({ ...dto, visibility: 'public' }).success).toBe(false)
+    expect(ArtifactDto.safeParse({ ...dto, visibility: 'all' }).success).toBe(false)
     expect(ArtifactDto.parse({ ...dto, botId: null }).botId).toBeNull()
     expect(ArtifactDto.safeParse({ ...dto, dir: '../x' }).success).toBe(false)
   })

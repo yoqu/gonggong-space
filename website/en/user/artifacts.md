@@ -140,27 +140,26 @@ The 「导出」 (Export) panel starts with a 「格式」 (Format):
 
 The 「分享」 (Share) dialog:
 
-- **Who can see it**: decides which signed-in users can open this work. Only the creator, the Bot owner, or a group admin can change it.
+- **Who can see it**: decides which members of the current team can open this work. Only the creator, the Bot owner, or a group admin can change it (direct chats offer only "Only me" and "Team").
 
 | Who can see it | Description |
 | --- | --- |
-| 仅自己 (Only me) | Only the creator, the Bot owner, and group admins can open it |
-| 本群 (This group) | Group members can view and edit |
-| 团队 (Team) | Team members can view and present; they can edit after joining the group |
-| 全员 (Everyone) | All signed-in users can view and present; only group members can edit |
+| 仅自己 (Only me) | Only the creator, the Bot owner, and group admins can open it (default in direct chats) |
+| 本群 (This group) | Group members can view and edit (default in groups) |
+| 团队 (Team) | Members of this team can view and present; group members can edit (direct-chat titles are hidden from others) |
 
-- **Enable sharing**: creates a public link for people outside, with an optional password and version lock; see [Public sharing](/en/user/shares#share-links-for-prototypes).
+- **Enable sharing**: creates a public link for people outside the team, with an optional password and version lock; see [Public sharing](/en/user/shares#share-links-for-prototypes).
 
 ## Works library
 
-「作品」 (Works) in the left sidebar collects every work you can see (it appears once you have works or have joined a group with a creation plugin enabled).
+「作品」 (Works) in the left sidebar collects the works you can see in the **current team** (it appears once the team has works visible to you or a group with a creation plugin enabled; in multi-team mode you can switch teams right from the page header).
 
 ![Works library](/screenshots/web/works.webp)
 
-- 「范围」 (Scope): all / created by me / shared. Filter by 「来自群」 (Group), sort by 「最近更新」 (Recently updated) or 「按名称」 (By name), or search works, groups, and creators.
-- Cards show who can see them (only me / this group / team / everyone).
-- Click a card to open the work. If you're not in the work's group it's read-only, showing 「只读 · 进入「群名」后可修改」 (Read-only · join "group name" to change it); you can 「全屏演示」 (Present full screen) or 「在新窗口打开」 (Open in new window).
-- 「新建」 (New): choose a group and start the creation there. If no group has a creation plugin enabled yet, you're prompted to ask a group admin to turn one on in 「群设置 · 插件」 (Group settings · Plugins), or to 「去市场找插件」 (Find plugins in the market).
+- 「范围」 (Scope): all / created by me / team shared. Filter by 「来自群」 (Group; works shared from others' direct chats are grouped under "Direct chats"), sort by 「最近更新」 (Recently updated) or 「按名称」 (By name), or search works, groups, and creators.
+- Cards show who can see them (only me / this group / team).
+- Click a card to open the work. If you're not in the work's group it opens read-only: public groups offer a direct 「加入群并编辑」 (Join & edit) button, while private groups and direct chats support 「全屏演示」 (Present full screen) or 「在新窗口打开」 (Open in new window).
+- 「新建」 (New): choose a group in the current team and start the creation there. If no group has a creation plugin enabled yet, you're prompted to ask a group admin to turn one on in 「群设置 · 插件」 (Group settings · Plugins), or to 「去市场找插件」 (Find plugins in the market).
 
 ## Related pages
 

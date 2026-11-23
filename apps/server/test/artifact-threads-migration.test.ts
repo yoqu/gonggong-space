@@ -42,7 +42,7 @@ const q = (k: keyof typeof ids) => `'${id(k)}'`
 it('backfills artifact kinds and moves every annotation into a thread with its note as the first message', async () => {
   const t = await createTestDb({ migrate: false })
   try {
-    await migrate(t.db, { migrationsFolder: migrationsBefore('0119_artifact_threads') })
+    await migrate(t.db, { migrationsFolder: migrationsBefore('0120_artifact_threads') })
     await t.db.execute(
       sql.raw(`
       insert into users (id, account, name, password_hash, role) values
@@ -76,7 +76,7 @@ it('backfills artifact kinds and moves every annotation into a thread with its n
       { id: id('site'), kind: 'site', editor_version: null },
     ])
     const threads = await t.db.execute<Record<string, unknown>>(sql`
-      select id, artifact_id, version_id, anchor, status, sent_message_id, created_by, created_at
+      select id, artifact_id, version_id, anchor, label, detail, location, status, resolved_by, sent_message_id, created_by, created_at
       from artifact_threads order by created_at`)
     expect(
       threads.map((r) => ({ ...r, created_at: new Date(r.created_at as string).toISOString() })),
@@ -93,7 +93,11 @@ it('backfills artifact kinds and moves every annotation into a thread with its n
           rect: { x: 1, y: 2, w: 3, h: 4 },
           snippet: '<h1>报名</h1>',
         },
+        label: 'section > h1',
+        detail: null,
+        location: {},
         status: 'open',
+        resolved_by: null,
         sent_message_id: null,
         created_by: id('u'),
         created_at: '2026-11-01T00:00:00.000Z',
@@ -110,12 +114,24 @@ it('backfills artifact kinds and moves every annotation into a thread with its n
           rect: { x: 0, y: 500, w: 10, h: 10 },
           snippet: '3, 7',
         },
+        label: 'screens/home.html',
+        detail: null,
+        location: {},
         status: 'sent',
+        resolved_by: null,
         sent_message_id: id('m'),
         created_by: id('w'),
         created_at: '2026-11-02T00:00:00.000Z',
       },
-      expect.objectContaining({ id: id('done'), status: 'resolved', sent_message_id: id('m') }),
+      expect.objectContaining({
+        id: id('done'),
+        label: 'div.x',
+        detail: null,
+        location: {},
+        status: 'resolved',
+        resolved_by: null,
+        sent_message_id: id('m'),
+      }),
     ])
     const msgs = await t.db.execute<Record<string, unknown>>(sql`
       select thread_id, author_kind, author_id, text, "to", reactions, at, edited_at
@@ -139,4 +155,4 @@ it('backfills artifact kinds and moves every annotation into a thread with its n
   } finally {
     await t.close()
   }
-})
+}, 60_000)

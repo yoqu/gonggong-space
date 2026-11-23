@@ -321,7 +321,18 @@ function importedDesignLines(
 }
 
 /** Where a thread of another kind than prototype points, for the agent. */
-function placeLine(anchor: Exclude<ArtifactThreadAnchor, { kind: 'prototype' }>) {
+function placeLine(th: {
+  anchor: Exclude<ArtifactThreadAnchor, { kind: 'prototype' }>
+  label: string
+  detail: string | null
+  location: Record<string, unknown>
+}) {
+  const anchor = th.anchor
+  if (typeof anchor === 'string') {
+    const loc = Object.keys(th.location).length ? ` 位置 ${JSON.stringify(th.location)}` : ''
+    const detail = th.detail ? `（${th.detail}）` : ''
+    return `${th.label || anchor}${detail}${loc}`
+  }
   const xy = (p: { x: number; y: number }) => `(${Math.round(p.x)},${Math.round(p.y)})`
   const at = (p: { x: number; y: number } | undefined) => (p ? ` 位置 ${xy(p)}` : '')
   switch (anchor.kind) {
@@ -376,7 +387,7 @@ export async function sendThreads(
     const moved = v.id === head.id ? '' : `（批注于 v${v.n}，当前是 v${head.n}，位置可能已变）`
     const [first, ...replies] = th.messages
     const n = th.anchor
-    if (n.kind === 'prototype') {
+    if (typeof n !== 'string' && n.kind === 'prototype') {
       const source = byVersion.get(v.id) ?? sources(a, v)
       byVersion.set(v.id, source)
       lines.push(
@@ -385,7 +396,15 @@ export async function sendThreads(
       )
       files.push(n.file)
       if (n.ggId !== null) elements.push({ file: n.file, ggId: n.ggId, label: cut(first?.text ?? '') })
-    } else lines.push(`${i + 1}. ${placeLine(n)}${moved}`)
+    } else
+      lines.push(
+        `${i + 1}. ${placeLine({
+          anchor: n,
+          label: th.label,
+          detail: th.detail,
+          location: th.location,
+        })}${moved}`,
+      )
     lines.push(`   意见：${first?.text ?? ''}`, ...replies.map((x) => `   ${x.authorName} 补充：${x.text}`))
   }
   const screenIds = [...new Set(files.map((f) => /^screens\/(.+)\.html$/.exec(f)?.[1]).filter((x) => !!x))]
@@ -398,6 +417,10 @@ export async function sendThreads(
     })),
     elements: uniqueElements(elements),
   }
+  const siteNote =
+    a.siteDir !== null
+      ? `该产物是托管网页（构建目录 ${a.siteDir || '.'}/），修改完源文件并构建后请调用 preview_host（dir: "${a.siteDir || '.'}"）重新托管为新版本。`
+      : null
   const dto = await postAsMember(ctx, me, a, r.botId, {
     action: withText(t('按 {n} 条批注修改', { n: rows.length }), r.extra),
     canvas,
@@ -407,7 +430,7 @@ export async function sendThreads(
       ...lines,
       ...(r.extra?.trim() ? ['', `补充说明：${r.extra.trim()}`] : []),
       '',
-      a.kind === 'prototype' ? RULES : '遵守产物所属插件 SKILL.md 的约定。',
+      a.kind === 'prototype' ? RULES : (siteNote ?? '遵守产物所属插件 SKILL.md 的约定。'),
       '改完后简短说明每条批注是怎么处理的。',
     ],
   })

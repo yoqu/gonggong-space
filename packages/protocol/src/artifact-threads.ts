@@ -10,10 +10,10 @@ export const ArtifactPoint = z.object({ x: z.number(), y: z.number() })
 export type ArtifactPoint = z.infer<typeof ArtifactPoint>
 
 /**
- * Where a thread points. `kind` is the artifact's kind. A prototype's is the old annotation: `ggId` null an element
- * scripts generated, with `selector` empty too a dragged region whose `snippet` lists the `data-gg-id`s inside it.
+ * Where a thread points: either a structured anchor for our own UI (`prototype` / `site` / …) or an opaque serialized
+ * string written by an open-artifact editor (stored and returned verbatim).
  */
-export const ArtifactThreadAnchor = z.discriminatedUnion('kind', [
+export const ArtifactThreadStructuredAnchor = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('prototype'),
     file: ArtifactHtmlFile,
@@ -39,11 +39,24 @@ export const ArtifactThreadAnchor = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('motion'), t: z.number().min(0), point: ArtifactPoint.optional() }),
   z.object({ kind: z.literal('site'), path: z.string().min(1).max(500), point: ArtifactPoint }),
 ])
+export type ArtifactThreadStructuredAnchor = z.infer<typeof ArtifactThreadStructuredAnchor>
+
+export const ArtifactThreadAnchor = z.union([ArtifactThreadStructuredAnchor, z.string().min(1).max(4000)])
 export type ArtifactThreadAnchor = z.infer<typeof ArtifactThreadAnchor>
 
+export const ArtifactThreadLocation = z.record(z.string(), z.unknown())
+export type ArtifactThreadLocation = z.infer<typeof ArtifactThreadLocation>
+
 const Text = z.string().trim().min(1).max(2000)
-/** Who a message asks: bot ids. */
+/** Who a message asks: bot ids (or `'agent'` from an open-artifact editor). */
 const To = z.array(z.string()).max(10)
+
+export const ArtifactThreadReactionDto = z.object({
+  emoji: z.string(),
+  userIds: z.array(z.string()),
+  authors: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+})
+export type ArtifactThreadReactionDto = z.infer<typeof ArtifactThreadReactionDto>
 
 export const ArtifactThreadMessageDto = z.object({
   id: z.string(),
@@ -53,7 +66,7 @@ export const ArtifactThreadMessageDto = z.object({
   authorName: z.string(),
   text: z.string(),
   to: z.array(z.string()),
-  reactions: z.array(z.object({ emoji: z.string(), userIds: z.array(z.string()) })),
+  reactions: z.array(ArtifactThreadReactionDto),
   at: z.string(),
   editedAt: z.string().nullable(),
 })
@@ -66,7 +79,15 @@ export const ArtifactThreadDto = z.object({
   /** The version it was made on: it stays with it. */
   versionId: z.string(),
   anchor: ArtifactThreadAnchor,
+  /** Short human label of what the thread is about (from open-artifact editors or site/prototype summary). */
+  label: z.string(),
+  /** Longer description of the anchored content, for the agent. */
+  detail: z.string().nullable(),
+  /** Extra structured location (coordinates, slide/element ids), for the agent. */
+  location: ArtifactThreadLocation,
   status: ArtifactThreadStatus,
+  resolvedBy: z.string().nullable(),
+  resolvedByName: z.string().nullable(),
   sentMessageId: z.string().nullable(),
   createdBy: z.string(),
   createdByName: z.string(),
@@ -76,10 +97,13 @@ export const ArtifactThreadDto = z.object({
 })
 export type ArtifactThreadDto = z.infer<typeof ArtifactThreadDto>
 
-/** POST /api/artifacts/:id/threads (GET …?version=<id> lists them) — the anchor's kind must be the artifact's. */
+/** POST /api/artifacts/:id/threads (GET …?version=<id> lists them) — structured anchors match the artifact's kind. */
 export const CreateArtifactThreadReq = z.object({
-  versionId: z.string(),
+  versionId: z.string().optional(),
   anchor: ArtifactThreadAnchor,
+  label: z.string().max(300).default(''),
+  detail: z.string().max(4000).nullable().optional(),
+  location: ArtifactThreadLocation.default({}),
   text: Text,
   to: To.default([]),
 })
@@ -88,6 +112,9 @@ export type CreateArtifactThreadReq = z.infer<typeof CreateArtifactThreadReq>
 export const UpdateArtifactThreadReq = z.object({
   status: ArtifactThreadStatus.optional(),
   anchor: ArtifactThreadAnchor.optional(),
+  label: z.string().max(300).optional(),
+  detail: z.string().max(4000).nullable().optional(),
+  location: ArtifactThreadLocation.optional(),
 })
 export type UpdateArtifactThreadReq = z.infer<typeof UpdateArtifactThreadReq>
 /** POST /api/artifact-threads/:id/messages — answers the thread. */
@@ -99,6 +126,12 @@ export type ArtifactThreadMessageReq = z.infer<typeof ArtifactThreadMessageReq>
  */
 export const EditArtifactThreadMessageReq = z.object({ text: Text, to: To.optional() })
 export type EditArtifactThreadMessageReq = z.infer<typeof EditArtifactThreadMessageReq>
+/** POST /api/artifact-threads/:id/messages/:messageId/reactions — adds or removes the caller's emoji reaction. */
+export const ReactArtifactThreadMessageReq = z.object({
+  emoji: z.string().trim().min(1).max(32),
+  on: z.boolean(),
+})
+export type ReactArtifactThreadMessageReq = z.infer<typeof ReactArtifactThreadMessageReq>
 /** POST /api/artifacts/:id/threads/send — posts an @bot message as the member (answers its MessageDto); they become `sent`. */
 export const SendArtifactThreadsReq = z.object({
   threadIds: z.array(z.string()).min(1).max(50),

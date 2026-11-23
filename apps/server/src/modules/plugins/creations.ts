@@ -272,6 +272,7 @@ export async function createCreation(
             title: creationTitle(m, req, card),
             dir: newArtifactDir(card.template?.id ?? m.name),
             botId: card.botId,
+            visibility: group.kind === 'dm' ? 'private' : 'group',
             createdBy: me.id,
           })
           .returning()

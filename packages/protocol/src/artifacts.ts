@@ -133,10 +133,9 @@ export type ArtifactVersionDetail = z.infer<typeof ArtifactVersionDetail>
 
 /**
  * Who may open an artifact: `private` its creator, its bot's owner and the group admins; `group` the group's members;
- * `team` also the members of the group's team, read-only (view and present) unless they are in the group; `all`
- * everyone signed in, any team or none, read-only likewise.
+ * `team` also the members of the group's team, read-only (view and present) unless they are in the group.
  */
-export const ArtifactVisibility = z.enum(['private', 'group', 'team', 'all'])
+export const ArtifactVisibility = z.enum(['private', 'group', 'team'])
 export type ArtifactVisibility = z.infer<typeof ArtifactVisibility>
 /** What the caller may do with an artifact: `view` only looks and presents (anyone outside the group). */
 export const ArtifactAccess = z.enum(['edit', 'view'])
@@ -209,6 +208,8 @@ export const ArtifactDto = z.object({
   kind: ArtifactKind,
   /** The caller's access; sent by GET /api/artifacts/:id. */
   access: ArtifactAccess.optional(),
+  /** The team of the artifact's group; sent by GET /api/artifacts/:id so deep links can switch teams. */
+  teamId: z.string().optional(),
 })
 export type ArtifactDto = z.infer<typeof ArtifactDto>
 
@@ -842,11 +843,14 @@ export type ArtifactHistoryItem = z.infer<typeof ArtifactHistoryItem>
 export const ArtifactChatDto = z.object({ rootId: z.string() })
 export type ArtifactChatDto = z.infer<typeof ArtifactChatDto>
 
-/** GET /api/works — every artifact the caller may open, across their groups (作品), latest first. */
+/** GET /api/works — every artifact the caller may open in the current team (作品), latest first. */
 export const WorkDto = z.object({
   id: z.string(),
   groupId: z.string(),
+  /** Empty for another member's DM shared with the team (shown as 私聊). */
   groupTitle: z.string(),
+  groupKind: z.enum(['group', 'dm']),
+  groupVisibility: z.enum(['public', 'private']),
   title: z.string(),
   /** The plugin's title (产品原型, 幻灯片…). */
   pluginTitle: z.string().nullable(),

@@ -61,7 +61,7 @@ export default {
   分享产物: 'Share artifact',
   开启分享: 'Enable sharing',
   任何拿到链接的人都能查看: 'Anyone with the link can view',
-  '未开启，只有群成员能查看': 'Off. Only group members can view',
+  '未开启，仅上方可见范围内成员可打开': 'Off. Only people within the visibility scope above can open it',
   '只有 Bot 主人或群管理员能开关分享': 'Only the bot owner or a group admin can turn sharing on or off',
   演示模式下不能开启分享: 'Sharing is not available in demo mode',
   '链接 {date} 到期': 'Link expires {date}',
@@ -89,11 +89,11 @@ export default {
   仅自己: 'Only me',
   '只有创建人、Bot 主人和群管理员能打开': "Only its creator, the Bot's owner and group admins can open it",
   群成员都能查看和修改: 'Group members can view and change it',
-  全员: 'Everyone',
-  '所有登录用户都能查看和演示，只有群成员能修改':
-    'Everyone signed in can view and present it; only group members can change it',
-  '团队成员都能查看和演示，进群后才能修改':
-    'Team members can view and present it; joining the group lets them change it',
+  '本团队成员都能查看和演示，群成员可修改':
+    'Members of this team can view and present it; group members can change it',
+  仅你本人能打开: 'Only you can open it',
+  '本团队成员都能只读查看和演示，仅你能修改':
+    'Members of this team can view and present it read-only; only you can change it',
   '只有创建人、Bot 主人或群管理员能修改可见范围':
     "Only its creator, the Bot's owner or a group admin can change who sees it",
   仅创建人可见: 'Only its creator can open it',

@@ -16,6 +16,10 @@
   padding: var(--space-8) var(--space-20);
   border-bottom: 1px solid var(--separator);
 }
+.works__head .team-switch {
+  margin-right: 0;
+  max-width: 200px;
+}
 .works__titles {
   flex: 1;
   min-width: 0;

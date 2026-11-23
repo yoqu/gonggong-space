@@ -104,14 +104,72 @@ describe('artifact threads', () => {
       status: 'resolved',
       anchor: { ...SITE, point: { x: 1, y: 2 } },
     })
-    expect(moved.json()).toMatchObject({ status: 'resolved', anchor: { point: { x: 1, y: 2 } } })
+    expect(moved.json()).toMatchObject({
+      status: 'resolved',
+      resolvedBy: s.wang.id,
+      resolvedByName: '王磊',
+      anchor: { point: { x: 1, y: 2 } },
+    })
+    const reopened = await s.req('PATCH', `/api/artifact-threads/${th.id}`, s.liCookie, { status: 'open' })
+    expect(reopened.json()).toMatchObject({ status: 'open', resolvedBy: null, resolvedByName: null })
     expect(
       (await s.req('PATCH', `/api/artifact-threads/${th.id}`, s.wangCookie, { anchor: proto })).statusCode,
     ).toBe(400)
 
+    // Reactions add and remove the caller cleanly.
+    const reactUrl = `/api/artifact-threads/${th.id}/messages/${th.messages[0]!.id}/reactions`
+    const reacted = await s.req('POST', reactUrl, s.wangCookie, { emoji: '👍', on: true })
+    expect(reacted.statusCode).toBe(200)
+    expect((reacted.json() as ArtifactThreadDto).messages[0]!.reactions).toEqual([
+      { emoji: '👍', userIds: [s.wang.id], authors: [{ id: s.wang.id, name: '王磊' }] },
+    ])
+    const unreacted = await s.req('POST', reactUrl, s.wangCookie, { emoji: '👍', on: false })
+    expect((unreacted.json() as ArtifactThreadDto).messages[0]!.reactions).toEqual([])
+
     expect((await s.req('DELETE', `/api/artifact-threads/${th.id}`, s.wangCookie)).statusCode).toBe(403)
     expect((await s.req('DELETE', `/api/artifact-threads/${th.id}`)).statusCode).toBe(204)
     expect((await s.req('GET', `/api/artifacts/${s.site.id}/threads`)).json()).toEqual([])
+  })
+
+  it('stores opaque string anchors verbatim with label, detail and location for editors', async () => {
+    const s = await setup()
+    const slides = await s.artifact({ kind: 'slides', title: '汇报' })
+    const [sv] = await t.db
+      .insert(artifactVersions)
+      .values({ artifactId: slides.id, n: 1, source: 'edit', files: [], digest: 'd' })
+      .returning()
+    await t.db.update(artifacts).set({ headVersionId: sv!.id }).where(eq(artifacts.id, slides.id))
+    const raw = '{"slide":"s2","el":"h1","x":0.42,"y":0.18}'
+    const res = await s.req('POST', `/api/artifacts/${slides.id}/threads`, s.liCookie, {
+      anchor: raw,
+      label: 'Slide 2 · Heading',
+      detail: 'Q3 Revenue',
+      location: { slide: 's2', x: 0.42, y: 0.18 },
+      text: '数字再核对一下',
+    })
+    expect(res.statusCode).toBe(200)
+    const th = res.json() as ArtifactThreadDto
+    expect(th).toMatchObject({
+      versionId: sv!.id,
+      anchor: raw,
+      label: 'Slide 2 · Heading',
+      detail: 'Q3 Revenue',
+      location: { slide: 's2', x: 0.42, y: 0.18 },
+      resolvedBy: null,
+      resolvedByName: null,
+    })
+    const sent = await s.req('POST', `/api/artifacts/${slides.id}/threads/send`, s.liCookie, {
+      threadIds: [th.id],
+      botId: s.bot.id,
+    })
+    expect(sent.statusCode).toBe(200)
+    const [row] = await t.db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, (sent.json() as MessageDto).id))
+    const note = (row!.meta as { artifactNote: string }).artifactNote
+    expect(note).toContain('Slide 2 · Heading（Q3 Revenue）')
+    expect(note).toContain('"slide":"s2"')
   })
 
   it('go away with their first message', async () => {
@@ -126,7 +184,7 @@ describe('artifact threads', () => {
     const s = await setup()
     const th = (await s.thread()).json() as ArtifactThreadDto
     expect((await s.req('GET', `/api/artifacts/${s.site.id}/threads`, s.outsider)).statusCode).toBe(404)
-    await t.db.update(artifacts).set({ visibility: 'all' }).where(eq(artifacts.id, s.site.id))
+    await t.db.update(artifacts).set({ visibility: 'team' }).where(eq(artifacts.id, s.site.id))
     const seen = await s.req('GET', `/api/artifacts/${s.site.id}/threads`, s.outsider)
     expect((seen.json() as ArtifactThreadDto[]).map((x) => x.id)).toEqual([th.id])
     expect((await s.thread({}, s.outsider)).statusCode).toBe(403)

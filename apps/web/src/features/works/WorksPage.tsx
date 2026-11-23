@@ -1,10 +1,11 @@
-import type { ArtifactVisibility, WorkDto, WorkGroupDto } from '@gonggong/protocol'
+import type { ArtifactDto, ArtifactVisibility, WorkDto, WorkGroupDto } from '@gonggong/protocol'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { attempt } from '../../lib/errors'
 import { ago, fullTime } from '../../lib/time'
 import {
   Button,
@@ -23,7 +24,10 @@ import {
   Tag,
 } from '../../ui'
 import { useArtifactPreview } from '../artifacts/store'
+import { channelsApi } from '../groups/sections'
 import { openCreation } from '../plugins/store'
+import { otherTeam, switchTeam } from '../teams/store'
+import { TeamSwitcher } from '../teams/TeamSwitcher'
 import './works.css'
 
 interface Works {
@@ -68,17 +72,54 @@ const VISIBILITY_LABEL: Record<ArtifactVisibility, string> = {
   private: t('仅自己可见'),
   group: t('本群可见'),
   team: t('团队可见'),
-  all: t('全员可见'),
 }
 
 type Scope = 'all' | 'mine' | 'team'
 type Sort = 'recent' | 'title'
 
+const SHARED_DM = '__dm__'
+const isSharedDm = (w: WorkDto) => w.groupKind === 'dm' && w.access === 'view'
+const sourceKey = (w: WorkDto) => (isSharedDm(w) ? SHARED_DM : w.groupId)
+const sourceTitle = (w: WorkDto) => (isSharedDm(w) ? t('私聊') : w.groupTitle)
+const cardVisibility = (w: WorkDto): ArtifactVisibility =>
+  w.groupKind === 'dm' && w.visibility === 'group' ? 'private' : w.visibility
+
+/**
+ * Opening `/works/:artifactId` when it is not in the current team's works list: if the caller can read it in
+ * another of their teams, switch to that team straight away (like `useGroupOutsideList`).
+ */
+function useForeignWork(artifactId: string | undefined, missing: boolean) {
+  const [checkedId, setCheckedId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!artifactId || !missing) return
+    let live = true
+    api.get<ArtifactDto>(`/artifacts/${artifactId}`).then(
+      (a) => {
+        if (!live) return
+        if (otherTeam(a.teamId ?? null) && a.teamId) {
+          switchTeam(a.teamId, a.access === 'edit' ? `/g/${a.groupId}?artifact=${a.id}` : `/works/${a.id}`)
+          return
+        }
+        void loadWorks().finally(() => {
+          if (live) setCheckedId(artifactId)
+        })
+      },
+      () => {
+        if (live) setCheckedId(artifactId)
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [artifactId, missing])
+  return !!artifactId && missing && checkedId !== artifactId
+}
+
 const COVERS = 6
 /** A stable cover tint for a work without a thumbnail, so the grid is not a wall of identical gray boxes. */
 const coverOf = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % COVERS
 
-/** 作品: every artifact I may open, across my groups; `/works/:artifactId` views a read-only one. */
+/** 作品: every artifact I may open in the current team; `/works/:artifactId` views a read-only one. */
 export function WorksPage() {
   const { artifactId } = useParams()
   const navigate = useNavigate()
@@ -95,13 +136,18 @@ export function WorksPage() {
   }, [])
 
   const viewing = artifactId ? list?.find((w) => w.id === artifactId) : undefined
+  const checkingForeign = useForeignWork(artifactId, list !== null && !viewing)
+  useEffect(() => {
+    if (viewing?.access === 'edit')
+      navigate(`/g/${viewing.groupId}?artifact=${viewing.id}`, { replace: true })
+  }, [viewing, navigate])
   if (artifactId)
-    return viewing ? (
+    return viewing?.access === 'view' ? (
       <WorkViewer work={viewing} onBack={() => navigate('/works')} />
     ) : (
       <section className="works" aria-label={t('作品')}>
         <div className="works__center">
-          {list ? (
+          {list && !viewing && !checkingForeign ? (
             <EmptyState
               icon="lock"
               title={t('作品不存在或你没有权限查看')}
@@ -119,15 +165,20 @@ export function WorksPage() {
     )
 
   const all = list ?? []
-  const sources = [...new Map(all.map((w) => [w.groupId, w.groupTitle])).entries()]
+  const sources = [
+    ...new Map(
+      all
+        .map((w) => [sourceKey(w), isSharedDm(w) ? t('来自私聊') : w.groupTitle] as const)
+        .filter(([, label]) => !!label),
+    ).entries(),
+  ]
   const q = query.trim().toLowerCase()
   const shown = all
     .filter(
       (w) =>
-        (scope === 'all' ||
-          (scope === 'mine' ? w.createdBy === me : w.visibility === 'team' || w.visibility === 'all')) &&
-        (group === 'all' || w.groupId === group) &&
-        (!q || `${w.title} ${w.groupTitle} ${w.creatorName ?? ''}`.toLowerCase().includes(q)),
+        (scope === 'all' || (scope === 'mine' ? w.createdBy === me : w.visibility === 'team')) &&
+        (group === 'all' || sourceKey(w) === group) &&
+        (!q || `${w.title} ${sourceTitle(w)} ${w.creatorName ?? ''}`.toLowerCase().includes(q)),
     )
     .sort((a, b) => (sort === 'title' ? a.title.localeCompare(b.title, 'zh') : 0))
   const filtered = group !== 'all' || !!q
@@ -145,6 +196,7 @@ export function WorksPage() {
   return (
     <section className="works" aria-label={t('作品')}>
       <header className="works__head">
+        <TeamSwitcher redirectPath="/works" />
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
@@ -177,7 +229,7 @@ export function WorksPage() {
             items={[
               { value: 'all', label: t('全部') },
               { value: 'mine', label: t('我创建的') },
-              { value: 'team', label: t('已共享') },
+              { value: 'team', label: t('团队共享') },
             ]}
           />
           {sources.length > 1 ? (
@@ -228,66 +280,69 @@ export function WorksPage() {
         <Skeleton variant="block" count={6} height={220} className="works__grid" />
       ) : shown.length ? (
         <ul className="works__grid" aria-label={t('作品')}>
-          {shown.map((w, i) => (
-            <li key={w.id} className="works__card" style={{ '--i': i } as CSSProperties}>
-              <button
-                type="button"
-                className="works__open"
-                aria-label={t('打开 {title}', { title: w.title })}
-                onClick={() => open(w)}
-              >
-                <span className="works__shot" data-cover={w.thumbnailUrl ? undefined : coverOf(w.id)}>
-                  {w.thumbnailUrl ? (
-                    <img src={w.thumbnailUrl} alt="" loading="lazy" />
-                  ) : (
-                    <span className="works__initial" aria-hidden="true">
-                      {[...w.title][0]}
-                    </span>
-                  )}
-                  {w.access === 'view' ? (
-                    <span className="works__badge">
-                      <Icon name="eye" size={12} />
-                      {t('只读')}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="works__body">
-                  <strong className="works__name" title={w.title}>
-                    {w.title}
-                  </strong>
-                  {(() => {
-                    const source = [w.groupTitle, w.creatorName].filter(Boolean).join(' · ')
-                    return (
-                      <span className="works__meta works__meta--row">
-                        {source ? (
-                          <>
-                            <span className="works__source" title={source}>
-                              {source}
-                            </span>
-                            <span className="works__sep" aria-hidden="true">
-                              ·
-                            </span>
-                          </>
-                        ) : null}
-                        <time className="works__time" dateTime={w.updatedAt} title={fullTime(w.updatedAt)}>
-                          {ago(w.updatedAt)}
-                        </time>
+          {shown.map((w, i) => {
+            const vis = cardVisibility(w)
+            const source = [sourceTitle(w), w.creatorName].filter(Boolean).join(' · ')
+            return (
+              <li key={w.id} className="works__card" style={{ '--i': i } as CSSProperties}>
+                <button
+                  type="button"
+                  className="works__open"
+                  aria-label={t('打开 {title}', { title: w.title })}
+                  onClick={() => open(w)}
+                >
+                  <span className="works__shot" data-cover={w.thumbnailUrl ? undefined : coverOf(w.id)}>
+                    {w.thumbnailUrl ? (
+                      <img src={w.thumbnailUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="works__initial" aria-hidden="true">
+                        {[...w.title][0]}
                       </span>
-                    )
-                  })()}
-                  <span className="works__tags">
-                    {w.site ? <Tag>{t('托管网页')}</Tag> : w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
-                    <Tag
-                      tone={w.visibility === 'team' || w.visibility === 'all' ? 'blue' : 'gray'}
-                      icon={w.visibility === 'private' ? 'lock' : undefined}
-                    >
-                      {VISIBILITY_LABEL[w.visibility]}
-                    </Tag>
+                    )}
+                    {w.access === 'view' ? (
+                      <span className="works__badge">
+                        <Icon name="eye" size={12} />
+                        {t('只读')}
+                      </span>
+                    ) : null}
                   </span>
-                </span>
-              </button>
-            </li>
-          ))}
+                  <span className="works__body">
+                    <strong className="works__name" title={w.title}>
+                      {w.title}
+                    </strong>
+                    <span className="works__meta works__meta--row">
+                      {source ? (
+                        <>
+                          <span className="works__source" title={source}>
+                            {source}
+                          </span>
+                          <span className="works__sep" aria-hidden="true">
+                            ·
+                          </span>
+                        </>
+                      ) : null}
+                      <time className="works__time" dateTime={w.updatedAt} title={fullTime(w.updatedAt)}>
+                        {ago(w.updatedAt)}
+                      </time>
+                    </span>
+                    <span className="works__tags">
+                      {w.site ? (
+                        <Tag>{t('托管网页')}</Tag>
+                      ) : w.pluginTitle ? (
+                        <Tag>{w.pluginTitle}</Tag>
+                      ) : null}
+                      <Tag
+                        tone={vis === 'team' ? 'blue' : 'gray'}
+                        icon={vis === 'private' ? 'lock' : undefined}
+                      >
+                        {VISIBILITY_LABEL[vis]}
+                      </Tag>
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <div className="works__center">
@@ -297,14 +352,14 @@ export function WorksPage() {
               filtered
                 ? t('没有符合条件的作品')
                 : scope === 'team'
-                  ? t('还没有已共享的作品')
+                  ? t('还没有团队共享的作品')
                   : t('还没有作品')
             }
             description={
               filtered
                 ? undefined
                 : scope === 'team'
-                  ? t('你共享给团队或公开的作品会出现在这里')
+                  ? t('团队内设为「团队可见」的作品会出现在这里')
                   : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')
             }
             action={
@@ -343,8 +398,27 @@ export function WorksPage() {
 
 /** A work I may only look at (a team member outside its group): its preview, presentable, nothing to edit. */
 function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
+  const navigate = useNavigate()
   const { preview, error } = useArtifactPreview(work.id, null, true)
   const frame = useRef<HTMLIFrameElement>(null)
+  const [joining, setJoining] = useState(false)
+  const canJoin = work.access === 'view' && work.groupKind === 'group' && work.groupVisibility === 'public'
+  const note =
+    work.groupKind === 'dm'
+      ? work.creatorName
+        ? t('只读 · 来自 {name} 的私聊', { name: work.creatorName })
+        : t('只读 · 来自私聊')
+      : canJoin
+        ? t('只读 · 来自公开群「{group}」，加入后可修改', { group: work.groupTitle })
+        : t('只读 · 来自「{group}」（仅群成员可修改）', { group: work.groupTitle })
+  const joinAndEdit = async () => {
+    setJoining(true)
+    const joined = await attempt(() => channelsApi.join(work.groupId))
+    setJoining(false)
+    if (!joined) return
+    void loadWorks()
+    navigate(`/g/${work.groupId}?artifact=${work.id}`)
+  }
   return (
     <section className="works works--viewer" aria-label={work.title}>
       <header className="works__head">
@@ -353,12 +427,13 @@ function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
         </Button>
         <div className="works__titles">
           <h1 className="works__title">{work.title}</h1>
-          <span className="works__note">
-            {work.visibility === 'all'
-              ? t('只读 · 来自「{group}」', { group: work.groupTitle })
-              : t('只读 · 进入「{group}」后可修改', { group: work.groupTitle })}
-          </span>
+          <span className="works__note">{note}</span>
         </div>
+        {canJoin ? (
+          <Button size="small" variant="primary" loading={joining} onClick={() => void joinAndEdit()}>
+            {t('加入群并编辑')}
+          </Button>
+        ) : null}
         {preview ? (
           <>
             <Button size="small" icon="expand" onClick={() => void frame.current?.requestFullscreen?.()}>

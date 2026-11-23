@@ -94,8 +94,12 @@ export function useArtifactManager(
 const VISIBILITY_NOTE: Record<ArtifactVisibility, string> = {
   private: t('只有创建人、Bot 主人和群管理员能打开'),
   group: t('群成员都能查看和修改'),
-  team: t('团队成员都能查看和演示，进群后才能修改'),
-  all: t('所有登录用户都能查看和演示，只有群成员能修改'),
+  team: t('本团队成员都能查看和演示，群成员可修改'),
+}
+
+const DM_VISIBILITY_NOTE: Record<'private' | 'team', string> = {
+  private: t('仅你本人能打开'),
+  team: t('本团队成员都能只读查看和演示，仅你能修改'),
 }
 
 const expiry = (at: string | null) => (at ? t('链接 {date} 到期', { date: localDate(at) }) : '')
@@ -140,8 +144,10 @@ export function ShareDialog({
   const { share, busy, set } = useArtifactShare(artifactId)
   const denied = useShareAccess(groupId, botId)
   const canScope = useArtifactManager(groupId, botId, createdBy)
+  const dm = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.kind === 'dm')
   const [scope, setScope] = useState(visibility)
   const [saving, setSaving] = useState(false)
+  const effectiveScope: ArtifactVisibility = dm && scope === 'group' ? 'private' : scope
   const changeScope = async (next: ArtifactVisibility) => {
     const was = scope
     setScope(next)
@@ -163,6 +169,19 @@ export function ShareDialog({
     const s = await set(true, lockFirst ? { locked: true } : {})
     if (s?.url) await copyWithToast(shareText(s.url, s.password), copiedToast(s.password))
   }
+  const scopeItems = dm
+    ? [
+        { value: 'private' as const, label: t('仅自己'), disabled: !canScope || saving },
+        { value: 'team' as const, label: t('团队'), disabled: !canScope || saving },
+      ]
+    : [
+        { value: 'private' as const, label: t('仅自己'), disabled: !canScope || saving },
+        { value: 'group' as const, label: t('本群'), disabled: !canScope || saving },
+        { value: 'team' as const, label: t('团队'), disabled: !canScope || saving },
+      ]
+  const scopeNote = dm
+    ? DM_VISIBILITY_NOTE[effectiveScope === 'team' ? 'team' : 'private']
+    : VISIBILITY_NOTE[scope]
   return (
     <Dialog open onClose={onClose} title={t('分享产物')} width={440}>
       <div className="art-share">
@@ -171,23 +190,16 @@ export function ShareDialog({
           <SegmentedControl<ArtifactVisibility>
             aria-label={t('可见范围')}
             size="small"
-            value={scope}
+            value={effectiveScope}
             onChange={(v) => void changeScope(v)}
-            items={[
-              { value: 'private', label: t('仅自己'), disabled: !canScope || saving },
-              { value: 'group', label: t('本群'), disabled: !canScope || saving },
-              { value: 'team', label: t('团队'), disabled: !canScope || saving },
-              { value: 'all', label: t('全员'), disabled: !canScope || saving },
-            ]}
+            items={scopeItems}
           />
-          <small>
-            {canScope ? VISIBILITY_NOTE[scope] : t('只有创建人、Bot 主人或群管理员能修改可见范围')}
-          </small>
+          <small>{canScope ? scopeNote : t('只有创建人、Bot 主人或群管理员能修改可见范围')}</small>
         </div>
         <div className="art-share__row">
           <div>
             <strong>{t('开启分享')}</strong>
-            <small>{on ? t('任何拿到链接的人都能查看') : t('未开启，只有群成员能查看')}</small>
+            <small>{on ? t('任何拿到链接的人都能查看') : t('未开启，仅上方可见范围内成员可打开')}</small>
           </div>
           <Switch
             aria-label={t('开启分享')}

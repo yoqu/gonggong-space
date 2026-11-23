@@ -188,4 +188,15 @@ describe('moving an artifact to another group', () => {
     const [row] = await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id))
     expect(row!.groupId).toBe(s.g.id)
   })
+
+  it('refuses moving an artifact to a group in another team', async () => {
+    const s = await setup()
+    const teamB = await t.seed.team({ ownerId: s.bot.ownerId, name: '团队B' })
+    const foreign = await t.seed.group({ createdBy: s.bot.ownerId, teamId: teamB.id, name: '外部群' })
+    const res = await s.move(s.wang, foreign.id)
+    expect(res.statusCode).toBe(403)
+    expect(res.json().message).toContain('不能跨团队移动')
+    const [row] = await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id))
+    expect(row!.groupId).toBe(s.g.id)
+  })
 })

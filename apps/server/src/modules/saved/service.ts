@@ -1,20 +1,30 @@
 import type { SavedMessageDto } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupMembers, groups, messages, savedMessages, users } from '../../db/schema.js'
+import {
+  bots,
+  groupMembers,
+  groups,
+  messages,
+  savedMessages,
+  teamMembers,
+  teams,
+  users,
+} from '../../db/schema.js'
 import { groupTitle, translateGroupTitle } from '../groups/title.js'
 import { notify } from '../notifications/notify.js'
 import { loadMessages } from '../threads/routes.js'
 
 type SavedRow = typeof savedMessages.$inferSelect
 
-/** With the joins below: saved rows of live groups the user is still in. */
-const stillMember = isNull(groups.archivedAt)
+/** With the joins below: saved rows of live groups of live teams the user is still in. */
+const stillMember = and(isNull(groups.archivedAt), isNull(teams.archivedAt))
 
-/** `userId`'s saved messages matching `where`, ordered by `order`, as list items. */
+/** `userId`'s saved messages in `teamId` matching `where`, ordered by `order`, as list items. */
 export async function savedItems(
   ctx: Ctx,
   userId: string,
+  teamId: string,
   where: SQL | undefined,
   order: SQL,
   limit: number,
@@ -23,8 +33,9 @@ export async function savedItems(
     .select({ s: savedMessages, groupName: groupTitle })
     .from(savedMessages)
     .innerJoin(groups, eq(groups.id, savedMessages.groupId))
+    .innerJoin(teams, eq(teams.id, groups.teamId))
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
-    .where(and(eq(savedMessages.userId, userId), stillMember, where))
+    .where(and(eq(savedMessages.userId, userId), eq(groups.teamId, teamId), stillMember, where))
     .orderBy(order)
     .limit(limit)
   if (!rows.length) return []
@@ -65,14 +76,15 @@ export const openBefore = (before?: string) =>
 export const byCreated = desc(savedMessages.createdAt)
 export const byDone = desc(savedMessages.doneAt)
 
-/** The open saved ids (newest first) and the fired reminders not yet done. */
-export async function savedState(ctx: Ctx, userId: string) {
+/** The open saved ids in `teamId` (newest first) and the fired reminders not yet done. */
+export async function savedState(ctx: Ctx, userId: string, teamId: string) {
   const rows = await ctx.db
     .select({ id: savedMessages.messageId, remindedAt: savedMessages.remindedAt })
     .from(savedMessages)
     .innerJoin(groups, eq(groups.id, savedMessages.groupId))
+    .innerJoin(teams, eq(teams.id, groups.teamId))
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
-    .where(and(eq(savedMessages.userId, userId), stillMember, openSaved))
+    .where(and(eq(savedMessages.userId, userId), eq(groups.teamId, teamId), stillMember, openSaved))
     .orderBy(byCreated)
   return { ids: rows.map((r) => r.id), due: rows.filter((r) => r.remindedAt).length }
 }
@@ -89,6 +101,11 @@ export async function fireDueReminders(ctx: Ctx) {
     .select({ s: savedMessages })
     .from(savedMessages)
     .innerJoin(groups, eq(groups.id, savedMessages.groupId))
+    .innerJoin(teams, eq(teams.id, groups.teamId))
+    .innerJoin(
+      teamMembers,
+      and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, savedMessages.userId)),
+    )
     .innerJoin(
       groupMembers,
       and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, savedMessages.userId)),

@@ -63,4 +63,13 @@ export default {
   使用飞书头像: 'Use Feishu avatar',
   '我的 Skill': 'My Skills',
   打开市场: 'Open market',
+  '断开 {account}？': 'Disconnect {account}?',
+  '断开后需要重新填写 Token 才能恢复连接。': 'You will need to enter a token again to reconnect.',
+  将不再自动列出该账号的仓库和分支:
+    'Repos and branches from this account will no longer be listed automatically',
+  已在群里绑定的仓库不受影响: 'Repos already linked in groups are not affected',
+  断开账号: 'Disconnect account',
+  已断开账号: 'Account disconnected',
+  已更新显示名: 'Display name updated',
+  已更新邮箱: 'Email updated',
 } satisfies Record<string, string>

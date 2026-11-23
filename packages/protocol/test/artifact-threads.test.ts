@@ -70,6 +70,7 @@ describe('artifact thread anchors', () => {
       { kind: 'whiteboard', element: 'note-1', point: { x: 1, y: 2 } },
       { kind: 'motion', t: 2.5 },
       { kind: 'site', path: '/about', point: { x: 1, y: 2 } },
+      '{"slide":"s1","el":"h1","x":0.5,"y":0.2}',
     ]
     for (const a of ok) expect(ArtifactThreadAnchor.parse(a)).toEqual(a)
     const bad = [
@@ -78,6 +79,7 @@ describe('artifact thread anchors', () => {
       { kind: 'motion', t: -1 },
       { kind: 'site', path: '/' },
       { kind: 'doc', point: { x: 0, y: 0 } },
+      '',
     ]
     for (const a of bad) expect(ArtifactThreadAnchor.safeParse(a).success).toBe(false)
   })
@@ -89,7 +91,19 @@ describe('artifact thread anchors', () => {
       text: '这里慢一点',
     })
     expect(r.to).toEqual([])
+    expect(r.label).toBe('')
+    expect(r.location).toEqual({})
     expect(CreateArtifactThreadReq.safeParse({ ...r, text: '' }).success).toBe(false)
+    const opaque = CreateArtifactThreadReq.parse({
+      anchor: '{"slide":"s2"}',
+      label: 'Slide 2',
+      detail: 'Title block',
+      location: { slide: 's2' },
+      text: '字号加大',
+    })
+    expect(opaque.anchor).toBe('{"slide":"s2"}')
+    expect(opaque.label).toBe('Slide 2')
+    expect(opaque.versionId).toBeUndefined()
   })
 
   it('answer threads with their messages', () => {
@@ -98,7 +112,12 @@ describe('artifact thread anchors', () => {
       artifactId: 'a',
       versionId: 'v',
       anchor: { kind: 'site', path: '/', point: { x: 1, y: 1 } },
+      label: '/',
+      detail: null,
+      location: {},
       status: 'sent',
+      resolvedBy: null,
+      resolvedByName: null,
       sentMessageId: 'm',
       createdBy: 'u',
       createdByName: '李建国',

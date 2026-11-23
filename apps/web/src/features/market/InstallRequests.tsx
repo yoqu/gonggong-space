@@ -43,14 +43,33 @@ export function InstallRequests({ onDecided }: { onDecided?: () => void }) {
   }
   const mine = useGet<InstallRequestDto[]>('/install-requests?view=mine')
   const [rejecting, setRejecting] = useState<InstallRequestDto | null>(null)
-  const approve = (r: InstallRequestDto) =>
-    attempt(() => api.post(`/install-requests/${r.id}/decide`, { approve: true, note: '' })).then((ok) => {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const approve = async (r: InstallRequestDto) => {
+    if (busyId === r.id) return
+    setBusyId(r.id)
+    try {
+      const ok = await attempt(() =>
+        api.post(`/install-requests/${r.id}/decide`, { approve: true, note: '' }),
+      )
       if (!ok) return
       toast({ type: 'success', message: t('已引入到「{name}」', { name: r.targetLabel }) })
       decided()
-    })
-  const cancel = (r: InstallRequestDto) =>
-    attempt(() => api.del(`/install-requests/${r.id}`)).then(mine.reload)
+    } finally {
+      setBusyId((id) => (id === r.id ? null : id))
+    }
+  }
+  const cancel = async (r: InstallRequestDto) => {
+    if (busyId === r.id) return
+    setBusyId(r.id)
+    try {
+      const ok = await attempt(() => api.del(`/install-requests/${r.id}`))
+      if (!ok) return
+      toast({ type: 'success', message: t('已撤回') })
+      mine.reload()
+    } finally {
+      setBusyId((id) => (id === r.id ? null : id))
+    }
+  }
 
   return (
     <>
@@ -61,7 +80,7 @@ export function InstallRequests({ onDecided }: { onDecided?: () => void }) {
         </div>
         {!todo.data ? (
           todo.error ? (
-            <Alert variant="error" title={todo.error} />
+            <Alert variant="error" title={todo.error} onRetry={todo.reload} />
           ) : (
             <Spinner />
           )
@@ -80,10 +99,16 @@ export function InstallRequests({ onDecided }: { onDecided?: () => void }) {
                 }
               >
                 <span className="cfg__controls">
-                  <Button size="small" onClick={() => setRejecting(r)}>
+                  <Button size="small" disabled={busyId === r.id} onClick={() => setRejecting(r)}>
                     {t('拒绝')}
                   </Button>
-                  <Button size="small" variant="primary" onClick={() => void approve(r)}>
+                  <Button
+                    size="small"
+                    variant="primary"
+                    loading={busyId === r.id}
+                    disabled={busyId === r.id}
+                    onClick={() => void approve(r)}
+                  >
                     {t('通过')}
                   </Button>
                 </span>
@@ -98,7 +123,7 @@ export function InstallRequests({ onDecided }: { onDecided?: () => void }) {
         <div className="cfg__eyebrow">{t('我的申请')}</div>
         {!mine.data ? (
           mine.error ? (
-            <Alert variant="error" title={mine.error} />
+            <Alert variant="error" title={mine.error} onRetry={mine.reload} />
           ) : (
             <Spinner />
           )
@@ -128,7 +153,13 @@ export function InstallRequests({ onDecided }: { onDecided?: () => void }) {
                 }
               >
                 {r.status === 'pending' ? (
-                  <Button size="small" variant="plain" onClick={() => void cancel(r)}>
+                  <Button
+                    size="small"
+                    variant="plain"
+                    loading={busyId === r.id}
+                    disabled={busyId === r.id}
+                    onClick={() => void cancel(r)}
+                  >
                     {t('撤回')}
                   </Button>
                 ) : null}
@@ -173,6 +204,7 @@ function RejectDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const reject = async () => {
+    if (busy) return
     setBusy(true)
     setError('')
     try {
@@ -184,19 +216,23 @@ function RejectDialog({
       setBusy(false)
     }
   }
+  const close = () => {
+    if (!busy) onClose()
+  }
   return (
     <Dialog
       open
       title={t('拒绝引入申请')}
       width={480}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: t('拒绝'),
           variant: 'destructive',
           disabled: busy || !note.trim(),
+          loading: busy,
           onClick: () => void reject(),
         },
       ]}

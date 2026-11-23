@@ -55,25 +55,15 @@ export async function findMember(ctx: Ctx, groupId: string, userId: string) {
   return row
 }
 
-/** `userId` is in the live team of the live group, member of the group or not. */
-/** The group and its team are not archived (an artifact open to all shows only then). */
-export async function groupLive(ctx: Ctx, groupId: string) {
+/** The live team id of the live group when `userId` is in that team, member of the group or not. */
+export async function inTeamOfGroup(ctx: Ctx, groupId: string, userId: string): Promise<string | null> {
   const [row] = await ctx.db
-    .select({ id: groups.id })
-    .from(groups)
-    .innerJoin(teams, eq(teams.id, groups.teamId))
-    .where(and(eq(groups.id, groupId), isNull(groups.archivedAt), isNull(teams.archivedAt)))
-  return !!row
-}
-
-export async function inTeamOfGroup(ctx: Ctx, groupId: string, userId: string) {
-  const [row] = await ctx.db
-    .select({ id: groups.id })
+    .select({ teamId: groups.teamId })
     .from(groups)
     .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
     .innerJoin(teams, eq(teams.id, groups.teamId))
     .where(and(eq(groups.id, groupId), isNull(groups.archivedAt), isNull(teams.archivedAt)))
-  return !!row
+  return row?.teamId ?? null
 }
 
 /**

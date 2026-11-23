@@ -2034,8 +2034,12 @@ export const artifactThreads = pgTable(
       .notNull()
       .references(() => artifactVersions.id),
     anchor: jsonb('anchor').$type<ArtifactThreadAnchor>().notNull(),
+    label: text('label').notNull().default(''),
+    detail: text('detail'),
+    location: jsonb('location').$type<Record<string, unknown>>().notNull().default({}),
     /** 'open' | 'sent' | 'resolved' */
     status: text('status').notNull().default('open'),
+    resolvedBy: uuid('resolved_by').references(() => users.id),
     /** The @bot message 发给 Agent posted. */
     sentMessageId: uuid('sent_message_id'),
     createdBy: uuid('created_by')

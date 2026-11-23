@@ -86,6 +86,7 @@ export default {
   解封: 'Unban',
   '封禁「{name}」': 'Ban {name}',
   '已封禁「{name}」': 'Banned {name}',
+  '已解封「{name}」': 'Unbanned {name}',
   封禁原因: 'Reason',
   '封禁原因：{reason}': 'Banned: {reason}',
   '封禁后所有引入下一轮起停止加载，市场不再显示，也不能新引入。':
@@ -124,6 +125,12 @@ export default {
   '你已发布过「{name}」，将保存为新版本 r{n}': 'You have published {name}; this saves version r{n}',
   '可见范围沿用已有条目的「{v}」': "Keeps the listing's visibility: {v}",
   下架: 'Unlist',
+  '下架「{name}」？': 'Unlist {name}?',
+  '下架后市场里不再显示这个条目，也不能新引入；可随时重新上架。':
+    'It will leave the market and cannot be installed anew; you can list it again any time.',
+  已引入的地方会保留当前版本并继续使用: 'Existing installs keep their current version and keep working',
+  不会再收到后续新版本更新: 'They will not receive newer versions',
+  '已下架「{name}」': 'Unlisted {name}',
   重新上架: 'List again',
   设为公开: 'Make public',
   设为仅本团队: 'Make team only',

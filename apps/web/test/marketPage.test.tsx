@@ -704,7 +704,17 @@ describe('我的发布', () => {
     )
 
     fireEvent.click(within(row).getByRole('button', { name: '下架' }))
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
+    const confirm = await screen.findByRole('alertdialog')
+    expect(confirm.textContent).toContain('下架后市场里不再显示这个条目')
+    expect(confirm.textContent).toContain('已引入的地方会保留当前版本并继续使用')
+    fireEvent.click(within(confirm).getByRole('button', { name: '下架' }))
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ status: 'unlisted' }))
+    await waitFor(() =>
+      expect(
+        useToasts.getState().items.some((i) => String(i.message).includes('已下架「deploy-check」')),
+      ).toBe(true),
+    )
     expect(within(row).queryByRole('button', { name: '设为公开' })).toBeNull()
   })
 
@@ -1212,5 +1222,285 @@ describe('市场 page loading', () => {
         .getAllByRole('listitem')
         .map((li) => li.style.getPropertyValue('--i')),
     ).toEqual(['0', '1'])
+  })
+})
+
+describe('UX 走查 11-23 市场交互与容错', () => {
+  it('retries failed loads in ListingDetail, MyListings, InstallRequests, and MarketReviewList', async () => {
+    let failDetail = true
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': () => (failDetail ? apiError(500, 'internal', '详情加载失败') : detail()),
+    })
+    renderPage('/market?listing=l1')
+    const drawer = await screen.findByRole('dialog')
+    expect(await within(drawer).findByText('详情加载失败')).toBeTruthy()
+    failDetail = false
+    fireEvent.click(within(drawer).getByRole('button', { name: '重试' }))
+    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
+  })
+
+  it('retries failed loads in MyListings, InstallRequests, and MarketReviewList', async () => {
+    let failMine = true
+    mockApi({
+      'GET /market/mine': () => (failMine ? apiError(500, 'internal', '我的发布加载失败') : [mine()]),
+    })
+    const { unmount } = renderPage('/market?tab=mine')
+    expect(await screen.findByText('我的发布加载失败')).toBeTruthy()
+    failMine = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByText('deploy-check')).toBeTruthy()
+    unmount()
+
+    let failTodo = true
+    let failReqMine = true
+    mockApi({
+      'GET /install-requests?view=todo': () =>
+        failTodo ? apiError(500, 'internal', '待处理加载失败') : [request()],
+      'GET /install-requests?view=mine': () =>
+        failReqMine ? apiError(500, 'internal', '我的申请加载失败') : [request({ id: 'q9' })],
+    })
+    const reqView = renderPage('/market?tab=requests')
+    const todoSec = await screen.findByRole('region', { name: '待我处理' })
+    const mineSec = await screen.findByRole('region', { name: '我的申请' })
+    expect(await within(todoSec).findByText('待处理加载失败')).toBeTruthy()
+    expect(await within(mineSec).findByText('我的申请加载失败')).toBeTruthy()
+    failTodo = false
+    failReqMine = false
+    fireEvent.click(within(todoSec).getByRole('button', { name: '重试' }))
+    fireEvent.click(within(mineSec).getByRole('button', { name: '重试' }))
+    expect(await within(todoSec).findByText(/陈晨/)).toBeTruthy()
+    expect(await within(mineSec).findByText(/支付核心群/)).toBeTruthy()
+    reqView.unmount()
+
+    let failReview = true
+    mockApi({
+      'GET /market/reviews': () => (failReview ? apiError(500, 'internal', '审核列表加载失败') : []),
+    })
+    render(<MarketReviewList path="/market/reviews" />)
+    expect(await screen.findByText('审核列表加载失败')).toBeTruthy()
+    failReview = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByText('没有待审核的版本')).toBeTruthy()
+  })
+
+  it('uses ghost variant on manage button, guards unban with toast, and locks BanDialog while submitting', async () => {
+    let releaseBan = () => {}
+    const banHeld = new Promise<void>((r) => {
+      releaseBan = r
+    })
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': detail({ canReview: true }),
+      'POST /market/l1/ban': async () => {
+        await banHeld
+        return {}
+      },
+    })
+    const { unmount } = renderPage('/market?listing=l1')
+    const drawer = await screen.findByRole('dialog')
+    const manageBtn = await within(drawer).findByRole('button', { name: '管理 review-pr' })
+    expect(manageBtn.classList.contains('ui-btn--ghost')).toBe(true)
+
+    fireEvent.click(manageBtn)
+    fireEvent.click(await screen.findByRole('menuitem', { name: '封禁' }))
+    const dialog = await screen.findByRole('dialog', { name: '封禁「review-pr」' })
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '封禁原因' }), {
+      target: { value: '恶意脚本' },
+    })
+    const confirmBtn = within(dialog).getByRole('button', { name: '封禁' }) as HTMLButtonElement
+    const cancelBtn = within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    fireEvent.click(confirmBtn)
+    expect(confirmBtn.disabled).toBe(true)
+    expect(confirmBtn.getAttribute('aria-busy')).toBe('true')
+    expect(cancelBtn.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '封禁「review-pr」' })).toBeTruthy()
+    releaseBan()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '封禁「review-pr」' })).toBeNull())
+    expect(calls.filter((c) => c.path === '/market/l1/ban')).toHaveLength(1)
+    unmount()
+
+    let releaseUnban = () => {}
+    const unbanHeld = new Promise<void>((r) => {
+      releaseUnban = r
+    })
+    const unbanCalls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': detail({ canReview: true, status: 'banned', banReason: '违规' }),
+      'DELETE /market/l1/ban': async () => {
+        await unbanHeld
+        return {}
+      },
+    })
+    renderPage('/market?listing=l1')
+    const bannedDrawer = await screen.findByRole('dialog')
+    const unbanBtn = (await within(bannedDrawer).findByRole('button', { name: '解封' })) as HTMLButtonElement
+    fireEvent.click(unbanBtn)
+    fireEvent.click(unbanBtn)
+    expect(unbanBtn.disabled).toBe(true)
+    expect(unbanBtn.getAttribute('aria-busy')).toBe('true')
+    releaseUnban()
+    await waitFor(() =>
+      expect(useToasts.getState().items.some((i) => String(i.message).includes('已解封「review-pr」'))).toBe(
+        true,
+      ),
+    )
+    expect(unbanCalls.filter((c) => c.method === 'DELETE' && c.path === '/market/l1/ban')).toHaveLength(1)
+  })
+
+  it('guards checkUpstream, SubmitForm, PublishDialog, InstallRequests, ReviewDialog and InstallTargetDialog against re-entry', async () => {
+    let releaseUpstream = () => {}
+    const upstreamHeld = new Promise<void>((r) => {
+      releaseUpstream = r
+    })
+    let releaseSubmit = () => {}
+    const submitHeld = new Promise<void>((r) => {
+      releaseSubmit = r
+    })
+    const mineCalls = mockApi({
+      'GET /market/mine': [
+        mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
+      ],
+      'POST /market/l9/check-upstream': async () => {
+        await upstreamHeld
+        return { changed: false, drafted: false, commit: 'c1' }
+      },
+      'POST /market/l9/versions/v9/submit': async () => {
+        await submitHeld
+        return {}
+      },
+    })
+    const mineView = renderPage('/market?tab=mine')
+    const checkBtn = (await screen.findByRole('button', { name: '检查上游更新' })) as HTMLButtonElement
+    fireEvent.click(checkBtn)
+    fireEvent.click(checkBtn)
+    expect(checkBtn.disabled).toBe(true)
+    expect(checkBtn.getAttribute('aria-busy')).toBe('true')
+    releaseUpstream()
+    await waitFor(() => expect(checkBtn.disabled).toBe(false))
+    expect(mineCalls.filter((c) => c.path === '/market/l9/check-upstream')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '提交审核' }))
+    const submitDialog = await screen.findByRole('dialog', { name: '提交审核 deploy-check' })
+    const submitConfirm = within(submitDialog).getByRole('button', { name: '提交审核' }) as HTMLButtonElement
+    const submitCancel = within(submitDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    fireEvent.click(submitConfirm)
+    expect(submitConfirm.getAttribute('aria-busy')).toBe('true')
+    expect(submitCancel.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '提交审核 deploy-check' })).toBeTruthy()
+    releaseSubmit()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '提交审核 deploy-check' })).toBeNull())
+    mineView.unmount()
+
+    let releaseCancel = () => {}
+    const cancelHeld = new Promise<void>((r) => {
+      releaseCancel = r
+    })
+    let releaseReject = () => {}
+    const rejectHeld = new Promise<void>((r) => {
+      releaseReject = r
+    })
+    const reqCalls = mockApi({
+      'GET /install-requests?view=todo': [request()],
+      'GET /install-requests?view=mine': [request({ id: 'q8' })],
+      'DELETE /install-requests/q8': async () => {
+        await cancelHeld
+        return undefined
+      },
+      'POST /install-requests/q1/decide': async () => {
+        await rejectHeld
+        return {}
+      },
+    })
+    const reqView = renderPage('/market?tab=requests')
+    const mineSec = await screen.findByRole('region', { name: '我的申请' })
+    const withdrawBtn = (await within(mineSec).findByRole('button', { name: '撤回' })) as HTMLButtonElement
+    fireEvent.click(withdrawBtn)
+    fireEvent.click(withdrawBtn)
+    expect(withdrawBtn.disabled).toBe(true)
+    expect(withdrawBtn.getAttribute('aria-busy')).toBe('true')
+    releaseCancel()
+    await waitFor(() =>
+      expect(useToasts.getState().items.some((i) => String(i.message).includes('已撤回'))).toBe(true),
+    )
+    expect(reqCalls.filter((c) => c.method === 'DELETE' && c.path === '/install-requests/q8')).toHaveLength(1)
+
+    const todoSec = await screen.findByRole('region', { name: '待我处理' })
+    fireEvent.click(within(todoSec).getByRole('button', { name: '拒绝' }))
+    const rejectDialog = await screen.findByRole('dialog', { name: '拒绝引入申请' })
+    fireEvent.change(within(rejectDialog).getByRole('textbox', { name: '拒绝原因' }), {
+      target: { value: '不需要' },
+    })
+    const rejectConfirm = within(rejectDialog).getByRole('button', { name: '拒绝' }) as HTMLButtonElement
+    const rejectCancel = within(rejectDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    fireEvent.click(rejectConfirm)
+    expect(rejectConfirm.getAttribute('aria-busy')).toBe('true')
+    expect(rejectCancel.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '拒绝引入申请' })).toBeTruthy()
+    releaseReject()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '拒绝引入申请' })).toBeNull())
+    reqView.unmount()
+
+    let releaseInstall = () => {}
+    const installHeld = new Promise<void>((r) => {
+      releaseInstall = r
+    })
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': detail(),
+      'GET /teams/t1/repos': [],
+      'GET /teams/t2/repos': [],
+      'PUT /groups/g1/installs/l1': async () => {
+        await installHeld
+        return {}
+      },
+    })
+    const installView = renderPage('/market?listing=l1')
+    const drawer = await screen.findByRole('dialog')
+    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
+    const installDialog = await screen.findByRole('dialog', { name: '引入「review-pr」' })
+    fireEvent.click(within(installDialog).getByRole('radio', { name: '支付核心群' }))
+    const installConfirm = within(installDialog).getByRole('button', { name: '引入' }) as HTMLButtonElement
+    const installCancel = within(installDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    fireEvent.click(installConfirm)
+    expect(installConfirm.getAttribute('aria-busy')).toBe('true')
+    expect(installCancel.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '引入「review-pr」' })).toBeTruthy()
+    releaseInstall()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '引入「review-pr」' })).toBeNull())
+    installView.unmount()
+
+    let releaseReview = () => {}
+    const reviewHeld = new Promise<void>((r) => {
+      releaseReview = r
+    })
+    const item: ReviewItemDto = {
+      listing: { ...listing(), listedVersionId: null, listedRevision: null },
+      version: detail().versions[0]!,
+    }
+    mockApi({
+      'GET /market/reviews': [item],
+      'GET /market/l1?versionId=pv4': detail(),
+      'POST /market/l1/versions/pv4/review': async () => {
+        await reviewHeld
+        return {}
+      },
+    })
+    render(<MarketReviewList path="/market/reviews" />)
+    fireEvent.click(await screen.findByRole('button', { name: '审核' }))
+    const reviewDialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
+    const approveBtn = within(reviewDialog).getByRole('button', { name: '通过' }) as HTMLButtonElement
+    const reviewCancel = within(reviewDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    fireEvent.click(approveBtn)
+    expect(approveBtn.getAttribute('aria-busy')).toBe('true')
+    expect(reviewCancel.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '审核 review-pr r4' })).toBeTruthy()
+    releaseReview()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '审核 review-pr r4' })).toBeNull())
   })
 })

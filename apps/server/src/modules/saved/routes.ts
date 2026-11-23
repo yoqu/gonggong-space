@@ -13,6 +13,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireMessage } from '../messages/service.js'
+import { currentTeam } from '../teams/service.js'
 import { byCreated, byDone, doneBefore, openBefore, publishSaved, savedItems, savedState } from './service.js'
 
 const mine = (userId: string, messageId: string) =>
@@ -58,17 +59,18 @@ export function savedRoutes(ctx: Ctx) {
 
     app.get('/api/saved', async (req): Promise<SavedListDto> => {
       const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
       const { state, before, limit } = SavedListQuery.parse(req.query)
       const items =
         state === 'done'
-          ? await savedItems(ctx, me.id, doneBefore(before), byDone, limit)
-          : await savedItems(ctx, me.id, openBefore(before), byCreated, limit)
+          ? await savedItems(ctx, me.id, teamId, doneBefore(before), byDone, limit)
+          : await savedItems(ctx, me.id, teamId, openBefore(before), byCreated, limit)
       return { items }
     })
 
-    app.get(
-      '/api/saved/state',
-      async (req): Promise<SavedStateDto> => savedState(ctx, (await requireUser(ctx, req)).id),
-    )
+    app.get('/api/saved/state', async (req): Promise<SavedStateDto> => {
+      const me = await requireUser(ctx, req)
+      return savedState(ctx, me.id, await currentTeam(ctx, req, me.id))
+    })
   }
 }
