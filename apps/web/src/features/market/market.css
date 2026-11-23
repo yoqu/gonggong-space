@@ -369,3 +369,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 试试这样用 of a connector */
+.mkt-detail__tries {
+  margin: 0;
+  padding-left: var(--space-16);
+  display: grid;
+  gap: var(--space-4);
+}

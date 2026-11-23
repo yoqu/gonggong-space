@@ -7,6 +7,7 @@ import {
   type RunEvent,
 } from '@gonggong/protocol'
 import { t } from '../../i18n'
+import { connectorOfCommand, connectorOfServer } from '../connectors/store'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
 
@@ -25,24 +26,30 @@ export const QUESTION_TYPE: Record<Question['type'], string> = {
   text: t('自由文本'),
 }
 
-/** Built-in gonggong tools by their Chinese title; others as `Server · tool` (claude.ai connectors lose their prefix). */
+/**
+ * Built-in gonggong tools by their Chinese title; others as `Server · tool`, a connector's server by the connector's
+ * title (claude.ai connectors lose their prefix).
+ */
 export function mcpLabel(server: string, tool: string) {
   if (server === 'gonggong' && GONGGONG[tool]) return GONGGONG[tool]
-  return `${server.replace(/^claude_ai_/, '')} · ${tool}`
+  return `${connectorOfServer(server) ?? server.replace(/^claude_ai_/, '')} · ${tool}`
 }
 
 /** The daemon's echo of the session's model / effort (`已切换推理强度：High`): setup, not progress. */
 export const CONFIG_ECHO = /^已切换[^：]+：|^Switched (?!to ).+ to /
 
 /** A tool title made readable when it names an MCP call (Claude `mcp__s__t`, Codex `mcp.s.t`, Gemini
- * `t (s MCP Server)`); config echoes are blank so the run card shows its working label instead. */
+ * `t (s MCP Server)`) or runs a skill-based connector's script; config echoes are blank so the run card shows its
+ * working label instead. */
 export function toolTitle(title: string) {
   if (CONFIG_ECHO.test(title)) return ''
   const gemini = /^(.+) \((.+) MCP Server\)$/.exec(title)
   const [, server, tool] = gemini
     ? [title, gemini[2], gemini[1]]
     : (/^mcp__(.+?)__(.+)$/.exec(title) ?? /^mcp\.([^.]+)\.(.+)$/.exec(title) ?? [])
-  return server && tool ? mcpLabel(server, tool) : title
+  if (server && tool) return mcpLabel(server, tool)
+  const connector = connectorOfCommand(title)
+  return connector ? `${connector} · ${title}` : title
 }
 
 export const stepText = (r: { step: string; stepI18n?: I18nText }) =>

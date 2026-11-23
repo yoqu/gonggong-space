@@ -1,0 +1,3 @@
+[submodule "apps/server/plugins/internal"]
+	path = apps/server/plugins/internal
+	url = ../gonggong-plugins.git

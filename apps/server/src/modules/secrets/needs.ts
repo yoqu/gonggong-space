@@ -42,7 +42,7 @@ export function targetLayer(
 }
 
 /** The most specific definition of `name`, whatever its state. */
-const nearest = (rows: SecretRow[], name: string) =>
+export const nearest = (rows: SecretRow[], name: string) =>
   rows.filter((r) => r.name === name).sort((a, b) => (RANK[b.scope] ?? 0) - (RANK[a.scope] ?? 0))[0]
 
 export type RunNeed = {

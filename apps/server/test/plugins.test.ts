@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
@@ -33,7 +33,7 @@ import {
   teamMembers,
 } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
-import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
+import { BUILTIN_PLUGINS, INTERNAL_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { pluginBlocker } from '../src/modules/plugins/service.js'
 import { buildRunStart } from '../src/modules/runs/scheduler.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
@@ -383,6 +383,17 @@ describe('built-in plugins', () => {
       ['platform', 'web-prototype', null],
     ])
   })
+
+  // Only checkouts of the internal GitLab have the submodule.
+  it.skipIf(!existsSync(join(INTERNAL_PLUGINS, 'dw')))(
+    'installs the internal plugins: the dw, feishu and meegle connectors',
+    async () => {
+      await syncBuiltinPlugins(t.ctx, INTERNAL_PLUGINS)
+      const rows = await t.db.select().from(plugins)
+      const names = rows.map((r) => [r.scope, r.name])
+      for (const name of ['dw', 'feishu', 'meegle']) expect(names).toContainEqual(['platform', name])
+    },
+  )
 
   it('syncs at startup: new version only when the folder changed; no upload or delete over it', async () => {
     const w = await world()

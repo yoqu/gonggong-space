@@ -1,9 +1,10 @@
-import type {
-  CreateGroupDesignSystemReq,
-  CreationStep,
-  GroupDesignSystemDto,
-  GroupPluginDto,
-  MessageDto,
+import {
+  type CreateGroupDesignSystemReq,
+  type CreationStep,
+  createsArtifacts,
+  type GroupDesignSystemDto,
+  type GroupPluginDto,
+  type MessageDto,
 } from '@gonggong/protocol'
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
@@ -69,7 +70,7 @@ export function useEnabledPlugins(groupId: string) {
 /** What 创作 offers: enabled plugins with a creation skill (tool-only plugins have none). */
 export function useCreationPlugins(groupId: string) {
   const list = usePluginStore((s) => s.lists[groupId])
-  return useMemo(() => list?.filter((p) => p.enabledInGroup && p.manifest.entry) ?? [], [list])
+  return useMemo(() => list?.filter((p) => p.enabledInGroup && createsArtifacts(p.manifest)) ?? [], [list])
 }
 
 function putPlugin(groupId: string, p: GroupPluginDto) {

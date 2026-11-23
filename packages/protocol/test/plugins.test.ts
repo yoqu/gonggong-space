@@ -4,6 +4,7 @@ import {
   CREATION_INPUT_MAX,
   CreateGroupDesignSystemReq,
   CreationReq,
+  createsArtifacts,
   creationSteps,
   designMdSwatches,
   designMdTitle,
@@ -218,6 +219,13 @@ describe('connector manifest', () => {
     entry: null,
     connector: { examples: ['查一下上周新注册用户'] },
   }
+  it('a CLI-login connector asks no required key', () => {
+    const login = { ...connector, connector: { login: '帮我连接飞书' } }
+    expect(PluginManifest.parse(login).connector?.login).toBe('帮我连接飞书')
+    const keyed = { ...login, secrets: [{ name: 'LARK_KEY', mode: 'personal', required: true }] }
+    expect(PluginManifest.safeParse(keyed).success).toBe(false)
+  })
+
   it('needs the connector section exactly with the connector category', () => {
     expect(PluginManifest.safeParse(connector).success).toBe(true)
     expect(PluginManifest.safeParse({ ...connector, connector: undefined }).success).toBe(false)
@@ -226,5 +234,13 @@ describe('connector manifest', () => {
   it('defaults examples', () => {
     const m = PluginManifest.parse({ ...connector, connector: {} })
     expect(m.connector).toEqual({ examples: [] })
+  })
+})
+
+describe('createsArtifacts', () => {
+  it('is false for a connector even with an entry skill', () => {
+    expect(createsArtifacts({ entry: 'dw-query', category: 'connector' })).toBe(false)
+    expect(createsArtifacts({ entry: 'slides', category: 'deck' })).toBe(true)
+    expect(createsArtifacts({ entry: null, category: 'tool' })).toBe(false)
   })
 })

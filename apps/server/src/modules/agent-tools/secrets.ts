@@ -2,6 +2,7 @@ import type { GONGGONG_TOOLS, SecretRequirement } from '@gonggong/protocol'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import type { Layer, Scope } from '../mcp/service.js'
+import { defineConnectorSecret } from '../plugins/connectors.js'
 import { type EffectiveSkill, targetLayer } from '../secrets/needs.js'
 import { askValues, postDefineCard } from '../secrets/requests.js'
 import { blocked, RANK, resolveSecrets, type SecretState } from '../secrets/resolve.js'
@@ -68,6 +69,8 @@ export async function secretRequest(ctx: Ctx, run: Run, a: Args<'secret_request'
   const names = [...new Set(a.names)]
   const missing = names.filter((name) => !states.some((x) => x.def.name === name))
   const define = new Map<string, { skill: EffectiveSkill; specs: SecretRequirement[]; layer: Layer }>()
+  // Connector secrets just defined for the originator to fill (plan 连接器-方案 §3.1).
+  const made: string[] = []
   if (missing.length) {
     const skills = await enabledSkills(ctx.db, run.groupId, run.originUserId)
     const teamId = await teamOf(ctx, run)
@@ -75,6 +78,15 @@ export async function secretRequest(ctx: Ctx, run: Run, a: Args<'secret_request'
       const any = rows.find((r) => r.name === name)
       if (any) refuse(`密钥 ${name} ${blocked(any, run.botId, now)}，请管理员在设置里处理`)
       const skill = skills.find((s) => s.secretSpecs.some((x) => x.name === name))
+      if (!skill) {
+        const connector = await defineConnectorSecret(ctx, run, teamId, name)
+        if (connector?.shared)
+          refuse(`${name} 是连接器「${connector.title}」的团队共享密钥，请团队管理员在设置里填写`)
+        if (connector) {
+          made.push(name)
+          continue
+        }
+      }
       if (!skill)
         refuse(`本群没有名为 ${name} 的密钥定义，请用 secret_list 查看；新定义只能由管理员在设置里添加`)
       const declared = skill!
@@ -114,7 +126,7 @@ export async function secretRequest(ctx: Ctx, run: Run, a: Args<'secret_request'
   for (const p of await askValues(
     ctx,
     run,
-    names.filter((n) => !missing.includes(n)),
+    names.filter((n) => !missing.includes(n) || made.includes(n)),
     force,
   )) {
     await logSecret(
@@ -126,6 +138,8 @@ export async function secretRequest(ctx: Ctx, run: Run, a: Args<'secret_request'
     )
     lines.push(`${p.audience === 'origin' ? '请发起人填写' : '请管理员填写'}：${p.names.join('、')}`)
   }
+  if (!lines.length)
+    return { text: `${names.join('、')} 本轮已可用，不用再发卡片；用 $名称 读取`, groups: [] }
   return {
     text:
       `已在群里发出密钥卡片（${lines.join('；')}）。填写后下一轮注入${force ? '，相关 Bot 开新会话' : ''}。` +

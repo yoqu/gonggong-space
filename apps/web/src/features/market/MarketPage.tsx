@@ -108,7 +108,10 @@ export function MarketPage() {
     )
   }
   const [query, setQuery] = useState('')
-  const [type, setType] = useState<TypeFilter>('all')
+  // `?shelf=connector` opens on that shelf (the composer's 管理连接器).
+  const [type, setType] = useState<TypeFilter>(() =>
+    params.get('shelf') === 'connector' ? 'connector' : 'all',
+  )
   const [source, setSource] = useState<SourceFilter>('all')
   const [sort, setSort] = useState<Sort>('recent')
   const [installing, setInstalling] = useState<ComponentProps<typeof InstallTargetDialog>['listing'] | null>(
@@ -201,6 +204,7 @@ export function MarketPage() {
                 { value: 'tool', label: t('工具') },
                 { value: 'agent', label: 'Agent' },
                 { value: 'provider', label: t('供应商预设') },
+                { value: 'connector', label: t('连接器') },
               ]}
             />
             <SegmentedControl<SourceFilter>

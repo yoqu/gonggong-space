@@ -25,6 +25,7 @@ import { mirrorSecretCard } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
 import { forceNewSessions } from '../mcp/service.js'
 import { authorName, type MessageMeta, memberIds, messageDto, postEvent } from '../messages/service.js'
+import { connectorSecretNames } from '../plugins/connectors.js'
 import { rerunFor } from '../runs/trigger.js'
 import { enabledSkills } from '../skills/service.js'
 import { specDescription } from './needs.js'
@@ -345,6 +346,9 @@ export async function fillSecretRequest(ctx: Ctx, userId: string, id: string, bo
       .where(and(eq(secretRequests.id, id), isNull(secretRequests.filledAt)))
       .returning()
     if (!done) return fail('conflict', '密钥已填写')
+    // A connector's key filled here connects it, as the 连接器 dialog does: for the group's bots wherever they run.
+    const connectors =
+      body.allowForeignMachines === undefined ? await connectorSecretNames(c.db, req.groupId) : null
     for (const def of defs) {
       const value = body.values[def.name] as string
       if (req.audience === 'admins') await setSharedValue(c, def, value, userId, extra)
@@ -353,7 +357,7 @@ export async function fillSecretRequest(ctx: Ctx, userId: string, id: string, bo
           c,
           { userId, teamId: group.teamId, name: def.name },
           value,
-          body.allowForeignMachines,
+          body.allowForeignMachines ?? (connectors?.has(def.name) || undefined),
           'secret.fill',
           extra,
         )

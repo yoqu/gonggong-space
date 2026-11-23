@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PluginCategory, PluginMcp, PluginPermission } from './plugins.js'
+import { PluginCategory, PluginConnector, PluginMcp, PluginPermission } from './plugins.js'
 import { SecretRequirement } from './secrets.js'
 
 // ── Skill 市场 (plan Skill市场-PRD): listings (the `plugins` table) installed into a scope ────
@@ -161,6 +161,8 @@ export const MarketListingDetailDto = MarketListingDto.extend({
   mcp: z.array(PluginMcp).default([]),
   /** The shown version's declared secrets (plan Skill密钥声明 §4), shown before installing. */
   secretSpecs: z.array(SecretRequirement).default([]),
+  /** A connector plugin's 试试这样用 and 如何获取 (plan 连接器 §3.2); absent for other listings. */
+  connector: PluginConnector.optional(),
   files: z.array(z.object({ path: z.string(), size: z.number().int() })),
   versions: z.array(ListingVersionDto),
   ghSource: ListingSource.nullable(),

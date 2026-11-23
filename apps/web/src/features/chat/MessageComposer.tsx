@@ -9,11 +9,12 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useSession } from '../../app/session'
 import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
-import { Checkbox, Composer, useEscape, useOutsidePress } from '../../ui'
+import { Checkbox, Composer, Presence, useEscape, useOutsidePress } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { useCanvasChat } from '../artifacts/chatRoot'
@@ -25,6 +26,10 @@ import { artifactSlash, commandSelection, parseArtifactSlash, selectedScreenIds 
 import { useArtifactEntry } from '../artifacts/store'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
+import { ConnectorDialog } from '../connectors/ConnectorDialog'
+import { ConnectorMenu } from '../connectors/ConnectorMenu'
+import { useConnectors } from '../connectors/store'
+import { tryDraft } from '../connectors/tryDraft'
 import { openCreation, useCreationPlugins } from '../plugins/store'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
@@ -142,6 +147,11 @@ export const MessageComposer = memo(function MessageComposer({
   const [variations, setVariations] = useState<number | null>(null)
   const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const plugins = useCreationPlugins(group.id)
+  const pluginsOn = useSession((s) => !!s.tenancy?.pluginsEnabled)
+  // Loaded up front too: the run's process names a connector's MCP calls by its title (mcpLabel).
+  useConnectors(group.id, pluginsOn)
+  const [connectorMenu, setConnectorMenu] = useState(false)
+  const [connectorId, setConnectorId] = useState<string | null>(null)
   const appending = useAppend((s) => s.target?.groupId === main)
   const mentioned = mentionedBots(draft, groupBots)
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
@@ -277,6 +287,8 @@ export const MessageComposer = memo(function MessageComposer({
 
   useEscape(() => setDismissed(true), popoverShown)
   useOutsidePress([wrapRef], () => setDismissed(true), popoverShown)
+  useEscape(() => setConnectorMenu(false), connectorMenu)
+  useOutsidePress([wrapRef], () => setConnectorMenu(false), connectorMenu)
 
   const focused = () => (document.activeElement === input.current ? input.current : null)
 
@@ -564,6 +576,18 @@ export const MessageComposer = memo(function MessageComposer({
           },
           { icon: 'paperclip', label: t('附件'), onClick: () => filePicker.current?.click() },
           { icon: 'image', label: t('图片'), onClick: () => imagePicker.current?.click() },
+          ...(pluginsOn
+            ? [
+                {
+                  icon: 'link' as const,
+                  label: t('连接器'),
+                  onClick: () => {
+                    setDismissed(true)
+                    setConnectorMenu((v) => !v)
+                  },
+                },
+              ]
+            : []),
           ...(plugins.length && !scope
             ? [
                 {
@@ -639,9 +663,32 @@ export const MessageComposer = memo(function MessageComposer({
               active={candidates[current]}
               onPick={pick}
             />
+          ) : connectorMenu ? (
+            <ConnectorMenu
+              groupId={group.id}
+              onClose={() => setConnectorMenu(false)}
+              onPick={(c) => {
+                setConnectorMenu(false)
+                setConnectorId(c.id)
+              }}
+            />
           ) : null
         }
       />
+      <Presence>
+        {connectorId ? (
+          <ConnectorDialog
+            groupId={group.id}
+            id={connectorId}
+            inGroup={group.kind !== 'dm'}
+            onClose={() => setConnectorId(null)}
+            onTry={(c, text) => {
+              setConnectorId(null)
+              change(tryDraft(draft, text, c, groupBots, !soleDm && !mentioned.length))
+            }}
+          />
+        ) : null}
+      </Presence>
     </div>
   )
 })

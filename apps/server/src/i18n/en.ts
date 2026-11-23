@@ -622,6 +622,9 @@ export const en = {
 
   // Plugins
   插件不存在: 'Plugin not found',
+  连接器不存在: 'Connector not found',
+  '连接器「{title}」没有声明密钥 {name}': 'Connector "{title}" does not declare the secret {name}',
+  '{name} 是团队共享密钥，请团队管理员填写': '{name} is a team-shared secret; a team admin fills it in',
   '插件不能超过 5 MB': 'A plugin cannot exceed 5 MB',
   '缺少 gonggong-plugin.json': 'gonggong-plugin.json is missing',
   'gonggong-plugin.json 不是合法的 JSON': 'gonggong-plugin.json is not valid JSON',

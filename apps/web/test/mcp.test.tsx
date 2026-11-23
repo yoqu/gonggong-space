@@ -1,8 +1,9 @@
-import type { RunEvent } from '@gonggong/protocol'
+import type { ConnectorDto, RunEvent } from '@gonggong/protocol'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { useConnectorStore } from '../src/features/connectors/store'
 import { classify } from '../src/features/runs/activity'
-import { mcpArgs, toolTitle } from '../src/features/runs/mcp'
+import { mcpArgs, mcpLabel, toolTitle } from '../src/features/runs/mcp'
 import { ProcessView } from '../src/features/runs/ProcessView'
 import { processSteps } from '../src/features/runs/steps'
 
@@ -30,6 +31,37 @@ describe('MCP tool names', () => {
     expect(toolTitle('list_messages (gonggong MCP Server)')).toBe('读取聊天记录')
     expect(toolTitle('get_issue (github MCP Server)')).toBe('github · get_issue')
     expect(toolTitle('Read src/a.ts')).toBe('Read src/a.ts')
+  })
+
+  it("names a connector's MCP server by the connector's title", () => {
+    const dw = {
+      id: 'c1',
+      manifest: {
+        name: 'dw',
+        title: '数仓',
+        contributes: {
+          mcp: [{ transport: 'http', name: 'query', url: 'https://dw.example.com/mcp', headers: {} }],
+        },
+      },
+    } as unknown as ConnectorDto
+    useConnectorStore.setState({ lists: { g1: [dw] }, errors: {} })
+    expect(mcpLabel('dw-query', 'run_sql')).toBe('数仓 · run_sql')
+    expect(toolTitle('mcp__dw-query__run_sql')).toBe('数仓 · run_sql')
+    expect(mcpLabel('dw-other', 'run_sql')).toBe('dw-other · run_sql')
+    useConnectorStore.setState({ lists: {}, errors: {} })
+  })
+
+  it("names a command running a skill-based connector's script by the connector's title", () => {
+    const dw = {
+      id: 'c1',
+      manifest: { name: 'dw', title: '数仓', entry: 'dw-query', contributes: { mcp: [] } },
+    }
+    useConnectorStore.setState({ lists: { g1: [dw as unknown as ConnectorDto] }, errors: {} })
+    const cmd =
+      "printf '%s' '{}' | python3 /h/.gonggong/plugins/dw-ab12/skills/dw-query/scripts/dw_ai.py sources"
+    expect(toolTitle(cmd)).toBe(`数仓 · ${cmd}`)
+    expect(toolTitle('python3 /x/skills/dw-query-old/run.py')).toBe('python3 /x/skills/dw-query-old/run.py')
+    useConnectorStore.setState({ lists: {}, errors: {} })
   })
 
   it('hides session config echoes from the run card step', () => {

@@ -445,6 +445,7 @@ export async function marketDetail(
     readme,
     permissions: plugin?.permissions ?? [],
     mcp: plugin?.contributes.mcp ?? [],
+    ...(plugin?.connector && { connector: plugin.connector }),
     secretSpecs: plugin
       ? secretSpecsOf(plugin)
       : ((card!.shown.manifest as SkillListingManifest).secretSpecs ?? []),

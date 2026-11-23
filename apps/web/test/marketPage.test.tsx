@@ -209,6 +209,7 @@ describe('市场 page', () => {
       '工具',
       'Agent',
       '供应商预设',
+      '连接器',
     ])
     fireEvent.click(types.getByRole('radio', { name: 'Skill' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/market?type=skill')).toBe(true))
@@ -282,6 +283,44 @@ describe('市场 page', () => {
     const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
     expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
     expect(within(drawer).queryByText(/name: review-pr/)).toBeNull()
+  })
+
+  it("opens on the 连接器 shelf from ?shelf=connector and shows a connector's examples and where to get a key", async () => {
+    const dw = listing({
+      id: 'l3',
+      type: 'plugin',
+      name: 'dw',
+      title: '数仓',
+      description: '查询线上数据',
+      category: 'connector',
+    })
+    const calls = mockApi({
+      'GET /market?shelf=connector': [dw],
+      'GET /market/l3': detail({
+        ...dw,
+        connector: {
+          examples: ['查一下昨天的订单量', '近 7 天新增用户趋势'],
+          docs: 'https://dw.example.com/keys',
+        },
+      }),
+    })
+    renderPage('/market?shelf=connector')
+    const grid = await screen.findByRole('list', { name: '市场' })
+    expect(calls.some((c) => c.path === '/market?shelf=connector')).toBe(true)
+    const shelf = within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', {
+      name: '连接器',
+    })
+    expect(shelf.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(within(grid).getByRole('button', { name: '查看 数仓' }))
+    const drawer = await screen.findByRole('dialog', { name: '数仓' })
+    const tries = await within(drawer).findByRole('region', { name: '试试这样用' })
+    expect(within(tries).getByText('查一下昨天的订单量')).toBeTruthy()
+    expect(within(tries).getByText('近 7 天新增用户趋势')).toBeTruthy()
+    expect(
+      within(drawer)
+        .getByRole('link', { name: /^如何获取/ })
+        .getAttribute('href'),
+    ).toBe('https://dw.example.com/keys')
   })
 
   it('sorts by installs and clears filters from the empty state', async () => {
