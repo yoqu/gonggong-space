@@ -7,6 +7,7 @@ import {
   type RunEvent,
 } from '@gonggong/protocol'
 import { t } from '../../i18n'
+import { connectorOfServer } from '../connectors/store'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
 
@@ -25,10 +26,13 @@ export const QUESTION_TYPE: Record<Question['type'], string> = {
   text: t('自由文本'),
 }
 
-/** Built-in gonggong tools by their Chinese title; others as `Server · tool` (claude.ai connectors lose their prefix). */
+/**
+ * Built-in gonggong tools by their Chinese title; others as `Server · tool`, a connector's server by the connector's
+ * title (claude.ai connectors lose their prefix).
+ */
 export function mcpLabel(server: string, tool: string) {
   if (server === 'gonggong' && GONGGONG[tool]) return GONGGONG[tool]
-  return `${server.replace(/^claude_ai_/, '')} · ${tool}`
+  return `${connectorOfServer(server) ?? server.replace(/^claude_ai_/, '')} · ${tool}`
 }
 
 /** The daemon's echo of the session's model / effort (`已切换推理强度：High`): setup, not progress. */

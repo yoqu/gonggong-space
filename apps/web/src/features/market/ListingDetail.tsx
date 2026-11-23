@@ -4,6 +4,7 @@ import type {
   ListingVersionDto,
   MarketListingDetailDto,
   MarketListingDto,
+  PluginConnector,
   ReviewStatus,
 } from '@gonggong/protocol'
 import { type ReactNode, useState } from 'react'
@@ -225,6 +226,7 @@ export function ListingDetail({
           ) : null}
         </section>
       ) : null}
+      {data.connector ? <ConnectorTries connector={data.connector} /> : null}
       {data.secretSpecs.length ? <SecretSpecList specs={data.secretSpecs} /> : null}
       <section className="mkt-detail__section" aria-label={t('说明')}>
         <div className="cfg__eyebrow">{t('说明')}</div>
@@ -293,6 +295,27 @@ export function ListingDetail({
         ) : null}
       </Presence>
     </div>
+  )
+}
+
+/** A connector's 试试这样用 and 如何获取 (its key). */
+function ConnectorTries({ connector }: { connector: PluginConnector }) {
+  return (
+    <section className="mkt-detail__section" aria-label={t('试试这样用')}>
+      <div className="cfg__eyebrow">{t('试试这样用')}</div>
+      {connector.examples.length ? (
+        <ul className="mkt-detail__tries">
+          {connector.examples.map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ul>
+      ) : null}
+      {connector.docs ? (
+        <Link external href={connector.docs}>
+          {t('如何获取')}
+        </Link>
+      ) : null}
+    </section>
   )
 }
 
