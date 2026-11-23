@@ -266,6 +266,8 @@ export async function createCreation(
             groupId: group.id,
             pluginId: card.pluginId,
             pluginVersionId: versionId,
+            kind: m.artifact?.kind ?? 'prototype',
+            editorVersion: m.artifact?.editor ? m.version : null,
             designSystemId: design?.kind === 'auto' ? null : (card.designSystem?.id ?? null),
             title: creationTitle(m, req, card),
             dir: newArtifactDir(card.template?.id ?? m.name),

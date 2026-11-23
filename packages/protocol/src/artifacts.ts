@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArtifactKind } from './artifact-kind.js'
 import { ArtifactLinkDisplay, ArtifactLinkRatio, LinkFields, LinkSize } from './artifact-links.js'
 import {
   ARTIFACT_PAGE_GROUPS_MAX,
@@ -205,6 +206,7 @@ export const ArtifactDto = z.object({
   createdBy: z.string().nullable(),
   /** Hosted static site (uploaded built dir, not an editable design artifact). */
   site: z.boolean().optional(),
+  kind: ArtifactKind,
   /** The caller's access; sent by GET /api/artifacts/:id. */
   access: ArtifactAccess.optional(),
 })

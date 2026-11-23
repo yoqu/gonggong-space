@@ -228,6 +228,7 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     visibility: a.visibility as ArtifactVisibility,
     createdBy: a.createdBy,
     site: a.siteDir !== null,
+    kind: a.kind,
   }
 }
 
@@ -747,6 +748,7 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
     headVersionId: a.headVersionId,
     digest: head?.digest ?? null,
     plugin: (a.pluginId && names.get(a.pluginId)) || null,
+    kind: a.kind,
   }))
   const named = (ids: string[]) =>
     picked
@@ -799,6 +801,8 @@ export async function duplicateArtifact(ctx: Ctx, a: Artifact, userId: string) {
         groupId: a.groupId,
         pluginId: a.pluginId,
         pluginVersionId: a.pluginVersionId,
+        kind: a.kind,
+        editorVersion: a.editorVersion,
         designSystemId: a.designSystemId,
         title: t('{title}（副本）', { title: a.title }).slice(0, 80),
         dir: newArtifactDir(`${a.dir.slice('design/'.length, 'design/'.length + 50)}-copy`),

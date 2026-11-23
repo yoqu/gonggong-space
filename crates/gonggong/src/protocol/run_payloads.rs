@@ -88,6 +88,13 @@ pub struct DaemonArtifactRef {
     /// Its plugin (name): the turn's copy of it gives the shell screenshots are framed in.
     #[serde(default)]
     pub plugin: Option<String>,
+    /// `prototype | site | slides | whiteboard | motion`; a string so a kind added later still parses.
+    #[serde(default = "prototype_kind")]
+    pub kind: String,
+}
+
+fn prototype_kind() -> String {
+    "prototype".into()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -10,8 +10,8 @@ import type {
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
-  artifactAnnotations,
   artifacts,
+  artifactThreads,
   groupBots,
   groupDesignSystems,
   messages,
@@ -158,10 +158,7 @@ describe('annotations', () => {
     const [row] = await t.db.select().from(messages).where(eq(messages.id, msg.id))
     expect(row!.meta).toMatchObject({ artifactRefs: [s.a.id], mentions: [s.bot.id] })
     expect(await s.trigger(msg.id)).toHaveLength(1)
-    const after = await t.db
-      .select()
-      .from(artifactAnnotations)
-      .where(eq(artifactAnnotations.artifactId, s.a.id))
+    const after = await t.db.select().from(artifactThreads).where(eq(artifactThreads.artifactId, s.a.id))
     expect(after.map((n) => [n.status, n.sentMessageId])).toEqual([
       ['sent', msg.id],
       ['sent', msg.id],

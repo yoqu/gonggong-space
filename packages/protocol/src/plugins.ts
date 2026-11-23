@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArtifactExportFormat, ArtifactKind, ArtifactStore } from './artifact-kind.js'
 import { ArtifactCard } from './artifacts.js'
 import { AgentKind } from './common.js'
 import { ApiProtocol, LegacyProviderPreset, ProviderPreset, SkillFile } from './daemon.js'
@@ -385,6 +386,12 @@ export const PluginManifest = z
         tokens: PkgPath.optional(),
         /** The L1 shell: a folder with `index.html` (served as `/`) and runtime files (`/_gg/*`); default `skills/<entry>/kit`. */
         kit: PkgPath.optional(),
+        /** The kind of artifact it creates (absent: prototype). */
+        kind: ArtifactKind.optional(),
+        /** The folder of its built editor, served by the preview origin under `/__oa/<plugin>@<version>/`. */
+        editor: PkgPath.optional(),
+        exports: z.array(ArtifactExportFormat).max(10).optional(),
+        store: ArtifactStore.optional(),
       })
       .optional(),
     /** Where it came from, shown with the license (e.g. an open-design template at a pinned commit). */

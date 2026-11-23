@@ -73,6 +73,7 @@ const artifact = (m = manifest()): ArtifactDto => ({
   queuedRunCount: 0,
   visibility: 'group',
   createdBy: null,
+  kind: 'prototype',
 })
 const routes = (m = manifest(), o: Record<string, unknown> = {}) => ({
   'GET /artifacts/a1': artifact(m),

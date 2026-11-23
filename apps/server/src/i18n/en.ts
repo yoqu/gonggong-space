@@ -1076,6 +1076,7 @@ export const en = {
   屏幕不存在: 'Screen not found',
   批注不存在: 'Annotation not found',
   只能修改自己的批注: 'You can only change your own annotations',
+  批注位置与产物类型不符: "The comment's place doesn't fit this kind of artifact",
   // ArtifactFiles' own messages (packages/protocol), answered by the ZodError handler
   属性值不合法: 'Invalid attribute value',
   样式值不合法: 'Invalid style value',

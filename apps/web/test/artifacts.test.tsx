@@ -43,6 +43,7 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   redoVersionId: null,
   visibility: 'group',
   createdBy: null,
+  kind: 'prototype',
   ...o,
 })
 const card = (o: Partial<ArtifactCard> = {}): ArtifactCard => ({

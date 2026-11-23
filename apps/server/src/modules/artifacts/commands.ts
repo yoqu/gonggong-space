@@ -4,14 +4,15 @@ import {
   type ArtifactCommandReq,
   type ArtifactContext,
   type ArtifactElementRef,
+  type ArtifactThreadAnchor,
   type GgArtifactManifest,
   type MessageCanvas,
   type MessageDto,
-  type SendAnnotationsReq,
+  type SendArtifactThreadsReq,
 } from '@gonggong/protocol'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { artifactAnnotations, messages } from '../../db/schema.js'
+import { artifactThreads, messages } from '../../db/schema.js'
 import { type MessageKey, t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
@@ -26,6 +27,7 @@ import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
 import { pluginCommands } from './kit.js'
 import { rulesContext } from './rules.js'
 import { type Artifact, manifestOf, requireVersion, type Version } from './service.js'
+import { loadThreads } from './threads.js'
 
 // Everything here is read by agents (not translated), except the short message bodies members see.
 
@@ -318,50 +320,75 @@ function importedDesignLines(
   ]
 }
 
-/** POST /api/artifacts/:id/annotations/send — the open annotations become `sent` with the message. */
-export async function sendAnnotations(
+/** Where a thread of another kind than prototype points, for the agent. */
+function placeLine(anchor: Exclude<ArtifactThreadAnchor, { kind: 'prototype' }>) {
+  const xy = (p: { x: number; y: number }) => `(${Math.round(p.x)},${Math.round(p.y)})`
+  const at = (p: { x: number; y: number } | undefined) => (p ? ` 位置 ${xy(p)}` : '')
+  switch (anchor.kind) {
+    case 'site':
+      return `页面 ${anchor.path} 坐标 ${xy(anchor.point)}（页面 CSS 像素）`
+    case 'slides':
+      return `幻灯片 ${anchor.slide}${anchor.path ? ` 元素 ${anchor.path}` : ''}${at(anchor.point)}`
+    case 'whiteboard':
+      return `白板${anchor.element ? ` 元素 ${anchor.element}` : ''}${at(anchor.point)}`
+    case 'motion':
+      return `第 ${anchor.t} 秒${at(anchor.point)}`
+  }
+}
+
+/** A prototype thread's element or region in the version's source, for the agent. */
+async function prototypeLines(
+  source: ReturnType<typeof sources>,
+  n: Extract<ArtifactThreadAnchor, { kind: 'prototype' }>,
+) {
+  if (n.ggId !== null || n.selector !== '') return [await elementLine(source, n.file, n.ggId)]
+  const ids = regionIds(n.snippet ?? '')
+  const r = [n.rect.x, n.rect.y, n.rect.w, n.rect.h].map(Math.round).join(',')
+  return [
+    `${n.file} 区域 (${r})（x,y,w,h，屏幕 CSS 像素）内：${n.snippet || '（没有元素，指这块空白区域）'}`,
+    ...(await Promise.all(
+      ids.slice(0, REGION_LINES).map(async (id) => `   - ${await elementLine(source, n.file, id)}`),
+    )),
+    ...(ids.length > REGION_LINES ? [`   - …另有 ${ids.length - REGION_LINES} 个元素`] : []),
+  ]
+}
+
+/** POST /api/artifacts/:id/threads/send (the canvas's …/annotations/send too) — the threads become `sent`. */
+export async function sendThreads(
   ctx: Ctx,
   me: { id: string; name: string },
   a: Artifact,
-  r: SendAnnotationsReq,
+  r: SendArtifactThreadsReq,
 ): Promise<MessageDto> {
-  const ids = r.annotationIds.filter(isUuid)
+  const ids = r.threadIds.filter(isUuid)
   const rows = ids.length
-    ? await ctx.db
-        .select()
-        .from(artifactAnnotations)
-        .where(and(eq(artifactAnnotations.artifactId, a.id), inArray(artifactAnnotations.id, ids)))
+    ? await loadThreads(ctx, and(eq(artifactThreads.artifactId, a.id), inArray(artifactThreads.id, ids)))
     : []
-  if (rows.length !== new Set(r.annotationIds).size) fail('not_found', '批注不存在')
+  if (rows.length !== new Set(r.threadIds).size) fail('not_found', '批注不存在')
   const head = await requireVersion(ctx.db, a, null)
   const m = await manifestOf(a, head)
   const byVersion = new Map<string, ReturnType<typeof sources>>()
   const lines: string[] = []
-  for (const [i, n] of rows.entries()) {
-    const v = await requireVersion(ctx.db, a, n.versionId)
-    const source = byVersion.get(v.id) ?? sources(a, v)
-    byVersion.set(v.id, source)
-    const region = n.ggId === null && n.selector === ''
-    const ids = region ? regionIds(n.snippet) : []
-    const r = [n.rect.x, n.rect.y, n.rect.w, n.rect.h].map(Math.round).join(',')
-    const target = region
-      ? [
-          `${n.file} 区域 (${r})（x,y,w,h，屏幕 CSS 像素）内：${n.snippet || '（没有元素，指这块空白区域）'}`,
-          ...(await Promise.all(
-            ids.slice(0, REGION_LINES).map(async (id) => `   - ${await elementLine(source, n.file, id)}`),
-          )),
-          ...(ids.length > REGION_LINES ? [`   - …另有 ${ids.length - REGION_LINES} 个元素`] : []),
-        ].join('\n')
-      : await elementLine(source, n.file, n.ggId)
-    lines.push(
-      `${i + 1}. ${target}`,
-      `   ${n.selector ? `选择器：${n.selector}` : '框选区域'}${v.id === head.id ? '' : `（批注于 v${v.n}，当前是 v${head.n}，位置可能已变）`}`,
-      `   意见：${n.note}`,
-    )
+  const files: string[] = []
+  const elements: MessageCanvas['elements'] = []
+  for (const [i, th] of rows.entries()) {
+    const v = await requireVersion(ctx.db, a, th.versionId)
+    const moved = v.id === head.id ? '' : `（批注于 v${v.n}，当前是 v${head.n}，位置可能已变）`
+    const [first, ...replies] = th.messages
+    const n = th.anchor
+    if (n.kind === 'prototype') {
+      const source = byVersion.get(v.id) ?? sources(a, v)
+      byVersion.set(v.id, source)
+      lines.push(
+        `${i + 1}. ${(await prototypeLines(source, n)).join('\n')}`,
+        `   ${n.selector ? `选择器：${n.selector}` : '框选区域'}${moved}`,
+      )
+      files.push(n.file)
+      if (n.ggId !== null) elements.push({ file: n.file, ggId: n.ggId, label: cut(first?.text ?? '') })
+    } else lines.push(`${i + 1}. ${placeLine(n)}${moved}`)
+    lines.push(`   意见：${first?.text ?? ''}`, ...replies.map((x) => `   ${x.authorName} 补充：${x.text}`))
   }
-  const screenIds = [
-    ...new Set(rows.map((n) => /^screens\/(.+)\.html$/.exec(n.file)?.[1]).filter((x) => !!x)),
-  ]
+  const screenIds = [...new Set(files.map((f) => /^screens\/(.+)\.html$/.exec(f)?.[1]).filter((x) => !!x))]
   const canvas: MessageCanvas = {
     artifactId: a.id,
     title: a.title,
@@ -369,9 +396,7 @@ export async function sendAnnotations(
       id,
       title: m?.screens.find((x) => x.id === id)?.title ?? id,
     })),
-    elements: uniqueElements(
-      rows.flatMap((n) => (n.ggId === null ? [] : [{ file: n.file, ggId: n.ggId, label: cut(n.note) }])),
-    ),
+    elements: uniqueElements(elements),
   }
   const dto = await postAsMember(ctx, me, a, r.botId, {
     action: withText(t('按 {n} 条批注修改', { n: rows.length }), r.extra),
@@ -382,16 +407,16 @@ export async function sendAnnotations(
       ...lines,
       ...(r.extra?.trim() ? ['', `补充说明：${r.extra.trim()}`] : []),
       '',
-      RULES,
+      a.kind === 'prototype' ? RULES : '遵守产物所属插件 SKILL.md 的约定。',
       '改完后简短说明每条批注是怎么处理的。',
     ],
   })
   await ctx.db
-    .update(artifactAnnotations)
+    .update(artifactThreads)
     .set({ status: 'sent', sentMessageId: dto.id })
     .where(
       inArray(
-        artifactAnnotations.id,
+        artifactThreads.id,
         rows.map((n) => n.id),
       ),
     )

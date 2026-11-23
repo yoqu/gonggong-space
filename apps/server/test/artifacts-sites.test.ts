@@ -85,7 +85,13 @@ describe('hosted sites', () => {
     expect(((await w.open('web/dist')).json() as SiteOpenRes).artifactId).not.toBe(artifactId)
 
     const [a] = await t.db.select().from(artifacts).where(eq(artifacts.id, artifactId))
-    expect(a).toMatchObject({ siteDir: 'dist', botId: w.bot.id, createdBy: w.wang.id, title: '活动官网' })
+    expect(a).toMatchObject({
+      siteDir: 'dist',
+      botId: w.bot.id,
+      createdBy: w.wang.id,
+      title: '活动官网',
+      kind: 'site',
+    })
     const [card] = await t.db.select().from(messages).where(eq(messages.id, a!.messageId!))
     expect(card!.body).toBe('托管网页「活动官网」')
 

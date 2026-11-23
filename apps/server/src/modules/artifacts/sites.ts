@@ -74,6 +74,7 @@ export async function openSite(
       dir: newArtifactDir('site'),
       botId: s.botId,
       siteDir,
+      kind: 'site',
       createdBy: s.userId,
     })
     .returning()) as [Artifact]

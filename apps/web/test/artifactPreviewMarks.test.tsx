@@ -63,6 +63,7 @@ const artifact = (): ArtifactDto => ({
   queuedRunCount: 0,
   visibility: 'group',
   createdBy: null,
+  kind: 'prototype',
 })
 const files = [
   { path: 'screens/home.html', hash: 'b'.repeat(64), size: 10 },

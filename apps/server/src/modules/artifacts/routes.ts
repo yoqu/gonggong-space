@@ -19,18 +19,24 @@ import {
   ArtifactShareReq,
   ArtifactSubmitReq,
   type ArtifactSubmitRes,
+  type ArtifactThreadDto,
+  ArtifactThreadMessageReq,
   type ArtifactUploadRes,
   type ArtifactVersionDetail,
   type ArtifactVersionSummary,
   ArtifactVisibilityReq,
   CreateAnnotationReq,
+  CreateArtifactThreadReq,
+  EditArtifactThreadMessageReq,
   type MessageDto,
   SendAnnotationsReq,
+  SendArtifactThreadsReq,
   SYNC_BLOB_CONTENT_TYPE,
   SyncHash,
   SyncMissingReq,
   type SyncMissingRes,
   UpdateAnnotationReq,
+  UpdateArtifactThreadReq,
   type WorkDto,
   type WorkGroupDto,
 } from '@gonggong/protocol'
@@ -51,7 +57,7 @@ import { machineRun } from '../runs/machine-run.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { artifactChatRoot } from './chat.js'
-import { sendAnnotations, sendCommand } from './commands.js'
+import { sendCommand, sendThreads } from './commands.js'
 import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
 import { artifactHistory } from './history.js'
@@ -78,6 +84,15 @@ import {
 } from './service.js'
 import { openArtifactPreview, setShare, shareState } from './share.js'
 import { snapshotPending } from './snapshots.js'
+import {
+  createThread,
+  deleteThread,
+  deleteThreadMessage,
+  editThreadMessage,
+  listThreads,
+  replyThread,
+  updateThread,
+} from './threads.js'
 import { listWorks, setVisibility, workGroups } from './works.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
@@ -623,7 +638,8 @@ export function artifactRoutes(ctx: Ctx) {
       async (req): Promise<MessageDto> => {
         const me = await requireUser(ctx, req)
         const a = await requireArtifact(ctx, req.params.id, me.id)
-        return sendAnnotations(ctx, me, a, SendAnnotationsReq.parse(req.body))
+        const { annotationIds, ...r } = SendAnnotationsReq.parse(req.body)
+        return sendThreads(ctx, me, a, { ...r, threadIds: annotationIds })
       },
     )
 
@@ -636,6 +652,69 @@ export function artifactRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       await deleteAnnotation(ctx, me.id, req.params.id)
       return reply.status(204).send()
+    })
+
+    // ── comment threads (every kind; people outside the group read them) ──
+    app.get<{ Params: { id: string }; Querystring: { version?: string } }>(
+      '/api/artifacts/:id/threads',
+      async (req): Promise<ArtifactThreadDto[]> => {
+        const me = await requireUser(ctx, req)
+        const { a } = await viewArtifact(ctx, req.params.id, me.id)
+        return listThreads(ctx, a, req.query.version || undefined)
+      },
+    )
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/threads',
+      async (req): Promise<ArtifactThreadDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return createThread(ctx, me, a, CreateArtifactThreadReq.parse(req.body))
+      },
+    )
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/threads/send',
+      async (req): Promise<MessageDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return sendThreads(ctx, me, a, SendArtifactThreadsReq.parse(req.body))
+      },
+    )
+
+    app.patch<{ Params: { id: string } }>(
+      '/api/artifact-threads/:id',
+      async (req): Promise<ArtifactThreadDto> => {
+        const me = await requireUser(ctx, req)
+        return updateThread(ctx, me, req.params.id, UpdateArtifactThreadReq.parse(req.body))
+      },
+    )
+
+    app.delete<{ Params: { id: string } }>('/api/artifact-threads/:id', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      await deleteThread(ctx, me.id, req.params.id)
+      return reply.status(204).send()
+    })
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifact-threads/:id/messages',
+      async (req): Promise<ArtifactThreadDto> => {
+        const me = await requireUser(ctx, req)
+        return replyThread(ctx, me, req.params.id, ArtifactThreadMessageReq.parse(req.body))
+      },
+    )
+
+    type MessageParams = { Params: { id: string; messageId: string } }
+    app.patch<MessageParams>('/api/artifact-threads/:id/messages/:messageId', async (req) => {
+      const me = await requireUser(ctx, req)
+      const r = EditArtifactThreadMessageReq.parse(req.body)
+      return editThreadMessage(ctx, me.id, req.params.id, req.params.messageId, r)
+    })
+
+    app.delete<MessageParams>('/api/artifact-threads/:id/messages/:messageId', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      const th = await deleteThreadMessage(ctx, me.id, req.params.id, req.params.messageId)
+      return th ?? reply.status(204).send()
     })
   }
 }
