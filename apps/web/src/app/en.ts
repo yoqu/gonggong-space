@@ -62,6 +62,7 @@ export default {
   '选择电脑上的 Claude Code、Codex 或 Gemini CLI': 'Pick Claude Code, Codex or Gemini CLI on a computer',
   开始使用: 'Get started',
   展开会话列表: 'Expand conversations',
+  收起会话列表: 'Collapse conversations',
   '{n} 个 Bot 在线': '{n} {n:Bot|Bots} online',
   '{n} 台电脑在线': '{n} {n:computer|computers} online',
   '群#nav': 'Groups',

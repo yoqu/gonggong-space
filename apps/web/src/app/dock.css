@@ -12,3 +12,7 @@
   z-index: 25;
   box-shadow: var(--shadow-menu);
 }
+/* Collapsed conversation sidebar: hide its column so chat and workbench take the full width. */
+.chat--sidebar-collapsed > .ui-frame__sidebar {
+  display: none;
+}

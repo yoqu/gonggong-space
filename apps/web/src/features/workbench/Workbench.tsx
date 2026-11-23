@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from 'react'
 import { useBenchMode } from '../../app/ChatLayout'
+import { useSidebarCollapse } from '../../app/sidebarCollapse'
 import { useIsMobile } from '../../app/viewport'
 import {
   isFrameKey,
@@ -44,6 +45,7 @@ function useShortcuts(mode: WorkbenchMode) {
       const at = keys.indexOf(bench?.active ?? '')
       if ((e.metaKey || e.ctrlKey) && e.code === 'Backslash') {
         if (e.shiftKey) wb.setMode(wb.mode === 'full' ? wb.previous : 'full')
+        else if (useSidebarCollapse.getState().collapsed) useSidebarCollapse.getState().setCollapsed(false)
         else wb.setMode(shown.current === 'split' ? 'focus' : 'split')
       } else if (e.ctrlKey && e.key === 'Tab' && keys.length) {
         const next = keys[(at + (e.shiftKey ? -1 : 1) + keys.length) % keys.length]
@@ -191,7 +193,10 @@ function DesktopWorkbench() {
                   className="bench__seg-item"
                   aria-label={m.label}
                   aria-pressed={mode === m.mode}
-                  onClick={() => setMode(m.mode)}
+                  onClick={() => {
+                    if (m.mode !== 'full') useSidebarCollapse.getState().setCollapsed(false)
+                    setMode(m.mode)
+                  }}
                 >
                   <svg
                     viewBox="0 0 18 18"

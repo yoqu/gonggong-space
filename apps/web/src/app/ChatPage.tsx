@@ -34,6 +34,7 @@ import { InspectorSlot, useInspector } from './inspector'
 import { isMachinesPath, MachineSidebar } from './MachineSidebar'
 import { ChatStrip, Sidebar } from './Sidebar'
 import { useSession } from './session'
+import { useSidebarCollapse, useSidebarShortcut } from './sidebarCollapse'
 import { useIsMobile } from './viewport'
 import { Welcome } from './Welcome'
 import { useWorkbench } from './workbench'
@@ -267,6 +268,9 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const benchGroup = botId || machineId || spaceId ? null : (group?.id ?? null)
   useEffect(() => useWorkbench.getState().setGroup(benchGroup), [benchGroup])
   const benchShown = useWorkbench((s) => !!benchGroup && s.groupId === benchGroup && s.open)
+  const sidebarCollapsed = useSidebarCollapse((s) => s.collapsed)
+  const inChat = !managing && !works && !market
+  useSidebarShortcut(!mobile && inChat && !benchShown)
   useBackLayer('inspector', !!inspector, () => useInspector.getState().close(), mobile)
   useBackLayer('bench', benchShown, () => useWorkbench.getState().setOpen(false), mobile)
   useEffect(() => {
@@ -310,6 +314,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   return (
     <>
       <ChatLayout
+        sidebarCollapsed={inChat && sidebarCollapsed}
         mobileView={
           notFound ||
           groupId ||

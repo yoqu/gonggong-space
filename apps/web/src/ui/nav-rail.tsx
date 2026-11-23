@@ -15,6 +15,10 @@ export interface NavRailItem {
   muted?: boolean
   /** New content without a count. */
   dot?: boolean
+  /** Overrides the hover tooltip (defaults to `label`). */
+  title?: string
+  /** Whether the module's attached panel (e.g. conversation sidebar) is expanded. */
+  expanded?: boolean
 }
 
 export interface NavRailProps {
@@ -88,7 +92,8 @@ export function NavRail({
         type="button"
         className="ui-rail__item"
         aria-current={on ? 'page' : undefined}
-        title={it.label}
+        aria-expanded={it.expanded}
+        title={it.title ?? it.label}
         aria-label={
           it.badge
             ? t('{label}（{n} 条未读）', { label: it.label, n: unreadCount(it.badge) })

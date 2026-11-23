@@ -139,6 +139,7 @@ function Splitter({
 
 export function ChatLayout({
   sidebar,
+  sidebarCollapsed = false,
   strip,
   children,
   chatStrip,
@@ -152,6 +153,8 @@ export function ChatLayout({
 }: {
   /** Null on full-width pages: no sidebar column at all. */
   sidebar: ReactNode
+  /** Collapses the conversation sidebar on desktop so the content area takes the full width. */
+  sidebarCollapsed?: boolean
   /** The sidebar's landmark name: the conversation list, or the machine panel in its place. */
   sidebarLabel?: string
   /** The conversation list folded to icons, shown in the workbench's 专注 mode. */
@@ -171,6 +174,7 @@ export function ChatLayout({
 }) {
   const width = useViewportWidth()
   const mobile = width < MOBILE_MAX
+  const sidebarHidden = !mobile && sidebarCollapsed
   const bench = !mobile && !!workbench
   const phoneBench = mobile && mobileView === 'chat' && !!workbench
   const stored = useBenchMode()
@@ -180,8 +184,8 @@ export function ChatLayout({
   const roomIn = (m: WorkbenchMode) =>
     width -
     (nav ? NAV_WIDTH : 0) -
-    (sidebar != null && m === 'split' ? SIDEBAR_WIDTH : 0) -
-    (sidebar != null && strip && m === 'focus' ? STRIP_WIDTH : 0)
+    (!sidebarHidden && sidebar != null && m === 'split' ? SIDEBAR_WIDTH : 0) -
+    (!sidebarHidden && sidebar != null && strip && m === 'focus' ? STRIP_WIDTH : 0)
   const chatKey = (m: WorkbenchMode) => `gonggong.chatWidth.${m === 'split' ? 'split' : 'focus'}`
   const clampTo = (w: number, min: number, max: number) => Math.round(Math.min(Math.max(w, min), max))
   const railNeed = clampTo(
@@ -194,7 +198,9 @@ export function ChatLayout({
     BENCH_MIN
   // A docked rail that would squeeze the chat away first folds the list to its icon strip; the stored mode is kept.
   const mode: WorkbenchMode =
-    docked && stored === 'split' && strip && !fits('split') && fits('focus') ? 'focus' : stored
+    !sidebarHidden && docked && stored === 'split' && strip && !fits('split') && fits('focus')
+      ? 'focus'
+      : stored
   const full = bench && mode === 'full'
   const room = roomIn(mode)
   const resize = useSplitWidth(
@@ -222,7 +228,7 @@ export function ChatLayout({
       <nav
         aria-label={sidebarLabel}
         className="chat__sidebar"
-        hidden={(bench && mode !== 'split') || (mobile && mobileView !== 'list')}
+        hidden={sidebarHidden || (bench && mode !== 'split') || (mobile && mobileView !== 'list')}
       >
         {sidebar}
       </nav>
@@ -249,13 +255,18 @@ export function ChatLayout({
   )
   return (
     <AppFrame
-      className={cx('chat', mobile && `chat--${mobileView}`, bench && `chat--bench chat--${mode}`)}
+      className={cx(
+        'chat',
+        mobile && `chat--${mobileView}`,
+        bench && `chat--bench chat--${mode}`,
+        sidebarHidden && 'chat--sidebar-collapsed',
+      )}
       rail={mobile ? undefined : nav?.('vertical')}
       sidebar={
         list ? (
           <>
             {list}
-            {bench && mode === 'focus' ? strip : null}
+            {!sidebarHidden && bench && mode === 'focus' ? strip : null}
             {mobile && mobileView === 'list' ? nav?.('horizontal') : null}
           </>
         ) : undefined
