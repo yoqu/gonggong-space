@@ -6,12 +6,12 @@ import {
   PERSONAL_BASE,
   type UserDto,
 } from '@gonggong/protocol'
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
 import { locale, setLocale, t } from '../../i18n'
-import { ApiError, api, avatarForm } from '../../lib/api'
+import { ApiError, api, avatarForm, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
@@ -19,6 +19,7 @@ import {
   Alert,
   AvatarEditor,
   Button,
+  ConfirmActionDialog,
   Dialog,
   GroupBox,
   GroupRow,
@@ -31,6 +32,7 @@ import {
   Sheet,
   Spinner,
   TextField,
+  toast,
 } from '../../ui'
 import { ChangePasswordDialog } from '../auth/ChangePasswordPage'
 import { FeishuIdentityRow } from '../feishu/FeishuIdentityRow'
@@ -177,19 +179,24 @@ function GitPage() {
   const user = useSession((s) => s.user)
   const { accounts, load, set } = useGitAccounts()
   const [adding, setAdding] = useState(false)
-  useEffect(() => {
-    load().catch(toastError)
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [disconnecting, setDisconnecting] = useState<GitAccountDto | null>(null)
+  const refresh = useCallback(() => {
+    setLoading(true)
+    setLoadError('')
+    return load()
+      .catch((e) => {
+        if (useGitAccounts.getState().accounts !== null) toastError(e)
+        setLoadError(errorText(e))
+      })
+      .finally(() => setLoading(false))
   }, [load])
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
   if (!user) return null
 
-  const disconnect = async (a: GitAccountDto) => {
-    try {
-      await gitAccountsApi.remove(a.id)
-      set((accounts ?? []).filter((x) => x.id !== a.id))
-    } catch (e) {
-      toastError(e)
-    }
-  }
   const setProtocol = (gitProtocol: UserDto['gitProtocol']) =>
     api
       .patch<UserDto>('/me', { gitProtocol })
@@ -200,9 +207,14 @@ function GitPage() {
     <>
       <section className="settings-section">
         <h3 className="settings-section__title">{t('已连接的账号')}</h3>
+        {accounts === null && loadError ? (
+          <Alert variant="error" description={loadError} retrying={loading} onRetry={() => void refresh()} />
+        ) : null}
         <GroupBox>
           {accounts === null ? (
-            <GroupRow label={<Spinner />} />
+            loadError ? null : (
+              <GroupRow label={<Spinner />} />
+            )
           ) : (
             accounts.map((a) => (
               <GroupRow
@@ -223,7 +235,7 @@ function GitPage() {
                   {a.status === 'invalid' ? (
                     <span className="settings-account__bad">{t('需要重新连接')}</span>
                   ) : null}
-                  <Button size="small" onClick={() => void disconnect(a)}>
+                  <Button size="small" onClick={() => setDisconnecting(a)}>
                     {t('断开')}
                   </Button>
                 </span>
@@ -254,6 +266,24 @@ function GitPage() {
           setAdding(false)
         }}
       />
+      <Presence>
+        {disconnecting ? (
+          <ConfirmActionDialog
+            title={t('断开 {account}？', {
+              account: `${accountLabel(disconnecting)} ${disconnecting.login}`,
+            })}
+            message={t('断开后需要重新填写 Token 才能恢复连接。')}
+            consequences={[t('将不再自动列出该账号的仓库和分支'), t('已在群里绑定的仓库不受影响')]}
+            label={t('断开账号')}
+            done={t('已断开账号')}
+            run={async () => {
+              await gitAccountsApi.remove(disconnecting.id)
+              set((useGitAccounts.getState().accounts ?? []).filter((x) => x.id !== disconnecting.id))
+            }}
+            onClose={() => setDisconnecting(null)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }
@@ -371,20 +401,22 @@ function AddAccountSheet({
       setBusy(false)
     }
   }
+  const safeClose = busy ? () => {} : onClose
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={safeClose}
       title={t('添加 Git 账号')}
       width={420}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: safeClose },
         {
           label: busy ? t('验证中…') : t('连接'),
           variant: 'primary',
           type: 'submit',
           form: 'add-git-account',
           disabled: busy || !base || !token.trim(),
+          loading: busy,
         },
       ]}
     >
@@ -530,6 +562,7 @@ function ProfileSheet({
   const spec = PROFILE_SHEET[field]
   const next = value.trim()
   const disabled = busy || (field === 'name' && !next) || next === current
+  const safeClose = busy ? () => {} : onClose
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (disabled) return
@@ -537,6 +570,7 @@ function ProfileSheet({
     setError('')
     try {
       useSession.getState().setUser(await api.patch<UserDto>('/me', { [field]: next }))
+      toast({ type: 'success', message: field === 'name' ? t('已更新显示名') : t('已更新邮箱') })
       onClose()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('保存失败，请重试'))
@@ -547,12 +581,12 @@ function ProfileSheet({
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={safeClose}
       title={spec.title}
       width={420}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('保存'), variant: 'primary', type: 'submit', form: 'edit-me', disabled },
+        { label: t('取消'), disabled: busy, onClick: safeClose },
+        { label: t('保存'), variant: 'primary', type: 'submit', form: 'edit-me', disabled, loading: busy },
       ]}
     >
       <form id="edit-me" className="settings-add" onSubmit={submit} noValidate>

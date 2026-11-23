@@ -19,6 +19,7 @@ import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
+  ConfirmActionDialog,
   Dialog,
   EmptyState,
   GroupBox,
@@ -63,15 +64,32 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
   const upstream = useGet<UpstreamMovedDto[]>(data?.some((l) => l.ghSource) ? '/market/mine/upstream' : null)
   const [publishing, setPublishing] = useState(false)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
+  const [submitBusy, setSubmitBusy] = useState(false)
+  const [unlisting, setUnlisting] = useState<MyListingDto | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [checkingId, setCheckingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
-  const patch = (l: MyListingDto, body: UpdateListingReq) =>
-    attempt(() => api.patch(`/market/${l.id}`, body)).then(reload)
+  const patch = async (l: MyListingDto, body: UpdateListingReq) => {
+    if (busyId === l.id) return
+    setBusyId(l.id)
+    try {
+      const ok = await attempt(() => api.patch(`/market/${l.id}`, body))
+      if (ok) reload()
+    } finally {
+      setBusyId((id) => (id === l.id ? null : id))
+    }
+  }
   const checkUpstream = async (l: MyListingDto) => {
+    if (checkingId === l.id) return
+    setCheckingId(l.id)
     let res: CheckUpstreamRes
     try {
       res = await api.post<CheckUpstreamRes>(`/market/${l.id}/check-upstream`)
     } catch (e) {
-      return toastError(e)
+      toastError(e)
+      return
+    } finally {
+      setCheckingId((id) => (id === l.id ? null : id))
     }
     const commit = res.commit.slice(0, 7)
     toast({
@@ -117,7 +135,7 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
           {t('发布…')}
         </Button>
       </div>
-      {error ? <Alert variant="error" title={error} /> : null}
+      {error ? <Alert variant="error" title={error} onRetry={reload} /> : null}
       {!data ? (
         error ? null : (
           <Spinner />
@@ -180,7 +198,13 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
               >
                 <span className="cfg__controls mkt-row__controls">
                   {l.ghSource ? (
-                    <Button size="small" variant="plain" onClick={() => void checkUpstream(l)}>
+                    <Button
+                      size="small"
+                      variant="plain"
+                      loading={checkingId === l.id}
+                      disabled={checkingId === l.id}
+                      onClick={() => void checkUpstream(l)}
+                    >
                       {movedOf(l) ? t('同步上游更新') : t('检查上游更新')}
                     </Button>
                   ) : null}
@@ -188,7 +212,11 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                     <Button
                       size="small"
                       variant="plain"
-                      onClick={() => void patch(l, { status: l.status === 'listed' ? 'unlisted' : 'listed' })}
+                      loading={l.status !== 'listed' && busyId === l.id}
+                      disabled={busyId === l.id}
+                      onClick={() =>
+                        l.status === 'listed' ? setUnlisting(l) : void patch(l, { status: 'listed' })
+                      }
                     >
                       {l.status === 'listed' ? t('下架') : t('重新上架')}
                     </Button>
@@ -197,6 +225,8 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                     <Button
                       size="small"
                       variant="plain"
+                      loading={busyId === l.id}
+                      disabled={busyId === l.id}
                       onClick={() =>
                         void patch(l, { visibility: l.visibility === 'public' ? 'team' : 'public' })
                       }
@@ -247,17 +277,36 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
             title={t('提交审核 {name}', { name: submitting.title })}
             width={480}
             closeOnScrim={false}
-            onClose={() => setSubmitting(null)}
+            onClose={submitBusy ? () => {} : () => setSubmitting(null)}
           >
             <SubmitForm
               listing={submitting}
-              onCancel={() => setSubmitting(null)}
+              onBusyChange={setSubmitBusy}
+              onCancel={() => {
+                setSubmitBusy(false)
+                setSubmitting(null)
+              }}
               onDone={() => {
+                setSubmitBusy(false)
                 setSubmitting(null)
                 reload()
               }}
             />
           </Dialog>
+        ) : unlisting ? (
+          <ConfirmActionDialog
+            title={t('下架「{name}」？', { name: unlisting.title })}
+            message={t('下架后市场里不再显示这个条目，也不能新引入；可随时重新上架。')}
+            consequences={[t('已引入的地方会保留当前版本并继续使用'), t('不会再收到后续新版本更新')]}
+            label={t('下架')}
+            done={t('已下架「{name}」', { name: unlisting.title })}
+            run={() => api.patch(`/market/${unlisting.id}`, { status: 'unlisted' })}
+            onDone={() => {
+              setUnlisting(null)
+              reload()
+            }}
+            onClose={() => setUnlisting(null)}
+          />
         ) : null}
       </Presence>
     </div>
@@ -268,11 +317,13 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
 function SubmitForm({
   listing,
   cancelLabel = t('取消'),
+  onBusyChange,
   onCancel,
   onDone,
 }: {
   listing: MyListingDto
   cancelLabel?: string
+  onBusyChange?: (busy: boolean) => void
   onCancel: () => void
   onDone: () => void
 }) {
@@ -280,17 +331,21 @@ function SubmitForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const submit = async () => {
+    if (busy) return
     setBusy(true)
+    onBusyChange?.(true)
     setError('')
     try {
       await api.post(`/market/${listing.id}/versions/${listing.latest.id}/submit`, {
         changelog: changelog.trim(),
       })
       toast({ type: 'success', message: t('已提交审核') })
+      onBusyChange?.(false)
       onDone()
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
+      onBusyChange?.(false)
     }
   }
   return (
@@ -306,8 +361,10 @@ function SubmitForm({
       />
       <div className="cfg__foot">
         <span className="spacer" />
-        <Button onClick={onCancel}>{cancelLabel}</Button>
-        <Button variant="primary" disabled={busy} onClick={() => void submit()}>
+        <Button disabled={busy} onClick={onCancel}>
+          {cancelLabel}
+        </Button>
+        <Button variant="primary" loading={busy} disabled={busy} onClick={() => void submit()}>
           {t('提交审核')}
         </Button>
       </div>
@@ -327,10 +384,15 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
   const [skillMd, setSkillMd] = useState('')
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const [submitBusy, setSubmitBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState<PublishRes | null>(null)
   const folder = useRef<HTMLInputElement>(null)
   const zip = useRef<HTMLInputElement>(null)
+  const locked = busy || submitBusy
+  const close = () => {
+    if (!locked) onClose()
+  }
 
   const read = async (load: Promise<SkillFile[]>) => {
     try {
@@ -349,6 +411,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
   const ready =
     !!teamId && (source === 'github' ? !!url.trim() : !!check.result && check.result.kind !== 'unchanged')
   const save = async () => {
+    if (busy) return
     setBusy(true)
     setError('')
     try {
@@ -369,16 +432,17 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
       title={t('发布到市场')}
       width={600}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={locked ? () => {} : onClose}
       actions={
         saved
           ? undefined
           : [
-              { label: t('取消'), onClick: onClose },
+              { label: t('取消'), disabled: busy, onClick: close },
               {
                 label: t('保存草稿'),
                 variant: 'primary',
                 disabled: !ready || busy,
+                loading: busy,
                 onClick: () => void save(),
               },
             ]
@@ -407,13 +471,14 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             <SubmitForm
               listing={saved.listing}
               cancelLabel={t('稍后提交')}
-              onCancel={onClose}
+              onBusyChange={setSubmitBusy}
+              onCancel={close}
               onDone={onClose}
             />
           ) : (
             <div className="cfg__foot">
               <span className="spacer" />
-              <Button onClick={onClose}>{t('关闭')}</Button>
+              <Button onClick={close}>{t('关闭')}</Button>
             </div>
           )}
         </>

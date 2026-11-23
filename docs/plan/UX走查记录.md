@@ -334,3 +334,20 @@
 - P2 客户端发布页「编辑版本说明」缺取消按钮，且「移除」弹窗缺提交中防重入（`admin/ReleasesPage.tsx`）：进入编辑态后无法放弃草稿退回预览，移除产物请求期间按钮未禁用 → 编辑态补「取消」按钮还原原说明，移除确认弹窗补 `removingBusy` 防重入（验收：编辑版本说明可随时取消还原，移除中不可连点）。
 - P3 审计记录详情弹窗 `detail` 原始英文键名与 JSON 单行平铺难阅读（`admin/AuditPage.tsx`）：嵌套 JSON 以单行紧凑字符串展示，排查长参数不便 → 对对象值使用缩进格式化与等宽换行块，支持一键复制详情 JSON（验收：含复杂 `detail` 的审计记录在弹窗内层次清晰不截断）。
 - P3 目录选择器（`DirPicker`）新建文件夹输入空名按 Enter 静默无反馈且缺触屏确认/取消按钮（`workspaces/DirPicker.tsx`）：仅依赖键盘 Enter/Esc，手机触屏端缺少显式按钮 → 空名提交时显示「请输入文件夹名称」，编辑行右侧补确认/取消小按钮（验收：390px 触屏下可点击完成或取消新建文件夹）。
+
+## 11-23 第 1 轮（Bot 详情与按人群分审批档、新建 Bot、市场全流程、电脑总览与详情、个人设置弹窗；桌面 1440 + 深色 + 390 触屏）
+
+已修（6 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 Bot 编辑弹窗 `RolePicker` 角色网格在 390px 手机端严重叠压碰撞（`bots/bots.css`）：`.role-picker` 写死 7 列（`repeat(7, minmax(0, 1fr))`）而头像固定 40×40px，窄屏右侧表单列仅 ~230px 导致头像重叠、文字挤碎、选中框穿出 → 改为 `repeat(auto-fill, minmax(56px, 1fr))` 自适应列数并给 `.role-card` 补 `min-width: 0; overflow: hidden`（验收：390px 手机与管理后台侧栏均自动折列、零重叠）。
+- P1 按人群分审批档（`AudienceFields`）从「信任名单=不可触发」直接把「其他成员」设为「完全允许」时，会连带开启信任名单的完全允许，但确认弹窗仅提及「其他成员」未告知级联影响（`bots/AudienceFields.tsx`、`bots/en.ts`）→ 级联提升时在确认弹窗标题与说明中明确告知将同时允许「信任名单和其他成员」（验收：级联开启完全允许时弹窗文案完整透明）。
+- P1 市场页（`/market`）在 390px 手机端「类型」6 项分段器横向溢出顶出视口、页头标题与 4 个 Tab 互挤（`market/MarketPage.tsx`、`market/market.css`）→ 窄屏下 `.mkt-bar .ui-seg` 限宽 `100%` 并允许横向顺滑滚动、≤640px 允许页头折行（验收：390px 下市场页零横向溢出、全部筛选与标签可达）。
+- P1 市场详情/我的发布/引入申请/待审核 4 处加载失败缺「重试」按钮、下架零确认、多处高危/提交操作缺防重入与加载锁定、详情管理 `···` 按钮近隐形（`market/ListingDetail.tsx`、`MyListings.tsx`、`InstallRequests.tsx`、`ReviewList.tsx`、`InstallTargetDialog.tsx`、`market/en.ts`）→ 4 处错误 `<Alert>` 统一补「重试」按钮；「下架」接入 `ConfirmActionDialog` 二次确认与成功 Toast；详情 `···` 改 `variant="ghost"`；解封/检查上游/通过/撤回补按行防重入锁；5 处弹窗提交中锁取消/关闭并传 `loading`（验收：报错可原位重试，下架先确认，提交中防误关与连点）。
+- P1 个人设置 › Git 与仓库列表加载失败永久转圈、点击「断开」零确认直接删除且无反馈（`settings/SettingsDialog.tsx`、`settings/en.ts`）→ 记录 `loadError` 渲染错误 `<Alert>` +「重试」按钮；「断开」接入 `ConfirmActionDialog` 二次确认、提交锁与成功 Toast（验收：接口报错不再永久转圈，断开账号需先确认且取消不发请求）。
+- P1 个人设置 `AddAccountSheet` 与 `ProfileSheet` 提交中未锁定取消按钮与关闭回调且缺按钮 `loading` 与保存反馈（`settings/SettingsDialog.tsx`）→ 提交期间禁用取消并拦截 `onClose`，主按钮传 `loading: busy`，`ProfileSheet` 保存成功弹 Toast（验收：提交中不可误关、状态反馈清晰）。
+
+- P2 市场卡片 Agent 标签墙撑高卡片高度（`market/MarketPage.tsx`）：「产品原型」「幻灯片」等通用插件支持 12 个 Agent，卡片底部渲染 12 个灰胶囊占 3 行，与单 Agent 卡片高度落差悬殊 → 超过 4 个 Agent 时折叠为前 3 个 + `+N`（`title` 列出全部），或全量支持时显示「全部 Agent」单标签（验收：市场网格同排卡片视觉重心齐整，悬停可查全部支持 Agent）。
+- P2 市场详情 README 代码块在 390px 手机端右侧内容截断且无横向滚动提示（`market/ListingDetail.tsx`、`market/market.css`）：ASCII 目录树等长代码行右侧注释被切在框外无视觉提示 → 为 `.mkt-detail__readme pre` 保持横向滚动并补充右侧渐隐遮罩提示可横滑（验收：390px 下长代码块明确提示可横滑不误以为内容缺失）。
+- P2 电脑详情页内联重命名（`MachineName`）铅笔按钮在 390px 触屏端仅 22×22px（`machines/machines.css`）：`.machine-name__edit` 固定 `22×22px` 小于触控安全热区 → `@media (pointer: coarse)` 下扩至 `32×32px`（验收：390px 触屏下重命名按钮热区 ≥32px）。
+- P2 新建 Bot 弹窗（`NewBotDialog`）390px 移动端「运行电脑」单选项名称与状态同行折成两行显拥挤（`bots/bots.css`）：长主机名 `yoquM4MacBook-Pro-1082` 与 `macOS · 离线` 并排互相挤压 → `@media (max-width: 640px)` 下 `.newbot__machine` 改纵向堆叠，机器名与状态各占一行（验收：390px 下运行电脑选项清爽不折碎）。
+- P3 `BotPage` 与 `MachineDetails` 离线状态圆点为实心灰点，与头像角标空心灰环视觉不统一（`bots/bots.css`、`machines/machines.css`）→ 离线态圆点统一为空心描边环（验收：头像角标与详情卡内离线指示视觉全站一致）。
+- P3 市场「我的发布」空态页顶部工具栏与居中空态插画同时出现两个同名蓝色「发布…」主按钮（`market/MyListings.tsx`）→ 列表为空（`!data?.length`）时隐藏顶部工具栏的「发布…」按钮，仅保留空态居中主按钮（验收：空态页全屏仅一个实心蓝色「发布…」主操作）。

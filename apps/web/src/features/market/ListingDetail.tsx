@@ -111,11 +111,24 @@ export function ListingDetail({
     `/market/${id}${versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''}`,
   )
   const [banning, setBanning] = useState(false)
+  const [unbanning, setUnbanning] = useState(false)
   const [diffOf, setDiffOf] = useState<ListingVersionDto | null>(null)
-  if (!data) return error ? <Alert variant="error" title={error} /> : <Spinner />
+  if (!data) return error ? <Alert variant="error" title={error} onRetry={reload} /> : <Spinner />
   const gh = data.ghSource
   const banned = data.status === 'banned'
-  const unban = () => attempt(() => api.del(`/market/${data.id}/ban`)).then(reload)
+  const unban = async () => {
+    if (unbanning) return
+    setUnbanning(true)
+    try {
+      const ok = await attempt(() => api.del(`/market/${data.id}/ban`))
+      if (ok) {
+        toast({ type: 'success', message: t('已解封「{name}」', { name: data.title }) })
+        reload()
+      }
+    } finally {
+      setUnbanning(false)
+    }
+  }
   const readme = stripFrontMatter(data.readme)
   const action = actions?.(data)
   return (
@@ -155,12 +168,12 @@ export function ListingDetail({
           <span className="spacer" />
           {data.canReview ? (
             banned ? (
-              <Button size="small" onClick={() => void unban()}>
+              <Button size="small" loading={unbanning} disabled={unbanning} onClick={() => void unban()}>
                 {t('解封')}
               </Button>
             ) : (
               <PullDownButton
-                variant="plain"
+                variant="ghost"
                 size="small"
                 icon="more"
                 indicator={false}
@@ -297,6 +310,7 @@ function BanDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const ban = async () => {
+    if (busy) return
     setBusy(true)
     setError('')
     try {
@@ -308,19 +322,23 @@ function BanDialog({
       setBusy(false)
     }
   }
+  const close = () => {
+    if (!busy) onClose()
+  }
   return (
     <Dialog
       open
       title={t('封禁「{name}」', { name: listing.title })}
       width={480}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: t('封禁'),
           variant: 'destructive',
           disabled: busy || !reason.trim(),
+          loading: busy,
           onClick: () => void ban(),
         },
       ]}

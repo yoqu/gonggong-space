@@ -135,7 +135,7 @@ export function MarketPage() {
 
   return (
     <section className="works" aria-label={t('市场')}>
-      <header className="works__head">
+      <header className="works__head mkt-head">
         <h1 className="works__title">{t('市场')}</h1>
         <span className="spacer" />
         <Tabs
@@ -188,7 +188,7 @@ export function MarketPage() {
         </div>
       ) : (
         <>
-          <div className="works__bar">
+          <div className="works__bar mkt-bar">
             <SegmentedControl<TypeFilter>
               aria-label={t('类型')}
               size="small"

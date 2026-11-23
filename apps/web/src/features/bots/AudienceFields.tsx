@@ -119,6 +119,7 @@ export function AudienceFields({
       )}
     </FormRow>
   )
+  const cascadesTrusted = confirming === 'others' && value.trusted === 'deny'
   return (
     <>
       {row('trusted', t('信任名单'), t('名单里的成员发起的任务按这个方式审批。'))}
@@ -160,11 +161,21 @@ export function AudienceFields({
       <AlertDialog
         open={confirming !== null}
         title={t('允许{who}完全控制这台电脑？', {
-          who: confirming === 'others' ? t('其他成员') : t('名单成员'),
+          who: cascadesTrusted
+            ? t('信任名单和其他成员')
+            : confirming === 'others'
+              ? t('其他成员')
+              : t('名单成员'),
         })}
-        message={t(
-          '他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。',
-        )}
+        message={
+          cascadesTrusted
+            ? t(
+                '开启「其他成员」会同时将「信任名单」设为完全允许。他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。',
+              )
+            : t(
+                '他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。',
+              )
+        }
         onClose={() => setConfirming(null)}
         actions={[
           { label: t('取消'), onClick: () => setConfirming(null) },

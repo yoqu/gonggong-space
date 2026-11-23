@@ -688,6 +688,30 @@ describe('bot detail', () => {
     )
   })
 
+  it('warns that 完全允许 for others also opens the trusted list when trusted is 不可触发', async () => {
+    routes['GET /api/bots'] = () => [bot({ triggerScope: 'self', triggerList: ['u2'] })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    expect(within(detail).getByRole('button', { name: '信任名单' }).textContent).toContain('不可触发')
+    fireEvent.click(within(detail).getByRole('button', { name: '其他成员' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /完全允许/ }))
+    const confirm = await screen.findByRole('alertdialog')
+    expect(within(confirm).getByText('允许信任名单和其他成员完全控制这台电脑？')).toBeTruthy()
+    expect(within(confirm).getByText(/同时将「信任名单」设为完全允许/)).toBeTruthy()
+    fireEvent.click(within(confirm).getByRole('button', { name: '确定允许' }))
+    expect(within(detail).getByRole('button', { name: '信任名单' }).textContent).toContain('完全允许')
+    expect(within(detail).getByRole('button', { name: '其他成员' }).textContent).toContain('完全允许')
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
+        triggerScope: 'all',
+        access: { trusted: 'full', others: 'full' },
+      }),
+    )
+  })
+
   it('keeps the Feishu app on its own 飞书 tab, without the 保存 button', async () => {
     routes['GET /api/bots'] = () => [bot({})]
     routes['GET /api/bots/b1/feishu'] = () => ({ app: null })

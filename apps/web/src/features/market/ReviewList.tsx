@@ -14,7 +14,7 @@ import '../groups/groups.css'
 export function MarketReviewList({ path }: { path: string }) {
   const { data, error, reload } = useGet<ReviewItemDto[]>(path)
   const [open, setOpen] = useState<ReviewItemDto | null>(null)
-  if (!data) return error ? <Alert variant="error" title={error} /> : <Spinner />
+  if (!data) return error ? <Alert variant="error" title={error} onRetry={reload} /> : <Spinner />
   return (
     <>
       <div className="gs-note">{t('公开条目由平台管理员审核，仅本团队可见的条目由团队管理员审核。')}</div>
@@ -69,10 +69,12 @@ function ReviewDialog({
   onDone: () => void
 }) {
   const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [error, setError] = useState('')
+  const isBusy = busy !== null
   const review = async (approve: boolean) => {
-    setBusy(true)
+    if (isBusy) return
+    setBusy(approve ? 'approve' : 'reject')
     setError('')
     try {
       await api.post(`/market/${item.listing.id}/versions/${item.version.id}/review`, {
@@ -83,8 +85,11 @@ function ReviewDialog({
       onDone()
     } catch (e) {
       setError(errorText(e))
-      setBusy(false)
+      setBusy(null)
     }
+  }
+  const close = () => {
+    if (!isBusy) onClose()
   }
   return (
     <Dialog
@@ -92,16 +97,23 @@ function ReviewDialog({
       title={t('审核 {name} r{n}', { name: item.listing.title, n: item.version.revision })}
       width={760}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={isBusy ? () => {} : onClose}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: isBusy, onClick: close },
         {
           label: t('驳回'),
           variant: 'destructive',
-          disabled: busy || !note.trim(),
+          disabled: isBusy || !note.trim(),
+          loading: busy === 'reject',
           onClick: () => void review(false),
         },
-        { label: t('通过'), variant: 'primary', disabled: busy, onClick: () => void review(true) },
+        {
+          label: t('通过'),
+          variant: 'primary',
+          disabled: isBusy,
+          loading: busy === 'approve',
+          onClick: () => void review(true),
+        },
       ]}
     >
       {error ? <Alert variant="error" title={error} /> : null}
