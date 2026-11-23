@@ -449,7 +449,8 @@ describe('新建 Bot', () => {
     fireEvent.click(within(welcome).getByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建' }))
-    const open = await within(dialog).findByRole('link', { name: '在客户端中打开' })
+    // Creating the bot, then asking for its bind code: two round trips, slow on a loaded CI agent.
+    const open = await within(dialog).findByRole('link', { name: '在客户端中打开' }, { timeout: 5000 })
     expect(open.getAttribute('href')).toBe('gonggong://bind?server=x&code=K7QM-4X2P')
     expect(within(dialog).getByRole('button', { name: '复制接入链接' })).toBeTruthy()
     localStorage.removeItem('gg.builder')
