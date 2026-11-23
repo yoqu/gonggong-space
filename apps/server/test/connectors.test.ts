@@ -217,6 +217,32 @@ describe('connectors', () => {
     expect(after.bot.systemPrompt).not.toContain('未连接的连接器')
     expect(after.bot.systemPrompt).toContain('已连接的连接器')
     expect(after.bot.systemPrompt).toContain('Claude、CodeBuddy 用 dw:dw')
+
+    const lark = await w.upload([
+      {
+        path: 'gonggong-plugin.json',
+        content: JSON.stringify({
+          name: 'feishu',
+          version: '1.0.0',
+          title: '飞书',
+          description: '文档、表格、日历',
+          category: 'connector',
+          agents: ['claude'],
+          minDaemon: '0.5.0',
+          entry: 'lark-connect',
+          connector: { login: '帮我连接飞书' },
+        }),
+      },
+      {
+        path: 'skills/lark-connect/SKILL.md',
+        content: '---\nname: lark-connect\ndescription: x\n---\nGo.\n',
+      },
+    ])
+    expect((await w.list()).find((c) => c.id === lark.id)).toMatchObject({ personal: false, missing: [] })
+    const cli = await build()
+    expect(cli.plugins.map((p) => p.name).sort()).toEqual(['dw', 'feishu'])
+    expect(cli.bot.systemPrompt).toContain('飞书（feishu）：文档、表格、日历')
+    expect(cli.bot.systemPrompt).toContain('没登录时按 Skill 用设备码请发起人授权')
   })
 
   it('lets the agent ask the originator to connect a personal connector the team has no definition for yet', async () => {

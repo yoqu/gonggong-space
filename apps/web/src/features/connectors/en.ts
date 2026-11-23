@@ -20,4 +20,7 @@ export default {
     'Deletes the secrets you filled in this team; bots in every group can no longer reach "{name}" with your account.',
   '这些也会一起断开：{names}': 'These are cut off too: {names}',
   '已解绑「{name}」': 'Unlinked "{name}"',
+  '用你自己的账号在对话里登录：Bot 发来授权链接，你在浏览器里同意即可。登录信息只保存在 Bot 所在电脑的命令行工具里。':
+    "Sign in with your own account in the chat: the bot sends an authorization link for you to approve in the browser. The login stays in the command-line tool on the bot's computer.",
+  在对话里连接: 'Connect in chat',
 }

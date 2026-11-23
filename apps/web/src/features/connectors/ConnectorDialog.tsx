@@ -78,14 +78,28 @@ export function ConnectorDialog({
         </div>
         <h2 className="cn-detail__title">{m.title}</h2>
         {m.description ? <p className="cn-detail__desc">{m.description}</p> : null}
-        {c.personal && inGroup ? (
+        {(c.personal || m.connector?.login) && inGroup ? (
           <div className="cn-detail__note">
             <Icon name="eye" size={13} />
             {t('用你自己的账号连接，Bot 的回复群内可见')}
           </div>
         ) : null}
         {error ? <Alert variant="error" title={error} /> : null}
-        {c.connected ? (
+        {m.connector?.login ? (
+          <>
+            <div className="gs-note">
+              {t(
+                '用你自己的账号在对话里登录：Bot 发来授权链接，你在浏览器里同意即可。登录信息只保存在 Bot 所在电脑的命令行工具里。',
+              )}
+            </div>
+            <div className="cn-detail__actions">
+              <Button variant="primary" onClick={() => onTry(c, m.connector!.login!)}>
+                {t('在对话里连接')}
+              </Button>
+              {examples[0] ? <Button onClick={() => onTry(c, examples[0]!)}>{t('去试试')}</Button> : null}
+            </div>
+          </>
+        ) : c.connected ? (
           <div className="cn-detail__actions">
             <Button
               variant="primary"

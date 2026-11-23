@@ -183,16 +183,16 @@ async function disconnect(ctx: Ctx, groupId: string, teamId: string, userId: str
  * and how to reach them, and the ones held back for want of the originator's connection; null when there are none.
  */
 export function connectorHint(
-  connected: { name: string; title: string; description: string; entry: string | null }[],
+  connected: { name: string; title: string; description: string; entry: string | null; login?: boolean }[],
   unconnected: { name: string; title: string; description: string; missing: string[] }[],
 ) {
   const out: string[] = []
   if (connected.length)
     out.push(
-      '已连接的连接器：发起人已用自己的账号连接以下外部系统，相关请求优先用它们（凭据已注入，不要向用户索要）：',
+      '已连接的连接器：本群可用以下外部系统，相关请求优先用它们（不要在对话里索要密钥）：',
       ...connected.map(
         (c) =>
-          `- ${c.title}（${c.name}）：${c.description}${c.entry ? ` ${skillLine(c.name, c.entry)}` : ''}`,
+          `- ${c.title}（${c.name}）：${c.description}${c.entry ? ` ${skillLine(c.name, c.entry)}` : ''}${c.login ? ' 用命令行工具登录，没登录时按 Skill 用设备码请发起人授权。' : ''}`,
       ),
     )
   if (unconnected.length)

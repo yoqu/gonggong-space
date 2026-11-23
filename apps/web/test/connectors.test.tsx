@@ -102,6 +102,20 @@ const meegle = connector({
   missing: [],
   sharedWith: ['dw-query'],
 })
+const lark = connector({
+  id: 'c5',
+  manifest: manifest({
+    name: 'feishu',
+    title: '飞书',
+    description: '文档、表格、日历',
+    secrets: [],
+    secretSpecs: [],
+    connector: { examples: ['看看我今天的日程'], login: '帮我连接飞书' },
+  }),
+  personal: false,
+  connected: true,
+  missing: [],
+})
 const off = connector({
   id: 'c4',
   manifest: manifest({ name: 'jenkins', title: '研发流水线' }),
@@ -340,6 +354,19 @@ describe('连接器详情弹窗', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '飞书项目' })).toBeNull())
     expect(box().value).toBe('@设计助手 列出本迭代的缺陷')
     expect(calls.some((c) => c.method === 'POST' && c.path.includes('/messages'))).toBe(false)
+  })
+
+  it('a CLI-login connector connects by asking the bot in the chat', async () => {
+    mockApi(routes([lark]))
+    renderChat()
+    const menu = await openMenu()
+    expect(within(menu).queryByText('已连接')).toBeNull()
+    fireEvent.click(within(menu).getByRole('button', { name: '连接' }))
+    const dialog = await screen.findByRole('dialog', { name: '飞书' })
+    expect(within(dialog).queryByRole('button', { name: '解绑' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '在对话里连接' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '飞书' })).toBeNull())
+    expect(box().value).toBe('@设计助手 帮我连接飞书')
   })
 
   it('解绑 confirms, naming what else gets cut off', async () => {

@@ -75,7 +75,11 @@ export function ConnectorMenu({
                 <PluginTile m={c.manifest} size={24} src={pluginIcon(c)} />
                 <span className="cn-row__name">{c.manifest.title}</span>
               </button>
-              {c.connected ? (
+              {c.manifest.connector?.login ? (
+                <Button size="small" onClick={() => onPick(c)}>
+                  {t('连接')}
+                </Button>
+              ) : c.connected ? (
                 <Tag tone="green">{t('已连接')}</Tag>
               ) : c.missing.length ? (
                 <Button size="small" onClick={() => onPick(c)}>

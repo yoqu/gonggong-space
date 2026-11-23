@@ -48,6 +48,11 @@ export const PluginConnector = z.object({
   examples: z.array(z.string().min(1).max(200)).max(6).default([]),
   /** 「如何获取」: where to get the key. */
   docs: z.string().url().optional(),
+  /**
+   * Connected by the person's own CLI login on the bot's machine (e.g. lark-cli, meegle), not a key kept here: 连接
+   * fills this request into the chat box for the bot to walk them through the login; 共工 cannot tell whether they did.
+   */
+  login: z.string().min(1).max(200).optional(),
 })
 export type PluginConnector = z.infer<typeof PluginConnector>
 /** Creates artifacts with its entry skill; a connector's entry skill is how to use the system it connects instead. */
@@ -434,6 +439,12 @@ export const PluginManifest = z
       ctx.addIssue({ code: 'custom', path: ['entry'], message: '有模板、设计系统或输入项时必须填写' })
     if ((m.category === 'connector') !== !!m.connector)
       ctx.addIssue({ code: 'custom', path: ['connector'], message: '连接器类插件必须且只能由它填写' })
+    if (m.connector?.login && (m.secretSpecs ?? m.secrets).some((s) => s.required))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['connector', 'login'],
+        message: 'CLI 登录的连接器不能再要求密钥',
+      })
     const need = requiredPermissions(m.contributes)
     if (need.join() !== [...new Set(m.permissions)].sort().join())
       ctx.addIssue({ code: 'custom', path: ['permissions'], message: `必须正好是 [${need.join(', ')}]` })

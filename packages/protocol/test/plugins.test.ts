@@ -219,6 +219,13 @@ describe('connector manifest', () => {
     entry: null,
     connector: { examples: ['查一下上周新注册用户'] },
   }
+  it('a CLI-login connector asks no required key', () => {
+    const login = { ...connector, connector: { login: '帮我连接飞书' } }
+    expect(PluginManifest.parse(login).connector?.login).toBe('帮我连接飞书')
+    const keyed = { ...login, secrets: [{ name: 'LARK_KEY', mode: 'personal', required: true }] }
+    expect(PluginManifest.safeParse(keyed).success).toBe(false)
+  })
+
   it('needs the connector section exactly with the connector category', () => {
     expect(PluginManifest.safeParse(connector).success).toBe(true)
     expect(PluginManifest.safeParse({ ...connector, connector: undefined }).success).toBe(false)

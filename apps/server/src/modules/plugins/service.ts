@@ -572,6 +572,7 @@ export async function runPlugins(
         title: m.title,
         description: m.description,
         entry: m.entry,
+        login: !!m.connector?.login,
       })),
     /** Enabled connectors held back only for want of the originator's secrets, for the system prompt. */
     unconnected: on
