@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArtifactKind } from './artifact-kind.js'
 import { ArtifactDir, ArtifactFile, ArtifactFiles } from './artifacts.js'
 import { SyncHash } from './sync.js'
 
@@ -10,6 +11,8 @@ export const DaemonArtifactRef = z.object({
   digest: SyncHash.nullable(),
   /** Its plugin (name): the turn's copy of it gives the shell screenshots are framed in. */
   plugin: z.string().nullable().default(null),
+  /** Older servers send none: they only checked out prototypes. */
+  kind: ArtifactKind.default('prototype'),
 })
 export type DaemonArtifactRef = z.infer<typeof DaemonArtifactRef>
 /** GET /api/daemon/artifacts/:id/versions/:versionId */

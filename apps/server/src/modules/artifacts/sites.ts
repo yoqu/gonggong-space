@@ -75,6 +75,7 @@ export async function openSite(
       dir: newArtifactDir('site'),
       botId: s.botId,
       siteDir,
+      kind: 'site',
       visibility: group?.kind === 'dm' ? 'private' : 'group',
       createdBy: s.userId,
     })

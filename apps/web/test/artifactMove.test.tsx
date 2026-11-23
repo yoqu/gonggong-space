@@ -34,6 +34,7 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   queuedRunCount: 0,
   visibility: 'group',
   createdBy: 'u1',
+  kind: 'prototype',
   ...o,
 })
 

@@ -72,6 +72,7 @@ impl Store {
             head_version_id: self.head.clone(),
             digest,
             plugin: None,
+            kind: "prototype".into(),
         }
     }
 

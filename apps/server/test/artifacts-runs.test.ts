@@ -84,6 +84,7 @@ describe('RunStart.artifacts', () => {
       headVersionId: null,
       digest: null,
       plugin: null,
+      kind: 'prototype',
     })
     // The 19 most recently updated of the bot's own.
     expect(start.artifacts.slice(1).map((a) => a.id)).toEqual(
@@ -271,6 +272,8 @@ describe('creations', () => {
       title: '麓客活动报名',
       botId: w.bot.id,
       designSystemId: 'luke-plus',
+      kind: 'prototype',
+      editorVersion: null,
     })
     expect(a!.dir).toMatch(/^design\/app-screens-[a-z0-9]{4}$/)
     expect(a!.pluginVersionId).not.toBeNull()
@@ -302,7 +305,14 @@ describe('creations', () => {
 
     const start = (await w.next()) as RunStart
     expect(start.artifacts).toEqual([
-      { id: a!.id, dir: a!.dir, headVersionId: null, digest: null, plugin: 'web-prototype' },
+      {
+        id: a!.id,
+        dir: a!.dir,
+        headVersionId: null,
+        digest: null,
+        plugin: 'web-prototype',
+        kind: 'prototype',
+      },
     ])
     const v1 = (await w.submit(start.runId, a!.id, L1)).json() as ArtifactSubmitRes
     expect(v1).toMatchObject({ n: 1, head: true })

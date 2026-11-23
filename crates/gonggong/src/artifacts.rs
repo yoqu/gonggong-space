@@ -962,6 +962,7 @@ mod tests {
             head_version_id: None,
             digest: None,
             plugin: None,
+            kind: "prototype".into(),
         };
         assert!(Folder::new(cwd.path(), cwd.path(), &r("a1", "design/app-1a2b")).is_ok());
         for (id, dir) in

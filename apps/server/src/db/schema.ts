@@ -4,6 +4,8 @@ import {
   type AiReview,
   type ApprovalMcp,
   type ArtifactFile,
+  type ArtifactKind,
+  type ArtifactThreadAnchor,
   type BotAccess,
   type DiffRepo,
   type GitActionArgs,
@@ -1939,6 +1941,11 @@ export const artifacts = pgTable(
      * artifacts are never checked out into runs nor linted. Null: a design artifact.
      */
     siteDir: text('site_dir'),
+    /** Fixed at creation: its plugin manifest's `artifact.kind` (`site` for hosted sites). */
+    // The default lets the previous release (which does not write kind) keep creating artifacts after a rollback.
+    kind: text('kind').$type<ArtifactKind>().notNull().default('prototype'),
+    /** The platform editor build it loads (`/__oa/<kind>@<editorVersion>/`); null: no editor (prototype, site). */
+    editorVersion: text('editor_version'),
     /** Not a foreign key: versions reference the artifact, and the first one is inserted after it. */
     headVersionId: uuid('head_version_id'),
     createdBy: uuid('created_by').references(() => users.id),
@@ -1988,6 +1995,7 @@ export const artifactVersions = pgTable(
   (t) => [unique().on(t.artifactId, t.n), unique().on(t.artifactId, t.submitKey)],
 )
 
+/** Superseded by artifact_threads (migrated in 0119); kept one release for rollback, nothing reads or writes it. */
 export const artifactAnnotations = pgTable(
   'artifact_annotations',
   {
@@ -2013,4 +2021,52 @@ export const artifactAnnotations = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('artifact_annotations_artifact').on(t.artifactId, t.versionId)],
+)
+
+/** Comment threads of every kind (docs/plan/产物容器-开发计划.md §5); the first message is the thread's own text. */
+export const artifactThreads = pgTable(
+  'artifact_threads',
+  {
+    id: id(),
+    artifactId: uuid('artifact_id')
+      .notNull()
+      .references(() => artifacts.id),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => artifactVersions.id),
+    anchor: jsonb('anchor').$type<ArtifactThreadAnchor>().notNull(),
+    label: text('label').notNull().default(''),
+    detail: text('detail'),
+    location: jsonb('location').$type<Record<string, unknown>>().notNull().default({}),
+    /** 'open' | 'sent' | 'resolved' */
+    status: text('status').notNull().default('open'),
+    resolvedBy: uuid('resolved_by').references(() => users.id),
+    /** The @bot message 发给 Agent posted. */
+    sentMessageId: uuid('sent_message_id'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('artifact_threads_artifact').on(t.artifactId, t.versionId)],
+)
+
+export const artifactThreadMessages = pgTable(
+  'artifact_thread_messages',
+  {
+    id: id(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => artifactThreads.id, { onDelete: 'cascade' }),
+    /** 'user' | 'bot': `authorId` is a users or a bots id. */
+    authorKind: text('author_kind').notNull(),
+    authorId: uuid('author_id').notNull(),
+    text: text('text').notNull(),
+    /** Bot ids the message asks. */
+    to: jsonb('to').$type<string[]>().notNull().default([]),
+    reactions: jsonb('reactions').$type<{ emoji: string; userIds: string[] }[]>().notNull().default([]),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    editedAt: ts('edited_at'),
+  },
+  (t) => [index('artifact_thread_messages_thread').on(t.threadId, t.at)],
 )

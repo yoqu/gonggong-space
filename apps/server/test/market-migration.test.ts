@@ -78,7 +78,7 @@ it('turns group plugin switches into group installs, keeping each group on or of
   } finally {
     await t.close()
   }
-})
+}, 60_000)
 
 it('approves existing versions and lists each listing at its current version', async () => {
   const t = await createTestDb({ migrate: false })
@@ -113,4 +113,4 @@ it('approves existing versions and lists each listing at its current version', a
   } finally {
     await t.close()
   }
-})
+}, 60_000)

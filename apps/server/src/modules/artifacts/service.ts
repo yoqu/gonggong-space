@@ -37,9 +37,11 @@ import {
 } from '../messages/service.js'
 import { artifactActivity, endRunActivity } from './activity.js'
 import { artifactBlobs, readBlob } from './blobs.js'
+import { diffFileLists, publishArtifactFiles } from './events.js'
 import { linksOf } from './html.js'
 import { pluginKit } from './kit.js'
 import { lintVersion, parseManifest } from './lint.js'
+import { clearBurst } from './publish.js'
 import { snapshotPending } from './snapshots.js'
 
 export type Artifact = typeof artifacts.$inferSelect
@@ -228,6 +230,8 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     visibility: a.visibility as ArtifactVisibility,
     createdBy: a.createdBy,
     site: a.siteDir !== null,
+    kind: a.kind,
+    editorVersion: a.editorVersion,
   }
 }
 
@@ -495,6 +499,12 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
         : []
       if (!p) fail('invalid', '父版本不属于该产物')
     }
+    const [prevHead] = locked.headVersionId
+      ? await tx
+          .select({ files: artifactVersions.files })
+          .from(artifactVersions)
+          .where(eq(artifactVersions.id, locked.headVersionId))
+      : []
     const head = !input.candidateOnly && parent === locked.headVersionId
     const merged =
       !input.candidateOnly && !head && parent && locked.headVersionId
@@ -540,10 +550,21 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
       .update(artifacts)
       .set({ updatedAt: ctx.now(), ...((head || merged) && { headVersionId: (top as Version).id }) })
       .where(eq(artifacts.id, a.id))
+    if (head || merged) clearBurst(a.id)
     const version = (own ?? top) as Version
-    return { version, head: !version.stale, retried: false }
+    const headVersion = (head || merged ? top : null) as Version | null
+    const changes = headVersion ? diffFileLists(prevHead?.files ?? [], headVersion.files) : {}
+    return { version, headVersion, head: !version.stale, retried: false, changes }
   })
   if (!out.retried) await refreshCard(ctx, a.id)
+  if (!out.retried && out.headVersion) {
+    await publishArtifactFiles(ctx, a, {
+      versionId: out.headVersion.id,
+      n: out.headVersion.n,
+      changes: out.changes,
+      author: input.source === 'run' ? 'agent' : undefined,
+    })
+  }
   if (!out.retried && out.head && input.source === 'edit') await snapshotPending(ctx, eq(artifacts.id, a.id))
   return { version: out.version, head: out.head, stale: out.version.stale }
 }
@@ -554,16 +575,25 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
  */
 export async function restoreVersion(ctx: Ctx, a: Artifact, versionId: string) {
   const v = await requireVersion(ctx.db, a, versionId)
-  await ctx.db.transaction(async (tx) => {
+  const changes = await ctx.db.transaction(async (tx) => {
     const [locked] = await tx.select().from(artifacts).where(eq(artifacts.id, a.id)).for('update')
     if (locked?.headVersionId === v.id) fail('conflict', '已经是当前版本')
+    const [prevHead] = locked?.headVersionId
+      ? await tx
+          .select({ files: artifactVersions.files })
+          .from(artifactVersions)
+          .where(eq(artifactVersions.id, locked.headVersionId))
+      : []
     if (v.stale) await tx.update(artifactVersions).set({ stale: false }).where(eq(artifactVersions.id, v.id))
     await tx
       .update(artifacts)
       .set({ headVersionId: v.id, updatedAt: ctx.now() })
       .where(eq(artifacts.id, a.id))
+    clearBurst(a.id)
+    return diffFileLists(prevHead?.files ?? [], v.files)
   })
   await refreshCard(ctx, a.id)
+  await publishArtifactFiles(ctx, a, { versionId: v.id, n: v.n, changes })
   await snapshotPending(ctx, eq(artifacts.id, a.id))
 }
 
@@ -749,6 +779,7 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
     headVersionId: a.headVersionId,
     digest: head?.digest ?? null,
     plugin: (a.pluginId && names.get(a.pluginId)) || null,
+    kind: a.kind,
   }))
   const named = (ids: string[]) =>
     picked
@@ -803,6 +834,8 @@ export async function duplicateArtifact(ctx: Ctx, a: Artifact, userId: string) {
         groupId: a.groupId,
         pluginId: a.pluginId,
         pluginVersionId: a.pluginVersionId,
+        kind: a.kind,
+        editorVersion: a.editorVersion,
         designSystemId: a.designSystemId,
         title: t('{title}（副本）', { title: a.title }).slice(0, 80),
         dir: newArtifactDir(`${a.dir.slice('design/'.length, 'design/'.length + 50)}-copy`),

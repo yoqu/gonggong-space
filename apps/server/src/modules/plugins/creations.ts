@@ -16,6 +16,7 @@ import { artifacts, messages } from '../../db/schema.js'
 import { type MessageKey, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
+import { editorVersionFor } from '../artifacts/editors.js'
 import { pluginKit } from '../artifacts/kit.js'
 import { type Artifact, cardOf, newArtifactDir } from '../artifacts/service.js'
 import { claimAttachments } from '../attachments/service.js'
@@ -266,6 +267,8 @@ export async function createCreation(
             groupId: group.id,
             pluginId: card.pluginId,
             pluginVersionId: versionId,
+            kind: m.artifact?.kind ?? 'prototype',
+            editorVersion: editorVersionFor(m.artifact?.kind ?? 'prototype'),
             designSystemId: design?.kind === 'auto' ? null : (card.designSystem?.id ?? null),
             title: creationTitle(m, req, card),
             dir: newArtifactDir(card.template?.id ?? m.name),

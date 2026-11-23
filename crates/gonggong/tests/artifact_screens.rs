@@ -113,6 +113,7 @@ async fn after_a_turn_uploads_the_entry_screen_as_thumbnail_then_one_png_per_scr
         head_version_id: None,
         digest: None,
         plugin: None,
+        kind: "prototype".into(),
     };
 
     let artifacts = Artifacts::new(&api, home.path()).unwrap();

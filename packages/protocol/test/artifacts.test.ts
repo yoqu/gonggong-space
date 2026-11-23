@@ -330,6 +330,7 @@ describe('versions and submit', () => {
       botId: 'b1',
       visibility: 'team',
       createdBy: 'u1',
+      kind: 'prototype',
     }
     expect(ArtifactDto.parse(dto)).toEqual(dto)
     expect(ArtifactDto.parse({ ...dto, teamId: 't1' }).teamId).toBe('t1')
@@ -799,6 +800,7 @@ describe('stitch round 3: refs, region marks, queue, stale thumbnails, design so
       botId: 'b1',
       visibility: 'group',
       createdBy: null,
+      kind: 'prototype',
     }
     expect(ArtifactDto.parse(dto)).toMatchObject({ queued: true, queuedRunCount: 2 })
     const { queued: _, ...old } = dto

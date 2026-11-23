@@ -1,0 +1,11 @@
+{
+  "name": "@open-artifact/wasm-export",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "crates/open-artifact-export compiled to WebAssembly (generated/, built by scripts/build-wasm.mjs).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "license": "Apache-2.0"
+}

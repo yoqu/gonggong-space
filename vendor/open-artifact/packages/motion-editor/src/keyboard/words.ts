@@ -1,0 +1,12 @@
+export const PLAY_PAUSE = 'Play or pause';
+export const FULL_SCREEN = 'Full screen';
+export const MUTE = 'Mute or unmute';
+export const backSeconds = (seconds: number): string => `Back ${seconds} s`;
+export const forwardSeconds = (seconds: number): string => `Forward ${seconds} s`;
+export const FRAME_BACK = 'Back one frame';
+export const FRAME_FORWARD = 'Forward one frame';
+export const TO_START = 'Back to the start';
+export const TO_END = 'To the end';
+export const NEXT_CHAPTER = 'Next chapter';
+export const PREVIOUS_CHAPTER = 'Previous chapter';
+export const TOGGLE_PANEL = 'Show or hide the panel';

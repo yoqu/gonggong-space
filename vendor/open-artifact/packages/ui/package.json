@@ -1,0 +1,12 @@
+{
+  "name": "@open-artifact/ui",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared editor UI kit: Base UI primitives styled with Tailwind CSS, lucide icons, light and dark themes.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "license": "Apache-2.0"
+}

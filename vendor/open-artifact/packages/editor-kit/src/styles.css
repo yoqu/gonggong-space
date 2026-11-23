@@ -1,0 +1,17 @@
+/* The comments layer's font: Inter (SIL Open Font License 1.1). Declared on the page, since a shadow root ignores @font-face. */
+@import "@fontsource-variable/inter/wght.css";
+
+/*
+ * Editors import this after the UI kit's sheet, so Tailwind scans the
+ * kit's components for class names:
+ *
+ *   @import "@open-artifact/ui/styles.css";
+ *   @import "@open-artifact/editor-kit/styles.css";
+ *
+ * The chrome components use the editor's chrome tokens (`bg-chrome`,
+ * `text-chrome-fg`, `shadow-chrome`, `outline-chrome-focus`…), which each
+ * editor defines in its own `@theme`.
+ */
+@source "./";
+/* The comment components draw in a shadow root with their own stylesheet (collab/cds/comments.css). */
+@source not "./collab/cds";

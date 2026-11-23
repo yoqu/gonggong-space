@@ -9,6 +9,7 @@ import r4 from './en-r4'
 import r5 from './en-r5'
 import rail from './en-rail'
 import rules from './en-rules'
+import shell from './shell/en-shell'
 
 export default {
   ...composer,
@@ -22,6 +23,7 @@ export default {
   ...r4,
   ...r5,
   ...rules,
+  ...shell,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',

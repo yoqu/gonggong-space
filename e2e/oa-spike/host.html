@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>open-artifact broker spike</title>
+    <style>
+      html, body { margin: 0; height: 100%; }
+      iframe { border: 0; width: 100%; height: 100%; display: block; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      // Host side of open-artifact's capability broker (packages/runtime/src/broker.ts), in-memory, for the S0 spike.
+      // Every want and call is recorded in window.spike for the Playwright test to read.
+      const EDITOR_ORIGIN = `http://localhost:${Number(location.port) + 1}`
+      const ARTIFACT_ID = 'spike-deck'
+      const VIEWER = { id: 'u-spike', name: 'Spike', role: 'owner', kind: 'user' }
+      const spike = { wants: [], calls: [], chrome: [], published: [], downloads: [] }
+      window.spike = spike
+      /** Sends a chrome command to the editor (the Shell's top bar, menu and export tab do this). */
+      window.spikeCmd = (command) => post({ openArtifact: 'chrome_cmd', ...command })
+
+      const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
+      const sha256 = async (bytes) => hex(await crypto.subtle.digest('SHA-256', bytes))
+      const fromBase64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
+
+      /** artifact path → bytes */
+      const files = new Map()
+      const blobs = new Map()
+      for (const path of await (await fetch('/deck-index.json')).json()) {
+        files.set(path, new Uint8Array(await (await fetch(`/deck/${path}`)).arrayBuffer()))
+      }
+
+      class CapError extends Error {
+        constructor(code, message, paths) {
+          super(message)
+          this.code = code
+          this.paths = paths
+        }
+      }
+
+      async function listing() {
+        const out = {}
+        for (const [path, bytes] of files) out[path] = { sha256: await sha256(bytes), size: bytes.byteLength }
+        return out
+      }
+
+      const handlers = {
+        artifact: {
+          title: () => 'Slides Browser Smoke',
+          list: listing,
+          readText(path) {
+            const bytes = files.get(path)
+            if (!bytes) throw new CapError('not_found', `No file ${path}`)
+            return new TextDecoder().decode(bytes)
+          },
+          readBytes(path) {
+            const bytes = files.get(path)
+            if (!bytes) throw new CapError('not_found', `No file ${path}`)
+            return bytes
+          },
+          async publish(batch) {
+            const current = await listing()
+            const paths = []
+            for (const [path, file] of Object.entries(batch)) {
+              if (file && file.ifMatch === undefined) continue
+              const expected = file ? file.ifMatch : undefined
+              const actual = current[path]?.sha256 ?? null
+              if (expected !== undefined && expected !== actual) paths.push({ path, expected, actual })
+            }
+            if (paths.length) throw new CapError('conflict', 'Someone wrote first', paths)
+            spike.published.push(batch)
+            const hashes = {}
+            for (const [path, file] of Object.entries(batch)) {
+              if (!file) {
+                files.delete(path)
+                hashes[path] = null
+                continue
+              }
+              const bytes =
+                file.encoding === 'base64' ? fromBase64(file.content) : new TextEncoder().encode(file.content)
+              files.set(path, bytes)
+              hashes[path] = await sha256(bytes)
+            }
+            return { hashes }
+          },
+        },
+        assets: {
+          async upload(blob, opts) {
+            const bytes = new Uint8Array(await blob.arrayBuffer())
+            const id = (await sha256(bytes)).slice(0, 32)
+            blobs.set(id, { bytes, type: blob.type, name: opts?.name })
+            // The editor loads it from its own origin's /_blob/<id>: hand the bytes to that server.
+            await fetch(`${EDITOR_ORIGIN}/__spike/blob/${id}`, { method: 'PUT', body: blob })
+            return { id, url: `/_blob/${id}`, sizeBytes: bytes.byteLength, contentType: blob.type }
+          },
+        },
+        user: { me: () => VIEWER },
+        agent: {
+          status: () => ({ available: false, busy: false, name: 'Agent' }),
+          send: () => ({ status: 'failed', reason: 'spike' }),
+        },
+        room: { self: () => 'p-spike', presence: () => undefined, peers: () => [], emit: () => undefined },
+        downloads: {
+          save({ name, data }) {
+            spike.downloads.push({ name, size: data.size, type: data.type })
+            const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(data), download: name })
+            a.click()
+            return {}
+          },
+          check: () => undefined,
+        },
+        comments: { list: () => [] },
+        history: { list: () => ({ versions: [], notices: [], canRestore: false }) },
+      }
+      const CONFIG = {
+        artifact: { id: ARTIFACT_ID },
+        user: { me: VIEWER },
+        downloads: { browser: true },
+      }
+
+      const frame = document.createElement('iframe')
+      frame.name = 'open-artifact-shell'
+      // ?sandbox=… / ?allow=…: try the iframe attributes a real Shell would set.
+      const params = new URLSearchParams(location.search)
+      if (params.has('sandbox')) frame.setAttribute('sandbox', params.get('sandbox'))
+      frame.setAttribute('allow', params.get('allow') ?? 'fullscreen; clipboard-write')
+      const url = new URL(`${EDITOR_ORIGIN}/__oa/slides/index.html`)
+      url.searchParams.set('open_artifact_shell', location.origin)
+      url.searchParams.set('open_artifact_id', ARTIFACT_ID)
+      frame.src = url.href
+      document.body.append(frame)
+
+      const post = (message) => frame.contentWindow.postMessage(message, EDITOR_ORIGIN)
+
+      /** Someone else (the agent) writes a file: the host stores it and pushes artifact.onChange. */
+      window.spikeRemote = async (path, text) => {
+        const bytes = new TextEncoder().encode(text)
+        files.set(path, bytes)
+        const changes = { [path]: await sha256(bytes) }
+        post({ openArtifact: 'cap_ev', cap: 'artifact', event: 'files', data: { changes, author: 'agent' } })
+      }
+
+      window.addEventListener('message', async (event) => {
+        if (event.origin !== EDITOR_ORIGIN || event.source !== frame.contentWindow) return
+        const data = event.data
+        if (!data || typeof data.openArtifact !== 'string') return
+        if (data.openArtifact === 'cap_want') {
+          spike.wants.push(data.cap)
+          const ok = data.cap in handlers
+          post({ openArtifact: 'cap_grant', cap: data.cap, ok, gen: 0, ...(ok ? { config: CONFIG[data.cap] ?? {} } : {}) })
+          return
+        }
+        if (data.openArtifact === 'cap') {
+          spike.calls.push({ cap: data.cap, method: data.method, args: summarize(data.args) })
+          const fn = handlers[data.cap]?.[data.method]
+          try {
+            if (!fn) throw new CapError('unavailable', `${data.cap}.${data.method} is not served by the spike`)
+            post({ openArtifact: 'cap_r', id: data.id, result: await fn(...data.args) })
+          } catch (e) {
+            post({ openArtifact: 'cap_r', id: data.id, error: { code: e.code ?? 'unavailable', message: e.message, paths: e.paths } })
+          }
+          return
+        }
+        spike.chrome.push(JSON.stringify(data).slice(0, 4000))
+      })
+      frame.addEventListener('load', () =>
+        post({ openArtifact: 'chrome_hello', draws: ['saved', 'actions', 'formats', 'shareNotice', 'peers'], clipboard: true }),
+      )
+
+      /** Call arguments as the test records them: long text cut, blobs and bytes by size. */
+      function summarize(args) {
+        return args.map((a) =>
+          a instanceof Blob
+            ? `Blob(${a.size}, ${a.type})`
+            : a instanceof Uint8Array
+              ? `Uint8Array(${a.byteLength})`
+              : JSON.parse(JSON.stringify(a, (_k, v) => (typeof v === 'string' && v.length > 200 ? `${v.slice(0, 200)}…` : v)) ?? 'null'),
+        )
+      }
+    </script>
+  </body>
+</html>

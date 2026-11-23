@@ -221,6 +221,7 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   queuedRunCount: 0,
   visibility: 'group',
   createdBy: null,
+  kind: 'prototype',
   ...o,
 })
 const ruleFiles = (shared = true) => [

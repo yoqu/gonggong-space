@@ -509,9 +509,16 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         }
       : { toolCallId: `${name}-1`, title: `mcp__gonggong__${name}`, kind: 'other', status: 'pending' }
     await update({ sessionUpdate: 'tool_call', ...toolCall })
+    const parseToolArgs = (s) => {
+      try {
+        return JSON.parse(s)
+      } catch {
+        return JSON.parse(s.split('\n')[0])
+      }
+    }
     const res = await client.request(acp.methods.client.session.requestPermission, {
       sessionId,
-      toolCall: PI ? piConfirm(toolCall, JSON.parse(raw)) : toolCall,
+      toolCall: PI ? piConfirm(toolCall, parseToolArgs(raw)) : toolCall,
       options: PI
         ? PI_OPTIONS
         : [
@@ -529,7 +536,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         ? JSON.parse(process.env.GG_PI_MCP).gonggong
         : s.mcpServers.find((m) => m.type === 'http' && m.name === 'gonggong')
     try {
-      const args = JSON.parse(raw)
+      const args = parseToolArgs(raw)
       await mcp(server.url, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} }, abort.signal)
       const result = await mcp(server.url, 'tools/call', { name, arguments: args }, abort.signal)
       await say(result.content[0].text)

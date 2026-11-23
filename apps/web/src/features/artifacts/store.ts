@@ -52,9 +52,9 @@ export function useArtifact(id: string): ArtifactEntry | undefined {
   const entry = useArtifactEntry(id)
   useEffect(() => {
     void loadArtifact(id)
-    // The card is updated in place as versions arrive (plan §5 S2.6): reload with it.
+    // The card is updated in place as versions arrive (plan §5 S2.6), and `artifact.files` fires on publish/restore.
     const off = realtime.subscribe((e) => {
-      if (artifactOf(e) === id) void loadArtifact(id)
+      if (artifactOf(e) === id || (e.t === 'artifact.files' && e.artifactId === id)) void loadArtifact(id)
     })
     const offReconnect = realtime.onReconnect(() => void loadArtifact(id))
     return () => {

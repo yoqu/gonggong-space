@@ -1,0 +1,11 @@
+{
+  "v": 5,
+  "createdOnFiles": { "v": 1, "at": "2026-11-15T09:00:00Z" },
+  "lists": "css",
+  "format": { "v": 1, "shared": ["project/deck.css"] },
+  "title": "Source deck",
+  "order": ["cover", "plan", "steps"],
+  "sections": {},
+  "faces": {},
+  "designSystems": []
+}

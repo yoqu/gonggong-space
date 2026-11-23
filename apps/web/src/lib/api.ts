@@ -9,6 +9,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: ApiErrorCode,
     message: string,
+    readonly paths?: unknown[],
   ) {
     super(message)
     this.name = 'ApiError'
@@ -30,7 +31,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  plain = false,
+  responseType: 'json' | 'text' | 'bytes' = 'json',
   signal?: AbortSignal,
 ): Promise<T> {
   const init: RequestInit = {
@@ -53,11 +54,16 @@ async function request<T>(
   } catch {
     throw new ApiError(0, 'network_error', t('网络连接失败，请检查网络后重试'))
   }
-  if (res.ok) return (res.status === 204 ? undefined : plain ? await res.text() : await res.json()) as T
+  if (res.ok) {
+    if (res.status === 204) return undefined as T
+    if (responseType === 'text') return (await res.text()) as T
+    if (responseType === 'bytes') return new Uint8Array(await res.arrayBuffer()) as T
+    return (await res.json()) as T
+  }
 
   if (res.status === 401) onUnauthorized?.()
   const text = await res.text()
-  let parsed: { error?: ApiErrorCode; message?: string } = {}
+  let parsed: { error?: ApiErrorCode; message?: string; paths?: unknown[] } = {}
   try {
     parsed = JSON.parse(text) ?? {}
   } catch {}
@@ -65,13 +71,15 @@ async function request<T>(
     res.status >= 500
       ? t('服务暂时不可用（HTTP {status}）', { status: res.status })
       : t('请求失败（HTTP {status}）', { status: res.status })
-  throw new ApiError(res.status, parsed.error ?? 'http_error', parsed.message || fallback)
+  throw new ApiError(res.status, parsed.error ?? 'http_error', parsed.message || fallback, parsed.paths)
 }
 
 export const api = {
-  get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, false, signal),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, 'json', signal),
   /** A plain-text body. */
-  text: (path: string) => request<string>('GET', path, undefined, true),
+  text: (path: string) => request<string>('GET', path, undefined, 'text'),
+  /** Raw bytes (Uint8Array). */
+  bytes: (path: string) => request<Uint8Array>('GET', path, undefined, 'bytes'),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),

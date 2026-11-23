@@ -1,0 +1,11 @@
+{
+  "name": "@open-artifact/wasm-wb-geom",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "Whiteboard geometry compiled from crates/open-artifact-wb-geom to WebAssembly (generated/, built by scripts/build-wasm.mjs), loaded synchronously.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "license": "Apache-2.0"
+}

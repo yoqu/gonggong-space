@@ -25,6 +25,7 @@ export async function artifactWorld(t: TestApp) {
           title: '活动报名',
           dir: `design/app-${randomUUID().slice(0, 6)}`,
           botId: bot.id,
+          kind: o.siteDir ? 'site' : 'prototype',
           ...o,
         })
         .returning()

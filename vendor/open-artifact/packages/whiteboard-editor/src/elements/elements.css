@@ -1,0 +1,937 @@
+/*
+ * elements/elements.css: styles of the element views.
+ *
+ * Colors that depend on an element (fills, inks, section tints) are set
+ * inline as custom properties by the views; this sheet holds layout,
+ * typography and the few scheme-dependent touches (shadows, blend modes).
+ * Board-wide tokens (--wb-paper, --wb-ink, --wb-face, --wb-mono) come from
+ * the root stylesheet; chrome tokens (--wbc-*) style cards and chips.
+ */
+
+/* ---- Layer and shared ------------------------------------------------------ */
+
+.wb-elements {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+.wb-el {
+  position: absolute;
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* Visually hidden, still read by screen readers. */
+.wb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A face sticker's placer name above it; keeps its screen size at any zoom. */
+.wb-by-chip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px / var(--wb-zoom, 1));
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  background: var(--wbc-card);
+  box-shadow: var(--wbc-card-shadow);
+  color: var(--wbc-fg);
+  font: 500 11px/1 var(--wb-face);
+  white-space: nowrap;
+  pointer-events: none;
+  scale: calc(1 / var(--wb-zoom, 1));
+  transform-origin: 0 100%;
+  rotate: calc(-1 * var(--wb-turn, 0deg));
+}
+
+/* ---- Rich text ------------------------------------------------------------- */
+
+.wb-el b,
+.wb-el strong {
+  font-weight: var(--wb-bold, 700);
+}
+
+.wb-el ul,
+.wb-el ol {
+  margin: 0;
+  padding: 0;
+}
+
+.wb-el li {
+  margin-inline-start: var(--wb-hang, 1.5em);
+}
+
+.wb-el li li {
+  margin-inline-start: 1.5em;
+}
+
+.wb-el ul {
+  list-style-type: "•  ";
+}
+
+.wb-el ul ul {
+  list-style-type: "◦  ";
+}
+
+.wb-el ul ul ul {
+  list-style-type: "▪︎  ";
+}
+
+.wb-el ol {
+  list-style-type: decimal;
+}
+
+.wb-el code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--wb-paper-chip, rgb(0 0 0 / 0.06));
+  font-family: var(--wb-mono);
+  font-size: 0.9em;
+}
+
+.wb-text-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+/* ---- In-place text editor --------------------------------------------------- */
+
+.wb-edit {
+  display: block;
+  min-width: 1ch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  caret-color: currentColor;
+}
+
+.wb-edit[data-blank]::before {
+  content: attr(data-hint);
+  position: absolute;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.wb-edit-mono {
+  height: 100%;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--wbc-card);
+  color: var(--wbc-fg);
+  font: 12px/1.45 var(--wb-mono);
+  white-space: pre;
+  text-align: left;
+}
+
+/* ---- Sticky note ------------------------------------------------------------ */
+
+.wb-note {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.wb-note-paper {
+  position: relative;
+  box-sizing: border-box;
+  padding: 16px 16px 12px;
+  background: var(--wb-note-fill);
+  color: var(--wb-paper-text);
+  box-shadow: var(--wb-note-shadow);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  transition: box-shadow 160ms ease;
+}
+
+.wb-note[data-wb-lifted] .wb-note-paper {
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.08), 0 12px 28px rgb(0 0 0 / 0.16);
+}
+
+/* Touch: an item picked up by a long press, or dragged by a finger, lifts
+   (TOUCH_LIFT_FEEDBACK in tools/touch.ts). Sections and arrows only fade. */
+.wb-surface[data-wb-touch-lift] .wb-el[data-wb-lifted] {
+  scale: 1.1;
+  opacity: 0.75;
+  transition:
+    scale 140ms cubic-bezier(0.2, 0, 0, 1),
+    opacity 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.wb-surface[data-wb-touch-lift] :is(.wb-container, .wb-arrow)[data-wb-lifted] {
+  scale: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-surface[data-wb-touch-lift] .wb-el[data-wb-lifted] {
+    scale: none;
+    transition: none;
+  }
+}
+
+.wb-note-author {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 400;
+  opacity: 0.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Shape ------------------------------------------------------------------ */
+
+.wb-shape-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.wb-shape-label {
+  position: absolute;
+  display: flex;
+  align-items: safe center;
+  justify-content: var(--wb-justify, center);
+  text-align: var(--wb-align, center);
+  color: var(--wb-paper-text);
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+
+.wb-shape-text {
+  max-width: 100%;
+  min-width: 1ch;
+}
+
+.wb-hollow {
+  pointer-events: none;
+}
+
+.wb-hollow .wb-shape-svg > path:first-child {
+  pointer-events: stroke;
+}
+
+.wb-hollow .wb-edit {
+  pointer-events: auto;
+}
+
+/* ---- Text ------------------------------------------------------------------- */
+
+.wb-text {
+  color: var(--wb-ink);
+  line-height: 1.35;
+  white-space: pre;
+}
+
+.wb-text-title,
+.wb-text-huge {
+  font-family: var(--wb-face-large);
+  letter-spacing: -0.01em;
+}
+
+.wb-text-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wb-text .wb-edit {
+  white-space: inherit;
+}
+
+/* An empty text's placeholder: laid out like its text, faint, with a faint underline. */
+.wb-text-hint {
+  opacity: 0.6;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.15em;
+  cursor: text;
+}
+
+.wb-text[data-wb-backdrop] .wb-text-hint {
+  opacity: 0.7;
+}
+
+/* While an empty text is typed into, the caret sits over its hint (which keeps the box's size). */
+.wb-text .wb-edit-over-hint {
+  position: absolute;
+  inset: 0;
+}
+
+@media (forced-colors: active) {
+  .wb-text-hint {
+    opacity: 1;
+    color: GrayText;
+  }
+}
+
+/* ---- Section ---------------------------------------------------------------- */
+
+.wb-container .wb-shape-svg path {
+  fill: var(--wb-fill);
+  stroke: var(--wb-line);
+  stroke-width: 1.25;
+}
+
+.wb-container-title {
+  position: absolute;
+  left: 4px;
+  bottom: calc(100% + 6px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 8px);
+  height: 22px;
+  color: var(--wb-ink);
+  font: 400 16px/22px var(--wb-face);
+  white-space: nowrap;
+  text-shadow:
+    0 0 2px var(--wb-paper),
+    0 0 2px var(--wb-paper),
+    0 0 4px var(--wb-paper);
+  transform-origin: -4px calc(100% + 6px);
+}
+
+.wb-container-title[data-zoomed-out] {
+  bottom: calc(100% + var(--wb-title-lift, 4px));
+  transform-origin: -4px calc(100% + 2px);
+}
+
+.wb-container-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-container-title-text > div {
+  display: inline;
+}
+
+/* Being edited, the title is a box of its own (inline, an empty editor has no
+   size and no caret) on the paper. */
+.wb-container-title .wb-edit {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  min-width: 6ch;
+  min-height: 22px;
+  white-space: pre;
+}
+
+.wb-container-title .wb-edit > div {
+  display: block;
+}
+
+.wb-container-title.wb-editing {
+  background: var(--wb-paper);
+}
+
+.wb-container-lock {
+  flex: none;
+  opacity: 0.6;
+}
+
+.wb-container-hint {
+  opacity: 0.65;
+}
+
+/* The section under the pointer: its title in the accent. */
+.wb-container-title.wb-glowing {
+  color: var(--wb-accent-text);
+  transition: color 0.12s ease;
+}
+
+/* ---- Sketch ----------------------------------------------------------------- */
+
+.wb-stroke {
+  overflow: visible;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.wb-stroke-ink {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.92;
+}
+
+/* The wide invisible path tools pick lines up by. */
+.wb-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: stroke;
+}
+
+/* ---- Arrow ------------------------------------------------------------------ */
+
+.wb-arrow {
+  overflow: visible;
+  pointer-events: none;
+}
+
+.wb-arrow-label {
+  font: 400 14px var(--wb-face);
+  paint-order: stroke;
+  stroke: var(--wb-paper);
+  stroke-width: 6px;
+  stroke-linejoin: round;
+  pointer-events: auto;
+}
+
+.wb-arrow-edit {
+  translate: -50% -50%;
+  min-width: 4ch;
+  padding: 0 4px;
+  background: var(--wb-paper);
+  color: var(--wb-ink);
+  font: 400 14px/18px var(--wb-face);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.wb-arrow-edit .wb-edit {
+  white-space: pre;
+}
+
+/* ---- Picture and video ------------------------------------------------------ */
+
+.wb-image {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 4px 14px rgb(0 0 0 / 0.1);
+}
+
+.wb-image-plain {
+  background: none;
+  box-shadow: none;
+}
+
+.wb-image-clip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.wb-image img,
+.wb-image video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.wb-tape {
+  position: absolute;
+  top: -8px;
+  width: 46px;
+  height: 18px;
+  background: rgb(250 243 221 / 0.72);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.06);
+  pointer-events: none;
+}
+
+.wb-tape-l {
+  left: -12px;
+  rotate: -38deg;
+}
+
+.wb-tape-r {
+  right: -12px;
+  rotate: 38deg;
+}
+
+.wb-image-link {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+}
+
+.wb-image-go {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background: rgb(0 0 0 / 0.72);
+  color: #ffffff;
+  scale: calc(1 / max(var(--wb-zoom, 1), 0.5));
+  transform-origin: 100% 100%;
+}
+
+/* ---- Video: first frame, play button, one plays at a time (MediaViews.tsx) --- */
+
+/* The playing video covers its first frame (a crop's inline style places both alike). */
+.wb-image-clip > .wb-video {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* The play button's frame: the picture's area; the button keeps its screen size. */
+.wb-video-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.wb-video-play {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.55);
+  box-shadow: 0 0 0 calc(1px / var(--wb-zoom, 1)) hsl(0 0% 100% / 0.35);
+  color: #ffffff;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+.wb-video-play > svg {
+  translate: 7% 0;
+}
+
+.wb-video-play[data-video-play='pressable'] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.wb-video-play[data-video-play='pressable']:hover {
+  background: rgb(0 0 0 / 0.7);
+}
+
+.wb-video-play[data-video-play='playing'] {
+  opacity: 0;
+  transition-duration: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-video-play {
+    transition: none;
+  }
+}
+
+/* ---- Sticker ---------------------------------------------------------------- */
+
+.wb-sticker {
+  display: grid;
+  place-items: center;
+  user-select: none;
+}
+
+/* ---- Sticker flight and peel (ui/sticker-peel.ts) ---------------------------
+ * A sticker dragged out of the picker flies in `.wb-flyer`, a fixed box
+ * above the page sized to the art; `.wb-peel` is the folded-over flap of a
+ * peeling sticker, centered over its art (in the flyer, then on the board). */
+
+.wb-flyer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.wb-peel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+/* ---- Link card -------------------------------------------------------------- */
+
+.al-face {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0 12px 0 10px;
+  border-radius: 12px;
+  background: var(--wbc-card);
+  box-shadow: var(--wbc-card-shadow);
+  color: var(--wbc-fg);
+  text-decoration: none;
+}
+
+.al-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--wbc-hover);
+}
+
+.al-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.al-title,
+.al-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.al-title {
+  font: 500 14px/1.3 var(--wb-face);
+}
+
+.al-sub {
+  color: var(--wbc-muted);
+  font: 400 12px/1.3 var(--wb-face);
+}
+
+.al-go {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  color: var(--wbc-muted);
+  cursor: pointer;
+}
+
+.al-go:hover {
+  background: var(--wbc-hover);
+  color: var(--wbc-fg);
+}
+
+/* ---- Table ------------------------------------------------------------------ */
+
+.wb-table {
+  background: var(--wb-paper);
+  box-shadow: 0 0 0 1px var(--wb-table-line), 0 1px 3px rgb(0 0 0 / 0.06);
+  color: var(--wb-ink);
+}
+
+/* The grid clips to the rounded corners; the controls sit outside it. */
+.wb-table-frame {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.wb-table table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.wb-table th,
+.wb-table td {
+  padding: var(--wb-cell-pad);
+  border: 1px solid var(--wb-table-line);
+  text-align: left;
+  vertical-align: top;
+  font-weight: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wb-table tr:first-child > * {
+  border-top: 0;
+}
+
+.wb-table tr:last-child > * {
+  border-bottom: 0;
+}
+
+.wb-table tr > :first-child {
+  border-left: 0;
+}
+
+.wb-table tr > :last-child {
+  border-right: 0;
+}
+
+.wb-table-head > * {
+  --wb-paper-chip: var(--wb-table-head-chip);
+  background: var(--wb-table-head);
+  color: var(--wb-table-head-ink);
+  font-weight: var(--wb-table-head-weight);
+}
+
+/* Column resize edges and add buttons (TableControls); sized in screen pixels via --wb-ts (1 / zoom). */
+.wb-table-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wb-table-controls > * {
+  pointer-events: auto;
+}
+
+.wb-table-edge {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  bottom: 0;
+  width: calc(9px * var(--wb-ts, 1));
+  translate: -50% 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.wb-table-edge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: calc(2px * var(--wb-ts, 1));
+  translate: -50% 0;
+}
+
+.wb-table-edge:hover::after,
+.wb-table-edge[data-held]::after {
+  background: var(--wb-select);
+}
+
+@media (pointer: coarse) {
+  .wb-table-edge {
+    width: calc(40px * var(--wb-ts, 1));
+  }
+
+  .wb-table-edge-last {
+    translate: -100% 0;
+  }
+}
+
+.wb-table-add {
+  position: absolute;
+  z-index: 6;
+  scale: var(--wb-ts, 1);
+  transform-origin: 0 0;
+  border-radius: 999px;
+  background: var(--wbc-card);
+  box-shadow: var(--wbc-card-shadow);
+}
+
+.wb-table-add-col {
+  top: 0;
+  left: calc(100% + var(--wb-table-gap) * var(--wb-ts, 1));
+}
+
+.wb-table-add-row {
+  left: 0;
+  top: calc(100% + var(--wb-table-gap) * var(--wb-ts, 1));
+}
+
+/* ---- Timer ------------------------------------------------------------------ */
+
+.wb-timer {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  background: var(--wbc-card);
+  box-shadow: var(--wbc-card-shadow);
+  color: var(--wbc-fg);
+}
+
+.wb-timer-face {
+  font: 600 44px/1.1 var(--wb-face);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.wb-timer[data-ended] .wb-timer-face {
+  color: #e5484d;
+}
+
+.wb-timer-sub {
+  margin-top: auto;
+  color: var(--wbc-muted);
+  font: 400 11.5px/1.3 var(--wb-face);
+}
+
+.wb-timer-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  gap: 2px;
+}
+
+/* ---- HTML embed ------------------------------------------------------------- */
+
+.wb-html {
+  display: flex;
+  flex-direction: column;
+}
+
+.wb-html-tab {
+  flex: none;
+  align-self: flex-start;
+  box-sizing: border-box;
+  max-width: calc(100% - 16px);
+  height: 32px;
+  margin: 0 0 -8px 8px;
+  padding: 7px 10px 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--wbc-card);
+  box-shadow: var(--wbc-card-shadow);
+  color: var(--wbc-muted);
+  font: 500 12px/1.4 var(--wb-face);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-html-card {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--wbc-line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--wbc-card-shadow);
+}
+
+.wb-html-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+.wb-html[data-wb-live] .wb-html-frame {
+  pointer-events: auto;
+}
+
+.wb-html-stopped {
+  padding: 16px;
+  color: #3b3b3b;
+  font: 13px/1.45 var(--wb-face);
+}
+
+/* ---- HTML embed: guarded frames (silent frames, Run it again) -------------- */
+
+/* A frame that stopped answering the heartbeat is hidden until it answers. */
+.wb-html-frame[data-wb-silent] {
+  visibility: hidden;
+}
+
+.wb-html-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 5px 10px;
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f1f1f;
+  font: 500 12px/1.4 var(--wb-face);
+  cursor: pointer;
+}
+
+.wb-html-again:hover {
+  background: #f3f3f3;
+}
+
+.wb-html-again:focus-visible {
+  outline: 2px solid var(--color-chrome-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Dark scheme ------------------------------------------------------------ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wb-stroke {
+    mix-blend-mode: normal;
+  }
+  :root:not([data-theme="light"]) .wb-image:not(.wb-image-plain) {
+    background: #2a2a2a;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 14px rgb(0 0 0 / 0.35);
+  }
+  :root:not([data-theme="light"]) .wb-tape {
+    background: rgb(214 206 182 / 0.55);
+  }
+  :root:not([data-theme="light"]) .wb-note[data-wb-lifted] .wb-note-paper {
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px rgb(0 0 0 / 0.45);
+  }
+  :root:not([data-theme="light"]) .wb-el code {
+    background: var(--wb-paper-chip, rgb(255 255 255 / 0.1));
+  }
+}
+
+:root[data-theme="dark"] .wb-stroke {
+  mix-blend-mode: normal;
+}
+:root[data-theme="dark"] .wb-image:not(.wb-image-plain) {
+  background: #2a2a2a;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 14px rgb(0 0 0 / 0.35);
+}
+:root[data-theme="dark"] .wb-tape {
+  background: rgb(214 206 182 / 0.55);
+}
+:root[data-theme="dark"] .wb-note[data-wb-lifted] .wb-note-paper {
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px rgb(0 0 0 / 0.45);
+}
+:root[data-theme="dark"] .wb-el code {
+  background: var(--wb-paper-chip, rgb(255 255 255 / 0.1));
+}
+
+/* ---- Reduced motion --------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-note-paper {
+    transition: none;
+  }
+}

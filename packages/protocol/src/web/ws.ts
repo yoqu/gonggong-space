@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArtifactThreadDto } from '../artifact-threads.js'
 import { ArtifactActivityDto } from '../artifacts.js'
 import { ContextUsage, GitStatus, Tier } from '../common.js'
 import { RepoAccessReason } from '../daemon.js'
@@ -97,6 +98,22 @@ export const WebEvent = z.discriminatedUnion('t', [
     t: z.literal('artifact.activity'),
     artifactId: z.string(),
     activity: z.array(ArtifactActivityDto),
+  }),
+  /** Viewers of the artifact: head files changed (publish, run, restore); `clientId` lets the sender skip echo. */
+  z.object({
+    t: z.literal('artifact.files'),
+    artifactId: z.string(),
+    versionId: z.string(),
+    n: z.number().int().min(1),
+    changes: z.record(z.string(), z.string().nullable()),
+    author: z.string().optional(),
+    clientId: z.string().optional(),
+  }),
+  /** Viewers of the artifact: full comment thread list after any thread mutation. */
+  z.object({
+    t: z.literal('artifact.threads'),
+    artifactId: z.string(),
+    threads: z.array(ArtifactThreadDto),
   }),
   /** Only to connections showing the run's group, or that never sent a focus. */
   z.object({

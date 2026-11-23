@@ -1,0 +1,11 @@
+{
+  "name": "@open-artifact/protocol",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The Open Artifact protocol: typed contracts shared by the daemon, harness adapters, type servers, the Shell and pages.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "license": "Apache-2.0"
+}

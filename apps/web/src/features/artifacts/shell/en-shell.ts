@@ -1,0 +1,28 @@
+export default {
+  // Artifact Shell (S0)
+  添加批注: 'Add comment',
+  退出批注模式: 'Exit comment mode',
+  点击页面添加坐标批注: 'Click on the page to add a coordinate comment',
+  '写下对这处页面的修改意见…': 'Write feedback for this spot on the page…',
+  提交批注: 'Submit comment',
+  '坐标 ({x}, {y})': 'Position ({x}, {y})',
+  版本历史: 'Version history',
+  还没有历史版本: 'No versions yet',
+  点击页面上的位置添加批注: 'Click on the page to pin a comment',
+  '回复这条批注…': 'Reply to this thread…',
+  回复: 'Reply',
+  '共 {n} 条回复': '{n} {n:reply|replies}',
+  已保存: 'Saved',
+  '保存中…': 'Saving…',
+  未保存: 'Unsaved',
+  '重连中…': 'Reconnecting…',
+  只读: 'Read-only',
+  导出文件: 'Export',
+  '导出失败：{reason}': 'Export failed: {reason}',
+  '请先点击上方「添加批注」在页面上落点': 'Click "Add comment" above to pin feedback on the page',
+  '已切换到 v{n}': 'Restored v{n}',
+  没有权限修改该产物: 'No permission to edit this artifact',
+  '还有未保存的修改，保存后再查看历史版本':
+    'Unsaved changes: wait for them to save before opening an older version',
+  访客: 'Guest',
+} as const
