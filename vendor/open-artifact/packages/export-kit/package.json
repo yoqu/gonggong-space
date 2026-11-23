@@ -1,0 +1,14 @@
+{
+  "name": "@open-artifact/export-kit",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "What the editors' exports share in the browser: DOM capture to SVG and pictures, the PDF text layer measured from rendered pages, picture shrinking and font stylesheet helpers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "dom-to-svg": "^0.12.2"
+  },
+  "license": "Apache-2.0"
+}

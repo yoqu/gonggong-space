@@ -22,7 +22,8 @@
       "!website/scripts/shots-workbench.data.json",
       "!apps/web/src/ui/im/twemoji",
       "!apps/server/plugins/*/*/skills",
-      "!examples/plugins/*/skills"
+      "!examples/plugins/*/skills",
+      "!vendor"
     ]
   },
   "formatter": {

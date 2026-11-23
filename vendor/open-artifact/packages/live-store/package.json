@@ -1,0 +1,16 @@
+{
+  "name": "@open-artifact/live-store",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The live document engine every document-store type shares: keeps a value in step with the db capability (debounced, coalesced merge-patch writes, retries and backoff, a saved copy on the device), plus the JSON merge-patch helpers and the store's document hash.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./json": "./src/json.ts",
+    "./transport": "./src/transport.ts",
+    "./doc-hash": "./src/doc-hash.ts",
+    "./engine": "./src/engine.ts",
+    "./cache": "./src/cache.ts"
+  },
+  "license": "Apache-2.0"
+}

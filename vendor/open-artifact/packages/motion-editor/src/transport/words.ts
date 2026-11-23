@@ -1,0 +1,16 @@
+export const PLAY = 'Play';
+export const PAUSE = 'Pause';
+export const RESTART = 'Restart';
+export const BACK_TO_START = 'Back to the start';
+export const LOOP = 'Loop';
+export const MUTE = 'Mute';
+export const UNMUTE = 'Unmute';
+export const VOLUME = 'Volume';
+export const volumePercent = (volume: number): string => `${Math.round(volume * 100)}%`;
+export const FULL_SCREEN = 'Full screen';
+export const EXIT_FULL_SCREEN = 'Exit full screen';
+export const FULL_SCREEN_UNAVAILABLE = 'Full screen isn’t available in this view';
+export const FULLSCREEN_REFUSED = 'The browser would not go full screen here.';
+export const PLAYBACK = 'Playback';
+export const PLAYHEAD = 'Playhead';
+export const NO_ANIMATION_TO_PLAY = 'No animation to play yet';

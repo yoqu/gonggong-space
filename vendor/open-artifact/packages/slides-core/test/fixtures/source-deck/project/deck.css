@@ -1,0 +1,40 @@
+/* Shared look of the fixture deck. */
+:root {
+  --ink: #1d1b16;
+  --paper: #f7f3ea;
+  --muted: #6b665c;
+  --card: #ffffff;
+  --accent: #c2410c;
+}
+body { font-family: Georgia, serif; }
+section {
+  background: var(--paper);
+  color: var(--ink);
+  padding: 128px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  counter-increment: page;
+}
+section::after {
+  content: counter(page);
+  position: absolute;
+  right: 64px;
+  bottom: 48px;
+  width: 80px;
+  font-size: 24px;
+  color: var(--muted);
+}
+.cover { justify-content: center; }
+.cover h1 { font-size: 6rem; font-weight: 400; line-height: 1.1; }
+.lede { font-size: 2em; color: var(--muted); }
+.accent { color: var(--accent); font-weight: 700; }
+.cards { display: flex; gap: 32px; }
+.card { flex: 1; padding: 32px; background: var(--card); border-radius: 16px; }
+.card h3 { font-size: 40px; }
+.card p { font-size: calc(20px + 8px); margin: 0; }
+.wide { width: 400px; }
+@media (max-width: 1000px) { .card { background: red; } }
+@supports (display: grid) { .card { color: red; } }
+.steps li { color: red; }
+.steps { font-size: 32px; }

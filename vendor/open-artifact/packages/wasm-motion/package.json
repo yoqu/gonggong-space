@@ -1,0 +1,12 @@
+{
+  "name": "@open-artifact/wasm-motion",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "Motion pixel work compiled from crates/open-artifact-motion to WebAssembly (generated/, built by scripts/build-wasm.mjs): GIF quantizing and encoding, MOV (QuickTime Animation) writing, and the flash analysis.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {},
+  "license": "Apache-2.0"
+}

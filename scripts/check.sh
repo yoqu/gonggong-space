@@ -11,10 +11,11 @@ all=false
 base="$(git merge-base HEAD "${1:-origin/main}")"
 changed="$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)"
 
-web=false desktop=false server=false protocol=false cargo=false tools=false
+web=false desktop=false server=false protocol=false cargo=false tools=false vendor=false
 for f in $changed; do
   case "$f" in
     docs/* | *.md | e2e/* | videos/* | website/*) ;;
+    vendor/open-artifact/*) vendor=true ;; # its own npm workspace: none of ours imports it
     apps/web/*) web=true desktop=true ;; # desktop imports web's src through @web
     apps/desktop/src-tauri/*) cargo=true ;;
     apps/desktop/*) desktop=true ;;
@@ -129,7 +130,9 @@ cargo_targets() {
 # .internal-patterns (copied from the internal ops repository), so the list itself is not published either.
 if [ -f .internal-patterns ]; then
   patterns="$(grep -v -e '^#' -e '^$' .internal-patterns)"
-  if leaks="$(git grep --untracked -I -n -i -E -e "$(paste -sd'|' - <<<"$patterns")" -- . ':!.internal-patterns')"; then
+  # Upstream open-artifact sources and lockfile are skipped (they are not ours); PATCHES.md and the rest are scanned.
+  if leaks="$(git grep --untracked -I -n -i -E -e "$(paste -sd'|' - <<<"$patterns")" -- . ':!.internal-patterns' \
+    ':!vendor/open-artifact/packages' ':!vendor/open-artifact/package-lock.json')"; then
     echo "✗ internal addresses in the repository (move them to the internal ops repository):" >&2
     echo "$leaks" | cut -c1-200 >&2
     exit 1
@@ -139,6 +142,11 @@ run node scripts/check-size.mjs
 run pnpm typecheck
 run pnpm lint
 $tools && run node --test tools/*.test.mjs
+if $vendor; then
+  [ -d vendor/open-artifact/node_modules ] || run npm --prefix vendor/open-artifact ci --no-audit --no-fund
+  run npm --prefix vendor/open-artifact run typecheck
+  run npm --prefix vendor/open-artifact test
+fi
 $protocol && run pnpm --filter @gonggong/protocol test
 $desktop && run pnpm --filter @gonggong/desktop test
 $web && vitest_suite apps/web @gonggong/web

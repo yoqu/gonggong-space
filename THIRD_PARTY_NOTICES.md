@@ -52,3 +52,24 @@ limitations under the License.
 The agent marks in `apps/web/src/features/bots/agentFigures.ts` are traced from [Lobe Icons](https://github.com/lobehub/lobe-icons) (`@lobehub/icons-static-svg` 1.102.0, MIT License, Copyright (c) LobeHub) and redrawn as bot characters.
 
 Claude and Claude Code are trademarks of Anthropic, PBC; Codex of OpenAI; Gemini of Google LLC; CodeBuddy of Tencent; pi of its authors; DeepSeek of DeepSeek. They are used only to show which agent a bot runs and belong to their owners; this project is not affiliated with or endorsed by them. Every mark lives in that one file, so any of them can be replaced on request.
+
+## Open Artifact
+
+`vendor/open-artifact/` is a copy of 22 packages of [Open Artifact](https://github.com/JimLiu/open-artifact) at commit `d70879afc94b37f9c1dd0a99c7c1d3e9af60f79e` (formerly baoyu-design), taken by `scripts/vendor-open-artifact.sh`; its `LICENSE` and `NOTICE` are kept there, and our changes are listed in `vendor/open-artifact/PATCHES.md`. The WebAssembly modules under `vendor/open-artifact/packages/wasm-*/generated/` are upstream's committed builds.
+
+```
+Open Artifact
+Copyright 2026 Jim Liu 宝玉
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
