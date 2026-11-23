@@ -37,11 +37,30 @@ export function useConnectors(groupId: string, enabled = true) {
 
 export async function connect(groupId: string, pluginId: string, values: Record<string, string>) {
   const c = await api.post<ConnectorDto>(`/groups/${groupId}/connectors/${pluginId}/connect`, { values })
+  put(groupId, c)
+  return c
+}
+
+function put(groupId: string, c: ConnectorDto) {
   setList(
     groupId,
     (useConnectorStore.getState().lists[groupId] ?? []).map((x) => (x.id === c.id ? c : x)),
   )
 }
+
+/** My own switch for the connector in this group. */
+export async function switchConnector(groupId: string, pluginId: string, on: boolean) {
+  put(groupId, await api.put<ConnectorDto>(`/groups/${groupId}/connectors/${pluginId}/switch`, { on }))
+}
+
+/** Checks my connection now (key-based connectors with a check). */
+export async function checkConnector(groupId: string, pluginId: string) {
+  put(groupId, await api.post<ConnectorDto>(`/groups/${groupId}/connectors/${pluginId}/check`, {}))
+}
+
+/** Connections not checked since they were made: checked in the background when the list shows. */
+export const needsCheck = (c: ConnectorDto) =>
+  c.status === 'unchecked' && c.connected && !c.manifest.connector?.login && !!c.manifest.connector?.check
 
 /** Disconnecting deletes my values of its secrets, which may also cut off other connectors: reload them all. */
 export async function disconnect(groupId: string, pluginId: string) {

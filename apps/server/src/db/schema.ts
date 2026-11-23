@@ -599,6 +599,8 @@ export const groupMembers = pgTable(
     /** The notice this member closed for themselves; a newer notice shows again. */
     hiddenNoticeId: uuid('hidden_notice_id'),
     lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull().default(0),
+    /** Names of the connectors this member turned off for their own turns here (on everywhere by default). */
+    connectorsOff: text('connectors_off').array().notNull().default([]),
     joinedAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index('group_members_user').on(t.userId)],
@@ -1253,6 +1255,32 @@ export const personalSecrets = pgTable(
     /** false: injected only into runs on the user's own machines (a machine's owner can read its processes' env). */
     allowForeignMachines: boolean('allow_foreign_machines').notNull().default(false),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.userId, t.teamId, t.name)],
+)
+
+/**
+ * A member's connection to a connector in a team, as last checked: by the server against the connector's `check`
+ * (key-based) or reported by a bot after the CLI's own status command (`connector_status`, CLI-login ones).
+ */
+export const connectorStates = pgTable(
+  'connector_states',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => teams.id),
+    /** The connector plugin's name. */
+    name: text('name').notNull(),
+    /** 'ok' | 'expired' | 'error' */
+    status: text('status').$type<'ok' | 'expired' | 'error'>().notNull(),
+    /** Who the CLI is logged in as, when reported. */
+    account: text('account'),
+    detail: text('detail'),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique().on(t.userId, t.teamId, t.name)],
 )

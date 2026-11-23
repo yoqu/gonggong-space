@@ -423,6 +423,19 @@ export const SecretRequestArgs = z.object({
     .describe('Secrets to fill, defined and visible here (see secret_list)'),
   forceNewSession,
 })
+export const ConnectorStatusArgs = z.object({
+  connector: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
+    .describe('Connector plugin name, e.g. feishu'),
+  status: z
+    .enum(['ok', 'expired', 'error'])
+    .describe(
+      'ok: logged in and working; expired: not logged in or the login expired; error: could not tell',
+    ),
+  account: z.string().max(100).describe('Who the CLI is logged in as (its user name), when known').optional(),
+  detail: z.string().max(300).describe('One line on why, for expired / error').optional(),
+})
 export const ArtifactCheckoutArgs = z.object({
   artifact: z.string().min(1).max(80).describe('Artifact id, or its title in this group'),
 })
@@ -741,6 +754,12 @@ export const GONGGONG_TOOLS = {
       'Post a 「填写密钥」 card: the initiator fills personal / overridable secrets, a layer admin shared ones; values never pass through you, the chat or logs. A name a group skill declares (frontmatter `secrets`) but the group has no definition of asks the layer admins to create it from the declaration first, then the fill card follows. ' +
       'Returns at once; filled values are injected from the next turn. Never ask for secrets in the chat.',
     input: SecretRequestArgs,
+  },
+  connector_status: {
+    title: GONGGONG_TOOL_TITLES.connector_status,
+    description:
+      "Report the turn initiator's login to a CLI-login connector (its skill says when: after the CLI's own status command), so their 连接器 menu shows whether it works. Not for key-based connectors: the platform checks those itself.",
+    input: ConnectorStatusArgs,
   },
   plugin_catalog: {
     title: GONGGONG_TOOL_TITLES.plugin_catalog,

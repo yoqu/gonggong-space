@@ -1,6 +1,8 @@
 import {
   type ConnectorDto,
   type ConnectorList,
+  type ConnectorStatus,
+  ConnectorSwitchReq,
   ConnectReq,
   CreateSecretReq,
   type PluginManifest,
@@ -10,8 +12,10 @@ import {
 import { and, eq, inArray } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { personalSecrets } from '../../db/schema.js'
+import { connectorStates, groupMembers, personalSecrets } from '../../db/schema.js'
 import { fail, HttpError } from '../../lib/errors.js'
+import { open } from '../../lib/seal.js'
+import { refuse, type ToolOutput } from '../agent-tools/service.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { nearest, specDescription } from '../secrets/needs.js'
@@ -29,10 +33,18 @@ const isConnector = (m: PluginManifest) => m.category === 'connector'
  */
 async function connectorDtos(ctx: Ctx, groupId: string, teamId: string, userId: string) {
   const now = ctx.now()
-  const [plugins, defs, skills] = await Promise.all([
+  const [plugins, defs, skills, [member], states] = await Promise.all([
     groupPluginDtos(ctx, groupId, userId),
     visibleSecrets(ctx.db, groupId),
     enabledSkills(ctx.db, groupId, userId),
+    ctx.db
+      .select({ off: groupMembers.connectorsOff })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))),
+    ctx.db
+      .select()
+      .from(connectorStates)
+      .where(and(eq(connectorStates.userId, userId), eq(connectorStates.teamId, teamId))),
   ])
   const connectors = plugins.filter((p) => isConnector(p.manifest))
   const names = [...new Set(connectors.flatMap((c) => secretSpecsOf(c.manifest).map((s) => s.name)))]
@@ -61,10 +73,26 @@ async function connectorDtos(ctx: Ctx, groupId: string, teamId: string, userId: 
       })
     const personal = needs.filter((n) => n.personal).map((n) => n.name)
     const reads = (specs: { name: string }[]) => specs.some((s) => personal.includes(s.name))
+    const connected = needs.every((n) => n.ok)
+    const state = states.find((x) => x.name === c.manifest.name)
+    // A check made before the keys last changed says nothing about the ones in use now.
+    const keyedAt = Math.max(0, ...mine.filter((m) => personal.includes(m.name)).map((m) => +m.updatedAt))
+    const fresh = state && +state.checkedAt >= keyedAt ? state : undefined
+    const status: ConnectorStatus = c.manifest.connector?.login
+      ? (state?.status ?? 'unchecked')
+      : !connected
+        ? 'unconnected'
+        : !c.manifest.connector?.check
+          ? 'ok'
+          : (fresh?.status ?? 'unchecked')
     return {
       ...c,
       personal: personal.length > 0,
-      connected: needs.every((n) => n.ok),
+      connected,
+      on: !(member?.off ?? []).includes(c.manifest.name),
+      status,
+      account: (c.manifest.connector?.login ? state : fresh)?.account ?? null,
+      checkedAt: (c.manifest.connector?.login ? state : fresh)?.checkedAt.toISOString() ?? null,
       missing: needs.filter((n) => n.personal && !n.ok).map((n) => n.name),
       sharedWith: [
         ...new Set([
@@ -175,7 +203,130 @@ async function disconnect(ctx: Ctx, groupId: string, teamId: string, userId: str
   const { plugin, version } = await connectorOf(ctx, groupId, pluginId)
   for (const s of secretSpecsOf(version.manifest))
     await clearPersonal(ctx, { userId, teamId, name: s.name }, { connector: plugin.name })
+  await ctx.db
+    .delete(connectorStates)
+    .where(
+      and(
+        eq(connectorStates.userId, userId),
+        eq(connectorStates.teamId, teamId),
+        eq(connectorStates.name, plugin.name),
+      ),
+    )
   return plugin.id
+}
+
+type State = { status: 'ok' | 'expired' | 'error'; account?: string | null; detail?: string | null }
+
+async function saveState(ctx: Ctx, key: { userId: string; teamId: string; name: string }, s: State) {
+  const set = { status: s.status, account: s.account ?? null, detail: s.detail ?? null, checkedAt: ctx.now() }
+  await ctx.db
+    .insert(connectorStates)
+    .values({ ...key, ...set })
+    .onConflictDoUpdate({
+      target: [connectorStates.userId, connectorStates.teamId, connectorStates.name],
+      set,
+    })
+}
+
+const CHECK_TIMEOUT_MS = 8000
+const SECRET_REF = /\$\{secret:([A-Z][A-Z0-9_]{1,63})\}/g
+
+/**
+ * Checks the caller's connection with the connector's `check` request (连通性), their own key or the shared one
+ * filled in, and keeps the answer; nothing for connectors without a check or not connected.
+ */
+async function check(ctx: Ctx, groupId: string, teamId: string, userId: string, pluginId: string) {
+  const { plugin, version } = await connectorOf(ctx, groupId, pluginId)
+  const spec = version.manifest.connector?.check
+  if (!spec) return plugin.id
+  const names = secretSpecsOf(version.manifest).map((s) => s.name)
+  const [defs, mine] = await Promise.all([
+    visibleSecrets(ctx.db, groupId),
+    names.length
+      ? ctx.db
+          .select()
+          .from(personalSecrets)
+          .where(
+            and(
+              eq(personalSecrets.userId, userId),
+              eq(personalSecrets.teamId, teamId),
+              inArray(personalSecrets.name, names),
+            ),
+          )
+      : [],
+  ])
+  const value = (name: string) => {
+    const own = mine.find((m) => m.name === name)
+    if (own && nearest(defs, name)?.mode !== 'shared') return open(own.value)
+    const def = nearest(defs, name)
+    return def?.value && def.mode !== 'personal' ? open(def.value) : null
+  }
+  let missing = false
+  const fill = (v: string) =>
+    v.replace(SECRET_REF, (_, n: string) => {
+      const got = value(n)
+      if (got === null) missing = true
+      return got ?? ''
+    })
+  const headers = Object.fromEntries(Object.entries(spec.headers).map(([k, v]) => [k, fill(v)]))
+  const body = spec.body === undefined ? undefined : fill(spec.body)
+  if (missing) return plugin.id
+  const key = { userId, teamId, name: plugin.name }
+  try {
+    const res = await fetch(spec.url, {
+      method: spec.method,
+      headers,
+      body,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    })
+    await res.body?.cancel()
+    await saveState(
+      ctx,
+      key,
+      res.ok
+        ? { status: 'ok' }
+        : res.status === 401 || res.status === 403
+          ? { status: 'expired', detail: `HTTP ${res.status}` }
+          : { status: 'error', detail: `HTTP ${res.status}` },
+    )
+  } catch (e) {
+    await saveState(ctx, key, { status: 'error', detail: e instanceof Error ? e.message.slice(0, 300) : '' })
+  }
+  return plugin.id
+}
+
+async function setSwitch(ctx: Ctx, groupId: string, userId: string, pluginId: string, on: boolean) {
+  const { plugin } = await connectorOf(ctx, groupId, pluginId)
+  const [m] = await ctx.db
+    .select({ off: groupMembers.connectorsOff })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+  const off = new Set(m?.off ?? [])
+  if (on) off.delete(plugin.name)
+  else off.add(plugin.name)
+  await ctx.db
+    .update(groupMembers)
+    .set({ connectorsOff: [...off].sort() })
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+  return plugin.id
+}
+
+/** connector_status: a bot reports the originator's CLI login to a CLI-login connector of the group. */
+export async function connectorStatusTool(
+  ctx: Ctx,
+  run: { groupId: string; originUserId: string },
+  teamId: string,
+  a: { connector: string; status: 'ok' | 'expired' | 'error'; account?: string; detail?: string },
+): Promise<ToolOutput> {
+  const found = (await groupPluginList(ctx.db, run.groupId)).find(
+    (r) => r.plugin.name === a.connector && isConnector(r.version.manifest),
+  )
+  if (!found) return refuse(`本群没有连接器 ${a.connector}`)
+  if (!found.version.manifest.connector?.login)
+    return refuse(`${a.connector} 用密钥连接，平台会自己检测，不用报告`)
+  await saveState(ctx, { userId: run.originUserId, teamId, name: a.connector }, a)
+  return { text: `已记录：发起人的${found.version.manifest.title}连接状态为 ${a.status}`, groups: [] }
 }
 
 /**
@@ -225,7 +376,23 @@ export function connectorRoutes(ctx: Ctx, app: FastifyInstance) {
     const m = await member(req)
     await requirePluginsOn(ctx.db)
     const body = ConnectReq.parse(req.body)
-    return one(m, await connect(ctx, m.groupId, m.teamId, m.me.id, req.params.pluginId, body))
+    const id = await connect(ctx, m.groupId, m.teamId, m.me.id, req.params.pluginId, body)
+    // Tells right away whether the key just filled works.
+    await check(ctx, m.groupId, m.teamId, m.me.id, id)
+    return one(m, id)
+  })
+
+  app.post<P>('/api/groups/:id/connectors/:pluginId/check', async (req) => {
+    const m = await member(req)
+    await requirePluginsOn(ctx.db)
+    return one(m, await check(ctx, m.groupId, m.teamId, m.me.id, req.params.pluginId))
+  })
+
+  app.put<P>('/api/groups/:id/connectors/:pluginId/switch', async (req) => {
+    const m = await member(req)
+    await requirePluginsOn(ctx.db)
+    const { on } = ConnectorSwitchReq.parse(req.body)
+    return one(m, await setSwitch(ctx, m.groupId, m.me.id, req.params.pluginId, on))
   })
 
   app.delete<P>('/api/groups/:id/connectors/:pluginId/connection', async (req) => {

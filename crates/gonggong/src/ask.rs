@@ -1139,7 +1139,7 @@ mod tests {
             market_list market_get market_publish market_mine market_submit market_update \
             market_installs market_install market_uninstall market_reviews market_review \
             kb_list kb_get kb_search kb_create kb_update kb_delete tab_list tab_create \
-            mcp_list mcp_get mcp_create mcp_update mcp_toggle mcp_delete secret_list secret_request \
+            mcp_list mcp_get mcp_create mcp_update mcp_toggle mcp_delete secret_list secret_request connector_status \
             plugin_catalog creation_propose artifact_checkout send_attachments \
             service_start service_list service_logs service_stop preview_static preview_host html_preview html_render \
             client_release_publish client_release_notes feishu_send_card preview_miniprogram"

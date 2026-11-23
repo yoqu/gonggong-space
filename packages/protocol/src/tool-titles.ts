@@ -57,6 +57,7 @@ export const GONGGONG_TOOL_TITLES = {
   mcp_delete: '删除 MCP',
   secret_list: '密钥列表',
   secret_request: '请求填写密钥',
+  connector_status: '报告连接器状态',
   plugin_catalog: '插件目录',
   creation_propose: '发起创作确认',
   artifact_checkout: '检出产物',

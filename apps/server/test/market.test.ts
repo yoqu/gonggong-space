@@ -442,6 +442,7 @@ describe('plugin installs', () => {
       ['plugins'],
       {},
       false,
+      w.eve.id,
     )
     expect(refs.map((r) => [r.name, r.versionId])).toEqual([
       ['deck', deck2.versionId],

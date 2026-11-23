@@ -61,10 +61,16 @@ export function useGroupPluginsError(groupId: string) {
   return usePluginStore((s) => s.errors[groupId] ?? null)
 }
 
-/** Plugins turned on in the group. Reads what the chat view (useGroupPlugins) loaded. */
+/**
+ * Plugins turned on in the group, connectors aside (on everywhere by default, they have the composer's own menu).
+ * Reads what the chat view (useGroupPlugins) loaded.
+ */
 export function useEnabledPlugins(groupId: string) {
   const list = usePluginStore((s) => s.lists[groupId])
-  return useMemo(() => list?.filter((p) => p.enabledInGroup) ?? [], [list])
+  return useMemo(
+    () => list?.filter((p) => p.enabledInGroup && p.manifest.category !== 'connector') ?? [],
+    [list],
+  )
 }
 
 /** What 创作 offers: enabled plugins with a creation skill (tool-only plugins have none). */

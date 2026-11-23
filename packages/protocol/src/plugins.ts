@@ -53,6 +53,18 @@ export const PluginConnector = z.object({
    * fills this request into the chat box for the bot to walk them through the login; 共工 cannot tell whether they did.
    */
   login: z.string().min(1).max(200).optional(),
+  /**
+   * How the server checks a key-based connection (连通性): a request whose headers / body may reference the
+   * connector's secrets as `${secret:NAME}`; 2xx is connected, 401 / 403 an expired or wrong key, anything else unknown.
+   */
+  check: z
+    .object({
+      url: z.string().url().startsWith('https://'),
+      method: z.enum(['GET', 'POST']).default('GET'),
+      headers: z.record(z.string(), z.string()).default({}),
+      body: z.string().max(2000).optional(),
+    })
+    .optional(),
 })
 export type PluginConnector = z.infer<typeof PluginConnector>
 /** Creates artifacts with its entry skill; a connector's entry skill is how to use the system it connects instead. */

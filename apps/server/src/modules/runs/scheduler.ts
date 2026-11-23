@@ -449,7 +449,16 @@ export async function buildRunStart(
             resumeSessionId ? (thread ? (ts?.updatedAt ?? null) : gb.knowledgeAt) : null,
           ),
       params.pluginsEnabled && bot.machineId
-        ? runPlugins(tx, run.groupId, bot, bot.machineId, features, secrets.env, params.pluginCodeEnabled)
+        ? runPlugins(
+            tx,
+            run.groupId,
+            bot,
+            bot.machineId,
+            features,
+            secrets.env,
+            params.pluginCodeEnabled,
+            run.originUserId,
+          )
         : null,
       // Only daemons that check artifacts out and upload them get any (old ones keep publishing with preview_static).
       features.includes('artifacts') && !command ? runArtifacts(tx, run.groupId, bot.id, meta) : null,

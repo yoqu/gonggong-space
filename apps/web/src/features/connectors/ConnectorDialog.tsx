@@ -12,10 +12,12 @@ import {
   Logo,
   Presence,
   SecureField,
+  Switch,
   toast,
 } from '../../ui'
 import { PluginTile, pluginIcon } from '../plugins/PluginTile'
-import { connect, disconnect, useConnectorStore } from './store'
+import { ConnectorStatusLine, needsConnect } from './ConnectorStatus'
+import { checkConnector, connect, disconnect, switchConnector, useConnectorStore } from './store'
 import '../config/config.css'
 import '../secrets/secrets.css'
 import './connectors.css'
@@ -43,19 +45,37 @@ export function ConnectorDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [unbinding, setUnbinding] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const attempt = async (f: () => Promise<unknown>) => {
+    setError('')
+    try {
+      await f()
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+  const recheck = async () => {
+    setChecking(true)
+    await attempt(() => checkConnector(groupId, id))
+    setChecking(false)
+  }
   if (!c) return null
   const m = c.manifest
   const examples = m.connector?.examples ?? []
   const specs = secretSpecsOf(m)
-  const ready = c.missing.every((n) => (values[n]?.length ?? 0) >= SECRET_MIN_LENGTH)
+  // Expired: asks the required keys again, filled or not.
+  const asked = c.missing.length ? c.missing : specs.filter((x) => x.required).map((x) => x.name)
+  const ready = asked.every((n) => (values[n]?.length ?? 0) >= SECRET_MIN_LENGTH)
   const submit = async () => {
     if (busy) return
     setBusy(true)
     setError('')
     try {
-      await connect(groupId, c.id, values)
+      const done = await connect(groupId, c.id, values)
       setValues({})
-      toast({ type: 'success', message: t('已连接「{name}」', { name: m.title }) })
+      if (done.status === 'expired')
+        setError(t('「{name}」拒绝了这个密钥，请确认后重新填写', { name: m.title }))
+      else toast({ type: 'success', message: t('已连接「{name}」', { name: m.title }) })
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -66,17 +86,25 @@ export function ConnectorDialog({
     <Dialog
       open
       aria-label={m.title}
-      width={480}
+      width={560}
       closeOnBackdrop={!Object.keys(values).length}
       onClose={onClose}
     >
       <div className="cn-detail">
         <div className="cn-detail__hero" aria-hidden="true">
-          <Logo size={40} />
-          <span className="cn-detail__dots">···</span>
-          <PluginTile m={m} size={40} src={pluginIcon(c)} />
+          <span className="cn-detail__mark">
+            <Logo size={44} />
+          </span>
+          <span className="cn-detail__dots">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="cn-detail__mark">
+            <PluginTile m={m} size={56} src={pluginIcon(c)} />
+          </span>
         </div>
-        <h2 className="cn-detail__title">{m.title}</h2>
+        <h2 className="cn-detail__title">{t('连接 {name}', { name: m.title })}</h2>
         {m.description ? <p className="cn-detail__desc">{m.description}</p> : null}
         {(c.personal || m.connector?.login) && inGroup ? (
           <div className="cn-detail__note">
@@ -84,6 +112,24 @@ export function ConnectorDialog({
             {t('用你自己的账号连接，Bot 的回复群内可见')}
           </div>
         ) : null}
+        {c.status === 'unconnected' ? null : (
+          <div className="cn-detail__state">
+            <ConnectorStatusLine c={c} />
+            {c.connected && m.connector?.check && !m.connector.login ? (
+              <Button size="small" variant="plain" loading={checking} onClick={() => void recheck()}>
+                {t('重新检测')}
+              </Button>
+            ) : null}
+            {!needsConnect(c) ? (
+              <Switch
+                size="small"
+                label={t('在本群启用')}
+                checked={c.on}
+                onChange={(on) => void attempt(() => switchConnector(groupId, c.id, on))}
+              />
+            ) : null}
+          </div>
+        )}
         {error ? <Alert variant="error" title={error} /> : null}
         {m.connector?.login ? (
           <>
@@ -93,26 +139,42 @@ export function ConnectorDialog({
               )}
             </div>
             <div className="cn-detail__actions">
-              <Button variant="primary" onClick={() => onTry(c, m.connector!.login!)}>
-                {t('在对话里连接')}
-              </Button>
-              {examples[0] ? <Button onClick={() => onTry(c, examples[0]!)}>{t('去试试')}</Button> : null}
+              {c.status === 'ok' && examples[0] ? (
+                <>
+                  <Button size="large" variant="primary" icon="bubble" onClick={() => onTry(c, examples[0]!)}>
+                    {t('去试试')}
+                  </Button>
+                  <Button size="large" onClick={() => onTry(c, m.connector!.login!)}>
+                    {t('重新登录')}
+                  </Button>
+                </>
+              ) : (
+                <Button size="large" variant="primary" onClick={() => onTry(c, m.connector!.login!)}>
+                  {c.status === 'expired' ? t('在对话里重新登录') : t('在对话里连接')}
+                </Button>
+              )}
             </div>
           </>
-        ) : c.connected ? (
+        ) : c.connected && c.status !== 'expired' ? (
           <div className="cn-detail__actions">
             <Button
+              size="large"
               variant="primary"
               disabled={!examples[0]}
+              icon="bubble"
               onClick={() => examples[0] && onTry(c, examples[0])}
             >
               {t('去试试')}
             </Button>
-            {c.personal ? <Button onClick={() => setUnbinding(true)}>{t('解绑')}</Button> : null}
+            {c.personal ? (
+              <Button size="large" icon="plug" onClick={() => setUnbinding(true)}>
+                {t('解绑')}
+              </Button>
+            ) : null}
           </div>
-        ) : c.missing.length ? (
+        ) : c.missing.length || c.status === 'expired' ? (
           <div className="cn-detail__form">
-            {c.missing.map((n) => {
+            {asked.map((n) => {
               const spec = specs.find((s) => s.name === n)
               const val = values[n] ?? ''
               const short = val.length > 0 && val.length < SECRET_MIN_LENGTH
@@ -141,6 +203,7 @@ export function ConnectorDialog({
             </div>
             <div className="cn-detail__actions">
               <Button
+                size="large"
                 variant="primary"
                 disabled={!ready || busy}
                 loading={busy}
@@ -164,11 +227,14 @@ export function ConnectorDialog({
         )}
         {examples.length ? (
           <section className="cn-detail__tries" aria-label={t('试试这样用')}>
-            <div className="cfg__eyebrow">{t('试试这样用')}</div>
+            <h3 className="cn-detail__tries-title">
+              <Icon name="sparkle" size={15} />
+              {t('试试这样用')}
+            </h3>
             {examples.map((x) => (
-              <button key={x} type="button" className="cn-try" onClick={() => onTry(c, x)}>
-                <span>{x}</span>
-                <Icon name="arrow-turn-down-right" size={14} />
+              <button key={x} type="button" className="cn-try" aria-label={x} onClick={() => onTry(c, x)}>
+                <span>“{x}”</span>
+                <Icon name="bubble" size={16} />
               </button>
             ))}
           </section>

@@ -280,13 +280,12 @@ export function MarketPage() {
                           <Tag tone="green">{t('已引入')}</Tag>
                         </span>
                       ) : null}
-                      <Tag tone="blue">{TYPE_LABEL[l.type]}</Tag>
+                      <Tag tone="blue">{l.category === 'connector' ? t('连接器') : TYPE_LABEL[l.type]}</Tag>
                     </span>
                     <span className="mkt-card__desc">{l.description || t('（没有描述）')}</span>
                     <span className="mkt-card__foot">
-                      {l.agents.map((a) => (
-                        <Tag key={a}>{a}</Tag>
-                      ))}
+                      {/* A connector works with any agent: its card leaves the agent list out, as the 连接器 menu does. */}
+                      {l.category === 'connector' ? null : l.agents.map((a) => <Tag key={a}>{a}</Tag>)}
                       <span className="mkt-card__count" title={t('{n} 次引入', { n: l.installs })}>
                         <Icon name="download" size={12} />
                         {t('{n} 次引入', { n: l.installs })}

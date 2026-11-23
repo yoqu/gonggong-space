@@ -27,6 +27,7 @@ import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, postMessage, userAuthorName } from '../messages/service.js'
+import { connectorStatusTool } from '../plugins/connectors.js'
 import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
 import { answerText } from '../questions/dto.js'
 import { redactDeep } from '../runs/redact.js'
@@ -35,6 +36,7 @@ import { inMainTimeline, threadSummaries } from '../threads/service.js'
 import { artifactCheckout } from './artifacts.js'
 import { listFeishuMessages } from './feishu.js'
 import { kbCreate, kbDelete, kbGet, kbList, kbSearch, kbUpdate } from './knowledge.js'
+import { teamOf } from './layers.js'
 import {
   marketGet,
   marketInstall,
@@ -527,6 +529,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   mcp_delete: (ctx, s, a) => mcpDelete(ctx, s.run, a),
   secret_list: (ctx, s) => secretList(ctx, s.run),
   secret_request: (ctx, s, a) => secretRequest(ctx, s.run, a),
+  connector_status: async (ctx, s, a) => connectorStatusTool(ctx, s.run, await teamOf(ctx, s.run), a),
   progress_card: (ctx, s, a) => progressCard(ctx, s.run, a),
   plugin_catalog: (ctx, s, a) => pluginCatalog(ctx, s.run, a),
   creation_propose: (ctx, s, a) => creationPropose(ctx, s.run, a),

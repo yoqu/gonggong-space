@@ -22,6 +22,7 @@ import type { Db } from '../../db/client.js'
 import {
   bots,
   groupBots,
+  groupMembers,
   groups,
   installs,
   machines,
@@ -313,7 +314,9 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
           .map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name })),
       ).map((r) => {
         const install = top.get(r.plugin.id)
-        return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? false }
+        // Connectors are on in every group unless its admin turned one off; other plugins wait to be turned on.
+        const byDefault = r.version.manifest.category === 'connector'
+        return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? byDefault }
       })
       return [g.id, list] as const
     }),
@@ -532,12 +535,17 @@ export async function runPlugins(
   features: string[],
   env: Record<string, string>,
   codeEnabled: boolean,
+  originUserId: string,
 ) {
-  const [list, [machine], trusted, off] = await Promise.all([
+  const [list, [machine], trusted, off, [member]] = await Promise.all([
     groupPluginList(db, groupId),
     db.select({ version: machines.daemonVersion }).from(machines).where(eq(machines.id, machineId)),
     trustedOn(db, [machineId]),
     mcpTurnedOff(db, groupId),
+    db
+      .select({ connectorsOff: groupMembers.connectorsOff })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, originUserId))),
   ])
   const state: BotState = {
     agentKind: bot.agentKind,
@@ -548,7 +556,11 @@ export async function runPlugins(
     codeEnabled,
     trusted: trusted(machineId),
   }
-  const on = list.filter((r) => r.enabledInGroup)
+  // The originator's own switches: connectors they turned off here stay out of their turns.
+  const mineOff = new Set(member?.connectorsOff ?? [])
+  const on = list.filter(
+    (r) => r.enabledInGroup && !(r.version.manifest.category === 'connector' && mineOff.has(r.plugin.name)),
+  )
   const blocked = (r: (typeof on)[number]) => pluginBlocker(r.version.manifest, state, r.version.id)
   const usable = on.filter((r) => !blocked(r))
   return {

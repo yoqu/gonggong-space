@@ -60,7 +60,7 @@ test('a member meets a connector in the composer, the bot asks them to connect i
       repo: null,
     })
     await bindManaged(page.request, group.id, [bot.id])
-    await call(page.request, 'put', `/api/groups/${group.id}/plugins/${plugin.id}`, { enabled: true })
+    // No group admin turns it on: a connector is on in every group.
     await page.goto(`/g/${group.id}`)
     const box = page.getByPlaceholder(composer)
     const runs = page.getByTestId('run-card')
@@ -69,6 +69,11 @@ test('a member meets a connector in the composer, the bot asks them to connect i
       await page.getByRole('button', { name: '发送' }).click()
       await expect(runs).toHaveCount(nth, { timeout: 60_000 })
       await expect(runs.nth(nth - 1)).toHaveAttribute('data-status', 'completed', { timeout: 60_000 })
+    }
+    // GG_E2E_SHOTS=<dir> keeps screenshots of the connector UI for design review.
+    const shot = async (name: string) => {
+      if (process.env.GG_E2E_SHOTS)
+        await page.screenshot({ path: join(process.env.GG_E2E_SHOTS, `${name}.png`), animations: 'disabled' })
     }
     const replies = async () =>
       (await api.call<TimelineDto>('get', `/api/groups/${group.id}/timeline`)).messages.filter(
@@ -79,8 +84,16 @@ test('a member meets a connector in the composer, the bot asks them to connect i
       await page.getByRole('button', { name: '连接器' }).click()
       const menu = page.getByRole('dialog', { name: '连接器' })
       await expect(menu.getByRole('button', { name: '数仓测试' })).toBeVisible()
-      await expect(menu.getByRole('button', { name: '连接', exact: true })).toBeVisible()
+      const row = menu
+        .getByRole('listitem')
+        .filter({ has: page.getByRole('button', { name: '数仓测试', exact: true }) })
+      await expect(row.getByRole('button', { name: '连接', exact: true })).toBeVisible()
+      await expect(row.getByText('未连接')).toBeVisible()
+      await shot('1-menu-unconnected')
+      await menu.getByRole('button', { name: '数仓测试' }).click()
+      await shot('2-dialog-unconnected')
       await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog', { name: '数仓测试' })).toBeHidden()
     })
 
     await test.step('the bot learns it is not connected and sends the connect card', async () => {
@@ -105,21 +118,55 @@ test('a member meets a connector in the composer, the bot asks them to connect i
             (await replies()).some(
               (r) =>
                 r.body.includes('"mcpServers"') &&
-                r.body.includes(`dwq${tag}`) &&
-                !r.body.includes('未连接的连接器'),
+                r.body.includes(`数仓测试（dwq${tag}）`) &&
+                !r.body.includes('缺少：DWQ_KEY'),
             ),
           { timeout: 60_000 },
         )
         .toBe(true)
       await page.getByRole('button', { name: '连接器' }).click()
       const menu = page.getByRole('dialog', { name: '连接器' })
-      await expect(menu.getByText('已连接')).toBeVisible()
+      const row = menu
+        .getByRole('listitem')
+        .filter({ has: page.getByRole('button', { name: '数仓测试', exact: true }) })
+      await expect(row.getByText('已连接')).toBeVisible()
+      await shot('3-menu-connected')
       await menu.getByRole('button', { name: '数仓测试' }).click()
       const detail = page.getByRole('dialog', { name: '数仓测试' })
+      await shot('4-dialog-connected')
       await detail.getByRole('button', { name: '去试试' }).click()
       await expect(detail).toBeHidden()
       await expect(box).toHaveValue(`@${botName} 列出我有权限的数据源`)
       await box.fill('')
+    })
+
+    await test.step('my switch turns it off for my turns in this group, then back on', async () => {
+      await page.getByRole('button', { name: '连接器' }).click()
+      const menu = page.getByRole('dialog', { name: '连接器' })
+      await menu.getByRole('switch', { name: '在本群启用「数仓测试」' }).locator('xpath=..').click()
+      await expect(menu.getByText('本群已停用')).toHaveCount(1)
+      await shot('5-menu-off')
+      await page.keyboard.press('Escape')
+      const before = (await replies()).length
+      await turn(`@${botName} mock:echo`, (await runs.count()) + 1)
+      await expect.poll(async () => (await replies()).length).toBeGreaterThan(before)
+      expect((await replies()).at(-1)!.body).not.toContain(`dwq${tag}`)
+      await page.getByRole('button', { name: '连接器' }).click()
+      await page
+        .getByRole('dialog', { name: '连接器' })
+        .getByRole('switch', { name: '在本群启用「数仓测试」' })
+        .locator('xpath=..')
+        .click()
+      await expect(page.getByRole('dialog', { name: '连接器' }).getByText('本群已停用')).toHaveCount(0)
+      await page.keyboard.press('Escape')
+    })
+
+    await test.step('the market lists the connectors on their own shelf', async () => {
+      if (!process.env.GG_E2E_SHOTS) return
+      await page.goto('/market?shelf=connector')
+      await expect(page.getByText('数仓测试').first()).toBeVisible()
+      await shot('6-market')
+      await page.goto(`/g/${group.id}`)
     })
 
     await test.step('解绑 cuts the connection', async () => {

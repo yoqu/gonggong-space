@@ -1,8 +1,5 @@
 export default {
   搜索连接器: 'Search connectors',
-  本群还没有开启连接器: 'No connectors are on in this group yet',
-  '在市场把数仓、飞书项目等连接器引入本群，Bot 就能替你查询和操作':
-    'Add connectors such as the data warehouse or Feishu Project to this group from the market, and bots can query and act on them for you',
   去市场看看: 'Browse the market',
   待管理员配置: 'Awaiting admin setup',
   没有匹配的连接器: 'No matching connectors',
@@ -23,4 +20,26 @@ export default {
   '用你自己的账号在对话里登录：Bot 发来授权链接，你在浏览器里同意即可。登录信息只保存在 Bot 所在电脑的命令行工具里。':
     "Sign in with your own account in the chat: the bot sends an authorization link for you to approve in the browser. The login stays in the command-line tool on the bot's computer.",
   在对话里连接: 'Connect in chat',
+  '已连接 · {account}': 'Connected · {account}',
+  登录已过期: 'Login expired',
+  密钥已失效: 'Key no longer valid',
+  暂时无法检测: "Can't check right now",
+  未确认登录: 'Login not confirmed',
+  '检测中…': 'Checking…',
+  未连接: 'Not connected',
+  本群已停用: 'Off in this group',
+  重新连接: 'Reconnect',
+  '在本群启用「{name}」': 'Use "{name}" in this group',
+  '已在本群启用「{name}」': '"{name}" is on in this group',
+  '已在本群停用「{name}」，Bot 处理你的消息时不再使用它':
+    '"{name}" is off in this group: bots no longer use it for your messages',
+  还没有可用的连接器: 'No connectors yet',
+  '在市场安装数仓、飞书等连接器后，所有群都能直接使用，Bot 就能替你查询和操作':
+    'Install connectors such as the data warehouse or Feishu from the market: every group can use them, and bots query and act for you',
+  '连接 {name}': 'Connect {name}',
+  重新检测: 'Check again',
+  在本群启用: 'On in this group',
+  重新登录: 'Sign in again',
+  在对话里重新登录: 'Sign in again in chat',
+  '「{name}」拒绝了这个密钥，请确认后重新填写': '"{name}" refused this key; check it and fill it again',
 }

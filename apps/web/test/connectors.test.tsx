@@ -74,6 +74,10 @@ const connector = (o: Partial<ConnectorDto> = {}): ConnectorDto => ({
   connected: false,
   missing: ['DW_MANAGER_API_KEY'],
   sharedWith: [],
+  on: true,
+  status: 'unconnected',
+  account: null,
+  checkedAt: null,
   ...o,
 })
 const dw = connector()
@@ -101,6 +105,7 @@ const meegle = connector({
   connected: true,
   missing: [],
   sharedWith: ['dw-query'],
+  status: 'ok',
 })
 const lark = connector({
   id: 'c5',
@@ -115,6 +120,7 @@ const lark = connector({
   personal: false,
   connected: true,
   missing: [],
+  status: 'unchecked',
 })
 const off = connector({
   id: 'c4',
@@ -259,7 +265,7 @@ describe('输入框 · 连接器菜单', () => {
     renderChat()
     const menu = await openMenu()
     const rows = await within(menu).findAllByRole('listitem')
-    expect(rows.map((r) => r.textContent)).toEqual(['数仓连接', '墨刀待管理员配置', '飞书项目已连接'])
+    expect(rows.map((r) => r.textContent)).toEqual(['数仓未连接连接', '墨刀待管理员配置', '飞书项目已连接'])
     expect(within(rows[0]!).getByRole('button', { name: '连接' })).toBeTruthy()
 
     fireEvent.change(within(menu).getByRole('searchbox', { name: '搜索连接器' }), { target: { value: '墨' } })
@@ -277,11 +283,36 @@ describe('输入框 · 连接器菜单', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market?shelf=connector'))
   })
 
+  it('shows each connection’s status; my switch turns one off for this group, an expired one asks to reconnect', async () => {
+    const expired = connector({ connected: true, missing: [], status: 'expired' })
+    const calls = mockApi({
+      ...routes([expired, { ...meegle, account: '王磊' }]),
+      'PUT /groups/g1/connectors/c3/switch': { ...meegle, on: false },
+    })
+    renderChat()
+    const menu = await openMenu()
+    const rows = await within(menu).findAllByRole('listitem')
+    expect(rows.map((r) => r.textContent)).toEqual(['数仓密钥已失效重新连接', '飞书项目已连接 · 王磊'])
+    fireEvent.click(within(menu).getByRole('switch', { name: '在本群启用「飞书项目」' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+        path: '/groups/g1/connectors/c3/switch',
+        body: { on: false },
+      }),
+    )
+    expect(await within(menu).findByText('本群已停用')).toBeTruthy()
+
+    fireEvent.click(within(menu).getByRole('button', { name: '重新连接' }))
+    const dialog = await screen.findByRole('dialog', { name: '数仓' })
+    expect(within(dialog).getByText('密钥已失效')).toBeTruthy()
+    expect(within(dialog).getByLabelText('DW_MANAGER_API_KEY')).toBeTruthy()
+  })
+
   it('shows an empty state that leads to the market when the group has none', async () => {
     mockApi(routes([off]))
     renderChat()
     const menu = await openMenu()
-    expect(await within(menu).findByText('本群还没有开启连接器')).toBeTruthy()
+    expect(await within(menu).findByText('还没有可用的连接器')).toBeTruthy()
     fireEvent.click(within(menu).getByRole('button', { name: '去市场看看' }))
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market?shelf=connector'))
   })
@@ -291,7 +322,7 @@ describe('连接器详情弹窗', () => {
   it('connects with my own key, usable on others’ machines', async () => {
     const calls = mockApi({
       ...routes([dw, modao]),
-      'POST /groups/g1/connectors/c1/connect': connector({ connected: true, missing: [] }),
+      'POST /groups/g1/connectors/c1/connect': connector({ connected: true, missing: [], status: 'ok' }),
     })
     renderChat()
     const menu = await openMenu()

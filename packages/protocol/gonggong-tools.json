@@ -1783,6 +1783,37 @@
     }
   },
   {
+    "name": "connector_status",
+    "title": "报告连接器状态",
+    "description": "Report the turn initiator's login to a CLI-login connector (its skill says when: after the CLI's own status command), so their 连接器 menu shows whether it works. Not for key-based connectors: the platform checks those itself.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "connector": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "description": "Connector plugin name, e.g. feishu"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "expired", "error"],
+          "description": "ok: logged in and working; expired: not logged in or the login expired; error: could not tell"
+        },
+        "account": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Who the CLI is logged in as (its user name), when known"
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "One line on why, for expired / error"
+        }
+      },
+      "required": ["connector", "status"]
+    }
+  },
+  {
     "name": "plugin_catalog",
     "title": "插件目录",
     "description": "Creation plugins enabled here (slides, prototypes…). Without plugin: plugins, template and design system counts, whether you can use each. With plugin: its templates (id, title, group, inputs, uses a design system), design systems (id, title, category, palette) and inputs. When members ask for such work in the chat, pick a template here, then creation_propose.",

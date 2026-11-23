@@ -6,8 +6,16 @@ import type {
   PluginDto,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, machines, messages, personalSecrets, runs, secrets } from '../src/db/schema.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  auditLogs,
+  connectorStates,
+  machines,
+  messages,
+  personalSecrets,
+  runs,
+  secrets,
+} from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { buildRunStart } from '../src/modules/runs/scheduler.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -54,10 +62,10 @@ async function world() {
   const as = async (u: { id: string }) => client(t, await t.seed.cookie(u.id))
   const api = { li: await as(li), zhao: await as(zhao), out: await as(out), root: await as(root) }
   await saveSysParams(t.ctx, { pluginsEnabled: true }, root.id)
-  const upload = async (files: ReturnType<typeof plugin>) => {
+  const upload = async (files: { path: string; content: string }[], enable = true) => {
     const res = await api.root.post<PluginDto>('/api/admin/plugins', { files })
     expect(res.status).toBeLessThan(300)
-    await api.li.put(`/api/groups/${group.id}/plugins/${res.body.id}`, { enabled: true })
+    if (enable) await api.li.put(`/api/groups/${group.id}/plugins/${res.body.id}`, { enabled: true })
     return res.body
   }
   const base = `/api/groups/${group.id}/connectors`
@@ -271,6 +279,139 @@ describe('connectors', () => {
     const shared = await w.call('secret_request', { names: ['MODAO_TOKEN'] })
     expect(shared).toMatchObject({ isError: true })
     expect(shared.text).toContain('团队共享密钥')
+  })
+
+  it('is on in every group without an admin turning it on; each member switches it off for their own turns here', async () => {
+    const w = await world()
+    const dw = await w.upload(plugin('dw', '数仓', [{ name: 'DW_KEY', mode: 'personal' }]), false)
+    await w.upload(plugin('notes', '笔记', [], false), false)
+    expect((await w.list()).map((c) => [c.manifest.name, c.enabledInGroup, c.on])).toEqual([
+      ['dw', true, true],
+    ])
+    await w.api.zhao.post(`${w.base}/${dw.id}/connect`, { values: { DW_KEY: 'dw-zhao-1' } })
+    const start = async (who: { id: string }) => {
+      const [m] = await t.db
+        .insert(messages)
+        .values({ groupId: w.group.id, kind: 'user', authorUserId: who.id, body: '@Claude 查数', meta: {} })
+        .returning()
+      const [run] = await t.db
+        .insert(runs)
+        .values({
+          groupId: w.group.id,
+          botId: w.bot.id,
+          triggerMessageId: m!.id,
+          originUserId: who.id,
+          status: 'running',
+        })
+        .returning()
+      return t.db.transaction(
+        async (tx) => (await buildRunStart(tx, w.bot, run!, false, new Date(), ['plugins'])).msg,
+      )
+    }
+    expect((await start(w.zhao)).plugins.map((p) => p.name)).toEqual(['dw'])
+
+    const off = await w.api.zhao.put<ConnectorDto>(`${w.base}/${dw.id}/switch`, { on: false })
+    expect(off.body).toMatchObject({ on: false, connected: true })
+    const quiet = await start(w.zhao)
+    expect(quiet.plugins).toEqual([])
+    expect(quiet.bot.systemPrompt).not.toContain('数仓')
+    // Li's switch is their own: still on, so their turns are told to connect.
+    expect((await w.list('li'))[0]).toMatchObject({ on: true })
+    expect((await start(w.li)).bot.systemPrompt).toContain('未连接的连接器')
+    await w.api.zhao.put(`${w.base}/${dw.id}/switch`, { on: true })
+    expect((await start(w.zhao)).plugins.map((p) => p.name)).toEqual(['dw'])
+    // A group admin may still turn it off for everyone.
+    await w.api.li.put(`/api/groups/${w.group.id}/plugins/${dw.id}`, { enabled: false })
+    expect((await start(w.zhao)).plugins).toEqual([])
+  })
+
+  it('checks a key-based connection: on connecting, on demand, and again after the key changes', async () => {
+    const w = await world()
+    const files = plugin('dw', '数仓', [{ name: 'DW_KEY', mode: 'personal' }])
+    const m = JSON.parse(files[0]!.content)
+    m.connector.check = {
+      url: 'https://dw.example.com/api/quota',
+      method: 'POST',
+      headers: { Authorization: 'Bearer ${secret:DW_KEY}' },
+      body: '{}',
+    }
+    files[0]!.content = JSON.stringify(m)
+    const dw = await w.upload(files)
+    expect((await w.list())[0]).toMatchObject({ status: 'unconnected' })
+    const seen: string[] = []
+    const answer = { status: 200 }
+    const real = globalThis.fetch
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      if (String(url) !== 'https://dw.example.com/api/quota') return real(url, init)
+      seen.push(new Headers(init?.headers).get('authorization') ?? '')
+      return new Response('{}', answer)
+    })
+    try {
+      const done = await w.api.zhao.post<ConnectorDto>(`${w.base}/${dw.id}/connect`, {
+        values: { DW_KEY: 'dw-zhao-1' },
+      })
+      expect(done.body).toMatchObject({ connected: true, status: 'ok' })
+      expect(seen).toEqual(['Bearer dw-zhao-1'])
+
+      answer.status = 401
+      const again = await w.api.zhao.post<ConnectorDto>(`${w.base}/${dw.id}/check`)
+      expect(again.body).toMatchObject({ connected: true, status: 'expired' })
+      answer.status = 502
+      expect((await w.api.zhao.post<ConnectorDto>(`${w.base}/${dw.id}/check`)).body.status).toBe('error')
+
+      // A new key is checked anew: until then the old answer does not stand for it.
+      await t.db.update(personalSecrets).set({ updatedAt: new Date(Date.now() + 60_000) })
+      expect((await w.list())[0]).toMatchObject({ status: 'unchecked' })
+      // Not connected: nothing to check.
+      expect((await w.api.li.post<ConnectorDto>(`${w.base}/${dw.id}/check`)).body.status).toBe('unconnected')
+      expect(seen.length).toBe(3)
+
+      await w.api.zhao.del(`${w.base}/${dw.id}/connection`)
+      expect(await t.db.select().from(connectorStates)).toEqual([])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('takes a bot’s report of a CLI-login connector for the originator', async () => {
+    const w = await world()
+    const lark = await w.upload([
+      {
+        path: 'gonggong-plugin.json',
+        content: JSON.stringify({
+          name: 'feishu',
+          version: '1.0.0',
+          title: '飞书',
+          description: '文档',
+          category: 'connector',
+          agents: ['claude'],
+          minDaemon: '0.5.0',
+          entry: 'lark-connect',
+          connector: { login: '帮我连接飞书' },
+        }),
+      },
+      {
+        path: 'skills/lark-connect/SKILL.md',
+        content: '---\nname: lark-connect\ndescription: x\n---\nGo.\n',
+      },
+    ])
+    expect((await w.list()).find((c) => c.id === lark.id)).toMatchObject({
+      status: 'unchecked',
+      account: null,
+    })
+    const ok = await w.call('connector_status', {
+      connector: 'feishu',
+      status: 'expired',
+      detail: 'token 过期',
+    })
+    expect(ok.isError, ok.text).toBeFalsy()
+    expect((await w.list()).find((c) => c.id === lark.id)).toMatchObject({ status: 'expired' })
+    await w.call('connector_status', { connector: 'feishu', status: 'ok', account: '赵敏' })
+    expect((await w.list()).find((c) => c.id === lark.id)).toMatchObject({ status: 'ok', account: '赵敏' })
+    expect((await w.list('li')).find((c) => c.id === lark.id)).toMatchObject({ status: 'unchecked' })
+    expect(await w.call('connector_status', { connector: 'nope', status: 'ok' })).toMatchObject({
+      isError: true,
+    })
   })
 
   it('shows a connector listing’s examples in its market detail', async () => {
