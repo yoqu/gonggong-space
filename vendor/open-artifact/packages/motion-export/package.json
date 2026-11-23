@@ -1,0 +1,24 @@
+{
+  "name": "@open-artifact/motion-export",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "Motion exports in the browser: MP4 (WebCodecs + mediabunny), GIF, MOV with alpha (QuickTime Animation), the source ZIP and the standalone HTML player, with the raster frame, estimates and font licences.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./build": "./src/build.ts",
+    "./vite": "./src/vite.ts",
+    "./virtual": {
+      "types": "./src/virtual.d.ts"
+    }
+  },
+  "dependencies": {
+    "@open-artifact/motion-core": "0.13.0",
+    "@open-artifact/motion-audio": "0.13.0",
+    "@open-artifact/motion-stage": "0.13.0",
+    "@open-artifact/wasm-export": "0.13.0",
+    "@open-artifact/wasm-motion": "0.13.0",
+    "mediabunny": "1.63.0"
+  },
+  "license": "Apache-2.0"
+}

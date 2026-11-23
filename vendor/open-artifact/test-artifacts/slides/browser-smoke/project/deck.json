@@ -1,0 +1,23 @@
+{
+  "v": 5,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-21T03:04:34Z"
+  },
+  "lists": "css",
+  "format": {
+    "v": 1,
+    "shared": [
+      "project/deck.css"
+    ]
+  },
+  "title": "Slides Browser Smoke",
+  "order": [
+    "s-aswqni",
+    "s-u7lxj2"
+  ],
+  "sections": {},
+  "faces": {},
+  "designSystems": [],
+  "attachments": {}
+}

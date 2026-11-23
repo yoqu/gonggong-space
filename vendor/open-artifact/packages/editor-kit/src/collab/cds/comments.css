@@ -1,0 +1,504 @@
+/*
+ * The comments UI's stylesheet: Open Artifact's own tokens and component rules for the comment pins, thread cards,
+ * composer, menus and list (cds/*.tsx, CommentViews.tsx, CommentList.tsx).
+ *
+ * Those views draw in a shadow root (layer.tsx), so this sheet is all the styling they get. It is compiled with the
+ * Tailwind classes they use into comments-css.ts:
+ *
+ *   node packages/editor-kit/scripts/build-comments-css.mjs
+ *
+ * Run it after changing this file or a class in those views (a test checks the output is current).
+ *
+ * Tokens live on `.cds-root` (set by layer.tsx with `data-mode` light or dark and `--cds-rem-scale`), so every size
+ * follows the page's root font size and every colour follows its theme. Utilities read them through `@theme inline`.
+ *
+ * Fonts: Inter (SIL Open Font License 1.1, from @fontsource-variable/inter, declared on the page by editor-kit's
+ * styles.css, since @font-face inside a shadow root is ignored), then the system UI font. Icons are lucide (ISC).
+ */
+
+@import "tailwindcss";
+
+/* ---------- variants ---------- */
+
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+@custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
+@custom-variant comfortable (&:where([data-density="comfortable"], [data-density="comfortable"] *));
+@custom-variant touch (@media (pointer: coarse));
+
+/* ---------- theme: utilities read the .cds-root tokens ---------- */
+
+@theme inline {
+  --font-sans: var(--cds-font-sans);
+  --font-mono: var(--cds-font-mono);
+  --font-weight-control: 450;
+  --font-weight-badge: 500;
+
+  --text-body: var(--cds-font-size-body);
+  --text-body--line-height: var(--cds-leading-body);
+  --text-caption: var(--cds-font-size-caption);
+  --text-caption--line-height: var(--cds-leading-caption);
+  --text-footnote: var(--cds-font-size-footnote);
+  --text-footnote--line-height: var(--cds-leading-footnote);
+  --text-code: var(--cds-font-size-code);
+  --text-code--line-height: var(--cds-leading-code);
+
+  --spacing-xs: var(--cds-pad-xs);
+  --spacing-sm: var(--cds-pad-sm);
+  --spacing-md: var(--cds-pad-md);
+  --spacing-lg: var(--cds-pad-lg);
+  --spacing-xl: var(--cds-pad-xl);
+  --spacing-pad-xs: var(--cds-pad-xs);
+  --spacing-control: var(--cds-h-control);
+  --spacing-control-nested: var(--cds-h-control-nested);
+  --spacing-icon: var(--cds-icon);
+  /* Gaps have their own, slightly larger steps. */
+  --gap-xs: var(--cds-gap-xs);
+  --gap-sm: var(--cds-gap-sm);
+
+  --radius: var(--cds-radius);
+  --radius-card: var(--cds-radius-card);
+  --radius-chip: var(--cds-radius-chip);
+
+  --ease-snap: var(--cds-ease-snap);
+
+  /* Text */
+  --color-primary: var(--cds-text-primary);
+  --color-secondary: var(--cds-text-secondary);
+  --color-muted: var(--cds-text-muted);
+  --color-accent: var(--cds-text-accent);
+  --color-danger: var(--cds-text-danger);
+  --color-on-primary: var(--cds-on-primary);
+  --color-on-accent: var(--cds-on-accent);
+  --color-on-danger: var(--cds-on-danger);
+  --color-on-brand: var(--cds-on-brand);
+
+  /* Surfaces and fills */
+  --color-surface-1: var(--cds-surface-1);
+  --color-surface-2: var(--cds-surface-2);
+  --color-surface-3: var(--cds-surface-3);
+  --color-surface-popover: var(--cds-surface-popover);
+  --color-fill-primary: var(--cds-fill-primary);
+  --color-fill-primary-hover: var(--cds-fill-primary-hover);
+  --color-fill-secondary: var(--cds-fill-secondary);
+  --color-fill-secondary-hover: var(--cds-fill-secondary-hover);
+  --color-fill-ghost-hover: var(--cds-fill-ghost-hover);
+  --color-fill-danger: var(--cds-fill-danger);
+  --color-fill-danger-hover: var(--cds-fill-danger-hover);
+  --color-fill-accent: var(--cds-fill-accent);
+  --color-fill-accent-hover: var(--cds-fill-accent-hover);
+  --color-fill-brand: var(--cds-fill-brand);
+  --color-fill-control: var(--cds-fill-control);
+  --color-fill-field: var(--cds-fill-field);
+  --color-fill-disabled: var(--cds-fill-disabled);
+  --color-tint-blue: var(--cds-tint-accent);
+  --color-alpha-1: var(--cds-alpha-1);
+  --color-neutral: var(--cds-neutral);
+
+  /* Lines */
+  --color-border: var(--cds-border);
+  --color-strong: var(--cds-border-strong);
+  --color-stronger: var(--cds-border-stronger);
+
+  --shadow-panel: var(--cds-shadow-panel);
+  --shadow-panel-sm: var(--cds-shadow-panel-sm);
+  --shadow-field: var(--cds-shadow-field);
+  --shadow-field-pressed: var(--cds-shadow-field-pressed);
+  --shadow-field-ring: var(--cds-shadow-field);
+  --shadow-field-hover: var(--cds-shadow-field-hover);
+  --shadow-field-invalid: var(--cds-shadow-field-invalid);
+  --shadow-focus: var(--cds-focus-shadow);
+  --shadow-focus-danger: var(--cds-focus-shadow-danger);
+}
+
+/* ---------- utilities with no theme scale ---------- */
+
+@utility duration-fast {
+  transition-duration: var(--cds-dur-fast);
+}
+@utility duration-snap {
+  transition-duration: var(--cds-dur-snap);
+}
+@utility opacity-disabled {
+  opacity: 0.45;
+}
+@utility cursor-interactive {
+  cursor: var(--cds-cursor-interactive);
+}
+@utility draggable-none {
+  -webkit-user-drag: none;
+}
+
+/* A scroller whose edges fade while there is more to scroll that way (scroll-driven, where supported). */
+@property --cds-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --cds-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@utility scroll-fade-y {
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 calc(var(--cds-fade-top) * var(--cds-fade-top-on, 1)),
+      #000 calc(100% - var(--cds-fade-bottom)),
+      transparent
+    );
+    animation-name: cds-fade-top, cds-fade-bottom;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(self y);
+    animation-range:
+      0 var(--cds-fade-size, 0.75rem),
+      calc(100% - var(--cds-fade-size, 0.75rem)) 100%;
+  }
+}
+@utility scroll-fade-hide-top {
+  --cds-fade-top-on: 0;
+}
+@utility scroll-fade-size-4 {
+  --cds-fade-size: calc(var(--spacing) * 4);
+}
+
+/* A text box that has reached its height cap: it scrolls, with a thin bar, and does not scroll the card behind it. */
+@utility scroll-thin {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* ---------- tokens ---------- */
+
+@layer base {
+  .cds-root {
+    --cds-font-sans:
+      "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    --cds-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+    /* Sizes, all scaled with the page's root font size. */
+    --cds-font-size-body: calc(0.8125rem * var(--cds-rem-scale, 1));
+    --cds-leading-body: calc(1.25rem * var(--cds-rem-scale, 1));
+    --cds-font-size-caption: calc(0.6875rem * var(--cds-rem-scale, 1));
+    --cds-leading-caption: calc(1rem * var(--cds-rem-scale, 1));
+    --cds-font-size-footnote: calc(0.75rem * var(--cds-rem-scale, 1));
+    --cds-leading-footnote: calc(1rem * var(--cds-rem-scale, 1));
+    --cds-font-size-code: calc(0.75rem * var(--cds-rem-scale, 1));
+    --cds-leading-code: calc(1.125rem * var(--cds-rem-scale, 1));
+
+    --cds-pad-xs: calc(0.25rem * var(--cds-rem-scale, 1));
+    --cds-pad-sm: calc(0.375rem * var(--cds-rem-scale, 1));
+    --cds-pad-md: calc(0.5rem * var(--cds-rem-scale, 1));
+    --cds-pad-lg: calc(0.75rem * var(--cds-rem-scale, 1));
+    --cds-pad-xl: calc(1.25rem * var(--cds-rem-scale, 1));
+    --cds-gap-xs: calc(0.375rem * var(--cds-rem-scale, 1));
+    --cds-gap-sm: calc(0.5rem * var(--cds-rem-scale, 1));
+
+    --cds-h-control: calc(1.75rem * var(--cds-rem-scale, 1));
+    --cds-h-control-nested: calc(1.25rem * var(--cds-rem-scale, 1));
+    --cds-icon: calc(1rem * var(--cds-rem-scale, 1));
+    --cds-avatar-sm: calc(1.25rem * var(--cds-rem-scale, 1));
+    --cds-avatar-md: calc(1.75rem * var(--cds-rem-scale, 1));
+    --cds-checkbox: calc(1rem * var(--cds-rem-scale, 1));
+    --cds-checkbox--sm: calc(1rem * var(--cds-rem-scale, 1));
+    --cds-checkbox-glyph: calc(0.75rem * var(--cds-rem-scale, 1));
+    --cds-checkbox-radius: calc(0.25rem * var(--cds-rem-scale, 1));
+    --cds-radius: calc(0.4375rem * var(--cds-rem-scale, 1));
+    --cds-radius-card: calc(0.75rem * var(--cds-rem-scale, 1));
+    --cds-radius-chip: calc(0.3125rem * var(--cds-rem-scale, 1));
+    --cds-menu-gutter: calc(0.25rem * var(--cds-rem-scale, 1));
+    --cds-ring-inner: 1px;
+
+    --cds-cursor-interactive: pointer;
+    --cds-dur-fast: 90ms;
+    --cds-dur-snap: 160ms;
+    --cds-dur-base: 220ms;
+    --cds-dur-slow: 320ms;
+    --cds-ease-out: cubic-bezier(0.22, 0.8, 0.3, 1);
+    --cds-ease-snap: cubic-bezier(0.3, 0.7, 0.25, 1);
+
+    /* Colours: light. */
+    color-scheme: light;
+    --cds-text-primary: #1c1c1a;
+    --cds-text-secondary: #4a4a45;
+    --cds-text-muted: #7a7a73;
+    --cds-text-accent: #2563eb;
+    --cds-text-danger: #c8302c;
+    --cds-on-primary: #ffffff;
+    --cds-on-accent: #ffffff;
+    --cds-on-danger: #ffffff;
+    --cds-on-brand: #ffffff;
+
+    --cds-surface-1: #ffffff;
+    --cds-surface-2: #ffffff;
+    --cds-surface-3: #ffffff;
+    --cds-surface-popover: #ffffff;
+    --cds-page-bg: var(--cds-surface-2);
+
+    --cds-alpha-1: rgb(0 0 0 / 0.04);
+    --cds-neutral: rgb(0 0 0 / 0.045);
+    --cds-border: rgb(0 0 0 / 0.1);
+    --cds-border-strong: rgb(0 0 0 / 0.24);
+    --cds-border-stronger: rgb(0 0 0 / 0.38);
+
+    --cds-fill-primary: #2563eb;
+    --cds-fill-primary-hover: #1d4fd6;
+    --cds-fill-secondary: rgb(0 0 0 / 0.045);
+    --cds-fill-secondary-hover: rgb(0 0 0 / 0.08);
+    --cds-fill-ghost-hover: rgb(0 0 0 / 0.06);
+    --cds-fill-danger: #dc2f2a;
+    --cds-fill-danger-hover: #bf2622;
+    --cds-fill-accent: #2563eb;
+    --cds-fill-accent-hover: #1d4fd6;
+    --cds-fill-brand: #6d5cf6;
+    --cds-fill-control: rgb(0 0 0 / 0.07);
+    --cds-fill-field: #ffffff;
+    --cds-fill-disabled: rgb(0 0 0 / 0.06);
+    --cds-tint-accent: rgb(37 99 235 / 0.12);
+    --cds-tint-danger: rgb(220 47 42 / 0.1);
+
+    --cds-tooltip-bg: #1f1f1d;
+    --cds-tooltip-fg: #f7f7f5;
+
+    --cds-shadow-panel: 0 0 0 1px rgb(0 0 0 / 0.07), 0 2px 6px rgb(0 0 0 / 0.05), 0 12px 32px -8px rgb(0 0 0 / 0.18);
+    --cds-shadow-panel-sm: 0 0 0 1px rgb(0 0 0 / 0.08), 0 2px 8px -2px rgb(0 0 0 / 0.12);
+    --cds-shadow-field: inset 0 0 0 1px var(--cds-border);
+    --cds-shadow-field-hover: inset 0 0 0 1px var(--cds-border-strong);
+    --cds-shadow-field-pressed: inset 0 0 0 1px color-mix(in srgb, var(--cds-fill-accent) 45%, transparent);
+    --cds-shadow-field-invalid: inset 0 0 0 1px var(--cds-fill-danger);
+    --cds-focus-shadow:
+      inset 0 0 0 1px var(--cds-page-bg), 0 0 0 1px var(--cds-fill-accent),
+      0 0 0 3px color-mix(in srgb, var(--cds-fill-accent) 28%, transparent);
+    --cds-focus-shadow-danger:
+      inset 0 0 0 1px var(--cds-page-bg), 0 0 0 1px var(--cds-fill-danger),
+      0 0 0 3px color-mix(in srgb, var(--cds-fill-danger) 28%, transparent);
+  }
+
+  .cds-root[data-mode="dark"] {
+    color-scheme: dark;
+    --cds-text-primary: #ededea;
+    --cds-text-secondary: #c4c4be;
+    --cds-text-muted: #94948d;
+    --cds-text-accent: #7aa7ff;
+    --cds-text-danger: #ff8a80;
+    --cds-on-primary: #ffffff;
+    --cds-on-accent: #ffffff;
+    --cds-on-danger: #ffffff;
+    --cds-on-brand: #ffffff;
+
+    --cds-surface-1: #1f1f1d;
+    --cds-surface-2: #262624;
+    --cds-surface-3: #2d2d2a;
+    --cds-surface-popover: #2d2d2a;
+
+    --cds-alpha-1: rgb(255 255 255 / 0.05);
+    --cds-neutral: rgb(255 255 255 / 0.06);
+    --cds-border: rgb(255 255 255 / 0.11);
+    --cds-border-strong: rgb(255 255 255 / 0.26);
+    --cds-border-stronger: rgb(255 255 255 / 0.4);
+
+    --cds-fill-primary: #3b74f0;
+    --cds-fill-primary-hover: #5288f5;
+    --cds-fill-secondary: rgb(255 255 255 / 0.07);
+    --cds-fill-secondary-hover: rgb(255 255 255 / 0.11);
+    --cds-fill-ghost-hover: rgb(255 255 255 / 0.08);
+    --cds-fill-danger: #e0403a;
+    --cds-fill-danger-hover: #ec5751;
+    --cds-fill-accent: #3b74f0;
+    --cds-fill-accent-hover: #5288f5;
+    --cds-fill-brand: #8b7cff;
+    --cds-fill-control: rgb(255 255 255 / 0.1);
+    --cds-fill-field: rgb(255 255 255 / 0.04);
+    --cds-fill-disabled: rgb(255 255 255 / 0.07);
+    --cds-tint-accent: rgb(96 145 255 / 0.18);
+    --cds-tint-danger: rgb(255 110 100 / 0.16);
+
+    --cds-tooltip-bg: #f2f2ef;
+    --cds-tooltip-fg: #1c1c1a;
+
+    --cds-shadow-panel: 0 0 0 1px rgb(255 255 255 / 0.09), 0 2px 6px rgb(0 0 0 / 0.3), 0 14px 36px -8px rgb(0 0 0 / 0.6);
+    --cds-shadow-panel-sm: 0 0 0 1px rgb(255 255 255 / 0.1), 0 2px 10px -2px rgb(0 0 0 / 0.5);
+  }
+
+  .cds-root {
+    font-family: var(--cds-font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-synthesis: none;
+  }
+
+  /* The default line colour (`border` with no colour). */
+  .cds-root,
+  .cds-root *,
+  .cds-root ::before,
+  .cds-root ::after {
+    border-color: var(--cds-border);
+  }
+}
+
+/* ---------- component rules ---------- */
+
+@layer components {
+  :where(.cds-root) .cds-reset:focus,
+  :where(.cds-root) .cds-reset:focus-visible {
+    outline: none;
+  }
+
+  /* An icon: a lucide SVG in a box one font-size square. */
+  [data-cds="Icon"] {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    line-height: 1;
+    user-select: none;
+  }
+  [data-cds="Icon"] > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Buttons give a little under a press. */
+  .btn-squish {
+    transition: transform var(--cds-dur-slow) var(--cds-ease-out);
+  }
+  .group\/btn:not([disabled]):is(:active, :has(:active)) .btn-squish {
+    transform: scale(0.97);
+    transition-duration: var(--cds-dur-fast);
+  }
+
+  /* The agent's working dot breathes. */
+  .cds-root .cds-working-dot-halo {
+    opacity: 0;
+    animation: cds-working-halo 2.5s ease-in-out infinite;
+  }
+
+  /* Resolving: the box draws itself, fills, then the tick turns white. */
+  .cds-root .cds-resolve-square {
+    fill: var(--cds-fill-accent);
+    stroke: var(--cds-fill-accent);
+    stroke-width: 1.5px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 56;
+    animation: cds-resolve-draw calc(2 * var(--cds-dur-snap)) ease-out both;
+  }
+  .cds-root .cds-resolve-check {
+    animation: cds-resolve-ink calc(2 * var(--cds-dur-snap)) step-end both;
+  }
+  .cds-root [data-cds-part="resolve"][data-resolving="true"] [data-cds-part="paint"] {
+    background-color: transparent;
+  }
+
+  /* Text entry on touch screens: at least 16px, so the browser does not zoom in. */
+  @media (pointer: coarse) {
+    .cds-root .cds-text-entry-floored {
+      font-size: max(16px, var(--cds-font-size-body));
+      line-height: max(1.375em, var(--cds-leading-body));
+    }
+  }
+
+  /* Links in comment text. */
+  :where(.cds-root) .cds-text-link {
+    color: var(--cds-text-accent);
+    border-radius: 2px;
+    text-decoration-line: none;
+    transition: color var(--cds-dur-fast) var(--cds-ease-out), box-shadow var(--cds-dur-fast) var(--cds-ease-out);
+  }
+  :where(.cds-root) .cds-text-link:focus-visible {
+    outline: none;
+    box-shadow: var(--cds-focus-shadow);
+  }
+  :where(.cds-root) .cds-text-link-underline {
+    text-decoration-line: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  }
+  :where(.cds-root) .cds-text-link-underline:is(:hover, :focus-visible) {
+    text-decoration-color: currentColor;
+  }
+
+  /* An edge pile takes presses a little beyond its edges. */
+  [data-comment-edge-pile]::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-squish,
+    .group\/btn:not([disabled]):is(:active, :has(:active)) .btn-squish {
+      transition: none;
+    }
+    .cds-root .cds-working-dot-halo,
+    .cds-root .cds-resolve-square,
+    .cds-root .cds-resolve-check {
+      animation: none;
+    }
+  }
+}
+
+/* ---------- keyframes ---------- */
+
+@keyframes cds-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cds-fade-top {
+  from {
+    --cds-fade-top: 0px;
+  }
+  to {
+    --cds-fade-top: var(--cds-fade-size, 0.75rem);
+  }
+}
+@keyframes cds-fade-bottom {
+  from {
+    --cds-fade-bottom: var(--cds-fade-size, 0.75rem);
+  }
+  to {
+    --cds-fade-bottom: 0px;
+  }
+}
+@keyframes cds-working-halo {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(2);
+  }
+}
+@keyframes cds-resolve-draw {
+  0% {
+    stroke-dashoffset: 56;
+    fill-opacity: 0;
+  }
+  55% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+  }
+}
+@keyframes cds-resolve-ink {
+  0% {
+    color: inherit;
+  }
+  80%,
+  100% {
+    color: var(--cds-on-accent);
+  }
+}

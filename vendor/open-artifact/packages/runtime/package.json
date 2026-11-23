@@ -1,0 +1,20 @@
+{
+  "name": "@open-artifact/runtime",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The window.openartifact page runtime: capability contracts, the local provider and the Shell protocol.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./http-api": "./src/http-api.ts",
+    "./untrusted": "./src/untrusted.ts",
+    "./sheet-api": "./src/sheet-api.ts",
+    "./doc-api": "./src/doc-api.ts",
+    "./roles": "./src/roles.ts"
+  },
+  "dependencies": {
+    "@open-artifact/protocol": "0.13.0"
+  },
+  "license": "Apache-2.0"
+}

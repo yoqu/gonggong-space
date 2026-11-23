@@ -1,0 +1,14 @@
+{
+  "name": "@open-artifact/motion-audio",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The Motion type's sound: the score synthesizer and mixer (WebAudio), narration playback with ducking, loudness normalization, scheduling and offline rendering for export, and the score as a MIDI file.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@open-artifact/motion-core": "0.13.0"
+  },
+  "license": "Apache-2.0"
+}

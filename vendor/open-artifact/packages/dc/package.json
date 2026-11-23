@@ -1,0 +1,15 @@
+{
+  "name": "@open-artifact/dc",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The Design Component (.dc.html) format: parser, template addressing, edits, checks, React renderer and the in-frame board runtime.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./html": "./src/html.ts",
+    "./render": "./src/render.ts",
+    "./protocol": "./src/protocol.ts",
+    "./runtime": "./src/runtime/index.ts"
+  },
+  "license": "Apache-2.0"
+}

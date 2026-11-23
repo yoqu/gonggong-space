@@ -1,0 +1,26 @@
+/* ---- Find in page (⌘F) -----------------------------------------------------
+ * The bar sits under the board pill at the top right, above the comments
+ * panel; matches are tinted with the CSS Custom Highlight API (see
+ * `find-dom.ts`), the current one brighter.
+ */
+.wb-find-bar {
+  position: absolute;
+  z-index: 31;
+  right: 12px;
+  top: calc(60px + env(safe-area-inset-top, 0px));
+  width: min(320px, calc(100% - 24px));
+}
+
+::highlight(wb-find) {
+  background-color: rgb(255 213 0);
+  color: #000;
+}
+
+::highlight(wb-find-active) {
+  background-color: rgb(255 150 50);
+  color: #000;
+}
+
+html[data-frame-capture] .wb-find-bar {
+  display: none;
+}

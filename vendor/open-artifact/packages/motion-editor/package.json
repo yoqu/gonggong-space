@@ -1,0 +1,23 @@
+{
+  "name": "@open-artifact/motion-editor",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The Motion artifact page: the film player with its timeline, scene and text tweaks, layers, palette and font styles, comments, agent requests and exports.",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@open-artifact/editor-kit": "0.13.0",
+    "@open-artifact/live-store": "0.13.0",
+    "@open-artifact/runtime": "0.13.0",
+    "@open-artifact/ui": "0.13.0",
+    "@open-artifact/motion-audio": "0.13.0",
+    "@open-artifact/motion-core": "0.13.0",
+    "@open-artifact/motion-export": "0.13.0",
+    "@open-artifact/motion-stage": "0.13.0",
+    "@open-artifact/wasm-motion": "0.13.0"
+  },
+  "license": "Apache-2.0"
+}

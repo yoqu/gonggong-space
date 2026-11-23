@@ -35,6 +35,7 @@
 - `docs/plan/terminal-protocol.md` — 网页终端协议 — 长期有效
 - `docs/plan/代码整合记录.md` — 代码冗余整合扫描记录（每日定时扫描维护 P2/P3 待办） — 长期有效
 - `docs/plan/产物容器-开发计划.md` — 产物容器（幻灯片 / 白板 / 动效）开发计划 — 已定待开工
+- `docs/plan/产物容器-S0-spike.md` — 产物容器 S0：open-artifact 引入与幻灯片编辑器接入 spike（能力清单、URL、CSP、对计划的修正） — 进行中
 - `docs/plan/产物托管与编辑-待办.md` — 产物托管与编辑 · 待办 — 进行中
 - `docs/plan/原型协作-AI编辑可视化与多人光标-方案.md` — 原型协作：AI 编辑可视化 + 多人光标 — 已定待开工
 - `docs/plan/发布与平台说明.md` — 发布与平台说明 — 长期有效

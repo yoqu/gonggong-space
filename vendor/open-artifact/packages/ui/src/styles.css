@@ -1,0 +1,122 @@
+/*
+ * Open Artifact UI theme.
+ *
+ * Tailwind CSS v4 with a small set of semantic color tokens. Components use
+ * the semantic names (`bg-surface`, `text-fg-muted`, `border-line`…) only,
+ * so light and dark themes are just two sets of variable values.
+ *
+ * Apps import this file once: `@import "@open-artifact/ui/styles.css";`.
+ */
+@import "tailwindcss";
+
+/* Scan the UI kit's own components for class names. */
+@source "./";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-canvas: var(--open-artifact-canvas);
+  --color-surface: var(--open-artifact-surface);
+  --color-surface-2: var(--open-artifact-surface-2);
+  --color-hover: var(--open-artifact-hover);
+  --color-line: var(--open-artifact-line);
+  --color-line-strong: var(--open-artifact-line-strong);
+  --color-fg: var(--open-artifact-fg);
+  --color-fg-muted: var(--open-artifact-fg-muted);
+  --color-fg-subtle: var(--open-artifact-fg-subtle);
+  --color-accent: var(--open-artifact-accent);
+  --color-accent-fg: var(--open-artifact-accent-fg);
+  --color-accent-soft: var(--open-artifact-accent-soft);
+  --color-danger: var(--open-artifact-danger);
+  --color-warning: var(--open-artifact-warning);
+  --color-success: var(--open-artifact-success);
+  --color-select: var(--open-artifact-select);
+
+  --radius-control: 6px;
+  --shadow-popup: 0 8px 24px -6px rgb(0 0 0 / 0.18), 0 0 0 1px var(--open-artifact-line);
+}
+
+/* Light theme (default). */
+:root {
+  color-scheme: light;
+  --open-artifact-canvas: #f2f2f0;
+  --open-artifact-surface: #ffffff;
+  --open-artifact-surface-2: #f7f7f5;
+  --open-artifact-hover: rgb(0 0 0 / 0.05);
+  --open-artifact-line: rgb(0 0 0 / 0.1);
+  --open-artifact-line-strong: rgb(0 0 0 / 0.2);
+  --open-artifact-fg: #1c1c1a;
+  --open-artifact-fg-muted: #5c5c57;
+  --open-artifact-fg-subtle: #8a8a84;
+  --open-artifact-accent: #2563eb;
+  --open-artifact-accent-fg: #ffffff;
+  --open-artifact-accent-soft: rgb(37 99 235 / 0.12);
+  --open-artifact-danger: #c2410c;
+  --open-artifact-warning: #b45309;
+  --open-artifact-success: #15803d;
+  --open-artifact-select: #2563eb;
+}
+
+/* Dark theme: follows the system unless a page pins `data-theme`. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --open-artifact-canvas: #1a1a19;
+    --open-artifact-surface: #242423;
+    --open-artifact-surface-2: #2c2c2a;
+    --open-artifact-hover: rgb(255 255 255 / 0.07);
+    --open-artifact-line: rgb(255 255 255 / 0.1);
+    --open-artifact-line-strong: rgb(255 255 255 / 0.2);
+    --open-artifact-fg: #ededeb;
+    --open-artifact-fg-muted: #a8a8a3;
+    --open-artifact-fg-subtle: #7c7c77;
+    --open-artifact-accent: #60a5fa;
+    --open-artifact-accent-fg: #0b1220;
+    --open-artifact-accent-soft: rgb(96 165 250 / 0.16);
+    --open-artifact-danger: #fb923c;
+    --open-artifact-warning: #fbbf24;
+    --open-artifact-success: #4ade80;
+    --open-artifact-select: #60a5fa;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --open-artifact-canvas: #1a1a19;
+  --open-artifact-surface: #242423;
+  --open-artifact-surface-2: #2c2c2a;
+  --open-artifact-hover: rgb(255 255 255 / 0.07);
+  --open-artifact-line: rgb(255 255 255 / 0.1);
+  --open-artifact-line-strong: rgb(255 255 255 / 0.2);
+  --open-artifact-fg: #ededeb;
+  --open-artifact-fg-muted: #a8a8a3;
+  --open-artifact-fg-subtle: #7c7c77;
+  --open-artifact-accent: #60a5fa;
+  --open-artifact-accent-fg: #0b1220;
+  --open-artifact-accent-soft: rgb(96 165 250 / 0.16);
+  --open-artifact-danger: #fb923c;
+  --open-artifact-warning: #fbbf24;
+  --open-artifact-success: #4ade80;
+  --open-artifact-select: #60a5fa;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--open-artifact-canvas);
+    color: var(--open-artifact-fg);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    cursor: default;
+  }
+}

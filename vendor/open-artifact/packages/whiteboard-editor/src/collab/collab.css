@@ -1,0 +1,802 @@
+/* collab/collab.css: styles of this area (see docs/whiteboard-port.md, Editor architecture). */
+
+/*
+ * Collaboration: claim frames, other people's cursors and selections,
+ * comment pins, the idea mark, cursor chat, the Ask panel and the empty
+ * board's guidance. Per-person colors arrive as `--wb-peer` (inline).
+ */
+
+:root {
+  --wb-agent: #6e56cf;
+  --wb-idea: #d97706;
+  --wb-idea-added: #16a34a;
+  --wb-idea-changed: #d97706;
+  --wb-idea-removed: #dc2626;
+}
+
+/* ---- Board layer (board units) ------------------------------------------- */
+
+.wb-collab-board {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.wb-claim {
+  transition: opacity 420ms ease-out;
+}
+
+.wb-claim[data-leaving] {
+  opacity: 0;
+}
+
+.wb-claim-fill {
+  stroke: none !important;
+  fill-opacity: 0.05;
+}
+
+.wb-claim-edge {
+  fill: none !important;
+  stroke-width: 2;
+  stroke-dasharray: 10 6;
+  animation: wb-claim-march 1.2s linear infinite;
+}
+
+@keyframes wb-claim-march {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.wb-peer-ring {
+  fill: none !important;
+  stroke-width: 1.5;
+  stroke-opacity: 0.9;
+}
+
+.wb-peer-sketch {
+  /* A peer's pen stroke or arrow being drawn, in its own ink. */
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 160ms ease;
+}
+
+.wb-peer-sketch[data-ended] {
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-peer-sketch {
+    transition: none;
+  }
+}
+
+/* An upload on its way: the picture itself (this page's) or an empty box
+   (another page's), with a spinner that keeps its screen size. */
+.wb-upload {
+  pointer-events: none;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 4px 14px rgb(0 0 0 / 0.1);
+}
+
+.wb-upload img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(1.5px) saturate(0.5);
+  opacity: 0.6;
+}
+
+.wb-upload[data-wb-coming]::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: rgb(0 0 0 / 0.1);
+}
+
+.wb-upload-spin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  box-sizing: border-box;
+  border: 3px solid rgb(20 20 20 / 0.18);
+  border-top-color: var(--wb-select);
+  border-radius: 50%;
+  translate: -50% -50%;
+  background: rgb(255 255 255 / 0.7);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+  animation: wb-upload-spin 0.9s linear infinite;
+}
+
+@keyframes wb-upload-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-upload-spin {
+    animation-duration: 3s;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wb-upload-spin {
+    border-color: rgb(239 239 239 / 0.4);
+    border-top-color: #ffffff;
+    background: rgb(0 0 0 / 0.55);
+  }
+}
+
+:root[data-theme="dark"] .wb-upload-spin {
+  border-color: rgb(239 239 239 / 0.4);
+  border-top-color: #ffffff;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.wb-ask-area {
+  fill-opacity: 0.04;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+/* The area the open Ask panel is about. */
+.wb-ask-scope {
+  fill-opacity: 0.06;
+  stroke-dasharray: none;
+}
+
+/* A drawn area's origin dot and its corner grip (screen units, centered on the corner). */
+.wb-area-origin,
+.wb-area-grip {
+  box-sizing: border-box;
+  border-radius: 999px;
+}
+
+.wb-area-origin {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: var(--wb-area-color, var(--color-warning));
+}
+
+.wb-area-grip {
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid var(--wb-area-color, var(--color-warning));
+  background: var(--color-surface);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.wb-idea-outline {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.wb-idea-added {
+  stroke: var(--wb-idea-added);
+}
+
+.wb-idea-changed {
+  stroke: var(--wb-idea-changed);
+}
+
+.wb-idea-removed {
+  stroke: var(--wb-idea-removed);
+}
+
+.wb-comment-area {
+  fill: var(--color-warning);
+  fill-opacity: 0.08;
+  stroke: var(--color-warning);
+  stroke-width: 2;
+}
+
+/* Comment mode: the element a click comments on (as in every editor's comment mode). */
+.wb-comment-hover {
+  fill: none;
+  stroke: var(--color-warning);
+  stroke-opacity: 0.8;
+  stroke-width: 2;
+}
+
+
+/* ---- Overlay (screen units) ---------------------------------------------- */
+
+.wb-overlay > .wb-collab-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wb-collab-overlay [data-wb-chrome] {
+  pointer-events: auto;
+}
+
+.wb-collab-overlay > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Cursors */
+
+.wb-cursor {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  transition:
+    transform 90ms linear,
+    opacity 300ms ease;
+  will-change: transform;
+}
+
+.wb-cursor[data-dim] {
+  opacity: 0.45;
+}
+
+.wb-cursor-arrow {
+  flex: none;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.2));
+}
+
+.wb-cursor-name,
+.wb-cursor-chat,
+.wb-own-chat,
+.wb-claim-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 260px;
+  margin-top: 14px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--wb-peer, var(--wb-agent));
+  color: #fff;
+  font: 500 12px/18px var(--wb-face);
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.16);
+}
+
+.wb-cursor-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-cursor-chat {
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.wb-cursor-chat[data-asking],
+.wb-own-chat[data-asking] {
+  outline: 2px solid var(--wb-agent);
+  outline-offset: 1px;
+}
+
+.wb-cursor-chat-name {
+  opacity: 0.75;
+  font-size: 11px;
+}
+
+.wb-cursor-chat-tag {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.22);
+  font-weight: 600;
+}
+
+/* Edge marks of cursors outside the view */
+
+.wb-collab-overlay > .wb-edge-marks {
+  inset: 0;
+  pointer-events: none;
+}
+
+.wb-edge-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  background: var(--wb-peer);
+  color: #fff;
+  font: 500 12px/22px var(--wb-face);
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.wb-edge-mark:focus-visible {
+  outline: 2px solid var(--color-chrome-accent);
+  outline-offset: 2px;
+}
+
+/* Claim labels */
+
+.wb-claim-label {
+  margin-top: 0;
+  transition: opacity 420ms ease-out;
+}
+
+.wb-claim-label[data-leaving] {
+  opacity: 0;
+}
+
+.wb-claim-for {
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+/* Shimmering "working" text */
+
+.wb-shimmer {
+  background: linear-gradient(90deg, currentColor 0%, currentColor 40%, color-mix(in srgb, currentColor 35%, transparent) 50%, currentColor 60%, currentColor 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: wb-shimmer 2.2s linear infinite;
+}
+
+@keyframes wb-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* This viewer's cursor chat */
+
+.wb-own-chat {
+  margin-top: 0;
+  transition: opacity 600ms ease;
+}
+
+.wb-own-chat[data-fading] {
+  opacity: 0;
+}
+
+.wb-own-chat-field {
+  width: 220px;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.wb-own-chat-field::placeholder {
+  color: rgb(255 255 255 / 0.7);
+}
+
+/* Comment pins */
+
+.wb-pin {
+  translate: 0 -100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 26px;
+  height: 26px;
+  padding: 2px;
+  border-radius: 13px 13px 13px 2px;
+  background: var(--color-chrome);
+  box-shadow: var(--shadow-chrome);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.wb-pin-face {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--wb-peer, var(--color-chrome-accent));
+  color: #fff;
+  font: 600 10px/1 var(--wb-face);
+}
+
+.wb-pin-count {
+  padding-right: 5px;
+  color: var(--color-chrome-fg);
+  font: 500 11px/1 var(--wb-face);
+}
+
+.wb-pin-resolved {
+  opacity: 0.55;
+}
+
+.wb-pin-dragging {
+  cursor: grabbing;
+  box-shadow: var(--shadow-chrome-popup);
+}
+
+.wb-pin-draft .wb-pin-face {
+  background: var(--color-chrome-accent);
+}
+
+.wb-pin:focus-visible {
+  outline: 2px solid var(--color-chrome-accent);
+  outline-offset: 2px;
+}
+
+/* The idea mark */
+
+.wb-idea-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--wb-idea);
+  color: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+}
+
+.wb-idea-mark:focus-visible {
+  outline: 2px solid var(--color-chrome-accent);
+  outline-offset: 2px;
+}
+
+.wb-idea-streaming {
+  animation: wb-idea-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes wb-idea-pulse {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--wb-idea) 25%, transparent);
+  }
+}
+
+/* ---- Chrome ---------------------------------------------------------------- */
+
+.wb-collab-foot {
+  position: absolute;
+  z-index: 31;
+  left: 0;
+  right: 0;
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  width: min(560px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.wb-collab-foot > * {
+  pointer-events: auto;
+}
+
+.wb-ask-panel {
+  width: 100%;
+  animation: wb-collab-in 140ms ease-out;
+}
+
+/* Text files dragged over the Ask panel attach to the request. */
+.wb-ask-panel[data-drop-over] {
+  box-shadow:
+    0 0 0 2px var(--color-chrome-accent),
+    var(--shadow-chrome);
+}
+
+.wb-ask-status {
+  align-self: center;
+  width: min(420px, 100%);
+  padding: 4px;
+}
+
+.wb-ask-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+  transition: opacity 420ms ease-out;
+}
+
+.wb-ask-row-leaving {
+  opacity: 0;
+}
+
+.wb-ask-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wb-idea-added);
+}
+
+.wb-ask-row:is([data-status="failed"], [data-status="stopped"]) .wb-ask-dot {
+  background: var(--wb-idea-removed);
+}
+
+.wb-comments-panel {
+  position: absolute;
+  z-index: 30;
+  right: 12px;
+  top: calc(60px + env(safe-area-inset-top, 0px));
+  width: min(340px, calc(100% - 24px));
+  align-items: stretch;
+  animation: wb-collab-in 140ms ease-out;
+}
+
+.wb-follow-banner {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 4px;
+  box-shadow:
+    0 0 0 2px var(--wb-peer, var(--color-chrome-accent)),
+    var(--shadow-chrome);
+}
+
+@keyframes wb-collab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* The empty board: one tip with its scene (`EmptyBoard.tsx`, `tip-scenes.ts`),
+   or the working line while the agent fills the board. */
+
+.wb-empty {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.wb-empty-tip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: min(440px, calc(100vw - 32px));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.6s ease,
+    visibility 0s 0.6s;
+}
+
+.wb-empty-tip[data-up] {
+  opacity: 1;
+  visibility: visible;
+  transition-duration: 0.4s, 0s;
+  transition-delay: 0s;
+}
+
+.wb-empty-line,
+.wb-empty-busy {
+  margin: 0;
+  color: var(--color-chrome-muted);
+  font: 400 15px/22px var(--wb-face);
+  text-wrap: balance;
+}
+
+.wb-empty-label {
+  margin-inline-end: 0.35em;
+  color: var(--color-chrome-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  vertical-align: 0.5px;
+  opacity: 0.8;
+}
+
+.wb-empty-keys {
+  display: inline-flex;
+  gap: 2px;
+  margin-inline: 0.18em;
+  vertical-align: 0.06em;
+}
+
+.wb-empty-keys kbd {
+  min-width: 1.6em;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--color-chrome-hover);
+  box-shadow: inset 0 0 0 1px var(--color-chrome-line);
+  color: var(--color-chrome-fg);
+  font: 500 12px/18px var(--wb-face);
+}
+
+/* The scene: 168px wide, colored by --wt-* tokens (light, then dark). */
+.wb-empty-scene {
+  width: 168px;
+  max-width: 100%;
+  aspect-ratio: 120 / 76;
+  --wt-ink: var(--wb-ink);
+  --wt-paper: var(--wb-paper);
+  --wt-soft: #8a8982;
+  --wt-label: #6b6a64;
+  --wt-surface: #ffffff;
+  --wt-line: rgba(0, 0, 0, 0.16);
+  --wt-shade: rgba(0, 0, 0, 0.07);
+  --wt-key: #ffffff;
+  --wt-down: #efeee9;
+  --wt-wire: #8a8982;
+  --wt-select: var(--color-chrome-accent);
+  --wt-agent: var(--wb-agent, #6e56cf);
+  --wt-agent-fill: color-mix(in srgb, var(--wb-agent, #6e56cf) 7%, transparent);
+  --wt-chat: #2f7cc4;
+  --wt-blue: #2c78dc;
+  --wt-water: rgba(44, 120, 220, 0.16);
+  --wt-moon: #d9d7ce;
+  --wt-crater: #bfbdb3;
+  --wt-check: #2e8b57;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wb-empty-scene {
+    --wt-soft: #a3a29a;
+    --wt-label: #b5b4ab;
+    --wt-surface: #262624;
+    --wt-line: rgba(255, 255, 255, 0.2);
+    --wt-shade: rgba(0, 0, 0, 0.45);
+    --wt-key: #2e2e2b;
+    --wt-down: #3a3a36;
+    --wt-wire: #8b8a83;
+    --wt-agent-fill: color-mix(in srgb, var(--wb-agent, #6e56cf) 14%, transparent);
+    --wt-blue: #5b9bf0;
+    --wt-water: rgba(91, 155, 240, 0.24);
+    --wt-moon: #cfcdc4;
+    --wt-crater: #a9a79e;
+    --wt-check: #4fb37a;
+  }
+}
+
+:root[data-theme="dark"] .wb-empty-scene {
+  --wt-soft: #a3a29a;
+  --wt-label: #b5b4ab;
+  --wt-surface: #262624;
+  --wt-line: rgba(255, 255, 255, 0.2);
+  --wt-shade: rgba(0, 0, 0, 0.45);
+  --wt-key: #2e2e2b;
+  --wt-down: #3a3a36;
+  --wt-wire: #8b8a83;
+  --wt-agent-fill: color-mix(in srgb, var(--wb-agent, #6e56cf) 14%, transparent);
+  --wt-blue: #5b9bf0;
+  --wt-water: rgba(91, 155, 240, 0.24);
+  --wt-moon: #cfcdc4;
+  --wt-crater: #a9a79e;
+  --wt-check: #4fb37a;
+}
+
+.wb-empty-scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.wb-empty-scene text {
+  font-family: var(--wb-face);
+  white-space: pre;
+}
+
+.wb-empty-scene .wb-tip-mid {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.wb-empty-scene .wb-tip-corner {
+  transform-box: fill-box;
+  transform-origin: 0 0;
+}
+
+.wb-empty-scene:empty {
+  display: none;
+}
+
+/* No room for the scene on a short screen; none in forced colors. */
+@media (max-height: 395px), (forced-colors: active) {
+  .wb-empty-scene {
+    display: none;
+  }
+}
+
+.wb-empty-busy {
+  max-width: 420px;
+  color: var(--color-chrome-fg);
+  animation: wb-collab-in 300ms ease-out;
+}
+
+.wb-empty-hint {
+  margin: 0;
+  transition: opacity 120ms ease-in;
+}
+
+.wb-empty-hint[data-out] {
+  opacity: 0;
+  transition-duration: 80ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-empty-tip,
+  .wb-empty-hint {
+    transition: none;
+  }
+
+  .wb-claim-edge,
+  .wb-shimmer,
+  .wb-idea-streaming {
+    animation: none;
+  }
+
+  .wb-shimmer {
+    -webkit-text-fill-color: currentColor;
+  }
+
+  .wb-cursor {
+    transition: none;
+  }
+}
+
+html[data-frame-capture] :is(.wb-collab-overlay, .wb-collab-board, .wb-collab-foot, .wb-comments-panel, .wb-follow-banner, .wb-empty) {
+  display: none;
+}
+
+/* ---- People's colors: readable text on them --------------------------------
+ * Labels on a person's color (cursor names and chat, claim labels, edge marks,
+ * comment pins) take `--wb-peer-ink` when set inline (`inkOnPeerColor`), else
+ * near-black on light colors (the palette's yellow) and white on the others.
+ */
+.wb-cursor-name,
+.wb-cursor-chat,
+.wb-own-chat,
+.wb-claim-label,
+.wb-edge-mark,
+.wb-pin-face {
+  color: var(--wb-peer-ink, #fff);
+}
+
+@supports (color: oklch(from red l c h)) {
+  .wb-cursor-name,
+  .wb-cursor-chat,
+  .wb-own-chat,
+  .wb-claim-label,
+  .wb-edge-mark {
+    color: var(--wb-peer-ink, oklch(from var(--wb-peer, var(--wb-agent)) clamp(0.13, (0.72 - l) * 1000, 1) 0 0));
+  }
+
+  .wb-pin-face {
+    color: var(--wb-peer-ink, oklch(from var(--wb-peer, var(--color-chrome-accent)) clamp(0.13, (0.72 - l) * 1000, 1) 0 0));
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@open-artifact/motion-stage",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "The Motion stage runtime: the sandboxed in-frame player that runs a film's code (kit, scenes, score recorder, captions, snapshots, text scan), built into one classic script, with its message protocol, a Vite plugin that gives the page the script, and a standalone player.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol.ts",
+    "./layers": "./src/layers.ts",
+    "./tools": "./src/tools.ts",
+    "./raster": "./src/raster.ts",
+    "./stills": "./src/stills.ts",
+    "./build": "./src/build.ts",
+    "./vite": "./src/vite.ts",
+    "./virtual": {
+      "types": "./src/virtual.d.ts"
+    }
+  },
+  "dependencies": {
+    "@open-artifact/motion-core": "0.13.0"
+  },
+  "license": "Apache-2.0"
+}

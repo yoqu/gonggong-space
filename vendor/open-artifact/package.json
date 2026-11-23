@@ -1,0 +1,60 @@
+{
+  "name": "open-artifact-workspace",
+  "private": true,
+  "type": "module",
+  "description": "Open, agent- and model-agnostic artifacts, all saved locally as plain files — edit, comment on, and export slides, UI designs, design systems, whiteboards, sheets, dashboards, docs, and motion.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/runtime",
+    "packages/protocol",
+    "packages/editor-kit",
+    "packages/export-kit",
+    "packages/ui",
+    "packages/canvas-engine",
+    "packages/live-store",
+    "packages/design-system-core",
+    "packages/dc",
+    "packages/slides-core",
+    "packages/slides-editor",
+    "packages/whiteboard-core",
+    "packages/whiteboard-editor",
+    "packages/motion-core",
+    "packages/motion-editor",
+    "packages/motion-stage",
+    "packages/motion-export",
+    "packages/motion-audio",
+    "packages/wasm-export",
+    "packages/wasm-wb-geom",
+    "packages/wasm-motion",
+    "packages/wasm-canvas"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test \"packages/*/test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.19.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "esbuild": "0.25.12",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vite": "7.3.6"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.8.0",
+    "clsx": "2.1.1",
+    "lucide-react": "1.65.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zustand": "5.0.10"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
+  }
+}

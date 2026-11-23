@@ -1,0 +1,628 @@
+/* selection/selection.css: styles of this area (see docs/whiteboard-port.md, Editor architecture). */
+
+/*
+ * The selection overlay (SelectionOverlay.tsx), in screen units over the
+ * board. Passive marks are one SVG in board units with non-scaling strokes;
+ * handles are HTML. Handles hidden during a transform use `opacity` (never
+ * `display`/unmounting), so the handle driving the gesture keeps its pointer
+ * capture.
+ */
+
+.wb-overlay > .wb-sel {
+  --wb-sel-guide: #e5488f;
+  --wb-sel-handle: 9px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---- Passive marks (board units) ----------------------------------------- */
+
+.wb-sel-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.wb-sel-arrow-halo {
+  fill: none;
+  stroke: var(--wb-select);
+  stroke-opacity: 0.32;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wb-sel-hairline {
+  fill: none;
+  stroke: var(--wb-select);
+  stroke-opacity: 0.55;
+  stroke-width: 1;
+}
+
+.wb-sel-group {
+  fill: none;
+  stroke: var(--wb-select);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.wb-sel-section-hover {
+  fill: none;
+  stroke: var(--wb-select);
+  stroke-width: 1.25;
+}
+
+.wb-sel-hover {
+  fill: none;
+  stroke: var(--wb-select);
+  stroke-opacity: 0.6;
+  stroke-width: 1.5;
+}
+
+.wb-sel-connect {
+  fill: var(--wb-select-soft);
+  stroke: var(--wb-select);
+  stroke-width: 2;
+}
+
+.wb-sel-connect-dot {
+  fill: var(--wb-select);
+  stroke: var(--wb-paper);
+  stroke-width: 2;
+}
+
+.wb-sel-guide {
+  stroke: var(--wb-sel-guide);
+  stroke-width: 1;
+}
+
+.wb-sel-guide[data-kind='center'] {
+  stroke-dasharray: 3 3;
+}
+
+.wb-sel-draft path,
+.wb-sel-ink {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- The selection frame -------------------------------------------------- */
+
+.wb-sel-frame {
+  position: absolute;
+  box-sizing: border-box;
+  transform-origin: 50% 50%;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1.5px var(--wb-select);
+  pointer-events: none;
+}
+
+.wb-sel-frame[data-thin] {
+  box-shadow: 0 0 0 1px var(--wb-select);
+}
+
+.wb-sel-frame[data-locked] {
+  box-shadow: none;
+  outline: 1.5px dashed var(--wb-select);
+}
+
+/* Everything pressable in the overlay. */
+.wb-handle,
+.wb-crop-handle,
+.wb-turn-zone,
+.wb-side-dot,
+.wb-arrow-end,
+.wb-arrow-leg,
+.wb-arrow-label-handle,
+.wb-crop-pan {
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A larger, invisible grab area around the small handles. */
+.wb-handle::before,
+.wb-crop-handle::before,
+.wb-arrow-end::before,
+.wb-arrow-leg::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+@media (pointer: coarse) {
+  .wb-handle::before,
+  .wb-crop-handle::before,
+  .wb-arrow-end::before,
+  .wb-arrow-leg::before {
+    inset: -12px;
+  }
+}
+
+/* ---- Resize handles ------------------------------------------------------- */
+
+.wb-handle {
+  position: absolute;
+  box-sizing: border-box;
+  width: var(--wb-sel-handle);
+  height: var(--wb-sel-handle);
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--wb-select);
+  border-radius: 2px;
+  background: var(--wb-paper);
+}
+
+/* Side handles are short bars along their edge. */
+.wb-handle[data-handle='n'],
+.wb-handle[data-handle='s'] {
+  width: 18px;
+  height: 7px;
+  border-radius: 4px;
+}
+
+.wb-handle[data-handle='e'],
+.wb-handle[data-handle='w'] {
+  width: 7px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.wb-handle[data-handle='nw'],
+.wb-crop-handle[data-handle='nw'] {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.wb-handle[data-handle='n'],
+.wb-crop-handle[data-handle='n'] {
+  left: 50%;
+  top: 0;
+  cursor: ns-resize;
+}
+.wb-handle[data-handle='ne'],
+.wb-crop-handle[data-handle='ne'] {
+  left: 100%;
+  top: 0;
+  cursor: nesw-resize;
+}
+.wb-handle[data-handle='e'],
+.wb-crop-handle[data-handle='e'] {
+  left: 100%;
+  top: 50%;
+  cursor: ew-resize;
+}
+.wb-handle[data-handle='se'],
+.wb-crop-handle[data-handle='se'] {
+  left: 100%;
+  top: 100%;
+  cursor: nwse-resize;
+}
+.wb-handle[data-handle='s'],
+.wb-crop-handle[data-handle='s'] {
+  left: 50%;
+  top: 100%;
+  cursor: ns-resize;
+}
+.wb-handle[data-handle='sw'],
+.wb-crop-handle[data-handle='sw'] {
+  left: 0;
+  top: 100%;
+  cursor: nesw-resize;
+}
+.wb-handle[data-handle='w'],
+.wb-crop-handle[data-handle='w'] {
+  left: 0;
+  top: 50%;
+  cursor: ew-resize;
+}
+
+/* ---- Turn zones ----------------------------------------------------------- */
+
+/*
+   arrow (set inline, turned with the frame). The quarter at the corner is left to the resize handle. */
+.wb-turn-zone {
+  position: absolute;
+  width: var(--wb-turn-zone, 28px);
+  height: var(--wb-turn-zone, 28px);
+}
+.wb-turn-zone[data-corner='nw'] {
+  right: 100%;
+  bottom: 100%;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+}
+.wb-turn-zone[data-corner='ne'] {
+  left: 100%;
+  bottom: 100%;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 12px 100%, 12px calc(100% - 12px), 0 calc(100% - 12px));
+}
+.wb-turn-zone[data-corner='se'] {
+  left: 100%;
+  top: 100%;
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px, 12px 12px);
+}
+.wb-turn-zone[data-corner='sw'] {
+  right: 100%;
+  top: 100%;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px, 100% 100%, 0 100%);
+}
+
+@media (pointer: coarse) {
+  .wb-sel {
+    --wb-turn-zone: 40px;
+  }
+}
+
+/* The angle while turning, upright under the frame. */
+.wb-turn-badge {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 20.5px);
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--wb-select);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---- Side dots ------------------------------------------------------------ */
+
+/* The frame the hovered item's side dots sit around (no outline of its own). */
+.wb-hover-dots {
+  position: absolute;
+  box-sizing: border-box;
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}
+
+/*. */
+.wb-side-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  animation: wb-side-dot-in 0.12s ease-out;
+}
+
+.wb-side-dot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--wb-port);
+  transition: scale 0.12s ease-out;
+}
+
+.wb-side-dot:hover::after {
+  scale: 1.85;
+}
+
+@keyframes wb-side-dot-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  .wb-side-dot {
+    width: 44px;
+    height: 44px;
+  }
+  .wb-side-dot::after {
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+  }
+}
+
+.wb-side-dot[data-side='top'] {
+  left: 50%;
+  top: calc(-1 * var(--wb-dot-offset, 12px));
+}
+.wb-side-dot[data-side='right'] {
+  left: calc(100% + var(--wb-dot-offset, 12px));
+  top: 50%;
+}
+.wb-side-dot[data-side='bottom'] {
+  left: 50%;
+  top: calc(100% + var(--wb-dot-offset, 12px));
+}
+.wb-side-dot[data-side='left'] {
+  left: calc(-1 * var(--wb-dot-offset, 12px));
+  top: 50%;
+}
+
+/* ---- Arrow handles -------------------------------------------------------- */
+
+.wb-arrow-end {
+  position: absolute;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--wb-select);
+  border-radius: 50%;
+  background: var(--wb-paper);
+  cursor: grab;
+}
+
+.wb-arrow-end[data-attached] {
+  background: var(--wb-select);
+  border-color: var(--wb-paper);
+  box-shadow: 0 0 0 1px var(--wb-select);
+}
+
+.wb-sel[data-transform='arrow'] .wb-arrow-end {
+  cursor: grabbing;
+}
+
+/* A pill across the middle of a leg that can move: drag it sideways to bend the route. */
+.wb-arrow-leg {
+  position: absolute;
+  box-sizing: border-box;
+  width: 6px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--wb-select);
+  border-radius: 999px;
+  background: var(--wb-paper);
+  cursor: ew-resize;
+  transition: background-color 120ms ease;
+}
+
+.wb-arrow-leg[data-level] {
+  width: 16px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.wb-arrow-leg:hover {
+  background: var(--wb-select);
+}
+
+.wb-arrow-label-handle {
+  position: absolute;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--wb-select);
+  border-radius: 6px;
+  background: var(--wb-paper);
+  color: var(--wb-select);
+  cursor: text;
+}
+
+.wb-arrow-label-handle:hover {
+  background: var(--wb-select-soft);
+}
+
+/* ---- Hidden during transforms --------------------------------------------- */
+
+.wb-sel[data-transform='move'] :is(.wb-handle, .wb-side-dot, .wb-arrow-end, .wb-arrow-leg, .wb-arrow-label-handle),
+.wb-sel[data-transform='draw'] :is(.wb-handle, .wb-side-dot, .wb-arrow-end, .wb-arrow-leg, .wb-arrow-label-handle),
+.wb-sel[data-transform='resize'] :is(.wb-side-dot, .wb-arrow-label-handle),
+.wb-sel[data-transform='turn'] :is(.wb-handle, .wb-side-dot, .wb-arrow-label-handle),
+.wb-sel[data-transform='arrow'] :is(.wb-handle, .wb-side-dot, .wb-arrow-leg, .wb-arrow-label-handle) {
+  opacity: 0;
+}
+
+.wb-sel[data-transform='move'] .wb-sel-frame {
+  box-shadow: 0 0 0 1px var(--wb-select);
+}
+
+/* ---- Crop mode ------------------------------------------------------------ */
+
+.wb-crop {
+  position: absolute;
+  box-sizing: border-box;
+  transform-origin: 50% 50%;
+  box-shadow: 0 0 0 1.5px var(--wb-select);
+  pointer-events: none;
+}
+
+.wb-crop-ghost {
+  position: absolute;
+  outline: 1px dashed var(--wb-select);
+  pointer-events: none;
+}
+
+.wb-crop-ghost img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.wb-crop-pan {
+  position: absolute;
+  inset: 0;
+  cursor: move;
+}
+
+.wb-crop-handle {
+  position: absolute;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--wb-select);
+  border-radius: 2px;
+  background: var(--wb-paper);
+}
+
+.wb-crop-handle:is([data-handle='n'], [data-handle='s']) {
+  width: 22px;
+  height: 7px;
+  border-radius: 4px;
+}
+
+.wb-crop-handle:is([data-handle='e'], [data-handle='w']) {
+  width: 7px;
+  height: 22px;
+  border-radius: 4px;
+}
+
+.wb-crop-bar {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  transform: translateX(-50%);
+  border-radius: 10px;
+  background: var(--wb-paper);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.08),
+    0 2px 8px rgb(0 0 0 / 0.12);
+  pointer-events: auto;
+}
+
+.wb-crop-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--wb-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.wb-crop-bar button:hover:not(:disabled) {
+  background: var(--wb-select-soft);
+}
+
+.wb-crop-bar button[data-primary] {
+  background: var(--wb-select);
+  color: #fff;
+}
+
+.wb-crop-bar button[data-primary]:hover {
+  background: var(--wb-select);
+  filter: brightness(1.08);
+}
+
+.wb-crop-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.wb-crop-bar button:focus-visible,
+.wb-arrow-label-handle:focus-visible {
+  outline: 2px solid var(--wb-select);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-side-dot {
+    animation: none;
+  }
+  .wb-side-dot::after {
+    transition: none;
+  }
+}
+
+/* The next-item offer: a faint item at an arrow's free end (`NextItemOffer.tsx`) */
+
+.wb-offer {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--wb-paper-text);
+  animation: wb-offer-in 0.14s ease-out;
+}
+
+.wb-offer i {
+  position: absolute;
+}
+
+.wb-offer svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+
+.wb-offer svg path {
+  fill-opacity: 0.38;
+  stroke: currentColor;
+  stroke-opacity: 0.5;
+  stroke-width: calc(1.5 * var(--wb-offer-px));
+  stroke-dasharray: calc(4 * var(--wb-offer-px)) calc(3 * var(--wb-offer-px));
+  transition: fill-opacity 0.12s ease;
+}
+
+.wb-offer:hover svg path {
+  fill-opacity: 0.62;
+}
+
+.wb-offer span {
+  position: relative;
+  font: 400 12px/1.2 var(--wb-face);
+  opacity: 0.62;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@keyframes wb-offer-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-offer {
+    animation: none;
+  }
+}
+
+/* ---- Side-dot offer: what a click on the hovered side dot adds ----------- */
+
+.wb-sel-dot-offer {
+  animation: wb-offer-in 0.14s ease-out;
+}
+
+.wb-sel-dot-offer > path {
+  fill-opacity: 0.38;
+  stroke: currentColor;
+  stroke-opacity: 0.5;
+  stroke-width: calc(1.5 * var(--wb-offer-px));
+  stroke-dasharray: calc(4 * var(--wb-offer-px)) calc(3 * var(--wb-offer-px));
+}
+
+.wb-sel-draft[data-faint] {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-sel-dot-offer {
+    animation: none;
+  }
+}

@@ -1,0 +1,16 @@
+export const TIMELINE = 'Timeline';
+export const SCENES = 'Scenes';
+export const SCENE_OPTIONS = 'Scene options';
+export const sceneOptions = (name: string, number: number): string => `${name}, scene ${number}, scene options`;
+export const DELETE_SCENE = 'Delete scene…';
+export const deleteSceneTitle = (name: string): string => `Delete “${name}”?`;
+export const deleteSceneDescription = (agent: string): string => `${agent} is asked to take this scene out of the animation and fit the rest to the shorter length.`;
+export const DELETE = 'Delete';
+export const ASK_FOR_CHANGE = 'Ask for a change…';
+export const NOT_MADE_YET = 'Not made yet';
+export const MAKING = 'Making…';
+export const FAILED = 'Did not build';
+export const sceneNumber = (number: number): string => `Scene ${number}`;
+export const sceneOf = (number: number, total: number): string => `${number} of ${total}`;
+export const PLAYHEAD = 'Playhead';
+export const CHAPTER = 'Chapter';
