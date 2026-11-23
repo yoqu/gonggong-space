@@ -1,8 +1,23 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import type { BotDto, RunDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingChat, ShowFloatingChat } from '../src/app/floatingChat'
+import { useWorkspace } from '../src/app/workspace'
 import { useCanvasChat } from '../src/features/artifacts/chatRoot'
 import { ComposerDock, type ComposerHud } from '../src/features/chat/ComposerDock'
+
+const makeRun = (o: Partial<RunDto> = {}): RunDto =>
+  ({
+    id: 'r1',
+    botId: 'b1',
+    status: 'running',
+    step: '',
+    approvals: [],
+    questions: [],
+    ...o,
+  }) as RunDto
 
 const dock = (floating: boolean, hud?: ComposerHud | null, onShowChat?: () => void) => (
   <FloatingChat.Provider value={floating}>
@@ -17,6 +32,9 @@ const dock = (floating: boolean, hud?: ComposerHud | null, onShowChat?: () => vo
 beforeEach(() => {
   localStorage.clear()
   useCanvasChat.setState({ byGroup: {} })
+  useWorkspace.setState({
+    bots: [{ id: 'b1', name: '共字君' } as BotDto, { id: 'b2', name: 'gemini大师' } as BotDto],
+  })
 })
 
 describe('composer dock', () => {
@@ -200,7 +218,9 @@ describe('composer dock', () => {
         </FloatingChat.Provider>,
       )
       const hud = screen.getByTestId('cdock-hud')
-      expect(hud.textContent).toContain('@共字君 触发测试构建')
+      expect(hud.textContent).toContain('已发送')
+      expect(hud.textContent).not.toContain('触发测试构建')
+      expect(hud.getAttribute('title')).toContain('@共字君 触发测试构建')
 
       act(() => {
         vi.advanceTimersByTime(5100)
@@ -209,5 +229,92 @@ describe('composer dock', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('shows a compact working animation without printing long process text when a bot is running', () => {
+    const onShowChat = vi.fn()
+    const onLocate = vi.fn()
+    const longStep =
+      'cd /Users/yoqu/Documents/code/self/ai-chat-master/.claude/worktrees/agent-aef1c6ecc77b237fd/apps/web && pnpm test'
+    const active = makeRun({ id: 'r1', botId: 'b1', status: 'running', step: longStep })
+    render(
+      <FloatingChat.Provider value={true}>
+        <ShowFloatingChat.Provider value={onShowChat}>
+          <ComposerDock runs={[active]} onLocate={onLocate}>
+            <textarea aria-label="输入" />
+          </ComposerDock>
+        </ShowFloatingChat.Provider>
+      </FloatingChat.Provider>,
+    )
+    const hud = screen.getByTestId('cdock-hud')
+    expect(hud.dataset.tone).toBe('running')
+    expect(hud.textContent).toBe('共字君')
+    expect(hud.textContent).not.toContain('cd /Users')
+    expect(hud.textContent).not.toContain('展开聊天')
+    expect(hud.getAttribute('aria-label')).toContain('展开聊天')
+    const anim = screen.getByTestId('cdock-hud-anim')
+    expect(anim.querySelectorAll('i')).toHaveLength(3)
+
+    fireEvent.click(hud)
+    expect(onLocate).toHaveBeenCalledWith(active)
+    expect(onShowChat).toHaveBeenCalledTimes(1)
+  })
+
+  it('summarizes multiple active runs compactly and prefers a running bot over queued ones', () => {
+    const queued = makeRun({ id: 'r1', botId: 'b2', status: 'queued' })
+    const running = makeRun({ id: 'r2', botId: 'b1', status: 'running', step: 'long shell command' })
+    render(
+      <FloatingChat.Provider value={true}>
+        <ShowFloatingChat.Provider value={vi.fn()}>
+          <ComposerDock runs={[queued, running]}>
+            <textarea aria-label="输入" />
+          </ComposerDock>
+        </ShowFloatingChat.Provider>
+      </FloatingChat.Provider>,
+    )
+    const hud = screen.getByTestId('cdock-hud')
+    expect(hud.textContent).toBe('共字君 +1')
+    expect(screen.getByTestId('cdock-hud-anim')).toBeTruthy()
+  })
+
+  it('keeps approval HUD compact while preserving the full title in the hover tooltip', () => {
+    const onLocate = vi.fn()
+    const approval = {
+      id: 'ap1',
+      status: 'pending',
+      title: '执行非常长的命令 pnpm --filter @gonggong/server db:migrate',
+    }
+    const waiting = makeRun({
+      id: 'r1',
+      botId: 'b1',
+      status: 'awaiting_approval',
+      approvals: [approval as RunDto['approvals'][number]],
+    })
+    render(
+      <FloatingChat.Provider value={true}>
+        <ShowFloatingChat.Provider value={vi.fn()}>
+          <ComposerDock runs={[waiting]} onLocate={onLocate}>
+            <textarea aria-label="输入" />
+          </ComposerDock>
+        </ShowFloatingChat.Provider>
+      </FloatingChat.Provider>,
+    )
+    const hud = screen.getByTestId('cdock-hud')
+    expect(hud.dataset.tone).toBe('attention')
+    expect(hud.textContent).toBe('共字君 · 待审批')
+    expect(hud.getAttribute('title')).toContain('执行非常长的命令')
+    expect(screen.queryByTestId('cdock-hud-anim')).toBeNull()
+
+    fireEvent.click(hud)
+    expect(onLocate).toHaveBeenCalledWith(waiting, 'ap1')
+  })
+
+  it('keeps HUD max-width compact and respects prefers-reduced-motion in CSS', () => {
+    const css = readFileSync(resolve(__dirname, '../src/features/chat/composer-dock.css'), 'utf8')
+    expect(css).not.toContain('640px')
+    expect(css).toContain('max-width: min(240px, 100%)')
+    expect(css).toContain('.cdock__hud-wave')
+    expect(css).toContain('@keyframes cdock-hud-wave')
+    expect(css).toContain('prefers-reduced-motion: reduce')
   })
 })

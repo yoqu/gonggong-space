@@ -15,7 +15,6 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Icon } from '../../ui'
 import { useCanvasChat } from '../artifacts/chatRoot'
-import { stepText, toolTitle } from '../runs/mcp'
 import { hudOffset, ORB } from './composerDockHud'
 import { usePending } from './pending'
 import { STATUS_LABEL } from './RunGraphics'
@@ -35,6 +34,8 @@ export interface OrbPos {
 export interface ComposerHud {
   tone?: 'sending' | 'sent' | 'running' | 'attention' | 'done'
   text: string
+  /** Full detail for the hover tooltip while keeping the floating pill compact. */
+  title?: string
   onClick?: () => void
 }
 
@@ -141,29 +142,33 @@ function useAutoHud(
         const approval = attentionRun.approvals.find((a) => a.status === 'pending')
         const question = attentionRun.questions.find((q) => q.status === 'pending')
         const kind = approval ? t('待审批') : t('待回答')
-        const title = clipText(
+        const detail = clipText(
           approval?.title ?? question?.questions[0]?.title ?? STATUS_LABEL[attentionRun.status],
+          48,
         )
         return {
           tone: 'attention',
-          text: t('{kind}：{text}（{name}）', { kind, text: title, name }),
+          text: t('{name} · {kind}', { name, kind }),
+          title: t('{kind}：{text}（{name}）', { kind, text: detail, name }),
           onClick: () => onLocate?.(attentionRun, approval?.id ?? question?.id),
         }
       }
 
-      const activeRun = runs.find((r) => ACTIVE.includes(r.status))
+      const activeRuns = runs.filter((r) => ACTIVE.includes(r.status))
+      const activeRun = activeRuns.find((r) => r.status === 'running') ?? activeRuns[0]
       if (activeRun) {
         const name = botName(activeRun.botId)
-        const step =
-          activeRun.status === 'running'
-            ? toolTitle(stepText(activeRun)) || STATUS_LABEL.running
-            : STATUS_LABEL[activeRun.status]
+        const more = activeRuns.length - 1
+        const status = STATUS_LABEL[activeRun.status]
         return {
           tone: 'running',
           text:
-            flash?.kind === 'sent'
-              ? t('已发送「{text}」 · {name}：{step}', { text: flash.text, name, step })
-              : t('{name}：{step}', { name, step }),
+            more > 0
+              ? t('{name} +{n}', { name, n: more })
+              : activeRun.status === 'running'
+                ? name
+                : t('{name} · {status}', { name, status }),
+          title: t('{name} · {status}', { name, status }),
           onClick: () => onLocate?.(activeRun),
         }
       }
@@ -172,21 +177,24 @@ function useAutoHud(
     if (sending) {
       return {
         tone: 'sending',
-        text: t('正在发送「{text}」…', { text: clipText(sending.req.body) }),
+        text: t('发送中'),
+        title: t('正在发送「{text}」…', { text: clipText(sending.req.body) }),
       }
     }
 
     if (flash?.kind === 'sent') {
       return {
         tone: 'sent',
-        text: t('已发送「{text}」', { text: flash.text }),
+        text: t('已发送'),
+        title: t('已发送「{text}」', { text: flash.text }),
       }
     }
 
     if (flash?.kind === 'done') {
       return {
         tone: 'done',
-        text: t('{name} 已回复：「{text}」', { name: flash.name, text: flash.text }),
+        text: t('{name} 已回复', { name: flash.name }),
+        title: t('{name} 已回复：「{text}」', { name: flash.name, text: flash.text }),
       }
     }
 
@@ -530,15 +538,24 @@ function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: D
             className="cdock__hud"
             data-testid="cdock-hud"
             data-tone={hud.tone ?? 'sent'}
+            aria-label={t('{text} · 展开聊天', { text: hud.title ?? hud.text })}
+            title={t('{text} · 点击展开聊天', { text: hud.title ?? hud.text })}
             onClick={() => {
               hud.onClick?.()
               showChat?.()
             }}
           >
-            <span className="cdock__hud-dot" aria-hidden="true" />
+            {hud.tone === 'running' || hud.tone === 'sending' ? (
+              <span className="cdock__hud-wave" data-testid="cdock-hud-anim" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+            ) : (
+              <span className="cdock__hud-dot" aria-hidden="true" />
+            )}
             <span className="cdock__hud-text">{hud.text}</span>
-            <span className="cdock__hud-action">
-              <span>{t('展开聊天')}</span>
+            <span className="cdock__hud-action" aria-hidden="true">
               <Icon name="chevron-right" size={12} />
             </span>
           </button>
