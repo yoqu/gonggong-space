@@ -15,7 +15,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { artifacts, bots, messages, services } from '../../db/schema.js'
+import { artifacts, bots, groups, messages, services } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
 import { fail, HttpError } from '../../lib/errors.js'
@@ -66,6 +66,7 @@ export async function openSite(
     )
     .limit(1)
   if (found) return found
+  const [group] = await ctx.db.select({ kind: groups.kind }).from(groups).where(eq(groups.id, s.groupId))
   const [made] = (await ctx.db
     .insert(artifacts)
     .values({
@@ -74,6 +75,7 @@ export async function openSite(
       dir: newArtifactDir('site'),
       botId: s.botId,
       siteDir,
+      visibility: group?.kind === 'dm' ? 'private' : 'group',
       createdBy: s.userId,
     })
     .returning()) as [Artifact]

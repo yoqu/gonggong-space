@@ -22,11 +22,11 @@ import {
 import { and, count, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { artifacts, artifactVersions, bots, messages, plugins, runs, users } from '../../db/schema.js'
+import { artifacts, artifactVersions, bots, groups, messages, plugins, runs, users } from '../../db/schema.js'
 import { t, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { findMember, groupLive, inTeamOfGroup } from '../groups/service.js'
+import { findMember, inTeamOfGroup } from '../groups/service.js'
 import {
   authorName,
   type MessageMeta,
@@ -323,14 +323,15 @@ async function artifactAccess(
   ctx: Ctx,
   a: Artifact,
   userId: string,
-): Promise<ArtifactAccess | 'private' | null> {
+): Promise<{ access: ArtifactAccess; teamId: string } | 'private' | null> {
   const m = await findMember(ctx, a.groupId, userId)
   if (m)
     return a.visibility !== 'private' || (await isArtifactManager(ctx, a, userId, m.member.isAdmin))
-      ? 'edit'
+      ? { access: 'edit', teamId: m.group.teamId }
       : 'private'
-  if (a.visibility === 'all') return (await groupLive(ctx, a.groupId)) ? 'view' : null
-  return a.visibility === 'team' && (await inTeamOfGroup(ctx, a.groupId, userId)) ? 'view' : null
+  if (a.visibility !== 'team') return null
+  const teamId = await inTeamOfGroup(ctx, a.groupId, userId)
+  return teamId ? { access: 'view', teamId } : null
 }
 
 /**
@@ -340,16 +341,17 @@ async function artifactAccess(
 export async function foregroundArtifact(ctx: Ctx, groupId: string, userId: string, id: string) {
   const a = await findArtifact(ctx.db, id)
   if (!a || a.groupId !== groupId || a.archivedAt) return null
-  return (await artifactAccess(ctx, a, userId)) === 'edit' ? a.id : null
+  const res = await artifactAccess(ctx, a, userId)
+  return res && res !== 'private' && res.access === 'edit' ? a.id : null
 }
 
 /** An artifact `userId` may look at and present. */
 export async function viewArtifact(ctx: Ctx, id: string, userId: string) {
   const a = (await findArtifact(ctx.db, id)) ?? fail('not_found', '产物不存在')
-  const access = await artifactAccess(ctx, a, userId)
-  if (access === 'private') return fail('forbidden', '仅创建人可见')
-  if (!access) return fail('not_found', '群不存在或你已不在群内')
-  return { a, access }
+  const res = await artifactAccess(ctx, a, userId)
+  if (res === 'private') return fail('forbidden', '仅创建人可见')
+  if (!res) return fail('not_found', '群不存在或你已不在群内')
+  return { a, access: res.access, teamId: res.teamId }
 }
 
 /** An artifact `userId` may change (and annotate, export, hand to a bot): a member of its group it is not hidden from. */
@@ -792,6 +794,8 @@ export async function renameArtifact(ctx: Ctx, a: Artifact, title: string) {
  */
 export async function duplicateArtifact(ctx: Ctx, a: Artifact, userId: string) {
   const head = await requireVersion(ctx.db, a, null)
+  const [g] = await ctx.db.select({ kind: groups.kind }).from(groups).where(eq(groups.id, a.groupId))
+  const visibility: ArtifactVisibility = g?.kind === 'dm' || a.visibility === 'private' ? 'private' : 'group'
   const copy = await ctx.db.transaction(async (tx) => {
     const [made] = await tx
       .insert(artifacts)
@@ -803,6 +807,7 @@ export async function duplicateArtifact(ctx: Ctx, a: Artifact, userId: string) {
         title: t('{title}（副本）', { title: a.title }).slice(0, 80),
         dir: newArtifactDir(`${a.dir.slice('design/'.length, 'design/'.length + 50)}-copy`),
         botId: a.botId,
+        visibility,
         createdBy: userId,
         favorites: a.favorites,
       })

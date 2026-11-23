@@ -48,6 +48,7 @@ import { requireMember } from '../groups/service.js'
 import { previewOrigin } from '../previews/routes.js'
 import { publishRun } from '../runs/dto.js'
 import { machineRun } from '../runs/machine-run.js'
+import { currentTeam } from '../teams/service.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { artifactChatRoot } from './chat.js'
@@ -340,16 +341,19 @@ export function artifactRoutes(ctx: Ctx) {
       return listArtifacts(ctx, req.params.id, { userId: me.id, isAdmin: member.isAdmin })
     })
 
-    app.get('/api/works', async (req): Promise<WorkDto[]> => listWorks(ctx, (await requireUser(ctx, req)).id))
-    app.get(
-      '/api/works/groups',
-      async (req): Promise<WorkGroupDto[]> => workGroups(ctx, (await requireUser(ctx, req)).id),
-    )
+    app.get('/api/works', async (req): Promise<WorkDto[]> => {
+      const me = await requireUser(ctx, req)
+      return listWorks(ctx, me.id, await currentTeam(ctx, req, me.id))
+    })
+    app.get('/api/works/groups', async (req): Promise<WorkGroupDto[]> => {
+      const me = await requireUser(ctx, req)
+      return workGroups(ctx, me.id, await currentTeam(ctx, req, me.id))
+    })
 
     app.get<{ Params: { id: string } }>('/api/artifacts/:id', async (req): Promise<ArtifactDto> => {
       const me = await requireUser(ctx, req)
-      const { a, access } = await viewArtifact(ctx, req.params.id, me.id)
-      return { ...(await artifactDetail(ctx, a)), access }
+      const { a, access, teamId } = await viewArtifact(ctx, req.params.id, me.id)
+      return { ...(await artifactDetail(ctx, a)), access, teamId }
     })
 
     app.put<{ Params: { id: string } }>(

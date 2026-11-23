@@ -1040,6 +1040,7 @@ export const en = {
   '产物已有新版本，请刷新后重做': 'The artifact has a newer version; refresh and redo your changes',
   产物已在这个群: 'The artifact is already in this group',
   已删除的产物不能移动: 'A deleted artifact cannot be moved',
+  不能跨团队移动产物: "Artifacts can't be moved to another team",
   '目标群已有同一目录的产物：{dir}': 'The target group already has an artifact in {dir}',
   'Bot 正在修改这个产物，等本轮结束后再移动': 'A bot is working on this artifact; move it once its turn ends',
   '只有产物创建人、Bot 主人或群管理员能移动产物':

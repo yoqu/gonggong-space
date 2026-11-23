@@ -132,4 +132,36 @@ describe('稍后处理', () => {
     clock = new Date('2026-11-08T09:00:00Z')
     expect(await fireDueReminders(t.ctx)).toBe(0)
   })
+
+  it('scopes /api/saved and /api/saved/state to X-GG-Team while reminders still fire across teams', async () => {
+    const s = await setup()
+    const teamB = await t.seed.team({ ownerId: s.wang.id, name: '团队B', memberIds: [s.li.id] })
+    const gB = await t.seed.group({
+      createdBy: s.wang.id,
+      teamId: teamB.id,
+      name: 'B群',
+      memberIds: [s.li.id],
+    })
+    const mA = (await send(s.asWang, s.g.id, '团队A待办')).body
+    const mB = (await send(s.asWang, gB.id, '团队B待办')).body
+    await s.asLi.put(`/api/messages/${mA.id}/save`, { remindAt: '2026-11-08T08:10:00Z' })
+    await s.asLi.put(`/api/messages/${mB.id}/save`, { remindAt: '2026-11-08T08:10:00Z' })
+
+    clock = new Date('2026-11-08T08:15:00Z')
+    expect(await fireDueReminders(t.ctx)).toBe(2)
+
+    const liCookie = await t.seed.cookie(s.li.id)
+    const getIn = <T>(teamId: string, url: string) =>
+      t.app
+        .inject({ method: 'GET', url, headers: { cookie: liCookie, 'x-gg-team': teamId } })
+        .then((r) => r.json() as T)
+
+    const listA = await getIn<SavedListDto>(s.g.teamId, '/api/saved?state=open')
+    const listB = await getIn<SavedListDto>(teamB.id, '/api/saved?state=open')
+    expect(listA.items.map((x) => x.message.body)).toEqual(['团队A待办'])
+    expect(listB.items.map((x) => x.message.body)).toEqual(['团队B待办'])
+
+    expect(await getIn<SavedStateDto>(s.g.teamId, '/api/saved/state')).toEqual({ ids: [mA.id], due: 1 })
+    expect(await getIn<SavedStateDto>(teamB.id, '/api/saved/state')).toEqual({ ids: [mB.id], due: 1 })
+  })
 })

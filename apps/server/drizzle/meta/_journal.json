@@ -834,6 +834,13 @@
       "when": 1795343729583,
       "tag": "0118_futuristic_misty_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1795395533852,
+      "tag": "0119_artifact_visibility_team",
+      "breakpoints": true
     }
   ]
 }

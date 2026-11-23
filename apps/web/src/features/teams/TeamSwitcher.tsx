@@ -13,7 +13,7 @@ import './teams.css'
 /** The switcher replaces the app title unless the deployment runs in single-team mode (plan D11). */
 export const useMultiTeam = () => useSession((s) => !!s.tenancy && !s.tenancy.singleTeamMode)
 
-export function TeamSwitcher() {
+export function TeamSwitcher({ redirectPath = '/' }: { redirectPath?: string } = {}) {
   const tenancy = useSession((s) => s.tenancy)
   const [open, setOpen] = useState<'settings' | 'invite' | 'new' | 'join' | null>(null)
   if (!tenancy || tenancy.singleTeamMode) return null
@@ -42,7 +42,7 @@ export function TeamSwitcher() {
   const select = (value: string) => {
     if (value.startsWith('team:')) {
       const id = value.slice(5)
-      if (id !== current.id) switchTeam(id)
+      if (id !== current.id) switchTeam(id, redirectPath)
     } else setOpen(value as 'settings' | 'invite' | 'new' | 'join')
   }
   return (

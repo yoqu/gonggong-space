@@ -1,4 +1,4 @@
-import type { ArtifactCard, UserDto, WorkDto } from '@gonggong/protocol'
+import type { ArtifactCard, GroupDto, TeamDto, UserDto, WorkDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,10 +13,23 @@ import { mockApi } from './mockApi'
 
 const me = { id: 'u1', name: '姜维川', role: 'member' } as UserDto
 
+const team = (o: Partial<TeamDto> = {}): TeamDto => ({
+  id: 't1',
+  name: '产品研发团队',
+  avatar: null,
+  role: 'member',
+  archivedAt: null,
+  createdAt: '2026-01-01T00:00:00Z',
+  unread: 0,
+  ...o,
+})
+
 const work = (o: Partial<WorkDto>): WorkDto => ({
   id: 'a1',
   groupId: 'g1',
   groupTitle: '麓客产品群',
+  groupKind: 'group',
+  groupVisibility: 'private',
   title: '湖畔露营地预约',
   pluginTitle: '产品原型',
   site: false,
@@ -33,9 +46,13 @@ const WORKS = [
   work({
     id: 'a3',
     groupId: 'g4',
-    groupTitle: '市场群',
+    groupTitle: '',
+    groupKind: 'dm',
+    groupVisibility: 'private',
     title: '品牌官网',
-    visibility: 'all',
+    site: true,
+    pluginTitle: null,
+    visibility: 'team',
     createdBy: 'u3',
     creatorName: '王芳',
     access: 'view',
@@ -44,6 +61,8 @@ const WORKS = [
     id: 'a2',
     groupId: 'g2',
     groupTitle: '运营群',
+    groupKind: 'group',
+    groupVisibility: 'public',
     title: '双十一活动汇报',
     pluginTitle: '幻灯片',
     visibility: 'team',
@@ -86,7 +105,9 @@ const renderAt = (path: string) =>
   )
 
 beforeEach(() => {
-  useSession.setState({ user: me, status: 'ready' })
+  localStorage.clear()
+  localStorage.setItem('gg.locale', 'zh')
+  useSession.setState({ user: me, tenancy: null, status: 'ready' })
   useWorkspace.setState({ notifCount: 0, groups: [] })
   resetWorks()
 })
@@ -111,7 +132,7 @@ describe('作品 in the app rail', () => {
     resetWorks()
     mockApi({
       'GET /works/groups': [],
-      'GET /works': [work({ visibility: 'all', access: 'view', createdBy: 'u2' })],
+      'GET /works': [work({ visibility: 'team', access: 'view', createdBy: 'u2' })],
     })
     renderAt('/')
     expect(await screen.findByRole('button', { name: '作品' })).toBeTruthy()
@@ -119,7 +140,7 @@ describe('作品 in the app rail', () => {
 })
 
 describe('作品 page', () => {
-  it('lists what I may open and filters it', async () => {
+  it('lists what I may open, masks shared DM source, and filters it', async () => {
     mockApi({ 'GET /works/groups': GROUPS, 'GET /works': WORKS })
     renderAt('/works')
     const grid = await screen.findByRole('list', { name: '作品' })
@@ -132,13 +153,14 @@ describe('作品 page', () => {
       expect.stringContaining('品牌官网'),
       expect.stringContaining('双十一活动汇报'),
     ])
-    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('全员可见')
+    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('私聊 · 王芳')
+    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('团队可见')
     expect(within(grid).getAllByRole('listitem')[2]!.textContent).toContain('团队可见')
     expect(within(grid).getAllByRole('listitem')[2]!.textContent).toContain('只读')
 
     fireEvent.click(screen.getByRole('radio', { name: '我创建的' }))
     expect(within(grid).getAllByRole('listitem')).toHaveLength(1)
-    fireEvent.click(screen.getByRole('radio', { name: '已共享' }))
+    fireEvent.click(screen.getByRole('radio', { name: '团队共享' }))
     expect(
       within(grid)
         .getAllByRole('listitem')
@@ -147,6 +169,51 @@ describe('作品 page', () => {
     fireEvent.click(screen.getByRole('radio', { name: '全部' }))
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索作品' }), { target: { value: '露营' } })
     expect(within(grid).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('shows TeamSwitcher in multi-team mode and keeps /works when switching teams', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, assign })
+    localStorage.setItem('gg.team', 't1')
+    useSession.setState({
+      user: me,
+      tenancy: {
+        teams: [team(), team({ id: 't2', name: '设计团队' })],
+        singleTeamMode: false,
+        canCreateTeam: false,
+        demoMode: false,
+        pluginsEnabled: true,
+      },
+      status: 'ready',
+    })
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': WORKS })
+    renderAt('/works')
+    fireEvent.click(await screen.findByRole('button', { name: '切换团队，当前：产品研发团队' }))
+    fireEvent.click(within(screen.getByRole('menu')).getByText('设计团队'))
+    expect(localStorage.getItem('gg.team')).toBe('t2')
+    expect(assign).toHaveBeenCalledWith('/works')
+  })
+
+  it('shows 仅自己可见 for my own DM work with legacy group visibility and accurate empty state for 团队共享', async () => {
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [
+        work({
+          id: 'dm1',
+          groupId: 'g-dm',
+          groupTitle: '小王的 Claude',
+          groupKind: 'dm',
+          visibility: 'group',
+          access: 'edit',
+        }),
+      ],
+    })
+    renderAt('/works')
+    const grid = await screen.findByRole('list', { name: '作品' })
+    expect(within(grid).getByRole('listitem').textContent).toContain('仅自己可见')
+    fireEvent.click(screen.getByRole('radio', { name: '团队共享' }))
+    expect(screen.getByText('还没有团队共享的作品')).toBeTruthy()
+    expect(screen.getByText('团队内设为「团队可见」的作品会出现在这里')).toBeTruthy()
   })
 
   it('tags a hosted site as such', async () => {
@@ -182,10 +249,17 @@ describe('作品 page', () => {
     expect(meta1.querySelector('time.works__time')).toBeTruthy()
   })
 
-  it('filters by group, sorts by name and clears filters from the empty state', async () => {
+  it('filters by source (including grouped shared DMs), sorts by name and clears filters from the empty state', async () => {
     mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [...WORKS].reverse() })
     renderAt('/works')
     const grid = await screen.findByRole('list', { name: '作品' })
+    fireEvent.click(screen.getByRole('button', { name: '来自群' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '来自私聊' }))
+    expect(
+      within(grid)
+        .getAllByRole('listitem')
+        .map((x) => x.textContent),
+    ).toEqual([expect.stringContaining('品牌官网')])
     fireEvent.click(screen.getByRole('button', { name: '来自群' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '运营群' }))
     expect(
@@ -209,27 +283,109 @@ describe('作品 page', () => {
     ])
   })
 
-  it('opens an editable one in its group, a read-only one in the viewer', async () => {
+  it('opens an editable one in its group, and tailors read-only viewer notes for public/private groups and DMs', async () => {
+    const privateGroupWork = work({
+      id: 'a4',
+      groupId: 'g5',
+      groupTitle: '核心架构群',
+      groupKind: 'group',
+      groupVisibility: 'private',
+      title: '架构图',
+      visibility: 'team',
+      createdBy: 'u2',
+      creatorName: '李建国',
+      access: 'view',
+    })
     const calls = mockApi({
       'GET /works/groups': GROUPS,
-      'GET /works': WORKS,
+      'GET /works': [...WORKS, privateGroupWork],
       'POST /artifacts/a2/preview': {
         previewId: 'p2',
         origin: 'https://p2.preview.test',
         url: '/api/previews/p2/open',
       },
+      'POST /artifacts/a3/preview': {
+        previewId: 'p3',
+        origin: 'https://p3.preview.test',
+        url: '/api/previews/p3/open',
+      },
+      'POST /artifacts/a4/preview': {
+        previewId: 'p4',
+        origin: 'https://p4.preview.test',
+        url: '/api/previews/p4/open',
+      },
+      'POST /groups/g2/join': {
+        id: 'g2',
+        name: '运营群',
+        members: [],
+        unread: 0,
+        mentionCount: 0,
+        liveRuns: [],
+      } as unknown as GroupDto,
     })
     renderAt('/works')
+    // Public group: shows public-group note and 加入群并编辑 button.
     fireEvent.click(await screen.findByRole('button', { name: '打开 双十一活动汇报' }))
     await waitFor(() => expect(where()).toContain('/works/a2'))
     const frame = (await screen.findByTitle('双十一活动汇报')) as HTMLIFrameElement
     expect(frame.getAttribute('src')).toBe('/api/previews/p2/open')
-    expect(screen.getByText('只读 · 进入「运营群」后可修改')).toBeTruthy()
+    expect(screen.getByText('只读 · 来自公开群「运营群」，加入后可修改')).toBeTruthy()
     expect(calls.filter((c) => c.path === '/artifacts/a2/preview')).toHaveLength(1)
 
+    // Shared DM: hides original DM title and offers no join button.
     fireEvent.click(screen.getByRole('button', { name: '返回作品' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开 品牌官网' }))
+    await screen.findByTitle('品牌官网')
+    expect(screen.getByText('只读 · 来自 王芳 的私聊')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '加入群并编辑' })).toBeNull()
+
+    // Private group: states only group members can change, offers no join button.
+    fireEvent.click(screen.getByRole('button', { name: '返回作品' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开 架构图' }))
+    await screen.findByTitle('架构图')
+    expect(screen.getByText('只读 · 来自「核心架构群」（仅群成员可修改）')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '加入群并编辑' })).toBeNull()
+
+    // Public group join-and-edit joins the group and jumps to its editable canvas.
+    fireEvent.click(screen.getByRole('button', { name: '返回作品' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开 双十一活动汇报' }))
+    fireEvent.click(await screen.findByRole('button', { name: '加入群并编辑' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g2/join')).toBe(true),
+    )
+    await waitFor(() => expect(where()).toContain('/g/g2?artifact=a2'))
+  })
+
+  it('opens an editable work directly in its group', async () => {
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': WORKS })
+    renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '打开 湖畔露营地预约' }))
     await waitFor(() => expect(where()).toContain('/g/g1?artifact=a1'))
+  })
+
+  it('redirects direct /works/:id links for editable works to their group canvas', async () => {
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': WORKS })
+    renderAt('/works/a1')
+    await waitFor(() => expect(where()).toContain('/g/g1?artifact=a1'))
+  })
+
+  it('switches teams when opening /works/:id belonging to another of my teams', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, assign })
+    localStorage.setItem('gg.team', 't1')
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [],
+      'GET /artifacts/a9': {
+        id: 'a9',
+        groupId: 'g9',
+        teamId: 't2',
+        access: 'view',
+      },
+    })
+    renderAt('/works/a9')
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/works/a9'))
+    expect(localStorage.getItem('gg.team')).toBe('t2')
   })
 
   it('starts a new creation in a group I pick: creation stays in the chat', async () => {

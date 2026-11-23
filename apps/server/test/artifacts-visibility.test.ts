@@ -1,12 +1,13 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ArtifactCard, ArtifactDto, ArtifactSubmitRes, WorkDto, WorkGroupDto } from '@gonggong/protocol'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { artifacts, groupMembers, installs, messages, plugins } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { cardOf } from '../src/modules/artifacts/service.js'
+import { openSite } from '../src/modules/artifacts/sites.js'
 import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
@@ -46,11 +47,19 @@ async function setup() {
     outsider: await t.seed.cookie(w.outsider.id),
   }
   type Who = keyof typeof cookies
-  const req = (who: Who, method: 'GET' | 'POST' | 'PUT', url: string, payload?: object) =>
-    t.app.inject({ method, url, headers: { cookie: cookies[who] }, payload })
+  const req = (
+    who: Who,
+    method: 'GET' | 'POST' | 'PUT',
+    url: string,
+    payload?: object,
+    extra: Record<string, string> = {},
+  ) => t.app.inject({ method, url, headers: { cookie: cookies[who], ...extra }, payload })
   const setVisibility = (who: Who, visibility: string) =>
     req(who, 'PUT', `/api/artifacts/${a.id}/visibility`, { visibility })
-  const works = async (who: Who) => (await req(who, 'GET', '/api/works')).json() as WorkDto[]
+  const works = async (who: Who, teamId?: string) =>
+    (
+      await req(who, 'GET', '/api/works', undefined, teamId ? { 'x-gg-team': teamId } : {})
+    ).json() as WorkDto[]
   return { ...w, p: p!, zhao, a, v1, card: card!, req, setVisibility, works }
 }
 
@@ -58,7 +67,12 @@ describe('artifact visibility', () => {
   it('starts at group: members edit, the rest of the team cannot see it', async () => {
     const s = await setup()
     const mine = (await s.req('zhao', 'GET', `/api/artifacts/${s.a.id}`)).json() as ArtifactDto
-    expect(mine).toMatchObject({ visibility: 'group', createdBy: s.li.id, access: 'edit' })
+    expect(mine).toMatchObject({
+      visibility: 'group',
+      createdBy: s.li.id,
+      access: 'edit',
+      teamId: s.g.teamId,
+    })
     expect((await s.req('outsider', 'GET', `/api/artifacts/${s.a.id}`)).statusCode).toBe(404)
     expect(await s.works('outsider')).toEqual([])
     expect((await s.works('zhao')).map((x) => [x.title, x.access, x.groupTitle, x.creatorName])).toEqual([
@@ -73,7 +87,7 @@ describe('artifact visibility', () => {
     expect((res.json() as ArtifactDto).visibility).toBe('team')
 
     const seen = (await s.req('outsider', 'GET', `/api/artifacts/${s.a.id}`)).json() as ArtifactDto
-    expect(seen).toMatchObject({ visibility: 'team', access: 'view' })
+    expect(seen).toMatchObject({ visibility: 'team', access: 'view', teamId: s.g.teamId })
     expect((await s.req('outsider', 'GET', `/api/artifacts/${s.a.id}/versions`)).statusCode).toBe(200)
     expect(
       (await s.req('outsider', 'GET', `/api/artifacts/${s.a.id}/versions/${s.v1.versionId}`)).statusCode,
@@ -96,41 +110,52 @@ describe('artifact visibility', () => {
     ])
   })
 
-  it('all: everyone signed in, any team or none, views and presents, read-only', async () => {
+  it('rejects all visibility and isolates team-visible artifacts from other teams and teamless users', async () => {
     const s = await setup()
-    const stranger = await t.seed.user({ name: '路人', teamId: null })
-    const cookie = await t.seed.cookie(stranger.id)
-    const as = (method: 'GET' | 'POST', url: string, payload?: object) =>
-      t.app.inject({ method, url, headers: { cookie }, payload })
-    const strangerWorks = async () => (await as('GET', '/api/works')).json() as WorkDto[]
+    expect((await s.setVisibility('li', 'all')).statusCode).toBe(400)
     await s.setVisibility('li', 'team')
-    expect((await as('GET', `/api/artifacts/${s.a.id}`)).statusCode).toBe(404)
-    expect(await strangerWorks()).toEqual([])
 
-    expect((await s.setVisibility('li', 'all')).statusCode).toBe(200)
-    expect((await as('GET', `/api/artifacts/${s.a.id}`)).json()).toMatchObject({
-      visibility: 'all',
-      access: 'view',
-    })
-    const opened = await as('POST', `/api/artifacts/${s.a.id}/preview`, {})
-    expect(opened.statusCode).toBe(200)
-    expect((await as('GET', (opened.json() as { url: string }).url)).statusCode).toBe(302)
-    const edit = await as('POST', `/api/artifacts/${s.a.id}/edits`, {
-      baseVersionId: s.v1.versionId,
-      ops: [],
-    })
-    expect(edit.statusCode).toBe(403)
-    expect((await as('GET', `/api/artifacts/${s.a.id}/annotations`)).statusCode).toBe(403)
-    expect((await as('GET', `/api/artifacts/${s.a.id}/export.zip`)).statusCode).toBe(403)
-    expect((await as('POST', `/api/artifacts/${s.a.id}/share`, { enabled: true })).statusCode).toBe(403)
-    expect((await strangerWorks()).map((x) => [x.title, x.access, x.visibility, x.groupTitle])).toEqual([
-      ['活动报名', 'view', 'all', '设计群'],
-    ])
-    expect((await s.works('outsider')).map((x) => [x.access, x.visibility])).toEqual([['view', 'all']])
-    // Members keep editing.
-    expect((await s.req('zhao', 'GET', `/api/artifacts/${s.a.id}`)).json()).toMatchObject({ access: 'edit' })
-    const events = await t.db.select().from(messages).where(eq(messages.groupId, s.g.id))
-    expect(events.map((m) => m.body)).toContain('李建国 把「活动报名」设为全员可见')
+    const otherOwner = await t.seed.user({ name: '他队成员', teamId: null })
+    const otherTeam = await t.seed.team({ ownerId: otherOwner.id, name: '其他团队' })
+    const otherCookie = await t.seed.cookie(otherOwner.id)
+    expect(
+      (
+        await t.app.inject({
+          method: 'GET',
+          url: `/api/artifacts/${s.a.id}`,
+          headers: { cookie: otherCookie },
+        })
+      ).statusCode,
+    ).toBe(404)
+    expect(
+      (
+        await t.app.inject({
+          method: 'GET',
+          url: '/api/works',
+          headers: { cookie: otherCookie, 'x-gg-team': otherTeam.id },
+        })
+      ).json(),
+    ).toEqual([])
+
+    const teamless = await t.seed.user({ name: '无团队', teamId: null })
+    const teamlessCookie = await t.seed.cookie(teamless.id)
+    expect(
+      (
+        await t.app.inject({
+          method: 'GET',
+          url: `/api/artifacts/${s.a.id}`,
+          headers: { cookie: teamlessCookie },
+        })
+      ).statusCode,
+    ).toBe(404)
+    expect(
+      (await t.app.inject({ method: 'GET', url: '/api/works', headers: { cookie: teamlessCookie } }))
+        .statusCode,
+    ).toBe(403)
+    expect(
+      (await t.app.inject({ method: 'GET', url: '/api/works/groups', headers: { cookie: teamlessCookie } }))
+        .statusCode,
+    ).toBe(403)
   })
 
   it('private: only the creator, the bot owner and group admins open it; the card says so', async () => {
@@ -197,8 +222,141 @@ describe('works', () => {
   it('names the plugin and leaves archived artifacts out', async () => {
     const s = await setup()
     const [w] = await s.works('li')
-    expect(w).toMatchObject({ pluginTitle: '产品原型', thumbnailUrl: null, visibility: 'group' })
+    expect(w).toMatchObject({
+      pluginTitle: '产品原型',
+      thumbnailUrl: null,
+      visibility: 'group',
+      groupKind: 'group',
+      groupVisibility: 'private',
+    })
     await t.db.update(artifacts).set({ archivedAt: new Date() }).where(eq(artifacts.id, s.a.id))
     expect(await s.works('li')).toEqual([])
+  })
+
+  it('scopes GET /api/works and GET /api/works/groups to X-GG-Team', async () => {
+    const s = await setup()
+    const root = await t.seed.user({ name: '根', role: 'sysadmin', teamId: null })
+    await saveSysParams(t.ctx, { pluginsEnabled: true }, root.id)
+    const teamB = await t.seed.team({ ownerId: s.wang.id, name: '团队B', memberIds: [s.li.id] })
+    const botB = await t.seed.bot({
+      ownerId: s.wang.id,
+      teamId: teamB.id,
+      name: 'B团队Bot',
+      machineId: s.A.machine.id,
+    })
+    const gB = await t.seed.group({
+      createdBy: s.wang.id,
+      teamId: teamB.id,
+      name: 'B团队设计群',
+      memberIds: [s.li.id],
+      botIds: [botB.id],
+    })
+    await s.artifact({ groupId: gB.id, title: 'B团队原型', botId: botB.id, createdBy: s.li.id })
+    await t.db.insert(installs).values([
+      {
+        listingId: s.p.id,
+        scope: 'group',
+        scopeId: s.g.id,
+        resolvedVersionId: s.p.versionId!,
+        enabled: true,
+      },
+      {
+        listingId: s.p.id,
+        scope: 'group',
+        scopeId: gB.id,
+        resolvedVersionId: s.p.versionId!,
+        enabled: true,
+      },
+    ])
+
+    expect((await s.works('li', s.g.teamId)).map((x) => x.title)).toEqual(['活动报名'])
+    expect((await s.works('li', teamB.id)).map((x) => x.title)).toEqual(['B团队原型'])
+
+    const groupsIn = async (teamId: string) =>
+      (
+        await s.req('li', 'GET', '/api/works/groups', undefined, { 'x-gg-team': teamId })
+      ).json() as WorkGroupDto[]
+    expect(await groupsIn(s.g.teamId)).toEqual([{ id: s.g.id, title: '设计群' }])
+    expect(await groupsIn(teamB.id)).toEqual([{ id: gB.id, title: 'B团队设计群' }])
+  })
+
+  it('defaults DM sites to private, masks DM groupTitle from other team members, and exposes group metadata', async () => {
+    const s = await setup()
+    const pub = await t.seed.group({
+      createdBy: s.wang.id,
+      name: '公开设计群',
+      visibility: 'public',
+      botIds: [s.bot.id],
+    })
+    await s.artifact({ groupId: pub.id, title: '公开原型', visibility: 'team', createdBy: s.wang.id })
+
+    const dm = await t.seed.group({
+      createdBy: s.wang.id,
+      kind: 'dm',
+      name: '王磊的秘密私聊名',
+      botIds: [s.bot.id],
+    })
+    const dmSite = await openSite(t.ctx, {
+      groupId: dm.id,
+      botId: s.bot.id,
+      siteDir: 'dist',
+      title: '我的小工具',
+      userId: s.wang.id,
+    })
+    expect(dmSite.visibility).toBe('private')
+
+    // Outsider cannot see private DM site yet.
+    expect((await s.works('outsider')).map((x) => x.title)).toEqual(['公开原型'])
+
+    // Share DM site with team: owner still sees dynamic DM title; outsider sees groupTitle masked.
+    expect(
+      (await s.req('wang', 'PUT', `/api/artifacts/${dmSite.id}/visibility`, { visibility: 'team' }))
+        .statusCode,
+    ).toBe(200)
+    const ownerDm = (await s.works('wang')).find((x) => x.id === dmSite.id)
+    expect(ownerDm).toMatchObject({
+      title: '我的小工具',
+      groupKind: 'dm',
+      groupTitle: '小王的 Claude',
+      access: 'edit',
+    })
+    const outsiderList = await s.works('outsider')
+    expect(outsiderList.find((x) => x.id === dmSite.id)).toMatchObject({
+      title: '我的小工具',
+      groupKind: 'dm',
+      groupVisibility: 'private',
+      groupTitle: '',
+      creatorName: '王磊',
+      access: 'view',
+    })
+    expect(outsiderList.find((x) => x.title === '公开原型')).toMatchObject({
+      groupKind: 'group',
+      groupVisibility: 'public',
+      groupTitle: '公开设计群',
+      access: 'view',
+    })
+  })
+
+  it('0119 migration downgrades legacy all visibility on artifacts and message cards to team', async () => {
+    const s = await setup()
+    await t.db.update(artifacts).set({ visibility: 'all' }).where(eq(artifacts.id, s.a.id))
+    await t.db
+      .update(messages)
+      .set({
+        meta: { card: { ...(s.card.meta as { card: ArtifactCard }).card, visibility: 'all' as never } },
+      })
+      .where(eq(messages.id, s.card.id))
+
+    const migration = readFileSync(
+      new URL('../drizzle/0119_artifact_visibility_team.sql', import.meta.url),
+      'utf8',
+    )
+    for (const stmt of migration.split('--> statement-breakpoint'))
+      if (stmt.trim()) await t.db.execute(sql.raw(stmt))
+
+    const [a] = await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id))
+    expect(a?.visibility).toBe('team')
+    const [m] = await t.db.select().from(messages).where(eq(messages.id, s.card.id))
+    expect((m?.meta as { card?: ArtifactCard } | undefined)?.card?.visibility).toBe('team')
   })
 })

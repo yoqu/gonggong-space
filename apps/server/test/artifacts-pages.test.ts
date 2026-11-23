@@ -153,7 +153,7 @@ describe('command history (命令记录)', () => {
     expect(items[1]?.runs[0]?.versions.map((v) => v.n)).toEqual([1])
 
     // Only the group's members: a visitor of a shared artifact does not read the group's messages.
-    await t.db.update(artifacts).set({ visibility: 'all' }).where(eq(artifacts.id, s.a.id))
+    await t.db.update(artifacts).set({ visibility: 'team' }).where(eq(artifacts.id, s.a.id))
     const outsider = await t.seed.cookie(s.outsider.id)
     expect((await s.req('GET', `/api/artifacts/${s.a.id}/history`, undefined, outsider)).statusCode).toBe(403)
   })

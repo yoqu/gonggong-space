@@ -36,6 +36,7 @@ export async function moveArtifact(ctx: Ctx, a: Artifact, userId: string, groupI
   if (!(await isArtifactManager(ctx, a, userId, from.member.isAdmin)))
     return fail('forbidden', '只有产物创建人、Bot 主人或群管理员能移动产物')
   const to = (await findMember(ctx, groupId, userId)) ?? fail('not_found', '群不存在或你已不在群内')
+  if (from.group.teamId !== to.group.teamId) return fail('forbidden', '不能跨团队移动产物')
   if (groupId === a.groupId) return fail('conflict', '产物已在这个群')
   if (a.archivedAt) return fail('conflict', '已删除的产物不能移动')
   const [taken] = await ctx.db

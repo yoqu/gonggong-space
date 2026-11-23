@@ -84,12 +84,12 @@ const bots = [
   { id: 'b1', name: '设计助手', ownerId: 'u1' },
   { id: 'b2', name: '前端', ownerId: 'u2' },
 ] as BotDto[]
-const setGroup = (botIds: string[], admin = false) =>
+const setGroup = (botIds: string[], admin = false, kind: 'group' | 'dm' = 'group') =>
   useWorkspace.setState({
     groups: [
       {
         id: 'g1',
-        kind: 'group',
+        kind,
         members: admin ? [{ userId: 'u1', isAdmin: true }] : [],
         botIds,
       } as unknown as GroupDto,
@@ -694,7 +694,7 @@ describe('share', () => {
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByRole('button', { name: '分享' }))
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
-    expect(within(dialog).getByText('未开启，只有群成员能查看')).toBeTruthy()
+    expect(within(dialog).getByText('未开启，仅上方可见范围内成员可打开')).toBeTruthy()
     expect(dialog.textContent).not.toMatch('关闭后链接立即失效')
     const turnOn = within(dialog).getByRole('button', { name: '开启并复制链接' })
     await waitFor(() => expect(turnOn.hasAttribute('disabled')).toBe(false))
@@ -822,11 +822,12 @@ describe('share', () => {
 })
 
 describe('visibility', () => {
-  it('lets its creator choose who sees it', async () => {
+  it('lets its creator choose among private, group and team (no all option)', async () => {
     const calls = mockApi(
       routes({
         'GET /artifacts/a1': artifact({ botId: 'b2', createdBy: 'u1' }),
-        'PUT /artifacts/a1/visibility': artifact({ botId: 'b2', createdBy: 'u1', visibility: 'team' }),
+        'PUT /artifacts/a1/visibility': (b: { visibility: string }) =>
+          artifact({ botId: 'b2', createdBy: 'u1', visibility: b.visibility }),
       }),
     )
     setGroup(['b1', 'b2'])
@@ -835,17 +836,45 @@ describe('visibility', () => {
     fireEvent.click(screen.getByRole('button', { name: '分享' }))
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
     const scope = within(dialog).getByRole('radiogroup', { name: '可见范围' })
+    expect(
+      within(scope)
+        .getAllByRole('radio')
+        .map((r) => r.textContent),
+    ).toEqual(['仅自己', '本群', '团队'])
     expect(within(scope).getByRole('radio', { name: '本群' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(within(scope).getByRole('radio', { name: '团队' }))
     await waitFor(() =>
       expect(bodies(calls, 'PUT', '/artifacts/a1/visibility')).toEqual([{ visibility: 'team' }]),
     )
-    await within(dialog).findByText('团队成员都能查看和演示，进群后才能修改')
-    fireEvent.click(within(scope).getByRole('radio', { name: '全员' }))
-    await waitFor(() =>
-      expect(bodies(calls, 'PUT', '/artifacts/a1/visibility').at(-1)).toEqual({ visibility: 'all' }),
+    await within(dialog).findByText('本团队成员都能查看和演示，群成员可修改')
+  })
+
+  it('offers only 仅自己 and 团队 for a DM artifact', async () => {
+    const calls = mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ botId: 'b2', createdBy: 'u1', visibility: 'group' }),
+        'PUT /artifacts/a1/visibility': (b: { visibility: string }) =>
+          artifact({ botId: 'b2', createdBy: 'u1', visibility: b.visibility }),
+      }),
     )
-    await within(dialog).findByText('所有登录用户都能查看和演示，只有群成员能修改')
+    setGroup(['b1', 'b2'], true, 'dm')
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('首页')
+    fireEvent.click(screen.getByRole('button', { name: '分享' }))
+    const dialog = await screen.findByRole('dialog', { name: '分享产物' })
+    const scope = within(dialog).getByRole('radiogroup', { name: '可见范围' })
+    expect(
+      within(scope)
+        .getAllByRole('radio')
+        .map((r) => r.textContent),
+    ).toEqual(['仅自己', '团队'])
+    expect(within(scope).getByRole('radio', { name: '仅自己' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(dialog).getByText('仅你本人能打开')).toBeTruthy()
+    fireEvent.click(within(scope).getByRole('radio', { name: '团队' }))
+    await waitFor(() =>
+      expect(bodies(calls, 'PUT', '/artifacts/a1/visibility')).toEqual([{ visibility: 'team' }]),
+    )
+    await within(dialog).findByText('本团队成员都能只读查看和演示，仅你能修改')
   })
 
   it('is fixed for members who did not create it and do not manage it', async () => {
