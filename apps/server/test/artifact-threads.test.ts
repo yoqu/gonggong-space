@@ -170,6 +170,14 @@ describe('artifact threads', () => {
     const note = (row!.meta as { artifactNote: string }).artifactNote
     expect(note).toContain('Slide 2 · Heading（Q3 Revenue）')
     expect(note).toContain('"slide":"s2"')
+
+    const relabel = await s.req('PATCH', `/api/artifact-threads/${th.id}`, s.wangCookie, { detail: '改掉' })
+    expect(relabel.statusCode).toBe(403)
+    const moved = await s.req('PATCH', `/api/artifact-threads/${th.id}`, s.wangCookie, {
+      anchor: '{"slide":"s3"}',
+      location: { slide: 's3' },
+    })
+    expect(moved.json()).toMatchObject({ anchor: '{"slide":"s3"}', detail: 'Q3 Revenue' })
   })
 
   it('go away with their first message', async () => {

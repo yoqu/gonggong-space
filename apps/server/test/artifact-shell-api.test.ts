@@ -15,7 +15,11 @@ import type {
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { artifacts, messages } from '../src/db/schema.js'
-import { CURRENT_EDITOR_VERSION } from '../src/modules/artifacts/editors.js'
+import {
+  CURRENT_EDITOR_VERSION,
+  editorVersionFor,
+  resolveEditorAsset,
+} from '../src/modules/artifacts/editors.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld } from './support/artifacts.js'
 
@@ -181,6 +185,51 @@ describe('artifact.publish (per-file ifMatch, burst coalescing, WS push)', () =>
         })
       ).statusCode,
     ).toBe(403)
+  })
+
+  it('keeps a member edit when a live run has the head checked out (no in-place coalescing)', async () => {
+    const s = await setup()
+    const p1 = (
+      await s.req('POST', `/api/artifacts/${s.a.id}/publish`, s.liCookie, {
+        batch: {
+          'project/a.txt': { content: 'a1', ifMatch: null },
+          'project/b.txt': { content: 'b1', ifMatch: null },
+        },
+      })
+    ).json() as ArtifactPublishRes
+    const r = await s.run([s.a.id])
+
+    const p2 = (
+      await s.req('POST', `/api/artifacts/${s.a.id}/publish`, s.liCookie, {
+        batch: { 'project/a.txt': { content: 'a2 by li', ifMatch: sha('a1') } },
+      })
+    ).json() as ArtifactPublishRes
+    expect(p2.coalesced).toBeFalsy()
+    expect(p2.n).toBe(2)
+
+    const sub = await s.submit(
+      r.id,
+      s.a.id,
+      { 'project/a.txt': 'a1', 'project/b.txt': 'b2 by bot' },
+      { parent: p1.versionId },
+    )
+    expect(sub.statusCode).toBe(200)
+    const [row] = await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id))
+    const head = await s.req('GET', `/api/artifacts/${s.a.id}/versions/${row!.headVersionId}`)
+    const files = Object.fromEntries(
+      (head.json() as { files: { path: string; hash: string }[] }).files.map((f) => [f.path, f.hash]),
+    )
+    expect(files['project/a.txt']).toBe(sha('a2 by li'))
+    expect(files['project/b.txt']).toBe(sha('b2 by bot'))
+  })
+
+  it('accepts a save larger than the default 1 MiB body limit', async () => {
+    const s = await setup()
+    const big = 'x'.repeat(3 * 1024 * 1024)
+    const res = await s.req('POST', `/api/artifacts/${s.a.id}/publish`, s.liCookie, {
+      batch: { 'project/big.txt': { content: big, ifMatch: null } },
+    })
+    expect(res.statusCode).toBe(200)
   })
 
   it('starts a new version after a 30s pause for the same member', async () => {
@@ -389,6 +438,11 @@ describe('history APIs (list, files, diff, partial restore) & read-only file rea
 })
 
 describe('preview origin /__oa/<type>@<ver>/ serving, project/* passthrough & CSP', () => {
+  it('pins new editor artifacts to a build the preview origin can serve', () => {
+    expect(editorVersionFor('prototype')).toBeNull()
+    expect(resolveEditorAsset('slides', editorVersionFor('slides')!, 'index.html')).not.toBeNull()
+  })
+
   it('serves platform editor assets with CSP and nosniff, and maps project/* to artifact version files', async () => {
     const s = await setup()
     await s.req('POST', `/api/artifacts/${s.a.id}/publish`, s.liCookie, {

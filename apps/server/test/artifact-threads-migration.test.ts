@@ -152,6 +152,13 @@ it('backfills artifact kinds and moves every annotation into a thread with its n
     ])
     // Kept one release for rollback.
     expect(await t.db.execute(sql`select count(*)::int as n from artifact_annotations`)).toEqual([{ n: 3 }])
+    // The previous release does not write kind: its inserts still work after a rollback.
+    await t.db.execute(
+      sql`insert into artifacts (group_id, title, dir) values (${id('g')}, 'Old', 'design/old')`,
+    )
+    expect(await t.db.execute(sql`select kind from artifacts where dir = 'design/old'`)).toEqual([
+      { kind: 'prototype' },
+    ])
   } finally {
     await t.close()
   }

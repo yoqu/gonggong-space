@@ -52,6 +52,8 @@ export interface BrokerOptions {
   getTitle: () => string
   /** Current version shown (`null` falls back to head on the server). */
   getVersionId: () => string | null
+  /** The head as last loaded; while it is shown, reads follow newer heads announced by `artifact.files`. */
+  getHeadVersionId: () => string | null
   /** Exact preview origin (`event.origin` must match). */
   getOrigin: () => string | null
   getFrameWindow: () => Window | null
@@ -196,6 +198,19 @@ export function createArtifactBroker(opts: BrokerOptions): ArtifactBroker {
   }
 
   const versionQuery = (vid: string | null) => (vid ? `?version=${encodeURIComponent(vid)}` : '')
+  // Set before the store reloads the artifact: an editor re-reading changed files must get the new head.
+  let liveHead: string | null = null
+  const readVersionId = () => {
+    const shown = opts.getVersionId()
+    return liveHead && shown === opts.getHeadVersionId() ? liveHead : shown
+  }
+  /** `/artifacts/:id/files/<path>` with the editor's path checked and encoded, so it cannot reach another API. */
+  const fileUrl = (path: unknown, vid: string | null) => {
+    const segs = typeof path === 'string' ? path.split('/') : []
+    if (!segs.length || segs.some((x) => !x || x === '.' || x === '..'))
+      throw new BrokerCapError('invalid', 'Invalid path')
+    return `/artifacts/${opts.artifactId}/files/${segs.map(encodeURIComponent).join('/')}${versionQuery(vid)}`
+  }
 
   const resolveVersionId = async (n: number): Promise<string> => {
     const cached = versionIdByN.get(n)
@@ -214,7 +229,7 @@ export function createArtifactBroker(opts: BrokerOptions): ArtifactBroker {
     artifact: {
       title: () => opts.getTitle(),
       async list() {
-        const vid = opts.getVersionId()
+        const vid = readVersionId()
         if (!vid) return {}
         const detail = await api.get<ArtifactVersionDetail>(`/artifacts/${opts.artifactId}/versions/${vid}`)
         const out: Record<string, { sha256: string; size: number }> = {}
@@ -222,12 +237,10 @@ export function createArtifactBroker(opts: BrokerOptions): ArtifactBroker {
         return out
       },
       async readText(path) {
-        if (typeof path !== 'string' || !path) throw new BrokerCapError('invalid', 'Invalid path')
-        return api.text(`/artifacts/${opts.artifactId}/files/${path}${versionQuery(opts.getVersionId())}`)
+        return api.text(fileUrl(path, readVersionId()))
       },
       async readBytes(path) {
-        if (typeof path !== 'string' || !path) throw new BrokerCapError('invalid', 'Invalid path')
-        return api.bytes(`/artifacts/${opts.artifactId}/files/${path}${versionQuery(opts.getVersionId())}`)
+        return api.bytes(fileUrl(path, readVersionId()))
       },
       async publish(batch) {
         if (readOnly) throw new BrokerCapError('not_writer', 'Read-only view')
@@ -314,7 +327,7 @@ export function createArtifactBroker(opts: BrokerOptions): ArtifactBroker {
           text: string
           to?: string[]
         }
-        const vid = opts.getVersionId()
+        const vid = readVersionId()
         const th = await createArtifactThread(opts.artifactId, {
           ...(vid ? { versionId: vid } : {}),
           anchor: c.anchor,
@@ -400,16 +413,10 @@ export function createArtifactBroker(opts: BrokerOptions): ArtifactBroker {
         )
       },
       async read(n, path) {
-        const vid = await resolveVersionId(Number(n))
-        return api.text(
-          `/artifacts/${opts.artifactId}/files/${String(path)}?version=${encodeURIComponent(vid)}`,
-        )
+        return api.text(fileUrl(path, await resolveVersionId(Number(n))))
       },
       async readBytes(n, path) {
-        const vid = await resolveVersionId(Number(n))
-        return api.bytes(
-          `/artifacts/${opts.artifactId}/files/${String(path)}?version=${encodeURIComponent(vid)}`,
-        )
+        return api.bytes(fileUrl(path, await resolveVersionId(Number(n))))
       },
       async diff(n, path) {
         const vid = await resolveVersionId(Number(n))
@@ -509,8 +516,9 @@ export function createArtifactBroker(opts: BrokerOptions): ArtifactBroker {
       if (origin) sendChromeCommand(opts.getFrameWindow(), origin, cmd)
     },
     pushFiles(ev) {
-      if (ev.clientId && ev.clientId === clientId) return
+      liveHead = ev.versionId
       versionIdByN.set(ev.n, ev.versionId)
+      if (ev.clientId && ev.clientId === clientId) return
       if (granted.has('artifact')) {
         post({
           openArtifact: 'cap_ev',

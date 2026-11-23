@@ -37,7 +37,7 @@ import { diffFileLists, publishArtifactFiles } from './events.js'
 import { readableImage } from './images.js'
 import { pluginKit } from './kit.js'
 import { lintVersion } from './lint.js'
-import { type Artifact, findArtifact, refreshCard, requireVersion, type Version } from './service.js'
+import { type Artifact, findArtifact, refreshCard, requireVersion, runners, type Version } from './service.js'
 import { snapshotPending } from './snapshots.js'
 
 const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex')
@@ -254,7 +254,8 @@ export async function publishFiles(
       nowMs - burst.lastAt <= BURST_IDLE_MS &&
       nowMs - head.createdAt.getTime() <= BURST_TOTAL_MS
     ) {
-      const [[child], [th], [pinPv], [pinShare]] = await Promise.all([
+      // A live run checked out `head`: rewriting it in place would make its submit fast-forward over these edits.
+      const [[child], [th], [pinPv], [pinShare], live] = await Promise.all([
         tx
           .select({ id: artifactVersions.id })
           .from(artifactVersions)
@@ -271,8 +272,9 @@ export async function publishFiles(
           .from(previewShares)
           .where(eq(previewShares.artifactVersionId, head.id))
           .limit(1),
+        runners(tx, a.groupId),
       ])
-      canCoalesce = !child && !th && !pinPv && !pinShare
+      canCoalesce = !child && !th && !pinPv && !pinShare && !live.has(a.id)
     }
 
     if (canCoalesce && head) {

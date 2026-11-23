@@ -22,4 +22,7 @@ export default {
   '请先点击上方「添加批注」在页面上落点': 'Click "Add comment" above to pin feedback on the page',
   '已切换到 v{n}': 'Restored v{n}',
   没有权限修改该产物: 'No permission to edit this artifact',
+  '还有未保存的修改，保存后再查看历史版本':
+    'Unsaved changes: wait for them to save before opening an older version',
+  访客: 'Guest',
 } as const

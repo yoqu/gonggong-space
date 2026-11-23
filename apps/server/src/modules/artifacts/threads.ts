@@ -176,9 +176,11 @@ async function requireThread(ctx: Ctx, id: string, userId: string) {
   return { th, a: await requireArtifact(ctx, th.artifactId, userId) }
 }
 
-/** PATCH /api/artifact-threads/:id — any member resolves, reopens or moves it. */
+/** PATCH /api/artifact-threads/:id — any member resolves, reopens or moves it; only its author relabels it. */
 export async function updateThread(ctx: Ctx, me: Me, id: string, r: UpdateArtifactThreadReq) {
   const { th, a } = await requireThread(ctx, id, me.id)
+  if ((r.label !== undefined || r.detail !== undefined) && th.createdBy !== me.id)
+    fail('forbidden', '只能修改自己的批注')
   const anchor = r.anchor && (await placed(a, await requireVersion(ctx.db, a, th.versionId), r.anchor))
   const patch: Partial<typeof artifactThreads.$inferInsert> = {}
   if (anchor !== undefined) patch.anchor = toStoredAnchor(anchor) as ArtifactThreadAnchor

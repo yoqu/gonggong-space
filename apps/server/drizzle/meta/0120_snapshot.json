@@ -851,7 +851,8 @@
           "name": "kind",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'prototype'"
         },
         "editor_version": {
           "name": "editor_version",

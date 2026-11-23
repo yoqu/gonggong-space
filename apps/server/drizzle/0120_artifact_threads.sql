@@ -25,9 +25,8 @@ CREATE TABLE "artifact_threads" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "artifacts" ADD COLUMN "kind" text;--> statement-breakpoint
-UPDATE "artifacts" SET "kind" = CASE WHEN "site_dir" IS NOT NULL THEN 'site' ELSE 'prototype' END;--> statement-breakpoint
-ALTER TABLE "artifacts" ALTER COLUMN "kind" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "artifacts" ADD COLUMN "kind" text DEFAULT 'prototype' NOT NULL;--> statement-breakpoint
+UPDATE "artifacts" SET "kind" = 'site' WHERE "site_dir" IS NOT NULL;--> statement-breakpoint
 ALTER TABLE "artifacts" ADD COLUMN "editor_version" text;--> statement-breakpoint
 ALTER TABLE "artifact_thread_messages" ADD CONSTRAINT "artifact_thread_messages_thread_id_artifact_threads_id_fk" FOREIGN KEY ("thread_id") REFERENCES "public"."artifact_threads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "artifact_threads" ADD CONSTRAINT "artifact_threads_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

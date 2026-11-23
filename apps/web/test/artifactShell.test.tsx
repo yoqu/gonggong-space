@@ -1,5 +1,5 @@
 import type { ArtifactDto, ArtifactThreadDto, BotDto, UserDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
@@ -197,5 +197,93 @@ describe('ArtifactShell for hosted sites', () => {
     expect(screen.queryByTestId('shell-annotate-btn')).toBeNull()
     expect(screen.queryByTestId('shell-chat-btn')).toBeNull()
     expect(screen.queryByRole('button', { name: '分享' })).toBeNull()
+  })
+
+  it('keeps editor comments of earlier versions listed: every save makes a new version', async () => {
+    const th = {
+      id: 'th-s',
+      artifactId: 'site1',
+      versionId: 'v1',
+      anchor: '{"slide":"s1"}',
+      label: 'Slide 1',
+      detail: null,
+      location: {},
+      status: 'open',
+      resolvedBy: null,
+      resolvedByName: null,
+      sentMessageId: null,
+      createdBy: 'u1',
+      createdByName: '李建国',
+      createdAt: at,
+      messages: [
+        {
+          id: 'm1',
+          authorKind: 'user',
+          authorId: 'u1',
+          authorName: '李建国',
+          text: '标题再短些',
+          to: [],
+          reactions: [],
+          at,
+          editedAt: null,
+        },
+      ],
+    } as ArtifactThreadDto
+    mockApi({
+      'GET /artifacts/site1': siteArtifact({ kind: 'slides', site: false, editorVersion: 'current' }),
+      'GET /artifacts/site1/versions': [version(1), version(2)],
+      'POST /artifacts/site1/preview': { previewId: 'pv1', origin: ORIGIN, url: '/api/previews/pv1/open' },
+      'GET /artifacts/site1/threads': [th],
+      'GET /groups/g1/bots': [bot],
+    })
+    render(
+      <ArtifactTab
+        tab={{ kind: 'artifact', artifactId: 'site1', title: '官网落地页' }}
+        tabKey="artifact:site1"
+        active
+      />,
+    )
+    fireEvent.click(await screen.findByTestId('shell-threads-btn'))
+    expect(await screen.findByText('标题再短些')).toBeTruthy()
+  })
+
+  it('stays on the head while the editor has unsaved edits', async () => {
+    mockApi({
+      'GET /artifacts/site1': siteArtifact({ kind: 'slides', site: false, editorVersion: 'current' }),
+      'GET /artifacts/site1/versions': [version(1), version(2)],
+      'POST /artifacts/site1/preview': { previewId: 'pv1', origin: ORIGIN, url: '/api/previews/pv1/open' },
+      'GET /artifacts/site1/threads': [],
+      'GET /groups/g1/bots': [bot],
+    })
+    render(
+      <ArtifactTab
+        tab={{ kind: 'artifact', artifactId: 'site1', title: '官网落地页' }}
+        tabKey="artifact:site1"
+        active
+      />,
+    )
+    const frame = (await screen.findByTestId('shell-editor-stage')).querySelector('iframe')!
+    const report = (leaveLosesWork: boolean) =>
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            origin: ORIGIN,
+            source: frame.contentWindow,
+            data: {
+              openArtifact: 'chrome_report',
+              report: { saved: leaveLosesWork ? 'unsaved' : 'saved', leaveLosesWork },
+            },
+          }),
+        )
+      })
+    report(true)
+    fireEvent.click(screen.getByTestId('shell-history-btn'))
+    const v1 = () => within(screen.getByTestId('shell-version-v1')).getAllByRole('button')[0]!
+    await screen.findByTestId('shell-version-v1')
+    fireEvent.click(v1())
+    expect(screen.queryByTestId('shell-past-banner')).toBeNull()
+    report(false)
+    fireEvent.click(v1())
+    expect(await screen.findByTestId('shell-past-banner')).toBeTruthy()
   })
 })

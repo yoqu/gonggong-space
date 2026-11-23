@@ -1,6 +1,7 @@
 import type { ArtifactDto } from '@gonggong/protocol'
 import { type RefObject, useEffect, useImperativeHandle, useRef } from 'react'
 import { useSession } from '../../../app/session'
+import { t } from '../../../i18n'
 import { realtime } from '../../../lib/realtime'
 import { Spinner } from '../../../ui'
 import type { ArtifactPreview } from '../store'
@@ -83,6 +84,7 @@ export function EditorStage({
       artifactId: artifact.id,
       getTitle: () => latest.current.artifact.title,
       getVersionId: () => latest.current.versionId,
+      getHeadVersionId: () => latest.current.artifact.headVersionId ?? null,
       getOrigin: () => latest.current.preview?.origin ?? null,
       getFrameWindow: () => frameRef.current?.contentWindow ?? null,
       viewer:
@@ -93,7 +95,7 @@ export function EditorStage({
               role: latest.current.readOnly ? 'viewer' : 'editor',
               kind: 'user',
             }
-          : { id: 'guest', name: 'Guest', role: 'viewer', kind: 'guest' },
+          : { id: 'guest', name: t('访客'), role: 'viewer', kind: 'guest' },
       readOnly: latest.current.readOnly,
       getAgentStatus: () => latest.current.agentStatus,
       getBotId: () => latest.current.botId,

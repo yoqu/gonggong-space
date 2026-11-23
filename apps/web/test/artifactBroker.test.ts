@@ -32,6 +32,7 @@ function makeBroker(overrides: Partial<BrokerOptions> = {}) {
     artifactId: 'a1',
     getTitle: () => 'S0 演示文稿',
     getVersionId: () => 'v1',
+    getHeadVersionId: () => 'v1',
     getOrigin: () => ORIGIN,
     getFrameWindow: () => frame.win,
     viewer: { id: 'u1', name: '李建国', role: 'editor', kind: 'user' },
@@ -362,5 +363,60 @@ describe('artifact capability broker', () => {
       report: { saved: 'saved' },
     })
     expect(onReport).toHaveBeenCalledWith({ saved: 'saved' })
+  })
+
+  it('reads only files of this artifact: rejects traversal and encodes each path segment', async () => {
+    const { broker, frame } = makeBroker()
+    const calls = mockApi({
+      'GET /artifacts/a1/files/project/a%20b%3F.json?version=v1': new Response('ok'),
+      'GET /artifacts/a1/versions/history': { versions: [{ id: 'v1', n: 1 }], notices: [], canRestore: true },
+    })
+    for (const cap of ['artifact', 'history'])
+      dispatch(broker, frame.win, ORIGIN, { openArtifact: 'cap_want', cap, protocol: 1, base: ORIGIN })
+    const call = (id: string, cap: string, method: string, args: unknown[]) =>
+      dispatch(broker, frame.win, ORIGIN, { openArtifact: 'cap', id, cap, method, args, gen: 0 })
+    call('r1', 'artifact', 'readText', ['../../../me'])
+    call('r2', 'artifact', 'readBytes', ['project/../../x'])
+    call('r3', 'history', 'read', [1, '/abs'])
+    call('r4', 'artifact', 'readText', ['project/a b?.json'])
+    await flush()
+    const res = new Map(
+      frame.sent
+        .map((x) => x.msg as { id?: string; result?: unknown; error?: { code: string } })
+        .map((m) => [m.id, m]),
+    )
+    for (const id of ['r1', 'r2', 'r3']) expect(res.get(id)?.error?.code).toBe('invalid')
+    expect(res.get('r4')?.result).toBe('ok')
+    expect(calls.filter((c) => c.path.startsWith('/artifacts/a1/files/')).map((c) => c.path)).toEqual([
+      '/artifacts/a1/files/project/a%20b%3F.json?version=v1',
+    ])
+  })
+
+  it('reads the head named by the latest artifact.files event while showing the head', async () => {
+    const { broker, frame } = makeBroker({ getVersionId: () => 'v1', getHeadVersionId: () => 'v1' })
+    const calls = mockApi({ 'GET /artifacts/a1/files/project/deck.json?version=v2': 'new' })
+    dispatch(broker, frame.win, ORIGIN, {
+      openArtifact: 'cap_want',
+      cap: 'artifact',
+      protocol: 1,
+      base: ORIGIN,
+    })
+    broker.pushFiles({
+      t: 'artifact.files',
+      artifactId: 'a1',
+      versionId: 'v2',
+      n: 2,
+      changes: { 'project/deck.json': 'b'.repeat(64) },
+    })
+    dispatch(broker, frame.win, ORIGIN, {
+      openArtifact: 'cap',
+      id: 'r1',
+      cap: 'artifact',
+      method: 'readText',
+      args: ['project/deck.json'],
+      gen: 0,
+    })
+    await flush()
+    expect(calls.map((c) => c.path)).toEqual(['/artifacts/a1/files/project/deck.json?version=v2'])
   })
 })

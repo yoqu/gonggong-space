@@ -7,6 +7,9 @@ const SERVER_ROOT = resolve(HERE, '../../..')
 const REPO_ROOT = resolve(SERVER_ROOT, '../..')
 
 const EDITOR_TYPES = new Set(['slides', 'whiteboard', 'motion'])
+
+/** The platform editor build a new artifact of `kind` pins (null: no editor). */
+export const editorVersionFor = (kind: string) => (EDITOR_TYPES.has(kind) ? CURRENT_EDITOR_VERSION : null)
 const VERSION_RE = /^[a-zA-Z0-9._-]{1,64}$/
 
 function readUpstreamVersion() {

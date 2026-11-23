@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
   type AnnotationDto,
+  ARTIFACT_FILE_MAX_BYTES,
   ArtifactAgentSendReq,
   type ArtifactAgentSendRes,
   type ArtifactAssetRes,
@@ -562,22 +563,28 @@ export function artifactRoutes(ctx: Ctx) {
       },
     )
 
-    app.post<{ Params: { id: string } }>('/api/artifacts/:id/publish', async (req, reply) => {
-      const me = await requireUser(ctx, req)
-      const a = await requireArtifact(ctx, req.params.id, me.id)
-      const body = ArtifactPublishReq.parse(req.body)
-      try {
-        const out: ArtifactPublishRes = await publishFiles(ctx, me, a, body)
-        return out
-      } catch (e) {
-        if (e instanceof PublishConflictError)
-          return reply
-            .status(409)
-            .send({ error: 'conflict', message: t('文件已被其他人修改'), paths: e.paths })
-        if (e instanceof QuotaExceeded) return quotaFull(reply)
-        throw e
-      }
-    })
+    // One editor save may carry several files up to ARTIFACT_FILE_MAX_BYTES each, base64-encoded.
+    const PUBLISH_BODY_LIMIT = 4 * ARTIFACT_FILE_MAX_BYTES
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/publish',
+      { bodyLimit: PUBLISH_BODY_LIMIT },
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const body = ArtifactPublishReq.parse(req.body)
+        try {
+          const out: ArtifactPublishRes = await publishFiles(ctx, me, a, body)
+          return out
+        } catch (e) {
+          if (e instanceof PublishConflictError)
+            return reply
+              .status(409)
+              .send({ error: 'conflict', message: t('文件已被其他人修改'), paths: e.paths })
+          if (e instanceof QuotaExceeded) return quotaFull(reply)
+          throw e
+        }
+      },
+    )
 
     app.post<{ Params: { id: string } }>('/api/artifacts/:id/assets', async (req, reply) => {
       const body = req.body as Readable | undefined

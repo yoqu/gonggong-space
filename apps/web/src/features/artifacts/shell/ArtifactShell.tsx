@@ -133,9 +133,11 @@ export function ArtifactShell({
   )
 
   const current = versions.find((v) => v.id === shown)
+  // Site pins are page coordinates of one version; editor anchors follow content, and every save is a new version.
+  const threadVersion = isSite ? shown : null
   const shownThreads = useMemo(
-    () => (shown ? threads.filter((x) => x.versionId === shown) : threads),
-    [threads, shown],
+    () => (threadVersion ? threads.filter((x) => x.versionId === threadVersion) : threads),
+    [threads, threadVersion],
   )
   const openCount = shownThreads.filter((x) => x.status === 'open').length
 
@@ -161,6 +163,15 @@ export function ArtifactShell({
   const finishRename = (next: string | null) => {
     setRenaming(false)
     if (next && next !== a.title) void attempt(() => renameArtifact(a.id, next))
+  }
+
+  // A past version is read-only: leaving the head before the editor saved would drop its last edits.
+  const selectVersion = (id: string) => {
+    if (id !== head && !viewing && chrome?.leaveLosesWork) {
+      toast({ type: 'error', message: t('还有未保存的修改，保存后再查看历史版本') })
+      return
+    }
+    setViewing(id === head ? null : id)
   }
 
   const doRestore = async (versionId: string) => {
@@ -312,7 +323,7 @@ export function ArtifactShell({
               shortcut: [SOURCE[v.source], v.authorName, ago(v.createdAt)].filter(Boolean).join(' · '),
               checked: v.id === shown,
             }))}
-            onSelect={(id) => setViewing(id === head ? null : id)}
+            onSelect={selectVersion}
           >
             {current ? `v${current.n}` : t('版本')}
             <Icon name="chevron-down" size={10} weight={2} />
@@ -483,7 +494,7 @@ export function ArtifactShell({
         {sidebar === 'threads' ? (
           <ThreadsSidebar
             threads={threads}
-            versionId={shown}
+            versionId={threadVersion}
             meId={me?.id ?? null}
             readOnly={readOnly}
             activeId={activeThreadId}
@@ -520,7 +531,7 @@ export function ArtifactShell({
             shownId={shown}
             readOnly={viewOnly}
             busy={busy}
-            onSelect={(id) => setViewing(id === head ? null : id)}
+            onSelect={selectVersion}
             onRestore={doRestore}
             onClose={() => setSidebar(null)}
           />

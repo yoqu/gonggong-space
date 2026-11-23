@@ -1942,8 +1942,9 @@ export const artifacts = pgTable(
      */
     siteDir: text('site_dir'),
     /** Fixed at creation: its plugin manifest's `artifact.kind` (`site` for hosted sites). */
-    kind: text('kind').$type<ArtifactKind>().notNull(),
-    /** The plugin version (semver) whose editor it loads; null: no editor (prototype, site). */
+    // The default lets the previous release (which does not write kind) keep creating artifacts after a rollback.
+    kind: text('kind').$type<ArtifactKind>().notNull().default('prototype'),
+    /** The platform editor build it loads (`/__oa/<kind>@<editorVersion>/`); null: no editor (prototype, site). */
     editorVersion: text('editor_version'),
     /** Not a foreign key: versions reference the artifact, and the first one is inserted after it. */
     headVersionId: uuid('head_version_id'),
