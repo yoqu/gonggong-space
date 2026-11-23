@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.29 — 2026-11-23
+
+- Bot 可以报告飞书、飞书项目的登录状态和账号，连接器菜单会显示是否已连接或已过期 / Bots can report Feishu and Feishu Project sign-in status and account; the connector menu shows whether the connection is active or expired
+
 ## v0.4.28 — 2026-11-20
 
 - 静态网页可托管到服务器，在「作品」里查看或分享，Bot 电脑离线也能访问 / Host static sites on the server and open or share them from Works even when the bot's computer is offline
