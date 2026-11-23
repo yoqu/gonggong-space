@@ -25,6 +25,7 @@ export const CATEGORY: Record<PluginCategory, { icon: IconName; color: string }>
   tool: { icon: 'plug', color: 'var(--avatar-2)' },
   agent: { icon: 'bot', color: 'var(--avatar-3)' },
   provider: { icon: 'cloud', color: 'var(--avatar-5)' },
+  connector: { icon: 'link', color: 'var(--avatar-1)' },
   other: { icon: 'apps', color: 'var(--avatar-4)' },
 }
 
