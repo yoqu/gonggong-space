@@ -6,6 +6,8 @@ import { pluginSnapshot, savePlugin } from './service.js'
 
 /** Shipped with the server package, so the Docker image carries them too. */
 export const BUILTIN_PLUGINS = join(import.meta.dirname, '../../../plugins/official')
+/** Internal plugins (internal addresses): a submodule only the internal GitLab has; absent in public checkouts. */
+export const INTERNAL_PLUGINS = join(import.meta.dirname, '../../../plugins/internal')
 
 function files(root: string, dir = root): SkillFile[] {
   return readdirSync(dir).flatMap((name) => {

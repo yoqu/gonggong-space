@@ -1,5 +1,6 @@
 import {
   AUTO_DESIGN_SYSTEM,
+  createsArtifacts,
   type GONGGONG_TOOLS,
   groupDesignSystemKey,
   type PluginBlocker,
@@ -35,7 +36,7 @@ async function enabled(ctx: Ctx, run: Run) {
   if (!(await pluginsOn(ctx.db))) return refuse('插件功能未开启')
   // Creation plugins only: tool plugins reach the agent as MCP servers.
   const list = (await groupPluginList(ctx.db, run.groupId)).filter(
-    (r) => r.enabledInGroup && r.version.manifest.entry,
+    (r) => r.enabledInGroup && createsArtifacts(r.version.manifest),
   )
   if (!list.length) return refuse('本群没有启用插件，请群管理员在群设置「插件」里打开')
   const [bot] = await botStates(ctx, run.groupId, run.originUserId, run.botId)

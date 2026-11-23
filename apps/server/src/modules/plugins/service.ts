@@ -1,5 +1,6 @@
 import {
   compareVersions,
+  createsArtifacts,
   type GroupPluginDto,
   type McpServer,
   PLUGIN_MANIFEST,
@@ -561,7 +562,7 @@ export async function runPlugins(
       } as PluginRef
     }),
     /** Plugins with a creation skill, for the system prompt. */
-    creations: usable.filter((r) => r.version.manifest.entry).map((r) => r.plugin.name),
+    creations: usable.filter((r) => createsArtifacts(r.version.manifest)).map((r) => r.plugin.name),
     commands: chatCommands(usable.map((r) => r.version.manifest)),
     /** Enabled connectors held back only for want of the originator's secrets, for the system prompt. */
     unconnected: on

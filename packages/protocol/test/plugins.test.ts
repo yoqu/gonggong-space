@@ -4,6 +4,7 @@ import {
   CREATION_INPUT_MAX,
   CreateGroupDesignSystemReq,
   CreationReq,
+  createsArtifacts,
   creationSteps,
   designMdSwatches,
   designMdTitle,
@@ -226,5 +227,13 @@ describe('connector manifest', () => {
   it('defaults examples', () => {
     const m = PluginManifest.parse({ ...connector, connector: {} })
     expect(m.connector).toEqual({ examples: [] })
+  })
+})
+
+describe('createsArtifacts', () => {
+  it('is false for a connector even with an entry skill', () => {
+    expect(createsArtifacts({ entry: 'dw-query', category: 'connector' })).toBe(false)
+    expect(createsArtifacts({ entry: 'slides', category: 'deck' })).toBe(true)
+    expect(createsArtifacts({ entry: null, category: 'tool' })).toBe(false)
   })
 })

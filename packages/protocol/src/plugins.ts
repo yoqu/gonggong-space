@@ -50,6 +50,9 @@ export const PluginConnector = z.object({
   docs: z.string().url().optional(),
 })
 export type PluginConnector = z.infer<typeof PluginConnector>
+/** Creates artifacts with its entry skill; a connector's entry skill is how to use the system it connects instead. */
+export const createsArtifacts = (m: { entry: string | null; category: PluginCategory }) =>
+  !!m.entry && m.category !== 'connector'
 export const shelfCategories = (s: PluginShelf) => PluginCategory.options.filter((c) => shelfOf(c) === s)
 
 /** A form field of the creation panel (第 3 步「内容与参数」); its value is passed to the agent as `label：value`. */
