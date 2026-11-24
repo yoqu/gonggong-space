@@ -163,7 +163,7 @@ describe('team switcher', () => {
     fireEvent.click(await screen.findByRole('button', { name: '切换团队，当前：支付组' }))
     fireEvent.click(within(screen.getByRole('menu')).getByText('邀请成员'))
     const dialog = await screen.findByRole('dialog', { name: '邀请 · 支付组' })
-    expect(within(dialog).getByRole('button', { name: '生成邀请链接' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '生成并复制链接' })).toBeTruthy()
     view.unmount()
 
     signIn({ teams: [team({ role: 'member' })], singleTeamMode: false, canCreateTeam: false })
@@ -277,14 +277,58 @@ describe('team settings', () => {
     await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ name: '支付中台', avatar: null })
 
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
     fireEvent.click(screen.getByRole('button', { name: '邀请' }))
-    fireEvent.click(screen.getByRole('button', { name: '生成邀请链接' }))
+    fireEvent.click(screen.getByRole('button', { name: '生成并复制链接' }))
     expect(await screen.findByText('http://10.0.0.5/join/ggi_abc')).toBeTruthy()
+    expect(writeText).toHaveBeenCalledWith('http://10.0.0.5/join/ggi_abc')
+    expect(await screen.findByText('已复制到剪贴板')).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
       role: 'member',
       expiresInDays: 7,
       maxUses: null,
     })
+  })
+
+  it('handles clipboard failure gracefully and clears the link card when that invite is revoked', async () => {
+    const invite = {
+      id: 'i1',
+      teamId: 't1',
+      role: 'admin' as const,
+      maxUses: 1,
+      uses: 0,
+      expiresAt: '2099-12-01T00:00:00Z',
+      createdBy: 'u1',
+      revokedAt: null,
+      createdAt: '',
+    }
+    let invites: (typeof invite)[] = []
+    mockApi({
+      'GET /teams/t1/invites': () => invites,
+      'POST /teams/t1/invites': () => {
+        invites = [invite]
+        return { token: 'ggi_failcopy', invite }
+      },
+      'DELETE /teams/t1/invites/i1': () => {
+        invites = []
+        return {}
+      },
+    })
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    signIn({ teams: [team({ role: 'admin' })], singleTeamMode: false, canCreateTeam: false })
+
+    render(<TeamSettingsDialog team={team({ role: 'admin' })} tab="invites" onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '生成并复制链接' }))
+    expect(await screen.findByText('http://10.0.0.5/join/ggi_failcopy')).toBeTruthy()
+    expect(await screen.findByText('邀请链接已生成')).toBeTruthy()
+    expect(await screen.findByText('生效中的邀请')).toBeTruthy()
+    expect(screen.getByText('刚刚生成')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
+    await waitFor(() => expect(screen.queryByText('http://10.0.0.5/join/ggi_failcopy')).toBeNull())
   })
 
   it('lets admins upload a cropped image and reset it; the text avatar is only for no image', async () => {

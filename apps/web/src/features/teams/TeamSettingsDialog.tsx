@@ -2,7 +2,7 @@ import type { TeamDto, TeamInviteDto, TeamMemberDto, TeamRole } from '@gonggong/
 import { type ReactNode, useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
-import { copyWithToast } from '../../lib/clipboard'
+import { copyText, copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
@@ -24,6 +24,7 @@ import {
   Spinner,
   Tag,
   TextField,
+  toast,
 } from '../../ui'
 import { inviteLink, ROLE_LABEL, teamsApi } from './store'
 import {
@@ -419,13 +420,24 @@ function MembersTab({ team }: { team: TeamDto }) {
 const EXPIRY = [1, 7, 30] as const
 const USES = ['1', '10', 'unlimited'] as const
 
+type CreatedInvite = {
+  id: string
+  url: string
+  meta: string
+  copied: boolean
+}
+
 function InvitesTab({ team }: { team: TeamDto }) {
   const { data, error, reload } = useGet<TeamInviteDto[]>(`/teams/${team.id}/invites`)
   const [role, setRole] = useState<'member' | 'admin'>('member')
   const [days, setDays] = useState<(typeof EXPIRY)[number]>(7)
   const [uses, setUses] = useState<(typeof USES)[number]>('unlimited')
-  const [link, setLink] = useState('')
+  const [created, setCreated] = useState<CreatedInvite | null>(null)
   const [busy, setBusy] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
+
+  const usesText = (u: (typeof USES)[number]) =>
+    u === 'unlimited' ? t('不限次数') : u === '1' ? t('1 次') : t('10 次')
 
   const create = async () => {
     setBusy(true)
@@ -435,7 +447,24 @@ function InvitesTab({ team }: { team: TeamDto }) {
         expiresInDays: days,
         maxUses: uses === 'unlimited' ? null : Number(uses),
       })
-      setLink(inviteLink(made.token))
+      const url = inviteLink(made.token)
+      const meta = t('{role} · {days} 天 · {uses}', {
+        role: ROLE_LABEL[role],
+        days,
+        uses: usesText(uses),
+      })
+      let copied = false
+      try {
+        await copyText(url)
+        copied = true
+      } catch {
+        // Clipboard may be unavailable after async await; the card still offers one-click copy.
+      }
+      setCreated({ id: made.invite.id, url, meta, copied })
+      toast({
+        type: copied ? 'success' : 'info',
+        message: copied ? t('已生成并复制邀请链接') : t('邀请链接已生成，请点击复制'),
+      })
       reload()
     } catch (e) {
       toastError(e)
@@ -443,20 +472,39 @@ function InvitesTab({ team }: { team: TeamDto }) {
       setBusy(false)
     }
   }
+
   const revoke = async (id: string) => {
-    if (await attempt(() => teamsApi.revokeInvite(team.id, id))) reload()
+    if (revokingId === id) return
+    setRevokingId(id)
+    try {
+      if (await attempt(() => teamsApi.revokeInvite(team.id, id))) {
+        setCreated((cur) => (cur?.id === id ? null : cur))
+        toast({ type: 'success', message: t('已撤销邀请链接') })
+        reload()
+      }
+    } finally {
+      setRevokingId((cur) => (cur === id ? null : cur))
+    }
   }
-  const status = (i: TeamInviteDto) =>
-    new Date(i.expiresAt) <= new Date()
-      ? t('已过期')
-      : i.maxUses !== null && i.uses >= i.maxUses
-        ? t('已用完')
-        : t('{until} 前有效', {
-            until: new Date(i.expiresAt).toLocaleString(dateLocale, {
-              dateStyle: 'short',
-              timeStyle: 'short',
-            }),
-          })
+
+  const inviteState = (i: TeamInviteDto) => {
+    if (new Date(i.expiresAt) <= new Date()) return { active: false, label: t('已过期') }
+    if (i.maxUses !== null && i.uses >= i.maxUses) return { active: false, label: t('已用完') }
+    return {
+      active: true,
+      label: t('{until} 前有效', {
+        until: new Date(i.expiresAt).toLocaleString(dateLocale, {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }),
+      }),
+    }
+  }
+
+  const copyCreated = () => {
+    if (!created) return
+    void copyWithToast(created.url, t('已复制邀请链接'))
+  }
 
   return (
     <>
@@ -493,39 +541,93 @@ function InvitesTab({ team }: { team: TeamDto }) {
           />
         </GroupRow>
       </GroupBox>
-      <div className="team-actions">
-        <Button variant="primary" disabled={busy} onClick={() => void create()}>
-          {t('生成邀请链接')}
+      <div className="team-invite-bar">
+        <span
+          className={cx('team-invite-bar__summary', role === 'admin' && 'team-invite-bar__summary--warn')}
+        >
+          {role === 'admin' ? <Icon name="warning" size={14} /> : null}
+          {t('{role} · {days} 天有效 · {uses}', {
+            role: ROLE_LABEL[role],
+            days,
+            uses: usesText(uses),
+          })}
+        </span>
+        <Button variant="primary" icon="link" loading={busy} onClick={() => void create()}>
+          {t('生成并复制链接')}
         </Button>
       </div>
-      {link ? (
-        <div className="team-link">
-          <code className="gs-mono team-link__url">{link}</code>
-          <Button size="small" onClick={() => void copyWithToast(link, t('已复制邀请链接'))}>
-            {t('复制')}
-          </Button>
-          <span className="gs-desc">{t('链接只在生成时显示一次')}</span>
+      {created ? (
+        <div
+          key={created.id}
+          className={cx('team-invite-result', created.copied && 'team-invite-result--copied')}
+        >
+          <div className="team-invite-result__head">
+            <span
+              className={cx(
+                'team-invite-result__status',
+                created.copied && 'team-invite-result__status--copied',
+              )}
+            >
+              <Icon name={created.copied ? 'check' : 'link'} size={14} />
+              <span>{created.copied ? t('已复制到剪贴板') : t('邀请链接已生成')}</span>
+              <span className="team-invite-result__meta">· {created.meta}</span>
+            </span>
+            <span className="team-invite-result__hint">{t('仅本次显示')}</span>
+          </div>
+          <div className="team-invite-result__field">
+            <code className="gs-mono team-invite-result__url" title={created.url}>
+              {created.url}
+            </code>
+            <Button size="small" icon="copy" onClick={() => void copyCreated()}>
+              {t('复制')}
+            </Button>
+          </div>
         </div>
       ) : null}
       {data?.length ? (
-        <GroupBox>
-          {data.map((i) => (
-            <GroupRow
-              key={i.id}
-              label={t('{role} · 已用 {uses}', {
-                role: ROLE_LABEL[i.role],
-                uses: i.maxUses === null ? String(i.uses) : `${i.uses}/${i.maxUses}`,
-              })}
-              description={status(i)}
-            >
-              <Button variant="plain" size="small" onClick={() => void revoke(i.id)}>
-                {t('撤销')}
-              </Button>
-            </GroupRow>
-          ))}
-        </GroupBox>
+        <div className="team-invites__section">
+          <div className="team-invites__head">
+            <span>{t('生效中的邀请')}</span>
+            <span className="team-invites__count">{data.length}</span>
+          </div>
+          <GroupBox>
+            {data.map((i) => {
+              const st = inviteState(i)
+              return (
+                <GroupRow
+                  key={i.id}
+                  className={st.active ? undefined : 'team-invite-row--inactive'}
+                  label={
+                    <span className="team-invite-row__label">
+                      <Tag tone={i.role === 'admin' ? 'orange' : 'gray'}>{ROLE_LABEL[i.role]}</Tag>
+                      <span className="team-invite-row__uses">
+                        {t('已用 {uses}', {
+                          uses: i.maxUses === null ? String(i.uses) : `${i.uses}/${i.maxUses}`,
+                        })}
+                      </span>
+                      {i.id === created?.id ? <Tag tone="green">{t('刚刚生成')}</Tag> : null}
+                      {!st.active ? <Tag tone="gray">{st.label}</Tag> : null}
+                    </span>
+                  }
+                  description={st.active ? st.label : undefined}
+                >
+                  <Button
+                    variant="plain"
+                    size="small"
+                    loading={revokingId === i.id}
+                    onClick={() => void revoke(i.id)}
+                  >
+                    {t('撤销')}
+                  </Button>
+                </GroupRow>
+              )
+            })}
+          </GroupBox>
+        </div>
       ) : error ? (
         <div className="gs-note">{error}</div>
+      ) : data ? (
+        <div className="team-invites__empty">{t('暂无生效中的邀请链接')}</div>
       ) : null}
     </>
   )

@@ -41,17 +41,121 @@
   display: flex;
   justify-content: flex-end;
 }
-.team-link {
+.team-invite-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.team-invite-bar__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.team-invite-bar__summary--warn {
+  color: var(--tint-orange-text);
+  font-weight: 500;
+}
+.team-invite-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  padding: var(--space-12);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
+  --enter-y: 4px;
+}
+.team-invite-result--copied {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint-green-text) 32%, var(--separator));
+}
+.team-invite-result__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-8);
 }
-.team-link__url {
+.team-invite-result__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-subheadline-size);
+  font-weight: 600;
+  color: var(--label);
+}
+.team-invite-result__status--copied {
+  color: var(--tint-green-text);
+}
+.team-invite-result__meta {
+  font-weight: 400;
+  color: var(--label-secondary);
+}
+.team-invite-result__hint {
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
+.team-invite-result__field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.team-invite-result__url {
   flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  height: var(--control-regular);
+  padding: 0 var(--space-10);
+  border-radius: var(--radius-field);
+  background: var(--content-bg);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   user-select: all;
+  cursor: text;
+}
+.team-invites__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.team-invites__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  font-size: var(--text-subheadline-size);
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+.team-invites__count {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.team-invite-row__label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+.team-invite-row__uses {
+  font-variant-numeric: tabular-nums;
+}
+.team-invite-row--inactive {
+  opacity: 0.6;
+}
+.team-invites__empty {
+  padding: var(--space-8) var(--space-4);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
 }
 .team-group__name {
   display: flex;
