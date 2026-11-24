@@ -60,6 +60,10 @@ export default {
   '安装桌面端，或请 Bot 所在电脑的主人开启『允许群成员在本机连接』':
     'Install the desktop app, or ask the owner of the bot\'s computer to turn on "Let group members connect here"',
   '已连接，正在继续': 'Connected, continuing',
+  '{bots} 用不了你的登录': "{bots} can't use your login",
+  '它们所在的电脑不在下面的列表里（未开启『允许群成员在本机连接』或不在线）。请电脑主人开启后在那台电脑上连接，或改 @ 可用的 Bot。':
+    'Their computers aren\'t listed below ("Let group members connect on this computer" is off, or they\'re offline). Ask the owner to turn it on and connect there, or @ a bot that can use it.',
+  '可用的 Bot：{bots}': 'Bots: {bots}',
   '已退出「{name}」': 'Signed out of "{name}"',
   我的: 'Mine',
   授权二维码: 'Authorization QR code',

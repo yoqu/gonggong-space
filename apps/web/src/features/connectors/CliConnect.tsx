@@ -1,6 +1,7 @@
 import type { ConnectorCliView, ConnectorDto, ConnectorMachineView, WebEvent } from '@gonggong/protocol'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useRef, useState } from 'react'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
@@ -157,6 +158,11 @@ export function CliConnect({
   const here = cliMachine(c)
   const example = m.connector?.examples[0]
   const foreign = cli.machines.filter((x) => x.state === 'ready' && x.verified === false)
+  const groupBots = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.botIds)
+  const bots = useWorkspace((s) => s.bots)
+  const names = (ids: string[]) => ids.map((id) => bots.find((b) => b.id === id)?.name ?? id).join(t('、'))
+  // Bots whose machine is not listed (closed to members or offline): my login here never reaches them.
+  const unreachable = (groupBots ?? []).filter((id) => !cli.machines.some((x) => x.botIds.includes(id)))
   return (
     <div className="cn-cli">
       {foreign.map((x) => (
@@ -169,6 +175,15 @@ export function CliConnect({
           })}
         />
       ))}
+      {cli.state === 'ready' && unreachable.length ? (
+        <Alert
+          variant="warning"
+          title={t('{bots} 用不了你的登录', { bots: names(unreachable) })}
+          description={t(
+            '它们所在的电脑不在下面的列表里（未开启『允许群成员在本机连接』或不在线）。请电脑主人开启后在那台电脑上连接，或改 @ 可用的 Bot。',
+          )}
+        />
+      ) : null}
       {failure ? (
         <Alert variant="error" title={failure} onRetry={() => void connect()} retryLabel={t('重试')} />
       ) : null}
@@ -219,6 +234,11 @@ export function CliConnect({
                 <span className="cn-machines__name">
                   {x.machineName}
                   {x.own ? <Tag tone="blue">{t('我的')}</Tag> : null}
+                  {x.botIds.length ? (
+                    <span className="cn-machines__bots">
+                      {t('可用的 Bot：{bots}', { bots: names(x.botIds) })}
+                    </span>
+                  ) : null}
                 </span>
                 <span className={cx('cn-machines__state', x.state === 'ready' && 'cn-machines__state--ok')}>
                   {x.state === 'ready' && x.account

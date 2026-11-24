@@ -309,6 +309,13 @@
   gap: var(--space-6);
   min-width: 0;
 }
+.cn-machines__bots {
+  overflow: hidden;
+  color: var(--label-tertiary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cn-machines__state {
   color: var(--label-secondary);
 }

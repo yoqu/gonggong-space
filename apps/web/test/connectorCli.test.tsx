@@ -292,6 +292,27 @@ describe('CLI 连接器 · 一站式连接', () => {
     expect(await within(dialog).findByRole('button', { name: '连接' })).toBeTruthy()
   })
 
+  it('says which bots can use the login: those on no listed machine cannot', async () => {
+    mockApi({
+      ...routes([lark(ready())]),
+      'GET /groups': [{ ...group, botIds: ['b1', 'b2'] }],
+      'GET /bots': [bot, { ...bot, id: 'b2', name: '共字君', machineId: 'mc9', machineName: 'Mac-mini-2' }],
+    })
+    renderChat()
+    const dialog = await openDialog()
+    expect(within(dialog).getByText('共字君 用不了你的登录')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '电脑 · 1' }))
+    const list = within(dialog).getByRole('list', { name: '各电脑的连接状态' })
+    expect(within(list).getByText('可用的 Bot：设计助手')).toBeTruthy()
+  })
+
+  it('every bot covered: no warning', async () => {
+    mockApi(routes([lark(ready())]))
+    renderChat()
+    const dialog = await openDialog()
+    expect(within(dialog).queryByText(/用不了你的登录/)).toBeNull()
+  })
+
   it('no machine: guides to the desktop app or the owner’s switch', async () => {
     mockApi(routes([lark(view({ state: 'no_machine', machines: [], target: null }))]))
     renderChat()
