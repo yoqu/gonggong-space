@@ -5,7 +5,7 @@
 }
 .feishu-entry__hint {
   margin: 0;
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-subheadline-size);
   line-height: 1.45;
   color: var(--label-secondary);
   text-align: center;
@@ -52,7 +52,7 @@
   white-space: nowrap;
 }
 .feishu-choose__email {
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -72,7 +72,7 @@
   align-items: flex-start;
   gap: var(--space-12);
   width: 100%;
-  padding: var(--space-12) var(--space-14);
+  padding: var(--space-12) var(--space-16);
   border: 0;
   border-radius: var(--radius-menu);
   background: var(--content-bg);
@@ -143,7 +143,7 @@
   font-weight: 600;
 }
 .feishu-choice__desc {
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-callout-size);
   line-height: 1.5;
   color: var(--label-secondary);
 }
