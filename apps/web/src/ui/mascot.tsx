@@ -17,11 +17,10 @@ export const MASCOT_ACTIONS = [
   'sleep',
 ] as const
 export type MascotAction = (typeof MASCOT_ACTIONS)[number]
-/** Moves between places (walking along a run's stages), driven by events rather than a state; 共字君 only. */
-const MASCOT_MOVES = ['walk', 'hop'] as const
+/** Moves between places (walking along a run's stages), driven by events rather than a state. */
+export const MASCOT_MOVES = ['walk', 'hop'] as const
 export type MascotMove = (typeof MASCOT_MOVES)[number]
-/** What a costume acts out for a move it has no scene for. */
-const COSTUME_MOVE: Record<MascotMove, MascotAction> = { walk: 'run', hop: 'done' }
+export const MASCOT_SCENES = [...MASCOT_ACTIONS, ...MASCOT_MOVES] as const
 
 const INK = 'var(--brand-ink)'
 const HEAD_BOX = '26 0 68 68'
@@ -283,11 +282,11 @@ function Props() {
   )
 }
 
-/** A bot's character playing the mascot: one self-contained animated scene per action. */
+/** A bot's character playing the mascot: one self-contained animated scene per action or move. */
 export interface MascotCostume {
   role: string
   /** `words` is false when too small to read the props' captions; a `still` scene holds its pose. */
-  scene: (action: MascotAction, words: boolean, still?: boolean) => string
+  scene: (action: MascotAction | MascotMove, words: boolean, still?: boolean) => string
 }
 
 /**
@@ -316,12 +315,8 @@ export function Mascot({
   if (costume)
     return (
       <img
-        className={cx('ui-mascot', 'ui-mascot--role', className)}
-        src={costume.scene(
-          action in COSTUME_MOVE ? COSTUME_MOVE[action as MascotMove] : (action as MascotAction),
-          size >= 64,
-          still,
-        )}
+        className={cx('ui-mascot', 'ui-mascot--role', still && 'ui-mascot--still', className)}
+        src={costume.scene(action, size >= 64, still)}
         width={size}
         height={size}
         data-action={action}

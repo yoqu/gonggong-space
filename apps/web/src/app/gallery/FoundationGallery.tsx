@@ -8,7 +8,7 @@ import {
   FailedArt,
   Icon,
   type IconName,
-  MASCOT_ACTIONS,
+  MASCOT_SCENES,
   Mascot,
   NoBotsArt,
   NoChangesArt,
@@ -111,7 +111,7 @@ function IconGrid({ title, names }: { title: string; names: string[] }) {
   )
 }
 
-/** 10 roles × 12 actions × 2 sizes is ~240 animated figures: drawn on demand, not on every gallery load. */
+/** 24 roles × 14 actions × 2 sizes is 672 animated figures: drawn on demand, not on every gallery load. */
 function RoleMascots() {
   const [shown, setShown] = useState(false)
   if (!shown)
@@ -125,7 +125,7 @@ function RoleMascots() {
       <div
         style={{ display: 'flex', gap: 4, paddingLeft: 96, color: 'var(--label-secondary)', fontSize: 11 }}
       >
-        {MASCOT_ACTIONS.map((a) => (
+        {MASCOT_SCENES.map((a) => (
           <span key={a} style={{ width: 84, textAlign: 'center' }}>
             {a}
           </span>
@@ -140,7 +140,7 @@ function RoleMascots() {
                 <span style={{ width: 92, fontSize: 12 }}>
                   {size === 84 ? `${ROLES[k].name} · ${ROLES[k].mix}` : ''}
                 </span>
-                {MASCOT_ACTIONS.map((a) => (
+                {MASCOT_SCENES.map((a) => (
                   <span key={a} style={{ width: 84, display: 'grid', placeItems: 'center' }}>
                     <Mascot action={a} size={size} costume={roleCostume(k)} />
                   </span>
@@ -212,7 +212,7 @@ export function FoundationGallery() {
               borderRadius: 'var(--radius-menu)',
             }}
           >
-            {MASCOT_ACTIONS.map((a) => (
+            {MASCOT_SCENES.map((a) => (
               <div
                 key={a}
                 style={{ display: 'grid', justifyItems: 'center', gap: 4, color: 'var(--label-secondary)' }}

@@ -7,6 +7,7 @@ import {
   type IconName,
   Mascot,
   type MascotAction,
+  type MascotCostume,
   type MascotMove,
   ProgressIndicator,
   Tag,
@@ -120,8 +121,9 @@ export function ProgressStages({ card, walker }: { card: Card; walker?: number }
   )
 }
 
-/** A hop: crouch, jump with a flip, land with a squash. */
+/** A hop: crouch, jump with a flip, land with a squash (costumed hops run inside the 1.4s SVG cycle). */
 const HOP_MS = 650
+const COSTUME_HOP_MS = 1100
 /** A skip to the next stage: two bounces on the way. */
 const WALK_MS = 600
 /** Little things it does while it waits on a stage, one every 4–7s. */
@@ -134,10 +136,10 @@ const reducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
- * Where 共字君 stands and what it does as a run's stages advance: a hop where a stage was just done, then a skip to the
+ * Where the mascot stands and what it does as a run's stages advance: a hop where a stage was just done, then a skip to the
  * running one; while it waits, now and then a fidget. Under reduced motion it is simply there and keeps still.
  */
-function useWalk(target: number, done: number, lively: boolean) {
+function useWalk(target: number, done: number, lively: boolean, hopMs = HOP_MS) {
   const [walk, setWalk] = useState<{ at: number; move?: Move }>({ at: target })
   const prev = useRef({ target, done })
   useEffect(() => {
@@ -152,10 +154,10 @@ function useWalk(target: number, done: number, lively: boolean) {
     }
     if (done > from.done && from.target >= 0) {
       setWalk({ at: from.target, move: 'hop' })
-      timers.push(setTimeout(go, HOP_MS))
+      timers.push(setTimeout(go, hopMs))
     } else go()
     return () => timers.forEach(clearTimeout)
-  }, [target, done])
+  }, [target, done, hopMs])
   // Fidgeting counts as idle, so a fidget does not cancel its own end.
   const idle = lively && walk.at >= 0 && (!walk.move || (FIDGETS as readonly string[]).includes(walk.move))
   useEffect(() => {
@@ -181,7 +183,7 @@ function useWalk(target: number, done: number, lively: boolean) {
 }
 
 /** The pixel offset of stage `at`'s icon within the walker's container, re-measured when the container resizes. */
-function useAnchor(walker: RefObject<HTMLDivElement | null>, at: number) {
+function useAnchor(walker: RefObject<HTMLDivElement | null>, at: number, costumed: boolean) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   // The walker's own parent: a parent's ref is not attached yet when a child's layout effect first runs.
   useLayoutEffect(() => {
@@ -192,14 +194,15 @@ function useAnchor(walker: RefObject<HTMLDivElement | null>, at: number) {
       const stage = el.querySelectorAll<HTMLElement>('[data-testid="progress-stage"]')[at]
       if (!stage) return
       const middle = stage.offsetTop + stage.offsetHeight / 2
-      // Centred on the stage's 12px icon, feet (at 106 of the 120 viewBox) on its baseline.
-      setPos({ x: stage.offsetLeft + 6 - WALKER / 2, y: middle + 6 - (WALKER * 106) / 120 })
+      // Centred on the stage's 12px icon, feet on its baseline (y=106/120 for 共字君, y=46 in `-24..58` on `84×82` box -> 71/84).
+      const footRatio = costumed ? 71 / 84 : 106 / 120
+      setPos({ x: stage.offsetLeft + 6 - WALKER / 2, y: middle + 6 - WALKER * footRatio })
     }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [walker, at])
+  }, [walker, at, costumed])
   return pos
 }
 
@@ -225,10 +228,20 @@ const MOVE_ACTION: Partial<Record<Move, MascotAction | MascotMove>> = {
   wave: 'wave',
 }
 
-/** 共字君 in a run progress card's overlay, standing in for the stage it is on; moves by transform only. */
-function Walker({ at, move, on }: { at: number; move?: Move; on: boolean }) {
+/** The mascot in a run progress card's overlay, standing in for the stage it is on; moves by transform only. */
+function Walker({
+  at,
+  move,
+  on,
+  costume,
+}: {
+  at: number
+  move?: Move
+  on: boolean
+  costume?: MascotCostume
+}) {
   const self = useRef<HTMLDivElement>(null)
-  const { x, y } = useAnchor(self, at)
+  const { x, y } = useAnchor(self, at, !!costume)
   return (
     <div
       ref={self}
@@ -238,29 +251,39 @@ function Walker({ at, move, on }: { at: number; move?: Move; on: boolean }) {
       data-move={move}
       style={{ transform: `translate(${x}px, ${y}px)` }}
     >
-      <Mascot action={(move && MOVE_ACTION[move]) ?? 'type'} size={WALKER} still={!on} />
-      <span className="pg-walker__spark" aria-hidden>
-        ✦
-      </span>
+      <Mascot action={(move && MOVE_ACTION[move]) ?? 'type'} size={WALKER} still={!on} costume={costume} />
+      {costume ? null : (
+        <span className="pg-walker__spark" aria-hidden>
+          ✦
+        </span>
+      )}
     </div>
   )
 }
 
-/** Whether 共字君 can walk `card`'s stages: it is running and one of them is. */
+/** Whether the mascot can walk `card`'s stages: it is running and one of them is. */
 export const walkable = (card: Card) =>
   card.status === 'running' && card.stages.some((s) => s.status === 'running')
 
 /**
  * A progress card inside the card of the run that posted or last updated it: one compact block, no separate card.
- * `walker`: 共字君 walks its stages (the run's only character then).
+ * `walker`: the mascot walks its stages (the run's only character then).
  */
-export const RunProgress = memo(function RunProgress({ card, walker }: { card: Card; walker?: boolean }) {
+export const RunProgress = memo(function RunProgress({
+  card,
+  walker,
+  costume,
+}: {
+  card: Card
+  walker?: boolean
+  costume?: MascotCostume
+}) {
   const { done, total } = stagesDone(card)
   const walking = !!walker && walkable(card)
   const box = useRef<HTMLDivElement>(null)
   const on = useOnScreen(box, walking)
   const target = walking ? card.stages.findIndex((s) => s.status === 'running') : -1
-  const { at, move } = useWalk(target, done, walking && on)
+  const { at, move } = useWalk(target, done, walking && on, costume ? COSTUME_HOP_MS : HOP_MS)
   const standing = walking && at >= 0
   return (
     <div
@@ -270,7 +293,7 @@ export const RunProgress = memo(function RunProgress({ card, walker }: { card: C
       data-status={card.status}
       data-walking={standing || undefined}
     >
-      {standing ? <Walker at={at} move={move} on={on} /> : null}
+      {standing ? <Walker at={at} move={move} on={on} costume={costume} /> : null}
       <div className="run-progress__head">
         <Icon name="bolt" size={12} />
         <span className="run-progress__title">{card.title}</span>

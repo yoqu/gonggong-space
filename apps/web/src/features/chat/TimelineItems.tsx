@@ -835,9 +835,9 @@ export const RunCard = memo(function RunCard({
       {sub}
     </span>
   )
-  // 共字君 itself (no costume) walks the first running progress card's stages, in place of the step line's figure.
-  const walked = live && !costume && run.status === 'running' ? progress?.find(walkable) : undefined
-  const todos = <RunTodos run={run} live={live} progress={progress} walked={walked} />
+  // Any bot's mascot walks the first running progress card's stages, in place of the step line's figure.
+  const walked = live && run.status === 'running' ? progress?.find(walkable) : undefined
+  const todos = <RunTodos run={run} live={live} progress={progress} walked={walked} costume={costume} />
   if (reply && !live && run.interrupt !== 'pending') {
     const tags = (
       <>

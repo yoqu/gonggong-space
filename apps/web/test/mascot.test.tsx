@@ -6,11 +6,12 @@ import { useSession } from '../src/app/session'
 import { Welcome } from '../src/app/Welcome'
 import { ROLES } from '../src/features/bots/avatars'
 import { runMascot } from '../src/features/runs/mascot'
-import { MASCOT_ACTIONS, Mascot, type MascotCostume } from '../src/ui'
+import { MASCOT_ACTIONS, MASCOT_MOVES, MASCOT_SCENES, Mascot, type MascotCostume } from '../src/ui'
 
 const tester: MascotCostume = {
   role: 't',
-  scene: (action, words) => `data:image/svg+xml,${action}${words ? '+words' : ''}`,
+  scene: (action, words, still) =>
+    `data:image/svg+xml,${action}${words ? '+words' : ''}${still ? '+still' : ''}`,
 }
 
 describe('Mascot', () => {
@@ -52,7 +53,7 @@ describe('Mascot', () => {
     expect(container.querySelector('.ui-mascot__lamp')).toBeTruthy()
   })
 
-  it('covers every action', () => {
+  it('covers every action and move (14 scenes)', () => {
     expect(MASCOT_ACTIONS).toEqual([
       'idle',
       'wave',
@@ -67,20 +68,27 @@ describe('Mascot', () => {
       'error',
       'sleep',
     ])
+    expect(MASCOT_MOVES).toEqual(['walk', 'hop'])
+    expect(MASCOT_SCENES).toEqual([...MASCOT_ACTIONS, ...MASCOT_MOVES])
   })
 })
 
 describe('costume', () => {
-  it("plays a bot's character: its own scene per action, tagged with its role", () => {
+  it("plays a bot's character across all 14 actions and moves, tagged with its role", () => {
     const { container, rerender } = render(<Mascot action="carry" size={32} costume={tester} />)
     const art = container.querySelector('.ui-mascot') as HTMLImageElement
     expect(art.tagName).toBe('IMG')
     expect(art.getAttribute('src')).toBe('data:image/svg+xml,carry')
     expect([art.dataset.role, art.dataset.action]).toEqual(['t', 'carry'])
     expect(art.getAttribute('aria-hidden')).toBe('true')
-    rerender(<Mascot action="done" size={32} costume={tester} label="完成" />)
+    rerender(<Mascot action="walk" size={28} costume={tester} />)
+    expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,walk')
+    rerender(<Mascot action="hop" size={28} costume={tester} />)
+    expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,hop')
+    rerender(<Mascot action="done" size={32} costume={tester} label="完成" still />)
     expect(container.querySelector('[role=img]')?.getAttribute('aria-label')).toBe('完成')
-    expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,done')
+    expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,done+still')
+    expect(container.querySelector('.ui-mascot')?.classList.contains('ui-mascot--still')).toBe(true)
     rerender(<Mascot action="ask" size={96} costume={tester} />)
     expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,ask+words')
   })

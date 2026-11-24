@@ -602,11 +602,14 @@ describe('progress cards in run cards', () => {
     expect(walker.closest('[data-testid="run-card"]')!.querySelectorAll('.ui-mascot')).toHaveLength(1)
   })
 
-  it('a bot in costume keeps acting on its step line', async () => {
+  it('a bot in costume also walks the stages instead of the step line: one character per card', async () => {
     mockApi(withCard())
     renderAt()
-    await screen.findByTestId('run-progress')
-    expect(screen.queryByTestId('progress-walker')).toBeNull()
+    const walker = await screen.findByTestId('progress-walker')
+    expect(walker.dataset.stage).toBe('1')
+    const cardEl = walker.closest('[data-testid="run-card"]')!
+    expect(cardEl.querySelectorAll('.ui-mascot')).toHaveLength(1)
+    expect(walker.querySelector<HTMLElement>('.ui-mascot')?.dataset.role).toBe('no')
   })
 })
 

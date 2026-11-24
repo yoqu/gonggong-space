@@ -110,7 +110,7 @@ export type PersonaRole = Exclude<FaceKey, 'role-gong'>
 
 const costumes = new Map<PersonaRole, MascotCostume>()
 
-/** The chat mascot played by a personality or an agent figure: its own scene for every action. */
+/** The chat mascot played by a personality or an agent figure: its own scene for every action or move. */
 export function roleCostume(key: PersonaRole): MascotCostume {
   let c = costumes.get(key)
   if (!c) {

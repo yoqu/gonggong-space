@@ -1,6 +1,7 @@
 import type { ProgressCard, ProgressStageStatus } from '@gonggong/protocol'
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { roleCostume } from '../src/features/bots/avatars'
 import { RunProgress } from '../src/features/chat/ProgressCard'
 
 const card = (statuses: ProgressStageStatus[], status: ProgressCard['status'] = 'running'): ProgressCard => ({
@@ -87,5 +88,28 @@ describe('共字君 walking the stages of a run progress card', () => {
     expect(screen.queryByTestId('progress-walker')).toBeNull()
     rerender(<RunProgress card={card(['done', 'done'], 'done')} walker />)
     expect(screen.queryByTestId('progress-walker')).toBeNull()
+  })
+
+  it('lets a bot costume walk and hop with its own 28px scenes', () => {
+    const costume = roleCostume('agent-claude')
+    const { rerender } = render(
+      <RunProgress card={card(['done', 'running', 'pending'])} walker costume={costume} />,
+    )
+    const img = walker().querySelector('.ui-mascot') as HTMLImageElement
+    expect(img.tagName).toBe('IMG')
+    expect(img.dataset.role).toBe('agent-claude')
+    expect(img.dataset.action).toBe('type')
+    expect(img.getAttribute('width')).toBe('28')
+    expect(walker().querySelector('.pg-walker__spark')).toBeNull()
+
+    rerender(<RunProgress card={card(['done', 'done', 'running'])} walker costume={costume} />)
+    expect([walker().dataset.move, walker().dataset.stage]).toEqual(['hop', '1'])
+    expect((walker().querySelector('.ui-mascot') as HTMLElement).dataset.action).toBe('hop')
+    act(() => vi.advanceTimersByTime(1100))
+    expect([walker().dataset.move, walker().dataset.stage]).toEqual(['walk', '2'])
+    expect((walker().querySelector('.ui-mascot') as HTMLElement).dataset.action).toBe('walk')
+    act(() => vi.advanceTimersByTime(600))
+    expect([walker().dataset.move, walker().dataset.stage]).toEqual([undefined, '2'])
+    expect((walker().querySelector('.ui-mascot') as HTMLElement).dataset.action).toBe('type')
   })
 })

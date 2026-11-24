@@ -2,7 +2,7 @@ import type { PlanItem, ProgressCard, RunDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { Icon } from '../../ui'
+import { Icon, type MascotCostume } from '../../ui'
 import { RunProgress } from './ProgressCard'
 
 export { walkable } from './ProgressCard'
@@ -122,22 +122,24 @@ export function RunPlan({
   )
 }
 
-/** A run card's todo blocks: its progress cards (`walked`: the one 共字君 walks), then the agent's plan behind them. */
+/** A run card's todo blocks: its progress cards (`walked`: the one the mascot walks), then the agent's plan behind them. */
 export function RunTodos({
   run,
   live,
   progress,
   walked,
+  costume,
 }: {
   run: RunDto
   live: boolean
   progress?: ProgressCard[]
   walked?: ProgressCard
+  costume?: MascotCostume
 }) {
   return (
     <>
       {progress?.map((c) => (
-        <RunProgress key={c.id} card={c} walker={c === walked} />
+        <RunProgress key={c.id} card={c} walker={c === walked} costume={c === walked ? costume : undefined} />
       ))}
       {run.plan ? <RunPlan plan={run.plan} live={live} folded={!!progress?.length} /> : null}
     </>

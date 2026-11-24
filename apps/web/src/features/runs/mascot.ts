@@ -2,7 +2,7 @@ import type { RunStatus } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import type { MascotAction } from '../../ui'
 
-/** What 共字君 acts out in a run card's step line; null keeps the status icon. */
+/** What a bot's mascot acts out in a run card's step line; null keeps the status icon. */
 export function runMascot(
   status: RunStatus,
   streaming: boolean,

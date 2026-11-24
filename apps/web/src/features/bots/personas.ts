@@ -1,53 +1,18 @@
 import { t } from '../../i18n'
-import type { MascotAction } from '../../ui'
+import type { MascotAction, MascotMove } from '../../ui'
+import type { Persona } from './personaModel'
+import { rigScene } from './personaRig'
+
+export type { Persona }
 
 /*
  * The twelve blended work personalities (docs/brand/roles). Each character is its own tile with floating gloves and
  * feet; every mascot action is one self-contained animated SVG, played at the persona's own tempo.
  */
 
-type Face = 'open' | 'happy' | 'closed' | 'x' | 'wink'
-interface ActExtra {
-  face?: Face
-  css?: string
-  fx?: string
-  z?: string
-}
-/** What the persona does for an action: a caption, the word or style its prop carries, and any twists. */
-type Act = [caption: string, prop?: string, extra?: ActExtra]
-
-export interface Persona {
-  key: string
-  name: string
-  mix: string
-  /** One line on how it works. */
-  line: string
-  /** Multiplies every loop: above 1 is slower. */
-  tempo: number
-  from: string
-  to: string
-  /** Eye centres, mouth centre and face scale for the drawn expressions. */
-  E: [number, number][]
-  M: [number, number]
-  s: number
-  eyeInk?: string
-  mouthInk?: string
-  open: (ink: string) => string
-  glyph: (ink: string, face: string, state?: Face) => string
-  motion: string
-  acts: Record<MascotAction, Act>
-}
-
 const W = '#fff'
 const stroke = (c: string, w: number) =>
   `fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`
-const WORKING = new Set<MascotAction>(['think', 'ask', 'raise', 'wait', 'type', 'carry', 'run'])
-const FACE: Partial<Record<MascotAction, Face>> = {
-  wave: 'happy',
-  done: 'happy',
-  error: 'x',
-  sleep: 'closed',
-}
 
 export const PERSONAS: Persona[] = [
   {
@@ -538,165 +503,14 @@ export const PERSONAS: Persona[] = [
   },
 ]
 
-function face(ip: Persona, st: Face) {
-  if (st === 'open') return ip.open(ip.to)
-  const k = ip.eyeInk || ip.to,
-    m = ip.mouthInk || ip.to,
-    s = ip.s,
-    w = 1.8 * s,
-    [mx, my] = ip.M
-  const arc = (x: number, y: number, up?: number) =>
-    `M${x - w} ${y + (up ? 0.6 : -0.2)}q${w} ${up ? -2.4 * s : 1.8 * s} ${2 * w} 0`
-  const cross = (x: number, y: number) => {
-    const d = 1.4 * s
-    return `M${x - d} ${y - d}l${2 * d} ${2 * d}m0 ${-2 * d}l${-2 * d} ${2 * d}`
-  }
-  const [[x1, y1], [x2, y2]] = ip.E as [[number, number], [number, number]]
-  let eyes: string
-  let mouth: string
-  if (st === 'happy') {
-    eyes = `<path d="${arc(x1, y1, 1)}${arc(x2, y2, 1)}" ${stroke(k, 1.4)}/>`
-    mouth = `<path d="M${mx - 2.6 * s} ${my - 0.8}h${5.2 * s}a${2.6 * s} ${2.6 * s} 0 0 1 ${-5.2 * s} 0z" fill="${m}"/>`
-  } else if (st === 'closed') {
-    eyes = `<path d="${arc(x1, y1)}${arc(x2, y2)}" ${stroke(k, 1.4)}/>`
-    mouth = `<path d="M${mx - 1.4} ${my}q1.4 1 2.8 0" ${stroke(m, 1.2)}/>`
-  } else if (st === 'x') {
-    eyes = `<path d="${cross(x1, y1)}${cross(x2, y2)}" ${stroke(k, 1.3)}/>`
-    mouth = `<path d="M${mx - 2.4} ${my}q.6-.9 1.2 0t1.2 0 1.2 0 1.2 0" ${stroke(m, 1.1)}/>`
-  } else {
-    eyes = `<ellipse cx="${x1}" cy="${y1}" rx="${1.4 * s}" ry="${1.7 * s}" fill="${k}"/><path d="${arc(x2, y2)}" ${stroke(k, 1.4)}/>`
-    mouth = `<path d="M${mx - 1.4} ${my}q1.4 .6 2.8 0" ${stroke(m, 1.2)}/>`
-  }
-  return eyes + mouth
-}
-
-const LINE = '#cfd6e2'
-const lbl = (t: string, x: number, y: number, c: string, size = 6.5) =>
-  `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" class="lbl" fill="${c}" font-size="${size}">${t}</text>`
-const fitSize = (t: string) => (t.length > 3 ? 4.6 : t.length > 2 ? 5.4 : 7)
-const bubble = (ip: Persona, t: string) =>
-  `<g class="bub"><circle class="b1" cx="37.5" cy="3.5" r="1.3" fill="#fff" stroke="${LINE}" stroke-width=".6"/><circle class="b2" cx="40.5" cy="-.5" r="2" fill="#fff" stroke="${LINE}" stroke-width=".6"/>` +
-  `<rect x="33" y="-13.5" width="18.5" height="11.5" rx="5.75" fill="#fff" stroke="${LINE}" stroke-width=".6"/><g class="c">${lbl(t, 42.25, -7.6, ip.to, fitSize(t))}</g></g>`
-const hand = (ip: Persona, x: number, y: number, cls = 'hand') =>
-  `<g class="${cls}"><circle cx="${x}" cy="${y}" r="3.6" fill="${ip.to}" stroke="#fff" stroke-width="1.3"/></g>`
-const feet = (ip: Persona) =>
-  `<ellipse class="fl" cx="13" cy="42.5" rx="4.4" ry="2.4" fill="${ip.to}" stroke="#fff" stroke-width="1.1"/><ellipse class="fr" cx="27" cy="42.5" rx="4.4" ry="2.4" fill="${ip.to}" stroke="#fff" stroke-width="1.1"/>`
-const card = (ip: Persona, t: string, x: number, y: number) =>
-  `<rect x="${x - 9}" y="${y - 5.5}" width="18" height="11" rx="2.4" fill="#fff" stroke="${ip.to}" stroke-width="1"/>${lbl(t, x, y + 0.2, ip.to, fitSize(t))}`
-const sparks = (c: string) =>
-  `<g class="spk" fill="${c}"><path d="M-6 6l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z"/><path d="M46 20l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/><circle cx="-4" cy="24" r="1"/></g>`
-
-/** Small scenes can't fit words: short symbols stay, anything longer or in Chinese falls back. */
-const fitsSmall = (t: string) => t.length <= 2 && !/\p{Script=Han}/u.test(t)
-const FALLBACK: Partial<Record<MascotAction, string>> = {
-  think: '…',
-  ask: '?',
-  raise: '!',
-  done: '✓',
-  error: '!',
-}
-
-const PROPS: Record<MascotAction, (ip: Persona, a: Act) => { back?: string; front?: string }> = {
-  idle: () => ({}),
-  wave: (ip) => ({ front: hand(ip, 46, 12) }),
-  think: (ip, [, t = '']) => ({ front: bubble(ip, t) + hand(ip, 42, 32) }),
-  ask: (ip, [, t = '']) => ({ front: bubble(ip, t) }),
-  raise: (ip, [, t = '']) => ({
-    front: `<g class="hand"><path d="M45 -1v9" ${stroke(ip.to, 1.4)}/>${card(ip, t, 45, -6)}<circle cx="45" cy="10" r="3.6" fill="${ip.to}" stroke="#fff" stroke-width="1.3"/></g>`,
-  }),
-  wait: (ip, [, style = '']) => ({
-    back: `<g class="hg"><path d="M-9 26h7l-3.5 4.4 3.5 4.4h-7l3.5-4.4z" fill="#fff" stroke="${ip.to}" stroke-width="1" stroke-linejoin="round"/><path d="M-7.6 27h4.2l-2.1 2.6z" fill="#ffd84a"/></g>`,
-    front: style === 'tap' ? hand(ip, 42, 36, 'hand tap') : '',
-  }),
-  type: (ip, [, t = '']) => ({
-    // A laptop at the figure's side, screen turned to us; the gloves tap its keys instead of hanging under the tile.
-    front:
-      `<rect x="31.8" y="14.6" width="18.4" height="14.4" rx="1.8" fill="#fff" stroke="${ip.to}" stroke-width="1"/>${lbl(t, 41, 20.6, ip.to, fitSize(t) - 0.6)}` +
-      `<rect class="cur" x="43.2" y="24.8" width="3" height="1.1" rx=".55" fill="${ip.to}"/>` +
-      `<path d="M31.2 29.6h19.6l3.2 6H28z" fill="#eef1f6" stroke="#c9d1dd" stroke-width=".8" stroke-linejoin="round"/>` +
-      `<path d="M32.2 31.6h17.6M31.2 33.6h19.6" stroke="#c9d1dd" stroke-width=".7" stroke-dasharray="1.6 .8"/>` +
-      `<g class="h1"><ellipse cx="35.4" cy="31.4" rx="2.6" ry="2" fill="${ip.to}" stroke="#fff" stroke-width="1"/></g>` +
-      `<g class="h2"><ellipse cx="45.8" cy="31.4" rx="2.6" ry="2" fill="${ip.to}" stroke="#fff" stroke-width="1"/></g>`,
-  }),
-  carry: (ip, [, t = '']) => ({
-    back: feet(ip),
-    front:
-      `<g class="load"><rect x="6" y="-13.5" width="28" height="10" rx="2.4" fill="#fff" stroke="${ip.to}" stroke-width="1.1"/>${lbl(t, 20, -8.3, ip.to, fitSize(t) - 0.4)}${hand(ip, 3, -3, '')}${hand(ip, 37, -3, '')}</g>` +
-      `<path class="sweat" d="M43 5q2.6 3.4 0 5.2-2.6-1.8 0-5.2z" fill="#6fc3ff"/>`,
-  }),
-  run: (ip) => ({
-    back:
-      feet(ip) +
-      `<g class="spd" ${stroke(ip.from, 1.6)}><path d="M-10 12h6"/><path d="M-11 20h7"/><path d="M-9 28h5"/></g>`,
-  }),
-  done: (ip, [, t = '']) => ({
-    front: `${sparks(ip.from)}<g class="pop">${lbl(t, 44, -5, ip.to, t.length > 2 ? 6 : 10)}</g>`,
-  }),
-  error: (_ip, [, t = '']) => ({
-    front: `<g class="bang">${lbl(t, 45, -5, '#ff453a', t.length > 2 ? 6 : 10)}</g><path class="sweat" d="M43 8q2.6 3.4 0 5.2-2.6-1.8 0-5.2z" fill="#6fc3ff"/>`,
-  }),
-  sleep: (ip, a) => {
-    const z = a[2]?.z || 'Z'
-    return {
-      front: `<g class="zz" fill="${ip.to}">${lbl(z, 40, 2, ip.to, 7)}${lbl(z, 45, -4, ip.to, 8.5)}${lbl(z, 50, -11, ip.to, 10)}</g>`,
-    }
-  },
-}
-
-const D = (s: number) => `calc(var(--t)*${s}s)`
-const ACT_CSS: Record<MascotAction, string> = {
-  idle: `.fig{animation:bob ${D(2.4)} ease-in-out infinite}@keyframes bob{50%{transform:translateY(-1.2px)}}`,
-  wave: `.fig{animation:tilt ${D(1.2)} ease-in-out infinite}@keyframes tilt{50%{transform:rotate(-4deg)}}.hand{transform-box:view-box;transform-origin:44px 22px;animation:wave ${D(0.5)} ease-in-out infinite alternate}@keyframes wave{from{transform:rotate(-25deg)}to{transform:rotate(22deg)}}`,
-  think: `.fig{animation:think ${D(3)} ease-in-out infinite}@keyframes think{50%{transform:rotate(-3deg)}}.c{animation:pulse ${D(1.6)} ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}.b1{animation:pulse ${D(1.6)} infinite}.b2{animation:pulse ${D(1.6)} infinite .2s}`,
-  ask: `.fig{animation:askt ${D(2)} ease-in-out infinite}@keyframes askt{0%,100%{transform:rotate(0)}40%,70%{transform:rotate(6deg)}}.c{transform-box:fill-box;transform-origin:center;animation:qb ${D(0.8)} ease-in-out infinite alternate}@keyframes qb{to{transform:translateY(-1px) scale(1.08)}}`,
-  raise: `.hand{animation:raise ${D(0.7)} ease-in-out infinite alternate}@keyframes raise{to{transform:translateY(-2.2px)}}.fig{animation:bob ${D(1.4)} ease-in-out infinite}@keyframes bob{50%{transform:translateY(-1px)}}`,
-  wait: `.hg{transform-origin:-5.5px 30.4px;animation:flip ${D(2.4)} ease-in-out infinite}@keyframes flip{0%,60%{transform:rotate(0)}80%,100%{transform:rotate(180deg)}}`,
-  type: `.h1{animation:key ${D(0.24)} ease-in-out infinite alternate}.h2{animation:key ${D(0.24)} ease-in-out infinite alternate-reverse}@keyframes key{to{transform:translateY(-1.4px)}}.cur{animation:blink ${D(0.8)} steps(1) infinite}@keyframes blink{50%{opacity:0}}`,
-  carry: `.fig,.load{animation:heave ${D(0.8)} ease-in-out infinite}@keyframes heave{50%{transform:translateY(1.2px)}}.fl{animation:stepl ${D(0.8)} ease-in-out infinite}.fr{animation:stepl ${D(0.8)} ease-in-out infinite reverse}@keyframes stepl{50%{transform:translateY(-1.8px)}}.sweat{animation:drip ${D(1.2)} ease-in infinite}@keyframes drip{from{transform:translateY(0);opacity:1}to{transform:translateY(5px);opacity:0}}`,
-  run:
-    `.fig{animation:runb ${D(0.36)} ease-in-out infinite alternate}@keyframes runb{from{transform:rotate(6deg) translateY(0)}to{transform:rotate(6deg) translateY(-2px)}}.fl{animation:kick ${D(0.36)} ease-in-out infinite alternate}.fr{animation:kick ${D(0.36)} ease-in-out infinite alternate-reverse}@keyframes kick{from{transform:translateX(-3px)}to{transform:translate(3px,-1.5px)}}` +
-    `.spd path{animation:dash ${D(0.5)} linear infinite}.spd path:nth-child(2){animation-delay:.15s}.spd path:nth-child(3){animation-delay:.3s}@keyframes dash{from{transform:translateX(4px);opacity:0}50%{opacity:1}to{transform:translateX(-4px);opacity:0}}`,
-  done: `.fig{animation:jump ${D(1)} cubic-bezier(.3,0,.5,1) infinite}@keyframes jump{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}.pop{transform-box:fill-box;transform-origin:center;animation:pop ${D(1)} ease-out infinite}@keyframes pop{0%,20%{transform:scale(.4);opacity:0}40%,90%{transform:scale(1);opacity:1}100%{opacity:0}}.spk{animation:tw ${D(1)} ease-in-out infinite}@keyframes tw{50%{opacity:.2}}`,
-  error: `.fig{animation:shake ${D(0.9)} ease-in-out infinite}@keyframes shake{0%,50%,100%{transform:translateX(0)}10%,30%{transform:translateX(-1.6px)}20%,40%{transform:translateX(1.6px)}}.bang{transform-box:fill-box;transform-origin:center;animation:pop ${D(0.9)} ease-out infinite}@keyframes pop{0%{transform:scale(.4)}30%,100%{transform:scale(1)}}.sweat{animation:drip ${D(1.2)} ease-in infinite}@keyframes drip{from{transform:translateY(0);opacity:1}to{transform:translateY(5px);opacity:0}}`,
-  sleep: `.fig{animation:snore ${D(3)} ease-in-out infinite}@keyframes snore{50%{transform:rotate(-3deg) translateY(1px)}}.zz text{animation:zz ${D(3)} ease-in-out infinite}.zz text:nth-child(2){animation-delay:${D(1)}}.zz text:nth-child(3){animation-delay:${D(2)}}@keyframes zz{0%{opacity:0;transform:translateY(3px)}30%,70%{opacity:1}100%{opacity:0;transform:translateY(-3px)}}`,
-}
-const WAIT_CSS: Record<string, string> = {
-  calm: `.fig{animation:bob ${D(3)} ease-in-out infinite}@keyframes bob{50%{transform:translateY(-1px)}}`,
-  tap: `.tap{animation:tap ${D(0.3)} ease-in-out infinite alternate}@keyframes tap{to{transform:translateY(-2.4px)}}`,
-  hop: `.fig{animation:hopw ${D(0.5)} cubic-bezier(.3,0,.5,1) infinite alternate}@keyframes hopw{to{transform:translateY(-2.4px)}}`,
-  still: '',
-  sway: `.fig{animation:swayw ${D(2.4)} ease-in-out infinite}@keyframes swayw{25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}`,
-  fidget: `.fig{animation:fid ${D(0.3)} linear infinite}@keyframes fid{25%{transform:translateX(-.6px)}75%{transform:translateX(.6px)}}`,
-}
-const BASE =
-  '.lbl{font-family:-apple-system,"PingFang SC",sans-serif;font-weight:700}.fig{transform-origin:20px 40px}.hand,.tap,.h1,.h2{transform-box:fill-box}.hand{transform-origin:center}'
-
 const scenes = new Map<string, string>()
 
-/** The persona acting out a mascot action, as an SVG data URI; `words` lets its props spell things out. */
-export function personaScene(ip: Persona, act: MascotAction, words = true, still = false) {
+/** The persona acting out a mascot action or move, as an SVG data URI; `words` lets its props spell things out. */
+export function personaScene(ip: Persona, act: MascotAction | MascotMove, words = true, still = false) {
   const id = ip.key + act + (words ? '+' : '') + (still ? '=' : '')
   let src = scenes.get(id)
   if (!src) {
-    const full = ip.acts[act]
-    const word = full[1]
-    const a: Act =
-      words || act === 'wait' || !word || fitsSmall(word) ? full : [full[0], FALLBACK[act] ?? '', full[2]]
-    const ex = a[2] ?? {}
-    const st = ex.face ?? FACE[act] ?? 'open'
-    const { back = '', front = '' } = PROPS[act](ip, a)
-    const style =
-      BASE +
-      ACT_CSS[act] +
-      (act === 'wait' ? (WAIT_CSS[a[1] ?? ''] ?? '') : '') +
-      (WORKING.has(act) || act === 'idle' ? ip.motion : '') +
-      (ex.css ?? '')
-    const svg =
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -16 68 68" style="--t:${ip.tempo}"><style>${style}${still ? '*{animation:none!important}' : '@media (prefers-reduced-motion:reduce){*{animation:none!important}}'}</style>` +
-      `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ip.from}"/><stop offset="1" stop-color="${ip.to}"/></linearGradient><clipPath id="t"><rect width="40" height="40" rx="9"/></clipPath></defs>` +
-      `<ellipse cx="20" cy="46.5" rx="14" ry="1.8" fill="#000" opacity=".1"/>${back}` +
-      `<g class="fig"><rect width="40" height="40" rx="9" fill="url(#g)"/><g clip-path="url(#t)">${ip.glyph(ip.to, face(ip, st), st)}</g></g>${ex.fx ?? ''}${front}</svg>`
-    src = `data:image/svg+xml,${encodeURIComponent(svg)}`
+    src = `data:image/svg+xml,${encodeURIComponent(rigScene(ip, act, { compact: !words, still }))}`
     scenes.set(id, src)
   }
   return src
