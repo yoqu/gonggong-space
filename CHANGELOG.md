@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.30 — 2026-11-24
+
+- 飞书和飞书项目支持在连接器弹窗内安装工具、扫码授权和查看连接状态 / Install the Feishu and Feishu Project tools, scan to authorize, and check connection status in the connector dialog
+- Bot 运行使用发起人的连接器配置，授权按成员和电脑隔离 / Bot runs use the requester's connector profile, with authorization isolated per member and machine
+- Bot 接力支持任务完成后自动交回发起 Bot / Bot handoffs can automatically return results to the originating bot
+
 ## v0.4.29 — 2026-11-23
 
 - Bot 可以报告飞书、飞书项目的登录状态和账号，连接器菜单会显示是否已连接或已过期 / Bots can report Feishu and Feishu Project sign-in status and account; the connector menu shows whether the connection is active or expired
