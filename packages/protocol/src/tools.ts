@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ConnectorRequestArgs, ConnectorStatusArgs } from './connector-tools.js'
 import { SkillFile } from './daemon.js'
 import {
   HTML_RENDER_COLUMN_WIDTH,
@@ -422,35 +423,6 @@ export const SecretRequestArgs = z.object({
     .max(20)
     .describe('Secrets to fill, defined and visible here (see secret_list)'),
   forceNewSession,
-})
-export const ConnectorStatusArgs = z.object({
-  connector: z
-    .string()
-    .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
-    .describe('Connector plugin name, e.g. feishu'),
-  status: z
-    .enum(['ok', 'expired', 'error'])
-    .describe(
-      'ok: logged in and working; expired: not logged in or the login expired; error: could not tell',
-    ),
-  account: z.string().max(100).describe('Who the CLI is logged in as (its user name), when known').optional(),
-  detail: z.string().max(300).describe('One line on why, for expired / error').optional(),
-})
-export const ConnectorRequestArgs = z.object({
-  connector: z
-    .string()
-    .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
-    .describe('Connector plugin name, e.g. feishu'),
-  reason: z
-    .enum(['unconnected', 'expired', 'missing_scope'])
-    .describe(
-      'unconnected: the CLI is not set up / logged in; expired: the login lapsed; missing_scope: a permission is missing',
-    ),
-  domains: z
-    .array(z.string().regex(/^[a-z_]{1,30}$/))
-    .max(30)
-    .describe('missing_scope: the CLI domains to authorize (lark-cli --domain values, e.g. calendar, mail)')
-    .optional(),
 })
 export const ArtifactCheckoutArgs = z.object({
   artifact: z.string().min(1).max(80).describe('Artifact id, or its title in this group'),
