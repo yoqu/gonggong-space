@@ -5,6 +5,7 @@
 - 飞书和飞书项目支持在连接器弹窗内安装工具、扫码授权和查看连接状态 / Install the Feishu and Feishu Project tools, scan to authorize, and check connection status in the connector dialog
 - Bot 运行使用发起人的连接器配置，授权按成员和电脑隔离 / Bot runs use the requester's connector profile, with authorization isolated per member and machine
 - Bot 接力支持任务完成后自动交回发起 Bot / Bot handoffs can automatically return results to the originating bot
+- daemon 默认不校验服务器 TLS 证书；可通过 `--fingerprint` 或 `--ca-file` 显式启用校验 / The daemon no longer verifies server TLS certificates by default; use `--fingerprint` or `--ca-file` to opt in
 
 ## v0.4.29 — 2026-11-23
 
