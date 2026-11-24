@@ -4,7 +4,13 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from '
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import type { BindCodeDto, DaemonLoginRes, InstallBuildDto, WebEvent } from '@gonggong/protocol'
+import {
+  AgentKind,
+  type BindCodeDto,
+  type DaemonLoginRes,
+  type InstallBuildDto,
+  type WebEvent,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groupBots, groups, systemParams, teamMembers } from '../src/db/schema.js'
@@ -130,6 +136,16 @@ describe('install.md and install.sh', () => {
     })
     return sha256
   }
+
+  it('walks the agent from picking a runnable Agent CLI to the first chat on the web', async () => {
+    const md = (await t.app.inject({ url: '/api/install.md', headers: { host: 'gg.example.com' } })).body
+    for (const kind of AgentKind.options) expect(md).toContain(`\`${kind}\``)
+    expect(md).toMatch(/WorkBuddy[^\n]*`codebuddy`/)
+    expect(md).toContain('gg agents install <agent>')
+    expect(md).toContain('codebuddy` then `/login')
+    expect(md).toContain('http://gg.example.com/machines')
+    expect(md).not.toContain('{{SERVER}}')
+  })
 
   it('are public text naming this server and no secret; the build list says where gg is', async () => {
     const md = await t.app.inject({ url: '/api/install.md', headers: { host: 'gg.example.com' } })

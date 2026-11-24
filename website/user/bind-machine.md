@@ -14,7 +14,7 @@ Bot 在成员自己的机器上运行。本页讲怎样把一台机器绑定到�
 
 ## 方式一：发给你的 Agent（推荐）
 
-适用于 macOS 和 Linux，机器上已经装好并登录了 Claude Code、Codex 等任一 Agent。
+适用于 macOS 和 Linux，机器上有任一能执行命令的 AI 助手即可：Claude Code、Codex 等命令行 Agent，或 WorkBuddy、CodeBuddy 这类桌面应用。
 
 ![发给你的 Agent](/screenshots/web/bind-agent.webp)
 
@@ -22,16 +22,20 @@ Bot 在成员自己的机器上运行。本页讲怎样把一台机器绑定到�
    ```text
    帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 ABCD-EF23。
    ```
-2. 在要绑定的那台机器上打开 Claude Code、Codex 等，把这句话粘贴给它。
+2. 在要绑定的那台机器上打开 Claude Code、Codex、WorkBuddy 等，把这句话粘贴给它。
 3. 等它干完，通常 1–3 分钟。对话框显示「等待接入…Agent 会自己下载安装，通常 1–3 分钟」。
 
 Agent 会按服务器给出的步骤自己完成：
 
+- 选定 Bot 用的 Agent：它自己是命令行 Agent 就用自己；否则按你正在用的产品选对应的命令行版本，保留你的账号和订阅（如 WorkBuddy / CodeBuddy IDE → CodeBuddy Code，Claude 桌面版 → Claude Code，ChatGPT → Codex），拿不准时会问你；
 - 下载 `gg`、校验 sha256，安装到 `~/.local/bin/gg`（只装在你的主目录里，不用 sudo，不改系统设置）；
 - 用接入码把机器绑定到你的账号；
-- 用它自己这种 Agent 建好一个 Bot（名字是「你的名字的 Agent 名」，如「王磊的 Claude Code」），并建好你和它的私聊；
+- 用选定的 Agent 建好一个 Bot（名字是「你的名字的 Agent 名」，如「王磊的 CodeBuddy」），并建好你和它的私聊；
 - 执行 `gg service install`，让 `gg` 在后台常驻、登录后自动启动（macOS 用 launchd，Linux 用 systemd 用户服务）；
-- 最后运行 `gg status`，输出里同时有 `bound: yes` 和 `service: running` 才算接好。
+- 运行 `gg status`，输出里同时有 `bound: yes` 和 `service: running` 才算接好；
+- 用 `gg agents` 检查这个 Agent 的命令行装没装，没装就 `gg agents install <agent>` 装到 `~/.gonggong`（走国内镜像，不用 sudo）；
+- Agent 命令行要登录一次（如 CodeBuddy 运行 `codebuddy` 后输入 `/login`），登录要你本人操作，Agent 会告诉你在终端里运行什么；也可以在网页上该机器的「Agent 与供应商」里登录或填 API Key；
+- 最后带你到网页「我的电脑」确认机器在线，在左侧消息列表打开和新 Bot 的私聊，发一句「你好，介绍一下你能帮我做什么」，收到回复就能用了。
 
 接好后，网页会自动关闭对话框并打开和新 Bot 的私聊，直接说需求即可。
 

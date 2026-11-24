@@ -14,7 +14,7 @@ When the dialog opens, it automatically generates a one-time **connect code** (l
 
 ## Option 1: Send it to your Agent (recommended)
 
-Works on macOS and Linux when the machine already has an Agent such as Claude Code or Codex installed and logged in.
+Works on macOS and Linux when the machine has any AI assistant that can run commands: a command-line Agent such as Claude Code or Codex, or a desktop app such as WorkBuddy or CodeBuddy.
 
 ![Send to your Agent](/screenshots/web/bind-agent.webp)
 
@@ -23,16 +23,20 @@ Works on macOS and Linux when the machine already has an Agent such as Claude Co
    帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 ABCD-EF23。
    ```
    (Roughly: "Connect me to Gonggong Space: read https://gg.example.com/api/install.md and follow the steps; connect code ABCD-EF23.")
-2. On the machine you want to bind, open Claude Code, Codex, or similar, and paste the sentence to it.
+2. On the machine you want to bind, open Claude Code, Codex, WorkBuddy, or similar, and paste the sentence to it.
 3. Wait for it to finish, usually 1–3 minutes. The dialog shows 「等待接入…Agent 会自己下载安装，通常 1–3 分钟」 ("Waiting… the agent downloads and installs by itself, usually in 1–3 minutes").
 
 The Agent follows the steps provided by the server on its own:
 
+- Picks the Agent for the Bot: itself if it is a command-line Agent; otherwise the command-line version of the product you already use, so you keep your account and subscription (e.g. WorkBuddy / CodeBuddy IDE → CodeBuddy Code, Claude desktop → Claude Code, ChatGPT → Codex); it asks you when unsure;
 - Downloads `gg`, verifies its sha256, and installs it to `~/.local/bin/gg` (only in your home directory — no sudo, no system settings changed);
 - Binds the machine to your account using the connect code;
-- Creates a Bot using its own kind of Agent (named "your name's Agent name", e.g. 「王磊的 Claude Code」 (王磊's Claude Code)) and sets up a direct chat between you and it;
+- Creates a Bot on the chosen Agent (named "your name's Agent name", e.g. 「王磊的 CodeBuddy」 (王磊's CodeBuddy)) and sets up a direct chat between you and it;
 - Runs `gg service install` so `gg` stays resident in the background and starts automatically when you log in (launchd on macOS, a systemd user service on Linux);
-- Finally runs `gg status`; it's connected only when the output shows both `bound: yes` and `service: running`.
+- Runs `gg status`; it's connected only when the output shows both `bound: yes` and `service: running`;
+- Checks with `gg agents` that the Agent's CLI is installed, and if not runs `gg agents install <agent>` to install it under `~/.gonggong` (from a mirror reachable in mainland China, no sudo);
+- The Agent CLI needs signing in once (e.g. for CodeBuddy run `codebuddy`, then `/login`); you do this yourself and the Agent tells you what to run in a terminal; you can also sign in or enter an API key under the machine's 「Agent 与供应商」 (Agents & providers) tab on the web;
+- Finally walks you to 「我的电脑」 (My computers) on the web to see the machine online, then to the direct chat with the new Bot in the left message list: send 「你好，介绍一下你能帮我做什么」 ("Hi, what can you help me with?"), and a reply means it is ready.
 
 Once connected, the web page closes the dialog automatically and opens the direct chat with the new Bot — just tell it what you need.
 
