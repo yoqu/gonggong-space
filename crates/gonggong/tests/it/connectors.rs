@@ -30,7 +30,7 @@ case "$1 $2" in
   elif [ -f "$S/inited-$P" ]; then
     echo '{"identities":{"user":{"status":"missing","message":"User identity: missing (no user logged in)"}}}'
   else
-    echo '{"ok":false,"error":{"type":"config","subtype":"not_configured","message":"not configured"}}'; exit 3
+    printf '{\n  "ok": false,\n  "error": {\n    "subtype": "not_configured",\n    "message": "not configured"\n  }\n}\n' >&2; exit 3
   fi ;;
 "config init")
   echo "████ ▄▄▄▄▄ ████" >&2

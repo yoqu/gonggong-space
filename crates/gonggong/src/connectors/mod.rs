@@ -238,7 +238,10 @@ impl Connectors {
         };
         let stdout = String::from_utf8_lossy(&out.stdout);
         let status = match spec.driver {
-            ConnectorDriver::LarkCli => drivers::lark_status(&stdout),
+            // lark-cli 1.0.100 prints its errors (`not_configured`) to stderr.
+            ConnectorDriver::LarkCli => {
+                drivers::lark_status(&format!("{stdout}\n{}", String::from_utf8_lossy(&out.stderr)))
+            }
             ConnectorDriver::Meegle => drivers::meegle_status(&stdout, chrono::Utc::now()),
         };
         probe.state = status.state.unwrap_or(ConnectorCliState::Error);
