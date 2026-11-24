@@ -42,6 +42,7 @@ export async function requireMessage(ctx: Ctx, id: string, userId: string) {
  * `command`: the system command this message invoked (never replayed to agents as context).
  * `appendTo`: the run it was 打断并追加 into (it triggers nothing itself).
  * `relayOf`: `<parent run id>:<hand-off index>` of the relay message that started a next hop.
+ * `reportOf`: the run whose reporting hops (hand_off report) this message reports back to it.
  */
 export type MessageMeta = {
   mentions?: string[]
@@ -57,6 +58,7 @@ export type MessageMeta = {
   agentCommand?: string
   appendTo?: string
   relayOf?: string
+  reportOf?: string
   attachments?: Attachment[]
   quote?: MessageDto['quote']
   /** One-shot model / thought level by triggered bot id. */

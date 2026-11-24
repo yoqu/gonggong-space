@@ -46,7 +46,7 @@ import {
   resolveOwner,
   setLiveContext,
 } from './streams.js'
-import { triggerChain } from './trigger.js'
+import { settleReports, triggerChain } from './trigger.js'
 
 export { flushStream, forgetStream, liveContext }
 
@@ -520,6 +520,7 @@ async function finalize(ctx: Ctx, run: RunRow) {
   await schedule(ctx, run.botId)
   await publishBots(ctx, eq(bots.id, run.botId))
   await triggerChain(ctx, run)
+  await settleReports(ctx, run)
   await settleSchedule(ctx, run)
   await settleWebhook(ctx, run)
   await requeueAppends(ctx, run, run.appendsApplied)

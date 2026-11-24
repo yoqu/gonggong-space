@@ -878,10 +878,20 @@ export const runs = pgTable(
     /**
      * Bots that take over once this run completes (the hand_off tool); an @ in the reply alone relays nothing.
      * `groupId`: the hop runs in that other group instead of the run's own; `threadRootId`: in that thread
-     * (thread_create) instead of the run's; `toMain`: in the group's main timeline (hand_off thread main).
+     * (thread_create) instead of the run's; `toMain`: in the group's main timeline (hand_off thread main); `report`: the
+     * handing bot runs again with the replies once every reporting hop of the run ended (hand_off report).
      */
     handoffs: jsonb('handoffs')
-      .$type<{ botId: string; task: string; groupId?: string; threadRootId?: string; toMain?: boolean }[]>()
+      .$type<
+        {
+          botId: string
+          task: string
+          groupId?: string
+          threadRootId?: string
+          toMain?: boolean
+          report?: boolean
+        }[]
+      >()
       .notNull()
       .default([]),
     /**

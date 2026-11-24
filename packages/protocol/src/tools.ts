@@ -181,6 +181,10 @@ export const HandOffArgs = z.object({
       "From a thread: post the hand-off in this group's main conversation instead of the thread, starting the bot's main session (you too)",
     )
     .optional(),
+  report: z
+    .boolean()
+    .describe('true: once it ends, you run again with its reply (all report hand-offs of a turn at once)')
+    .optional(),
 })
 
 export const ThreadCreateArgs = z.object({

@@ -1,11 +1,16 @@
-import type { ProtocolKey, RepoAccessReason } from '@gonggong/protocol'
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import {
+  type ProtocolKey,
+  type RepoAccessReason,
+  type RunStatus,
+  TERMINAL_RUN_STATUS,
+} from '@gonggong/protocol'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, messages, runs, users } from '../../db/schema.js'
 import { audienceOf } from '../bots/access.js'
 import { botRepliesInThreadOf, groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
-import { postEvent, postMessage } from '../messages/service.js'
+import { authorName, messageDto, postEvent, postMessage, publishMessage } from '../messages/service.js'
 import { publishThread } from '../threads/service.js'
 import { adoptManaged, PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
@@ -221,7 +226,7 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
           groupId,
           kind: 'bot',
           authorBotId: parent.botId,
-          body: `@${name} ${from}${h.task}`,
+          body: `@${name} ${from}${h.task}${h.report ? `\n\n（做完自动交回「${own.get(parent.botId)}」）` : ''}`,
           meta: { mentions: [h.botId], relayOf },
           threadRootId,
         })
@@ -238,4 +243,106 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
       threadRootId,
     })
   }
+}
+
+const REPORT_REPLY_MAX = 3000
+const UNFINISHED_NOTE: Partial<Record<RunRow['status'], string>> = {
+  interrupted: '（中途中断）',
+  expired: '（没有执行：Bot 离线超时）',
+}
+
+/**
+ * Report back (hand_off report): once every reporting hop of `parent` ended, however it ended, the handing bot runs
+ * again on one message carrying their replies. Called when a run ends, for its parent's hops and its own hops that
+ * never started; repeatable: the advisory lock and the reportOf message keep it to one.
+ */
+export async function settleReports(ctx: Ctx, run: RunRow): Promise<void> {
+  await settleReport(ctx, run)
+  if (!run.parentRunId) return
+  const [parent] = await ctx.db.select().from(runs).where(eq(runs.id, run.parentRunId))
+  if (parent) await settleReport(ctx, parent)
+}
+
+async function settleReport(ctx: Ctx, parent: RunRow) {
+  const reporting = parent.handoffs.flatMap((h, i) => (h.report ? [{ h, i }] : []))
+  if (parent.status !== 'completed' || !reporting.length || (await isChainStopped(ctx, parent))) return
+  const names = new Map((await activeBots(ctx, parent.groupId)).map((b) => [b.id, b.name]))
+  const parentName = names.get(parent.botId)
+  if (!parentName) return
+  const settled = await ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`report:${parent.id}`}))`)
+    const [prior] = await tx
+      .select()
+      .from(messages)
+      .where(and(eq(messages.groupId, parent.groupId), sql`${messages.meta}->>'reportOf' = ${parent.id}`))
+    if (prior) return { message: prior, from: null, fresh: false }
+    const parts: string[] = []
+    let from: RunRow | null = null
+    for (const { h, i } of reporting) {
+      const name = names.get(h.botId) ?? '已离开的 Bot'
+      const [relay] = await tx
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.groupId, parent.groupId),
+            sql`${messages.meta}->>'relayOf' = ${`${parent.id}:${i}`}`,
+          ),
+        )
+      const [hop] = relay
+        ? await tx
+            .select()
+            .from(runs)
+            .where(and(eq(runs.triggerMessageId, relay.id), eq(runs.botId, h.botId)))
+        : []
+      if (relay && !hop) return null
+      if (hop && !TERMINAL_RUN_STATUS.includes(hop.status as RunStatus)) return null
+      if (!hop) {
+        parts.push(`【${name}】（没有开始：Bot 已不在群里）`)
+        continue
+      }
+      from ??= hop
+      if (hop.status === 'forbidden') {
+        parts.push(`【${name}】（没有执行：${hop.step}）`)
+        continue
+      }
+      const [reply] = await tx
+        .select({ body: messages.body, seq: messages.seq })
+        .from(messages)
+        .where(eq(messages.runId, hop.id))
+        .orderBy(desc(messages.seq))
+        .limit(1)
+      const text = reply?.body.trim()
+        ? reply.body.length > REPORT_REPLY_MAX
+          ? `${reply.body.slice(0, REPORT_REPLY_MAX)}…（完整内容见 #${reply.seq}）`
+          : reply.body.trim()
+        : '（没有回复）'
+      parts.push(`【${name}】${UNFINISHED_NOTE[hop.status] ?? ''}\n${text}`)
+    }
+    const [message] = await tx
+      .insert(messages)
+      .values({
+        groupId: parent.groupId,
+        kind: 'bot',
+        authorBotId: from?.botId ?? reporting[0]!.h.botId,
+        body: `@${parentName} 交回结果：\n\n${parts.join('\n\n')}`,
+        meta: { mentions: [parent.botId], reportOf: parent.id },
+        threadRootId: parent.threadRootId,
+      })
+      .returning()
+    return { message: message!, from, fresh: true }
+  })
+  if (!settled || (await hasRun(ctx, parent.groupId, settled.message.id))) return
+  if (settled.fresh)
+    await publishMessage(ctx, messageDto(settled.message, await authorName(ctx, settled.message)))
+  await createRuns(ctx, {
+    groupId: parent.groupId,
+    messageId: settled.message.id,
+    botIds: [parent.botId],
+    originUserId: parent.originUserId,
+    triggerUserId: null,
+    hop: parent.hop + 2,
+    parentRunId: settled.from?.id ?? parent.id,
+    threadRootId: parent.threadRootId,
+  })
 }

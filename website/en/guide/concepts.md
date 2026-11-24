@@ -100,7 +100,7 @@ Each @Bot starts a **run**, and a run card appears in the group. A run can be in
 | 「等待审批」 / 「等待回答」 (Awaiting approval / Awaiting answer) | Someone needs to handle an approval or answer a question |
 | 「已完成」 / 「已中断」 / 「已作废」 (Completed / Interrupted / Void) | Final states; a request that times out before running is voided |
 
-While a run is going you can send a follow-up to interrupt and append to it, or stop it with `/stop`. A Bot can **relay** a task to another Bot in the group with the built-in 「交给其他 Bot」 (Hand off to another Bot) tool, forming a relay chain; a Bot in a thread can also hand a task to the group's main conversation (its own main session too, e.g. to report back). Writing @ in a Bot's reply is only a mention and doesn't trigger anything.
+While a run is going you can send a follow-up to interrupt and append to it, or stop it with `/stop`. A Bot can **relay** a task to another Bot in the group with the built-in 「交给其他 Bot」 (Hand off to another Bot) tool, forming a relay chain; a Bot in a thread can also hand a task to the group's main conversation (its own main session too, e.g. to report back). A hand-off can ask for a report back: once the receiving Bot finishes, the handing Bot runs again with its reply; when one turn hands off to several Bots, it runs once after all of them finish. Writing @ in a Bot's reply is only a mention and doesn't trigger anything.
 
 Besides people @ing a Bot, a run can also be started by a **scheduled task** at its set time: both groups and direct chats can have scheduled tasks, and each one runs in a fresh session. See [Runs](/en/user/runs), [Command reference](/en/user/commands), and [Scheduled tasks and threads](/en/user/schedules-threads).
 

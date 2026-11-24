@@ -1,5 +1,5 @@
 import { PROTOCOL_VERSION, type RunStart, type ToolCallRes } from '@gonggong/protocol'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groupBots, groups, messages, runs, threadFollows } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
@@ -37,12 +37,19 @@ async function daemon(token: string) {
       })
       return res.json<ToolCallRes>()
     },
-    handOff: async (runId: string, bot: string, task = '继续', group?: string, thread?: string) => {
+    handOff: async (
+      runId: string,
+      bot: string,
+      task = '继续',
+      group?: string,
+      thread?: string,
+      report?: boolean,
+    ) => {
       const res = await t.app.inject({
         method: 'POST',
         url: `/api/daemon/runs/${runId}/tools/hand_off`,
         headers: { authorization: `Bearer ${token}` },
-        payload: { arguments: { bot, task, group, thread } },
+        payload: { arguments: { bot, task, group, thread, report } },
       })
       return res.json<ToolCallRes>()
     },
@@ -520,5 +527,107 @@ describe('relay chain', () => {
     const rows = await until(w.allRuns, (r) => r.length === 2 && r.every((x) => x.status === 'interrupted'))
     await new Promise((r) => setTimeout(r, 100))
     expect(await w.allRuns()).toHaveLength(rows.length)
+  })
+})
+
+describe('hand-off reported back', () => {
+  const report = (d: Awaited<ReturnType<typeof daemon>>, runId: string, bot: string, task: string) =>
+    d.handOff(runId, bot, task, undefined, undefined, true)
+  const returns = (groupId: string) =>
+    t.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.groupId, groupId), sql`${messages.meta}->>'reportOf' is not null`))
+
+  it('runs the handing bot again with the reply once the hop ends, telling the hop it reports back', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A 出方案', [w.a.id])
+    const first = await d.next()
+    expect(await report(d, first.runId, '接力 B', '独立出一份方案')).toMatchObject({
+      isError: false,
+      text: '已登记：本轮结束后由「接力 B」接手（任务：独立出一份方案），做完自动交回给你。回复里不需要再 @ 它。',
+    })
+    d.done(first.runId, '我先出一份')
+    const hop = await d.next()
+    expect(hop.prompt.text).toBe('@接力 B 独立出一份方案\n\n（做完自动交回「接力 A」）')
+    d.done(hop.runId, '方案 B：先做缓存')
+    const back = await d.next()
+    expect(back.bot.id).toBe(w.a.id)
+    expect(back.prompt).toMatchObject({
+      text: '@接力 A 交回结果：\n\n【接力 B】\n方案 B：先做缓存',
+      triggeredBy: '接力 B',
+    })
+    const rows = await until(w.allRuns, (r) => r.length === 3)
+    expect(rows[2]).toMatchObject({ botId: w.a.id, hop: 3, parentRunId: rows[1]!.id, originUserId: w.bob.id })
+    const [msg] = await returns(w.group.id)
+    expect(msg).toMatchObject({ authorBotId: w.b.id, meta: { mentions: [w.a.id], reportOf: rows[0]!.id } })
+  })
+
+  it('waits for every reporting hop of the turn and reports once, an unfinished one too', async () => {
+    const w = await world()
+    const c = await w.bot('接力 C')
+    await t.db.insert(groupBots).values({ groupId: w.group.id, botId: c.id })
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A 分工', [w.a.id])
+    const first = await d.next()
+    await report(d, first.runId, '接力 B', '写后端')
+    await report(d, first.runId, '接力 C', '写文案')
+    d.done(first.runId, '分好了')
+    const hops = [await d.next(), await d.next()]
+    const b = hops.find((s) => s.bot.id === w.b.id)!
+    const cc = hops.find((s) => s.bot.id === c.id)!
+    d.done(b.runId, '后端好了')
+    await until(w.allRuns, (r) => r.find((x) => x.id === b.runId)?.status === 'completed')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(await returns(w.group.id)).toHaveLength(0)
+    d.done(cc.runId, '写到一半', { outcome: 'failed', error: 'quota' })
+    const back = await d.next()
+    expect(back.bot.id).toBe(w.a.id)
+    expect(back.prompt.text).toBe(
+      '@接力 A 交回结果：\n\n【接力 B】\n后端好了\n\n【接力 C】（中途中断）\n写到一半',
+    )
+    await new Promise((r) => setTimeout(r, 100))
+    expect(await returns(w.group.id)).toHaveLength(1)
+    expect(await w.allRuns()).toHaveLength(4)
+  })
+
+  it('reports a hop that could not start', async () => {
+    const w = await world()
+    await t.db.update(bots).set({ triggerScope: 'self' }).where(eq(bots.id, w.b.id))
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A', [w.a.id])
+    const first = await d.next()
+    await report(d, first.runId, '接力 B', '查一下')
+    d.done(first.runId, '交出去了')
+    const back = await d.next()
+    expect(back.prompt.text).toBe(
+      '@接力 A 交回结果：\n\n【接力 B】（没有执行：该 Bot 仅允许主人触发，未启动运行）',
+    )
+  })
+
+  it('refuses a reported hand-off to another group, to itself or past the hop limit', async () => {
+    const w = await world()
+    const other = await t.seed.group({ createdBy: w.owner.id, botIds: [w.a.id, w.b.id] })
+    await t.db
+      .update(groups)
+      .set({ params: { chainMaxHops: 2 } })
+      .where(eq(groups.id, w.group.id))
+    const d = await daemon(w.token)
+    const root = await w.say(w.bob.id, '话题', [])
+    await w.say(w.bob.id, '@接力 A', [w.a.id], root.id)
+    const first = await d.next()
+    expect(await d.handOff(first.runId, '接力 B', '继续', other.id, undefined, true)).toMatchObject({
+      isError: true,
+      text: '交回只用于本群的 Bot',
+    })
+    expect(await d.handOff(first.runId, '接力 A', '继续', undefined, 'main', true)).toMatchObject({
+      isError: true,
+      text: '交回不能交给自己',
+    })
+    expect(await report(d, first.runId, '接力 B', '继续')).toMatchObject({
+      isError: true,
+      text: '交回要再用 2 跳，超过接力上限（2 跳）；请自己完成，或在回复里说明由群成员决定',
+    })
   })
 })
