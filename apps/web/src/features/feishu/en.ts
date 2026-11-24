@@ -37,37 +37,25 @@ export default {
   已绑定飞书: 'Feishu linked',
   '首次使用飞书登录，请绑定已有共工账号或新建账号。':
     'First Feishu sign-in: link an existing Gonggong account or create a new one.',
-  飞书授权已过期: 'Feishu authorization expired',
-  '登录凭证已失效，重新授权飞书即可继续。':
-    'This sign-in link has expired. Authorize Feishu again to continue.',
+  授权已过期: 'Authorization expired',
+  '飞书登录凭证已失效，重新授权即可继续。': 'Your Feishu sign-in has expired. Authorize again to continue.',
   重新使用飞书登录: 'Sign in with Feishu again',
   '正在确认你的飞书身份…': 'Checking your Feishu identity…',
   '正在读取飞书授权信息…': 'Loading Feishu authorization…',
-  '欢迎，{name}': 'Welcome, {name}',
-  '首次通过飞书进入共工空间，请选择你的账号方式：':
-    'First time signing in with Feishu — choose how to continue:',
-  飞书已授权: 'Feishu authorized',
-  检测到邮箱匹配的已有账号: 'Found an existing account matching your email',
-  '账号「{account}」与你的飞书邮箱一致。如果你之前使用过共工，建议选择绑定以保留原有群聊与 Bot。':
-    'Account "{account}" uses the same email as your Feishu. Link it to keep your existing groups and Bots.',
-  新用户推荐: 'Recommended for new users',
-  推荐: 'Recommended',
-  '没有共工账号？自动使用飞书姓名和头像一步开户，无需设置密码，以后飞书一键登录。':
-    'New to Gonggong? Create an account in one click using your Feishu name and avatar — no password needed.',
+  确认账号: 'Confirm account',
+  创建新账号: 'Create new account',
+  '用飞书资料一步开户，免设密码': 'Create an account with your Feishu profile, no password needed',
+  '不关联旧账号，用飞书资料新建独立账号': 'Start fresh with your Feishu profile instead',
   绑定已有账号: 'Link existing account',
-  绑定已有共工账号: 'Link an existing Gonggong account',
-  '关联已有账号「{account}」，保留你原有的群聊、Bot 与权限。':
-    'Link account "{account}" to keep your existing groups, Bots and permissions.',
-  '之前用管理员发的账号或注册过？验证原密码完成绑定，保留原有群聊与 Bot。':
-    'Already have an account from your admin or sign-up? Verify its password to keep your groups and Bots.',
-  '当前空间未开启飞书自动开户，请绑定管理员为你开通的共工账号。':
-    'Feishu auto sign-up is off here. Link the Gonggong account your admin created for you.',
-  '输入你原有的共工账号和密码，验证后将与当前飞书自动绑定。':
-    'Enter your existing Gonggong account and password to link it with Feishu.',
-  '如果还没有共工账号，请联系系统管理员开通后再回来绑定。':
-    "Don't have a Gonggong account yet? Ask a system admin to create one, then come back to link.",
-  管理员发放或之前注册的账号: 'Account issued by admin or registered earlier',
-  '没有共工账号？返回选择新建账号': 'No Gonggong account? Go back to create a new one',
+  '检测到同邮箱账号，绑定后保留原有群聊与 Bot':
+    'Matches your email — link to keep your existing groups and Bots',
+  '关联已有的共工账号，保留群聊与 Bot': 'Link your existing Gonggong account to keep your groups and Bots',
+  返回选择: 'Back',
+  '当前未开启自动开户，请绑定管理员开通的账号。':
+    'Auto sign-up is off here. Link the account issued by your admin.',
+  输入已有共工账号: 'Enter existing Gonggong account',
+  输入原账号密码: 'Enter account password',
+  邮箱匹配: 'Email match',
   绑定并登录: 'Link and sign in',
   '绑定中…': 'Linking…',
   新建账号: 'Create account',

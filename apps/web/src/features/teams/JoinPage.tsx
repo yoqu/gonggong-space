@@ -4,11 +4,12 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
-import { Alert, Button, Spinner } from '../../ui'
+import { Alert, Avatar, Button, Icon, Spinner } from '../../ui'
 import { AuthCard, AuthSubmit, type SubmitPhase } from '../auth/AuthCard'
 import { useAuthOptions } from '../auth/options'
 import { FeishuLoginButton } from '../feishu/login'
 import { switchTeam, teamsApi } from './store'
+import './teams.css'
 
 /** /join/:token — the invite landing page; signed-out visitors log in or sign up first, then come back here. */
 export function JoinPage() {
@@ -43,86 +44,97 @@ export function JoinPage() {
   }
 
   const back = `/join/${token}`
-  const usable = invite?.valid && !error
   const dead = unreadable || invite?.valid === false
+  const usable = Boolean(invite?.valid && !error)
+  const showCard = !dead && Boolean(invite) && status === 'ready'
+
+  const beforeTitle = dead ? (
+    <span className="join-status-icon" aria-hidden="true">
+      <Icon name="warning" size={20} />
+    </span>
+  ) : undefined
+
   return (
     <AuthCard
       testId="join-page"
       variant="register"
-      title={invite ? t('加入「{team}」', { team: invite.teamName }) : t('加入团队')}
+      beforeTitle={beforeTitle}
+      title={dead ? t('邀请链接已失效') : showCard ? undefined : t('加入团队')}
       subtitle={
-        invite
-          ? t('{inviter} 邀请你加入团队「{team}」。', { inviter: invite.inviterName, team: invite.teamName })
-          : unreadable
-            ? t('链接可能已过期、被撤销，或复制时不完整。')
+        dead
+          ? t('该链接已过期或被撤销，请联系团队管理员重新邀请。')
+          : showCard
+            ? undefined
             : t('正在读取邀请…')
       }
       onSubmit={accept}
       footer={
-        user ? (
-          <p className="auth__foot">
-            <Link to="/" className="auth__link">
-              {t('返回消息')}
-            </Link>
-          </p>
-        ) : dead && status === 'ready' ? (
-          <p className="auth__foot">
-            <Link to="/login" className="auth__link">
-              {t('去登录')}
-            </Link>
-          </p>
-        ) : null
-      }
-    >
-      {dead ? (
-        <Alert variant="error" title={t('邀请链接已失效')} description={t('请联系团队管理员重新邀请。')} />
-      ) : error ? (
-        <Alert variant="error" description={error} />
-      ) : !invite || status !== 'ready' ? (
-        <Spinner />
-      ) : null}
-      {usable && status === 'ready' ? (
-        user ? (
-          <AuthSubmit phase={phase} label={t('加入团队')} busy={t('加入中…')} done={t('已加入')} />
-        ) : (
-          <div className="auth__fields">
-            {options?.feishuLogin ? (
-              <>
-                <FeishuLoginButton
-                  next={back}
-                  variant="primary"
-                  label={t('飞书登录并加入')}
-                  hint={t('授权飞书后可一键创建账号或绑定已有账号并加入团队')}
-                />
-                <p className="auth__or">{t('或')}</p>
-                <Button
-                  size="xlarge"
-                  fullWidth
-                  onClick={() => navigate(`/login?next=${encodeURIComponent(back)}`)}
-                >
-                  {t('使用账号密码登录')}
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="primary"
-                size="xlarge"
-                fullWidth
-                className="auth__submit"
-                onClick={() => navigate(`/login?next=${encodeURIComponent(back)}`)}
-              >
-                {t('登录后加入')}
-              </Button>
-            )}
+        showCard && usable ? (
+          user ? (
+            <p className="auth__foot">
+              <Link to="/" className="auth__link">
+                {t('返回消息')}
+              </Link>
+            </p>
+          ) : (
             <p className="auth__foot">
               {t('还没有账号？')}{' '}
               <Link to={`/register?invite=${encodeURIComponent(token)}`} className="auth__link">
                 {t('注册并加入')}
               </Link>
             </p>
+          )
+        ) : null
+      }
+    >
+      {dead ? (
+        status === 'ready' ? (
+          <Link to={user ? '/' : '/login'} className="ui-btn ui-btn--primary ui-btn--xlarge ui-btn--full">
+            {user ? t('返回消息') : t('返回登录')}
+          </Link>
+        ) : null
+      ) : !invite || status !== 'ready' ? (
+        <Spinner />
+      ) : (
+        <>
+          <div className="join-card">
+            <Avatar name={invite.teamName} shape="square" size={52} className="join-card__team-av" />
+            <div className="join-card__head">
+              <span className="join-card__inviter">
+                <Avatar name={invite.inviterName} size={20} />
+                <span>{t('{inviter} 邀请你加入', { inviter: invite.inviterName })}</span>
+              </span>
+              <h1 className="auth__title">{invite.teamName}</h1>
+            </div>
           </div>
-        )
-      ) : null}
+
+          {error ? <Alert variant="error" description={error} /> : null}
+
+          {usable ? (
+            user ? (
+              <AuthSubmit phase={phase} label={t('加入团队')} busy={t('加入中…')} done={t('已加入')} />
+            ) : (
+              <div className="join-actions">
+                <Button
+                  variant="primary"
+                  size="xlarge"
+                  fullWidth
+                  className="auth__submit"
+                  onClick={() => navigate(`/login?next=${encodeURIComponent(back)}`)}
+                >
+                  {t('登录后加入')}
+                </Button>
+                {options?.feishuLogin ? (
+                  <>
+                    <p className="auth__or">{t('或')}</p>
+                    <FeishuLoginButton next={back} label={t('飞书登录并加入')} />
+                  </>
+                ) : null}
+              </div>
+            )
+          ) : null}
+        </>
+      )}
     </AuthCard>
   )
 }

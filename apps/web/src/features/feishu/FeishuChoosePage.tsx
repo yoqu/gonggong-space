@@ -5,14 +5,15 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Avatar, Icon, SecureField, Spinner, Tag, TextField } from '../../ui'
+import { Avatar, Icon, SecureField, Spinner, Tag, TextField } from '../../ui'
 import { AuthCard, AuthSubmit, type SubmitPhase } from '../auth/AuthCard'
+import { FeishuMark } from './FeishuChatLink'
 import { FeishuLoginButton } from './login'
 import './login.css'
 
 type Mode = 'choose' | 'bind'
 
-/** First 飞书登录 of a Feishu user no account is linked to: guided choice between 新建账号 and 绑定已有账号. */
+/** First 飞书登录 of a Feishu user no account is linked to: guided choice between 创建新账号 and 绑定已有账号. */
 export function FeishuChoosePage() {
   const ticket = useSearchParams()[0].get('ticket') ?? ''
   const { setUser } = useSession()
@@ -83,27 +84,109 @@ export function FeishuChoosePage() {
   }
 
   const binding = !!info && (!info.canCreate || mode === 'bind')
+  const matched = !!info?.suggestedAccount
+  const prefilledMatch = !!info?.suggestedAccount && account.trim() === info.suggestedAccount
+
+  const beforeTitle = expired ? (
+    <span className="feishu-status-icon feishu-status-icon--warn" aria-hidden="true">
+      <Icon name="clock" size={20} />
+    </span>
+  ) : binding && info.canCreate ? (
+    <button
+      type="button"
+      className="feishu-back"
+      disabled={phase !== 'idle'}
+      onClick={() => {
+        setError('')
+        setMode('choose')
+      }}
+    >
+      <Icon name="chevron-left" size={14} />
+      <span>{t('返回选择')}</span>
+    </button>
+  ) : undefined
+
   const title = expired
-    ? t('飞书授权已过期')
+    ? t('授权已过期')
     : !info
       ? t('飞书登录')
       : binding
-        ? t('绑定已有共工账号')
-        : t('欢迎，{name}', { name: info.name })
+        ? t('绑定已有账号')
+        : t('确认账号')
+
   const subtitle = expired
-    ? t('登录凭证已失效，重新授权飞书即可继续。')
+    ? expired || t('飞书登录凭证已失效，重新授权即可继续。')
     : !info
       ? t('正在确认你的飞书身份…')
       : !info.canCreate
-        ? t('当前空间未开启飞书自动开户，请绑定管理员为你开通的共工账号。')
-        : binding
-          ? t('输入你原有的共工账号和密码，验证后将与当前飞书自动绑定。')
-          : t('首次通过飞书进入共工空间，请选择你的账号方式：')
+        ? t('当前未开启自动开户，请绑定管理员开通的账号。')
+        : undefined
+
+  const createCard = (
+    <button
+      type="button"
+      className={cx('feishu-choice', !matched && 'feishu-choice--primary')}
+      disabled={creating || phase !== 'idle'}
+      onClick={create}
+    >
+      <span className="feishu-choice__icon">
+        <Icon name="person-add" size={18} />
+      </span>
+      <span className="feishu-choice__body">
+        <span className="feishu-choice__head">
+          <span className="feishu-choice__title">{t('创建新账号')}</span>
+        </span>
+        <span className="feishu-choice__desc">
+          {matched ? t('不关联旧账号，用飞书资料新建独立账号') : t('用飞书资料一步开户，免设密码')}
+        </span>
+      </span>
+      <span className="feishu-choice__end">
+        {creating ? (
+          <Spinner size={14} />
+        ) : phase === 'done' ? (
+          <Icon name="check" size={16} weight={2.2} />
+        ) : (
+          <Icon name="chevron-right" size={16} />
+        )}
+      </span>
+    </button>
+  )
+
+  const bindCard = (
+    <button
+      type="button"
+      className={cx('feishu-choice', matched && 'feishu-choice--primary')}
+      disabled={creating || phase !== 'idle'}
+      onClick={() => {
+        setError('')
+        setMode('bind')
+      }}
+    >
+      <span className="feishu-choice__icon">
+        <Icon name="link" size={18} />
+      </span>
+      <span className="feishu-choice__body">
+        <span className="feishu-choice__head">
+          <span className="feishu-choice__title">{t('绑定已有账号')}</span>
+          {info?.suggestedAccount ? <Tag tone="blue">{info.suggestedAccount}</Tag> : null}
+        </span>
+        <span className="feishu-choice__desc">
+          {matched
+            ? t('检测到同邮箱账号，绑定后保留原有群聊与 Bot')
+            : t('关联已有的共工账号，保留群聊与 Bot')}
+        </span>
+      </span>
+      <span className="feishu-choice__end">
+        <Icon name="chevron-right" size={16} />
+      </span>
+    </button>
+  )
 
   return (
     <AuthCard
       testId="feishu-choose-page"
       variant="login"
+      beforeTitle={beforeTitle}
       title={title}
       subtitle={subtitle}
       errorKey={errorKey}
@@ -118,10 +201,7 @@ export function FeishuChoosePage() {
       }
     >
       {expired ? (
-        <div className="feishu-choose__stack">
-          <Alert variant="error" description={expired} />
-          <FeishuLoginButton next="/" variant="primary" label={t('重新使用飞书登录')} />
-        </div>
+        <FeishuLoginButton next="/" variant="primary" label={t('重新使用飞书登录')} />
       ) : !info ? (
         <div className="feishu-choose__loading" role="status">
           <Spinner size={18} />
@@ -130,90 +210,33 @@ export function FeishuChoosePage() {
       ) : (
         <>
           <div className="feishu-id">
-            <Avatar src={info.avatar ?? undefined} name={info.name} size={36} />
+            <span className="feishu-id__av">
+              <Avatar src={info.avatar ?? undefined} name={info.name} size={38} />
+              <span className="feishu-id__badge" aria-hidden="true">
+                <FeishuMark size={10} />
+              </span>
+            </span>
             <div className="feishu-choose__who">
               <span className="feishu-choose__name">{info.name}</span>
               {info.email ? <span className="feishu-choose__email">{info.email}</span> : null}
             </div>
-            <Tag tone="green" className="feishu-id__tag">
-              {t('飞书已授权')}
-            </Tag>
           </div>
 
           {!binding ? (
             <div className="feishu-choose__stack">
-              {info.suggestedAccount ? (
-                <Alert
-                  variant="info"
-                  title={t('检测到邮箱匹配的已有账号')}
-                  description={t(
-                    '账号「{account}」与你的飞书邮箱一致。如果你之前使用过共工，建议选择绑定以保留原有群聊与 Bot。',
-                    { account: info.suggestedAccount },
-                  )}
-                />
-              ) : null}
-
               <div className="feishu-choices">
-                <button
-                  type="button"
-                  className={cx('feishu-choice', !info.suggestedAccount && 'feishu-choice--primary')}
-                  disabled={creating || phase !== 'idle'}
-                  onClick={create}
-                >
-                  <span className="feishu-choice__icon">
-                    <Icon name="person-add" size={18} />
-                  </span>
-                  <span className="feishu-choice__body">
-                    <span className="feishu-choice__head">
-                      <span className="feishu-choice__title">{t('新建账号')}</span>
-                      {!info.suggestedAccount ? <Tag tone="blue">{t('新用户推荐')}</Tag> : null}
-                    </span>
-                    <span className="feishu-choice__desc">
-                      {t('没有共工账号？自动使用飞书姓名和头像一步开户，无需设置密码，以后飞书一键登录。')}
-                    </span>
-                  </span>
-                  <span className="feishu-choice__end">
-                    {creating ? (
-                      <Spinner size={14} />
-                    ) : phase === 'done' ? (
-                      <Icon name="check" size={16} weight={2.2} />
-                    ) : (
-                      <Icon name="chevron-right" size={16} />
-                    )}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  className={cx('feishu-choice', !!info.suggestedAccount && 'feishu-choice--primary')}
-                  disabled={creating || phase !== 'idle'}
-                  onClick={() => {
-                    setError('')
-                    setMode('bind')
-                  }}
-                >
-                  <span className="feishu-choice__icon">
-                    <Icon name="link" size={18} />
-                  </span>
-                  <span className="feishu-choice__body">
-                    <span className="feishu-choice__head">
-                      <span className="feishu-choice__title">{t('绑定已有账号')}</span>
-                      {info.suggestedAccount ? <Tag tone="blue">{t('推荐')}</Tag> : null}
-                    </span>
-                    <span className="feishu-choice__desc">
-                      {info.suggestedAccount
-                        ? t('关联已有账号「{account}」，保留你原有的群聊、Bot 与权限。', {
-                            account: info.suggestedAccount,
-                          })
-                        : t('之前用管理员发的账号或注册过？验证原密码完成绑定，保留原有群聊与 Bot。')}
-                    </span>
-                  </span>
-                  <span className="feishu-choice__end">
-                    <Icon name="chevron-right" size={16} />
-                  </span>
-                </button>
+                {matched ? (
+                  <>
+                    {bindCard}
+                    {createCard}
+                  </>
+                ) : (
+                  <>
+                    {createCard}
+                    {bindCard}
+                  </>
+                )}
               </div>
-
               <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
                 {error ? (
                   <>
@@ -225,20 +248,15 @@ export function FeishuChoosePage() {
             </div>
           ) : (
             <>
-              {!info.canCreate ? (
-                <Alert
-                  variant="info"
-                  description={t('如果还没有共工账号，请联系系统管理员开通后再回来绑定。')}
-                />
-              ) : null}
               <div className="auth__fields">
                 <TextField
                   label={t('账号')}
                   size="large"
                   ref={accountRef}
                   autoComplete="username"
-                  placeholder={t('管理员发放或之前注册的账号')}
+                  placeholder={t('输入已有共工账号')}
                   value={account}
+                  trailing={prefilledMatch ? <Tag tone="blue">{t('邮箱匹配')}</Tag> : undefined}
                   onChange={(e) => {
                     setAccount(e.target.value)
                     setError('')
@@ -250,6 +268,7 @@ export function FeishuChoosePage() {
                   size="large"
                   ref={passwordRef}
                   autoComplete="current-password"
+                  placeholder={t('输入原账号密码')}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
@@ -267,20 +286,6 @@ export function FeishuChoosePage() {
                 </p>
               </div>
               <AuthSubmit phase={phase} label={t('绑定并登录')} busy={t('绑定中…')} done={t('登录成功')} />
-              {info.canCreate ? (
-                <button
-                  type="button"
-                  className="auth__link feishu-choose__back"
-                  disabled={phase !== 'idle'}
-                  onClick={() => {
-                    setError('')
-                    setMode('choose')
-                  }}
-                >
-                  <Icon name="chevron-left" size={13} />
-                  {t('没有共工账号？返回选择新建账号')}
-                </button>
-              ) : null}
             </>
           )}
         </>

@@ -169,3 +169,51 @@
   font-weight: 600;
   color: var(--label-secondary);
 }
+
+/* Invite landing page (/join/:token) */
+.join-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-24) var(--space-20);
+  border-radius: var(--radius-menu);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tint-blue) 42%, var(--content-bg)) 0%,
+    var(--group-bg) 100%
+  );
+  box-shadow: inset 0 0 0 1px var(--separator);
+  text-align: center;
+}
+.join-card__team-av {
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-fill) 22%, transparent);
+}
+.join-card__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+}
+.join-card__inviter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
+}
+.join-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.join-status-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: var(--space-8);
+  border-radius: var(--radius-menu);
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+}

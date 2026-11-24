@@ -66,19 +66,11 @@ export default {
   '还没有账号？': 'No account yet?',
   立即注册: 'Sign up',
   '还没有账号？请联系系统管理员开通': 'No account yet? Ask a system admin to create one',
-  '首次使用？点击上方「飞书登录」即可直接创建账号':
-    'First time here? Click "Sign in with Feishu" above to create an account',
-  '首次使用飞书？授权后可新建账号或绑定已有账号':
-    'First time with Feishu? After authorizing, you can create a new account or link an existing one',
-  '首次使用飞书？授权后可绑定已有的共工账号':
-    'First time with Feishu? After authorizing, you can link an existing Gonggong account',
-  或使用账号密码登录: 'or sign in with account & password',
-  使用飞书快速注册: 'Quick sign up with Feishu',
-  '免填表单，授权后可选择创建新账号或绑定已有共工账号':
-    'Skip the form — choose to create a new account or link an existing one after authorizing',
-  或使用账号密码注册: 'or sign up with account & password',
-  '本空间支持飞书快速开户，授权后可新建账号或绑定已有账号。':
-    'This workspace uses Feishu for sign-up. Authorize Feishu to create a new account or link an existing one.',
+  '本空间通过飞书开户，点击上方飞书登录即可进入':
+    'This workspace creates accounts via Feishu. Click Sign in with Feishu above to continue',
+  使用飞书注册: 'Sign up with Feishu',
+  '本空间通过飞书开户，点击下方按钮即可进入。':
+    'This workspace creates accounts via Feishu. Continue with Feishu below.',
   账号: 'Account',
   密码: 'Password',
   记住我: 'Remember me',

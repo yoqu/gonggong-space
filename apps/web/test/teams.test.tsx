@@ -576,7 +576,8 @@ describe('join page', () => {
     })
     useSession.setState({ user: null, tenancy: null, status: 'idle' })
     renderAt('/join/ggi_abc')
-    expect(await screen.findByText('李建国 邀请你加入团队「支付组」。')).toBeTruthy()
+    expect(await screen.findByText('李建国 邀请你加入')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '支付组' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '注册并加入' }).getAttribute('href')).toBe(
       '/register?invite=ggi_abc',
     )
@@ -601,7 +602,7 @@ describe('join page', () => {
     mockApi({ 'GET /invites/ggi_old': { teamName: '支付组', inviterName: '李建国', valid: false } })
     signIn(null)
     renderAt('/join/ggi_old')
-    expect(await screen.findByText('邀请链接已失效')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '邀请链接已失效' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: '加入团队' })).toBeNull()
   })
 
@@ -612,11 +613,11 @@ describe('join page', () => {
     })
     useSession.setState({ user: null, tenancy: null, status: 'idle' })
     renderAt('/join/ggi_bad')
-    expect(await screen.findByText('邀请链接已失效')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '邀请链接已失效' })).toBeTruthy()
     expect(screen.queryByText('正在读取邀请…')).toBeNull()
     expect(screen.queryByText('邀请链接无效')).toBeNull()
-    expect(screen.getByText('请联系团队管理员重新邀请。')).toBeTruthy()
-    expect(screen.getByRole('link', { name: '去登录' }).getAttribute('href')).toBe('/login')
+    expect(screen.getByText('该链接已过期或被撤销，请联系团队管理员重新邀请。')).toBeTruthy()
+    expect(screen.getByRole('link', { name: '返回登录' }).getAttribute('href')).toBe('/login')
   })
 })
 

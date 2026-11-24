@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
 import { useSearchParams } from 'react-router'
 import { t } from '../../i18n'
-import { cx } from '../../lib/cx'
-import { toast } from '../../ui'
+import { Icon, toast } from '../../ui'
 import { FeishuMark } from './FeishuChatLink'
 import './login.css'
 
@@ -27,28 +26,31 @@ export const inFeishuClient = () => /\b(Lark|Feishu)\//.test(navigator.userAgent
 export function FeishuLoginButton({
   next,
   label = t('飞书登录'),
-  variant = 'default',
-  hint,
+  variant = 'card',
 }: {
   next: string
   label?: string
-  variant?: 'default' | 'primary'
-  hint?: string
+  variant?: 'card' | 'primary'
 }) {
-  return (
-    <div className="feishu-entry">
+  if (variant === 'primary') {
+    return (
       <a
-        className={cx(
-          'ui-btn ui-btn--xlarge ui-btn--full feishu-login',
-          variant === 'primary' && 'ui-btn--primary',
-        )}
+        className="ui-btn ui-btn--xlarge ui-btn--full ui-btn--primary feishu-login"
         href={feishuStartUrl(next)}
       >
         <FeishuMark size={16} />
         <span>{label}</span>
       </a>
-      {hint ? <p className="feishu-entry__hint">{hint}</p> : null}
-    </div>
+    )
+  }
+  return (
+    <a className="feishu-card" href={feishuStartUrl(next)}>
+      <span className="feishu-card__mark">
+        <FeishuMark size={16} />
+      </span>
+      <span>{label}</span>
+      <Icon name="chevron-right" size={14} className="feishu-card__arrow" />
+    </a>
   )
 }
 

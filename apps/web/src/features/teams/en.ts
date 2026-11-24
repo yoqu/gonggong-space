@@ -88,19 +88,19 @@ export default {
 
   // Join & welcome
   '加入「{team}」': 'Join "{team}"',
+  '{inviter} 邀请你加入': '{inviter} invited you to join',
   '{inviter} 邀请你加入团队「{team}」。': '{inviter} invited you to the team "{team}".',
   '正在读取邀请…': 'Reading the invite…',
   '链接可能已过期、被撤销，或复制时不完整。':
     'The link may have expired, been revoked, or been copied incompletely.',
   邀请链接已失效: 'This invite link has expired',
+  '该链接已过期或被撤销，请联系团队管理员重新邀请。':
+    'This link has expired or been revoked. Ask a team admin for a new invite.',
   '请联系团队管理员重新邀请。': 'Ask a team admin for a new invite.',
   '加入中…': 'Joining…',
   已加入: 'Joined',
   登录后加入: 'Log in to join',
   飞书登录并加入: 'Sign in with Feishu & join',
-  授权飞书后可一键创建账号或绑定已有账号并加入团队:
-    'Authorize Feishu to create or link an account and join the team in one step',
-  使用账号密码登录: 'Log in with account & password',
   注册并加入: 'Sign up and join',
   加入或新建团队: 'Join or create a team',
   '新建一个团队，或粘贴团队管理员发给你的邀请链接加入。':

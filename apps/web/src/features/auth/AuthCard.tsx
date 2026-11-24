@@ -12,6 +12,7 @@ import './auth.css'
 export function AuthCard({
   title,
   subtitle,
+  beforeTitle,
   testId,
   variant,
   errorKey,
@@ -20,8 +21,9 @@ export function AuthCard({
   children,
   footer,
 }: {
-  title: string
-  subtitle: string
+  title?: string
+  subtitle?: string
+  beforeTitle?: ReactNode
   testId?: string
   variant: AuthVariant
   errorKey?: number
@@ -35,6 +37,8 @@ export function AuthCard({
     if (errorKey) void shake.start({ x: [0, -10, 9, -6, 4, 0], transition: { duration: 0.42 } })
   }, [errorKey, shake])
 
+  const hasHead = Boolean(title || subtitle || beforeTitle || variant === 'login')
+
   return (
     <div className="auth" data-testid={testId} data-leaving={leaving || undefined}>
       <AuthStage variant={variant} />
@@ -45,18 +49,26 @@ export function AuthCard({
       <main className="auth__panel">
         <div className="auth__card">
           <m.form animate={shake} onSubmit={onSubmit} noValidate className="auth__form">
-            <div className="auth__head">
+            {hasHead ? (
+              <div className="auth__head">
+                <div className="auth__brand">
+                  <Logo size={40} className="auth__logo" />
+                  <span className="auth__brand-name">{t('共工空间')}</span>
+                </div>
+                {/* Narrow screens hide the stage; this line keeps what the product is for. */}
+                {variant === 'login' ? (
+                  <p className="auth__tagline">{t('在群里 @ 一下，队友的 Bot 就开工。')}</p>
+                ) : null}
+                {beforeTitle}
+                {title ? <h1 className="auth__title">{title}</h1> : null}
+                {subtitle ? <p className="auth__subtitle">{subtitle}</p> : null}
+              </div>
+            ) : (
               <div className="auth__brand">
                 <Logo size={40} className="auth__logo" />
                 <span className="auth__brand-name">{t('共工空间')}</span>
               </div>
-              {/* Narrow screens hide the stage; this line keeps what the product is for. */}
-              {variant === 'login' ? (
-                <p className="auth__tagline">{t('在群里 @ 一下，队友的 Bot 就开工。')}</p>
-              ) : null}
-              <h1 className="auth__title">{title}</h1>
-              <p className="auth__subtitle">{subtitle}</p>
-            </div>
+            )}
             {children}
           </m.form>
           {footer}

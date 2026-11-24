@@ -76,7 +76,7 @@ export function RegisterPage() {
         closed
           ? t('当前未开放注册，请联系系统管理员创建账号。')
           : passwordClosed && feishuSignup
-            ? t('本空间支持飞书快速开户，授权后可新建账号或绑定已有账号。')
+            ? t('本空间通过飞书开户，点击下方按钮即可进入。')
             : t('注册后即可加入群、绑定电脑、创建你的 Bot。')
       }
       errorKey={errorKey}
@@ -93,17 +93,6 @@ export function RegisterPage() {
     >
       {closed ? null : (
         <>
-          {feishuSignup ? (
-            <>
-              <FeishuLoginButton
-                next={feishuNext}
-                variant="primary"
-                label={t('使用飞书快速注册')}
-                hint={t('免填表单，授权后可选择创建新账号或绑定已有共工账号')}
-              />
-              {!passwordClosed ? <p className="auth__or">{t('或使用账号密码注册')}</p> : null}
-            </>
-          ) : null}
           {passwordClosed ? null : (
             <>
               <div className="auth__fields">
@@ -114,7 +103,7 @@ export function RegisterPage() {
                   placeholder={t('登录用，如 wanglei')}
                   value={form.account}
                   onChange={set('account')}
-                  autoFocus={!feishuSignup}
+                  autoFocus
                 />
                 <TextField
                   label={t('姓名')}
@@ -151,6 +140,16 @@ export function RegisterPage() {
               <AuthSubmit phase={phase} label={t('注册并进入')} busy={t('注册中…')} done={t('注册成功')} />
             </>
           )}
+          {feishuSignup ? (
+            <>
+              {!passwordClosed ? <p className="auth__or">{t('或')}</p> : null}
+              <FeishuLoginButton
+                next={feishuNext}
+                variant={passwordClosed ? 'primary' : 'card'}
+                label={t('使用飞书注册')}
+              />
+            </>
+          ) : null}
         </>
       )}
     </AuthCard>

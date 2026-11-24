@@ -55,56 +55,69 @@ const options = (
 })
 
 describe('login page · 飞书登录', () => {
-  it('offers 飞书登录 only when the server does, keeping where to return', async () => {
+  it('places 飞书登录 as a quiet card below the primary submit button without redundant hints', async () => {
     mockApi({ 'GET /me': () => apiError(401, 'unauthorized'), 'GET /auth/options': options(true) })
     renderAt('/login?next=/g/abc')
+    const submit = await screen.findByRole('button', { name: '登录' })
     const link = await screen.findByRole('link', { name: '飞书登录' })
     expect(link.getAttribute('href')).toBe('/api/auth/feishu/start?next=%2Fg%2Fabc')
+    expect(link.classList.contains('feishu-card')).toBe(true)
+    expect(submit.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText(/首次使用飞书/)).toBeNull()
   })
 
-  it('guides new users on login and register when 飞书自动开户 is on, and carries invite across pages', async () => {
+  it('shows a quiet Feishu-only footer on login when password registration is closed and 飞书自动开户 is on', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
       'GET /auth/options': options(true, { registrationOpen: false, feishuAutoSignup: true }),
     })
     renderAt('/login')
     expect(await screen.findByRole('link', { name: '飞书登录' })).toBeTruthy()
-    expect(screen.getByText(/首次使用飞书/)).toBeTruthy()
+    expect(screen.getByText('本空间通过飞书开户，点击上方飞书登录即可进入')).toBeTruthy()
+    expect(screen.queryByText(/首次使用飞书/)).toBeNull()
     expect(screen.queryByText('还没有账号？请联系系统管理员开通')).toBeNull()
   })
 
-  it('offers 飞书快速注册 on /register (including with an invite, and even when password sign-up is closed)', async () => {
+  it('offers 使用飞书注册 on /register even when password sign-up is closed', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
       'GET /auth/options': options(true, { registrationOpen: false, feishuAutoSignup: true }),
     })
     renderAt('/register')
-    const feishuSignup = await screen.findByRole('link', { name: '使用飞书快速注册' })
+    const feishuSignup = await screen.findByRole('link', { name: '使用飞书注册' })
     expect(feishuSignup.getAttribute('href')).toBe('/api/auth/feishu/start?next=%2F')
     expect(screen.queryByRole('button', { name: '注册并进入' })).toBeNull()
   })
 
-  it('preserves invite token when launching Feishu or switching to login from /register?invite=', async () => {
+  it('places 使用飞书注册 card below 注册并进入 and preserves invite token across pages', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
       'GET /auth/options': options(true, { registrationOpen: true, feishuAutoSignup: true }),
     })
     renderAt('/register?invite=ggi_123')
-    const feishuSignup = await screen.findByRole('link', { name: '使用飞书快速注册' })
+    const submit = await screen.findByRole('button', { name: '注册并进入' })
+    const feishuSignup = await screen.findByRole('link', { name: '使用飞书注册' })
     expect(feishuSignup.getAttribute('href')).toBe('/api/auth/feishu/start?next=%2Fjoin%2Fggi_123')
+    expect(feishuSignup.classList.contains('feishu-card')).toBe(true)
+    expect(submit.compareDocumentPosition(feishuSignup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText(/免填表单/)).toBeNull()
     const toLogin = screen.getByRole('link', { name: '去登录' })
     expect(toLogin.getAttribute('href')).toBe('/login?next=%2Fjoin%2Fggi_123')
   })
 
-  it('offers one-click Feishu join on /join/:token when Feishu login is enabled', async () => {
+  it('places 飞书登录并加入 as a quiet card below 登录后加入 on /join/:token', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
       'GET /auth/options': options(true, { registrationOpen: false, feishuAutoSignup: true }),
       'GET /invites/inv1': { valid: true, teamName: '研发组', inviterName: '陈晨' },
     })
     renderAt('/join/inv1')
+    const primary = await screen.findByRole('button', { name: '登录后加入' })
     const feishuJoin = await screen.findByRole('link', { name: '飞书登录并加入' })
     expect(feishuJoin.getAttribute('href')).toBe('/api/auth/feishu/start?next=%2Fjoin%2Finv1')
+    expect(feishuJoin.classList.contains('feishu-card')).toBe(true)
+    expect(primary.compareDocumentPosition(feishuJoin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText(/授权飞书后可一键创建账号/)).toBeNull()
   })
 
   it('has no 飞书登录 without the main app', async () => {
@@ -159,15 +172,16 @@ describe('first 飞书登录', () => {
       'GET /teams': [],
     })
     renderAt('/feishu/choose?ticket=ft_1')
-    // Starts in clear two-choice mode instead of dumping an account/password form immediately.
-    expect(await screen.findByText('飞书已授权')).toBeTruthy()
+    // Compact identity strip (no redundant green badge) + concise two-choice cards.
+    expect(await screen.findByRole('heading', { name: '确认账号' })).toBeTruthy()
     expect(screen.getByText('王磊', { ignore: '.ui-avatar__text' })).toBeTruthy()
+    expect(screen.queryByText('飞书已授权')).toBeNull()
     expect(screen.queryByLabelText('密码')).toBeNull()
 
-    // Picking "绑定已有账号" opens the bind form, and lets the user go back to choices.
+    // Picking "绑定已有账号" opens the bind form with a clean top back button.
     fireEvent.click(screen.getByRole('button', { name: /绑定已有账号/ }))
     expect(screen.getByLabelText('账号')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /返回选择新建账号/ }))
+    fireEvent.click(screen.getByRole('button', { name: '返回选择' }))
     expect(screen.queryByLabelText('密码')).toBeNull()
 
     // Re-enter bind and submit.
@@ -192,31 +206,38 @@ describe('first 飞书登录', () => {
       'GET /teams': [],
     })
     renderAt('/feishu/choose?ticket=ft_1')
-    fireEvent.click(await screen.findByRole('button', { name: /新建账号/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /创建新账号/ }))
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/feishu/ticket/ft_1/create')).toBe(true))
     await waitFor(() => expect(useSession.getState().user).toBeTruthy())
   })
 
-  it('highlights a matching existing account when suggestedAccount is present and prefills bind form', async () => {
+  it('promotes the bind card with an inline account pill when suggestedAccount matches email', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
       'GET /auth/feishu/ticket/ft_1': { ...ticket, suggestedAccount: 'wanglei' },
     })
     renderAt('/feishu/choose?ticket=ft_1')
-    expect(await screen.findByText(/检测到邮箱匹配的已有账号/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /绑定已有账号/ }))
+    const bindBtn = await screen.findByRole('button', { name: /绑定已有账号/ })
+    const createBtn = screen.getByRole('button', { name: /创建新账号/ })
+    expect(within(bindBtn).getByText('wanglei')).toBeTruthy()
+    expect(bindBtn.compareDocumentPosition(createBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText('检测到邮箱匹配的已有账号')).toBeNull()
+
+    fireEvent.click(bindBtn)
     expect((screen.getByLabelText('账号') as HTMLInputElement).value).toBe('wanglei')
+    expect(screen.getByText('邮箱匹配')).toBeTruthy()
   })
 
-  it('goes straight to binding with a clear explanation while 飞书自动开户 is off', async () => {
+  it('goes straight to binding with a concise note while 飞书自动开户 is off', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
       'GET /auth/feishu/ticket/ft_1': { ...ticket, canCreate: false },
     })
     renderAt('/feishu/choose?ticket=ft_1')
     expect(await screen.findByRole('button', { name: '绑定并登录' })).toBeTruthy()
-    expect(screen.getByText(/未开启飞书自动开户/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /新建账号/ })).toBeNull()
+    expect(screen.getByText('当前未开启自动开户，请绑定管理员开通的账号。')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '返回选择' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /创建新账号/ })).toBeNull()
   })
 
   it('offers one-click Feishu retry and login link when a ticket has expired', async () => {
@@ -226,7 +247,8 @@ describe('first 飞书登录', () => {
       'GET /auth/options': options(true),
     })
     renderAt('/feishu/choose?ticket=ft_1')
-    expect(await screen.findByText('飞书登录已过期，请重新登录')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '授权已过期' })).toBeTruthy()
+    expect(screen.getByText('飞书登录已过期，请重新登录')).toBeTruthy()
     expect(screen.getByRole('link', { name: '重新使用飞书登录' }).getAttribute('href')).toBe(
       '/api/auth/feishu/start?next=%2F',
     )
