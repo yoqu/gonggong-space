@@ -32,13 +32,15 @@ fn alive(pid: u32) -> bool {
 }
 
 /// Below the ephemeral ranges (Linux 32768+, macOS 49152+): a port from `bind(0)` can be taken by another test's
-/// outgoing connection before the service listens on it.
+/// outgoing connection before the service listens on it. Probed by connecting, as `start` checks: a probe listener
+/// could leak into a child spawned meanwhile by a parallel test and keep the port listening (Jenkins #625).
 fn free_port() -> u16 {
     static NEXT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
     loop {
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let port = 20000 + (std::process::id() as u16).wrapping_mul(7).wrapping_add(n) % 10000;
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+        let refused = |ip: &str| std::net::TcpStream::connect((ip, port)).is_err();
+        if refused("127.0.0.1") && refused("::1") {
             return port;
         }
     }
