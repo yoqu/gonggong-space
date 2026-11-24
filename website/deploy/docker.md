@@ -27,7 +27,7 @@ compose 里 PostgreSQL 的账号密码固定为 `gonggong`，数据库端口不�
 首次启动时 server 在数据卷里生成自签证书（包含 `GONGGONG_PUBLIC_URL` 的主机名、`localhost`、`127.0.0.1`，有效期 825 天），Nginx 与 server 共用：
 
 - 浏览器会提示证书不受信任，确认继续即可。
-- 成员机器的 daemon 默认按系统 CA 校验证书，绑定这台服务器时要带证书指纹。先查看指纹：
+- 成员机器的 daemon 默认接受任意证书，直接绑定即可。要防中间人，可绑定时固定证书指纹。先查看指纹：
   ```bash
   docker compose exec server openssl x509 -in /data/tls/cert.pem -noout -fingerprint -sha256
   ```

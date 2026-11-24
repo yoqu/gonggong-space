@@ -29,7 +29,7 @@ In the compose file, the PostgreSQL user and password are both fixed to `gonggon
 On first start the server generates a self-signed certificate in the data volume (covering the host name from `GONGGONG_PUBLIC_URL`, `localhost`, and `127.0.0.1`, valid for 825 days), shared by Nginx and the server:
 
 - The browser warns that the certificate isn't trusted; confirm to continue.
-- The daemon on members' machines verifies certificates against the system CAs by default, so binding to this server requires the certificate fingerprint. First look up the fingerprint:
+- The daemon on members' machines accepts any certificate by default, so binding just works. To guard against a man in the middle, pin the certificate fingerprint when binding. First look up the fingerprint:
   ```bash
   docker compose exec server openssl x509 -in /data/tls/cert.pem -noout -fingerprint -sha256
   ```

@@ -95,14 +95,14 @@ GONGGONG_ADMIN_PASSWORD=<initial-password> pnpm dev:server
 WEB_HOST=0.0.0.0 pnpm dev:web                    # the server and web client share this certificate
 ```
 
-The daemon verifies the server certificate, against the system CAs by default. For a self-signed certificate, explicitly trust its SHA-256 fingerprint:
+The daemon accepts any server certificate by default, so `gg login --server https://127.0.0.1:5173 --code <bind-code>` just works. To debug certificate verification, pin the SHA-256 fingerprint explicitly:
 
 ```bash
 openssl x509 -in .gonggong-dev/tls/cert.pem -noout -fingerprint -sha256
 ./target/debug/gg login --server https://127.0.0.1:5173 --code <bind-code> --fingerprint <fingerprint-printed-above>
 ```
 
-For certificates issued by a private CA, use `--ca-file <CA certificate.pem>`. For local debugging only, you can also set `GONGGONG_INSECURE_DEV=1` to turn off certificate verification (the daemon prints a warning; don't use it anywhere else). See [HTTPS and certificates](/en/deploy/https).
+Or verify against a private CA with `--ca-file <CA certificate.pem>`. See [HTTPS and certificates](/en/deploy/https).
 
 ## Pre-push self-check: pnpm check
 

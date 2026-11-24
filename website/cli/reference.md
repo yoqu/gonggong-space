@@ -60,8 +60,8 @@ Arguments:
 Options:
       --server <SERVER>
       --code <CODE>
-      --fingerprint <FINGERPRINT>  Trust this SHA-256 certificate fingerprint (needed for a self-signed server)
-      --ca-file <CA_FILE>          Trust the PEM CA certificate at this path (needed for a private CA)
+      --fingerprint <FINGERPRINT>  Only accept the server certificate with this SHA-256 fingerprint (any certificate is accepted by default)
+      --ca-file <CA_FILE>          Only accept server certificates issued by the PEM CA at this path (any certificate is accepted by default)
       --create-bot <AGENT>         Also have the server create a bot of this agent on this machine, and a DM with it (claude|codex|gemini|codebuddy|pi|deepseek)
       --code-only                  Fail on an expired code instead of asking for a confirmation on the Web (unattended setups such as Docker)
 ```
@@ -84,12 +84,12 @@ gg login --server https://gg.example.com
 | `LINK` | 接入链接。与 `--server`、`--code`、`--fingerprint`、`--ca-file` 互斥 |
 | `--server` | 服务器地址。非本机服务器必须是 `https://`；`http://` 只允许 `localhost`、`127.0.0.1` 等本机地址 |
 | `--code` | 接入码，格式 `XXXX-XXXX`，大小写不限，30 分钟内有效 |
-| `--fingerprint` | 信任这个 SHA-256 证书指纹，用于自签证书的服务器。写法如 `sha256:AB:CD:…`，也可以不带 `sha256:` 前缀和冒号（64 位十六进制）。与 `--ca-file` 互斥 |
-| `--ca-file` | 信任这个 PEM 格式的 CA 证书，用于私有 CA 签发证书的服务器 |
+| `--fingerprint` | 只接受这个 SHA-256 指纹的服务器证书。写法如 `sha256:AB:CD:…`，也可以不带 `sha256:` 前缀和冒号（64 位十六进制）。与 `--ca-file` 互斥 |
+| `--ca-file` | 只接受这个 PEM 格式 CA 签发的服务器证书 |
 | `--create-bot` | 绑定后让服务器在本机建一个使用该 Agent 的 Bot，并建好与它的私聊。同一台机器、同一个 Agent 重复绑定时沿用已有的 Bot |
 | `--code-only` | 接入码失效时直接报错，不改走网页确认。用于无人值守的场景（如 Docker 首次启动） |
 
-不加 `--fingerprint` / `--ca-file` 时按系统根证书校验服务器证书，正规 CA 签发的证书直接可用。所选的信任方式会保存下来，之后 `gg run` 的所有连接都按它校验。获取指纹、配置证书见 [HTTPS 与证书](/deploy/https)。
+不加 `--fingerprint` / `--ca-file` 时接受任意服务器证书（含自签），绑定即用。所选的信任方式会保存下来，之后 `gg run` 的所有连接都按它处理。获取指纹、配置证书见 [HTTPS 与证书](/deploy/https)。
 
 输出示例：
 

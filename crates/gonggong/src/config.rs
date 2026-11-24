@@ -27,6 +27,7 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Trust {
+    /// No explicit trust: any server certificate is accepted. The name is kept for configs already saved.
     System,
     Fingerprint { sha256: String },
     CaFile { path: PathBuf },

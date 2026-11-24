@@ -60,8 +60,8 @@ Arguments:
 Options:
       --server <SERVER>
       --code <CODE>
-      --fingerprint <FINGERPRINT>  Trust this SHA-256 certificate fingerprint (needed for a self-signed server)
-      --ca-file <CA_FILE>          Trust the PEM CA certificate at this path (needed for a private CA)
+      --fingerprint <FINGERPRINT>  Only accept the server certificate with this SHA-256 fingerprint (any certificate is accepted by default)
+      --ca-file <CA_FILE>          Only accept server certificates issued by the PEM CA at this path (any certificate is accepted by default)
       --create-bot <AGENT>         Also have the server create a bot of this agent on this machine, and a DM with it (claude|codex|gemini|codebuddy|pi|deepseek)
       --code-only                  Fail on an expired code instead of asking for a confirmation on the Web (unattended setups such as Docker)
 ```
@@ -84,12 +84,12 @@ gg login --server https://gg.example.com
 | `LINK` | Connect link. Mutually exclusive with `--server`, `--code`, `--fingerprint`, and `--ca-file` |
 | `--server` | Server address. A server that isn't on this machine must use `https://`; `http://` is allowed only for local addresses such as `localhost` and `127.0.0.1` |
 | `--code` | Connect code in the format `XXXX-XXXX`, case-insensitive, valid for 30 minutes |
-| `--fingerprint` | Trust this SHA-256 certificate fingerprint, for servers with a self-signed certificate. Written like `sha256:AB:CD:…`; the `sha256:` prefix and colons are optional (64 hex digits). Mutually exclusive with `--ca-file` |
-| `--ca-file` | Trust this PEM CA certificate, for servers whose certificate is issued by a private CA |
+| `--fingerprint` | Only accept the server certificate with this SHA-256 fingerprint. Written like `sha256:AB:CD:…`; the `sha256:` prefix and colons are optional (64 hex digits). Mutually exclusive with `--ca-file` |
+| `--ca-file` | Only accept server certificates issued by this PEM CA |
 | `--create-bot` | After binding, have the server create a Bot on this machine that uses this Agent, plus a direct chat with it. Binding the same machine with the same Agent again reuses the existing Bot |
 | `--code-only` | Fail right away when the connect code is no longer valid, instead of switching to confirmation on the web. For unattended setups (such as first start in Docker) |
 
-Without `--fingerprint` / `--ca-file`, the server certificate is verified against the system root certificates, so certificates issued by a public CA work as-is. The trust mode you choose is saved, and every connection `gg run` makes later is verified the same way. To get the fingerprint or configure certificates, see [HTTPS and certificates](/en/deploy/https).
+Without `--fingerprint` / `--ca-file`, any server certificate (including self-signed) is accepted, so binding just works. The trust mode you choose is saved, and every connection `gg run` makes later is handled the same way. To get the fingerprint or configure certificates, see [HTTPS and certificates](/en/deploy/https).
 
 Sample output:
 

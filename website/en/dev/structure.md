@@ -178,7 +178,7 @@ Located in `crates/gonggong/src/`. `main.rs` is the `gg` command-line entry poin
 | `html_render.rs`, `snapshot.rs` | Renders HTML pages and preview first-screen screenshots with a local Chrome-family browser |
 | `cast.rs`, `wechatide.rs` | Live views (starting gg-cast streaming on demand), WeChat DevTools |
 | `open_apps.rs` | Opens the workspace with local apps |
-| `tls.rs` | HTTP(S)/WS(S) connections to the server: verifies certificates with system CAs, `--ca-file`, or `--fingerprint`; `http://` is allowed only for local addresses |
+| `tls.rs` | HTTP(S)/WS(S) connections to the server: accepts any certificate by default and verifies it only with an explicit `--ca-file` or `--fingerprint`; `http://` is allowed only for local addresses |
 | `net.rs` | Measures latency and bandwidth to the server |
 | `upgrade.rs` | Self-upgrade: downloads the new version, verifies its sha256, replaces itself, and restarts when idle |
 | `revoke.rs` | Cleans up managed workspaces and tokens after the machine is revoked |

@@ -137,10 +137,6 @@ GONGGONG_HOME=/data/gonggong gg status    # use a different data directory
 gg --lang en doctor                       # English output
 ```
 
-::: warning GONGGONG_INSECURE_DEV
-`GONGGONG_INSECURE_DEV=1` turns off server certificate verification, so the connection can be impersonated by a man in the middle. Use it only for local development, never in production. For self-signed certificates, use `gg login --fingerprint` or `--ca-file`; see [gg login](/en/cli/reference#gg-login).
-:::
-
 ## Backup and migration
 
 - **Back up**: `settings.json`, `local.json`, `providers.json` (contains API keys; keep it safe), and `git-credentials` (contains tokens). They're all local configuration, and the server has no copy.

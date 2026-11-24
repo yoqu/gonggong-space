@@ -207,20 +207,8 @@ fn retry_cmd(server: &str, trust: &Trust) -> String {
     }
 }
 
-fn connect_error(server: &str, trust: &Trust, err: anyhow::Error) -> anyhow::Error {
-    let lower = format!("{err:#}").to_ascii_lowercase();
-    let tls_like = lower.contains("cert")
-        || lower.contains("tls")
-        || lower.contains("handshake")
-        || lower.contains("unknown issuer");
-    if server.starts_with("https:") && matches!(trust, Trust::System) && tls_like {
-        err.context(t!(
-            "无法连接服务器 {server}（证书校验失败；自签证书请加 --fingerprint <sha256> 或 --ca-file <证书路径>）",
-            server = server
-        ))
-    } else {
-        err.context(t!("无法连接服务器 {server}", server = server))
-    }
+fn connect_error(server: &str, err: anyhow::Error) -> anyhow::Error {
+    err.context(t!("无法连接服务器 {server}", server = server))
 }
 
 /// [`login`], asking the server to make a bot of `create_bot` on this machine (Agent 自助接入).
@@ -248,7 +236,7 @@ pub async fn login_as(
         })
         .send()
         .await
-        .map_err(|e| connect_error(server, &trust, e.into()))?;
+        .map_err(|e| connect_error(server, e.into()))?;
     if !res.status().is_success() {
         let status = res.status();
         let reason = match res.json::<ApiError>().await {
@@ -339,7 +327,7 @@ pub async fn connect(
                 Some(_) => t!("接入码已过期或已用过，改为在网页上确认这台电脑："),
                 None => t!("请在网页上确认这台电脑："),
             };
-            (request_link(&http, server, &trust, code, &machine, create_bot).await?, heading)
+            (request_link(&http, server, code, &machine, create_bot).await?, heading)
         }
     };
     let mut renewed = false;
@@ -350,7 +338,7 @@ pub async fn connect(
         let interval =
             std::time::Duration::from_millis(if request.interval_ms == 0 { 3000 } else { request.interval_ms });
         let ended = loop {
-            match poll_link(&http, server, &trust, &request).await? {
+            match poll_link(&http, server, &request).await? {
                 Some(LinkPollRes::Pending) => tokio::time::sleep(interval).await,
                 other => break other,
             }
@@ -365,7 +353,7 @@ pub async fn connect(
             _ if !renewed => {
                 renewed = true;
                 heading = t!("接入申请已过期，已重新发起：");
-                request = request_link(&http, server, &trust, code, &machine, create_bot).await?;
+                request = request_link(&http, server, code, &machine, create_bot).await?;
             }
             _ => bail!(t!(
                 "接入申请一直没有人确认，已停止等待；准备好后请重新运行 {cmd}",
@@ -378,7 +366,6 @@ pub async fn connect(
 async fn request_link(
     http: &reqwest::Client,
     server: &str,
-    trust: &Trust,
     code: Option<&str>,
     machine: &MachineInfo,
     create_bot: Option<AgentKind>,
@@ -392,7 +379,7 @@ async fn request_link(
         })
         .send()
         .await
-        .map_err(|e| connect_error(server, trust, e.into()))?;
+        .map_err(|e| connect_error(server, e.into()))?;
     let status = res.status();
     if status == reqwest::StatusCode::NOT_FOUND {
         // A server from before web confirmation.
@@ -416,7 +403,6 @@ async fn request_link(
 async fn poll_link(
     http: &reqwest::Client,
     server: &str,
-    trust: &Trust,
     request: &LinkRequestRes,
 ) -> Result<Option<LinkPollRes>> {
     let res = http
@@ -424,7 +410,7 @@ async fn poll_link(
         .json(&LinkPollReq { secret: request.secret.clone() })
         .send()
         .await
-        .map_err(|e| connect_error(server, trust, e.into()))?;
+        .map_err(|e| connect_error(server, e.into()))?;
     let status = res.status();
     if matches!(status.as_u16(), 401 | 404 | 409) {
         return Ok(None);

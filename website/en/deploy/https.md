@@ -1,6 +1,6 @@
 # HTTPS and certificates
 
-This page explains how the daemon verifies the server certificate, how to set up each of the two certificate options (trusted certificate, self-signed certificate), and how members' machines bind under each.
+This page explains how the daemon handles the server certificate, how to set up each of the two certificate options (trusted certificate, self-signed certificate), and how members' machines bind under each.
 
 ## Daemon connection rules
 
@@ -8,24 +8,24 @@ When the daemon on a member's machine (command-line `gg` and the desktop app) co
 
 | Server address | Allowed | Certificate verification |
 | --- | --- | --- |
-| `https://…` | Allowed | Verified against the system CA store by default; you can also specify a certificate fingerprint or CA file when binding |
+| `https://…` | Allowed | Any certificate (including self-signed) is accepted by default; it is verified only if you specify a certificate fingerprint or CA file when binding |
 | Local addresses such as `http://localhost`, `http://127.0.0.1` | Allowed | Not encrypted |
 | Any other `http://…` | **Rejected** with 「只允许通过 https:// 连接非本机服务器」 ("Non-local servers must use https://") | — |
 
-In other words, **when members' machines and the server are not the same machine, the server must have HTTPS enabled**. The verification method is decided at bind time and saved in the local binding information:
+In other words, **when members' machines and the server are not the same machine, the server must have HTTPS enabled**. The verification method is decided at bind time and saved in the local binding information. Binding without parameters just works; specify one when you need protection against a man in the middle:
 
 | Certificate | How to bind |
 | --- | --- |
-| Issued by a public CA (Let's Encrypt, etc.) | Use the connect link or command from 「绑定新机器」 (Bind new machine) on the web as is; no extra parameters |
-| Self-signed | `gg login --server <地址> --code <接入码> --fingerprint <证书指纹>`, which trusts only that one certificate |
+| Any certificate (default) | Use the connect link or command from 「绑定新机器」 (Bind new machine) on the web as is; no extra parameters, the certificate isn't verified |
+| Pin one certificate | `gg login --server <地址> --code <接入码> --fingerprint <证书指纹>`, which trusts only that one certificate |
 | Issued by an internal CA | `gg login --server <地址> --code <接入码> --ca-file <CA 证书 PEM 文件>` |
 
 (`<地址>` = server address, `<接入码>` = connect code, `<证书指纹>` = certificate fingerprint, `<CA 证书 PEM 文件>` = CA certificate PEM file.)
 
 `--fingerprint` and `--ca-file` are mutually exclusive, and both must be used with `--server`. A connect link (`gonggong://bind?…`) can also carry an `fp=<证书指纹>` parameter, which has the same effect as `--fingerprint`. For all parameters, see [Command reference](/en/cli/reference).
 
-::: warning Skipping the browser's certificate warning doesn't mean the daemon can connect
-Clicking 「继续访问」 (Proceed) in the browser only applies to the browser. For a server with a self-signed certificate, binding the daemon without `--fingerprint` or `--ca-file` fails with a certificate error.
+::: warning Certificates aren't verified by default
+When bound without `--fingerprint` or `--ca-file`, the daemon doesn't verify the server certificate, so on an untrusted network the connection can be impersonated by a man in the middle.
 :::
 
 ## Option 1: public domain + trusted certificate (recommended)
@@ -111,7 +111,7 @@ location ~ ^/(api|ws|livekit|downloads)(/|$) {
 
 | Binding method | After the certificate is renewed or replaced |
 | --- | --- |
-| System CAs (public certificate) | Connects as usual, **no rebinding needed** (including Let's Encrypt auto-renewal) |
+| Default (not verified) | Connects as usual, **no rebinding needed** |
 | `--ca-file` | Connects as usual if the new certificate is issued by the same CA |
 | `--fingerprint` | The fingerprint changes with the certificate, so you **must rebind**: generate a new connect code on the web and run `gg login` again with the new fingerprint as above. The machine's existing record and Bots are restored |
 
@@ -119,11 +119,7 @@ So give self-signed certificates a long enough validity period up front, and not
 
 ## Bindings from earlier versions
 
-Machines bound before v0.4.4 didn't save a certificate verification method and, after upgrading, verify against the system CAs. If the server uses a self-signed certificate, these machines fail to connect and need to run `gg login` again with `--fingerprint` or `--ca-file`.
-
-::: danger GONGGONG_INSECURE_DEV is for local development only
-When the daemon reads the environment variable `GONGGONG_INSECURE_DEV=1`, it disables certificate verification, and the connection can be impersonated by a man in the middle. Never set it on members' machines in production.
-:::
+Machines bound before v0.4.4 didn't save a certificate verification method and are treated as the default: any certificate is accepted.
 
 ## Related pages
 

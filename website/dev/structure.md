@@ -178,7 +178,7 @@
 | `html_render.rs`、`snapshot.rs` | 用本机 Chrome 系浏览器渲染 HTML 页面与预览首屏截图 |
 | `cast.rs`、`wechatide.rs` | 实时画面（按需启动 gg-cast 推流）、微信开发者工具 |
 | `open_apps.rs` | 用本地应用打开工作区 |
-| `tls.rs` | 连接服务器的 HTTP(S)/WS(S)：按系统 CA、`--ca-file` 或 `--fingerprint` 校验证书；`http://` 只允许本机地址 |
+| `tls.rs` | 连接服务器的 HTTP(S)/WS(S)：默认接受任意证书，显式 `--ca-file` 或 `--fingerprint` 时校验；`http://` 只允许本机地址 |
 | `net.rs` | 测量到服务器的延迟与带宽 |
 | `upgrade.rs` | 自升级：下载新版本、校验 sha256、替换自身并在空闲时重启 |
 | `revoke.rs` | 机器被吊销后清理托管工作区与令牌 |

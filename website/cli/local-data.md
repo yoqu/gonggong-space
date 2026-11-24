@@ -137,10 +137,6 @@ GONGGONG_HOME=/data/gonggong gg status    # 使用另一个数据目录
 gg --lang en doctor                       # 英文输出
 ```
 
-::: warning GONGGONG_INSECURE_DEV
-`GONGGONG_INSECURE_DEV=1` 会关闭服务器证书校验，连接可被中间人冒充，只用于本地开发，不要在正式环境设置。自签证书请用 `gg login --fingerprint` 或 `--ca-file`，见 [gg login](/cli/reference#gg-login)。
-:::
-
 ## 备份与迁移
 
 - **需要备份的**：`settings.json`、`local.json`、`providers.json`（含 API Key，妥善保管）、`git-credentials`（含令牌）。它们都是本机配置，服务器上没有副本。

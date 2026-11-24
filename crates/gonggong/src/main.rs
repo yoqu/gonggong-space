@@ -43,10 +43,10 @@ enum Cmd {
         /// One-time bind code shown on the Web (e.g. XXXX-XXXX).
         #[arg(long, requires = "server")]
         code: Option<String>,
-        /// Trust this SHA-256 certificate fingerprint (needed for a self-signed server).
+        /// Only accept the server certificate with this SHA-256 fingerprint (any certificate is accepted by default).
         #[arg(long, requires = "server", conflicts_with = "ca_file")]
         fingerprint: Option<String>,
-        /// Trust the PEM CA certificate at this path (needed for a private CA).
+        /// Only accept server certificates issued by the PEM CA at this path (any certificate is accepted by default).
         #[arg(long, requires = "server", conflicts_with = "fingerprint")]
         ca_file: Option<PathBuf>,
         /// Also have the server create a bot of this Agent on this computer and open a DM with it

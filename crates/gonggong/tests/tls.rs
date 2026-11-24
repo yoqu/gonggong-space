@@ -1,4 +1,4 @@
-//! Certificate verification against a real local rustls server with a self-signed certificate.
+//! Certificate handling against a real local rustls server with a self-signed certificate.
 use gonggong::bind;
 use gonggong::bots::Client;
 use gonggong::config::{Config, Trust};
@@ -124,12 +124,14 @@ const LOGIN: &str = r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊","
 const WRONG: &str = "00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF";
 
 #[tokio::test]
-async fn self_signed_certificates_are_not_trusted_by_default() {
-    let server = serve(Reply::Json(LOGIN)).await;
-    let err = bind::login(&server.url, "AAAA-AAAA", machine(), Trust::System).await.unwrap_err();
-    assert!(format!("{err:#}").contains("无法连接服务器"), "{err:#}");
-    let err = Client::new(&config(&server.url, Some(Trust::System))).unwrap().list().await.unwrap_err();
-    assert!(format!("{err:#}").contains("certificate"), "{err:#}");
+async fn any_certificate_is_accepted_by_login_https_wss_and_the_tunnel_by_default() {
+    let server = serve(Reply::Both).await;
+    let (cfg, _) = bind::login(&server.url, "AAAA-AAAA", machine(), Trust::System).await.unwrap();
+    assert_eq!(cfg.token, "mt_abc");
+    assert_eq!(cfg.tls_trust, Some(Trust::System));
+    assert!(Client::new(&cfg).unwrap().list().await.unwrap().is_empty());
+    tls::connect_ws(&cfg).await.unwrap();
+    tls::connect_tunnel(&cfg).await.unwrap();
 }
 
 #[tokio::test]
@@ -175,11 +177,9 @@ async fn a_fingerprint_is_shared_by_https_wss_and_the_tunnel() {
 }
 
 #[tokio::test]
-async fn old_https_configs_verify_with_system_roots_instead_of_skipping_verification() {
-    assert!(tls::http(&config("https://g.corp", None)).is_ok());
+async fn old_https_configs_without_a_trust_choice_accept_any_certificate() {
     let server = serve(Reply::Json("[]")).await;
-    let err = Client::new(&config(&server.url, None)).unwrap().list().await.unwrap_err();
-    assert!(format!("{err:#}").contains("certificate"), "{err:#}");
+    assert!(Client::new(&config(&server.url, None)).unwrap().list().await.unwrap().is_empty());
 }
 
 #[test]

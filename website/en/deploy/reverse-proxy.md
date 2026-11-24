@@ -219,7 +219,7 @@ acme.sh --install-cert -d example-preview.com \
 - Issue the main site certificate the same way (`-d gg.example.com`; you can also use `--nginx` for HTTP-01).
 
 ::: tip Certificate renewal doesn't affect the daemon
-The daemon only connects to the main site. When the main site uses a public CA certificate, the daemon verifies it against the system CAs and doesn't need to rebind after renewal; the preview domain's certificate has nothing to do with the daemon. See [HTTPS and certificates · Renewal and replacement](/en/deploy/https#renewal-and-replacement).
+The daemon only connects to the main site. A daemon bound the default way (without `--fingerprint`) doesn't need to rebind after the certificate is renewed; the preview domain's certificate has nothing to do with the daemon. See [HTTPS and certificates · Renewal and replacement](/en/deploy/https#renewal-and-replacement).
 :::
 
 You can also use Caddy instead of Nginx: it obtains and renews certificates automatically, though wildcard certificates need a Caddy build with the plugin for your DNS provider.

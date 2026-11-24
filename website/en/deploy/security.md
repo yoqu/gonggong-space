@@ -29,7 +29,7 @@ This page summarizes the security design of Gonggong Space: who can sign in, how
 ## Transport
 
 - The daemon must use `https://` to connect to a non-local server; `http://` is allowed only for local addresses such as `localhost` and `127.0.0.1`.
-- The daemon verifies the server certificate: against the system CA store by default; for a self-signed certificate, pin the fingerprint with `--fingerprint` at bind time, and for an internal CA, specify it with `--ca-file`. A mismatched certificate is refused.
+- The daemon accepts any server certificate by default; to verify it, pin the fingerprint with `--fingerprint` or specify a CA with `--ca-file` at bind time, and a mismatched certificate is refused.
 - The install script behind 「发给你的 Agent」 (Send to your agent) on the web downloads `gg` with `curl` and verifies its sha256, so it also requires the server certificate to be trusted.
 
 See [HTTPS and certificates](/en/deploy/https).
@@ -122,7 +122,7 @@ Admin actions (accounts, managing Bots on others' behalf, revoking machines, MCP
 
 - Anyone with both `GONGGONG_DATA_KEY` and the database can decrypt all encrypted data; plaintext is visible in the server process's memory.
 - Messages, cards, and approval commands are redacted but stored in plaintext.
-- Setting `GONGGONG_INSECURE_DEV=1` on a member's machine disables certificate verification; use it only for local development.
+- A member's machine bound without `--fingerprint` / `--ca-file` doesn't verify the server certificate, so on an untrusted network it can be impersonated by a man in the middle.
 - Without disk encryption, base-branch code is written to disk in plaintext.
 - Attachment integrity is checked only when the end of the file is read, so tampering shows up as an aborted download rather than an upfront rejection.
 - When the server sits behind a reverse proxy, per-IP rate limits are shared by everyone. See [Reverse proxy · Client IP](/en/deploy/reverse-proxy#client-ip).

@@ -95,14 +95,14 @@ GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
 WEB_HOST=0.0.0.0 pnpm dev:web                    # 服务器与 Web 共用这份证书
 ```
 
-daemon 会校验服务器证书：默认按系统 CA，自签证书需要显式信任它的 SHA-256 指纹：
+daemon 默认接受任意服务器证书，直接 `gg login --server https://127.0.0.1:5173 --code <绑定码>` 即可。要调试证书校验，可显式固定 SHA-256 指纹：
 
 ```bash
 openssl x509 -in .gonggong-dev/tls/cert.pem -noout -fingerprint -sha256
 ./target/debug/gg login --server https://127.0.0.1:5173 --code <绑定码> --fingerprint <上一行输出的指纹>
 ```
 
-私有 CA 签发的证书用 `--ca-file <CA 证书.pem>`。只在本地调试时，也可以设置 `GONGGONG_INSECURE_DEV=1` 关闭证书校验（daemon 会打印警告，不要在其他场合使用）。详见 [HTTPS 与证书](/deploy/https)。
+或用 `--ca-file <CA 证书.pem>` 按私有 CA 校验。详见 [HTTPS 与证书](/deploy/https)。
 
 ## 推送前自检 pnpm check
 

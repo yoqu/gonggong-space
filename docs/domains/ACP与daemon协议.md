@@ -16,7 +16,7 @@
 - 协议版本 `PROTOCOL_VERSION = 1`（TS 与 Rust 各一处）；`hello.protocol` 低于它即 `reject protocol`，附 `minProtocol` 与可用的 `upgrade`，daemon 收到后 `apply_now` 立即升级。
 - 同一机器只保留一条连接（`DaemonHub.register` 关掉旧的）；请求-应答走 `hub.request(requestId, 期望的回复 t, 超时)`，离线或超时得 undefined。
 - 心跳：daemon 每 `heartbeatSec` 发 `heartbeat` + WebSocket ping，上个 ping 未回 pong 即判链路死；服务端 `heartbeatSec × offlineMisses` 没收到任何消息即断开。
-- TLS：非本机只允许 https/wss，默认系统 CA，私有 CA `--ca-file`、自签 `--fingerprint`；HTTP 与 WS 共用 `tls.rs` 配置；`GONGGONG_INSECURE_DEV=1` 仅限本地开发。
+- TLS：非本机只允许 https/wss，默认接受任意服务器证书（Windows 等系统证书库常缺链，2026-11 起绑定即用），显式 `--fingerprint` / `--ca-file` 才校验；HTTP 与 WS 共用 `tls.rs` 配置。
 
 ## 能力协商与版本兼容
 - 可选能力用 `hello.features`（`DaemonFeature` 枚举，Rust 侧 `FEATURE_*` 常量）声明，服务端存在 `DaemonHub.caps`，`hub.features(machineId)` 查询；未知能力名保留不报错。

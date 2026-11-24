@@ -219,7 +219,7 @@ acme.sh --install-cert -d example-preview.com \
 - 主站证书用同样方法签发（`-d gg.example.com`，也可用 `--nginx` 走 HTTP-01）。
 
 ::: tip 证书续期不影响 daemon
-daemon 只连主站。主站用公共 CA 证书时 daemon 按系统 CA 校验，续期后不需要重新绑定；预览域名的证书与 daemon 无关。详见 [HTTPS 与证书 · 续期与更换](/deploy/https#续期与更换)。
+daemon 只连主站。默认绑定（不带 `--fingerprint`）的 daemon 在证书续期后不需要重新绑定；预览域名的证书与 daemon 无关。详见 [HTTPS 与证书 · 续期与更换](/deploy/https#续期与更换)。
 :::
 
 也可以用 Caddy 代替 Nginx：它能自动申请和续期证书，泛域名证书需要使用带对应 DNS 服务商插件的 Caddy 构建。

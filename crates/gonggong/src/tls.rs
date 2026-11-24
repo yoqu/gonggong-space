@@ -1,4 +1,4 @@
-//! HTTPS/WSS verifies the server by the system roots or an explicitly trusted certificate.
+//! HTTPS/WSS accepts any server certificate unless a fingerprint or CA file was explicitly trusted at login.
 use crate::config::{Config, Trust};
 use crate::t;
 use anyhow::{Context, Result, bail};
@@ -7,12 +7,10 @@ use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signat
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime, pem::PemObject};
 use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme};
 use std::net::IpAddr;
-use std::sync::{Arc, LazyLock, Once};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream};
-
-pub const INSECURE_ENV: &str = "GONGGONG_INSECURE_DEV";
 
 pub fn fingerprint(der: &[u8]) -> String {
     aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, der)
@@ -73,13 +71,6 @@ impl ServerCertVerifier for Verifier {
     }
 }
 
-/// Loaded once: reading the OS store (the macOS keychain) on every team-server request is slow and blocks a worker.
-static SYSTEM_ROOTS: LazyLock<Option<Arc<RootCertStore>>> = LazyLock::new(|| {
-    let mut roots = RootCertStore::empty();
-    roots.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
-    (!roots.is_empty()).then(|| Arc::new(roots))
-});
-
 pub struct Transport {
     config: Arc<ClientConfig>,
 }
@@ -89,12 +80,12 @@ impl Transport {
         let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
         let builder = ClientConfig::builder_with_provider(provider.clone()).with_safe_default_protocol_versions()?;
         let config = match trust {
-            Trust::System => {
-                let Some(roots) = SYSTEM_ROOTS.clone() else {
-                    bail!(t!("无法加载系统 CA 证书，请使用 --ca-file 或 --fingerprint 显式信任服务器证书"));
-                };
-                builder.with_root_certificates(roots).with_no_client_auth()
-            }
+            // The OS root store is unreliable (Windows often lacks the chain of a valid public certificate), so
+            // binding must just work: verification is opt-in via --fingerprint / --ca-file.
+            Trust::System => builder
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(Verifier { pin: None, provider }))
+                .with_no_client_auth(),
             Trust::CaFile { path } => {
                 let mut roots = RootCertStore::empty();
                 let certs = CertificateDer::pem_file_iter(path)
@@ -115,17 +106,6 @@ impl Transport {
                 .with_no_client_auth(),
         };
         Ok(Transport { config: Arc::new(config) })
-    }
-
-    fn insecure() -> Self {
-        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
-        let config = ClientConfig::builder_with_provider(provider.clone())
-            .with_safe_default_protocol_versions()
-            .expect("aws-lc-rs supports the default protocol versions")
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(Verifier { pin: None, provider }))
-            .with_no_client_auth();
-        Transport { config: Arc::new(config) }
     }
 }
 
@@ -149,18 +129,6 @@ pub fn transport(server: &str, trust: Option<&Trust>) -> Result<Option<Transport
     if !server.starts_with("https:") {
         return Ok(None);
     }
-    if std::env::var(INSECURE_ENV).is_ok_and(|v| v == "1") {
-        static WARN: Once = Once::new();
-        WARN.call_once(|| {
-            eprintln!(
-                "{}",
-                t!("警告：{env}=1，已关闭服务器证书校验，连接可被中间人冒充。只可用于本地开发！", env = INSECURE_ENV)
-            )
-        });
-        return Ok(Some(Transport::insecure()));
-    }
-    // Configs saved before tlsTrust existed must keep the daemon starting (and able to auto-upgrade): verify against
-    // the system roots; a self-signed server then needs `gg login --fingerprint`.
     Ok(Some(Transport::new(trust.unwrap_or(&Trust::System))?))
 }
 

@@ -8,19 +8,11 @@ pub(super) const EN: &[(&str, &str)] = &[
         "服务器证书指纹不匹配，拒绝连接：期望 {pin}，实际 {actual}",
         "Server certificate fingerprint mismatch; expected {pin}, got {actual}",
     ),
-    (
-        "无法加载系统 CA 证书，请使用 --ca-file 或 --fingerprint 显式信任服务器证书",
-        "Couldn't load system CA certificates; use --ca-file or --fingerprint to trust the server certificate explicitly",
-    ),
     ("CA 证书文件格式错误：{path}", "Invalid CA certificate file: {path}"),
     ("CA 证书文件没有可用证书：{path}", "No usable certificate in CA file: {path}"),
     ("服务器地址无效：{server}", "Invalid server address: {server}"),
     ("只允许通过 https:// 连接非本机服务器：{server}", "Non-local servers must use https://: {server}"),
     ("不支持的服务器协议 {scheme}://，请使用 https://", "Unsupported server protocol {scheme}://; use https://"),
-    (
-        "警告：{env}=1，已关闭服务器证书校验，连接可被中间人冒充。只可用于本地开发！",
-        "Warning: {env}=1 disables server certificate verification. A man-in-the-middle can impersonate the server. Local development only!",
-    ),
     ("不支持用 {app} 打开", "Can't open with {app}"),
     ("本机没有安装 {app}", "{app} is not installed on this computer"),
     ("工作区目录不存在：{path}", "The workspace directory doesn't exist: {path}"),
@@ -131,10 +123,6 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("缺少接入链接中的代码", "Missing the code of the connect link"),
     ("接入链接中的代码格式应为 XXXX-XXXX", "The code in the connect link should look like XXXX-XXXX"),
     ("无法连接服务器 {server}", "Can't connect to server {server}"),
-    (
-        "无法连接服务器 {server}（证书校验失败；自签证书请加 --fingerprint <sha256> 或 --ca-file <证书路径>）",
-        "Can't connect to server {server} (certificate check failed; for self-signed certificates, add --fingerprint <sha256> or --ca-file <path>)",
-    ),
     (
         "接入链接已失效（已过期或已被使用），请在 Web 端重新生成",
         "The connect link is no longer valid (expired or already used); generate a new one on the Web",
