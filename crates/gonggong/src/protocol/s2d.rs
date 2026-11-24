@@ -295,6 +295,11 @@ pub enum ServerToDaemon {
     PresetsSync { presets: Vec<Preset> },
     #[serde(rename = "tools.cmd")]
     ToolsCmd(ToolsCmd),
+    /// The CLI connectors to watch (needs [`FEATURE_CONNECTORS`]).
+    #[serde(rename = "connectors.sync")]
+    ConnectorsSync { connectors: Vec<ConnectorSpec> },
+    #[serde(rename = "connectors.cmd")]
+    ConnectorsCmd(ConnectorsCmd),
     #[serde(rename = "providers.cmd")]
     ProvidersCmd(Box<ProvidersCmd>),
     #[serde(rename = "ccswitch.read", rename_all = "camelCase")]

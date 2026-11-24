@@ -15,8 +15,8 @@ use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
     AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalMcp, ApprovalRequest, Attachment,
-    AutoSource, CacheUsage, Choice, DaemonToServer, McpCall, McpServer, ModelChoice, Question, RunDone, RunEvent,
-    RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
+    AutoSource, Choice, DaemonToServer, McpCall, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome,
+    RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
@@ -1452,12 +1452,6 @@ fn add_usage(a: Option<AcpUsage>, b: Option<AcpUsage>) -> Option<AcpUsage> {
 }
 
 /// The prompt cache of a turn, when the agent reports it (Claude: `inputTokens` leaves the cached ones out).
-fn cache_of(u: &AcpUsage) -> Option<CacheUsage> {
-    let read = u.cached_read_tokens?;
-    let total = u.input_tokens + read + u.cached_write_tokens.unwrap_or(0);
-    (total > 0).then_some(CacheUsage { read, total })
-}
-
 fn truncate(s: &str) -> String {
     s.chars().take(ERROR_MAX).collect()
 }
@@ -1697,6 +1691,7 @@ pub(crate) async fn run(
             cwd: Some(turn.req.cwd.as_path()),
             mcp_servers: &s.mcp_servers,
             ask: Some(&ask),
+            cli_profiles: &s.cli_profiles,
         };
         let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env, &process).await {
             Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await,
@@ -1807,7 +1802,8 @@ async fn connect(
                 watch: None,
             };
             let secrets = env_digest(&first.req.start.env);
-            let hidden = first.req.start.hidden_tools.clone();
+            // The CLI shims are on the process PATH too.
+            let hidden = (first.req.start.hidden_tools.clone(), first.req.start.cli_profiles.clone());
             let tier = first.req.start.bot.tier;
             let cwd = first.req.cwd.clone();
             let mut turn = first;
@@ -1845,7 +1841,7 @@ async fn connect(
                     || turn.skills.names != conv.skills.names
                     || turn.plugins != conv.plugins
                     || env_digest(&turn.req.start.env) != secrets
-                    || turn.req.start.hidden_tools != hidden
+                    || (&turn.req.start.hidden_tools, &turn.req.start.cli_profiles) != (&hidden.0, &hidden.1)
                     // An agent may take its sandbox with the process (`tiers.restartOnChange`).
                     || (crate::adapters::get(turn.req.start.bot.agent_kind).is_some_and(|a| a.restarts_on_tier())
                         && turn.req.start.bot.tier != tier)
@@ -2046,7 +2042,7 @@ impl Conversation<'_> {
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
                 let error = result.as_ref().err().cloned();
-                self.shared.report_context(&session, result.as_ref().ok().and_then(|r| cache_of(r.usage.as_ref()?)));
+                self.shared.report_context(&session, result.as_ref().ok().and_then(|r| r.usage.as_ref()));
                 self.shared.post_turn(self.shared.ending(result.as_ref().map_err(drop))).await;
                 self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
                 // A failed prompt may mean a broken adapter: restart it for the next turn.

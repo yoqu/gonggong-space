@@ -233,6 +233,7 @@ impl Rig {
             skills: vec![],
             plugins: vec![],
             hidden_tools: vec![],
+            cli_profiles: vec![],
             artifacts: vec![],
             artifact_exclude: exclude.iter().map(|d| d.to_string()).collect(),
             command: None,

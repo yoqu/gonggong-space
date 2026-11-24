@@ -444,6 +444,7 @@ fn run_start(run_id: &str, cwd: &Path, text: &str, artifacts: Vec<DaemonArtifact
         skills: vec![],
         plugins: vec![],
         hidden_tools: vec![],
+        cli_profiles: vec![],
         artifacts,
         artifact_exclude: vec![],
         command: None,

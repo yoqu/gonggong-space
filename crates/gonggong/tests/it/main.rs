@@ -6,6 +6,8 @@ mod attachments;
 mod bind;
 mod bots;
 mod cast;
+#[cfg(unix)]
+mod connectors;
 mod contract;
 mod daemon;
 mod engine;
