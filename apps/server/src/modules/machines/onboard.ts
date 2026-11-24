@@ -137,11 +137,16 @@ const read = (name: string) => readFileSync(join(FILES, name), 'utf8')
 
 /** Public: install.md (for the agent), install.sh (the steps) and where gg is for a platform. */
 export function onboardRoutes(ctx: Ctx, app: FastifyInstance) {
-  app.get('/api/install.md', async (req, reply) =>
-    reply
+  app.get('/api/install.md', async (req, reply) => {
+    const server = await serverUrl(ctx, req)
+    return reply
       .type('text/markdown; charset=utf-8')
-      .send(read('install.md').replaceAll('{{SERVER}}', await serverUrl(ctx, req))),
-  )
+      .send(
+        read('install.md')
+          .replaceAll('{{SERVER_ENCODED}}', encodeURIComponent(server))
+          .replaceAll('{{SERVER}}', server),
+      )
+  })
   app.get('/api/install.sh', async (req, reply) =>
     reply
       .type('text/x-shellscript; charset=utf-8')
@@ -157,4 +162,10 @@ export function onboardRoutes(ctx: Ctx, app: FastifyInstance) {
       return { version: release.version, url, sha256: build.sha256 }
     },
   )
+  // A stable link to the current desktop installer, for an agent that cannot run the shell script (Windows).
+  app.get<{ Params: { platform: string } }>('/api/install/desktop/:platform', async (req, reply) => {
+    const build = (await daemonRelease(ctx))?.desktop?.[req.params.platform]
+    if (!build) return fail('not_found', '这个平台还没有发布桌面客户端')
+    return reply.redirect(build.url.startsWith('/') ? `${await serverUrl(ctx, req)}${build.url}` : build.url)
+  })
 }

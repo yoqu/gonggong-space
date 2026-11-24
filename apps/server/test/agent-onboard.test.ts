@@ -180,6 +180,29 @@ describe('install.md and install.sh', () => {
     expect(proxied.body).not.toContain('http://gg.example.com')
   })
 
+  it('on Windows hands the user a one-click download of the desktop app and the bind link to paste into it', async () => {
+    const md = (await t.app.inject({ url: '/api/install.md', headers: { host: 'gg.example.com' } })).body
+    expect(md).toContain('http://gg.example.com/api/install/desktop/windows-x86_64')
+    expect(md).toContain('gonggong://bind?server=http%3A%2F%2Fgg.example.com&code=<接入码>')
+
+    const url = '/api/install/desktop/windows-x86_64'
+    expect((await t.app.inject({ url })).statusCode).toBe(404)
+    await t.db.insert(systemParams).values({
+      key: 'daemonRelease',
+      value: {
+        version: '9.9.9',
+        builds: {},
+        desktop: {
+          'windows-x86_64': { url: '/downloads/Gonggong_9.9.9_x64-setup.exe', sha256: 'a'.repeat(64) },
+        },
+      },
+    })
+    const res = await t.app.inject({ url, headers: { host: 'gg.example.com', 'x-forwarded-proto': 'https' } })
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('https://gg.example.com/downloads/Gonggong_9.9.9_x64-setup.exe')
+    expect((await t.app.inject({ url: '/api/install/desktop/linux-x86_64' })).statusCode).toBe(404)
+  })
+
   it('install.sh downloads gg, checks it, logs in with the code and the agent, and starts the service', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'gg-install-'))
     const log = join(dir, 'calls.log')

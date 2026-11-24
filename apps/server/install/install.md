@@ -17,7 +17,7 @@ first time, so explain each step in one short sentence in their language.
   (see step 2).
 - If the script says the machine is already bound to another server, stop and ask the user; never delete or edit
   `~/.gonggong` yourself.
-- This works on macOS and Linux. On Windows, tell the user to use the desktop app from the 绑定新机器 page instead.
+- The script works on macOS and Linux. On Windows, do not run it: follow [On Windows](#on-windows) instead.
 - If you cannot run shell commands yourself, give the user each command to paste into their Terminal and read back
   what it printed.
 
@@ -126,3 +126,27 @@ first time, so explain each step in one short sentence in their language.
 7. **Wrap up** in the user's language with a short checklist: machine connected (bound and running), which Agent CLI
    the bot uses and whether it is signed in, where to see it on the web, and how to start chatting. If
    `~/.local/bin` is not on their PATH, mention they can run `~/.local/bin/gg`.
+
+## On Windows
+
+The shell script does not run on Windows; the desktop app (共工空间 for Windows) does the same job. Do not run
+installers yourself; hand the user two things in one message, in their language:
+
+1. **The download link**, as a clickable Markdown link: [下载共工空间 Windows 客户端]({{SERVER}}/api/install/desktop/windows-x86_64).
+   It always points at the latest installer. Tell the user to click it, run the downloaded `…_x64-setup.exe` and
+   follow the installer (if Windows SmartScreen warns, click 更多信息 → 仍要运行).
+2. **The 接入链接** with their code filled in, in a code block so it is easy to copy:
+
+   ```text
+   gonggong://bind?server={{SERVER_ENCODED}}&code=<接入码>
+   ```
+
+   Tell the user to copy it before opening the app: on first start the app reads it from the clipboard (or they
+   paste it into 接入链接), checks the server, and they click 绑定. If the code has expired, they get a new link from
+   the 绑定新机器 dialog on the web (点「在客户端中打开」 opens the app with it).
+
+The desktop app runs `gg` itself and finds the Agent CLIs installed on the machine. Then continue with step 5
+above: on {{SERVER}}/machines the machine shows 在线; if no bot was created for it yet, click 新建 Bot on that
+machine, pick the Agent CLI from step 1, and open the new direct chat (step 6). Signing the CLI in (step 4) works from
+the machine's Agent 与供应商 tab, which can open the login in a terminal on that machine. If the download link
+answers 404, no Windows build is published on this server yet: tell the user to ask their admin.
