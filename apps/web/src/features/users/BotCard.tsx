@@ -33,7 +33,7 @@ export function botIntro(prompt: string) {
 }
 
 /**
- * A bot's card: owner, agent, state and its system prompt as intro; @TA and 新对话 while it is in the group.
+ * A bot's card: owner, agent, state and its system prompt as intro; @TA and 新会话 while it is in the group.
  * Unknown (deleted) bots get no card.
  */
 export function BotCardTrigger({
@@ -100,7 +100,7 @@ export function BotCardTrigger({
             inGroup
               ? [
                   mentionAction(groupId, bot.name, hover.close, scope),
-                  { label: t('新对话'), icon: 'arrow-clockwise', variant: 'default', onClick: renew },
+                  { label: t('新会话'), icon: 'arrow-clockwise', variant: 'default', onClick: renew },
                 ]
               : undefined
           }

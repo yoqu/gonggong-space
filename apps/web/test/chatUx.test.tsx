@@ -363,6 +363,34 @@ describe('scroll position', () => {
     expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
   })
 
+  it('clears the new-message count only on arriving, and a wheel mid-glide hands the scroll back', async () => {
+    mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
+    renderAt()
+    await screen.findByText('你好')
+    const el = timelineEl()
+    scrollUp(el)
+    const other = (seq: number) => msg({ seq, authorId: 'u2', authorName: '李建国', body: `新的 ${seq}` })
+    push({ t: 'message.new', message: other(3) })
+    const scrollTo = vi.fn()
+    el.scrollTo = scrollTo as unknown as typeof el.scrollTo
+    fireEvent.click(screen.getByRole('button', { name: '1 条新消息' }))
+    expect(scrollTo).toHaveBeenCalledWith({ top: 1600, behavior: 'smooth' })
+    expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
+
+    // The user scrolls up mid-way: the glide stops, nothing was read, and a new arrival leaves the view where it is.
+    el.scrollTop = 1000
+    fireEvent.wheel(el)
+    expect(screen.getByRole('button', { name: '1 条新消息' })).toBeTruthy()
+    push({ t: 'message.new', message: other(4) })
+    expect(el.scrollTop).toBe(1000)
+    expect(screen.getByRole('button', { name: '2 条新消息' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '2 条新消息' }))
+    el.scrollTop = 1600
+    fireEvent.scroll(el)
+    expect(screen.queryByRole('button', { name: /条新消息|回到底部/ })).toBeNull()
+  })
+
   it('rolls the new-message count in place on every arrival', async () => {
     mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
     renderAt()
@@ -722,6 +750,23 @@ describe('chat header', () => {
     const members = await screen.findByRole('button', { name: '群成员：2 人，2 个 Bot' })
     expect(members.textContent).toContain('2')
     expect(document.querySelector('.pn-chathead__sub')?.textContent).not.toContain('2 人')
+  })
+})
+
+describe('empty group', () => {
+  it('asks to add a bot when the group has none', async () => {
+    mockApi({ messages: [], runs: [] }, { 'GET /groups': () => [group({ botIds: [] })] })
+    renderAt()
+    expect(await screen.findByText('群里还没有 Bot，先添加一个进来再 @ 它开始工作。')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '添加 Bot' }))
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+  })
+
+  it('keeps the @ hint once the group has bots', async () => {
+    mockApi({ messages: [], runs: [] })
+    renderAt()
+    await screen.findByText('还没有消息')
+    expect(screen.queryByRole('button', { name: '添加 Bot' })).toBeNull()
   })
 })
 
@@ -1099,6 +1144,29 @@ describe('未读体验 (plan 未读与通知)', () => {
     fireEvent.click(within(main).getByRole('button', { name: '标为已读' }))
     await waitFor(() => expect(within(main).queryByText('第 5 条')).toBeNull())
     expect(reads(calls)).toContainEqual({})
+  })
+
+  it('全部未读 says why an inline reply failed', async () => {
+    mockApi(
+      { messages: [], runs: [] },
+      {
+        'GET /unreads': () => ({
+          groups: [{ group: group({ unread: 1 }), messages: [theirs(5)], more: false }],
+        }),
+        'POST /groups/g1/messages': () => {
+          throw new TypeError('Failed to fetch')
+        },
+      },
+    )
+    renderAt('/unreads')
+    const main = await screen.findByRole('region', { name: '全部未读' })
+    await within(main).findByText('第 5 条')
+    fireEvent.change(within(main).getByRole('textbox', { name: '回复…' }), { target: { value: '收到' } })
+    fireEvent.click(within(main).getByRole('button', { name: '发送' }))
+    await waitFor(() =>
+      expect(useToasts.getState().items.at(-1)).toMatchObject({ type: 'error', title: '发送失败' }),
+    )
+    expect(useToasts.getState().items.at(-1)?.message).toBeTruthy()
   })
 
   it('全部未读 reads every group at once from its header, then says all caught up', async () => {

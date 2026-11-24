@@ -2,8 +2,8 @@ import type { MessageDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { pad } from '../../lib/time'
-import { Button, Dialog, Input, type MenuItem, Presence } from '../../ui'
-import { remindPresets, savedApi, useSaved } from './store'
+import { Button, Dialog, Input, type MenuItem, Presence, toast } from '../../ui'
+import { remindLabel, remindPresets, savedApi, useSaved } from './store'
 
 const local = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -63,20 +63,43 @@ export function useSaveMenu(message: MessageDto | null) {
         },
       ]
     : []
+  const save = (id: string, at: Date | null) =>
+    void savedApi.save(id, at).then((ok) => {
+      if (!ok) return
+      toast({
+        type: 'success',
+        message: at
+          ? t('已加入稍后处理，{time} 提醒', { time: remindLabel(at.toISOString()) })
+          : t('已加入稍后处理'),
+      })
+    })
+  // As on the 稍后处理 page: 撤销 puts it back with the reminder it had.
+  const remove = (id: string) =>
+    void savedApi.take(id).then((remindAt) => {
+      if (remindAt === undefined) return
+      toast({
+        type: 'success',
+        message: t('已移除#later'),
+        action: {
+          label: t('撤销#undo'),
+          onClick: () => void savedApi.save(id, remindAt ? new Date(remindAt) : null),
+        },
+      })
+    })
   /** Handles the menu's value; false when it is not one of these. */
   const select = (value: string) => {
     if (!message) return false
-    if (value === 'unsave') void savedApi.remove(message.id)
+    if (value === 'unsave') remove(message.id)
     else if (value === 'remind:custom') setCustom(true)
     else if (value.startsWith('remind:'))
-      void savedApi.save(message.id, remindPresets().find((p) => p.value === value)?.at ?? null)
+      save(message.id, remindPresets().find((p) => p.value === value)?.at ?? null)
     else return false
     return true
   }
   const dialog = (
     <Presence>
       {custom && message ? (
-        <RemindDialog onPick={(at) => void savedApi.save(message.id, at)} onClose={() => setCustom(false)} />
+        <RemindDialog onPick={(at) => save(message.id, at)} onClose={() => setCustom(false)} />
       ) : null}
     </Presence>
   )

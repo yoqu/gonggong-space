@@ -49,6 +49,7 @@ import {
   Icon,
   Presence,
   PullDownButton,
+  RollingNumber,
   ShortcutContent,
   toast,
 } from '../ui'
@@ -58,6 +59,7 @@ import { activityOf } from './convActivity'
 import { useInspector } from './inspector'
 import { useSelectionCapsule } from './selectionCapsule'
 import { useSession } from './session'
+import { useHeldOrder, useReorderGlide } from './sidebarOrder'
 import { useWorkbench } from './workbench'
 import { alertCount, lastText, rowCount, useWorkspace } from './workspace'
 
@@ -318,6 +320,7 @@ const GroupRow = memo(function GroupRow({
         className={cx('pn-conv', dm && !g.botIds.length && 'pn-conv--closed')}
         title={dm ? where : undefined}
         data-testid={`group-item-${g.id}`}
+        data-id={g.id}
         tabIndex={tabStop ? 0 : -1}
         onKeyDown={(e) =>
           keyNav(e, e.currentTarget.closest<HTMLElement>('.sidebar__scroll'), '.pn-conv', { select: true })
@@ -520,18 +523,6 @@ export const byPin = <R extends Row>(list: R[]) => {
   return [...list].sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || at(b).localeCompare(at(a)))
 }
 
-/** While `held` (the pointer is over the list) rows keep their places so a click lands where it aimed; newcomers go last. */
-function useHeldOrder<R extends { id: string }>(list: R[], held: boolean) {
-  const shown = useRef<string[]>([])
-  if (!held) {
-    shown.current = list.map((g) => g.id)
-    return list
-  }
-  const at = new Map(shown.current.map((id, i) => [id, i]))
-  const place = (r: R) => at.get(r.id) ?? at.size
-  return [...list].sort((a, b) => place(a) - place(b))
-}
-
 /** 星标 / 团队分区 / my own sections / 频道 / 私信 hold the conversations; 终端 sits below them. */
 type BuiltIn = 'star' | 'group' | 'dm'
 type Section = {
@@ -678,6 +669,7 @@ export function Sidebar({
   const done = shown.filter(isDone)
   const open = useHeldOrder(byPin(shown.filter((g) => !isDone(g))), hovered)
   const terminals = useHeldOrder(byPin(onlyFlagged ? [] : spaces), hovered)
+  const glide = useReorderGlide(open.map((g) => g.id).join())
   const [folded, toggleFold] = useFolded()
   /** The section just unfolded: its rows ease in once. */
   const [revealed, setRevealed] = useState('')
@@ -869,7 +861,11 @@ export function Sidebar({
         <>
           {sec.label}
           {sec.team && sec.depth === 1 ? <span className="sidebar__teamtag">{t('团队')}</span> : null}
-          {sec.sec && loaded ? <span className="sidebar__count">{countOf(sec)}</span> : null}
+          {sec.sec && loaded ? (
+            <span className="sidebar__count">
+              <RollingNumber value={countOf(sec)} />
+            </span>
+          ) : null}
         </>,
         sec.fold,
         actionsOf(sec),
@@ -939,7 +935,7 @@ export function Sidebar({
               <LaterRow />
             </nav>
           ) : null}
-          <section aria-label={t('会话#list')}>
+          <section ref={glide} aria-label={t('会话#list')}>
             {anything ? (
               sections.map(renderSection)
             ) : (

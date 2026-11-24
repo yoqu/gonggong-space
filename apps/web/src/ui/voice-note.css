@@ -34,7 +34,7 @@
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  transition: opacity var(--spring-smooth);
+  transition: opacity var(--fade-in);
 }
 /* Blur inside the clipped layer so the light stays within the capsule instead of haloing around it. */
 .ui-voice__glow > span {
@@ -45,57 +45,61 @@
 .ui-voice[data-playing="true"] .ui-voice__glow {
   opacity: 0.42;
 }
+/* Each <i> spans the capsule so its translate percentages move the blob (::before) across the capsule. */
 .ui-voice__glow i {
   position: absolute;
-  top: 50%;
+  inset: 0;
+  transform: translate(0, 50%);
+  animation: ui-voice-drift 7s ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+.ui-voice__glow i::before {
+  content: "";
+  position: absolute;
+  top: 0;
   left: 0;
   width: calc(var(--voice-h) * 1.6);
   aspect-ratio: 1;
   margin: calc(var(--voice-h) * -0.8) 0 0 calc(var(--voice-h) * -0.8);
   border-radius: 50%;
   background: var(--voice-accent);
-  animation: ui-voice-drift 7s ease-in-out infinite alternate;
-  animation-play-state: paused;
+  scale: var(--voice-blob-scale, 1);
 }
 .ui-voice[data-playing="true"] .ui-voice__glow i {
   animation-play-state: running;
 }
 .ui-voice__glow i:nth-child(2) {
   opacity: 0.8;
-  scale: 0.75;
+  --voice-blob-scale: 0.75;
   animation-duration: 5.3s;
   animation-delay: -2.1s;
   animation-direction: alternate-reverse;
 }
 .ui-voice__glow i:nth-child(3) {
   opacity: 0.7;
-  scale: 1.15;
+  --voice-blob-scale: 1.15;
   animation-duration: 8.6s;
   animation-delay: -4.4s;
 }
 .ui-voice__glow i:nth-child(4) {
   opacity: 0.6;
-  scale: 0.6;
+  --voice-blob-scale: 0.6;
   animation-duration: 4.7s;
   animation-delay: -1.2s;
   animation-direction: alternate-reverse;
 }
 @keyframes ui-voice-drift {
   0% {
-    left: 4%;
-    top: 100%;
+    transform: translate(4%, 100%);
   }
   35% {
-    left: 46%;
-    top: 85%;
+    transform: translate(46%, 85%);
   }
   65% {
-    left: 72%;
-    top: 0%;
+    transform: translate(72%, 0%);
   }
   100% {
-    left: 98%;
-    top: 100%;
+    transform: translate(98%, 100%);
   }
 }
 
@@ -119,7 +123,7 @@
   transition: scale var(--spring-interactive);
 }
 .ui-voice__play:active {
-  scale: 0.92;
+  scale: var(--press-icon);
 }
 .ui-voice__play svg {
   width: 72%;
@@ -223,9 +227,9 @@
     animation: none;
   }
   .ui-voice__glow i:nth-child(1) {
-    left: 20%;
+    transform: translate(20%, 50%);
   }
   .ui-voice__glow i:nth-child(3) {
-    left: 80%;
+    transform: translate(80%, 50%);
   }
 }

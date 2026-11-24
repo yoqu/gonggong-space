@@ -79,7 +79,7 @@
   }
 }
 .ui-video__big:active {
-  scale: 0.96;
+  scale: var(--press-button);
 }
 
 /* Buffering */
@@ -96,6 +96,12 @@
   border-radius: 50%;
   pointer-events: none;
   animation: ui-video-spin 0.8s linear infinite;
+}
+/* Slowed rather than stopped, like .ui-spinner. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-video__spinner {
+    animation-duration: 3s;
+  }
 }
 @keyframes ui-video-spin {
   to {
@@ -180,15 +186,17 @@
 .ui-video__rail {
   position: relative;
   flex: 1;
-  height: 4px;
+  height: 6px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.24);
-  transition: height var(--fade-fast);
+  /* Thin at rest, full height on hover: scaled rather than resized so the bar never reflows. */
+  scale: 1 calc(2 / 3);
+  transition: scale var(--spring-interactive);
 }
 .ui-video__progress:hover .ui-video__rail,
 .ui-video__progress[data-scrubbing] .ui-video__rail,
 .ui-video__progress:focus-visible .ui-video__rail {
-  height: 6px;
+  scale: 1;
 }
 .ui-video__progress:focus-visible .ui-video__rail {
   box-shadow: 0 0 0 2px var(--accent);
@@ -218,7 +226,7 @@
   background: var(--video-fg);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   scale: 0;
-  transition: scale var(--fade-fast);
+  transition: scale var(--spring-interactive);
 }
 .ui-video__progress:hover .ui-video__thumb,
 .ui-video__progress[data-scrubbing] .ui-video__thumb,
@@ -226,8 +234,9 @@
   scale: 1;
 }
 @media (hover: none) {
+  /* The resting rail is squashed to 2/3; stretch the thumb back so it stays round. */
   .ui-video__thumb {
-    scale: 0.85;
+    scale: 0.85 1.275;
   }
 }
 .ui-video__tip {
@@ -275,7 +284,7 @@
   }
 }
 .ui-video__btn:active {
-  scale: 0.92;
+  scale: var(--press-icon);
 }
 .ui-video__btn:focus-visible {
   outline: 2px solid var(--accent);
@@ -300,31 +309,42 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Volume: the slider slides out next to the speaker */
+/* Volume: the slider unfolds over the time readout next to the speaker (scaled, so the bar never reflows). */
 .ui-video__volume {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
 }
 .ui-video__slider {
   --video-volume: 1;
-  width: 0;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  width: 72px;
   height: 16px;
-  margin: 0;
+  margin: -8px 0 0;
   opacity: 0;
+  scale: 0 1;
+  transform-origin: left center;
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
   cursor: pointer;
   transition:
-    width var(--spring-snappy),
-    opacity var(--fade-in),
-    margin var(--spring-snappy);
+    scale var(--spring-snappy),
+    opacity var(--fade-in);
 }
 .ui-video__volume:hover .ui-video__slider,
 .ui-video__volume:focus-within .ui-video__slider {
-  width: 72px;
-  margin: 0 var(--space-6) 0 var(--space-2);
   opacity: 1;
+  scale: 1;
+}
+.ui-video__volume + .ui-video__time {
+  transition: opacity var(--fade-fast);
+}
+.ui-video__volume:is(:hover, :focus-within) + .ui-video__time {
+  opacity: 0;
 }
 @media (hover: none) {
   .ui-video__slider {

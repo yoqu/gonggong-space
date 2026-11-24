@@ -57,7 +57,7 @@
 /* Switching modules: the tile sinks under the finger, and the new module's icon pops in. */
 @media (prefers-reduced-motion: no-preference) {
   .ui-rail__item:active .ui-rail__tile {
-    scale: 0.9;
+    scale: var(--press-icon);
   }
 }
 .ui-rail__item[aria-current="page"] .ui-rail__tile > svg {

@@ -200,15 +200,20 @@ export function WorksPage() {
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
-        {groups && !groups.length ? (
-          <Button size="small" variant="primary" icon="plus" onClick={() => setNoCreation(true)}>
+        {groups && groups.length <= 1 ? (
+          <Button
+            size="small"
+            variant="primary"
+            icon="plus"
+            onClick={() => (groups[0] ? create(groups[0].id) : setNoCreation(true))}
+          >
             {t('新建')}
           </Button>
         ) : (
           <MenuButton
             className="ui-btn ui-btn--primary ui-btn--small"
             aria-label={t('新建')}
-            title={t('选一个群，在群聊里创作')}
+            title={t('选一个群，在群里创作')}
             disabled={!groups}
             align="end"
             items={(groups ?? []).map((g) => ({ label: g.title, value: g.id, icon: 'message' as const }))}
@@ -360,7 +365,7 @@ export function WorksPage() {
                 ? undefined
                 : scope === 'team'
                   ? t('团队内设为「团队可见」的作品会出现在这里')
-                  : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')
+                  : t('在群里发起创作，产出的原型和幻灯片会汇总到这里')
             }
             action={
               filtered && list.length ? (

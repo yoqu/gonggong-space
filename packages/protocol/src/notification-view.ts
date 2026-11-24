@@ -10,6 +10,25 @@ export interface NotificationView {
   href: string
 }
 
+/** Requests settled elsewhere (resolveNotifications takes exactly these); until then the notification may be the only place to act on them, so clearing keeps them. */
+export const AWAITING_NOTIFICATION_TYPES = [
+  'approval',
+  'question',
+  'sync_conflict',
+  'sync_drift',
+  'bot_share_request',
+  'join_request',
+  'git_operation_request',
+  'install_request',
+  'listing_submitted',
+  'plugin_trust',
+  'link_request',
+] as const satisfies readonly NotificationDto['type'][]
+export type AwaitingNotificationType = (typeof AWAITING_NOTIFICATION_TYPES)[number]
+
+export const awaitsAction = (n: Pick<NotificationDto, 'type' | 'resolvedAt'>) =>
+  !n.resolvedAt && (AWAITING_NOTIFICATION_TYPES as readonly string[]).includes(n.type)
+
 /** Human text of a notification, shared by the in-app center and the browser push; `tr` renders it in the reader's language. */
 export function notificationView(n: NotificationDto, tr: (t: I18nText) => string): NotificationView {
   const p = (k: string) => String(n.payload[k] ?? '')

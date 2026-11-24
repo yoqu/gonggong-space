@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import { Button, Dialog, FileIcon, Icon, Lightbox, Presence, toast } from '../../ui'
 import { mentionInChat } from '../chat/mention'
 import { FileViewer, viewKind } from '../files/FileViewer'
@@ -27,6 +28,8 @@ export interface UploadItem {
   thumb?: string
   progress: number
   upload?: Upload
+  /** The upload failed: the chip stays to retry with the same file. */
+  failed?: boolean
   abort: () => void
 }
 
@@ -48,6 +51,24 @@ export function useUploads(groupId: string) {
     setItems((list) => list.filter((i) => i.key !== key))
   }
 
+  const start = (key: number, file: File) => {
+    const { done, abort } = uploadFile(groupId, file, (progress) => patch(key, { progress }))
+    done.then(
+      (upload) => patch(key, { upload, progress: 100 }),
+      (e: Error) => {
+        if (e.name === 'AbortError') return drop(key)
+        patch(key, { failed: true })
+        toastError(e, file.name)
+      },
+    )
+    return abort
+  }
+
+  const retry = (key: number) => {
+    const item = live.current.find((i) => i.key === key)
+    if (item) patch(key, { failed: false, progress: 0, abort: start(key, item.file) })
+  }
+
   const add = (files: File[]) => {
     let room = MAX_ATTACHMENTS - live.current.length
     const added: UploadItem[] = []
@@ -61,14 +82,7 @@ export function useUploads(groupId: string) {
         break
       }
       const key = ++seq
-      const { done, abort } = uploadFile(groupId, file, (progress) => patch(key, { progress }))
-      done.then(
-        (upload) => patch(key, { upload, progress: 100 }),
-        (e: Error) => {
-          drop(key)
-          if (e.name !== 'AbortError') toast({ type: 'error', message: `${file.name}：${e.message}` })
-        },
-      )
+      const abort = start(key, file)
       const image = file.type.startsWith('image/')
       added.push({
         key,
@@ -90,10 +104,22 @@ export function useUploads(groupId: string) {
     drop(key)
   }
 
-  /** Puts back the files of a message the server refused; their uploads are still unbound, so nothing is re-sent. */
+  /** Puts back the files of an unsent message; their uploads are still unbound, so nothing is re-sent. */
   const restore = (list: UploadItem[]) => {
-    const back = list.map((i) => ({ ...i, key: ++seq, thumb: i.thumb && URL.createObjectURL(i.file) }))
-    live.current = [...live.current, ...back].slice(0, MAX_ATTACHMENTS)
+    const room = Math.max(0, MAX_ATTACHMENTS - live.current.length)
+    const back = list
+      .slice(0, room)
+      .map((i) => ({ ...i, key: ++seq, thumb: i.thumb && URL.createObjectURL(i.file) }))
+    const left = list.slice(room).map((i) => i.name)
+    if (left.length)
+      toast({
+        type: 'warning',
+        message: t('每条消息最多 {n} 个附件，{names} 没有放回', {
+          n: MAX_ATTACHMENTS,
+          names: left.join('、'),
+        }),
+      })
+    live.current = [...live.current, ...back]
     setItems(live.current)
   }
 
@@ -116,10 +142,12 @@ export function useUploads(groupId: string) {
     items,
     add,
     remove,
+    retry,
     restore,
     clear,
     ids: items.flatMap((i) => (i.upload ? [i.upload.id] : [])),
     uploading: items.some((i) => !i.upload),
+    failed: items.some((i) => i.failed),
   }
 }
 
@@ -233,7 +261,6 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
   if (!uploads.items.length) return null
   const viewing = uploads.items.find((i) => i.key === viewKey)
   const viewable = uploads.items.filter((i) => i.thumb)
-  const image = uploads.items.some((i) => i.image)
   return (
     <div className="att-chips">
       {uploads.items.map((i) => (
@@ -294,7 +321,11 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           )}
           {i.thumb ? <span className="att-chip__name">{i.name}</span> : null}
           <span className="att-chip__size">{fmtSize(i.size)}</span>
-          {i.upload ? null : (
+          {i.failed ? (
+            <button type="button" className="att-chip__retry" onClick={() => uploads.retry(i.key)}>
+              {t('上传失败 · 重试')}
+            </button>
+          ) : i.upload ? null : (
             <>
               <span className="att-chip__progress">{i.progress}%</span>
               <span className="att-chip__bar" aria-hidden="true" style={{ scale: `${i.progress / 100} 1` }} />
@@ -326,6 +357,11 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           </Dialog>
         ) : null}
       </Presence>
+      {uploads.failed ? (
+        <span className="att-chips__note att-chips__note--failed" role="status">
+          {t('有附件上传失败，请重试或移除')}
+        </span>
+      ) : null}
       <span
         className="att-chips__note"
         title={t('{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git', {
@@ -333,7 +369,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           max: MAX_ATTACHMENTS,
         })}
       >
-        {`${t('{n} / {max} · Bot 能读到这些文件', { n: uploads.items.length, max: MAX_ATTACHMENTS })}${image ? t(' · 图片：agent 支持时同时以 ACP 图片发送') : ''}`}
+        {t('{n} / {max} · Bot 能读到这些文件', { n: uploads.items.length, max: MAX_ATTACHMENTS })}
       </span>
     </div>
   )

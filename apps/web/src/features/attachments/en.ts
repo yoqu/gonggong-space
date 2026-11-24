@@ -1,17 +1,16 @@
 export default {
-  'agent 声明支持图片时以 ACP 图片内容直接发送，同时落盘供按路径读取':
-    'Sent as ACP image content when the agent supports images, and saved to disk to read by path',
-  '视频不直接发送，agent 按路径读取': "Videos aren't sent directly; the agent reads them by path",
-  '音频不直接发送，agent 按路径读取': "Audio isn't sent directly; the agent reads it by path",
+  '直接发给 Bot 看': 'Shown to the Bot directly',
+  'Bot 会打开文件读取': 'The Bot opens the file to read it',
+  '上传失败 · 重试': 'Upload failed · Retry',
   附件加载失败: "Couldn't load the attachment",
   '来源#from': 'From',
   大小: 'Size',
   位置: 'Location',
   '发送给 Bot': 'Sent to Bot',
-  工作树: 'Working tree',
-  '已加入 .git/info/exclude，不进 git': 'Listed in .git/info/exclude, kept out of git',
   '{name} 超过 50 MB，未添加': '{name} is over 50 MB and was not added',
   '每条消息最多 {n} 个附件': 'Up to {n} attachments per message',
+  '每条消息最多 {n} 个附件，{names} 没有放回': 'Up to {n} attachments per message; {names} not put back',
+  '有附件上传失败，请重试或移除': 'An attachment failed to upload. Retry or remove it',
   '引用 {who}': 'Quoting {who}',
   引用内容一起发送: 'The quote is sent along',
   '已自动 @ Bot，删掉 @ 就只引用、不触发': 'The Bot is @-ed; delete the @ to quote without triggering it',
@@ -23,8 +22,6 @@ export default {
   '{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git':
     '{n} / {max} · saved to the workspace under .gonggong/attachments/, kept out of git',
   '{n} / {max} · Bot 能读到这些文件': '{n} / {max} · Bots can read these files',
-  ' · 图片：agent 支持时同时以 ACP 图片发送':
-    ' · images: also sent as ACP images when the agent supports them',
   '：': ': ',
   在工作台查看: 'Open in workbench',
   查看大图: 'View full size',

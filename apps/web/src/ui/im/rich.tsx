@@ -40,6 +40,7 @@ export function CodeBlock({
         <button
           type="button"
           className="pn-code__copy"
+          data-copied={copied || undefined}
           onClick={async () => {
             try {
               await copyText(code)
@@ -49,7 +50,7 @@ export function CodeBlock({
             }
           }}
         >
-          <Icon name={copied ? 'check' : 'copy'} />
+          <Icon key={copied ? 'check' : 'copy'} name={copied ? 'check' : 'copy'} />
           {copied ? t('已复制') : t('复制')}
         </button>
         <span className="pn-code__live" role="status">

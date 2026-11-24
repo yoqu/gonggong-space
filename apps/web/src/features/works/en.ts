@@ -4,7 +4,7 @@ export default {
   我创建的: 'Created by me',
   团队共享: 'Team shared',
   搜索作品: 'Search works',
-  '选一个群，在群聊里创作': 'Pick a group and create in its chat',
+  '选一个群，在群里创作': 'Pick a group and create in its chat',
   还没有开启创作插件的群: 'None of your groups has a creation plugin on',
   '打开 {title}': 'Open {title}',
   仅自己可见: 'Only me',
@@ -14,7 +14,7 @@ export default {
   还没有团队共享的作品: 'No team-shared works yet',
   '团队内设为「团队可见」的作品会出现在这里': 'Works set to Team visibility in this team appear here',
   还没有作品: 'No works yet',
-  '在群聊里发起创作，产出的原型和幻灯片会汇总到这里':
+  '在群里发起创作，产出的原型和幻灯片会汇总到这里':
     'Start a creation in a group chat; the prototypes and slides it makes gather here',
   作品不存在或你没有权限查看: "This work doesn't exist or you can't view it",
   返回作品: 'Back to works',

@@ -1388,7 +1388,7 @@ export function Canvas({
           return ok
         }}
         onStatus={(id, status) => annotationAction(() => updateAnnotation(id, { status }))}
-        onDelete={(id) => annotationAction(() => deleteAnnotation(id))}
+        onDelete={(id) => deleteAnnotation(id).then(() => annotations.reload())}
         onFocus={(a: AnnotationDto) => {
           const n = screens.find((s) => s.file === a.file)
           if (!n) return

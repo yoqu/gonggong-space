@@ -197,12 +197,25 @@ it('explains an unreachable server and reloads on 刷新', async () => {
   render(<MarketPage go={go} />)
 
   expect(await screen.findByText('连不上服务器，请检查网络后刷新')).toBeTruthy()
-  expect(screen.getByText('尚未绑定')).toBeTruthy()
+  expect(screen.queryByText('尚未绑定')).toBeNull()
+  expect(screen.getByText('市场暂时加载不出来，请稍后重试').getAttribute('title')).toBe('尚未绑定')
 
   m.marketInstalls.mockResolvedValue([install({ listing: summary({ id: 'l1', title: 'wiki' }) })])
   m.marketListings.mockResolvedValue([])
   fireEvent.click(screen.getByRole('button', { name: '刷新' }))
   expect(await screen.findByText('wiki')).toBeTruthy()
   expect(m.marketInstalls).toHaveBeenCalledTimes(2)
+  expect(m.marketListings).toHaveBeenCalledTimes(2)
+})
+
+it('retries a list that failed to load from its own 重试', async () => {
+  m.marketInstalls.mockResolvedValue([])
+  m.marketListings.mockRejectedValueOnce('500 Internal Server Error').mockResolvedValue([])
+  render(<MarketPage go={go} />)
+  const failed = (await screen.findByText('市场暂时加载不出来，请稍后重试')).closest(
+    '[role="alert"]',
+  ) as HTMLElement
+  fireEvent.click(within(failed).getByRole('button', { name: '重试' }))
+  expect(await screen.findByText('市场里还没有条目')).toBeTruthy()
   expect(m.marketListings).toHaveBeenCalledTimes(2)
 })

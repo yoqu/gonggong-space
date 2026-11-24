@@ -322,7 +322,7 @@
     border-radius: inherit;
     background: currentColor;
     pointer-events: none;
-    animation: ui-live-ring 2.4s ease-out infinite;
+    animation: ui-live-ring var(--live-ring) infinite;
   }
 }
 .bot-page__prompt {

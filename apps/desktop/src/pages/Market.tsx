@@ -19,13 +19,14 @@ import { ipc } from '../ipc'
 import { fail, Section } from '../lib/ui'
 import type { PageProps } from '.'
 
-type Load<T> = { data: T[] } | { error: string } | null
+/** `raw` is the tauri command's own error, kept for the tooltip. */
+type Load<T> = { data: T[] } | { error: string; raw: string } | null
 
-/** The tauri command's error, with the HTTP client's wording for an unreachable server put plainly. */
+/** The tauri command's error put plainly: an unreachable server, else a generic try-again. */
 const errorText = (e: unknown) =>
   /error sending request|connection refused|timed out|dns error/i.test(String(e))
     ? t('连不上服务器，请检查网络后刷新')
-    : String(e)
+    : t('市场暂时加载不出来，请稍后重试')
 
 function useLoad<T>(load: () => Promise<T[]>, version: number): Load<T> {
   const [state, setState] = useState<Load<T>>(null)
@@ -33,7 +34,7 @@ function useLoad<T>(load: () => Promise<T[]>, version: number): Load<T> {
   useEffect(() => {
     load().then(
       (data) => setState({ data }),
-      (e) => setState({ error: errorText(e) }),
+      (e) => setState({ error: errorText(e), raw: String(e) }),
     )
   }, [load, version])
   return state
@@ -55,6 +56,7 @@ function List<T>({
   noMatch,
   className,
   row,
+  onRetry,
 }: {
   state: Load<T>
   query: string
@@ -63,9 +65,18 @@ function List<T>({
   noMatch: string
   className: string
   row: (item: T) => ReactNode
+  onRetry: () => void
 }) {
   if (!state) return <Skeleton count={2} />
-  if ('error' in state) return <Alert variant="error" title={t('加载失败')} description={state.error} />
+  if ('error' in state)
+    return (
+      <Alert
+        variant="error"
+        title={t('加载失败')}
+        description={<span title={state.raw}>{state.error}</span>}
+        onRetry={onRetry}
+      />
+    )
   const shown = state.data.filter((x) => matches(listing(x), query))
   return (
     <GroupBox className={className}>
@@ -154,6 +165,7 @@ export function MarketPage(_: PageProps) {
           query={q}
           listing={(i) => i.listing}
           className="dk-mine"
+          onRetry={reload}
           empty={t('「我的 Skill」里还没有条目')}
           noMatch={t('「我的 Skill」里没有匹配的条目')}
           row={(i) => {
@@ -186,6 +198,7 @@ export function MarketPage(_: PageProps) {
           query={q}
           listing={(l) => l}
           className="dk-market"
+          onRetry={reload}
           empty={t('市场里还没有条目')}
           noMatch={t('没有匹配的条目')}
           row={(l) => (

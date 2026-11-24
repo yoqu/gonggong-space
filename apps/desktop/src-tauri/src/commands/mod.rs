@@ -45,6 +45,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         workspaces::reveal,
         workspaces::reset_cd,
         workspaces::delete_workspace,
+        workspaces::workspace_changes,
         logs::diagnostics,
         logs::measure_net,
         logs::export_diagnostics,

@@ -100,7 +100,7 @@ export function NewTabMenu({
       : bots.length
         ? (() => {
             const anyOnline = bots.some((b) => machines.find((m) => m.id === b.machineId)?.online)
-            const reason = anyOnline ? t('还没有工作区') : t('机器离线')
+            const reason = anyOnline ? t('还没有工作区') : t('电脑离线')
             return [
               { separator: true as const },
               {

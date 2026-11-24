@@ -132,7 +132,8 @@ export function toast({
 }: Omit<ToastItem, 'id' | 'type' | 'count'> & { type?: ToastType }) {
   const [shown] = useToasts.getState().items
   if (shown && shown.type === type && shown.title === title && shown.message === message) {
-    useToasts.setState({ items: [{ ...shown, count: shown.count + 1 }] })
+    // The newest action wins: undoing a repeat acts on the latest occurrence.
+    useToasts.setState({ items: [{ ...shown, action: action ?? shown.action, count: shown.count + 1 }] })
     return shown.id
   }
   const id = nextId++

@@ -719,6 +719,10 @@ describe('mark (M)', () => {
     )
     fireEvent.click(within(rows[1] as HTMLElement).getByRole('button', { name: '解决' }))
     fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: '删除' }))
+    // Deleting asks first: nothing goes until confirmed.
+    const confirm = await screen.findByRole('alertdialog', { name: '要删除这条批注吗？' })
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
     await waitFor(() => {
       expect(bodies(calls, 'PATCH', '/annotations/n2')).toEqual([{ status: 'resolved' }])
       expect(calls.some((c) => c.method === 'DELETE' && c.path === '/annotations/n1')).toBe(true)

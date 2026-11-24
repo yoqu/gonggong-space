@@ -255,7 +255,7 @@
   height: 6px;
   border-radius: 50%;
   background: currentColor;
-  animation: pn-pulse 1.4s ease-in-out infinite;
+  animation: pn-pulse var(--pulse) infinite;
 }
 @keyframes pn-pulse {
   50% {

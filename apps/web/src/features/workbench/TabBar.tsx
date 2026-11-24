@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { ContextMenu, Icon, MenuButton, Spinner } from '../../ui'
 import { NewTabMenu } from './NewTabMenu'
+import { rememberTabTitle } from './open'
 import { TabLabel } from './TabContent'
 import type { TabMeta } from './types'
 
@@ -67,73 +68,76 @@ export function TabBar({
           }
           return (
             <TabLabel key={key} tab={tab}>
-              {(meta) => (
-                <ContextMenu
-                  className="bench-tab__ctx"
-                  items={[
-                    { label: t('关闭#close'), value: 'close' },
-                    { label: t('关闭其他标签页'), value: 'others', disabled: tabs.length < 2 },
-                    { label: t('关闭右侧标签页'), value: 'right', disabled: index === tabs.length - 1 },
-                    { label: t('关闭全部标签页'), value: 'all' },
-                  ]}
-                  onSelect={(v) => onMenu(v, key, index)}
-                >
-                  <div
-                    role="tab"
-                    aria-selected={selected}
-                    tabIndex={selected ? 0 : -1}
-                    title={meta.title}
-                    draggable
-                    className={cx('bench-tab', selected && 'bench-tab--active')}
-                    onClick={() => activate(key)}
-                    onMouseDown={(e) => {
-                      // Middle button would start autoscroll.
-                      if (e.button === 1) e.preventDefault()
-                    }}
-                    onAuxClick={(e) => {
-                      if (e.button === 1) closeTab(key)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        activate(key)
-                      } else if (e.key === 'Delete') closeTab(key)
-                    }}
-                    onDragStart={(e) => {
-                      dragging.current = index
-                      e.dataTransfer?.setData('text/plain', key)
-                    }}
-                    onDragOver={(e) => {
-                      if (dragging.current !== null) e.preventDefault()
-                    }}
-                    onDrop={drop}
-                    onDragEnd={() => {
-                      dragging.current = null
-                    }}
+              {(meta) => {
+                rememberTabTitle(key, meta.title)
+                return (
+                  <ContextMenu
+                    className="bench-tab__ctx"
+                    items={[
+                      { label: t('关闭#close'), value: 'close' },
+                      { label: t('关闭其他标签页'), value: 'others', disabled: tabs.length < 2 },
+                      { label: t('关闭右侧标签页'), value: 'right', disabled: index === tabs.length - 1 },
+                      { label: t('关闭全部标签页'), value: 'all' },
+                    ]}
+                    onSelect={(v) => onMenu(v, key, index)}
                   >
-                    <span className="bench-tab__icon">
-                      <Mark meta={meta} />
-                    </span>
-                    <span className="bench-tab__title">{meta.title}</span>
-                    {meta.badge ? <span className="bench-tab__badge">{meta.badge}</span> : null}
-                    {isFrameKey(key) && !live.has(key) ? (
-                      <Icon name="moon" size={11} label={t('休眠')} className="bench-tab__sleep" />
-                    ) : null}
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      className="bench-tab__close"
-                      aria-label={t('关闭 {title}', { title: meta.title })}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        closeTab(key)
+                    <div
+                      role="tab"
+                      aria-selected={selected}
+                      tabIndex={selected ? 0 : -1}
+                      title={meta.title}
+                      draggable
+                      className={cx('bench-tab', selected && 'bench-tab--active')}
+                      onClick={() => activate(key)}
+                      onMouseDown={(e) => {
+                        // Middle button would start autoscroll.
+                        if (e.button === 1) e.preventDefault()
+                      }}
+                      onAuxClick={(e) => {
+                        if (e.button === 1) closeTab(key)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          activate(key)
+                        } else if (e.key === 'Delete') closeTab(key)
+                      }}
+                      onDragStart={(e) => {
+                        dragging.current = index
+                        e.dataTransfer?.setData('text/plain', key)
+                      }}
+                      onDragOver={(e) => {
+                        if (dragging.current !== null) e.preventDefault()
+                      }}
+                      onDrop={drop}
+                      onDragEnd={() => {
+                        dragging.current = null
                       }}
                     >
-                      <Icon name="xmark" size={10} weight={2} />
-                    </button>
-                  </div>
-                </ContextMenu>
-              )}
+                      <span className="bench-tab__icon">
+                        <Mark meta={meta} />
+                      </span>
+                      <span className="bench-tab__title">{meta.title}</span>
+                      {meta.badge ? <span className="bench-tab__badge">{meta.badge}</span> : null}
+                      {isFrameKey(key) && !live.has(key) ? (
+                        <Icon name="moon" size={11} label={t('休眠')} className="bench-tab__sleep" />
+                      ) : null}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="bench-tab__close"
+                        aria-label={t('关闭 {title}', { title: meta.title })}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          closeTab(key)
+                        }}
+                      >
+                        <Icon name="xmark" size={10} weight={2} />
+                      </button>
+                    </div>
+                  </ContextMenu>
+                )
+              }}
             </TabLabel>
           )
         })}

@@ -362,13 +362,22 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
 
   const removeSelected = async () => {
     setDeleting(true)
+    let ok = 0
     for (const w of selected) {
       try {
         await api.post(`/machines/${machine.id}/workspaces/delete`, target(w))
+        ok++
       } catch (e) {
         toastError(e)
       }
     }
+    const failed = selected.length - ok
+    if (ok)
+      toast(
+        failed
+          ? { type: 'info', message: t('已删除 {ok} 个，{fail} 个失败', { ok, fail: failed }) }
+          : { type: 'success', message: t('已删除 {n} 个工作区', { n: ok }) },
+      )
     setDeleting(false)
     setConfirm(false)
     setPicked(new Set())
@@ -445,11 +454,11 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
           return (
             <div key={g.groupId} className="machine-admin__group">
               <span className="machine-admin__group-name">
-                {g.dm ? t('私聊') : (g.groupName ?? g.groupId)}
+                {g.dm ? t('私聊') : (g.groupName ?? t('已删除的群'))}
               </span>
               <GroupBox>
                 {ws.map((w) => {
-                  const name = w.botName ?? w.botId
+                  const name = w.botName ?? t('已删除的 Bot')
                   return (
                     <GroupRow
                       key={keyOf(w)}
@@ -491,6 +500,7 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
                           <Button
                             size="small"
                             variant="plain"
+                            title={t('压缩 Git 历史数据，不影响代码和未提交的改动')}
                             disabled={slimming !== null}
                             onClick={() => void slim(w)}
                           >

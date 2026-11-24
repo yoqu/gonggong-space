@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
 import { useRealtimeRefresh } from '../../lib/useRealtimeRefresh'
 import { Button, EmptyChatArt, EmptyState, FailedArt, Icon, Input, Mascot, toast, useLeaving } from '../../ui'
@@ -24,8 +25,8 @@ function Reply({ groupId }: { groupId: string }) {
       await api.post(`/groups/${groupId}/messages`, { body, clientId: uuid() })
       setBody('')
       toast({ type: 'success', message: t('已发送') })
-    } catch {
-      toast({ type: 'error', message: t('发送失败') })
+    } catch (e) {
+      toastError(e, t('发送失败'))
     } finally {
       setBusy(false)
     }

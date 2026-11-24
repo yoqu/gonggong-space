@@ -122,7 +122,7 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .works__card:active {
-    scale: 0.98;
+    scale: var(--press-card);
   }
 }
 .works__card:has(:focus-visible) {

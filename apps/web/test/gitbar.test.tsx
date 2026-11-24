@@ -761,7 +761,7 @@ describe('context meter', () => {
     fireEvent.click(await screen.findByRole('button', { name: '压缩上下文' }))
     await waitFor(() => expect(posted()).toEqual(['/compact @阿杰的 Claude']))
     fireEvent.click(meter)
-    fireEvent.click(await screen.findByRole('button', { name: '开新对话' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新会话' }))
     await waitFor(() => expect(posted()).toEqual(['/compact @阿杰的 Claude', '/new @阿杰的 Claude']))
   })
 
@@ -810,7 +810,7 @@ describe('context meter', () => {
     expect(full.dataset.level).toBe('critical')
     fireEvent.click(full)
     expect(
-      await screen.findByText(/已关闭自动压缩，用到 197k 时 Agent 会停下，需要手动压缩或开新对话/),
+      await screen.findByText(/已关闭自动压缩，用到 197k 时 Agent 会停下，需要手动压缩或开新会话/),
     ).toBeTruthy()
     expect(screen.getByText(/即将停下/)).toBeTruthy()
     expect(screen.queryByText(/自动压缩。$|Agent 会自动压缩/)).toBeNull()

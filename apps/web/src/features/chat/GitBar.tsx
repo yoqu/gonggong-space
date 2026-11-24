@@ -173,9 +173,9 @@ function BotWorkspaceMenu({
             {onNewSession ? (
               <BotMenuItem
                 icon="arrow-clockwise"
-                label={t('新对话')}
+                label={t('新会话')}
                 note={t('下一轮不带之前的上下文')}
-                aria={t('让 {name} 开新对话', { name })}
+                aria={t('让 {name} 开始新会话', { name })}
                 onClick={then(onNewSession)}
               />
             ) : null}

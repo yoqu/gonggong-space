@@ -2059,7 +2059,7 @@ describe('machine admin tabs', () => {
     // Removed, unused and the one idle for 40 days; the running one and the /cd dir are never counted.
     expect(within(list).getByText('可释放 3.0 KB')).toBeTruthy()
     expect(within(list).getByText('退款 v2 迁移')).toBeTruthy()
-    expect(within(list).getByText('g0')).toBeTruthy()
+    expect(within(list).getByText('已删除的群')).toBeTruthy()
     expect(within(list).getByText('私聊')).toBeTruthy()
     expect(within(list).getByText('40 天前使用')).toBeTruthy()
     expect(within(list).getByText('2 个未提交 · 1 个未推送')).toBeTruthy()
@@ -2069,8 +2069,7 @@ describe('machine admin tabs', () => {
     // Only removed and unused hosted workspaces can be picked.
     expect(within(list).getAllByRole('checkbox')).toHaveLength(2)
 
-    fireEvent.click(within(list).getByRole('checkbox', { name: 'b1' }))
-    fireEvent.click(within(list).getByRole('checkbox', { name: 'b3' }))
+    for (const box of within(list).getAllByRole('checkbox', { name: '已删除的 Bot' })) fireEvent.click(box)
     fireEvent.click(within(list).getByRole('button', { name: '删除所选' }))
     const confirm = await screen.findByRole('alertdialog', { name: '删除所选的 2 个工作区？' })
     expect(

@@ -155,6 +155,13 @@ export interface WorkspaceRow {
   context: ContextUsage | null
 }
 
+/** Work in a managed clone on no remote yet, across every local branch; `unknown` when git could not tell. */
+export interface WorkspaceChanges {
+  uncommitted: number
+  unpushed: number
+  unknown: boolean
+}
+
 interface BackupRow {
   name: string
   path: string
@@ -294,8 +301,11 @@ export const ipc = {
   workspaces: () => invoke<Workspaces>('workspaces'),
   reveal: (path: string) => invoke<void>('reveal', { path }),
   resetCd: (groupId: string, botId: string) => invoke<void>('reset_cd', { groupId, botId }),
-  deleteWorkspace: (groupId: string, botId: string, path: string) =>
-    invoke<void>('delete_workspace', { groupId, botId, path }),
+  /** Refused when there is more to lose than `seen`, what the confirmation showed. */
+  deleteWorkspace: (groupId: string, botId: string, path: string, seen: WorkspaceChanges) =>
+    invoke<void>('delete_workspace', { groupId, botId, path, seen }),
+  /** Zero without a repo; fails once the dir is no longer listed. */
+  workspaceChanges: (path: string) => invoke<WorkspaceChanges>('workspace_changes', { path }),
   diagnostics: () => invoke<Check[]>('diagnostics'),
   measureNet: () => invoke<NetResult>('measure_net'),
   /** Asks where to save; resolves with the written path, or null when cancelled. */

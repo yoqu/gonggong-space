@@ -40,6 +40,15 @@
   flex-direction: column;
   gap: var(--space-8);
 }
+.question__item[data-missing] .question__q::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--system-orange);
+}
 .question__q {
   display: flex;
   align-items: baseline;

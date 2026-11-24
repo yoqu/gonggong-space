@@ -80,7 +80,6 @@ describe('English dictionary', () => {
       '[草稿] ',
       ' · 点击预览',
       ' · 服务 {name}',
-      ' · 图片：agent 支持时同时以 ACP 图片发送',
       ' · 端口 {port}',
       ' · 中位 {h} 小时',
       ' · 主人将一并加入',

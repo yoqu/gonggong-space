@@ -42,7 +42,15 @@ export function useSaves() {
   }
   /** A value refused before it is sent (nothing to retry until it is changed). */
   const refuse = (key: string, error: string) => set(key, { phase: 'failed', error })
-  return { status: (key: string) => states[key], save, refuse }
+  /** Drops a refusal once the value is valid again without needing a save. */
+  const accept = (key: string) =>
+    setStates((x) => {
+      const s = x[key]
+      if (s?.phase !== 'failed' || s.retry) return x
+      const { [key]: _, ...rest } = x
+      return rest
+    })
+  return { status: (key: string) => states[key], save, refuse, accept }
 }
 
 /** 保存中… → 已保存 ✓ → 保存失败：reason [重试], beside the control it is about. */

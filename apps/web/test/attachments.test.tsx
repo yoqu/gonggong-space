@@ -288,7 +288,7 @@ describe('composer attachments', () => {
     pick(images!, [file('screen.png', 486 * 1024, 'image/png')])
     expect(await screen.findByText('screen.png')).toBeTruthy()
     expect(composer().getByText('486 KB')).toBeTruthy()
-    expect(screen.getByText(/1 \/ 10 · Bot 能读到这些文件 · 图片：/)).toBeTruthy()
+    expect(screen.getByText('1 / 10 · Bot 能读到这些文件')).toBeTruthy()
 
     pick(files!, [file('huge.zip', 51 * 1024 * 1024, 'application/zip')])
     expect(await screen.findByText('huge.zip 超过 50 MB，未添加')).toBeTruthy()
@@ -311,6 +311,33 @@ describe('composer attachments', () => {
       attachmentIds: ['up1', 'up2', 'up3', 'up4', 'up5', 'up6', 'up7', 'up8', 'up9'],
     })
     await waitFor(() => expect(screen.queryByText('screen.png')).toBeNull())
+  })
+
+  it('keeps a failed upload as a chip and retries it with the same file', async () => {
+    mockApi({})
+    let fail = true
+    vi.mocked(uploadFile).mockImplementation((_g, f) => ({
+      done: fail
+        ? Promise.reject(new Error('网络错误'))
+        : Promise.resolve({ id: 'up9', name: f.name, size: f.size, mime: f.type }),
+      abort: vi.fn(),
+    }))
+    renderChat()
+    await screen.findByTestId('bot-reply')
+    const [, files] = [...document.querySelectorAll('input[type=file]')] as HTMLInputElement[]
+    const picked = file('notes.txt', 10, 'text/plain')
+    pick(files!, [picked])
+    const retry = await composer().findByRole('button', { name: '上传失败 · 重试' })
+    expect(composer().getByText('notes.txt')).toBeTruthy()
+    expect(useToasts.getState().items.at(-1)).toMatchObject({ type: 'error', message: '网络错误' })
+    // 发送 is greyed out, and says why.
+    expect(composer().getByRole('status').textContent).toBe('有附件上传失败，请重试或移除')
+    fail = false
+    fireEvent.click(retry)
+    await waitFor(() => expect(composer().queryByRole('button', { name: '上传失败 · 重试' })).toBeNull())
+    expect(composer().queryByText('有附件上传失败，请重试或移除')).toBeNull()
+    expect(vi.mocked(uploadFile).mock.calls.at(-1)?.[1]).toBe(picked)
+    expect(composer().getByText('notes.txt')).toBeTruthy()
   })
 
   it('gives the uploaded files back to the composer when the server refuses the message', async () => {
@@ -530,13 +557,13 @@ describe('message attachments and preview', () => {
     expect(await within(pane()).findByRole('img', { name: 'shot.png' })).toBeTruthy()
     expect(pane().textContent).toContain('来源李建国')
     expect(pane().textContent).toContain('位置.gonggong/attachments/m2/shot.png')
-    expect(pane().textContent).toContain('发送给 Bot')
+    expect(pane().textContent).toContain('发送给 Bot直接发给 Bot 看')
 
     fireEvent.click(within(main).getByRole('button', { name: /ci\.log/ }))
     expect(await within(pane()).findByText('ERROR boom')).toBeTruthy()
     expect(within(pane()).getByText('ERROR boom').className).toContain('pv-line--error')
     expect(within(pane()).getByText('WARN slow').className).toContain('pv-line--warn')
-    expect(pane().textContent).toContain('工作树已加入 .git/info/exclude，不进 git')
+    expect(pane().textContent).not.toContain('.git/info/exclude')
 
     fireEvent.click(within(main).getByRole('button', { name: /spec\.md/ }))
     expect(await within(pane()).findByRole('heading', { name: '标题' })).toBeTruthy()
@@ -574,7 +601,7 @@ describe('message attachments and preview', () => {
     fireEvent.click(within(card).getByRole('button', { name: '在工作台查看' }))
     const pane = await screen.findByRole('region', { name: '工作台' })
     await waitFor(() => expect(pane.querySelector('audio')?.getAttribute('src')).toBe('/api/attachments/au1'))
-    expect(pane.textContent).toContain('音频不直接发送，agent 按路径读取')
+    expect(pane.textContent).toContain('Bot 会打开文件读取')
   })
 
   it('plays a video in its tile, falling back to a download when the browser cannot', async () => {

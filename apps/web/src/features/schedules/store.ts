@@ -34,7 +34,7 @@ export const schedulesApi = {
     api
       .post<ScheduleDto>(`/schedules/${s.id}/run`)
       .then(put)
-      .then(() => toast({ type: 'success', message: t('已触发「{name}」，结果见群聊', { name: s.name }) })),
+      .then(() => toast({ type: 'success', message: t('已触发「{name}」，结果见群里', { name: s.name }) })),
   remove: (s: ScheduleDto) =>
     api
       .del(`/schedules/${s.id}`)

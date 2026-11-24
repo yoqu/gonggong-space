@@ -24,6 +24,10 @@
 }
 .ui-field__hint--error {
   color: var(--label);
+  --enter-y: -2px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 .ui-field__hint-icon {
   margin-right: 4px;

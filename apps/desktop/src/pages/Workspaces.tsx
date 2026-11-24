@@ -16,7 +16,7 @@ import {
 import { useState } from 'react'
 import logo from '../assets/logo.svg'
 import { t } from '../i18n'
-import { ipc, type WorkspaceRow, type WorkspaceState } from '../ipc'
+import { ipc, type WorkspaceChanges, type WorkspaceRow, type WorkspaceState } from '../ipc'
 import { ContextBadge } from '../lib/ContextBadge'
 import { revealLabel, tildify } from '../lib/labels'
 import { fail, Section } from '../lib/ui'
@@ -45,12 +45,25 @@ function backupLabel(name: string, rows: WorkspaceRow[]) {
   return group && bot ? `${group} · ${bot} · ${mo}-${d} ${h}:${mi}:${s}` : name
 }
 
+/** `还有 3 处未提交的改动、2 个未推送的提交，删除后会丢失`, naming only what there is; null when nothing would be lost. */
+function lossWarning(c: WorkspaceChanges | null) {
+  if (c?.unknown) return t('无法确认是否有未保存的改动')
+  const parts = [
+    c?.uncommitted ? t('{n} 处未提交的改动', { n: c.uncommitted }) : null,
+    c?.unpushed ? t('{n} 个未推送的提交', { n: c.unpushed }) : null,
+  ].filter(Boolean)
+  return parts.length ? t('还有 {list}，删除后会丢失', { list: parts.join(t('、')) }) : null
+}
+
 export function WorkspacesPage(_: PageProps) {
   const os = useDaemon((s) => s.info?.machine.os)
   const { data, error, loading, reload: load } = useIpc(ipc.workspaces)
   // Kept after closing so the alert keeps its text while it animates out.
   const [doomed, setDoomed] = useState<WorkspaceRow | null>(null)
+  // What the confirmation shows; the delete is refused when there is more to lose by then.
+  const [seen, setSeen] = useState<WorkspaceChanges | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [checkingPath, setCheckingPath] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [resettingKey, setResettingKey] = useState<string | null>(null)
 
@@ -70,20 +83,40 @@ export function WorkspacesPage(_: PageProps) {
     }
   }
 
+  // Counted afresh: work may have landed on any branch since the list loaded.
+  const requestDelete = async (w: WorkspaceRow) => {
+    if (checkingPath) return
+    setCheckingPath(w.path)
+    try {
+      const changes = await ipc.workspaceChanges(w.path)
+      setDoomed(w)
+      setSeen(changes)
+      setConfirming(true)
+    } catch (e) {
+      fail(e)
+    } finally {
+      setCheckingPath(null)
+    }
+  }
+
+  const loss = lossWarning(seen)
+
   const closeConfirm = () => {
     if (!deleting) setConfirming(false)
   }
 
-  const remove = async (w: WorkspaceRow) => {
+  const remove = async (w: WorkspaceRow, shown: WorkspaceChanges) => {
     if (deleting) return
     setDeleting(true)
     try {
-      await ipc.deleteWorkspace(w.groupId, w.botId, w.path)
+      await ipc.deleteWorkspace(w.groupId, w.botId, w.path, shown)
       toast({ type: 'success', message: t('已删除 {path}', { path: tildify(w.path) }) })
       await load()
       setConfirming(false)
     } catch (e) {
       fail(e)
+      // Work may have landed while it was open: show the fresh count before another try.
+      await ipc.workspaceChanges(w.path).then(setSeen, () => {})
     } finally {
       setDeleting(false)
     }
@@ -139,13 +172,7 @@ export function WorkspacesPage(_: PageProps) {
             </Button>
           </span>
         ) : w.deletable ? (
-          <Button
-            size="small"
-            onClick={() => {
-              setDoomed(w)
-              setConfirming(true)
-            }}
-          >
+          <Button size="small" loading={checkingPath === w.path} onClick={() => void requestDelete(w)}>
             {t('删除…')}
           </Button>
         ) : (
@@ -201,7 +228,7 @@ export function WorkspacesPage(_: PageProps) {
         icon={<img src={logo} alt="" width={48} height={48} />}
         title={
           doomed
-            ? t('要从本机删除“{group} × {bot}”的工作区吗？', { group: doomed.group, bot: doomed.bot })
+            ? t('要从本机删除「{group} × {bot}」的工作区吗？', { group: doomed.group, bot: doomed.bot })
             : ''
         }
         message={
@@ -219,9 +246,10 @@ export function WorkspacesPage(_: PageProps) {
             variant: 'destructive',
             disabled: deleting,
             loading: deleting,
-            onClick: () => doomed && void remove(doomed),
+            onClick: () => doomed && seen && void remove(doomed, seen),
           },
         ]}
+        detail={loss ? <Alert variant="warning" title={loss} /> : null}
       />
     </>
   )

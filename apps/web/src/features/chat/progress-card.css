@@ -68,10 +68,10 @@
   animation: var(--spring-bouncy) pg-ring-in;
 }
 .pg-stage[data-fresh] .pg-check__tick {
-  animation: pg-tick-draw 280ms 120ms ease-out both;
+  animation: pg-tick-draw var(--draw) 120ms both;
 }
 .pg-stage[data-fresh] > .pg-stage__name {
-  animation: pg-strike 360ms 320ms ease-out both;
+  animation: pg-strike var(--draw) 320ms both;
 }
 @keyframes pg-ring-in {
   from {
@@ -159,7 +159,7 @@
 }
 /* The check it was standing on pops out once it leaves. */
 .run-progress[data-walking] .pg-stage[data-status="done"]:not([data-walker]) > svg {
-  animation: pg-check-pop 380ms var(--spring-bouncy, ease-out);
+  animation: pg-check-pop var(--spring-bouncy);
 }
 
 /* Skip: squash, two bounces on the way, squash on landing (costumes run their own SVG gaits/hops). */

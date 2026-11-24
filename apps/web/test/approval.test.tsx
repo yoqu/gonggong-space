@@ -282,22 +282,22 @@ describe('ApprovalBlock', () => {
     [
       approval({ status: 'rejected', decidedByName: '王磊', decidedAt: NOW.toISOString() }),
       {},
-      '王磊 已拒绝 · 10:21 · agent 将自行绕路',
+      '王磊 已拒绝 · 10:21 · Bot 会换个方式继续',
     ],
     [
       approval({ status: 'rejected', decidedByName: null, decidedAt: NOW.toISOString() }),
       {},
-      '按规则自动拒绝 · 10:21 · agent 将自行绕路',
+      '按规则自动拒绝 · 10:21 · Bot 会换个方式继续',
     ],
     [
       approval({ status: 'rejected', decidedByName: null, decidedAt: null }),
       {},
-      '按规则自动拒绝 · agent 将自行绕路',
+      '按规则自动拒绝 · Bot 会换个方式继续',
     ],
     [
       approval({ status: 'expired', decidedAt: NOW.toISOString() }),
       {},
-      '超时未处理，已自动拒绝 · 10:21 · agent 将自行绕路',
+      '超时未处理，已自动拒绝 · 10:21 · Bot 会换个方式继续',
     ],
     [
       approval({ status: 'void', voidReason: 'stopped' }),
@@ -345,7 +345,7 @@ describe('ApprovalBlock', () => {
       const autoRejected = approval({ status: 'rejected', decidedByName: null, decidedAt: NOW.toISOString() })
       const { container, rerender } = render(<EnApprovalBlock run={run([autoRejected])} />)
       const doneText = () => container.querySelector('.approval__done > span:last-child')?.textContent
-      expect(doneText()).toBe('Auto-rejected by rule · 10:21 · the Agent will try another way')
+      expect(doneText()).toBe('Auto-rejected by rule · 10:21 · the Bot will carry on another way')
       expect(doneText()).not.toContain('Rejected by')
       expect(enApprovalText(autoRejected)).toBe('Auto-rejected by rule')
 
@@ -354,7 +354,7 @@ describe('ApprovalBlock', () => {
           run={run([approval({ status: 'rejected', decidedByName: null, decidedAt: null })])}
         />,
       )
-      expect(doneText()).toBe('Auto-rejected by rule · the Agent will try another way')
+      expect(doneText()).toBe('Auto-rejected by rule · the Bot will carry on another way')
 
       const unnamedApproved = approval({
         status: 'approved',

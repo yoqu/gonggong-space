@@ -70,11 +70,11 @@
   background: var(--label-tertiary);
   translate: -50% 0;
   transition:
-    width var(--spring-interactive),
+    scale var(--spring-interactive),
     background-color var(--fade-in);
 }
 .cdock__grip:hover::before {
-  width: 44px;
+  scale: calc(44 / 36) 1;
   background: var(--label-secondary);
 }
 
@@ -211,7 +211,7 @@
   border-radius: inherit;
   background: currentColor;
   pointer-events: none;
-  animation: ui-live-ring 1.6s ease-out infinite;
+  animation: ui-live-ring var(--live-ring) infinite;
 }
 .cdock__hud[data-tone="done"] .cdock__hud-dot {
   background: var(--system-green);
@@ -319,7 +319,7 @@
   border-radius: inherit;
   background: currentColor;
   pointer-events: none;
-  animation: ui-live-ring 1.8s ease-out infinite;
+  animation: ui-live-ring var(--live-ring) infinite;
 }
 .cdock__orb-badge[data-tone="attention"]::after {
   animation-duration: 1.6s;

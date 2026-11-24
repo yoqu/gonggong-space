@@ -23,7 +23,7 @@
   font-size: 14px;
   line-height: 1;
   cursor: default;
-  transition: transform var(--spring-interactive);
+  transition: scale var(--spring-interactive);
 }
 @media (pointer: coarse) {
   .reaction-pill__emoji {
@@ -33,7 +33,7 @@
   }
 }
 .reaction-pill__emoji:active {
-  transform: scale(0.9);
+  scale: var(--press-icon);
 }
 .reaction-pill__users {
   overflow: hidden;

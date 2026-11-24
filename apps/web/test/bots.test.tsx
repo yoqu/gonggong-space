@@ -268,7 +268,7 @@ describe('sidebar 我的 BOT', () => {
     expect(row.querySelector('.ui-avatar img')?.getAttribute('src')).toMatch(/^data:image\/svg/)
     expect(row.getAttribute('href')).toBe('/bot/b1')
     fireEvent.click(within(nav).getByRole('button', { name: '确认' }))
-    expect(await within(nav).findByText('wanglei-mbp · agent 缺失')).toBeTruthy()
+    expect(await within(nav).findByText('wanglei-mbp · Agent 缺失')).toBeTruthy()
     expect(within(nav).queryByRole('button', { name: '确认' })).toBeNull()
     await waitFor(() => expect(useWorkspace.getState().notifCount).toBe(0))
   })
@@ -1075,8 +1075,8 @@ describe('bot detail', () => {
     routes['GET /api/bots'] = () => [bot({ agentVersion: '1.0.128', agentMinVersion: '2.0.0' })]
     renderAt('/admin/bots', admin)
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
-    expect(within(detail).getByText('agent 版本低于适配器要求')).toBeTruthy()
-    expect(within(detail).getByText(/claude-code 1.0.128 低于 ACP 适配器要求的 2.0.0/)).toBeTruthy()
+    expect(within(detail).getByText('Claude Code 版本过低')).toBeTruthy()
+    expect(within(detail).getByText(/claude-code 1.0.128 低于需要的 2.0.0/)).toBeTruthy()
   })
 
   it('shows last-7-day usage and who used the bot in the admin panel', async () => {

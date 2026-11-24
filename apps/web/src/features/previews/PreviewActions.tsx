@@ -6,6 +6,7 @@ import { api } from '../../lib/api'
 import { attempt, toastError } from '../../lib/errors'
 import { go } from '../../lib/go'
 import { Icon, IconButton, Presence, toast } from '../../ui'
+import { ClosePreviewConfirm } from './ClosePreviewConfirm'
 import { startPreview } from './meta'
 import { ShareDialog } from './ShareDialog'
 import { openInWorkbench, openUrl } from './store'
@@ -25,11 +26,11 @@ export function PreviewActions({
 }) {
   const [busy, setBusy] = useState<string>()
   const [sharing, setSharing] = useState(false)
+  const [stopping, setStopping] = useState(false)
   const demo = useSession((s) => s.tenancy?.demoMode)
   const run = async (key: string, request: () => Promise<unknown>) => {
     setBusy(key)
-    const ok = await attempt(request)
-    if (ok && key === 'stop') onDone?.()
+    await attempt(request)
     setBusy(undefined)
   }
   // 托管到服务器: a static site goes up as a work; any other page is handed to its bot to build and host.
@@ -126,14 +127,24 @@ export function PreviewActions({
             size="small"
             title={stopLabel}
             className="pv-actions__stop"
-            disabled={busy === 'stop'}
-            onClick={() => void run('stop', () => api.post(`/previews/${p.id}/close`, { stopService: true }))}
+            onClick={() => setStopping(true)}
           >
             {'stop' as const}
           </IconButton>
         </>
       ) : null}
       <Presence>{sharing ? <ShareDialog preview={p} onClose={() => setSharing(false)} /> : null}</Presence>
+      <Presence>
+        {stopping ? (
+          <ClosePreviewConfirm
+            preview={p}
+            mode="stop"
+            stopService
+            onDone={onDone}
+            onClose={() => setStopping(false)}
+          />
+        ) : null}
+      </Presence>
     </div>
   )
 }

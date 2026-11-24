@@ -65,6 +65,10 @@
   align-items: flex-start;
   gap: var(--space-8);
   padding: var(--space-8) 0 var(--space-8) 20px;
+  --enter-y: -4px;
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
 }
 .ui-disc--group {
   border-radius: var(--radius-menu);

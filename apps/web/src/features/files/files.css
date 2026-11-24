@@ -358,7 +358,7 @@
     scroll-behavior: smooth;
   }
   .fv__md [data-flash] {
-    animation: fv-flash 1.4s ease-out;
+    animation: fv-flash var(--flash);
   }
 }
 @keyframes fv-flash {

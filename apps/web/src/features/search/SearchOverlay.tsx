@@ -296,7 +296,7 @@ export function SearchOverlay({ open = true, onClose }: { open?: boolean; onClos
                         <Highlight text={g.name} query={trimmed} />
                       </div>
                     </div>
-                    <span className="search__time">{g.kind === 'dm' ? t('私聊') : t('群聊')}</span>
+                    <span className="search__time">{g.kind === 'dm' ? t('私聊') : t('群')}</span>
                   </>,
                 ),
               )}

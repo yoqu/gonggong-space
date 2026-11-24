@@ -243,7 +243,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .pn-composer__tool:active:not(:disabled),
   .pn-composer__send:active:not(:disabled) {
-    scale: 0.88;
+    scale: var(--press-icon);
   }
   .pn-composer__send[data-state="ready"] {
     animation: var(--spring-interactive) pn-send-ready;

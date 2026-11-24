@@ -22,8 +22,8 @@ export default {
   需要写入或修改文件: 'File write or modification required',
   '命令较复杂，无法确认是否只读': 'Complex command; read-only behavior could not be confirmed',
   未被只读规则或已保存的允许规则覆盖: 'Not covered by read-only or saved allow rules',
-  '{reason} · {time} 后自动拒绝，agent 自行绕路':
-    '{reason} · auto-rejected in {time}; the Agent will try another way',
+  '{reason} · {time} 后自动拒绝，Bot 会换个方式继续':
+    '{reason} · auto-rejected in {time}; the Bot will carry on another way',
   已批准: 'Approved',
   已拒绝: 'Rejected',
   已超时: 'Timed out',
@@ -31,11 +31,13 @@ export default {
   '不再询问：{rules}': "Won't ask again: {rules}",
   '{name} 已批准 · {at}': 'Approved by {name} · {at}',
   '已批准 · {at}': 'Approved · {at}',
-  '{name} 已拒绝 · {at} · agent 将自行绕路': 'Rejected by {name} · {at} · the Agent will try another way',
-  '按规则自动拒绝 · {at} · agent 将自行绕路': 'Auto-rejected by rule · {at} · the Agent will try another way',
-  '按规则自动拒绝 · agent 将自行绕路': 'Auto-rejected by rule · the Agent will try another way',
-  '超时未处理，已自动拒绝 · {at} · agent 将自行绕路':
-    'No response in time, rejected automatically · {at} · the Agent will try another way',
+  '{name} 已拒绝 · {at} · Bot 会换个方式继续':
+    'Rejected by {name} · {at} · the Bot will carry on another way',
+  '按规则自动拒绝 · {at} · Bot 会换个方式继续':
+    'Auto-rejected by rule · {at} · the Bot will carry on another way',
+  '按规则自动拒绝 · Bot 会换个方式继续': 'Auto-rejected by rule · the Bot will carry on another way',
+  '超时未处理，已自动拒绝 · {at} · Bot 会换个方式继续':
+    'No response in time, rejected automatically · {at} · the Bot will carry on another way',
   '权限请求 · {kind}': 'Permission request · {kind}',
   其他操作: 'Other action',
   批准: 'Approve',
@@ -108,6 +110,11 @@ export default {
   '查看 {path} 的改动': 'View changes to {path}',
   '停止后台任务 {name}': 'Stop background task {name}',
   停止: 'Stop',
+  '还有 {n} 题未回答': '{n} {n:question|questions} still unanswered',
+  '要停止 {bot} 的这轮运行吗？': 'Stop this run of {bot}?',
+  '这是 {name} 发起的任务，当前轮次会立即中断，已产生的改动会保留在工作区。':
+    '{name} started this task. The current turn stops right away; changes made so far stay in the workspace.',
+  '要终止整条链吗？': 'Stop the whole chain?',
   '{name} 已回答 · {at} · 已写入审计记录': 'Answered by {name} · {at} · recorded in the audit log',
   '无人回答，agent 已按推荐项继续 · {at}': 'No answer; the agent went on with the recommended options · {at}',
   '提问已失效，Agent 不再等待回答': 'Question expired; the Agent is no longer waiting',

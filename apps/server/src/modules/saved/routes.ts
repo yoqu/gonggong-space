@@ -39,9 +39,13 @@ export function savedRoutes(ctx: Ctx) {
 
     app.delete<{ Params: { id: string } }>('/api/messages/:id/save', async (req) => {
       const me = await requireUser(ctx, req)
-      await ctx.db.delete(savedMessages).where(mine(me.id, idParam(req.params.id, '消息不存在')))
+      const [row] = await ctx.db
+        .delete(savedMessages)
+        .where(mine(me.id, idParam(req.params.id, '消息不存在')))
+        .returning({ remindAt: savedMessages.remindAt })
       publishSaved(ctx, me.id)
-      return { ok: true }
+      // The reminder it had, so 撤销 can put it back as it was.
+      return { ok: true, remindAt: row?.remindAt?.toISOString() ?? null }
     })
 
     app.put<{ Params: { id: string } }>('/api/messages/:id/save/done', async (req) => {

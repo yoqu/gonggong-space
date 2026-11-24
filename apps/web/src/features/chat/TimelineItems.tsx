@@ -10,6 +10,7 @@ import {
 import { memo, type ReactNode, useContext, useMemo, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
 import { dateLocale, pad } from '../../lib/time'
@@ -27,6 +28,8 @@ import {
   ThreadSummary,
 } from '../../ui'
 import { usePresence } from '../../ui/presence'
+import { MessageCanvasChips, RunArtifactsLine } from '../artifacts/CanvasRefs'
+import { messageCanvas, runArtifacts } from '../artifacts/runContext'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
 import { BotAvatar, useBotCostume } from '../bots/avatars'
@@ -55,6 +58,8 @@ import { Markdown, MentionNames } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import { MessageEditor } from './MessageEditor'
 import { mentionInChat } from './mention'
+import { hasOptimisticClientId } from './PendingMessages'
+import { usePins } from './PinnedMessages'
 import {
   ClockFact,
   DelegationFacts,
@@ -72,12 +77,6 @@ import { reedit, useRecalled } from './recalled'
 import { openThread } from './thread'
 import { InThread, ThreadScope, useThreadSummary } from './threadSummary'
 import { type MentionTarget, UserMessageText } from './UserMessageText'
-import './recall.css'
-import { t } from '../../i18n'
-import { MessageCanvasChips, RunArtifactsLine } from '../artifacts/CanvasRefs'
-import { messageCanvas, runArtifacts } from '../artifacts/runContext'
-import { hasOptimisticClientId } from './PendingMessages'
-import { usePins } from './PinnedMessages'
 
 /** Stable timeline key across optimistic send (`clientId`) and server confirmation (`id`). */
 export const messageKey = (m: Pick<MessageDto, 'id' | 'clientId'>) => m.clientId || m.id

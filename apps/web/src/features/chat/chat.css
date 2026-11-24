@@ -681,7 +681,7 @@ button.chat-view__plugins:hover {
   }
 }
 
-/* My message before the server has it: attachments by name, 发送失败 with 重发 / 删除 */
+/* My message before the server has it: attachments by name, 发送失败 with 重发 / 放回输入框 / 丢弃 */
 .tl-pending {
   display: flex;
   flex-wrap: wrap;
@@ -692,6 +692,9 @@ button.chat-view__plugins:hover {
 }
 .tl-pending__failed {
   color: var(--system-red);
+}
+.tl-pending__resending {
+  color: var(--label-secondary);
 }
 
 /* Inline unread divider action: lets the reader clear a manual unread mark in one click. */

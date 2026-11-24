@@ -136,12 +136,12 @@ export function WorkspacePicker({
                 <span className="dirpick__choice-text">
                   <span className="dirpick__choice-title">{t('使用托管目录')}</span>
                   <span className="dirpick__choice-desc">
-                    {t('共工在机器上为这个会话单独建的目录，不碰你已有的文件')}
+                    {t('共工在电脑上为这个会话单独建的目录，不碰你已有的文件')}
                   </span>
                 </span>
               </button>
             )}
-            <span className="dirpick__or">{t('或选择机器上已有的目录')}</span>
+            <span className="dirpick__or">{t('或选择电脑上已有的目录')}</span>
           </div>
         }
       />

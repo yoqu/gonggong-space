@@ -1,5 +1,10 @@
-import { type NotificationDto, type NotificationUnreadDto, PushSubscriptionReq } from '@gonggong/protocol'
-import { and, count, desc, eq, isNotNull, isNull, or } from 'drizzle-orm'
+import {
+  AWAITING_NOTIFICATION_TYPES,
+  type NotificationDto,
+  type NotificationUnreadDto,
+  PushSubscriptionReq,
+} from '@gonggong/protocol'
+import { and, count, desc, eq, inArray, isNotNull, isNull, not, or } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { notifications, pushSubscriptions } from '../../db/schema.js'
@@ -80,7 +85,17 @@ export function notificationRoutes(ctx: Ctx) {
       await ctx.db
         .delete(notifications)
         .where(
-          and(eq(notifications.userId, user.id), isNotNull(notifications.readAt), await inTeam(req, user.id)),
+          and(
+            eq(notifications.userId, user.id),
+            isNotNull(notifications.readAt),
+            await inTeam(req, user.id),
+            not(
+              and(
+                inArray(notifications.type, [...AWAITING_NOTIFICATION_TYPES]),
+                isNull(notifications.resolvedAt),
+              )!,
+            ),
+          ),
         )
       return reply.status(204).send()
     })

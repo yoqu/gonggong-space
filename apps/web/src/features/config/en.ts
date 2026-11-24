@@ -99,8 +99,8 @@ export default {
   '已保存，相关 Bot 下一轮生效': 'Saved; affected Bots pick it up next run',
   '编辑 Skill {name}': 'Edit Skill {name}',
   '添加 Skill': 'Add Skill',
-  '名称与描述取自 SKILL.md 开头的 frontmatter；每次保存生成一个新版本。':
-    'Name and description come from the frontmatter of SKILL.md; each save creates a new version.',
+  '名称与描述取自 SKILL.md 顶部的 name / description 字段；每次保存生成一个新版本。':
+    'Name and description come from the name / description fields at the top of SKILL.md; each save creates a new version.',
   新文件路径: 'New file path',
   '只能整体替换，不能在线编辑。': 'It can only be replaced, not edited here.',
   '已回滚到 v{n}，相关 Bot 下一轮生效': 'Rolled back to v{n}; affected Bots pick it up next run',

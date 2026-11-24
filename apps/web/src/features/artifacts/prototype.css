@@ -469,7 +469,7 @@
   animation: var(--spring-snappy) proto-to-bottom forwards;
 }
 .proto-leave--fade {
-  animation: 260ms ease-out proto-fade-out forwards;
+  animation: var(--fade-out) proto-fade-out forwards;
 }
 /* Without a screenshot, a skeleton of a page until it is ready (it pulses, or stays still under reduced motion). */
 .proto-skeleton {
@@ -532,7 +532,7 @@
   animation: var(--spring-snappy) proto-rise;
 }
 .proto-enter--fade {
-  animation: 260ms ease-out proto-fade;
+  animation: var(--fade-in) proto-fade;
 }
 @keyframes proto-from-right {
   from {
@@ -624,7 +624,7 @@
 .proto-thumb {
   transition:
     background-color var(--fade-fast),
-    box-shadow var(--spring-interactive);
+    box-shadow var(--fade-fast);
 }
 .proto-thumb__shot img {
   transition: transform var(--spring-smooth);

@@ -61,6 +61,8 @@ const DATA: Workspaces = {
   offline: false,
 }
 
+const NONE = { uncommitted: 0, unpushed: 0, unknown: false }
+
 const rowOf = (text: string) => screen.getByText(text).closest('[role="row"]') as HTMLElement
 
 beforeEach(() => {
@@ -70,6 +72,7 @@ beforeEach(() => {
   m.reveal.mockResolvedValue()
   m.resetCd.mockResolvedValue()
   m.deleteWorkspace.mockResolvedValue()
+  m.workspaceChanges.mockResolvedValue(NONE)
 })
 
 describe('工作区', () => {
@@ -116,7 +119,7 @@ describe('工作区', () => {
     fireEvent.click(ring)
     const pop = await screen.findByRole('dialog', { name: '小王的 Claude 的上下文' })
     expect(within(pop).getByText('124k / 200k')).toBeTruthy()
-    expect(pop.textContent).toContain('在群里发 /compact @小王的 Claude 压缩上下文，发 /new 开新对话。')
+    expect(pop.textContent).toContain('在群里发 /compact @小王的 Claude 压缩上下文，发 /new 开新会话。')
     expect(within(pop).queryByRole('button', { name: '压缩上下文' })).toBeNull()
   })
 
@@ -127,7 +130,7 @@ describe('工作区', () => {
     const old = await screen.findByText('旧版后台')
     fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
     expect(m.deleteWorkspace).not.toHaveBeenCalled()
-    const dialog = screen.getByRole('alertdialog')
+    const dialog = await screen.findByRole('alertdialog')
     expect(dialog.textContent).toContain('~/.gonggong/workspaces/g3/b1/r3')
     m.workspaces.mockResolvedValue({ ...DATA, rows: DATA.rows.slice(0, 2) })
     fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
@@ -137,9 +140,80 @@ describe('工作区', () => {
     expect(screen.getByRole('alertdialog')).toBeTruthy()
     await act(async () => resolveDelete())
     await waitFor(() =>
-      expect(m.deleteWorkspace).toHaveBeenCalledWith('g3', 'b1', '/Users/wl/.gonggong/workspaces/g3/b1/r3'),
+      expect(m.deleteWorkspace).toHaveBeenCalledWith(
+        'g3',
+        'b1',
+        '/Users/wl/.gonggong/workspaces/g3/b1/r3',
+        NONE,
+      ),
     )
     await waitFor(() => expect(old.isConnected).toBe(false))
+  })
+
+  it('counts unsaved work afresh before the delete confirmation, naming only what is there', async () => {
+    m.workspaceChanges.mockResolvedValueOnce({ ...NONE, uncommitted: 3, unpushed: 2 })
+    render(<WorkspacesPage go={() => {}} />)
+    await screen.findByText('旧版后台')
+    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(m.workspaceChanges).toHaveBeenCalledWith('/Users/wl/.gonggong/workspaces/g3/b1/r3')
+    expect(dialog.textContent).toContain('要从本机删除「旧版后台 × 小王的 Claude」的工作区吗？')
+    expect(within(dialog).getByRole('alert').textContent).toContain(
+      '还有 3 处未提交的改动、2 个未推送的提交，删除后会丢失',
+    )
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+
+    m.workspaceChanges.mockResolvedValueOnce({ ...NONE, unpushed: 4 })
+    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
+    await waitFor(() => expect(m.workspaceChanges).toHaveBeenCalledTimes(2))
+    const alert = await within(screen.getByRole('alertdialog')).findByText(/未推送/)
+    expect(alert.textContent).toBe('还有 4 个未推送的提交，删除后会丢失')
+  })
+
+  it('shows no work warning when the workspace has nothing unsaved', async () => {
+    render(<WorkspacesPage go={() => {}} />)
+    await screen.findByText('旧版后台')
+    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
+    expect(within(await screen.findByRole('alertdialog')).queryByRole('alert')).toBeNull()
+  })
+
+  it('warns when it cannot tell, and deletes only with that acknowledged', async () => {
+    const unknown = { ...NONE, unknown: true }
+    m.workspaceChanges.mockResolvedValueOnce(unknown)
+    render(<WorkspacesPage go={() => {}} />)
+    await screen.findByText('旧版后台')
+    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('alert').textContent).toContain('无法确认是否有未保存的改动')
+    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+    await waitFor(() =>
+      expect(m.deleteWorkspace).toHaveBeenCalledWith(
+        'g3',
+        'b1',
+        '/Users/wl/.gonggong/workspaces/g3/b1/r3',
+        unknown,
+      ),
+    )
+  })
+
+  it('keeps the confirmation open with the fresh warning when work landed while it was open', async () => {
+    m.deleteWorkspace.mockRejectedValueOnce('工作区有新的改动，请重新确认')
+    render(<WorkspacesPage go={() => {}} />)
+    await screen.findByText('旧版后台')
+    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).queryByRole('alert')).toBeNull()
+    const fresh = { ...NONE, uncommitted: 2 }
+    m.workspaceChanges.mockResolvedValueOnce(fresh)
+    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+    const alert = await within(dialog).findByText('还有 2 处未提交的改动，删除后会丢失')
+    expect(alert.isConnected).toBe(true)
+    expect(screen.getByRole('alertdialog')).toBe(dialog)
+    expect(m.workspaces).toHaveBeenCalledTimes(1)
+    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+    await waitFor(() =>
+      expect(m.deleteWorkspace).toHaveBeenLastCalledWith('g3', 'b1', expect.any(String), fresh),
+    )
   })
 
   it('shows empty states and plain-language offline warning when the server was unreachable', async () => {

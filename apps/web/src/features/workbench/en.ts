@@ -1,5 +1,7 @@
 export default {
+  '已关闭最久未用的「{title}」': 'Closed the least recently used tab "{title}"',
   '标签页已满（最多 {n} 个），请先关闭一些': 'Too many tabs (max {n}). Close some first.',
+  '标签页#one': 'Tab',
   预览已关闭: 'Preview closed',
   关闭标签页: 'Close tab',
   桌面应用: 'Desktop app',
@@ -160,5 +162,4 @@ export default {
     'No computer available: you need one of your computers online, on macOS or Linux, with the latest Gonggong client.',
   '这次运行的 Agent 没有上报上下文用量': 'The agent did not report context usage for this run',
   还没有工作区: 'No workspace yet',
-  机器离线: 'Machine offline',
 } satisfies Record<string, string>

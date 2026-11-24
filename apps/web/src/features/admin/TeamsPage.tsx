@@ -138,7 +138,7 @@ export function TeamsPage() {
             title={t('要归档团队「{name}」吗？', { name: archiving.name })}
             message={t('归档后可以随时在这里恢复。')}
             consequences={[
-              t('成员将无法进入该团队及其群聊，群消息转为只读'),
+              t('成员将无法进入该团队及其群，群消息转为只读'),
               t('该团队的 Bot 暂停运行；消息与审计记录保留'),
             ]}
             label={t('归档团队')}

@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { liveFrames, tabKey, useWorkbench, WORKBENCH_MAX_TABS } from '../src/app/workbench'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { holdTab, liveFrames, tabKey, useWorkbench, WORKBENCH_MAX_TABS } from '../src/app/workbench'
+import { openTab } from '../src/features/workbench/open'
+import { useToasts } from '../src/ui'
 
 const bench = () => {
   const s = useWorkbench.getState()
@@ -11,6 +13,7 @@ const run = (id: string) => ({ kind: 'run', runId: id, view: 'process', file: nu
 beforeEach(() => {
   localStorage.clear()
   useWorkbench.setState({ groupId: 'g1', open: false, mode: 'split', previous: 'split', benches: {} })
+  useToasts.setState({ items: [] })
 })
 
 describe('workbench store', () => {
@@ -71,5 +74,83 @@ describe('workbench store', () => {
     s.setMode('focus')
     s.setMode('full')
     expect(useWorkbench.getState().previous).toBe('focus')
+  })
+})
+
+describe('openTab', () => {
+  it('closes the least recently used inactive tab when full', () => {
+    let now = 1
+    vi.spyOn(Date, 'now').mockImplementation(() => now++)
+    const link = (i: number) => ({ kind: 'link', url: `https://x/${i}`, title: `页面${i}` }) as const
+    for (let i = 0; i < WORKBENCH_MAX_TABS; i++) expect(openTab(link(i))).toBe(true)
+    useWorkbench.getState().activate('link:https://x/0')
+    useWorkbench.getState().activate('link:https://x/5')
+    expect(openTab(link(99))).toBe(true)
+    const keys = bench().tabs.map(tabKey)
+    expect(keys).toHaveLength(WORKBENCH_MAX_TABS)
+    expect(keys).not.toContain('link:https://x/1')
+    expect(keys).toContain('link:https://x/0')
+    expect(bench().active).toBe('link:https://x/99')
+    expect(useToasts.getState().items.map((x) => x.message)).toContain('已关闭最久未用的「页面1」')
+    vi.restoreAllMocks()
+  })
+
+  it('never closes a tab that may hold unsaved work, and reopens the closed one from the toast', () => {
+    let now = 1
+    vi.spyOn(Date, 'now').mockImplementation(() => now++)
+    const art = (i: number) => ({ kind: 'artifact', artifactId: `a${i}`, title: `原型${i}` }) as const
+    for (let i = 0; i < WORKBENCH_MAX_TABS - 1; i++) openTab(art(i))
+    openTab(run('r1'))
+    useWorkbench.getState().activate('artifact:a0')
+    expect(openTab(run('r2'))).toBe(true)
+    const keys = bench().tabs.map(tabKey)
+    expect(keys).not.toContain('run:r1')
+    expect(keys.filter((k) => k.startsWith('artifact:'))).toHaveLength(WORKBENCH_MAX_TABS - 1)
+    const [shown] = useToasts.getState().items
+    const action = shown?.action as { label: string; onClick: () => void }
+    expect(action.label).toBe('重新打开')
+
+    // Only prototypes left besides the active tab: nothing is closed, the user is told the bench is full.
+    useWorkbench.getState().activate('run:r2')
+    expect(openTab(run('r3'))).toBe(false)
+    expect(bench().tabs.map(tabKey)).toEqual(keys)
+    expect(useToasts.getState().items[0]?.message).toBe(
+      `标签页已满（最多 ${WORKBENCH_MAX_TABS} 个），请先关闭一些`,
+    )
+
+    useWorkbench.getState().activate('artifact:a1')
+    action.onClick()
+    expect(bench().tabs.map(tabKey)).toContain('run:r1')
+    expect(bench().tabs.map(tabKey)).not.toContain('run:r2')
+    vi.restoreAllMocks()
+  })
+
+  it('never closes a run tab holding an unanswered question', () => {
+    let now = 1
+    vi.spyOn(Date, 'now').mockImplementation(() => now++)
+    for (let i = 0; i < WORKBENCH_MAX_TABS; i++) openTab(run(`r${i}`))
+    holdTab('run:r0', true)
+    expect(openTab(web('p1'))).toBe(true)
+    const keys = bench().tabs.map(tabKey)
+    expect(keys).toContain('run:r0')
+    expect(keys).not.toContain('run:r1')
+    holdTab('run:r0', false)
+    expect(openTab(web('p2'))).toBe(true)
+    expect(bench().tabs.map(tabKey)).not.toContain('run:r0')
+    vi.restoreAllMocks()
+  })
+
+  it('reopens a closed tab in the group it was closed in, even after switching groups', () => {
+    let now = 1
+    vi.spyOn(Date, 'now').mockImplementation(() => now++)
+    for (let i = 0; i < WORKBENCH_MAX_TABS; i++) openTab(run(`r${i}`))
+    openTab(web('p1'))
+    const action = useToasts.getState().items[0]?.action as { onClick: () => void }
+    useWorkbench.getState().setGroup('g2')
+    action.onClick()
+    expect(useWorkbench.getState().benches.g2).toBeUndefined()
+    expect(useWorkbench.getState().groupId).toBe('g2')
+    expect(useWorkbench.getState().benches.g1!.tabs.map(tabKey)).toContain('run:r0')
+    vi.restoreAllMocks()
   })
 })

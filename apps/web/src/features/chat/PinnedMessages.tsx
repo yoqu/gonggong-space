@@ -5,7 +5,16 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { Linkified } from '../../lib/links'
-import { AlertDialog, Button, Icon, PinnedBanner, toast, useEscape, useOutsidePress } from '../../ui'
+import {
+  AlertDialog,
+  Button,
+  Icon,
+  PinnedBanner,
+  reducedMotion,
+  toast,
+  useEscape,
+  useOutsidePress,
+} from '../../ui'
 import { usePinsExpanded } from '../group-tabs/store'
 
 const NONE: PinnedMessageDto[] = []
@@ -73,7 +82,7 @@ export function PinnedMessages({
       usePinsExpanded.subscribe(() => {
         if (!count.current) return toast({ message: t('本群还没有置顶消息') })
         setOpen(true)
-        box.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+        box.current?.scrollIntoView?.({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
       }),
     [],
   )

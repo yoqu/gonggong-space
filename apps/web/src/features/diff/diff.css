@@ -382,7 +382,7 @@
   background: var(--accent);
   opacity: 0;
   pointer-events: none;
-  animation: diff-flash 1.2s ease-out;
+  animation: diff-flash var(--flash);
 }
 @keyframes diff-flash {
   from {
@@ -563,7 +563,7 @@
   margin-right: var(--space-6);
   color: var(--label-tertiary);
   font-size: var(--text-subheadline-size);
-  animation: diff-hint-in 0.2s ease-out;
+  animation: diff-hint-in var(--fade-in);
 }
 @keyframes diff-hint-in {
   from {

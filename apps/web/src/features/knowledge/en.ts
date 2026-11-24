@@ -44,4 +44,6 @@ export default {
   '要回滚到版本 v{version} 吗？': 'Roll back to version v{version}?',
   '当前内容会被替换为此版本。现有版本仍会保留在历史记录中，可随时切回。':
     'Current content will be replaced with this version. The existing version stays in history and can be restored anytime.',
+  已复制你的正文: 'Copied your text',
+  复制我的正文: 'Copy my text',
 }

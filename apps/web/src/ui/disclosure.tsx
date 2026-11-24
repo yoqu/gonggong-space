@@ -47,6 +47,7 @@ export function Disclosure({
         <span className="ui-disc__title">{title}</span>
         {summary && !isOpen ? <span className="ui-disc__summary">{summary}</span> : null}
       </button>
+      {/* Eases in; collapsing is instant so the content below never waits on a fading, still-focusable body. */}
       {isOpen ? (
         <div id={id} className="ui-disc__body">
           {children}

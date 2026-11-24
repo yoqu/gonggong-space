@@ -100,6 +100,9 @@ export const en = {
   桌面应用: 'Desktop app',
   '{name} 正在远程操作': '{name} is controlling remotely',
   关闭并停止应用: 'Close and stop app',
+  '要关闭「{title}」并停止应用吗？': 'Close "{title}" and stop the app?',
+  '关闭后群成员将看不到这个实时画面，Bot 启动的应用也会一并停止。':
+    'Group members will no longer see this live view, and the app the Bot started will be stopped too.',
   关闭: 'Close',
   '群成员在网页端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。':
     'This computer streams a window only while a group member watches it on the Web, and stops when nobody does. Failed streams retry automatically, with the reason shown here.',
@@ -175,10 +178,9 @@ export const en = {
   镜像源: 'Mirror',
   保存: 'Save',
   环境变量: 'Environment variables',
+  '环境变量已清空，确认保存？': 'Environment variables cleared. Save?',
   '启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效':
     'Added when an agent starts, one KEY=VALUE per line; applies to newly started agent processes',
-  保存环境变量: 'Save environment variables',
-  环境变量已保存: 'Environment variables saved',
   语言: 'Language',
   主题: 'Theme',
   玻璃效果: 'Glass effect',
@@ -197,6 +199,8 @@ export const en = {
   '解除绑定后清除团队密钥与托管工作区，本机备份保留。':
     'Unbinding clears the team secrets and managed workspaces; local backups are kept.',
   '要解除这台电脑与团队服务器的绑定吗？': 'Unbind this computer from the team server?',
+  '要清除本机数据并重新绑定吗？': 'Clear the data on this computer and bind again?',
+  清除并重新绑定: 'Clear and Bind Again',
   '这台电脑将断开连接，团队密钥和托管工作区会被清理，你手动选择的本机目录和本地备份会保留。此操作不可撤销。':
     'This computer will disconnect, and team secrets and managed workspaces will be cleared. Local folders you chose and local backups will be kept. This cannot be undone.',
   取消: 'Cancel',
@@ -255,7 +259,11 @@ export const en = {
   '被覆盖的本地修改、中断的半成品保存在这里，不上传服务器。':
     'Overwritten local changes and interrupted work are kept here and never uploaded to the server.',
   暂无本机备份: 'No local backups',
-  '要从本机删除“{group} × {bot}”的工作区吗？':
+  '{n} 处未提交的改动': '{n} uncommitted {n:change|changes}',
+  '{n} 个未推送的提交': '{n} unpushed {n:commit|commits}',
+  无法确认是否有未保存的改动: "Couldn't tell whether there are unsaved changes",
+  '还有 {list}，删除后会丢失': 'There are still {list}; they will be lost when it is deleted',
+  '要从本机删除「{group} × {bot}」的工作区吗？':
     'Delete the workspace of "{group} × {bot}" from this computer?',
   '将删除 {path}（{state}），此操作不可撤销。只影响本机目录，群里的消息与记录不受影响。':
     '{path} ({state}) will be deleted. This cannot be undone. Only the local directory is affected; group messages and records stay.',
@@ -288,6 +296,7 @@ export const en = {
   '远程操作桌面应用和小程序、自动信任小程序项目；未授权时远程点击和输入不生效':
     'Remote control of desktop apps and mini programs, and auto-trusting mini program projects; without it remote clicks and typing do nothing',
   '环境变量每行一个 KEY=VALUE：{line}': 'Environment variables take one KEY=VALUE per line: {line}',
+  '{key} 的值为空': '{key} has no value',
   导航: 'Navigation',
   '重连中…': 'Reconnecting…',
   未连接: 'Disconnected',
@@ -310,7 +319,7 @@ export const en = {
   复制诊断信息失败: 'Failed to copy diagnostics',
   '已连接 {host}': 'Connected to {host}',
   在浏览器中打开共工: 'Open Gonggong in the browser',
-  '有运行中的任务，重启会中断': 'Tasks are running. Restarting will interrupt them',
+  '要重启并中断运行中的任务吗？': 'Restart and interrupt the running tasks?',
   '本机有 {n} 个任务正在运行，重启后它们会被中断。':
     '{n} {n:task is|tasks are} running on this computer and will be interrupted by the restart.',
   仍然重启: 'Restart anyway',
@@ -337,8 +346,8 @@ export const en = {
   关: 'Off',
   '{bot} 上下文 {detail}': '{bot} context {detail}',
   '{bot} 的上下文': "{bot}'s context",
-  '在群里发 /compact @{bot} 压缩上下文，发 /new 开新对话。':
-    'Send /compact @{bot} in the group to compact the context, or /new to start a new conversation.',
+  '在群里发 /compact @{bot} 压缩上下文，发 /new 开新会话。':
+    'Send /compact @{bot} in the group to compact the context, or /new to start a new session.',
   // 市场 page
   '我的 Skill 与市场条目，只读；引入、发布与审核请在网页端操作':
     'My Skills and market listings, read-only; install, publish and review on the Web',
@@ -346,6 +355,7 @@ export const en = {
   在网页中查看详情: 'View details on the Web',
   加载失败: 'Failed to load',
   '连不上服务器，请检查网络后刷新': 'Cannot reach the server. Check the network, then refresh',
+  '市场暂时加载不出来，请稍后重试': 'The market cannot be loaded right now. Try again later',
   '搜索 Skill 和插件': 'Search skills and plugins',
   刷新: 'Refresh',
   '我的 Skill': 'My Skills',

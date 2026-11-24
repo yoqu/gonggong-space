@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { type DaemonStatus, ipc } from '../src/ipc'
 import { OverviewPage } from '../src/pages/Overview'
 import { mergeProcess } from '../src/pages/RunDetail'
 import { useDaemon } from '../src/store'
+import { useUpdate } from '../src/updater'
 import { bot, INFO, run, status } from './ipc-mock'
 
 const m = vi.mocked(ipc)
@@ -17,6 +18,8 @@ function show(s: DaemonStatus) {
 beforeEach(() => {
   vi.clearAllMocks()
   useDaemon.setState({ overview: null, botGuideDismissed: false })
+  useUpdate.setState({ state: { phase: 'idle' }, dismissed: false })
+  m.unbind.mockResolvedValue()
   m.tunnels.mockResolvedValue({ previews: [], services: [] })
   m.openWeb.mockResolvedValue()
   m.overview.mockResolvedValue({ workspaces: { count: 5, detail: '托管 4 · 本机目录 1 · 1.8 GB' } })
@@ -277,6 +280,41 @@ describe('overview', () => {
     expect(alert.textContent).toContain('协议版本不兼容 · 服务器拒绝连接')
     expect(alert.textContent).toContain('这台电脑的共工客户端（v0.1.0）版本太旧')
     expect(alert.textContent).toContain('需要协议 v2')
+  })
+
+  it('offers to check for an update on a protocol rejection, and to restart once it is downloaded', async () => {
+    const first = show(
+      status({ conn: { state: 'rejected', reason: 'protocol', message: '需要协议 v2', wiped: [] } }),
+    )
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '检查更新' }))
+    await waitFor(() => expect(m.checkUpdate).toHaveBeenCalledTimes(1))
+    first.unmount()
+    useUpdate.setState({ state: { phase: 'ready', version: '0.5.0' } })
+    show(status({ conn: { state: 'rejected', reason: 'protocol', message: '需要协议 v2', wiped: [] } }))
+    const alert = screen.getByRole('alert')
+    expect(within(alert).queryByRole('button', { name: '检查更新' })).toBeNull()
+    expect(within(alert).getByRole('button', { name: '立即重启' })).toBeTruthy()
+  })
+
+  it('asks before rebinding after an invalid binding, which clears the team key and workspaces', async () => {
+    show(status({ conn: { state: 'rejected', reason: 'unauthorized', message: '密钥无效', wiped: [] } }))
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '重新绑定' }))
+    expect(m.unbind).not.toHaveBeenCalled()
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog.textContent).toContain('要清除本机数据并重新绑定吗？')
+    expect(dialog.textContent).not.toContain('解除')
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    expect(m.unbind).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '重新绑定' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '清除并重新绑定' }))
+    await waitFor(() => expect(m.unbind).toHaveBeenCalledTimes(1))
+  })
+
+  it('rebinds right away once the machine was already revoked', async () => {
+    show(status({ conn: { state: 'rejected', reason: 'revoked', message: 'revoked', wiped: [] } }))
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '重新绑定' }))
+    expect(m.unbind).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('reports what a revocation wiped and offers to bind again', () => {

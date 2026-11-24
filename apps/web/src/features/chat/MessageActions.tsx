@@ -9,31 +9,20 @@ import {
 import { createContext, type ReactNode, type RefObject, useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { ApiError, api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import {
-  AlertDialog,
-  Button,
-  ContextMenu,
-  Dialog,
-  Icon,
-  MenuButton,
-  type MenuItem,
-  Presence,
-  toast,
-} from '../../ui'
+import { AlertDialog, ContextMenu, Icon, MenuButton, type MenuItem, Presence, toast } from '../../ui'
 import { attachmentUrl } from '../attachments/api'
 import { KnowledgeEditor } from '../knowledge/KnowledgeEditor'
 import { ReactionPicker } from '../reactions'
 import { useSaveMenu } from '../saved/SaveMenu'
 import { canEdit } from './editing'
+import { pinsApi, usePins } from './PinnedMessages'
 import { keepRecalled, type RecalledDraft } from './recalled'
 import { markUnreadFrom } from './unreadMark'
 import { applyLocal } from './useTimeline'
-import './recall.css'
-import { t } from '../../i18n'
-import { pinsApi, usePins } from './PinnedMessages'
 
 const LONG_PRESS_MS = 500
 const ACTIVE_RECALL: RunStatus[] = [
@@ -160,31 +149,32 @@ async function hide(m: MessageDto) {
 
 function DeleteDialog({ message, onClose }: { message: MessageDto; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
+  const close = () => {
+    if (!busy) onClose()
+  }
+  const confirm = async () => {
+    if (busy) return
+    setBusy(true)
+    if (await hide(message)) onClose()
+    else setBusy(false)
+  }
   return (
-    <Dialog
+    <AlertDialog
       open
-      title={t('删除消息？')}
-      width={400}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>{t('取消')}</Button>
-          <Button
-            variant="destructive"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true)
-              if (await hide(message)) onClose()
-              else setBusy(false)
-            }}
-          >
-            {t('删除')}
-          </Button>
-        </>
-      }
-    >
-      <p className="msg-delete-note">{t('删除后仅对你隐藏，其他成员仍可见')}</p>
-    </Dialog>
+      title={t('要删除这条消息吗？')}
+      message={t('删除后仅对你隐藏，其他成员仍可见')}
+      onClose={close}
+      actions={[
+        { label: t('取消'), disabled: busy, onClick: close },
+        {
+          label: t('删除'),
+          variant: 'destructive',
+          disabled: busy,
+          loading: busy,
+          onClick: () => void confirm(),
+        },
+      ]}
+    />
   )
 }
 

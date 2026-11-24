@@ -45,7 +45,7 @@ import {
 import { useCite } from './cite'
 import { startEditing } from './editing'
 import { mentions, useMention } from './mention'
-import { type SendBody, sendPending, usePending } from './pending'
+import { pendingOwner, reusedClientId, type SendBody, sendPending, usePending } from './pending'
 import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import { useRecalled } from './recalled'
 import './composer.css'
@@ -363,22 +363,27 @@ export const MessageComposer = memo(function MessageComposer({
     if (recalled.files.length) uploads.add(recalled.files)
   }, [recalled])
 
-  const rejected = usePending((s) =>
-    s.rejected?.groupId === group.id && s.rejected.req.threadRootId === scope ? s.rejected : null,
+  const back = usePending((s) =>
+    s.back?.p.groupId === group.id && s.back.p.req.threadRootId === scope && s.back.p.owner === pendingOwner()
+      ? s.back
+      : null,
   )
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once per refused message, onto the draft it was rendered with
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-back message, onto the draft it was rendered with
   useEffect(() => {
-    if (!rejected) return
-    usePending.setState({ rejected: null })
-    const { req, draft: d } = rejected
-    change(draft.trim() ? `${req.body}\n${draft}` : req.body, req.body.length)
-    if (d.quote) useQuote.getState().set(d.quote)
-    if (d.append) useAppend.getState().start(d.append)
+    if (!back) return
+    usePending.setState({ back: null })
+    const { req, draft: d } = back.p
+    // Only the text joins a draft in progress; its quote, 追加, run options and 同时发送 win over the returned ones.
+    const merged = draft.trim() ? `${draft}\n${req.body}` : req.body
+    change(merged, merged.length)
+    if (d.quote && !quote) useQuote.getState().set(d.quote)
+    if (d.append && !appending) useAppend.getState().start(d.append)
     uploads.restore(d.uploads)
-    setPicks(d.picks)
-    setAlsoSent(d.alsoSent)
-    setShake(true)
-  }, [rejected])
+    setPicks((cur) => ({ ...d.picks, ...cur }))
+    setAlsoSent((cur) => cur || d.alsoSent)
+    // A refusal is the server's no; taking it back is the user's own move and needs no alarm.
+    if (back.refused) setShake(true)
+  }, [back])
 
   const pick = (c: Candidate) => {
     if (!token) return
@@ -494,7 +499,7 @@ export const MessageComposer = memo(function MessageComposer({
     }
     const req: SendBody = {
       body,
-      clientId: uuid(),
+      clientId: '',
       attachmentIds,
       quote: q,
       appendTo,
@@ -504,8 +509,10 @@ export const MessageComposer = memo(function MessageComposer({
     const sendWithCanvas = !!canvas && (!bypassCanvasBot || mentioned.length > 0)
     if (sendWithCanvas && canvas) req.artifactContext = artifactContextOf(canvas)
     if (foreground) req.foregroundArtifactId = foreground.artifactId
+    // One taken back with an unknown fate keeps its clientId only if resent exactly as before, so the server dedupes it.
+    req.clientId = reusedClientId(group.id, req) ?? uuid()
     // Shown in the timeline at once (发送中, then 发送失败 with 重发), so the composer is free for the next one;
-    // one the server refuses comes back here (see `rejected`).
+    // one the server refuses comes back here (see `back`).
     void sendPending(
       {
         groupId: group.id,

@@ -87,14 +87,13 @@ export default {
   '上下文 {detail}': 'Context {detail}',
   上下文占用: 'Context usage',
   上下文: 'Context',
-  '已关闭自动压缩，用到 {n} 时 Agent 会停下，需要手动压缩或开新对话。':
-    'Auto-compaction is off: the Agent stops at {n} until you compact or start a new conversation.',
+  '已关闭自动压缩，用到 {n} 时 Agent 会停下，需要手动压缩或开新会话。':
+    'Auto-compaction is off: the Agent stops at {n} until you compact or start a new session.',
   '即将停下。': 'About to stop.',
   '即将用满。': 'Almost full.',
   '压缩时保留的重点（可选）': 'What to keep when compacting (optional)',
-  '压缩会把此前的对话总结后保留；开新对话则不再带上此前的对话。':
-    'Compacting keeps a summary of the conversation so far; a new conversation leaves it behind.',
-  开新对话: 'New conversation',
+  '压缩会把此前的对话总结后保留；开新会话则不再带上此前的对话。':
+    'Compacting keeps a summary of the conversation so far; a new session leaves it behind.',
   压缩上下文: 'Compact context',
   本机目录: 'Local folder',
   待创建: 'Pending',
@@ -112,7 +111,7 @@ export default {
   '超过 24 小时，无法撤回': "Messages older than 24 hours can't be recalled",
   编辑消息: 'Edit message',
   'Enter 保存 · Esc 取消': 'Enter to save · Esc to cancel',
-  '删除消息？': 'Delete message?',
+  '要删除这条消息吗？': 'Delete this message?',
   取消: 'Cancel',
   保存: 'Save',
   删除: 'Delete',
@@ -154,7 +153,6 @@ export default {
   添加成员: 'Add member',
   '{name} 本会话使用 {session}；已切换为 {effective}，开启新会话后生效':
     '{name} uses {session} in this session; switched to {effective}, which takes effect in a new session',
-  开启新会话: 'Start new session',
   '只有 Bot 主人或群管理员可以切换': 'Only the Bot owner or a group admin can change this',
   '{name} 的模型与推理强度': "{name}'s model and reasoning effort",
   '正在读取可选模型…': 'Loading available models…',
@@ -295,6 +293,10 @@ export default {
   '回复…': 'Reply…',
   发送失败: 'Failed to send',
   重发: 'Resend',
+  '群里还没有 Bot，先添加一个进来再 @ 它开始工作。':
+    'No Bots in this group yet. Add one, then @ it to get to work.',
+  放回输入框: 'Back to composer',
+  '网络恢复，正在重发': 'Back online, resending',
   标为已读: 'Mark as read',
   已发送: 'Sent',
   '所有群的消息都看完了，新消息会出现在这里。': "You're all caught up. New messages will show up here.",

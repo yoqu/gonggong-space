@@ -107,7 +107,6 @@ export default {
     "Fill in the shared values for the layer's bots. Bots use them as environment variables, and the values stay out of chat history and logs.",
   本次注入的密钥: 'Secrets injected',
   '{name}（{source}）': '{name} ({source})',
-  打开群聊: 'Open the group',
   无法打开密钥卡片: 'Cannot open this secret request',
   '已填写，可以回到飞书': 'Filled. You can go back to Feishu',
   只有发起人本人可以填写这些密钥: 'Only the person asked can fill in these secrets',
@@ -149,4 +148,6 @@ export default {
   '已创建密钥定义，请成员各自填写后继续': 'Secret definitions created. Members can now fill in their values',
   仅管理员可以填写这些密钥: 'Only admins can fill in these secrets',
   运行请求: 'Run request',
+  他人电脑可用: "Others' computers",
+  '已保存 {name}': 'Saved {name}',
 } as const

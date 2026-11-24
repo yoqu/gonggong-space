@@ -1,4 +1,9 @@
-import { type NotificationDto, NotificationType, PUSHED_NOTIFICATION_TYPES } from '@gonggong/protocol'
+import {
+  type AwaitingNotificationType,
+  type NotificationDto,
+  NotificationType,
+  PUSHED_NOTIFICATION_TYPES,
+} from '@gonggong/protocol'
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { messages, notifications } from '../../db/schema.js'
@@ -70,18 +75,7 @@ export async function notify(
  */
 export async function resolveNotifications(
   ctx: Ctx,
-  type:
-    | 'approval'
-    | 'question'
-    | 'sync_conflict'
-    | 'sync_drift'
-    | 'bot_share_request'
-    | 'join_request'
-    | 'git_operation_request'
-    | 'install_request'
-    | 'listing_submitted'
-    | 'plugin_trust'
-    | 'link_request',
+  type: AwaitingNotificationType,
   key:
     | 'approvalId'
     | 'questionSetId'

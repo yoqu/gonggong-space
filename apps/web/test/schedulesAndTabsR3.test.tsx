@@ -190,7 +190,7 @@ describe('R3B P1-1: ScheduleDialog, ScheduleCard and SchedulesView', () => {
     fireEvent.click(run)
     fireEvent.click(run)
     await waitFor(() => expect((run as HTMLButtonElement).disabled).toBe(true))
-    expect((screen.getByRole('button', { name: '暂停' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '停用' }) as HTMLButtonElement).disabled).toBe(true)
     expect(calls.filter((c) => c.method === 'POST' && c.path === '/schedules/s1/run')).toHaveLength(1)
 
     release()

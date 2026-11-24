@@ -43,7 +43,7 @@ describe('provider banner', () => {
     expect(
       await screen.findByText('小王的 Claude 本会话使用 官方登录；已切换为 Kimi，开启新会话后生效'),
     ).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: '开启新会话' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: '新会话' })).toHaveLength(1)
   })
 
   it('loads once on the first connect and again after a reconnect', async () => {
@@ -79,7 +79,7 @@ describe('provider banner', () => {
       'POST /groups/g1/messages': { id: 'msg1' },
     })
     render(<ProviderBanner group={group} />)
-    fireEvent.click(await screen.findByRole('button', { name: '开启新会话' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新会话' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
         body: '/new @小王的 Claude',

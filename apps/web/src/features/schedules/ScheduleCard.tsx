@@ -71,7 +71,7 @@ export function ScheduleCard({
             disabled={busy}
             onClick={() => void act(() => schedulesApi.update(s.id, { enabled: !s.enabled }))}
           >
-            {s.enabled ? t('暂停') : t('恢复')}
+            {s.enabled ? t('停用') : t('启用')}
           </Button>
           <Button size="small" disabled={busy} onClick={() => void act(() => schedulesApi.run(s))}>
             {t('立即执行')}

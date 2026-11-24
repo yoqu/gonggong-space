@@ -116,6 +116,19 @@ describe('notification center', () => {
     expect((await b.api.get<NotificationDto[]>('/api/notifications')).body).toHaveLength(1)
   })
 
+  it('keeps read requests that still wait for me when clearing read ones', async () => {
+    const a = await login()
+    const g = await someGroup(a.user.id)
+    await notify(t.ctx, a.user.id, 'approval', { groupId: g, approvalId: 'open' })
+    await notify(t.ctx, a.user.id, 'approval', { groupId: g, approvalId: 'done' })
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: g, hops: 2 })
+    await resolveNotifications(t.ctx, 'approval', 'approvalId', ['done'])
+    await a.api.post('/api/notifications/read-all')
+    expect((await a.api.del('/api/notifications/read')).status).toBe(204)
+    const left = (await a.api.get<NotificationDto[]>('/api/notifications')).body
+    expect(left.map((n) => n.payload.approvalId)).toEqual(['open'])
+  })
+
   it('resolves the notifications of a settled request for every recipient and tells them live', async () => {
     const a = await login()
     const b = await login()

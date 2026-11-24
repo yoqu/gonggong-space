@@ -8,9 +8,11 @@ import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
+  ConfirmActionDialog,
   GroupBox,
   Icon,
   IconButton,
+  Presence,
   SecureField,
   Skeleton,
   Tag,
@@ -88,11 +90,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
     const ok = await change(() => api.put<GitAccessView>(`${base}/tokens`, token), t('令牌已保存'))
     if (ok) setToken({ host: '', username: '', secret: '' })
   }
-  const removeToken = (host: string) =>
-    change(
-      () => api.del<GitAccessView>(`${base}/tokens/${encodeURIComponent(host)}`),
-      t('已删除 {host} 的令牌', { host }),
-    )
+  const [removing, setRemoving] = useState<string | null>(null)
   const trust = async (host: string) => {
     if (
       await change(
@@ -214,7 +212,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
                 <IconButton
                   title={t('删除 {host} 的令牌', { host: tk.host })}
                   disabled={busy}
-                  onClick={() => void removeToken(tk.host)}
+                  onClick={() => setRemoving(tk.host)}
                 >
                   <Icon name="trash" />
                 </IconButton>
@@ -253,6 +251,21 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
           </div>
         </GroupBox>
       </section>
+      <Presence>
+        {removing ? (
+          <ConfirmActionDialog
+            title={t('删除 {host} 的令牌？', { host: removing })}
+            message={t('删除后需要重新填写令牌才能恢复访问。')}
+            consequences={[t('这台电脑上的 Bot 访问 {host} 的仓库会失败', { host: removing })]}
+            label={t('删除')}
+            done={t('已删除 {host} 的令牌', { host: removing })}
+            run={async () =>
+              setChanged(await api.del<GitAccessView>(`${base}/tokens/${encodeURIComponent(removing)}`))
+            }
+            onClose={() => setRemoving(null)}
+          />
+        ) : null}
+      </Presence>
     </div>
   )
 }

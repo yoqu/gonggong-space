@@ -143,10 +143,12 @@ describe('Presence', () => {
     expect(document.querySelector('.ui-alert-panel')).toBeNull()
   })
 
-  it('aligns mobile bottom-sheet exit duration under prefers-reduced-motion with --fade-out', () => {
+  it('times the mobile bottom-sheet exit with --fade-out, so reduced motion needs no override', () => {
     const css = readFileSync(resolve(__dirname, '../src/ui/overlay.css'), 'utf8')
-    expect(css).toMatch(/@media\s*\(max-width:\s*767px\)\s*and\s*\(prefers-reduced-motion:\s*reduce\)/)
-    expect(css).toMatch(/var\(--fade-out\)\s+ui-exit\s+forwards/)
+    expect(css).toMatch(
+      /\[data-state="closed"\]\s*> \.ui-dialog:where\(:not\(\.ui-dialog--bare\)\) \{\s*animation: var\(--fade-out\) ui-exit forwards;/,
+    )
+    expect(css).not.toContain('150ms ease-in ui-exit')
   })
 
   it('reopens a dialog that is still animating out', () => {

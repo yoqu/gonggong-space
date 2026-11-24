@@ -54,6 +54,16 @@ export const savedApi = {
   save: (messageId: string, remindAt: Date | null) =>
     call(api.put(`/messages/${messageId}/save`, { remindAt: remindAt?.toISOString() ?? null })),
   remove: (messageId: string) => call(api.del(`/messages/${messageId}/save`)),
+  /** Removes it and answers the reminder it had (undefined on failure), for a 撤销 that restores it as it was. */
+  take: async (messageId: string) => {
+    let remindAt: string | null = null
+    const ok = await call(
+      api.del<{ remindAt: string | null }>(`/messages/${messageId}/save`).then((r) => {
+        remindAt = r.remindAt
+      }),
+    )
+    return ok ? remindAt : undefined
+  },
   done: (messageId: string, done: boolean) => call(api.put(`/messages/${messageId}/save/done`, { done })),
 }
 

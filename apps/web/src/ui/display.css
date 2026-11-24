@@ -67,6 +67,10 @@
     scale: 0.4;
   }
 }
+.ui-badge[data-state="closed"] {
+  --exit-scale: 0.5;
+  animation: var(--fade-out) ui-exit forwards;
+}
 .ui-badge--muted {
   background: var(--badge-muted);
 }
@@ -142,7 +146,7 @@
 }
 .ui-avatar__status--running {
   background: var(--system-blue);
-  animation: ui-avatar-breathe 1.6s ease-in-out infinite;
+  animation: ui-avatar-breathe var(--pulse) infinite;
 }
 @keyframes ui-avatar-breathe {
   50% {
@@ -204,7 +208,10 @@
   width: 16px;
   height: 16px;
   color: var(--label-secondary);
-  animation: ui-spin 1s steps(8) infinite;
+  /* Shows only once work outlasts a moment, so a quick action never flashes it. */
+  animation:
+    ui-spin 1s steps(8) infinite,
+    ui-fade-in var(--fade-in) 300ms backwards;
 }
 @keyframes ui-spin {
   to {
@@ -213,9 +220,11 @@
 }
 /* Slowed rather than stopped: a frozen indicator would read as a hang. */
 @media (prefers-reduced-motion: reduce) {
-  .ui-progress--indeterminate .ui-progress__bar,
-  .ui-spinner {
+  .ui-progress--indeterminate .ui-progress__bar {
     animation-duration: 3s;
+  }
+  .ui-spinner {
+    animation-duration: 3s, 150ms;
   }
   .ui-avatar__status--running {
     animation: none;

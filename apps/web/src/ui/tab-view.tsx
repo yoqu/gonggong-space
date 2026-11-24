@@ -34,7 +34,7 @@ export function TabView({ tabs, value, defaultValue, onChange }: TabViewProps) {
           }}
         />
       </div>
-      <div className="ui-tab-view__panel" role="tabpanel">
+      <div key={current} className="ui-tab-view__panel" role="tabpanel">
         {tabs.find((t) => t.value === current)?.content}
       </div>
     </div>

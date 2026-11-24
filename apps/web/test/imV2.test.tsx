@@ -276,6 +276,8 @@ describe('CodeBlock', () => {
     })
     expect(writeText).toHaveBeenCalledWith('pnpm test\n')
     expect(screen.getByRole('status').textContent).toBe('已复制')
+    // The check pops in on its own (data-copied drives the animation).
+    expect(screen.getByRole('button', { name: '已复制' }).hasAttribute('data-copied')).toBe(true)
     await act(() => vi.advanceTimersByTimeAsync(1600))
     expect(screen.getByRole('status').textContent).toBe('')
   })

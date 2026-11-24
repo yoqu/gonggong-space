@@ -107,15 +107,14 @@ describe('preview card', () => {
     expect(useWorkbench.getState()).toMatchObject({ open: true, mode: 'focus' })
   })
 
-  it('says so when the workbench is full', async () => {
+  it('makes room when the workbench is full', async () => {
     mockApi({ 'GET /groups/g1/previews': list([preview()]) })
     for (let i = 0; i < 12; i++) useWorkbench.getState().show({ kind: 'web', previewId: `x${i}`, path: '/' })
     render(<PreviewCard previewId="p1" groupId="g1" botId="b1" fallback="预览：登录页" />)
     fireEvent.click(await screen.findByRole('button', { name: '在工作台打开' }))
-    expect(benchTabs().map(tabKey)).not.toContain('web:p1')
-    expect(useToasts.getState().items).toMatchObject([
-      { type: 'error', message: '标签页已满（最多 12 个），请先关闭一些' },
-    ])
+    expect(benchTabs().map(tabKey)).toContain('web:p1')
+    expect(benchTabs()).toHaveLength(12)
+    expect(useToasts.getState().items).toMatchObject([{ type: 'info' }])
   })
 
   it('loads once on the first connect and again after a reconnect', async () => {
@@ -249,7 +248,12 @@ describe('preview card', () => {
     const dialog = screen.getByRole('dialog')
     await within(dialog).findByText(/访问 3 次/)
     fireEvent.click(within(dialog).getByRole('button', { name: '收回' }))
+    const confirm = await screen.findByRole('alertdialog', { name: /^要收回公开链接「.+」吗？$/ })
+    expect(within(confirm).getByText('收回后该链接立即失效，外部访客将无法继续打开此预览。')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/preview-shares/s1/revoke')).toBe(false)
+    fireEvent.click(within(confirm).getByRole('button', { name: '收回' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/preview-shares/s1/revoke')).toBe(true))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     fireEvent.click(within(dialog).getByRole('button', { name: '生成链接' }))
     expect(await within(dialog).findByDisplayValue('https://k3.preview.example/__gg/share/ps_x')).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST' && c.path === '/previews/p1/shares')?.body).toEqual({
@@ -283,6 +287,12 @@ describe('输入框上方的穿透标记', () => {
     render(<PreviewTags groupId="g1" />)
     fireEvent.click(await screen.findByRole('button', { name: /登录页/ }))
     fireEvent.click(screen.getByRole('button', { name: '停止穿透和服务' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '要停止「登录页」的在线预览吗？' })
+    expect(
+      within(confirm).getByText('停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。'),
+    ).toBeTruthy()
+    expect(calls.some((c) => c.path === '/previews/p1/close')).toBe(false)
+    fireEvent.click(within(confirm).getByRole('button', { name: '停止预览' }))
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: 'POST',
@@ -359,6 +369,12 @@ describe('群设置 · 在线预览', () => {
 
     const loginRow = screen.getByText('登录页').closest('.pv-item') as HTMLElement
     fireEvent.click(within(loginRow).getByRole('button', { name: '停止' }))
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog', { name: '要停止「登录页」的在线预览吗？' })).getByRole(
+        'button',
+        { name: '停止预览' },
+      ),
+    )
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: 'POST',
@@ -410,6 +426,14 @@ describe('群设置 · 在线预览', () => {
       expect(calls).toContainEqual({ method: 'POST', path: '/previews/p1/start', body: undefined }),
     )
     fireEvent.click(within(pausedRow).getByRole('button', { name: '彻底关闭' }))
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog', { name: '要彻底关闭「登录页」吗？' })).getByRole(
+        'button',
+        {
+          name: '彻底关闭',
+        },
+      ),
+    )
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: 'POST',
@@ -508,7 +532,7 @@ describe('管理后台 · 公开链接', () => {
     )
     fireEvent.click(within(row).getByRole('button', { name: '操作' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '收回' }))
-    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '确认收回' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '收回' }))
     await waitFor(() => expect(within(row).getByText('已收回')).toBeTruthy())
     vi.useRealTimers()
   })

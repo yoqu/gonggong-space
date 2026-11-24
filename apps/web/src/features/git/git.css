@@ -289,6 +289,12 @@
 .git-menu__icon[data-spin] {
   animation: git-spin 1s linear infinite;
 }
+/* Slowed rather than stopped, like .ui-spinner. */
+@media (prefers-reduced-motion: reduce) {
+  .git-menu__icon[data-spin] {
+    animation-duration: 3s;
+  }
+}
 @keyframes git-spin {
   to {
     transform: rotate(360deg);

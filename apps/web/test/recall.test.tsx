@@ -530,15 +530,20 @@ describe('重新编辑', () => {
 
 describe('delete', () => {
   it('asks first, then hides the message only for me', async () => {
+    let done: () => void = () => {}
     const calls = renderChat([msg({ seq: 1, body: '要删的' }), msg({ seq: 2, body: '留下的' })], {
-      'POST /messages/m1/hide': undefined,
+      'POST /messages/m1/hide': () => new Promise<undefined>((r) => (done = () => r(undefined))),
     })
     await openMore('要删的')
     fireEvent.click(screen.getByRole('menuitem', { name: '删除' }))
-    const dialog = screen.getByRole('dialog')
+    const dialog = await screen.findByRole('alertdialog', { name: '要删除这条消息吗？' })
     expect(within(dialog).getByText('删除后仅对你隐藏，其他成员仍可见')).toBeTruthy()
     expect(calls.some((c) => c.path === '/messages/m1/hide')).toBe(false)
-    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+    const del = within(dialog).getByRole('button', { name: '删除' })
+    expect(del.className).toContain('ui-btn--destructive')
+    fireEvent.click(del)
+    await waitFor(() => expect(del.getAttribute('aria-busy')).toBe('true'))
+    await act(async () => done())
     await waitFor(() => expect(screen.queryByText('要删的')).toBeNull())
     expect(screen.getByText('留下的')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST' && c.path === '/messages/m1/hide')).toBe(true)

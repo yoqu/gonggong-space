@@ -430,6 +430,10 @@ export default {
   保存令牌: 'Save token',
   令牌已保存: 'Token saved',
   '已删除 {host} 的令牌': 'Token for {host} deleted',
+  '删除 {host} 的令牌？': 'Delete the token for {host}?',
+  '删除后需要重新填写令牌才能恢复访问。': 'You will need to enter the token again to restore access.',
+  '这台电脑上的 Bot 访问 {host} 的仓库会失败':
+    'Bots on this computer will fail to access repositories on {host}',
   '已信任 {host}': 'Trusted {host}',
   '可以访问 {url}': 'Can access {url}',
   '这台电脑还不认识该主机的密钥。核对下面的指纹与托管平台公布的一致后再信任。':
@@ -510,4 +514,10 @@ export default {
   允许群成员在本机连接: 'Let group members connect here',
   '群成员可以在这台电脑上登录自己的飞书等账号，供本机 Bot 替他们使用；登录信息按人分开保存在这台电脑上。':
     "Group members can sign in to their own Feishu and other accounts on this computer for its bots to use for them; each person's login is stored separately on this computer.",
+  '已删除 {ok} 个，{fail} 个失败': 'Deleted {ok}, {fail} failed',
+  '已删除 {n} 个工作区': 'Deleted {n} {n:workspace|workspaces}',
+  已删除的群: 'Deleted group',
+  '已删除的 Bot': 'Deleted bot',
+  '压缩 Git 历史数据，不影响代码和未提交的改动':
+    'Compacts Git history; code and uncommitted changes are untouched',
 } satisfies Record<string, string>

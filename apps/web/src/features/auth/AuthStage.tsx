@@ -113,7 +113,7 @@ function RelayDemo() {
           key={cycle}
           className="relay__body"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.35 } }}
+          exit={{ opacity: 0, transition: { duration: 0.11, ease: 'easeOut' } }}
         >
           {SCRIPT.slice(0, lines).map((l, i) => (
             <m.div

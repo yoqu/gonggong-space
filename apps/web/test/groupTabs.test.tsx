@@ -8,7 +8,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { GroupTabBar } from '../src/features/group-tabs/GroupTabBar'
 import { NewTabMenu } from '../src/features/workbench/NewTabMenu'
 import { LinkTab } from '../src/features/workbench/tabs/LinkTab'
-import { mockApi } from './mockApi'
+import { apiError, mockApi } from './mockApi'
 
 const group = { id: 'g1', name: '支付', kind: 'group', botIds: [], members: [] } as unknown as GroupDto
 const tab = (o: Partial<GroupTabDto> & Pick<GroupTabDto, 'id' | 'title' | 'target'>): GroupTabDto => ({
@@ -117,6 +117,22 @@ describe('群标签栏', () => {
       '群公告',
       '接口文档',
     ])
+  })
+
+  it('shows a failed add at the bottom of the dialog, not under the title field', async () => {
+    mockApi({
+      'GET /groups/g2/tabs': { tabs: [notice] },
+      'GET /groups/g2/knowledge': { entries: [], canManage: false },
+      'POST /link-meta': { title: '', icon: null, embeddable: true },
+      'POST /groups/g2/tabs': () => apiError(409, 'conflict', '标签已存在'),
+    })
+    render(<GroupTabBar group={{ ...group, id: 'g2' }} />)
+    fireEvent.click(await screen.findByRole('button', { name: '添加标签' }))
+    fireEvent.change(screen.getByLabelText('链接地址'), { target: { value: 'https://docs.example.com/' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('标签已存在')
+    expect(screen.getByLabelText('标题').getAttribute('aria-invalid')).not.toBe('true')
   })
 
   it('marks a tab whose target is gone', async () => {

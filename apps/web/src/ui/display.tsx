@@ -1,8 +1,9 @@
-import { type CSSProperties, type ReactNode, useId } from 'react'
+import { type CSSProperties, type ReactNode, useId, useState } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { Button, type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
+import { usePresence } from './presence'
 import { RollingNumber } from './rolling-number'
 import './display.css'
 
@@ -58,13 +59,24 @@ export const unreadCount = (n: number) => (n > 99 ? '99+' : String(n))
 /** Unread count (`count`, capped at 99+, hidden at 0); with children it is a pre-Pane label badge. */
 export function Badge(props: BadgeProps) {
   if (!('count' in props)) return <Tag tone={BADGE_TONE[props.variant ?? 'default']}>{props.children}</Tag>
-  if (!props.count) return null
-  const n = unreadCount(props.count)
+  return <CountBadge count={props.count} muted={props.muted} />
+}
+
+/** Cleared to 0, the badge shrinks away still showing its last count rather than blinking out. */
+function CountBadge({ count, muted }: { count: number; muted?: boolean }) {
+  const [last, setLast] = useState(count)
+  if (count > 0 && count !== last) setLast(count)
+  const p = usePresence(count > 0)
+  if (!p.mounted) return null
+  const n = unreadCount(count > 0 ? count : last)
   return (
     <span
-      className={cx('ui-badge', props.muted && 'ui-badge--muted')}
+      className={cx('ui-badge', muted && 'ui-badge--muted')}
       role="img"
       aria-label={t('{n} 条未读', { n })}
+      aria-hidden={count > 0 ? undefined : true}
+      data-state={p.state}
+      onAnimationEnd={p.onAnimationEnd}
     >
       <RollingNumber value={n} />
     </span>

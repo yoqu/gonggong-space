@@ -86,9 +86,9 @@ export default {
   '{machine} 还没上线检测 {agent}，上线并检测到后自动可用。':
     '{machine} has not come online to detect {agent} yet; it becomes available once it is detected.',
   待检测: 'Not detected yet',
-  'agent 版本低于适配器要求': 'Agent version is below the adapter requirement',
-  '{machine} 上的 {cli} 低于 ACP 适配器要求的 {min}，可能无法正常运行，请升级该 CLI。':
-    '{cli} on {machine} is older than {min} required by the ACP adapter and may not work properly. Please upgrade the CLI.',
+  '{agent} 版本过低': '{agent} is out of date',
+  '{machine} 上的 {cli} 低于需要的 {min}，可能无法正常运行，请升级。':
+    '{cli} on {machine} is older than the required {min} and may not work properly. Please upgrade it.',
   确认: 'Confirm',
   '{usage} · {n} 轮': '{usage} · {n} {n:run|runs}',
   用量未上报: 'Usage not reported',
@@ -181,7 +181,7 @@ export default {
   待确认: 'Pending confirmation',
   在线空闲: 'Online, idle',
   运行中: 'Running',
-  'agent 缺失': 'Agent missing',
+  'Agent 缺失': 'Agent missing',
   不可触发: 'Cannot be triggered',
   '{name} 已确认': '{name} confirmed',
   任何群成员: 'Any group member',

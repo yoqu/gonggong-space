@@ -7,7 +7,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
 import { countdown } from '../../lib/time'
-import { Button, Dialog } from '../../ui'
+import { AlertDialog, Button, Presence } from '../../ui'
 import { useAppend } from './append'
 
 const STOPPABLE: RunStatus[] = ['queued', 'running', 'awaiting_approval', 'awaiting_answer']
@@ -47,7 +47,11 @@ function AppendAction({ run }: { run: RunDto }) {
 export function RunActions({ run }: { run: RunDto }) {
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const me = useSession((s) => s.user?.id)
+  const botName = useWorkspace((s) => s.bots.find((b) => b.id === run.botId)?.name ?? '')
+  const origin = useMemberName(run.groupId, run.originUserId)
   if (!STOPPABLE.includes(run.status)) return null
+  const othersRun = !!run.originUserId && run.originUserId !== me
   const chain = run.hop > 1
   const stop = async () => {
     setBusy(true)
@@ -71,30 +75,70 @@ export function RunActions({ run }: { run: RunDto }) {
       >
         {t('终止整条链')}
       </Button>
-      <Dialog
-        open={confirming}
-        title={t('终止整条链')}
-        onClose={() => setConfirming(false)}
-        width={420}
-        footer={
-          <>
-            <Button onClick={() => setConfirming(false)}>{t('取消')}</Button>
-            <Button variant="destructive" disabled={busy} onClick={() => void stop()}>
-              {t('终止')}
-            </Button>
-          </>
-        }
-      >
-        <ul className="ui-consequences">
-          <li>{t('停止这条接力链上所有未完成的轮次')}</li>
-          <li>{t('后续接力不再触发')}</li>
-        </ul>
-      </Dialog>
+      <Presence>
+        {confirming ? (
+          <AlertDialog
+            open
+            title={t('要终止整条链吗？')}
+            detail={
+              <ul className="ui-consequences">
+                <li>{t('停止这条接力链上所有未完成的轮次')}</li>
+                <li>{t('后续接力不再触发')}</li>
+              </ul>
+            }
+            onClose={() => {
+              if (!busy) setConfirming(false)
+            }}
+            actions={[
+              { label: t('取消'), disabled: busy, onClick: () => setConfirming(false) },
+              {
+                label: t('终止'),
+                variant: 'destructive',
+                disabled: busy,
+                loading: busy,
+                onClick: () => void stop(),
+              },
+            ]}
+          />
+        ) : null}
+      </Presence>
     </>
   ) : (
-    <Button size="small" icon="stop" disabled={busy} onClick={stop}>
-      {t('停止')}
-    </Button>
+    <>
+      <Button
+        size="small"
+        icon="stop"
+        disabled={busy}
+        loading={busy && !confirming}
+        onClick={() => (othersRun ? setConfirming(true) : void stop())}
+      >
+        {t('停止')}
+      </Button>
+      <Presence>
+        {confirming ? (
+          <AlertDialog
+            open
+            title={t('要停止 {bot} 的这轮运行吗？', { bot: botName })}
+            message={t('这是 {name} 发起的任务，当前轮次会立即中断，已产生的改动会保留在工作区。', {
+              name: origin,
+            })}
+            onClose={() => {
+              if (!busy) setConfirming(false)
+            }}
+            actions={[
+              { label: t('取消'), disabled: busy, onClick: () => setConfirming(false) },
+              {
+                label: t('停止'),
+                variant: 'destructive',
+                disabled: busy,
+                loading: busy,
+                onClick: () => void stop(),
+              },
+            ]}
+          />
+        ) : null}
+      </Presence>
+    </>
   )
   return (
     <>

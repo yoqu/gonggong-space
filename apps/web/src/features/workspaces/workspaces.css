@@ -235,13 +235,13 @@
   cursor: default;
   transition:
     background var(--fade-fast),
-    transform var(--spring-interactive);
+    scale var(--spring-interactive);
 }
 .dirpick__choice:hover {
   background: var(--tint-blue);
 }
 .dirpick__choice:active {
-  transform: scale(0.99);
+  scale: var(--press-card);
 }
 .dirpick__choice-icon {
   flex: none;

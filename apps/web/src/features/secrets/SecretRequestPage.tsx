@@ -25,7 +25,7 @@ export function SecretRequestPage() {
 
   const back = req && (
     <Link to={`/g/${req.groupId}`} className="ui-btn ui-btn--secondary ui-btn--md">
-      {t('打开群聊')}
+      {t('打开群')}
     </Link>
   )
   const view = error ? (

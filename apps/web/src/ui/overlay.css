@@ -270,16 +270,10 @@
   }
   :where(.ui-overlay:not(.ui-overlay--contained))[data-state="closed"]
     > .ui-dialog:where(:not(.ui-dialog--bare)) {
-    animation: 150ms ease-in ui-exit forwards;
+    animation: var(--fade-out) ui-exit forwards;
   }
   .ui-dialog__actions {
     flex-wrap: wrap;
-  }
-}
-@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
-  :where(.ui-overlay:not(.ui-overlay--contained))[data-state="closed"]
-    > .ui-dialog:where(:not(.ui-dialog--bare)) {
-    animation: var(--fade-out) ui-exit forwards;
   }
 }
 @media (pointer: coarse) {

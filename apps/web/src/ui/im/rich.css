@@ -42,6 +42,13 @@
   width: 12px;
   height: 12px;
 }
+/* 已复制: the check pops in, like a Button's done glyph. */
+.pn-code__copy[data-copied] svg {
+  --enter-scale: 0.6;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-bouncy) ui-enter;
+}
 .pn-code__live {
   position: absolute;
   width: 1px;

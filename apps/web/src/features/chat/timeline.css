@@ -206,7 +206,7 @@
   animation: none;
 }
 .tl-item--flash {
-  animation: tl-flash 2s ease-out;
+  animation: tl-flash var(--flash);
 }
 @keyframes tl-flash {
   0%,

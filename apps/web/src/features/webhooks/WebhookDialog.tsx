@@ -4,7 +4,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import { Button, ConfirmActionDialog, Dialog, Presence, TextArea, TextField } from '../../ui'
+import { Button, ConfirmActionDialog, Dialog, Presence, TextArea, TextField, useDiscardGuard } from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
 import '../groups/groups.css'
@@ -76,6 +76,11 @@ export function WebhookDialog({
   const [picks, setPicks] = useState<Picks>(webhook?.runOptions ?? {})
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const snapshot = JSON.stringify([name, prompt, candidates, picks])
+  const [initial] = useState(snapshot)
+  const dirty = snapshot !== initial
+  const guard = useDiscardGuard(dirty, onClose)
+  const close = saving ? () => {} : guard.requestClose
 
   const ready = name.trim().length > 0 && candidates.length <= WEBHOOK_MAX_BOTS
 
@@ -110,7 +115,7 @@ export function WebhookDialog({
         width={540}
         closeOnBackdrop={false}
         title={webhook ? t('编辑 Webhook') : t('新建 Webhook')}
-        onClose={onClose}
+        onClose={close}
         footer={
           <>
             {webhook ? (
@@ -119,14 +124,16 @@ export function WebhookDialog({
               </Button>
             ) : null}
             <span className="spacer" />
-            <Button onClick={onClose}>{t('取消')}</Button>
-            <Button variant="primary" disabled={!ready || saving} onClick={() => void save()}>
+            <Button disabled={saving} onClick={close}>
+              {t('取消')}
+            </Button>
+            <Button variant="primary" disabled={!ready} loading={saving} onClick={() => void save()}>
               {webhook ? t('保存') : t('创建')}
             </Button>
           </>
         }
       >
-        <div className="gs-dialog-form">
+        <div className="gs-dialog-form" inert={saving}>
           <TextField
             label={t('名称')}
             value={name}
@@ -170,6 +177,7 @@ export function WebhookDialog({
           />
         ) : null}
       </Presence>
+      {guard.dialog}
     </>
   )
 }

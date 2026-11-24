@@ -107,8 +107,10 @@ describe('稍后处理', () => {
   it('removes a saved message', async () => {
     const s = await setup()
     const a = (await send(s.asWang, s.g.id, '看一下')).body
-    await s.asLi.put(`/api/messages/${a.id}/save`, { remindAt: null })
-    expect((await s.asLi.del(`/api/messages/${a.id}/save`)).status).toBe(200)
+    await s.asLi.put(`/api/messages/${a.id}/save`, { remindAt: '2026-11-08T08:20:00.000Z' })
+    const gone = await s.asLi.del<{ remindAt: string | null }>(`/api/messages/${a.id}/save`)
+    expect(gone.status).toBe(200)
+    expect(gone.body.remindAt).toBe('2026-11-08T08:20:00.000Z')
     expect(await state(s.asLi)).toEqual({ ids: [], due: 0 })
     expect((await s.asLi.put(`/api/messages/${a.id}/save/done`, { done: true })).status).toBe(404)
   })

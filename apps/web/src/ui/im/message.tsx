@@ -5,6 +5,7 @@ import type { Glyph } from '../controls'
 import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag } from '../display'
 import { Icon } from '../icon'
 import { Popover } from '../popover'
+import { RollingNumber } from '../rolling-number'
 import { Emoji } from './emoji'
 import { EmojiPicker } from './pickers'
 import type { TagSpec } from './types'
@@ -169,11 +170,13 @@ export function ThreadSummary({
   return (
     <button type="button" className={cx('pn-thread', unread > 0 && 'pn-thread--unread')} onClick={onClick}>
       <AvatarGroup people={people} size={20} max={3} />
-      <span className="pn-thread__count">{count ? t('{n} 条回复', { n: count }) : t('查看话题')}</span>
+      <span className="pn-thread__count">
+        {count ? <RollingNumber value={t('{n} 条回复', { n: count })} /> : t('查看话题')}
+      </span>
       {unread > 0 && (
         <span className="pn-thread__new">
           <span className="pn-thread__dot" aria-hidden />
-          {t('{n} 条新回复', { n: unread })}
+          <RollingNumber value={t('{n} 条新回复', { n: unread })} />
         </span>
       )}
       {unread > 0 && mentioned && <span className="pn-thread__at">{t('@我')}</span>}

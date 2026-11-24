@@ -89,7 +89,9 @@ it('switches the download mirror, a custom one only with both addresses', async 
   fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '官方源' }))
   await waitFor(() => expect(m.setMirror).toHaveBeenCalledWith({ kind: 'official' }))
 
-  await waitFor(() => expect(screen.getByRole('status').textContent).toBe('已保存'))
+  const mirrorRow = () =>
+    screen.getByRole('button', { name: '镜像源' }).closest('.ui-group__row') as HTMLElement
+  await waitFor(() => expect(within(mirrorRow()).getByRole('status').textContent).toBe('已保存'))
 
   fireEvent.click(screen.getByRole('button', { name: '镜像源' }))
   fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '自定义' }))
@@ -113,19 +115,89 @@ it('switches the download mirror, a custom one only with both addresses', async 
   )
 })
 
-it('saves the agent environment as KEY=VALUE lines and refuses a malformed line', async () => {
+it('saves the agent environment on blur like the mirror, refusing a malformed line', async () => {
   m.setEnv.mockResolvedValue()
   render(<SettingsPage go={() => {}} />)
   const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
   expect(env.value).toBe('FOO=1')
-  const save = screen.getByRole('button', { name: '保存环境变量' }) as HTMLButtonElement
-  fireEvent.change(env, { target: { value: 'FOO=1\nbroken' } })
-  fireEvent.click(save)
-  expect(await screen.findByText('环境变量每行一个 KEY=VALUE：broken')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: '保存环境变量' })).toBeNull()
+  const status = () => within(env.closest('.ui-group__row') as HTMLElement).getByRole('status')
+  fireEvent.blur(env)
   expect(m.setEnv).not.toHaveBeenCalled()
+  fireEvent.change(env, { target: { value: 'FOO=1\nbroken' } })
+  fireEvent.blur(env)
+  expect(status().textContent).toContain('环境变量每行一个 KEY=VALUE：broken')
+  expect(m.setEnv).not.toHaveBeenCalled()
+  fireEvent.change(env, { target: { value: 'FOO=1' } })
+  fireEvent.blur(env)
+  expect(status().textContent).toBe('')
+  fireEvent.change(env, { target: { value: 'FOO=1\nbroken' } })
+  fireEvent.blur(env)
   fireEvent.change(env, { target: { value: 'FOO=1\n BAR = a=b \n' } })
-  fireEvent.click(save)
+  fireEvent.blur(env)
   await waitFor(() => expect(m.setEnv).toHaveBeenCalledWith({ FOO: '1', BAR: 'a=b' }))
+  await waitFor(() => expect(status().textContent).toBe('已保存'))
+  fireEvent.blur(env)
+  expect(m.setEnv).toHaveBeenCalledTimes(1)
+})
+
+it('never saves a half-typed environment while typing, only on blur or when leaving the page', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    m.setEnv.mockResolvedValue()
+    const { unmount } = render(<SettingsPage go={() => {}} />)
+    const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
+    fireEvent.change(env, { target: { value: 'FOO=1\nHTTP_PROXY=http://' } })
+    await act(async () => vi.advanceTimersByTime(5000))
+    expect(m.setEnv).not.toHaveBeenCalled()
+    fireEvent.change(env, { target: { value: 'FOO=1\nHTTP_PROXY=http://proxy:8080' } })
+    unmount()
+    await waitFor(() => expect(m.setEnv).toHaveBeenCalledWith({ FOO: '1', HTTP_PROXY: 'http://proxy:8080' }))
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('treats a KEY= line with no value as unfinished: refused on blur, not saved when leaving', async () => {
+  m.setEnv.mockResolvedValue()
+  const { unmount } = render(<SettingsPage go={() => {}} />)
+  const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
+  const status = () => within(env.closest('.ui-group__row') as HTMLElement).getByRole('status')
+  fireEvent.change(env, { target: { value: 'FOO=1\nHTTP_PROXY=' } })
+  fireEvent.blur(env)
+  expect(status().textContent).toContain('HTTP_PROXY 的值为空')
+  unmount()
+  await act(async () => {})
+  expect(m.setEnv).not.toHaveBeenCalled()
+})
+
+it('asks before saving an emptied environment on blur', async () => {
+  m.setEnv.mockResolvedValue()
+  render(<SettingsPage go={() => {}} />)
+  const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
+  fireEvent.change(env, { target: { value: '' } })
+  fireEvent.blur(env)
+  expect(m.setEnv).not.toHaveBeenCalled()
+  expect(screen.getByText('环境变量已清空，确认保存？')).toBeTruthy()
+  fireEvent.change(env, { target: { value: 'FOO=2' } })
+  expect(screen.queryByText('环境变量已清空，确认保存？')).toBeNull()
+  fireEvent.change(env, { target: { value: '  \n' } })
+  fireEvent.blur(env)
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(m.setEnv).toHaveBeenCalledWith({}))
+  expect(screen.queryByText('环境变量已清空，确认保存？')).toBeNull()
+  fireEvent.blur(env)
+  expect(m.setEnv).toHaveBeenCalledTimes(1)
+})
+
+it('keeps the old environment when leaving the page with it emptied', async () => {
+  m.setEnv.mockResolvedValue()
+  const { unmount } = render(<SettingsPage go={() => {}} />)
+  const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
+  fireEvent.change(env, { target: { value: '' } })
+  unmount()
+  await act(async () => {})
+  expect(m.setEnv).not.toHaveBeenCalled()
 })
 
 it('opens 连接诊断 from Settings', async () => {

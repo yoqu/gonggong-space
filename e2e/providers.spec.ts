@@ -107,7 +107,7 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
         .getByRole('note')
         .filter({ hasText: `pr1 Bot 本会话使用 ${session}；已切换为 ${effective}，开启新会话后生效` })
       await expect(banner).toBeVisible()
-      await banner.getByRole('button', { name: '开启新会话' }).click()
+      await banner.getByRole('button', { name: '新会话' }).click()
       await expect(main.getByText('pr1 Bot 下一轮将开新会话').last()).toBeVisible()
       return banner
     }

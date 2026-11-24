@@ -10,7 +10,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { parseHttpUrl } from '../../lib/links'
-import { Dialog, Form, FormRow, SegmentedControl, Select, Spinner, TextField } from '../../ui'
+import { Alert, Dialog, Form, FormRow, SegmentedControl, Select, Spinner, TextField } from '../../ui'
 import { useKnowledge } from '../knowledge/api'
 import { groupTabsApi } from './store'
 
@@ -121,10 +121,17 @@ export function AddTabDialog({ group, onClose }: { group: GroupDto; onClose: () 
       title={t('添加标签')}
       message={t('标签显示在群顶部，所有成员都能看到和打开。')}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('添加'), variant: 'primary', type: 'submit', form: FORM, disabled: !target || busy },
+        { label: t('取消'), onClick: onClose, disabled: busy },
+        {
+          label: t('添加'),
+          variant: 'primary',
+          type: 'submit',
+          form: FORM,
+          disabled: !target || busy,
+          loading: busy,
+        },
       ]}
     >
       <SegmentedControl
@@ -184,7 +191,6 @@ export function AddTabDialog({ group, onClose }: { group: GroupDto; onClose: () 
             aria-label={t('标题')}
             maxLength={GROUP_TAB_TITLE_MAX}
             value={title}
-            error={error || undefined}
             onChange={(e) => {
               typed.current = !!e.target.value
               setTitle(e.target.value)
@@ -192,6 +198,7 @@ export function AddTabDialog({ group, onClose }: { group: GroupDto; onClose: () 
           />
         </FormRow>
       </Form>
+      {error ? <Alert variant="error" description={error} /> : null}
     </Dialog>
   )
 }
@@ -226,10 +233,17 @@ export function RenameTabDialog({
       width={400}
       title={t('重命名标签')}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('保存'), variant: 'primary', type: 'submit', form, disabled: !title.trim() || busy },
+        { label: t('取消'), onClick: onClose, disabled: busy },
+        {
+          label: t('保存'),
+          variant: 'primary',
+          type: 'submit',
+          form,
+          disabled: !title.trim(),
+          loading: busy,
+        },
       ]}
     >
       <Form id={form} onSubmit={() => void submit()}>

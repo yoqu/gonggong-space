@@ -12,4 +12,14 @@
   --fade-fast: 90ms ease-out;
   --fade-in: 150ms ease-out;
   --fade-out: 110ms ease-out;
+  /* Fixed-length loops and one-shots (duration + curve, like the springs): `animation: name var(--flash)`. */
+  --flash: 1.4s ease-out;
+  --shake: 360ms ease-in-out;
+  --draw: 320ms ease-out;
+  --pulse: 1.6s ease-in-out;
+  --live-ring: 1.8s ease-out;
+  /* Pressed scale, applied with the `scale` property on a `scale var(--spring-interactive)` transition. */
+  --press-button: 0.97;
+  --press-card: 0.98;
+  --press-icon: 0.92;
 }

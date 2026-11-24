@@ -234,4 +234,7 @@ export default {
   '改为仅发给群成员，不触发 Bot': 'Send to group members only without starting a Bot',
   '本次仅发给群成员，不触发 Bot': 'This message goes to group members only and will not start a Bot',
   '恢复发给 @{name}': 'Restore sending to @{name}',
+  '要删除这条批注吗？': 'Delete this annotation?',
+  '删除后所有人都看不到这条批注，无法恢复。': 'It will be gone for everyone and cannot be restored.',
+  已删除批注: 'Annotation deleted',
 }

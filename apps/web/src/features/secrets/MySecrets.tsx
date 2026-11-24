@@ -19,6 +19,7 @@ import {
   Spinner,
   Switch,
   Tag,
+  toast,
 } from '../../ui'
 import { MODE_LABEL, secretsApi, valueState } from './api'
 import '../config/config.css'
@@ -80,6 +81,8 @@ export function MySecrets() {
                       <>
                         <Switch
                           ariaLabel={`${FOREIGN} ${d.secret.name}`}
+                          size="small"
+                          label={<span className="gs-desc">{t('他人电脑可用')}</span>}
                           checked={d.mine.allowForeignMachines}
                           onChange={(on) => void toggle(d, on)}
                         />
@@ -149,6 +152,7 @@ export function FillMine({
     setBusy(true)
     try {
       await secretsApi.setMine(item.secret.id, { value, allowForeignMachines: foreign })
+      toast({ type: 'success', message: t('已保存 {name}', { name: item.secret.name }) })
       onDone()
     } catch (e) {
       setError(errorText(e))
@@ -160,22 +164,27 @@ export function FillMine({
       open
       title={t('填写 {name}', { name: item.secret.name })}
       message={item.secret.description || undefined}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       closeOnBackdrop={false}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), onClick: onClose, disabled: busy },
         {
           label: t('保存'),
           variant: 'primary',
           onClick: () => void submit(),
-          disabled: busy || value.length < SECRET_MIN_LENGTH,
+          loading: busy,
+          disabled: value.length < SECRET_MIN_LENGTH,
         },
       ]}
     >
       <SecureField
         label={t('值')}
         autoComplete="new-password"
-        hint={item.mine ? t('当前：{state}', { state: valueState(item.mine) }) : t('至少 8 个字符')}
+        hint={
+          item.mine
+            ? `${t('当前：{state}', { state: valueState(item.mine) })} · ${t('至少 8 个字符')}`
+            : t('至少 8 个字符')
+        }
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />

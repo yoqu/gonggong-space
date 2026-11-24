@@ -26,3 +26,7 @@
   border-radius: var(--radius-menu);
   background: var(--group-bg);
 }
+/* The panel remounts per tab; only its content fades so the box itself never blinks. */
+.ui-tab-view__panel > * {
+  animation: var(--fade-in) ui-fade-in;
+}

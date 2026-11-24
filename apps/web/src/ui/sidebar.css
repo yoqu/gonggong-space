@@ -46,7 +46,7 @@
 }
 .ui-sidebar__chev > svg,
 .ui-sidebar__disc > svg {
-  transition: transform var(--fade-fast);
+  transition: transform var(--spring-interactive);
 }
 .ui-sidebar__disc[data-open] > svg {
   transform: rotate(90deg);

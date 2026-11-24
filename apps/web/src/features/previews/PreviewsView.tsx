@@ -3,7 +3,18 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
-import { Alert, Button, EmptyState, GroupBox, NoTabsArt, PullDownButton, Spinner, Tag } from '../../ui'
+import {
+  Alert,
+  Button,
+  EmptyState,
+  GroupBox,
+  NoTabsArt,
+  Presence,
+  PullDownButton,
+  Spinner,
+  Tag,
+} from '../../ui'
+import { ClosePreviewConfirm } from './ClosePreviewConfirm'
 import {
   canPausePreview,
   canStopService,
@@ -66,6 +77,7 @@ function Lists({
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [closing, setClosing] = useState<{ preview: PreviewDto; mode: 'stop' | 'close' } | null>(null)
   const toggleTech = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
   const act = async (key: string, request: () => Promise<unknown>) => {
     if (busyKey === key) return
@@ -132,12 +144,7 @@ function Lists({
                           <Button
                             variant="plain"
                             size="small"
-                            disabled={busyKey === `close:${p.id}`}
-                            onClick={() =>
-                              void act(`close:${p.id}`, () =>
-                                api.post(`/previews/${p.id}/close`, { stopService: false }),
-                              )
-                            }
+                            onClick={() => setClosing({ preview: p, mode: 'close' })}
                           >
                             {t('彻底关闭')}
                           </Button>
@@ -161,11 +168,11 @@ function Lists({
                               size="small"
                               disabled={busyKey === `close:${p.id}`}
                               onClick={() =>
-                                void act(`close:${p.id}`, () =>
-                                  api.post(`/previews/${p.id}/close`, {
-                                    stopService: shouldStopServiceOnClose(p),
-                                  }),
-                                )
+                                p.status === 'offline'
+                                  ? void act(`close:${p.id}`, () =>
+                                      api.post(`/previews/${p.id}/close`, { stopService: false }),
+                                    )
+                                  : setClosing({ preview: p, mode: 'stop' })
                               }
                             >
                               {p.status === 'offline'
@@ -249,6 +256,16 @@ function Lists({
           </GroupBox>
         </>
       ) : null}
+      <Presence>
+        {closing ? (
+          <ClosePreviewConfirm
+            preview={closing.preview}
+            mode={closing.mode}
+            stopService={closing.mode === 'stop' && shouldStopServiceOnClose(closing.preview)}
+            onClose={() => setClosing(null)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

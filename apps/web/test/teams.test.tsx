@@ -365,7 +365,7 @@ describe('team settings', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成并复制链接' }))
     expect(await screen.findByText('http://10.0.0.5/join/ggi_failcopy')).toBeTruthy()
     expect(await screen.findByText('邀请链接已生成')).toBeTruthy()
-    expect(await screen.findByText('生效中的邀请')).toBeTruthy()
+    expect(await screen.findByText('邀请链接')).toBeTruthy()
     expect(screen.getByText('刚刚生成')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '撤销' }))

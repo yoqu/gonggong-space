@@ -86,8 +86,8 @@ function warning(bot: BotDto, userName: (id: string) => string, machine: Machine
   }
   if (agentOutdated(bot))
     return {
-      title: t('agent 版本低于适配器要求'),
-      desc: t('{machine} 上的 {cli} 低于 ACP 适配器要求的 {min}，可能无法正常运行，请升级该 CLI。', {
+      title: t('{agent} 版本过低', { agent }),
+      desc: t('{machine} 上的 {cli} 低于需要的 {min}，可能无法正常运行，请升级。', {
         machine: bot.machineName ?? '',
         cli: agentCliVersion(bot),
         min: bot.agentMinVersion ?? '',

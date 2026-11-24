@@ -148,7 +148,10 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
     run.originUserId === bot?.ownerId
       ? t('{name}（触发人兼 Bot 主人）可回答', { name: trigger })
       : t('触发人 {trigger} 或 Bot 主人 {owner} 可回答', { trigger, owner })
-  const ready = set.questions.every((question) => answered(question, draftOf(question)))
+  const missing = set.questions.filter((question) => !answered(question, draftOf(question))).length
+  const ready = missing === 0
+  // Flag the open questions only once answering has started, not the whole fresh card.
+  const flagMissing = pending && missing < set.questions.length
   const done = (
     <div className="question__done">
       <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
@@ -213,7 +216,11 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
       {set.questions.map((question) => {
         const d = draftOf(question)
         return (
-          <div key={question.id} className="question__item">
+          <div
+            key={question.id}
+            className="question__item"
+            data-missing={(flagMissing && !answered(question, d)) || undefined}
+          >
             <div className="question__q">
               <span className="question__type">{QUESTION_TYPE[question.type]}</span>
               <span>{question.title}</span>
@@ -360,6 +367,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
             size="small"
             className="question__submit"
             disabled={locked || !ready || uploads.uploading}
+            title={ready ? undefined : t('还有 {n} 题未回答', { n: missing })}
             loading={busy}
             onClick={() => void submit()}
           >

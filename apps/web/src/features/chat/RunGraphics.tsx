@@ -26,7 +26,7 @@ function Check() {
       {...STROKE}
       initial={reduced ? false : { pathLength: 0 }}
       animate={{ pathLength: 1 }}
-      transition={{ duration: 0.35, ease: 'easeOut', delay: 0.1 }}
+      transition={{ ...SPRING.smooth, delay: 0.1 }}
     />
   )
 }
@@ -286,7 +286,7 @@ export function FanOut({ bots }: { bots: string[] }) {
               {...STROKE}
               initial={reduced ? false : { pathLength: 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ duration: 0.3, delay: i * 0.08, ease: 'easeOut' }}
+              transition={{ ...SPRING.snappy, delay: i * 0.08 }}
             />
           )
         })}

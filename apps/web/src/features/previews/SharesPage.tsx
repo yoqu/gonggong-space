@@ -6,19 +6,9 @@ import { toastError } from '../../lib/errors'
 import { matchAny } from '../../lib/match'
 import { localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import {
-  Alert,
-  ConfirmActionDialog,
-  EmptyState,
-  Presence,
-  SearchField,
-  Spinner,
-  Table,
-  Tag,
-  toast,
-} from '../../ui'
+import { Alert, EmptyState, Presence, SearchField, Spinner, Table, Tag, toast } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
-import { shareState } from './ShareDialog'
+import { RevokeShareDialog, shareState } from './ShareDialog'
 
 const DAY = 86400_000
 const when = (iso: string | null) => (iso ? localDateTime(iso) : '—')
@@ -103,13 +93,9 @@ export function SharesPage() {
       )}
       <Presence>
         {revoking ? (
-          <ConfirmActionDialog
-            title={t('要收回公开链接「{title}」吗？', { title: revoking.previewTitle })}
-            message={t('收回后该链接立即失效，外部访客将无法继续打开此预览。')}
-            consequences={[t('原链接无法恢复，如需外部分享需重新生成公开链接')]}
-            label={t('确认收回')}
-            done={t('已收回公开链接')}
-            run={() => api.post(`/preview-shares/${revoking.id}/revoke`)}
+          <RevokeShareDialog
+            title={revoking.previewTitle}
+            shareId={revoking.id}
             onDone={() => {
               setRevoking(null)
               reload()

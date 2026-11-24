@@ -84,7 +84,7 @@
     var(--control-track) 100%
   );
   background-size: 200% 100%;
-  animation: ui-shimmer 1.4s ease-in-out infinite;
+  animation: ui-skel-shimmer 1.6s linear infinite;
 }
 .ui-skel--circle {
   flex: none;
@@ -98,7 +98,7 @@
 .ui-skel--block {
   border-radius: var(--radius-menu);
 }
-@keyframes ui-shimmer {
+@keyframes ui-skel-shimmer {
   0% {
     background-position: 100% 0;
   }

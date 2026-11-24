@@ -2,6 +2,7 @@ import { CastRetry } from '@web/features/previews/CastRetry'
 import { DevtoolsGuide } from '@web/features/previews/DevtoolsGuide'
 import {
   Alert,
+  AlertDialog,
   Button,
   EmptyState,
   GroupBox,
@@ -11,7 +12,8 @@ import {
   Tag,
   type TagTone,
 } from '@web/ui'
-import { Fragment, useCallback } from 'react'
+import { Fragment, useCallback, useState } from 'react'
+import logo from '../assets/logo.svg'
 import { t } from '../i18n'
 import { type CastComponent, ipc, type Tunnels } from '../ipc'
 import { fail, PathValue, Section } from '../lib/ui'
@@ -53,6 +55,10 @@ export function LivePage(_: PageProps) {
   const component = componentQ.data
   const previews = previewsQ.data
   const load = previewsQ.reload
+  // Kept after closing so the dialog keeps its text while it animates out.
+  const [doomed, setDoomed] = useState<LivePreview | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const close = async (p: LivePreview) => {
     try {
@@ -61,6 +67,21 @@ export function LivePage(_: PageProps) {
       fail(e)
     }
     await load()
+  }
+
+  const closeConfirm = () => {
+    if (!closing) setConfirming(false)
+  }
+
+  const confirmClose = async () => {
+    if (!doomed || closing) return
+    setClosing(true)
+    try {
+      await close(doomed)
+    } finally {
+      setClosing(false)
+      setConfirming(false)
+    }
   }
 
   const c = component && COMPONENT[component.source]
@@ -168,9 +189,21 @@ export function LivePage(_: PageProps) {
                         {t('去授权')}
                       </Button>
                     ) : null}
-                    <Button size="small" onClick={() => void close(p)}>
-                      {p.serviceId ? t('关闭并停止应用') : t('关闭')}
-                    </Button>
+                    {p.serviceId ? (
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setDoomed(p)
+                          setConfirming(true)
+                        }}
+                      >
+                        {t('关闭并停止应用')}
+                      </Button>
+                    ) : (
+                      <Button size="small" onClick={() => void close(p)}>
+                        {t('关闭')}
+                      </Button>
+                    )}
                   </div>
                   {p.live?.devtools ? <DevtoolsGuide blocker={p.live.devtools} /> : null}
                 </Fragment>
@@ -193,6 +226,23 @@ export function LivePage(_: PageProps) {
           '群成员在网页端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。',
         )}
       </p>
+      <AlertDialog
+        open={confirming}
+        onClose={closeConfirm}
+        icon={<img src={logo} alt="" width={48} height={48} />}
+        title={doomed ? t('要关闭「{title}」并停止应用吗？', { title: doomed.title }) : ''}
+        message={t('关闭后群成员将看不到这个实时画面，Bot 启动的应用也会一并停止。')}
+        actions={[
+          { label: t('取消'), disabled: closing, onClick: closeConfirm },
+          {
+            label: t('关闭并停止应用'),
+            variant: 'destructive',
+            disabled: closing,
+            loading: closing,
+            onClick: () => void confirmClose(),
+          },
+        ]}
+      />
     </>
   )
 }

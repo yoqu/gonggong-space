@@ -393,7 +393,7 @@
   border: 1.5px solid currentColor;
   border-radius: 50%;
   opacity: 0;
-  animation: gg-glyph-ring 0.6s ease-out;
+  animation: gg-glyph-ring var(--spring-smooth);
 }
 @keyframes gg-glyph-turn {
   to {
@@ -470,5 +470,9 @@
   }
   .gg-glyph[data-state="busy"] {
     opacity: 0.6;
+  }
+  /* Slowed rather than stopped, like .ui-spinner. */
+  .gg-glyph[data-state="busy"] .gg-glyph__spin {
+    animation-duration: 3s;
   }
 }

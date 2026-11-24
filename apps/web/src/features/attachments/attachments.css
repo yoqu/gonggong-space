@@ -84,6 +84,19 @@
 .att-chip__progress {
   font-variant-numeric: tabular-nums;
 }
+.att-chip__retry {
+  flex: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--system-red);
+  font: inherit;
+  cursor: pointer;
+}
+.att-chip__retry:hover {
+  text-decoration: underline;
+}
 /* Icon and name of a previewable file: the chip's own look, the whole height a tap target. */
 .att-chip__open {
   display: inline-flex;
@@ -257,6 +270,9 @@
   flex-basis: 100%;
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
+}
+.att-chips__note--failed {
+  color: var(--system-red);
 }
 
 /* Message media: ImageAttachment tiles */

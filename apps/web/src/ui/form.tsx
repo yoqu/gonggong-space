@@ -69,7 +69,11 @@ function FieldNote({
   const note = error ?? hint
   if (note == null && extra == null) return null
   return (
-    <span id={id} className={cx('ui-field__hint', error != null && 'ui-field__hint--error')}>
+    <span
+      key={typeof error === 'string' ? `error:${error}` : error != null ? 'error' : 'hint'}
+      id={id}
+      className={cx('ui-field__hint', error != null && 'ui-field__hint--error')}
+    >
       {error != null ? <Icon name="warning" size={12} className="ui-field__hint-icon" /> : null}
       {note}
       {extra}

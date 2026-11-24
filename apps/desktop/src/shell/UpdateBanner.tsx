@@ -1,9 +1,9 @@
-import { AlertDialog, NotificationBanner, usePresence } from '@web/ui'
+import { AlertDialog, Button, NotificationBanner, usePresence } from '@web/ui'
 import { useRef, useState } from 'react'
 import logo from '../assets/logo.svg'
 import logoSmall from '../assets/logo-small.svg'
 import { t } from '../i18n'
-import { activeRuns, restartToUpdate, useUpdate } from '../updater'
+import { activeRuns, checkForUpdate, restartToUpdate, useUpdate } from '../updater'
 
 /** 立即重启, confirmed first when runs on this machine would be interrupted. */
 export function useRestartToUpdate() {
@@ -18,7 +18,7 @@ export function useRestartToUpdate() {
       open={runs > 0}
       onClose={() => setRuns(0)}
       icon={<img src={logo} alt="" width={48} height={48} />}
-      title={t('有运行中的任务，重启会中断')}
+      title={t('要重启并中断运行中的任务吗？')}
       message={t('本机有 {n} 个任务正在运行，重启后它们会被中断。', { n: runs })}
       actions={[
         { label: t('取消'), onClick: () => setRuns(0) },
@@ -34,6 +34,27 @@ export function useRestartToUpdate() {
     />
   )
   return { request, dialog }
+}
+
+/** 立即重启 once an update is downloaded, else 检查更新 (disabled while one is under way). */
+export function UpdateAction({ size }: { size?: 'small' }) {
+  const state = useUpdate((s) => s.state)
+  const restart = useRestartToUpdate()
+  const busy = state.phase === 'checking' || state.phase === 'downloading' || state.phase === 'installing'
+  return (
+    <>
+      {state.phase === 'ready' ? (
+        <Button variant="primary" size={size} onClick={restart.request}>
+          {t('立即重启')}
+        </Button>
+      ) : (
+        <Button size={size} disabled={busy} onClick={() => void checkForUpdate()}>
+          {t('检查更新')}
+        </Button>
+      )}
+      {restart.dialog}
+    </>
+  )
 }
 
 /** Non-blocking notice once an update has been downloaded. */

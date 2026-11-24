@@ -78,13 +78,17 @@ a {
   animation-duration: 200ms;
   animation-timing-function: ease-out;
 }
-/* Reduced motion: movement (springs, transforms) becomes instant; opacity/color fades and spinners stay. */
+/* Reduced motion: movement (springs, transforms) becomes instant; opacity/color fades and spinners stay.
+   One-shot movement tokens drop to 1ms rather than 0/none so animationend still fires for anything waiting on it;
+   --flash (a color highlight), --pulse and --live-ring are gated where used. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --spring-snappy: 0s linear;
     --spring-smooth: 0s linear;
     --spring-bouncy: 0s linear;
     --spring-interactive: 0s linear;
+    --shake: 1ms linear;
+    --draw: 1ms linear;
   }
 }
 ::selection {

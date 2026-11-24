@@ -9,7 +9,7 @@
   border-radius: var(--radius-field);
   background: linear-gradient(90deg, var(--group-bg) 0%, var(--selection-fill) 50%, var(--group-bg) 100%);
   background-size: 200% 100%;
-  animation: ui-shimmer 1.4s ease-in-out infinite;
+  animation: ui-skel-shimmer 1.6s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .html-render--loading {

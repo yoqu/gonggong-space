@@ -133,7 +133,12 @@ describe('QuestionBlock', () => {
     const calls = mockApi({ 'POST /runs/r1/questions/qs1/answers': set({ status: 'answered' }) })
     render(<QuestionBlock run={run()} />)
     expect(button('提交回答').disabled).toBe(true)
+    expect(button('提交回答').title).toBe('还有 4 题未回答')
+    // Nothing is flagged before answering starts; then the questions still open are.
+    expect(document.querySelectorAll('.question__item[data-missing]')).toHaveLength(0)
     fireEvent.click(button('Python推荐'))
+    expect(button('提交回答').title).toBe('还有 3 题未回答')
+    expect(document.querySelectorAll('.question__item[data-missing]')).toHaveLength(3)
     // Single choice: 「其他」 replaces the chosen option and vice versa.
     const [single, multi] = screen.getAllByPlaceholderText('其他，我来补充') as HTMLTextAreaElement[]
     fireEvent.change(single!, { target: { value: 'Rust' } })
@@ -147,6 +152,8 @@ describe('QuestionBlock', () => {
     fireEvent.click(button('否'))
     expect(button('提交回答').disabled).toBe(true)
     fireEvent.change(screen.getByPlaceholderText('自由作答'), { target: { value: '注意幂等' } })
+    expect(button('提交回答').title).toBe('')
+    expect(document.querySelectorAll('.question__item[data-missing]')).toHaveLength(0)
     fireEvent.click(button('提交回答'))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0]).toEqual({

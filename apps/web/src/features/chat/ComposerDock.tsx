@@ -17,7 +17,7 @@ import { motionTiming } from '../../lib/motion'
 import { Icon } from '../../ui'
 import { useCanvasChat } from '../artifacts/chatRoot'
 import { hudOffset, ORB } from './composerDockHud'
-import { usePending } from './pending'
+import { pendingOwner, usePending } from './pending'
 import { STATUS_LABEL } from './RunGraphics'
 import './composer-dock.css'
 
@@ -92,7 +92,13 @@ function useAutoHud(
   const bots = useWorkspace((s) => s.bots)
   const sending = usePending((s) =>
     groupId
-      ? s.list.find((p) => p.groupId === groupId && !p.req.threadRootId && p.status === 'sending')
+      ? s.list.find(
+          (p) =>
+            p.owner === pendingOwner() &&
+            p.groupId === groupId &&
+            !p.req.threadRootId &&
+            p.status === 'sending',
+        )
       : undefined,
   )
   const [flash, setFlash] = useState<FlashHud | null>(null)

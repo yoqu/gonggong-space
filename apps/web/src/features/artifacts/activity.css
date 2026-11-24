@@ -82,7 +82,7 @@
       -100% 0 / 50% 100% no-repeat;
     animation:
       art-landed-wipe 0.6s ease-out,
-      art-landed-flash 2.1s ease-out;
+      art-landed-flash var(--flash);
   }
 }
 

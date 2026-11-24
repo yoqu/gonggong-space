@@ -84,7 +84,7 @@ describe('bot intro', () => {
   })
 })
 
-describe('新对话', () => {
+describe('新会话', () => {
   it('sends /new @bot from the bot menu in the status bar', async () => {
     const calls = mockApi({ 'POST /groups/g1/messages': { id: 'm1' } })
     render(
@@ -93,7 +93,7 @@ describe('新对话', () => {
       </MemoryRouter>,
     )
     fireEvent.click(await screen.findByRole('button', { name: 'MBP 的 CC 的工作区' }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: '让 MBP 的 CC 开新对话' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '让 MBP 的 CC 开始新会话' }))
     await waitFor(() => expect(sent(calls)).toHaveLength(1))
     expect(sent(calls)[0]).toMatchObject({ body: '/new @MBP 的 CC', appendTo: null })
     expect(sent(calls)[0]).not.toHaveProperty('threadRootId')
@@ -119,7 +119,7 @@ describe('新对话', () => {
     const dialog = screen.getByRole('dialog', { name: 'Bot 名片' })
     expect(dialog.textContent).toContain('负责支付服务。')
     expect(screen.getByRole('link', { name: '完整内容见 Bot 详情' }).getAttribute('href')).toBe('/bot/b1')
-    fireEvent.click(screen.getByRole('button', { name: '新对话' }))
+    fireEvent.click(screen.getByRole('button', { name: '新会话' }))
     vi.useRealTimers()
     await waitFor(() => expect(sent(calls)).toHaveLength(1))
     expect(sent(calls)[0]).toMatchObject({ body: '/new @MBP 的 CC', threadRootId: 'root1' })

@@ -74,12 +74,13 @@ function outcome(a: ApprovalDto) {
           : t('{name} 已批准', { name: a.decidedByName })
       return at ? t('已批准 · {at}', { at }) : t('已批准')
     case 'rejected':
-      if (a.decidedByName) return t('{name} 已拒绝 · {at} · agent 将自行绕路', { name: a.decidedByName, at })
+      if (a.decidedByName)
+        return t('{name} 已拒绝 · {at} · Bot 会换个方式继续', { name: a.decidedByName, at })
       return at
-        ? t('按规则自动拒绝 · {at} · agent 将自行绕路', { at })
-        : t('按规则自动拒绝 · agent 将自行绕路')
+        ? t('按规则自动拒绝 · {at} · Bot 会换个方式继续', { at })
+        : t('按规则自动拒绝 · Bot 会换个方式继续')
     case 'expired':
-      return t('超时未处理，已自动拒绝 · {at} · agent 将自行绕路', { at })
+      return t('超时未处理，已自动拒绝 · {at} · Bot 会换个方式继续', { at })
     case 'void':
       return VOID_TEXT[a.voidReason ?? 'ended']
     default:
@@ -263,7 +264,7 @@ export function ApprovalCard({
       {a.mcp ? <McpRequest mcp={a.mcp} detail={a.detail} /> : <ApprovalDetail text={a.detail} />}
       <div className="approval__why">
         {pending
-          ? t('{reason} · {time} 后自动拒绝，agent 自行绕路', {
+          ? t('{reason} · {time} 后自动拒绝，Bot 会换个方式继续', {
               reason: REASON[a.reason],
               time: countdown(left),
             })

@@ -11,7 +11,7 @@ import {
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useSession } from '../../../app/session'
-import { useWorkbench } from '../../../app/workbench'
+import { holdTab, useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
 import { api, errorText } from '../../../lib/api'
@@ -238,6 +238,12 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   useEffect(() => {
     if (run) useRunInfo.setState((s) => ({ runs: { ...s.runs, [run.id]: run } }))
   }, [run])
+  // A pending question or approval card may hold an answer not yet sent: the tab is not closed to make room.
+  const held = !!run && waiting(run)
+  useEffect(() => {
+    holdTab(tabKey, held)
+    return () => void holdTab(tabKey, false)
+  }, [tabKey, held])
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === run?.botId))
   const costume = useBotCostume(bot?.id)
   const members = useWorkspace((s) => s.groups.find((g) => g.id === run?.groupId)?.members) ?? []

@@ -89,7 +89,30 @@ it('fixes missing permissions and closes a live preview from here', async () => 
   fireEvent.click((await row('会员小程序')).getByRole('button', { name: '去授权' }))
   expect(usePermissions.getState().guide).toBe(true)
   fireEvent.click((await row('桌面客户端')).getByRole('button', { name: '关闭并停止应用' }))
-  await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p1', true))
+  expect(m.closeTunnel).not.toHaveBeenCalled()
+  let dialog = screen.getByRole('alertdialog')
+  expect(dialog.textContent).toContain('要关闭「桌面客户端」并停止应用吗？')
+  fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+  expect(m.closeTunnel).not.toHaveBeenCalled()
+  let resolveClose: () => void = () => {}
+  m.closeTunnel.mockImplementationOnce(() => new Promise<void>((r) => (resolveClose = r)))
+  fireEvent.click((await row('桌面客户端')).getByRole('button', { name: '关闭并停止应用' }))
+  dialog = screen.getByRole('alertdialog')
+  fireEvent.click(within(dialog).getByRole('button', { name: '关闭并停止应用' }))
+  expect(m.closeTunnel).toHaveBeenCalledWith('p1', true)
+  expect(within(dialog).getByRole('button', { name: '关闭并停止应用' }).getAttribute('aria-busy')).toBe(
+    'true',
+  )
+  expect((within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+  resolveClose()
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+})
+
+it('closes a live preview without an app right away', async () => {
+  render(<LivePage go={() => {}} />)
+  fireEvent.click((await row('会员小程序')).getByRole('button', { name: '关闭' }))
+  await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p2', true))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
 })
 
 it('guides the owner through the WeChat devtools while a mini program waits on them', async () => {

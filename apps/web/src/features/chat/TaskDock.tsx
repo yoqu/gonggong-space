@@ -12,7 +12,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { useNow } from '../../lib/now'
 import { ago, fullTime } from '../../lib/time'
-import { Button, Icon, Popover, RollingNumber, Tag } from '../../ui'
+import { Button, Icon, Popover, RollingNumber, reducedMotion, Tag } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { stepText, toolTitle } from '../runs/mcp'
 import { openTab } from '../workbench/open'
@@ -139,7 +139,7 @@ export function TaskDock({
       .flatMap((scope) => [...(scope?.querySelectorAll<HTMLElement>('[data-pending-id]') ?? [])])
       .find((node) => node.dataset.pendingId === item.key)
     if (!card) return onLocate(item.run, item.key)
-    card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    card.scrollIntoView?.({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
     // Restart the ring on a repeat click; it clears itself once played.
     delete card.dataset.flash
     void card.offsetWidth

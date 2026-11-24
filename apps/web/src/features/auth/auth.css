@@ -311,12 +311,6 @@
 }
 .ui-btn.auth__submit {
   margin-top: var(--space-4);
-  transition:
-    background var(--fade-in),
-    transform var(--spring-interactive);
-}
-.ui-btn.auth__submit:not(:disabled):active {
-  transform: scale(0.98);
 }
 .ui-btn.auth__submit[data-phase="done"] {
   background: var(--tint-green);

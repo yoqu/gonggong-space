@@ -231,6 +231,19 @@ describe('schedule editor', () => {
     })
   })
 
+  it('closes an untouched task at once but asks before dropping a changed timing', async () => {
+    mockApi({ 'POST /schedules/preview': { error: null, next: ['2026-10-05T01:00:00.000Z'] } })
+    const onClose = vi.fn()
+    render(<ScheduleDialog groupId="g1" botIds={['b1']} schedule={schedule()} onClose={onClose} />)
+    await screen.findByText(/接下来/)
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('radio', { name: '每天' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })).toBeTruthy()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('shows why a custom expression is refused', async () => {
     mockApi({
       'POST /schedules/preview': { error: { key: '执行间隔不能小于 {n} 分钟', params: { n: 5 } }, next: [] },
@@ -260,7 +273,7 @@ describe('schedule card', () => {
     await screen.findByText('日报')
     expect(screen.getByText(/每个工作日 09:00/)).toBeTruthy()
     expect(screen.getByText(/Codex → Claude/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '暂停' }))
+    fireEvent.click(screen.getByRole('button', { name: '停用' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: '立即执行' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/schedules/s1/run')).toBe(true))
@@ -269,7 +282,7 @@ describe('schedule card', () => {
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
     act(() => push!({ t: 'group.schedules', groupId: 'g1', schedules: [] } as never))
     expect(screen.getByText('已删除')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: '暂停' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '停用' })).toBeNull()
   })
 })
 

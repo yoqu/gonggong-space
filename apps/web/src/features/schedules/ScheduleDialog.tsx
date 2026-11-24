@@ -4,7 +4,17 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { browserTimeZone, pad } from '../../lib/time'
-import { Button, Dialog, Input, PopUpButton, Presence, SegmentedControl, TextArea, TextField } from '../../ui'
+import {
+  Button,
+  Dialog,
+  Input,
+  PopUpButton,
+  Presence,
+  SegmentedControl,
+  TextArea,
+  TextField,
+  useDiscardGuard,
+} from '../../ui'
 import { CandidateBotPicker, selectedRunOptions } from '../bots/CandidateBotPicker'
 import type { Picks } from '../chat/RunConfigChips'
 import '../groups/groups.css'
@@ -109,6 +119,11 @@ export function ScheduleDialog({
   const [preview, setPreview] = useState<{ error: I18nText | null; next: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const snapshot = JSON.stringify([name, prompt, candidates, picks, draft])
+  const [initial] = useState(snapshot)
+  const dirty = snapshot !== initial
+  const guard = useDiscardGuard(dirty, onClose)
+  const close = saving ? () => {} : guard.requestClose
   const timezone = schedule && draft.mode !== 'once' ? schedule.timezone : BROWSER_TZ
   const timing = timingOf(draft)
   const key = JSON.stringify({ ...timing, timezone })
@@ -171,7 +186,7 @@ export function ScheduleDialog({
         width={540}
         closeOnBackdrop={false}
         title={schedule ? t('编辑定时任务') : t('新建定时任务')}
-        onClose={onClose}
+        onClose={close}
         footer={
           <>
             {schedule?.canManage ? (
@@ -181,14 +196,16 @@ export function ScheduleDialog({
             ) : null}
             {missingHint ? <span className="sc-footer-hint">{missingHint}</span> : null}
             <span className="spacer" />
-            <Button onClick={onClose}>{t('取消')}</Button>
-            <Button variant="primary" disabled={!ready || saving} onClick={() => void save()}>
+            <Button disabled={saving} onClick={close}>
+              {t('取消')}
+            </Button>
+            <Button variant="primary" disabled={!ready} loading={saving} onClick={() => void save()}>
               {schedule ? t('保存') : t('创建')}
             </Button>
           </>
         }
       >
-        <div className="gs-dialog-form">
+        <div className="gs-dialog-form" inert={saving}>
           <TextField
             label={t('名称')}
             value={name}
@@ -297,6 +314,7 @@ export function ScheduleDialog({
           />
         ) : null}
       </Presence>
+      {guard.dialog}
     </>
   )
 }

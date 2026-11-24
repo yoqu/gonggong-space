@@ -881,3 +881,42 @@ async fn done(rx: &mut OutboxRx) -> RunDone {
         }
     }
 }
+
+/// Deleting a workspace warns about work on any local branch, not only the checked-out one.
+#[tokio::test]
+async fn counts_unpushed_commits_on_every_local_branch_not_just_head() {
+    use gonggong::workspace::{Changes, changes, list};
+    let remote = Remote::new();
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join("workspaces/g/b/r1");
+    std::fs::create_dir_all(&root).unwrap();
+    git(&root, &["clone", "-q", &remote.url(), "app"]);
+    let dir = root.join("app");
+    git(&dir, &["checkout", "-q", "-b", "feature"]);
+    for f in ["a", "b"] {
+        std::fs::write(dir.join(f), f).unwrap();
+        git(&dir, &["add", f]);
+        git(&dir, &["commit", "-qm", f]);
+    }
+    git(&dir, &["checkout", "-q", "main"]);
+    git(&dir, &["branch", "-q", "no-upstream"]);
+    let entry = list(home.path(), &[]).remove(0);
+    let two = Ok(Some(Changes { uncommitted: 0, unpushed: 2 }));
+    assert_eq!(changes(&entry).await, two, "HEAD is clean and pushed");
+    git(&dir, &["checkout", "-q", "--detach", "feature"]);
+    git(&dir, &["branch", "-qD", "feature"]);
+    assert_eq!(changes(&entry).await, two, "a detached HEAD counts too");
+}
+
+/// A git that cannot read the clone leaves the work unknown, never "nothing to lose".
+#[tokio::test]
+async fn a_failing_git_leaves_unsaved_work_unknown_not_zero() {
+    use gonggong::workspace::{changes, list};
+    let home = tempfile::tempdir().unwrap();
+    let dir = home.path().join("workspaces/g/b/r1/app");
+    std::fs::create_dir_all(&dir).unwrap();
+    git(&dir, &["init", "-q"]);
+    std::fs::write(dir.join(".git/config"), "[broken").unwrap();
+    let entry = list(home.path(), &[]).remove(0);
+    assert!(changes(&entry).await.is_err());
+}

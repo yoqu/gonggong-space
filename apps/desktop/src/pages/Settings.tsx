@@ -3,7 +3,6 @@ import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
 import { MirrorRows } from '@web/features/machines/MirrorRows'
 import { SaveStatus, useSaves } from '@web/features/machines/save'
 import {
-  AlertDialog,
   Button,
   GroupBox,
   GroupRow,
@@ -12,20 +11,19 @@ import {
   Skeleton,
   Switch,
   TextField,
-  toast,
 } from '@web/ui'
-import { useEffect, useState } from 'react'
-import logo from '../assets/logo.svg'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { locale, setLocale, t } from '../i18n'
 import { ipc, type Mirror, type Settings } from '../ipc'
 import { formatEnv, parseEnv } from '../lib/env'
 import { host } from '../lib/labels'
 import { fail, PathValue } from '../lib/ui'
+import { useUnbind } from '../lib/unbind'
 import { ConnectionDiagnosticsDialog } from '../shell/ConnectionDiagnosticsDialog'
-import { useRestartToUpdate } from '../shell/UpdateBanner'
+import { UpdateAction } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
-import { checkForUpdate, type UpdatePhase, useUpdate } from '../updater'
+import { type UpdatePhase, useUpdate } from '../updater'
 import type { PageProps } from '.'
 
 const LANGUAGES: { value: Locale; label: string }[] = [
@@ -45,38 +43,73 @@ const GLASS: { value: GlassPreference; label: string }[] = [
   { value: 'tinted', label: t('着色') },
 ]
 
-/** 环境变量 the agents start with, edited as `KEY=VALUE` lines. */
+/**
+ * 环境变量 the agents start with, edited as `KEY=VALUE` lines and saved like 镜像源 on blur and when leaving the page,
+ * never while typing (a half-typed `KEY=` would reach the agents). Emptying a non-empty list is confirmed on blur and
+ * not saved when leaving.
+ */
 function EnvRows({
   env,
+  status,
   onSave,
+  onRefuse,
+  onAccept,
 }: {
   env: Record<string, string>
-  onSave: (e: Record<string, string>) => Promise<void>
+  status: ReactNode
+  onSave: (e: Record<string, string>) => void
+  onRefuse: (error: string) => void
+  onAccept: () => void
 }) {
   const [text, setText] = useState(() => formatEnv(env))
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const save = async () => {
-    if (saving) return
-    try {
-      const parsed = parseEnv(text)
-      setError(null)
-      setSaving(true)
-      try {
-        await onSave(parsed)
-      } finally {
-        setSaving(false)
-      }
-    } catch (e) {
-      setError((e as Error).message)
-    }
+  const [confirmEmpty, setConfirmEmpty] = useState(false)
+  const sent = useRef(JSON.stringify(env))
+  const latest = useRef(text)
+  const send = (parsed: Record<string, string>) => {
+    if (JSON.stringify(parsed) === sent.current) return
+    sent.current = JSON.stringify(parsed)
+    onSave(parsed)
   }
+  const commit = (value: string, leaving: boolean) => {
+    let parsed: Record<string, string>
+    try {
+      parsed = parseEnv(value)
+    } catch (e) {
+      if (!leaving) onRefuse((e as Error).message)
+      return
+    }
+    onAccept()
+    if (Object.keys(parsed).length === 0 && sent.current !== '{}') {
+      if (!leaving) setConfirmEmpty(true)
+      return
+    }
+    send(parsed)
+  }
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  useEffect(() => () => commitRef.current(latest.current, true), [])
   return (
-    <>
-      <GroupRow
-        label={t('环境变量')}
-        description={t('启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效')}
-      >
+    <GroupRow
+      label={t('环境变量')}
+      description={t('启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效')}
+    >
+      <span className="dk-inline">
+        {confirmEmpty ? (
+          <>
+            <span className="dk-sub">{t('环境变量已清空，确认保存？')}</span>
+            <Button
+              size="small"
+              onClick={() => {
+                setConfirmEmpty(false)
+                send({})
+              }}
+            >
+              {t('保存')}
+            </Button>
+          </>
+        ) : (
+          status
+        )}
         <TextField
           multiline
           rows={3}
@@ -84,22 +117,15 @@ function EnvRows({
           style={{ width: 320 }}
           placeholder="KEY=VALUE"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value)
+            latest.current = e.target.value
+            setConfirmEmpty(false)
+          }}
+          onBlur={() => commit(text, false)}
         />
-      </GroupRow>
-      <div className="dk-row">
-        <span className="dk-row__main">{error ? <span className="dk-danger">{error}</span> : null}</span>
-        <Button
-          variant="primary"
-          aria-label={t('保存环境变量')}
-          disabled={text === formatEnv(env)}
-          loading={saving}
-          onClick={() => void save()}
-        >
-          {t('保存')}
-        </Button>
-      </div>
-    </>
+      </span>
+    </GroupRow>
   )
 }
 
@@ -125,23 +151,12 @@ function updateLabel(s: UpdatePhase) {
 /** 版本: this app's version, the update status and 检查更新 / 立即重启. */
 function VersionRow({ version }: { version: string | undefined }) {
   const state = useUpdate((s) => s.state)
-  const restart = useRestartToUpdate()
-  const busy = state.phase === 'checking' || state.phase === 'downloading' || state.phase === 'installing'
   return (
     <GroupRow label={t('版本')} description={updateLabel(state) ?? undefined}>
       <span className="dk-inline">
         <span className="dk-value">{version ? `v${version}` : ''}</span>
-        {state.phase === 'ready' ? (
-          <Button variant="primary" onClick={restart.request}>
-            {t('立即重启')}
-          </Button>
-        ) : (
-          <Button disabled={busy} onClick={() => void checkForUpdate()}>
-            {t('检查更新')}
-          </Button>
-        )}
+        <UpdateAction />
       </span>
-      {restart.dialog}
     </GroupRow>
   )
 }
@@ -151,8 +166,6 @@ export function SettingsPage(_: PageProps) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [theme, setThemeState] = useState<ThemePreference>(() => getTheme())
   const [glass, setGlassState] = useState<GlassPreference>(() => getGlass())
-  const [confirming, setConfirming] = useState(false)
-  const [unbinding, setUnbinding] = useState(false)
   const [diagOpen, setDiagOpen] = useState(false)
   const [savingToggles, setSavingToggles] = useState<Record<string, boolean>>({})
 
@@ -175,22 +188,7 @@ export function SettingsPage(_: PageProps) {
       }
     }
 
-  const closeUnbind = () => {
-    if (!unbinding) setConfirming(false)
-  }
-
-  const confirmUnbind = async () => {
-    if (unbinding) return
-    setUnbinding(true)
-    try {
-      await ipc.unbind()
-      setConfirming(false)
-    } catch (e) {
-      fail(e)
-    } finally {
-      setUnbinding(false)
-    }
-  }
+  const unbind = useUnbind()
 
   const saves = useSaves()
   const saveMirror = (mirror: Mirror) =>
@@ -202,15 +200,14 @@ export function SettingsPage(_: PageProps) {
       return undefined
     })
 
-  const saveEnv = async (env: Record<string, string>) => {
-    try {
-      await ipc.setEnv(env)
+  const saveEnv = (env: Record<string, string>) =>
+    saves.save('env', async () => {
+      await ipc.setEnv(env).catch((e) => {
+        throw new Error(String(e))
+      })
       setSettings((s) => s && { ...s, env })
-      toast({ type: 'success', message: t('环境变量已保存') })
-    } catch (e) {
-      fail(e)
-    }
-  }
+      return undefined
+    })
 
   return (
     <>
@@ -302,7 +299,13 @@ export function SettingsPage(_: PageProps) {
       </GroupBox>
       {settings ? (
         <GroupBox>
-          <EnvRows env={settings.env} onSave={saveEnv} />
+          <EnvRows
+            env={settings.env}
+            status={<SaveStatus state={saves.status('env')} />}
+            onSave={saveEnv}
+            onRefuse={(error) => saves.refuse('env', error)}
+            onAccept={() => saves.accept('env')}
+          />
         </GroupBox>
       ) : null}
       <GroupBox>
@@ -318,29 +321,11 @@ export function SettingsPage(_: PageProps) {
         <GroupRow label={t('连接诊断')} onClick={() => setDiagOpen(true)} />
       </GroupBox>
       <GroupBox>
-        <GroupRow label={t('解除绑定…')} destructive onClick={() => setConfirming(true)} />
+        <GroupRow label={t('解除绑定…')} destructive onClick={unbind.request} />
       </GroupBox>
       <p className="dk-footnote">{t('解除绑定后清除团队密钥与托管工作区，本机备份保留。')}</p>
       <ConnectionDiagnosticsDialog open={diagOpen} onClose={() => setDiagOpen(false)} />
-      <AlertDialog
-        open={confirming}
-        onClose={closeUnbind}
-        icon={<img src={logo} alt="" width={48} height={48} />}
-        title={t('要解除这台电脑与团队服务器的绑定吗？')}
-        message={t(
-          '这台电脑将断开连接，团队密钥和托管工作区会被清理，你手动选择的本机目录和本地备份会保留。此操作不可撤销。',
-        )}
-        actions={[
-          { label: t('取消'), disabled: unbinding, onClick: closeUnbind },
-          {
-            label: t('解除绑定'),
-            variant: 'destructive',
-            disabled: unbinding,
-            loading: unbinding,
-            onClick: () => void confirmUnbind(),
-          },
-        ]}
-      />
+      {unbind.dialog}
     </>
   )
 }

@@ -268,7 +268,7 @@ export default {
     'Created account {account}. Note down the initial password {password}',
   '要归档团队「{name}」吗？': 'Archive team "{name}"?',
   '归档后可以随时在这里恢复。': 'You can restore it here at any time.',
-  '成员将无法进入该团队及其群聊，群消息转为只读':
+  '成员将无法进入该团队及其群，群消息转为只读':
     'Members lose access to the team and its groups; messages become read-only',
   '该团队的 Bot 暂停运行；消息与审计记录保留': 'Team Bots stop running; messages and audit records are kept',
   已启用定时任务: 'Scheduled task enabled',

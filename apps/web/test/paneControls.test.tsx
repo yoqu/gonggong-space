@@ -47,7 +47,7 @@ describe('Button', () => {
     let width = 80
     const widthSpy = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(() => width)
     const prevAnimate = Element.prototype.animate
-    Element.prototype.animate = function (_frames, options) {
+    Element.prototype.animate = (_frames, options) => {
       calls.push({ options: options as KeyframeAnimationOptions })
       return {} as Animation
     }

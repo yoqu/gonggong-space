@@ -538,6 +538,26 @@ export function DiscardChangesDialog({
   )
 }
 
+/** Routes a form dialog's close through a discard confirmation while it has unsaved edits. */
+export function useDiscardGuard(dirty: boolean, onClose: () => void) {
+  const [confirming, setConfirming] = useState(false)
+  const requestClose = () => {
+    if (dirty) setConfirming(true)
+    else onClose()
+  }
+  const dialog = (
+    <DiscardChangesDialog
+      open={confirming}
+      onCancel={() => setConfirming(false)}
+      onDiscard={() => {
+        setConfirming(false)
+        onClose()
+      }}
+    />
+  )
+  return { requestClose, dialog }
+}
+
 /** Glass side panel over the page (pre-Pane; new pages dock an `AppFrame` inspector instead). */
 export function Drawer({
   open,

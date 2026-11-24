@@ -6,9 +6,44 @@ import { api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { localDateTime } from '../../lib/time'
-import { Button, Dialog, GroupBox, PopUpButton, Tag, TextField } from '../../ui'
+import {
+  Button,
+  ConfirmActionDialog,
+  Dialog,
+  GroupBox,
+  PopUpButton,
+  Presence,
+  Tag,
+  TextField,
+} from '../../ui'
 
 const DAYS = [1, 3, 7, 30].map((d) => ({ value: String(d), label: t('{n} 天', { n: d }) }))
+
+/** 收回 a public link: the same confirmation in the preview's share dialog and in 管理后台 · 公开链接. */
+export function RevokeShareDialog({
+  title,
+  shareId,
+  onDone,
+  onClose,
+}: {
+  title: string
+  shareId: string
+  onDone: () => void
+  onClose: () => void
+}) {
+  return (
+    <ConfirmActionDialog
+      title={t('要收回公开链接「{title}」吗？', { title })}
+      message={t('收回后该链接立即失效，外部访客将无法继续打开此预览。')}
+      consequences={[t('原链接无法恢复，如需外部分享需重新生成公开链接')]}
+      label={t('收回')}
+      done={t('已收回公开链接')}
+      run={() => api.post(`/preview-shares/${shareId}/revoke`)}
+      onDone={onDone}
+      onClose={onClose}
+    />
+  )
+}
 
 export const shareState = (s: PreviewShareDto) =>
   s.revokedAt
@@ -25,7 +60,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
   const [days, setDays] = useState(String(PREVIEW_SHARE_DEFAULT_DAYS))
   const [created, setCreated] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<PreviewShareDto | null>(null)
   const load = useCallback(
     () =>
       api
@@ -47,18 +82,6 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
       toastError(e)
     }
     setBusy(false)
-  }
-  const revoke = async (s: PreviewShareDto) => {
-    if (revokingId === s.id) return
-    setRevokingId(s.id)
-    try {
-      await api.post(`/preview-shares/${s.id}/revoke`)
-      await load()
-    } catch (e) {
-      toastError(e)
-    } finally {
-      setRevokingId((cur) => (cur === s.id ? null : cur))
-    }
   }
   const copy = () =>
     created && void copyWithToast(created, t('已复制公开链接'), t('复制失败，请手动选择链接'))
@@ -99,12 +122,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
                 </span>
               </span>
               {s.active ? (
-                <Button
-                  variant="plain"
-                  size="small"
-                  disabled={revokingId === s.id}
-                  onClick={() => void revoke(s)}
-                >
+                <Button variant="plain" size="small" onClick={() => setRevoking(s)}>
                   {t('收回')}
                 </Button>
               ) : null}
@@ -112,6 +130,19 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
           ))}
         </GroupBox>
       ) : null}
+      <Presence>
+        {revoking ? (
+          <RevokeShareDialog
+            title={preview.title}
+            shareId={revoking.id}
+            onDone={() => {
+              setRevoking(null)
+              void load()
+            }}
+            onClose={() => setRevoking(null)}
+          />
+        ) : null}
+      </Presence>
     </Dialog>
   )
 }

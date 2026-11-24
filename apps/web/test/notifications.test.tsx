@@ -318,7 +318,7 @@ describe('notification center', () => {
     const done = new Date().toISOString()
     useWorkspace.setState({ notifCount: 1 })
     let items = [
-      note({ id: 'n1', readAt: done }),
+      note({ id: 'n1', readAt: done, resolvedAt: done }),
       note({ id: 'n2', type: 'offline_expired', payload: { groupId: 'g1', botName: '小周的 Codex' } }),
       note({ id: 'n3', readAt: done, type: 'chain_done', payload: { groupId: 'g1', hops: 2 } }),
     ]

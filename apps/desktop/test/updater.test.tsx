@@ -108,7 +108,7 @@ it('warns before interrupting running tasks', async () => {
   startUpdater()()
   fireEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: '立即重启' }))
   const dialog = screen.getByRole('alertdialog')
-  expect(dialog.textContent).toContain('有运行中的任务，重启会中断')
+  expect(dialog.textContent).toContain('要重启并中断运行中的任务吗？')
   fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
   expect(m.relaunch).not.toHaveBeenCalled()
 

@@ -14,6 +14,7 @@ import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { tabKey, useBench, useWorkbench, WORKBENCH_MAX_TABS } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
+import { openTab } from '../src/features/workbench/open'
 import { TabLabel } from '../src/features/workbench/TabContent'
 
 const me: UserDto = {
@@ -664,7 +665,7 @@ describe('run tab', () => {
     await waitFor(() => expect(tabs()).toEqual([{ kind: 'web', previewId: 'p1', path: '/login' }]))
   })
 
-  it('says so when the workbench is full', async () => {
+  it('makes room by closing the least recently used tab when the workbench is full', async () => {
     mockApi(detail)
     useWorkbench.setState({
       benches: {
@@ -686,8 +687,31 @@ describe('run tab', () => {
     )
     const card = (await screen.findAllByTestId('run-card')).at(-1)
     fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    expect(await screen.findByText('标签页已满（最多 12 个），请先关闭一些')).toBeTruthy()
-    expect(tabs().some((t) => t.kind === 'run')).toBe(false)
+    await waitFor(() => expect(tabs().some((t) => t.kind === 'run')).toBe(true))
+    expect(tabs()).toHaveLength(WORKBENCH_MAX_TABS)
+    expect(tabs().some((t) => t.kind === 'web' && t.previewId === 'p0')).toBe(false)
+    expect(await screen.findByText(/^已关闭最久未用的「/)).toBeTruthy()
+  })
+
+  it('never closes for room a run tab whose request is still waiting on an answer', async () => {
+    const base = run()
+    const waiting = run({
+      status: 'awaiting_approval',
+      approvals: base.approvals.map((x) => ({ ...x, status: 'pending' as const })),
+    })
+    mockApi(() => detail({ run: waiting }))
+    renderChat()
+    const rail = await openProcess()
+    await within(rail).findAllByText('echo hello-approval')
+    act(() => {
+      for (let i = 0; i < WORKBENCH_MAX_TABS - 1; i++)
+        openTab({ kind: 'link', url: `https://x/${i}`, title: `页${i}` })
+    })
+    act(() => {
+      openTab({ kind: 'link', url: 'https://x/new', title: '新页' })
+    })
+    expect(tabs().some((t) => t.kind === 'run')).toBe(true)
+    expect(tabs().some((t) => t.kind === 'link' && t.url === 'https://x/0')).toBe(false)
   })
 
   it('keeps only the summary once the process has been purged', async () => {

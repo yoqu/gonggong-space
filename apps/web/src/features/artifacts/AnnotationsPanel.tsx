@@ -2,7 +2,17 @@ import type { AnnotationDto, AnnotationStatus, BotDto } from '@gonggong/protocol
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { Button, Checkbox, EmptyState, Icon, Tag, type TagTone, Textarea } from '../../ui'
+import {
+  Button,
+  Checkbox,
+  ConfirmActionDialog,
+  EmptyState,
+  Icon,
+  Presence,
+  Tag,
+  type TagTone,
+  Textarea,
+} from '../../ui'
 import { BotChoice } from './ElementPopover'
 import { isRegion } from './elements'
 import { Panel } from './SidePanel'
@@ -47,7 +57,7 @@ export function AnnotationsPanel({
   onPickBot: (id: string) => void
   onSend: (ids: string[], extra: string) => Promise<boolean>
   onStatus: (id: string, status: AnnotationStatus) => void
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<unknown>
   onFocus: (a: AnnotationDto) => void
   onClose: () => void
 }) {
@@ -55,6 +65,7 @@ export function AnnotationsPanel({
   const [flipped, setFlipped] = useState<string[]>([])
   const [extra, setExtra] = useState('')
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const chosen = list
     .filter((a) => a.status !== 'resolved' && (a.status === 'open') !== flipped.includes(a.id))
     .map((a) => a.id)
@@ -150,9 +161,13 @@ export function AnnotationsPanel({
                       </Button>
                     )}
                     {a.authorId === meId ? (
-                      <Button size="small" variant="plain" onClick={() => onDelete(a.id)}>
-                        {t('删除')}
-                      </Button>
+                      <>
+                        {/* Away from 解决 so a quick click on one never lands on the other. */}
+                        <span className="spacer" />
+                        <Button size="small" variant="plain" onClick={() => setDeleting(a.id)}>
+                          {t('删除')}
+                        </Button>
+                      </>
                     ) : null}
                   </div>
                 </div>
@@ -200,6 +215,19 @@ export function AnnotationsPanel({
           </Button>
         </div>
       ) : null}
+      <Presence>
+        {deleting ? (
+          <ConfirmActionDialog
+            title={t('要删除这条批注吗？')}
+            message={t('删除后所有人都看不到这条批注，无法恢复。')}
+            consequences={[]}
+            label={t('删除')}
+            done={t('已删除批注')}
+            run={() => onDelete(deleting)}
+            onClose={() => setDeleting(null)}
+          />
+        ) : null}
+      </Presence>
     </Panel>
   )
 }

@@ -67,6 +67,36 @@ describe('motion and touch CSS contract', () => {
     expect(raw).toEqual([])
   })
 
+  it('names every keyframes once and keeps fixed-length motion on shared tokens', () => {
+    const all = ['ui', 'app', 'features', 'styles'].flatMap(cssFiles)
+    // Top-level only: reduced-motion blocks redefine ui-enter / ui-exit on purpose.
+    const names = all.flatMap((f) => [...read(f).matchAll(/^@keyframes ([\w-]+)/gm)].map((m) => m[1]!))
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([])
+    expect(read('ui/feedback.css')).toContain('ui-skel-shimmer 1.6s linear infinite')
+    const tokens = read('styles/motion.css')
+    for (const t of ['--flash: 1.4s ease-out', '--shake: 360ms ease-in-out', '--draw: 320ms ease-out'])
+      expect(tokens).toContain(t)
+    for (const t of [
+      '--pulse: 1.6s ease-in-out',
+      '--press-button: 0.97',
+      '--press-card: 0.98',
+      '--press-icon: 0.92',
+    ])
+      expect(tokens).toContain(t)
+    // A spring token carries its own duration: a literal before it would be read as a delay.
+    const delayed = all.flatMap((f) =>
+      [...read(f).matchAll(/animation:[^;]*\b\d+m?s\s+var\(--spring-[a-z]+[^)]*\)/g)].map(
+        (m) => `${f}: ${m[0]}`,
+      ),
+    )
+    expect(delayed).toEqual([])
+    expect(read('features/saved/later.css')).not.toContain('--t-fast')
+    expect(read('features/auth/auth.css')).not.toContain('scale(0.98)')
+    expect(read('styles/base.css')).toMatch(
+      /prefers-reduced-motion: reduce\) \{\s*:root \{[^}]*--shake: 1ms linear;/,
+    )
+  })
+
   it('drops the grey tap flash and double-tap delay on touch', () => {
     const base = read('styles/base.css')
     expect(ruleOf(base, 'html')).toContain('-webkit-tap-highlight-color: transparent')
@@ -77,7 +107,7 @@ describe('motion and touch CSS contract', () => {
     const css = read('ui/controls.css')
     expect(ruleOf(css, '.ui-btn')).toContain('scale var(--spring-interactive)')
     expect(css).toMatch(
-      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.ui-btn:active \{\s*scale: 0\.97;/,
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.ui-btn:active \{\s*scale: var\(--press-button\);/,
     )
   })
 
@@ -241,7 +271,7 @@ describe('motion and touch CSS contract', () => {
       /\.works__card \{\s*animation:\s*ui-fade-in var\(--fade-in\) backwards,\s*ui-enter var\(--spring-smooth\) backwards;\s*animation-delay: calc\(min\(var\(--i, 0\), 6\) \* 20ms\);/,
     )
     expect(works).toMatch(
-      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.works__card:active \{\s*scale: 0\.98;/,
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.works__card:active \{\s*scale: var\(--press-card\);/,
     )
     expect(ruleOf(works, '.ui-skeleton.works__grid')).toContain('display: grid')
     const mx = read('features/machines/machines.css')

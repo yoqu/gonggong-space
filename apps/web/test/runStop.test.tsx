@@ -61,7 +61,31 @@ afterEach(() => {
 })
 
 describe('run actions', () => {
+  it('stops my own run at once', async () => {
+    me('u-wang')
+    const calls = mockApi({ 'POST /runs/r1/stop': { stopped: 1 } })
+    render(<RunActions run={run()} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止' }))
+    await waitFor(() => expect(calls).toEqual([{ method: 'POST', path: '/runs/r1/stop', body: {} }]))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it("asks before stopping someone else's run", async () => {
+    const calls = mockApi({ 'POST /runs/r1/stop': { stopped: 1 } })
+    render(<RunActions run={run()} />)
+    fireEvent.click(screen.getByRole('button', { name: '停止' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '要停止 小王的 Claude 的这轮运行吗？' })
+    expect(
+      within(confirm).getByText('这是 王磊 发起的任务，当前轮次会立即中断，已产生的改动会保留在工作区。'),
+    ).toBeTruthy()
+    expect(calls).toEqual([])
+    fireEvent.click(within(confirm).getByRole('button', { name: '停止' }))
+    await waitFor(() => expect(calls).toEqual([{ method: 'POST', path: '/runs/r1/stop', body: {} }]))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  })
+
   it('any member can stop an unfinished run', async () => {
+    me('u-wang')
     const calls = mockApi({ 'POST /runs/r1/stop': { stopped: 1 } })
     const { rerender } = render(<RunActions run={run()} />)
     fireEvent.click(screen.getByRole('button', { name: '停止' }))
@@ -73,20 +97,26 @@ describe('run actions', () => {
     expect(screen.queryByRole('button', { name: '停止' })).toBeNull()
   })
 
-  it('chained hops offer 终止整条链 instead', async () => {
-    const calls = mockApi({ 'POST /runs/r1/stop-chain': { stopped: 2 } })
+  it('chained hops offer 终止整条链 instead, locked while it stops', async () => {
+    let finish: (v: unknown) => void = () => {}
+    const calls = mockApi({ 'POST /runs/r1/stop-chain': () => new Promise((r) => (finish = r)) })
     render(<RunActions run={run({ hop: 2, status: 'awaiting_approval' })} />)
     expect(screen.queryByRole('button', { name: '停止' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '终止整条链' }))
-    const dialog = screen.getByRole('dialog', { name: '终止整条链' })
+    const dialog = screen.getByRole('alertdialog', { name: '要终止整条链吗？' })
     fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(calls).toEqual([])
 
     fireEvent.click(screen.getByRole('button', { name: '终止整条链' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '终止' }))
+    const again = screen.getByRole('alertdialog')
+    fireEvent.click(within(again).getByRole('button', { name: '终止' }))
     await waitFor(() => expect(calls.map((c) => c.path)).toEqual(['/runs/r1/stop-chain']))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect((within(again).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    await act(async () => finish({ stopped: 2 }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   })
 
   it('an offline request shows the countdown to expiry', () => {

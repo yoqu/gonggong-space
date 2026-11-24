@@ -35,7 +35,7 @@ export default {
   '在电脑上自动克隆到独立目录，互不干扰':
     'Cloned automatically into its own folder on the computer, isolated from others',
   使用默认工作区: 'Use the default workspace',
-  或选择机器上已有的目录: 'Or choose an existing folder on the machine',
+  或选择电脑上已有的目录: 'Or choose an existing folder on your computer',
   该目录不是群仓库: 'This folder is not the group repo',
   '{bot} 将在 {path} 工作，不再使用群仓库 {repo}。':
     '{bot} will work in {path} instead of the group repo {repo}.',
@@ -46,6 +46,6 @@ export default {
   仍然使用: 'Use anyway',
   '克隆 {url} 到 {path}': 'Clone {url} into {path}',
   使用托管目录: 'Use a managed directory',
-  '共工在机器上为这个会话单独建的目录，不碰你已有的文件':
-    'A directory Gonggong makes on the machine for this conversation alone, away from your own files',
+  '共工在电脑上为这个会话单独建的目录，不碰你已有的文件':
+    'A directory Gonggong makes on your computer for this conversation alone, away from your own files',
 } satisfies Record<string, string>

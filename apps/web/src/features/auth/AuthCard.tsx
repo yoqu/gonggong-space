@@ -36,7 +36,7 @@ export function AuthCard({
   const shake = useAnimationControls()
   useEffect(() => {
     if (errorKey && !reducedMotion())
-      void shake.start({ x: [0, -10, 9, -6, 4, 0], transition: { duration: 0.42 } })
+      void shake.start({ x: [0, -10, 9, -6, 4, 0], transition: { duration: 0.36, ease: 'easeInOut' } })
   }, [errorKey, shake])
 
   const hasHead = Boolean(title || subtitle || beforeTitle || variant === 'login')

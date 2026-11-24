@@ -6,9 +6,11 @@ import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { useQuote } from '../src/features/attachments/quote'
+import { logout } from '../src/features/auth/logout'
 import { usePending } from '../src/features/chat/pending'
 import { messageKey } from '../src/features/chat/TimelineItems'
 import { useAppend } from '../src/features/runs/append'
+import { realtime } from '../src/lib/realtime'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -75,6 +77,7 @@ class FakeSocket {
     FakeSocket.last = this
   }
   close() {}
+  send() {}
 }
 const push = (e: WebEvent) => act(() => FakeSocket.last!.onmessage!({ data: JSON.stringify(e) }))
 
@@ -115,7 +118,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
-  usePending.setState({ list: [] })
+  usePending.setState({ list: [], back: null, reusable: [] })
   useQuote.getState().clear()
   useAppend.getState().clear()
 })
@@ -208,13 +211,204 @@ describe('optimistic send', () => {
     expect(document.querySelector('.composer--shake')).toBeTruthy()
   })
 
-  it('deletes a failed message', async () => {
+  it('puts a failed message back without shaking, adding only its text to a draft in progress', async () => {
     renderChat({ 'POST /groups/g1/messages': () => apiError(500, 'internal', '服务出错') })
+    await screen.findByText('原文')
+    act(() =>
+      useQuote.getState().set({ groupId: 'g1', kind: 'message', id: 'm1', who: '李建国', text: '旧引用' }),
+    )
     await send('不要了')
     const pending = await screen.findByTestId('pending-message')
-    await within(pending).findByText('发送失败')
-    fireEvent.click(within(pending).getByRole('button', { name: '删除' }))
+    await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+    act(() =>
+      useQuote.getState().set({ groupId: 'g1', kind: 'message', id: 'm9', who: '李建国', text: '新引用' }),
+    )
+    fireEvent.change(input(), { target: { value: '新草稿' } })
+    fireEvent.click(within(pending).getByRole('button', { name: '放回输入框' }))
     expect(screen.queryByTestId('pending-message')).toBeNull()
-    expect(screen.queryByText('不要了')).toBeNull()
+    await waitFor(() => expect(input().value).toBe('新草稿\n不要了'))
+    expect(useQuote.getState().quote).toMatchObject({ id: 'm9' })
+    expect(document.querySelector('.composer--shake')).toBeNull()
   })
+
+  it('discards a failed message', async () => {
+    renderChat({ 'POST /groups/g1/messages': () => apiError(500, 'internal', '服务出错') })
+    await send('算了')
+    const pending = await screen.findByTestId('pending-message')
+    await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+    fireEvent.click(within(pending).getByRole('button', { name: '丢弃' }))
+    expect(screen.queryByTestId('pending-message')).toBeNull()
+    expect(input().value).toBe('')
+  })
+
+  const reconnect = () =>
+    act(() => {
+      realtime.stop()
+      realtime.start()
+      FakeSocket.last!.onopen!()
+    })
+
+  it('resends on reconnect, once, what the network cut off, with the same clientId and saying so', async () => {
+    let mode: 'down' | 'hold' = 'down'
+    let release = () => {}
+    const calls = renderChat({
+      'POST /groups/g1/messages': (body: { clientId: string }) => {
+        if (mode === 'down') throw new TypeError('Failed to fetch')
+        return new Promise<MessageDto>((r) => {
+          release = () => r(msg({ seq: 2, body: '断网时发的', clientId: body.clientId }))
+        })
+      },
+    })
+    await screen.findByText('原文')
+    act(() => FakeSocket.last!.onopen!())
+    await send('断网时发的')
+    const pending = await screen.findByTestId('pending-message')
+    await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+    expect(posts(calls)).toHaveLength(3)
+
+    // Still down: the one automatic try fails too, and the next reconnect leaves it to the user.
+    reconnect()
+    await waitFor(() => expect(posts(calls)).toHaveLength(6), { timeout: 4000 })
+    await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+    reconnect()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(posts(calls)).toHaveLength(6)
+
+    mode = 'hold'
+    fireEvent.click(within(pending).getByRole('button', { name: '重发' }))
+    await waitFor(() => expect(posts(calls)).toHaveLength(7))
+    expect(new Set(posts(calls).map((c) => (c.body as { clientId: string }).clientId)).size).toBe(1)
+    await act(async () => release())
+    await waitFor(() => expect(screen.queryByTestId('pending-message')).toBeNull())
+  }, 15_000)
+
+  it('says it is resending once the connection is back', async () => {
+    let down = true
+    let release = () => {}
+    const calls = renderChat({
+      'POST /groups/g1/messages': (body: { clientId: string }) => {
+        if (down) throw new TypeError('Failed to fetch')
+        return new Promise<MessageDto>((r) => {
+          release = () => r(msg({ seq: 2, body: '断网时发的', clientId: body.clientId }))
+        })
+      },
+    })
+    await screen.findByText('原文')
+    act(() => FakeSocket.last!.onopen!())
+    await send('断网时发的')
+    const pending = await screen.findByTestId('pending-message')
+    await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+    down = false
+    reconnect()
+    expect(await within(pending).findByText('网络恢复，正在重发')).toBeTruthy()
+    expect(posts(calls).at(-1)!.body).toEqual(posts(calls)[0]!.body)
+    await act(async () => release())
+    await waitFor(() => expect(screen.queryByTestId('pending-message')).toBeNull())
+  }, 10_000)
+
+  it('leaves server failures and older network failures for the user to decide on reconnect', async () => {
+    let status: 'server' | 'network' = 'server'
+    const calls = renderChat({
+      'POST /groups/g1/messages': () => {
+        if (status === 'network') throw new TypeError('Failed to fetch')
+        return apiError(503, 'unavailable', '服务暂不可用')
+      },
+    })
+    await screen.findByText('原文')
+    act(() => FakeSocket.last!.onopen!())
+    await send('服务端挂了')
+    await within(await screen.findByTestId('pending-message')).findByText('发送失败', undefined, {
+      timeout: 4000,
+    })
+    reconnect()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(posts(calls)).toHaveLength(3)
+
+    status = 'network'
+    usePending.setState({ list: [] })
+    await send('很早断网的')
+    await within(await screen.findByTestId('pending-message')).findByText('发送失败', undefined, {
+      timeout: 4000,
+    })
+    const now = Date.now()
+    vi.spyOn(Date, 'now').mockReturnValue(now + 3 * 60_000)
+    reconnect()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(posts(calls)).toHaveLength(6)
+    vi.restoreAllMocks()
+  }, 15_000)
+
+  it('sends a message whose fate was unknown with its clientId again when taken back and sent unchanged', async () => {
+    let down = true
+    const calls = renderChat({
+      'POST /groups/g1/messages': (body: { clientId: string }) => {
+        if (down) throw new TypeError('Failed to fetch')
+        return msg({ seq: 2, body: '可能已到', clientId: body.clientId })
+      },
+    })
+    await send('可能已到')
+    const pending = await screen.findByTestId('pending-message')
+    await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+    fireEvent.click(within(pending).getByRole('button', { name: '放回输入框' }))
+    await waitFor(() => expect(input().value).toBe('可能已到'))
+    down = false
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls)).toHaveLength(4))
+    const ids = posts(calls).map((c) => (c.body as { clientId: string }).clientId)
+    expect(ids[3]).toBe(ids[0])
+  }, 10_000)
+
+  it('keeps the clientId of a 5xx message taken back only while every part of the request is unchanged', async () => {
+    let fail = true
+    const calls = renderChat({
+      'POST /groups/g1/messages': (body: { clientId: string }) =>
+        fail
+          ? apiError(502, 'bad_gateway', '网关出错')
+          : msg({ seq: 2, body: '可能已到', clientId: body.clientId }),
+    })
+    const takeBack = async () => {
+      const pending = await screen.findByTestId('pending-message')
+      await within(pending).findByText('发送失败', undefined, { timeout: 4000 })
+      fireEvent.click(within(pending).getByRole('button', { name: '放回输入框' }))
+      await waitFor(() => expect(input().value).toBe('可能已到'))
+    }
+    await send('可能已到')
+    await takeBack()
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await takeBack()
+    act(() =>
+      useQuote.getState().set({ groupId: 'g1', kind: 'message', id: 'm1', who: '李建国', text: '新引用' }),
+    )
+    fail = false
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls)).toHaveLength(7))
+    const ids = posts(calls).map((c) => (c.body as { clientId: string }).clientId)
+    expect(ids[3]).toBe(ids[0])
+    expect(ids[6]).not.toBe(ids[0])
+  }, 15_000)
+
+  it("keeps one account's unsent messages from the next account in this tab, and drops them on logout", async () => {
+    const calls = renderChat({
+      'POST /groups/g1/messages': () => {
+        throw new TypeError('Failed to fetch')
+      },
+      'POST /auth/logout': undefined,
+    })
+    await screen.findByText('原文')
+    act(() => FakeSocket.last!.onopen!())
+    await send('王磊的私话')
+    await within(await screen.findByTestId('pending-message')).findByText('发送失败', undefined, {
+      timeout: 4000,
+    })
+    act(() => useSession.setState({ user: { ...me, id: 'u2', name: '李建国' } }))
+    expect(screen.queryByTestId('pending-message')).toBeNull()
+    reconnect()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(posts(calls)).toHaveLength(3)
+
+    act(() => useSession.setState({ user: me }))
+    expect(await screen.findByTestId('pending-message')).toBeTruthy()
+    await act(() => logout())
+    expect(usePending.getState().list).toEqual([])
+  }, 10_000)
 })

@@ -290,7 +290,7 @@ body {
   right: 0;
 }
 .chat__strip-flash {
-  animation: chat-strip-flash 1.2s ease-out 2;
+  animation: chat-strip-flash var(--flash) 2;
   border-radius: 50%;
 }
 @keyframes chat-strip-flash {
@@ -672,7 +672,7 @@ a.sidebar__open {
 }
 @media (prefers-reduced-motion: no-preference) {
   .sidebar__foot:not([data-state="open"]) .sidebar__dot {
-    animation: sidebar-pulse 1.2s ease-in-out infinite;
+    animation: sidebar-pulse var(--pulse) infinite;
   }
 }
 @keyframes sidebar-pulse {

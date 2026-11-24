@@ -36,7 +36,7 @@
   .later__actions {
     opacity: 0;
     pointer-events: none;
-    transition: opacity var(--t-fast);
+    transition: opacity var(--fade-fast);
   }
   .later__item:hover .later__actions,
   .later__item:focus-within .later__actions,

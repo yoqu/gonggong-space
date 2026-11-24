@@ -20,7 +20,7 @@
 /* A failed send: a short head-shake (Apple HIG), the toast says why and the draft stays. */
 @media (prefers-reduced-motion: no-preference) {
   .composer--shake .pn-composer {
-    animation: composer-shake 320ms ease-in-out;
+    animation: composer-shake var(--shake);
   }
 }
 @keyframes composer-shake {

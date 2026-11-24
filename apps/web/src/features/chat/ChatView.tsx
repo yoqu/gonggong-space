@@ -26,6 +26,7 @@ import { useWorkbench } from '../../app/workbench'
 import { loadPins, useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { glideToEnd } from '../../lib/glide'
 import { named } from '../../lib/lazy'
 import { realtime } from '../../lib/realtime'
 import { useHeightVar } from '../../lib/useHeightVar'
@@ -187,6 +188,7 @@ export function ChatView({
   const [unseen, setUnseen] = useState(0)
   /** Scrolled away from the end: a button leads back down. */
   const [away, setAway] = useState(false)
+  const [glide, setGlide] = useState(false)
   const dropFiles = useRef<((files: File[]) => void) | null>(null)
   const drag = useFileDrag()
   const navigate = useNavigate()
@@ -360,6 +362,9 @@ export function ChatView({
   const onScroll = () => {
     const el = box.current
     if (!el) return
+    // Gliding to the end: only arriving there counts (a user's gesture ends the glide, see glideToEnd).
+    if (glide && el.scrollHeight - el.scrollTop - el.clientHeight >= STICK_PX) return
+    setGlide(false)
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
     setAway(!stick.current)
     if (stick.current) {
@@ -371,14 +376,8 @@ export function ChatView({
     if (el.scrollTop < LOAD_OLDER_PX && tl.hasMore && tl.older === 'idle') loadOlder()
   }
 
-  const toBottom = () => {
-    const el = box.current
-    if (el) el.scrollTop = el.scrollHeight
-    stick.current = true
-    setAway(false)
-    setUnseen(0)
-    measure()
-  }
+  // onStop judges the view as it stands: that render's onScroll was not gliding.
+  const toBottom = () => box.current && setGlide(glideToEnd(box.current, onScroll))
 
   const toDivider = () => {
     divider()?.scrollIntoView?.({ block: 'start' })
@@ -655,6 +654,7 @@ export function ChatView({
 
   const botCount = group.botIds.length
   const dm = group.kind === 'dm'
+  const noBots = !dm && !readOnly && group.botIds.length === 0
   const pluginLabel = plugins.length ? (
     <>
       <Icon name="apps" size={12} />
@@ -982,7 +982,21 @@ export function ChatView({
                     bare
                     illustration={<EmptyChatArt />}
                     title={t('还没有消息')}
-                    description={t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')}
+                    description={
+                      noBots
+                        ? t('群里还没有 Bot，先添加一个进来再 @ 它开始工作。')
+                        : t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')
+                    }
+                    action={
+                      noBots ? (
+                        <Button
+                          size="small"
+                          onClick={() => (isAdmin ? setSettings('bots') : inspect('group-info', 'bots'))}
+                        >
+                          {t('添加 Bot')}
+                        </Button>
+                      ) : undefined
+                    }
                   />
                 )}
                 {tl.loaded && !readOnly ? (
@@ -996,7 +1010,7 @@ export function ChatView({
                   />
                 ) : null}
               </MessageList>
-              <BottomScrollPill unseen={unseen} away={away} onClick={toBottom} />
+              <BottomScrollPill unseen={glide ? 0 : unseen} away={away && !glide} onClick={toBottom} />
             </div>
           </div>
           {readOnly || closed ? null : (

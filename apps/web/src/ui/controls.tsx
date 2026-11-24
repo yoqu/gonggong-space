@@ -103,7 +103,10 @@ export function Button({
       {...rest}
     >
       {glyph ? (
-        <span key={liveIcon ? 'live' : phase} className="ui-btn__glyph">
+        <span
+          key={liveIcon ? 'live' : phase === 'idle' && typeof icon === 'string' ? `idle:${icon}` : phase}
+          className="ui-btn__glyph"
+        >
           {glyph}
         </span>
       ) : null}

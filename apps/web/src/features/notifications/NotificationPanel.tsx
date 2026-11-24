@@ -1,4 +1,5 @@
 import {
+  awaitsAction,
   type FeishuIdentityView,
   type NotificationDto,
   notificationView,
@@ -24,6 +25,7 @@ import {
   type PresenceState,
   Spinner,
   Tag,
+  toast,
   useEscape,
   useLeaving,
   usePresence,
@@ -269,7 +271,10 @@ function Panel({
       toastError(e, t('清除已读失败'))
       return
     }
-    const ids = new Set((items ?? []).filter((n) => n.readAt).map((n) => n.id))
+    const ids = new Set((items ?? []).filter((n) => n.readAt && !awaitsAction(n)).map((n) => n.id))
+    const kept = (items ?? []).filter((n) => n.readAt && awaitsAction(n)).length
+    if (kept)
+      toast({ type: 'info', message: t('已清除 {n} 条，保留 {m} 条待处理的请求', { n: ids.size, m: kept }) })
     if (ids.size === 0) return
     // Bulk removal fades rows out together instead of collapsing each row's height one by one.
     setBulkClearing(ids)
@@ -326,7 +331,8 @@ function Panel({
           <Button
             size="small"
             variant="plain"
-            disabled={!items?.some((n) => n.readAt)}
+            disabled={!items?.some((n) => n.readAt && !awaitsAction(n))}
+            title={t('待处理的请求不会随已读清除')}
             onClick={() => void clearRead()}
           >
             {t('清除已读')}

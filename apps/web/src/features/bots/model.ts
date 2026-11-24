@@ -26,7 +26,7 @@ export const PRESENCE: Record<BotDto['presence'], { label: string; color: string
   online: { label: t('在线空闲'), color: 'var(--system-green)' },
   running: { label: t('运行中'), color: 'var(--system-blue)' },
   offline: { label: t('离线'), color: 'var(--system-gray)' },
-  agent_missing: { label: t('agent 缺失'), color: 'var(--system-orange)' },
+  agent_missing: { label: t('Agent 缺失'), color: 'var(--system-orange)' },
   pending_bind: { label: t('不可触发'), color: 'var(--system-gray)' },
   pending_confirm: { label: t('不可触发'), color: 'var(--system-gray)' },
 }
@@ -49,7 +49,7 @@ const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
   online: t('在线'),
   running: t('运行中'),
   offline: t('离线'),
-  agent_missing: t('agent 缺失'),
+  agent_missing: t('Agent 缺失'),
 }
 
 /** Sidebar line, e.g. `wanglei-mbp · 在线`, or the binding state while not bound; missing parts are left out. */

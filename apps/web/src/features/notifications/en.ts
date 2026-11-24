@@ -40,4 +40,7 @@ export default {
   开始时间: 'Start time',
   至: 'to',
   结束时间: 'End time',
+  '已清除 {n} 条，保留 {m} 条待处理的请求':
+    'Cleared {n}, kept {m} {m:request|requests} still waiting for you',
+  待处理的请求不会随已读清除: 'Requests still waiting for you are kept',
 } satisfies Record<string, string>

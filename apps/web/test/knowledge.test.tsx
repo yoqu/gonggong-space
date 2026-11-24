@@ -154,6 +154,17 @@ describe('knowledge editor', () => {
     )
   })
 
+  it('asks before discarding a half-written entry', async () => {
+    mockApi({ 'GET /groups/g1/knowledge': kb([]) })
+    render(<KnowledgeView groupId="g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '新建条目' }))
+    fireEvent.change(screen.getByLabelText('正文'), { target: { value: '写到一半' } })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    const ask = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
+    fireEvent.click(within(ask).getByRole('button', { name: '继续编辑' }))
+    expect((screen.getByLabelText('正文') as HTMLTextAreaElement).value).toBe('写到一半')
+  })
+
   it('edits against the version it loaded', async () => {
     const calls = mockApi({
       'GET /groups/g1/knowledge': kb([entry()]),

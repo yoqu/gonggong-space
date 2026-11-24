@@ -124,6 +124,9 @@ describe('Git 访问', () => {
     })
     expect((within(section).getByLabelText('令牌') as HTMLInputElement).value).toBe('')
     fireEvent.click(within(section).getByRole('button', { name: '删除 git.corp 的令牌' }))
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    const confirm = await screen.findByRole('alertdialog', { name: '删除 git.corp 的令牌？' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
     await waitFor(() => expect(within(section).queryByText('wanglei · glpa…')).toBeNull())
   })
 

@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
@@ -21,6 +22,7 @@ import {
   type Token,
   TokenField,
   toast,
+  useDiscardGuard,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { knowledgeApi } from './api'
@@ -78,6 +80,9 @@ export function KnowledgeEditor({
   const tooMany = tags.length > KNOWLEDGE_TAGS_MAX
   const unchanged =
     !!base && base.title === title.trim() && base.body === body && base.tags.join('\n') === tags.join('\n')
+  const dirty = entryId ? !!base && !unchanged : !!(title.trim() || body.trim() || tags.length)
+  const guard = useDiscardGuard(dirty, onClose)
+  const close = busy ? () => {} : guard.requestClose
   const save = async () => {
     setBusy(true)
     setError('')
@@ -96,90 +101,97 @@ export function KnowledgeEditor({
   }
 
   return (
-    <Dialog
-      open
-      title={entryId ? (base?.title ?? t('知识库#kb')) : t('新建条目')}
-      message={
-        base ? (
-          <span className="kb-meta">
-            {`v${base.version}`}
-            <Author by={base.updatedBy} />
-            <span>{ago(base.updatedAt)}</span>
-          </span>
-        ) : undefined
-      }
-      width={720}
-      onClose={onClose}
-      closeOnBackdrop={false}
-      actions={[
-        { label: t('取消'), onClick: onClose },
-        {
-          label: t('保存'),
-          variant: 'primary',
-          onClick: () => void save(),
-          disabled: busy || !title.trim() || tooMany || (!!entryId && (!base || unchanged)),
-        },
-      ]}
-    >
-      {conflict ? (
-        <Alert
-          variant="warning"
-          title={t('这条知识已被他人更新')}
-          description={t('载入最新版本会丢掉你这次的修改，可先复制正文再载入。')}
-        >
-          <div className="kb-alert__ops">
-            <Button size="small" onClick={detail.reload}>
-              {t('载入最新版本')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
-      {error || detail.error ? <Alert variant="error" title={error || detail.error} /> : null}
-      <div className="kb-form">
-        <TextField
-          label={t('标题')}
-          value={title}
-          maxLength={KNOWLEDGE_TITLE_MAX}
-          placeholder={t('如：发布流程、接口命名约定')}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <TokenField
-          label={t('标签')}
-          value={tags}
-          placeholder={t('回车添加，最多 {n} 个', { n: KNOWLEDGE_TAGS_MAX })}
-          hint={tooMany ? t('最多 {n} 个标签', { n: KNOWLEDGE_TAGS_MAX }) : undefined}
-          onChange={(v) => setTags(tagText(v))}
-        />
-        <div className="kb-form__bar">
-          <SegmentedControl<Mode>
-            size="small"
-            aria-label={t('正文视图')}
-            items={[
-              { value: 'edit', label: t('编辑') },
-              { value: 'preview', label: t('预览') },
-            ]}
-            value={mode}
-            onChange={setMode}
+    <>
+      <Dialog
+        open
+        title={entryId ? (base?.title ?? t('知识库#kb')) : t('新建条目')}
+        message={
+          base ? (
+            <span className="kb-meta">
+              {`v${base.version}`}
+              <Author by={base.updatedBy} />
+              <span>{ago(base.updatedAt)}</span>
+            </span>
+          ) : undefined
+        }
+        width={720}
+        onClose={close}
+        closeOnBackdrop={false}
+        actions={[
+          { label: t('取消'), onClick: close, disabled: busy },
+          {
+            label: t('保存'),
+            variant: 'primary',
+            loading: busy,
+            onClick: () => void save(),
+            disabled: busy || !title.trim() || tooMany || (!!entryId && (!base || unchanged)),
+          },
+        ]}
+      >
+        {conflict ? (
+          <Alert
+            variant="warning"
+            title={t('这条知识已被他人更新')}
+            description={t('载入最新版本会丢掉你这次的修改，可先复制正文再载入。')}
+          >
+            <div className="kb-alert__ops">
+              <Button size="small" onClick={() => void copyWithToast(body, t('已复制你的正文'))}>
+                {t('复制我的正文')}
+              </Button>
+              <Button size="small" onClick={detail.reload}>
+                {t('载入最新版本')}
+              </Button>
+            </div>
+          </Alert>
+        ) : null}
+        {error || detail.error ? <Alert variant="error" title={error || detail.error} /> : null}
+        <div className="kb-form" inert={busy || (!!entryId && !base)}>
+          <TextField
+            label={t('标题')}
+            value={title}
+            maxLength={KNOWLEDGE_TITLE_MAX}
+            placeholder={t('如：发布流程、接口命名约定')}
+            onChange={(e) => setTitle(e.target.value)}
           />
-          <span className="kb-muted">
-            {t('支持 Markdown · {n}/{max} 字', { n: body.length, max: KNOWLEDGE_BODY_MAX })}
-          </span>
+          <TokenField
+            label={t('标签')}
+            value={tags}
+            placeholder={t('回车添加，最多 {n} 个', { n: KNOWLEDGE_TAGS_MAX })}
+            hint={tooMany ? t('最多 {n} 个标签', { n: KNOWLEDGE_TAGS_MAX }) : undefined}
+            onChange={(v) => setTags(tagText(v))}
+          />
+          <div className="kb-form__bar">
+            <SegmentedControl<Mode>
+              size="small"
+              aria-label={t('正文视图')}
+              items={[
+                { value: 'edit', label: t('编辑') },
+                { value: 'preview', label: t('预览') },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
+            <span className="kb-muted">
+              {t('支持 Markdown · {n}/{max} 字', { n: body.length, max: KNOWLEDGE_BODY_MAX })}
+            </span>
+          </div>
+          {mode === 'edit' ? (
+            <Textarea
+              className="ui-input--mono kb-form__body"
+              aria-label={t('正文')}
+              rows={14}
+              maxLength={KNOWLEDGE_BODY_MAX}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          ) : (
+            <div className="kb-preview">
+              {body.trim() ? <Markdown text={body} /> : <span className="kb-muted">{t('暂无内容')}</span>}
+            </div>
+          )}
         </div>
-        {mode === 'edit' ? (
-          <Textarea
-            className="ui-input--mono kb-form__body"
-            aria-label={t('正文')}
-            rows={14}
-            maxLength={KNOWLEDGE_BODY_MAX}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
-        ) : (
-          <div className="kb-preview">
-            {body.trim() ? <Markdown text={body} /> : <span className="kb-muted">{t('暂无内容')}</span>}
-          </div>
-        )}
-      </div>
-    </Dialog>
+      </Dialog>
+      {guard.dialog}
+    </>
   )
 }

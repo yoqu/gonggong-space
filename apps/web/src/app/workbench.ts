@@ -126,14 +126,18 @@ interface WorkbenchState {
   previous: WorkbenchMode
   benches: Record<string, Bench>
   setGroup: (groupId: string | null) => void
-  /** Opens or focuses `tab` (deduped by `tabKey`) in the current group and shows the workbench; false when full. */
-  show: (tab: WorkbenchTab) => boolean
+  /**
+   * Opens or focuses `tab` (deduped by `tabKey`) in the current group and shows the workbench; false when full (see
+   * openTab). Into another `groupId`, it only joins that group's tabs.
+   */
+  show: (tab: WorkbenchTab, groupId?: string) => boolean
   activate: (key: string) => void
   /** Merges fields into an open tab (same kind), e.g. the picked file or the entered path. */
   patch: (key: string, fields: Partial<WorkbenchTab>) => void
   /** Puts `tab` in the place of the tab at `key`, e.g. a change of what makes its key; a tab it now equals goes. */
   replace: (key: string, tab: WorkbenchTab, groupId?: string) => void
-  closeTab: (key: string) => void
+  /** Closes the tab at `key` in the current group, or in `groupId`. */
+  closeTab: (key: string, groupId?: string) => void
   closeOthers: (key: string) => void
   closeAll: () => void
   reorder: (from: number, to: number) => void
@@ -214,6 +218,39 @@ export function liveFrames(bench: Bench): Set<string> {
   return new Set(web.slice(0, LIVE_FRAMES))
 }
 
+/**
+ * Read-only pages that reopen as they were. Not prototypes, knowledge, Git (commit message, merge) or terminals: they may
+ * hold unsaved work or a live session.
+ */
+const REOPENABLE = new Set<WorkbenchTab['kind']>([
+  'web',
+  'miniprogram',
+  'live',
+  'run',
+  'diff',
+  'files',
+  'file',
+  'git-log',
+  'git-compare',
+  'link',
+  'page',
+])
+
+/** Tabs whose view holds input not yet submitted (a run's unanswered question): not given up for room. */
+const held = new Set<string>()
+export const holdTab = (key: string, on: boolean) => (on ? held.add(key) : held.delete(key))
+
+/** The tab to give up for a new one when full: the least recently used reopenable one, never the active one. */
+export function staleTab(bench: Bench): WorkbenchTab | undefined {
+  let pick: WorkbenchTab | undefined
+  for (const tab of bench.tabs) {
+    const key = tabKey(tab)
+    if (key === bench.active || !REOPENABLE.has(tab.kind) || held.has(key)) continue
+    if (!pick || (bench.used[key] ?? 0) < (bench.used[tabKey(pick)] ?? 0)) pick = tab
+  }
+  return pick
+}
+
 const saved = load()
 
 export const useWorkbench = create<WorkbenchState>()((set, get) => {
@@ -235,9 +272,10 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
       const bench = groupId ? get().benches[groupId] : undefined
       set({ groupId, open: groupId ? !!bench?.tabs.length && get().open : get().open })
     },
-    show: (tab) => {
+    show: (tab, target) => {
       const key = tabKey(tab)
-      const { open, mode, groupId, benches } = get()
+      const { open, mode, groupId: current, benches } = get()
+      const groupId = target ?? current
       const tabs = (groupId && benches[groupId]?.tabs) || []
       if (!groupId || (tabs.length >= WORKBENCH_MAX_TABS && !tabs.some((t) => tabKey(t) === key)))
         return false
@@ -250,7 +288,8 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
           const tabs = at >= 0 ? b.tabs.map((t, i) => (i === at ? tab : t)) : [...b.tabs, tab]
           return { tabs, active: key, used: { ...b.used, [key]: Date.now() } }
         },
-        { open: true, mode: open ? nextMode : page ? 'focus' : nextMode },
+        groupId === current ? { open: true, mode: open ? nextMode : page ? 'focus' : nextMode } : {},
+        groupId,
       )
       return true
     },
@@ -278,18 +317,22 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
         {},
         groupId,
       ),
-    closeTab: (key) => {
-      update((b) => {
-        const at = b.tabs.findIndex((t) => tabKey(t) === key)
-        const tabs = b.tabs.filter((t) => tabKey(t) !== key)
-        const { [key]: _, ...used } = b.used
-        const neighbour = tabs[Math.min(at, tabs.length - 1)]
-        const active = b.active === key ? (neighbour ? tabKey(neighbour) : null) : b.active
-        return { tabs, active, used }
-      })
+    closeTab: (key, target) => {
+      update(
+        (b) => {
+          const at = b.tabs.findIndex((t) => tabKey(t) === key)
+          const tabs = b.tabs.filter((t) => tabKey(t) !== key)
+          const { [key]: _, ...used } = b.used
+          const neighbour = tabs[Math.min(at, tabs.length - 1)]
+          const active = b.active === key ? (neighbour ? tabKey(neighbour) : null) : b.active
+          return { tabs, active, used }
+        },
+        {},
+        target,
+      )
       const { groupId, benches } = get()
       // Closing the last tab hides the workbench; an empty one is only shown when asked for (to add a tab).
-      if (groupId && !benches[groupId]?.tabs.length) {
+      if (groupId && (target ?? groupId) === groupId && !benches[groupId]?.tabs.length) {
         set({ open: false })
         save(get())
       }

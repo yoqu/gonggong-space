@@ -56,6 +56,7 @@ vi.mock('../src/ipc', () => ({
     reveal: vi.fn(),
     resetCd: vi.fn(),
     deleteWorkspace: vi.fn(),
+    workspaceChanges: vi.fn(),
     diagnostics: vi.fn(),
     measureNet: vi.fn(),
     exportDiagnostics: vi.fn(),

@@ -7,7 +7,9 @@ import { type DaemonStatus, ipc, type MachineBot, type Tunnels } from '../ipc'
 import { ContextBadge } from '../lib/ContextBadge'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
 import { fail, Section } from '../lib/ui'
+import { useUnbind } from '../lib/unbind'
 import { openGuide, PERMISSIONS, useMissing } from '../permissions'
+import { UpdateAction } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 import { isLive } from './Live'
@@ -188,11 +190,16 @@ function Stat({ k, v, s }: { k: string; v: ReactNode; s: ReactNode }) {
   )
 }
 
-function Rebind() {
+/** Unbinds to bind again: right away once revoked (already wiped), else after confirming what it clears. */
+function Rebind({ confirm }: { confirm: boolean }) {
+  const unbind = useUnbind('rebind')
   return (
-    <Button size="small" onClick={() => void ipc.unbind().catch(fail)}>
-      {t('重新绑定')}
-    </Button>
+    <>
+      <Button size="small" onClick={confirm ? unbind.request : () => void ipc.unbind().catch(fail)}>
+        {t('重新绑定')}
+      </Button>
+      {unbind.dialog}
+    </>
   )
 }
 
@@ -229,7 +236,9 @@ function ConnAlert({
           '这台电脑的共工客户端（v{version}）版本太旧，与服务器不兼容（{message}）。请升级后重启；升级前这台电脑上的 Bot 会显示离线。',
           { version: version ?? '', protocol: protocol ?? '', message: c.message },
         )}
-      />
+      >
+        <UpdateAction size="small" />
+      </Alert>
     )
   }
   if (c.reason === 'revoked') {
@@ -243,13 +252,13 @@ function ConnAlert({
           { n: workspaces },
         )}
       >
-        <Rebind />
+        <Rebind confirm={false} />
       </Alert>
     )
   }
   return (
     <Alert variant="error" title={t('绑定已失效 · 服务器拒绝连接')} description={c.message}>
-      <Rebind />
+      <Rebind confirm />
     </Alert>
   )
 }

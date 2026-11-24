@@ -11,7 +11,17 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast, useEscape } from '../../ui'
+import {
+  Button,
+  EmptyState,
+  FailedArt,
+  Mascot,
+  reducedMotion,
+  Spinner,
+  ThreadPanel,
+  toast,
+  useEscape,
+} from '../../ui'
 import { lastEditable } from './editing'
 import { ActiveRunsContext, startedRunIds } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
@@ -112,7 +122,7 @@ export function ThreadView({
     }
     focusPages.current = 0
     stick.current = false
-    card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    card.scrollIntoView?.({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
     card.classList.remove('tl-item--flash')
     void card.offsetWidth
     card.classList.add('tl-item--flash')

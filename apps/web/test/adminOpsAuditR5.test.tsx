@@ -336,7 +336,7 @@ describe('Round 5 UX Audit — Admin Config & Observability Pages', () => {
     expect(within(dialog).getByText('要收回公开链接「产品原型预览」吗？')).toBeTruthy()
     expect(calls.some((c) => c.path === '/preview-shares/sh1/revoke')).toBe(false)
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '确认收回' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '收回' }))
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'POST' && c.path === '/preview-shares/sh1/revoke')).toBe(true),
     )

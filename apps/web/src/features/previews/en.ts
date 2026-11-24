@@ -168,6 +168,16 @@ export default {
     'The link stops working immediately and external visitors can no longer open this preview.',
   '原链接无法恢复，如需外部分享需重新生成公开链接':
     'The link cannot be restored; create a new public link if you need to share it again',
-  确认收回: 'Revoke link',
   已收回公开链接: 'Public link revoked',
+  停止预览: 'Stop preview',
+  '要停止「{title}」的在线预览吗？': 'Stop the online preview for "{title}"?',
+  '停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。':
+    'Group members will no longer be able to open this preview link, and its background service will also stop.',
+  '停止后，群成员将无法继续打开这个预览链接。':
+    'Once stopped, group members will no longer be able to open this preview link.',
+  '要彻底关闭「{title}」吗？': 'Close "{title}" permanently?',
+  '关闭后该预览卡片会移除，之后无法再从这里重新启动。':
+    'This preview card will be removed and cannot be restarted from here.',
+  已停止预览: 'Preview stopped',
+  已关闭预览: 'Preview closed',
 } satisfies Record<string, string>

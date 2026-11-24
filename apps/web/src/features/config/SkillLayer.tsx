@@ -28,6 +28,7 @@ import {
   Textarea,
   TextField,
   toast,
+  useDiscardGuard,
 } from '../../ui'
 import { InheritedList } from './InheritedList'
 import { folderSkillFiles, zipSkillFiles } from './skillFiles'
@@ -250,6 +251,8 @@ function SkillEditorDialog({
   const [newPath, setNewPath] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Set by every edit, so no per-keystroke diff of whole skills.
+  const [dirty, setDirty] = useState(false)
   const folder = useRef<HTMLInputElement>(null)
   const zip = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -261,15 +264,20 @@ function SkillEditorDialog({
       const next = await load
       if (!next.length) return setError(t('没有读到文件'))
       setFiles(next)
+      setDirty(true)
       setCurrent(next.some((f) => f.path === 'SKILL.md') ? 'SKILL.md' : next[0]!.path)
       setError('')
     } catch (e) {
       setError(t('无法读取：{e}', { e: errorText(e) }))
     }
   }
+  const guard = useDiscardGuard(dirty, onClose)
+  const close = busy ? () => {} : guard.requestClose
   const selected = files?.find((f) => f.path === current)
-  const edit = (content: string) =>
+  const edit = (content: string) => {
+    setDirty(true)
     setFiles((fs) => fs?.map((f) => (f.path === current ? { ...f, content } : f)) ?? null)
+  }
   const addFile = () => {
     const path = newPath.trim()
     if (!path || !files) return
@@ -277,11 +285,13 @@ function SkillEditorDialog({
     setFiles(
       [...files, { path, content: '', encoding: 'utf8' as const }].sort((a, b) => (a.path < b.path ? -1 : 1)),
     )
+    setDirty(true)
     setCurrent(path)
     setNewPath('')
     setError('')
   }
   const removeFile = (path: string) => {
+    setDirty(true)
     setFiles((fs) => fs?.filter((f) => f.path !== path) ?? null)
     if (path === current) setCurrent('SKILL.md')
   }
@@ -300,87 +310,100 @@ function SkillEditorDialog({
   }
 
   return (
-    <Dialog
-      open
-      title={skill ? t('编辑 Skill {name}', { name: skill.name }) : t('添加 Skill')}
-      message={t('名称与描述取自 SKILL.md 开头的 frontmatter；每次保存生成一个新版本。')}
-      width={760}
-      onClose={onClose}
-      closeOnBackdrop={false}
-      actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('保存'), variant: 'primary', onClick: () => void save(), disabled: !files || busy },
-      ]}
-    >
-      <div className="skill-ed__bar">
-        <Button size="small" onClick={() => folder.current?.click()}>
-          {t('导入文件夹…')}
-        </Button>
-        <FolderInput inputRef={folder} onFiles={(fs) => void replace(folderSkillFiles(fs))} />
-        <Button size="small" onClick={() => zip.current?.click()}>
-          {t('导入 zip…')}
-        </Button>
-        <input
-          ref={zip}
-          type="file"
-          accept=".zip,application/zip"
-          hidden
-          aria-label={t('导入 zip')}
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) void replace(zipSkillFiles(f))
-            e.target.value = ''
-          }}
-        />
-      </div>
-      {error ? <Alert variant="error" title={error} /> : null}
-      {detail.error ? <Alert variant="error" title={t('配置加载失败')} description={detail.error} /> : null}
-      <div className="skill-ed">
-        <div className="skill-ed__files" role="listbox" aria-label={t('文件')}>
-          {files?.map((f) => (
-            <div key={f.path} className="skill-ed__file">
-              <button
-                type="button"
-                role="option"
-                aria-selected={f.path === current}
-                className="skill-ed__path"
-                onClick={() => setCurrent(f.path)}
-              >
-                {f.path}
-              </button>
-              {f.path === 'SKILL.md' ? null : (
-                <IconButton title={t('删除 {name}', { name: f.path })} onClick={() => removeFile(f.path)}>
-                  {'xmark' as const}
-                </IconButton>
-              )}
-            </div>
-          ))}
-          <TextField
-            aria-label={t('新文件路径')}
-            mono
-            value={newPath}
-            placeholder="scripts/run.sh"
-            onChange={(e) => setNewPath(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') addFile()
+    <>
+      <Dialog
+        open
+        title={skill ? t('编辑 Skill {name}', { name: skill.name }) : t('添加 Skill')}
+        message={t('名称与描述取自 SKILL.md 顶部的 name / description 字段；每次保存生成一个新版本。')}
+        width={760}
+        onClose={close}
+        closeOnBackdrop={false}
+        actions={[
+          { label: t('取消'), onClick: close, disabled: busy },
+          {
+            label: t('保存'),
+            variant: 'primary',
+            onClick: () => void save(),
+            disabled: !files,
+            loading: busy,
+          },
+        ]}
+      >
+        <div className="skill-ed__bar" inert={busy}>
+          <Button size="small" onClick={() => folder.current?.click()}>
+            {t('导入文件夹…')}
+          </Button>
+          <FolderInput inputRef={folder} onFiles={(fs) => void replace(folderSkillFiles(fs))} />
+          <Button size="small" onClick={() => zip.current?.click()}>
+            {t('导入 zip…')}
+          </Button>
+          <input
+            ref={zip}
+            type="file"
+            accept=".zip,application/zip"
+            hidden
+            aria-label={t('导入 zip')}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) void replace(zipSkillFiles(f))
+              e.target.value = ''
             }}
           />
         </div>
-        <div className="skill-ed__body">
-          {selected?.encoding === 'base64' ? (
-            <EmptyState icon="doc" title={t('二进制文件')} description={t('只能整体替换，不能在线编辑。')} />
-          ) : selected ? (
-            <Textarea
-              className="ui-input--mono skill-ed__text"
-              aria-label={selected.path}
-              rows={18}
-              value={selected.content}
-              onChange={(e) => edit(e.target.value)}
+        {error ? <Alert variant="error" title={error} /> : null}
+        {detail.error ? <Alert variant="error" title={t('配置加载失败')} description={detail.error} /> : null}
+        <div className="skill-ed" inert={busy}>
+          <div className="skill-ed__files" role="listbox" aria-label={t('文件')}>
+            {files?.map((f) => (
+              <div key={f.path} className="skill-ed__file">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={f.path === current}
+                  className="skill-ed__path"
+                  onClick={() => setCurrent(f.path)}
+                >
+                  {f.path}
+                </button>
+                {f.path === 'SKILL.md' ? null : (
+                  <IconButton title={t('删除 {name}', { name: f.path })} onClick={() => removeFile(f.path)}>
+                    {'xmark' as const}
+                  </IconButton>
+                )}
+              </div>
+            ))}
+            <TextField
+              aria-label={t('新文件路径')}
+              mono
+              value={newPath}
+              placeholder="scripts/run.sh"
+              onChange={(e) => setNewPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addFile()
+              }}
             />
-          ) : null}
+          </div>
+          <div className="skill-ed__body">
+            {selected?.encoding === 'base64' ? (
+              <EmptyState
+                icon="doc"
+                title={t('二进制文件')}
+                description={t('只能整体替换，不能在线编辑。')}
+              />
+            ) : selected ? (
+              <Textarea
+                className="ui-input--mono skill-ed__text"
+                aria-label={selected.path}
+                rows={18}
+                value={selected.content}
+                onChange={(e) => edit(e.target.value)}
+              />
+            ) : null}
+          </div>
         </div>
-      </div>
-    </Dialog>
+      </Dialog>
+      {guard.dialog}
+    </>
   )
 }
 

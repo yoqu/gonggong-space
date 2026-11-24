@@ -674,7 +674,7 @@ function InvitesTab({ team }: { team: TeamDto }) {
       {data?.length ? (
         <div className="team-invites__section">
           <div className="team-invites__head">
-            <span>{t('生效中的邀请')}</span>
+            <span>{t('邀请链接#list')}</span>
             <span className="team-invites__count">{data.length}</span>
           </div>
           <GroupBox>
@@ -704,7 +704,7 @@ function InvitesTab({ team }: { team: TeamDto }) {
                     loading={revokingId === i.id}
                     onClick={() => void revoke(i.id)}
                   >
-                    {t('撤销')}
+                    {st.active ? t('撤销') : t('移除')}
                   </Button>
                 </GroupRow>
               )
@@ -714,7 +714,7 @@ function InvitesTab({ team }: { team: TeamDto }) {
       ) : error ? (
         <div className="gs-note">{error}</div>
       ) : data ? (
-        <div className="team-invites__empty">{t('暂无生效中的邀请链接')}</div>
+        <div className="team-invites__empty">{t('暂无邀请链接')}</div>
       ) : null}
     </>
   )

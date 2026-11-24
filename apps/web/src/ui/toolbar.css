@@ -83,13 +83,13 @@
   cursor: default;
   transition:
     background var(--fade-fast),
-    transform var(--spring-bouncy);
+    scale var(--spring-interactive);
 }
 .ui-toolbar__btn:hover:not(:disabled) {
   background: var(--control-track);
 }
 .ui-toolbar__btn:active:not(:disabled) {
-  transform: scale(0.94);
+  scale: var(--press-icon);
 }
 .ui-toolbar__btn[aria-pressed="true"] {
   color: var(--accent-text);

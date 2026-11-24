@@ -131,12 +131,25 @@ describe('稍后处理 on a message', () => {
     expect(at - before).toBeGreaterThanOrEqual(59 * 60_000)
     expect(at - before).toBeLessThanOrEqual(61 * 60_000)
     expect(await within(row).findByRole('img', { name: '稍后处理' })).toBeTruthy()
+    expect(
+      await screen.findByText(`已加入稍后处理，${remindLabel(new Date(at).toISOString())} 提醒`),
+    ).toBeTruthy()
   })
 
-  it('removes a saved message from the menu', async () => {
+  it('confirms a save without a reminder', async () => {
+    renderAt('/g/g1', { 'GET /saved/state': { ids: [], due: 0 }, 'PUT /messages/m1/save': { ok: true } })
+    const row = (await screen.findByText('记得看发版清单')).closest('.pn-msg') as HTMLElement
+    fireEvent.click(within(row).getByRole('button', { name: '更多' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '稍后处理' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '不提醒' }))
+    expect(await screen.findByText('已加入稍后处理')).toBeTruthy()
+  })
+
+  it('removes a saved message from the menu and 撤销 restores its reminder', async () => {
     const calls = renderAt('/g/g1', {
       'GET /saved/state': { ids: ['m1'], due: 0 },
-      'DELETE /messages/m1/save': { ok: true },
+      'DELETE /messages/m1/save': { ok: true, remindAt: '2026-11-09T01:00:00.000Z' },
+      'PUT /messages/m1/save': { ok: true },
     })
     const row = (await screen.findByText('记得看发版清单')).closest('.pn-msg') as HTMLElement
     await within(row).findByRole('img', { name: '稍后处理' })
@@ -145,6 +158,17 @@ describe('稍后处理 on a message', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: '移除稍后处理' }))
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'DELETE' && c.path === '/messages/m1/save')).toBe(true),
+    )
+    expect(await screen.findByText('已移除')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual(
+        expect.objectContaining({
+          method: 'PUT',
+          path: '/messages/m1/save',
+          body: { remindAt: '2026-11-09T01:00:00.000Z' },
+        }),
+      ),
     )
   })
 })

@@ -44,7 +44,7 @@ export function ContextBadge({
       <div className="ctx-pop">
         <ContextSummary context={context} />
         <p className="ctx-pop__hint">
-          {t('在群里发 /compact @{bot} 压缩上下文，发 /new 开新对话。', { bot })}
+          {t('在群里发 /compact @{bot} 压缩上下文，发 /new 开新会话。', { bot })}
         </p>
       </div>
     </Popover>

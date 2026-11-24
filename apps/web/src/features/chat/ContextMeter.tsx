@@ -74,7 +74,7 @@ export function ContextMeter({
                 send('new')
               }}
             >
-              {t('开新对话')}
+              {t('新会话')}
             </Button>
             <Button size="small" variant="primary" onClick={() => compact(close)}>
               {t('压缩上下文')}

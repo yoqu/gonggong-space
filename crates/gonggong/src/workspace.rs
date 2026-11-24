@@ -1154,19 +1154,17 @@ fn clone_in(root: &Path) -> PathBuf {
     if clones.len() == 1 { clones.remove(0) } else { root.to_path_buf() }
 }
 
-/// Uncommitted files and commits on no remote of a managed workspace's clone; None without a repo.
-pub async fn changes(entry: &Entry) -> Option<Changes> {
-    if entry.kind != EntryKind::Managed {
-        return None;
+/// Uncommitted files and commits on no remote (any local branch or HEAD) in a managed clone; None without a repo,
+/// Err when git cannot tell.
+pub async fn changes(entry: &Entry) -> Result<Option<Changes>, String> {
+    if entry.kind != EntryKind::Managed || !git::is_repo(&clone_in(&entry.path)) {
+        return Ok(None);
     }
     let dir = clone_in(&entry.path);
-    if !git::is_repo(&dir) {
-        return None;
-    }
-    let status = git(&dir, &["status", "--porcelain"]).await.ok()?;
-    // An unborn HEAD has no commits to lose.
-    let unpushed = git(&dir, &["rev-list", "--count", "HEAD", "--not", "--remotes"]).await.unwrap_or_default();
-    Some(Changes { uncommitted: status.lines().count() as u64, unpushed: unpushed.trim().parse().unwrap_or(0) })
+    let status = git(&dir, &["status", "--porcelain"]).await?;
+    let unpushed = ["rev-list", "--count", "--ignore-missing", "HEAD", "--branches", "--not", "--remotes"];
+    let unpushed = git(&dir, &unpushed).await?.trim().parse().map_err(|e| format!("git rev-list: {e}"))?;
+    Ok(Some(Changes { uncommitted: status.lines().count() as u64, unpushed }))
 }
 
 /// The volume holding `home`.
@@ -1260,7 +1258,7 @@ pub async fn list_for_web(home: PathBuf, config: Option<Config>) -> Result<(Vec<
     .await
     .map_err(|e| e.to_string())?;
     for e in &mut entries {
-        e.changes = changes(e).await;
+        e.changes = changes(e).await.ok().flatten();
     }
     Ok((entries, disk))
 }
@@ -1654,9 +1652,9 @@ mod tests {
         let root = home.path().join("workspaces/g/b/r1");
         repo_at(&root);
         let mut entry = list(home.path(), &[]).remove(0);
-        assert_eq!(changes(&entry).await, Some(Changes { uncommitted: 1, unpushed: 1 }));
+        assert_eq!(changes(&entry).await, Ok(Some(Changes { uncommitted: 1, unpushed: 1 })));
         entry.kind = EntryKind::Empty;
-        assert_eq!(changes(&entry).await, None);
+        assert_eq!(changes(&entry).await, Ok(None));
     }
 
     #[tokio::test]
