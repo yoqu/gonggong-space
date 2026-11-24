@@ -8,8 +8,5 @@
     "npm": "@larksuite/cli"
   },
   "profile": "gg-11111111-2222-4333-8444-555555555555",
-  "domains": [
-    "calendar",
-    "mail"
-  ]
+  "domains": ["calendar", "mail"]
 }
