@@ -23,4 +23,9 @@ describe('tryDraft', () => {
     expect(tryDraft('', '列出数据源', c, [], true)).toBe('列出数据源')
     expect(tryDraft('', '列出数据源', { bots: [] }, bots, true)).toBe('@设计助手 列出数据源')
   })
+
+  it('@s a bot that can use my CLI login first', () => {
+    const cli = { state: 'ready' as const, machines: [], target: null, readyBotIds: ['b1'] }
+    expect(tryDraft('', '看看我今天的日程', { ...c, cli }, bots, true)).toBe('@设计助手 看看我今天的日程')
+  })
 })

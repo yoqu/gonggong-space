@@ -109,7 +109,7 @@ export function ConnectorMenu({
                 <Button size="small" onClick={() => onPick(c)}>
                   {c.status === 'expired' ? t('重新连接') : t('连接')}
                 </Button>
-              ) : c.status === 'unconnected' ? null : (
+              ) : !c.cli && c.status === 'unconnected' ? null : (
                 <Switch
                   size="small"
                   checked={c.on}

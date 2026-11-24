@@ -229,3 +229,103 @@
 .cn-row--off .cn-row__main {
   opacity: 0.55;
 }
+
+/* CLI connectors: the one-stop wizard (连接 → 安装 → 扫码授权 → 已连接). */
+.cn-cli,
+.cn-run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+.cn-run__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  color: var(--label-secondary);
+}
+.cn-run__log {
+  max-height: 160px;
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  color: var(--label-secondary);
+}
+.cn-steps {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: cn-step;
+  font-size: 13px;
+  color: var(--label-tertiary);
+}
+.cn-steps li {
+  counter-increment: cn-step;
+}
+.cn-steps li::before {
+  content: counter(cn-step) " · ";
+}
+.cn-steps li.is-current {
+  color: var(--label);
+  font-weight: 600;
+}
+.cn-steps li.is-done {
+  color: var(--system-green);
+}
+.cn-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+}
+.cn-auth__code code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+}
+.cn-machines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cn-machines__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: 13px;
+}
+.cn-machines__name {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.cn-machines__state {
+  color: var(--label-secondary);
+}
+.cn-machines__state--ok {
+  color: var(--system-green);
+}
+
+/* Above the composer: a CLI connector the draft needs but I have not connected. */
+.cn-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
+  margin: 0 0 var(--space-4);
+  font-size: 12px;
+  color: var(--label-secondary);
+}
+.cn-hint .ui-btn {
+  height: 22px;
+}

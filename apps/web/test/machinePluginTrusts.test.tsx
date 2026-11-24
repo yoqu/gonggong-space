@@ -21,6 +21,7 @@ const machine: MachineDto = {
   agents: [],
   daemonVersion: '0.9.0',
   features: [],
+  allowMemberConnect: false,
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,
@@ -95,6 +96,26 @@ describe('插件授权', () => {
     fireEvent.click(within(section).getByRole('button', { name: '撤销' }))
     expect(await within(section).findByText('还没有插件请求在这台电脑上运行代码')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
+  })
+
+  it('the owner lets group members connect their own CLI accounts here', async () => {
+    const calls = mockApi({
+      'GET /machines/m1/plugin-trusts': [],
+      'PUT /machines/m1/member-connect': { ...machine, allowMemberConnect: true },
+    })
+    open()
+    const section = await screen.findByRole('region', { name: '群成员连接' })
+    expect(within(section).getByText(/登录信息按人分开保存在这台电脑上/)).toBeTruthy()
+    const sw = within(section).getByRole('switch', { name: '允许群成员在本机连接' }) as HTMLInputElement
+    expect(sw.checked).toBe(false)
+    fireEvent.click(sw)
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/machines/m1/member-connect')).toMatchObject({
+        method: 'PUT',
+        body: { allow: true },
+      }),
+    )
+    expect(sw.checked).toBe(true)
   })
 
   it('has no tab while plugins are off', async () => {

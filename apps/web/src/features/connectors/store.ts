@@ -1,4 +1,4 @@
-import type { ConnectorDto, ConnectorList } from '@gonggong/protocol'
+import type { ConnectorCliReq, ConnectorCliStarted, ConnectorDto, ConnectorList } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { ApiError, api, errorText } from '../../lib/api'
@@ -41,7 +41,7 @@ export async function connect(groupId: string, pluginId: string, values: Record<
   return c
 }
 
-function put(groupId: string, c: ConnectorDto) {
+export function put(groupId: string, c: ConnectorDto) {
   setList(
     groupId,
     (useConnectorStore.getState().lists[groupId] ?? []).map((x) => (x.id === c.id ? c : x)),
@@ -56,6 +56,30 @@ export async function switchConnector(groupId: string, pluginId: string, on: boo
 /** Checks my connection now (key-based connectors with a check). */
 export async function checkConnector(groupId: string, pluginId: string) {
   put(groupId, await api.post<ConnectorDto>(`/groups/${groupId}/connectors/${pluginId}/check`, {}))
+}
+
+type CliReq = Pick<ConnectorCliReq, 'machineId'> & { domains?: string[] }
+
+/** Starts connecting my CLI login: progress, the link and the end arrive as connector.cli.* socket events. */
+export const cliConnect = (groupId: string, pluginId: string, req: CliReq) =>
+  api.post<ConnectorCliStarted>(`/groups/${groupId}/connectors/${pluginId}/cli`, {
+    action: 'connect',
+    ...req,
+  })
+
+/** detect / cancel / logout on my CLI login (on `machineId`, else where 连接 runs). */
+export async function cliAction(
+  groupId: string,
+  pluginId: string,
+  action: 'detect' | 'cancel' | 'logout',
+  machineId?: string,
+) {
+  const c = await api.post<ConnectorDto>(`/groups/${groupId}/connectors/${pluginId}/cli`, {
+    action,
+    machineId,
+  })
+  put(groupId, c)
+  return c
 }
 
 /** Connections not checked since they were made: checked in the background when the list shows. */

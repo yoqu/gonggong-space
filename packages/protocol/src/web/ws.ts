@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { ArtifactThreadDto } from '../artifact-threads.js'
 import { ArtifactActivityDto } from '../artifacts.js'
 import { ContextUsage, GitStatus, Tier } from '../common.js'
+import { ConnectorDto } from '../connectors.js'
+import { ConnectorsAuth, ConnectorsProgress, ConnectorsResult } from '../daemon/connectors.js'
 import { RepoAccessReason } from '../daemon.js'
 import { GroupSchedulesDto } from '../schedules.js'
 import { SyncStatusDto } from '../sync.js'
@@ -176,6 +178,12 @@ export const WebEvent = z.discriminatedUnion('t', [
     error: z.string().nullable(),
     state: MachineAgentsDto.nullable(),
   }),
+  /** The caller only: a line of their connector.cli `connect` (plan 连接器-体验升级方案 §5.4). */
+  ConnectorsProgress.extend({ t: z.literal('connector.cli.progress') }),
+  /** The caller only: a link to open or scan to go on; never posted to a group. */
+  ConnectorsAuth.extend({ t: z.literal('connector.cli.auth') }),
+  /** The caller only: the `connect` is over; `connector` is their fresh view of it. */
+  ConnectorsResult.extend({ t: z.literal('connector.cli.result'), connector: ConnectorDto }),
   /** Group members: replaces the group's provider banner items. */
   GroupProviderStateDto.extend({ t: z.literal('group.providerState'), groupId: z.string() }),
   /** The receiving member's view of a team they are in (renamed, their role changed, or just joined). */

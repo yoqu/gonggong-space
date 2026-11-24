@@ -1,10 +1,10 @@
 import type { MachineDto, PluginTrustDto, PluginTrustStatus } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Alert, Button, GroupBox, Skeleton, Tag } from '../../ui'
+import { Alert, Button, GroupBox, Skeleton, Switch, Tag } from '../../ui'
 import { mcpTarget, permissionsText } from '../plugins/model'
 
 const STATUS: Record<PluginTrustStatus, { label: string; tone: 'orange' | 'green' | 'gray' }> = {
@@ -31,6 +31,7 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
   }
   return (
     <div className="mx">
+      <MemberConnect machine={machine} />
       <section aria-label={t('插件授权')} className="mx-section">
         <div className="mx-section__head">
           <span className="mx-row__main">
@@ -100,5 +101,37 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
         )}
       </section>
     </div>
+  )
+}
+
+/** 允许群成员在本机连接: members of groups whose bots run here may log their own CLI connector accounts in on it. */
+function MemberConnect({ machine }: { machine: MachineDto }) {
+  const [allow, setAllow] = useState(machine.allowMemberConnect)
+  useEffect(() => setAllow(machine.allowMemberConnect), [machine.allowMemberConnect])
+  const change = async (on: boolean) => {
+    setAllow(on)
+    try {
+      await api.put(`/machines/${machine.id}/member-connect`, { allow: on })
+    } catch (e) {
+      setAllow(!on)
+      toastError(e)
+    }
+  }
+  return (
+    <section aria-label={t('群成员连接')} className="mx-section">
+      <GroupBox>
+        <div className="mx-row">
+          <span className="mx-row__main">
+            <span className="mx-strong">{t('允许群成员在本机连接')}</span>
+            <span className="mx-sub">
+              {t(
+                '群成员可以在这台电脑上登录自己的飞书等账号，供本机 Bot 替他们使用；登录信息按人分开保存在这台电脑上。',
+              )}
+            </span>
+          </span>
+          <Switch ariaLabel={t('允许群成员在本机连接')} checked={allow} onChange={(on) => void change(on)} />
+        </div>
+      </GroupBox>
+    </section>
   )
 }

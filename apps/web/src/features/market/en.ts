@@ -231,4 +231,5 @@ export default {
     'r{n} adds required secrets: {names}; define and fill them after upgrading',
   '每人自填的密钥建在团队层，一个团队只建一次；需团队管理员创建，成员用到时会提醒团队管理员。':
     "Per-member secrets are defined once per team; a team admin creates it, and members' use reminds the team admins.",
+  技术说明: 'Technical notes',
 }
