@@ -59,6 +59,7 @@ export const ConnectorCardView = memo(function ConnectorCardView({
             id={card.pluginId}
             inGroup={inGroup}
             domains={card.domains}
+            machineId={card.machineId}
             onClose={() => setOpen(false)}
           />
         ) : null}

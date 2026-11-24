@@ -35,6 +35,7 @@ export function ConnectorDialog({
   id,
   inGroup,
   domains,
+  machineId,
   onTry,
   onClose,
 }: {
@@ -44,6 +45,8 @@ export function ConnectorDialog({
   inGroup: boolean
   /** CLI connectors: log in for only these Feishu domains (a 就地连接 card). */
   domains?: string[]
+  /** CLI connectors: connect on this machine (a 就地连接 card's). */
+  machineId?: string | null
   /** Absent where there is no composer to fill (a 就地连接 card). */
   onTry?: (c: ConnectorDto, text: string) => void
   onClose: () => void
@@ -149,6 +152,7 @@ export function ConnectorDialog({
             c={c}
             cli={c.cli}
             domains={domains}
+            machineId={machineId}
             onTry={onTry && ((x) => onTry(c, x))}
           />
         ) : m.connector?.login ? (

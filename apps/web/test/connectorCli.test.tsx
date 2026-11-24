@@ -348,6 +348,7 @@ describe('就地连接卡', () => {
     connector: 'feishu',
     title: '飞书',
     userId: me.id,
+    machineId: 'm1',
     reason: 'missing_scope',
     domains: ['calendar', 'docs'],
     resolved: false,
@@ -361,7 +362,7 @@ describe('就地连接卡', () => {
     )
   beforeEach(() => useSession.setState({ user: me }))
 
-  it('only the requester connects, for the missing domains', async () => {
+  it('only the requester connects, on the asking bot\'s machine, for the missing domains', async () => {
     const calls = mockApi({
       'GET /groups/g1/connectors': { connectors: [lark(view())] },
       'POST /groups/g1/connectors/c5/cli': { requestId: 'r1', machineId: 'mc1' },
@@ -376,6 +377,7 @@ describe('就地连接卡', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
         action: 'connect',
+        machineId: 'm1',
         domains: ['calendar', 'docs'],
       }),
     )

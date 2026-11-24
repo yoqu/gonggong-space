@@ -52,6 +52,7 @@ export function CliConnect({
   c,
   cli,
   domains = [],
+  machineId: cardMachine,
   onTry,
 }: {
   groupId: string
@@ -59,6 +60,8 @@ export function CliConnect({
   cli: ConnectorCliView
   /** Only these Feishu domains (a 就地连接 card asking for missing scopes). */
   domains?: string[]
+  /** The machine a 就地连接 card asks to connect on (where the asking bot runs). */
+  machineId?: string | null
   onTry?: (text: string) => void
 }) {
   const m = c.manifest
@@ -109,7 +112,8 @@ export function CliConnect({
     }
   }, [groupId, c.id])
 
-  const connect = async (machineId?: string) => {
+  const connect = async (picked?: string) => {
+    const machineId = picked ?? cardMachine ?? undefined
     setFailure(null)
     const first =
       m.connector?.cli?.driver === 'lark-cli' &&
