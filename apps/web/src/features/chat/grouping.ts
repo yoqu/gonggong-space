@@ -63,6 +63,7 @@ export function eventFolds(messages: MessageDto[], breakAt?: string | null) {
       !m.syncConflict &&
       !m.mcpSecret &&
       !m.secretCard &&
+      !m.connectorCard &&
       !m.feishuIssue
     if (!event || !joins) close(i - 1)
     if (event && start < 0) start = i

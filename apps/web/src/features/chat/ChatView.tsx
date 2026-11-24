@@ -51,7 +51,6 @@ import {
 import { ArtifactCardView } from '../artifacts/ArtifactCard'
 import { useBotCostume } from '../bots/avatars'
 import { dmLead } from '../bots/model'
-import { McpSecretCard } from '../config/McpSecretCard'
 import { FeishuChatLink } from '../feishu/FeishuChatLink'
 import { FeishuIssueEventRow } from '../feishu/FeishuIssueEvent'
 import { LinkedGitOperation } from '../git/GitOperations'
@@ -67,7 +66,6 @@ import { PreviewTags } from '../previews/PreviewTags'
 import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ScheduleTag } from '../schedules/ScheduleTag'
 import { SecretBanner } from '../secrets/SecretBanner'
-import { SecretCard } from '../secrets/SecretCard'
 import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
@@ -88,6 +86,7 @@ import { PinnedMessages } from './PinnedMessages'
 import { ProgressCard } from './ProgressCard'
 import { ProviderBanner } from './ProviderBanner'
 import { useOnQueued } from './pending'
+import { isRequestCard, RequestCard } from './RequestCard'
 import { repoName } from './repo'
 import { TaskDock } from './TaskDock'
 import { type ThreadFocus, ThreadView } from './ThreadView'
@@ -648,8 +647,7 @@ export function ChatView({
     if (m.scheduleId)
       return <ScheduleCard scheduleId={m.scheduleId} groupId={m.groupId} fallback={eventText(m)} />
     if (m.syncConflict) return <ConflictEvent m={m} conflict={m.syncConflict} />
-    if (m.mcpSecret) return <McpSecretCard m={m} card={m.mcpSecret} />
-    if (m.secretCard) return <SecretCard m={m} card={m.secretCard} />
+    if (isRequestCard(m)) return <RequestCard m={m} />
     if (m.progress) return <ProgressCard card={m.progress} />
     if (m.card?.type === 'creation-draft') return <CreationDraftView m={m} card={m.card} />
     if (m.card?.type === 'artifact') return <ArtifactCardView card={m.card} groupId={m.groupId} />

@@ -17,6 +17,7 @@ import {
   Alert,
   Button,
   Dialog,
+  Disclosure,
   GroupBox,
   GroupRow,
   Icon,
@@ -131,6 +132,11 @@ export function ListingDetail({
     }
   }
   const readme = stripFrontMatter(data.readme)
+  const readmeView = readme.trim() ? (
+    <Markdown text={readme} />
+  ) : (
+    <span className="gs-note">{t('（没有说明）')}</span>
+  )
   const action = actions?.(data)
   return (
     <div className="mkt-detail">
@@ -228,12 +234,17 @@ export function ListingDetail({
       ) : null}
       {data.connector ? <ConnectorTries connector={data.connector} /> : null}
       {data.secretSpecs.length ? <SecretSpecList specs={data.secretSpecs} /> : null}
-      <section className="mkt-detail__section" aria-label={t('说明')}>
-        <div className="cfg__eyebrow">{t('说明')}</div>
-        <div className="mkt-detail__readme">
-          {readme.trim() ? <Markdown text={readme} /> : <span className="gs-note">{t('（没有说明）')}</span>}
-        </div>
-      </section>
+      {data.connector ? (
+        // A connector's SKILL.md tells the bot how to drive it: the person only needs the tries above.
+        <Disclosure title={t('技术说明')} className="mkt-detail__section">
+          <div className="mkt-detail__readme">{readmeView}</div>
+        </Disclosure>
+      ) : (
+        <section className="mkt-detail__section" aria-label={t('说明')}>
+          <div className="cfg__eyebrow">{t('说明')}</div>
+          <div className="mkt-detail__readme">{readmeView}</div>
+        </section>
+      )}
       <section className="mkt-detail__section" aria-label={t('文件')}>
         <div className="cfg__eyebrow">
           {t('文件')} <span className="mkt-detail__n">{data.files.length}</span>

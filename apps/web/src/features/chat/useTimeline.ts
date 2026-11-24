@@ -77,7 +77,7 @@ const withdraw = (s: TimelineState, e: Withdrawn, threadRoot?: string): Timeline
 type Edited = Extract<WebEvent, { t: 'message.edited' }>
 
 /**
- * New text, 已编辑 and live cards (secret, progress, answered actions) for the message, new text for quotes of it;
+ * New text, 已编辑 and live cards (secret, connector, progress, answered actions) for the message, new text for quotes of it;
  * reactions stay (theirs carry the editor's `mine`).
  */
 const edit = (s: TimelineState, { message: e }: Edited): TimelineState => ({
@@ -90,6 +90,7 @@ const edit = (s: TimelineState, { message: e }: Edited): TimelineState => ({
           editedAt: e.editedAt,
           mcpSecret: e.mcpSecret,
           secretCard: e.secretCard,
+          connectorCard: e.connectorCard,
           progress: e.progress,
           card: e.card,
           actions: e.actions,

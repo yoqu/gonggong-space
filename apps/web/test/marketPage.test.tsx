@@ -321,6 +321,10 @@ describe('市场 page', () => {
         .getByRole('link', { name: /^如何获取/ })
         .getAttribute('href'),
     ).toBe('https://dw.example.com/keys')
+    // Its SKILL.md is for the bot: folded under 技术说明.
+    expect(within(drawer).queryByText('审查 PR')).toBeNull()
+    fireEvent.click(within(drawer).getByRole('button', { name: '技术说明' }))
+    expect(within(drawer).getByText('审查 PR')).toBeTruthy()
   })
 
   it('sorts by installs and clears filters from the empty state', async () => {

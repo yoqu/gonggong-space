@@ -331,6 +331,7 @@ describe('Round 2 Consolidation — Slice 1 (Admin, Analytics, Search)', () => {
         netMeasuredAt: '2026-11-21T10:00:00Z',
         agents: [],
         features: [],
+        allowMemberConnect: false,
       },
     ]
     mockApi({

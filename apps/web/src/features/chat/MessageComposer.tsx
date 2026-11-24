@@ -27,6 +27,7 @@ import { useArtifactEntry } from '../artifacts/store'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
 import { ConnectorDialog } from '../connectors/ConnectorDialog'
+import { ConnectorHints } from '../connectors/ConnectorHints'
 import { ConnectorMenu } from '../connectors/ConnectorMenu'
 import { useConnectors } from '../connectors/store'
 import { tryDraft } from '../connectors/tryDraft'
@@ -509,6 +510,16 @@ export const MessageComposer = memo(function MessageComposer({
     >
       <FilePickers uploads={uploads} imageRef={imagePicker} fileRef={filePicker} />
       <BotPresenceHint groupId={group.id} bots={targets} />
+      {pluginsOn ? (
+        <ConnectorHints
+          groupId={group.id}
+          draft={draft}
+          mentioned={mentioned}
+          bots={groupBots}
+          onDraft={(text) => change(text)}
+          onConnect={(c) => setConnectorId(c.id)}
+        />
+      ) : null}
       <Composer
         value={draft}
         onChange={change}

@@ -1,85 +1,8 @@
-import type { BotDto, ConnectorDto, GroupDto, PluginManifest, TeamDto, UserDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, useLocation } from 'react-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { App } from '../src/App'
-import { useSession } from '../src/app/session'
-import { useWorkspace } from '../src/app/workspace'
-import { useConnectorStore } from '../src/features/connectors/store'
-import { usePluginStore } from '../src/features/plugins/store'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { box, connector, manifest, openMenu, renderChat, routes } from './connectorFixtures'
 import { mockApi } from './mockApi'
 
-const now = new Date().toISOString()
-
-const me = {
-  id: 'u1',
-  account: 'wanglei',
-  name: '王磊',
-  role: 'member',
-  mustChangePassword: false,
-  disabled: false,
-  gitProtocol: 'auto',
-  email: null,
-  avatar: null,
-} as UserDto
-
-const manifest = (o: Partial<PluginManifest>): PluginManifest => ({
-  name: 'dw',
-  version: '1.0.0',
-  title: '数仓',
-  description: '查询线上数据，按你的 Key 控制可见的库表',
-  category: 'connector',
-  agents: ['claude'],
-  minDaemon: '0.4.0',
-  entry: null,
-  permissions: ['network'],
-  contributes: {
-    mcp: [{ transport: 'http', name: 'query', url: 'https://dw.example.com/mcp', headers: {} }],
-    commands: [],
-    providers: [],
-    agents: [],
-  },
-  templates: [],
-  designSystems: [],
-  inputs: [],
-  secrets: ['DW_MANAGER_API_KEY'],
-  secretSpecs: [
-    {
-      name: 'DW_MANAGER_API_KEY',
-      title: '数仓 Key',
-      description: '在数仓个人中心生成',
-      mode: 'personal',
-      required: true,
-    },
-  ],
-  connector: { examples: ['查一下昨天的订单量', '近 7 天新增用户趋势'], docs: 'https://dw.example.com/keys' },
-  composer: null,
-  source: null,
-  ...o,
-})
-
-const connector = (o: Partial<ConnectorDto> = {}): ConnectorDto => ({
-  id: 'c1',
-  layer: 'team',
-  manifest: manifest({}),
-  versionId: 'v1',
-  revision: 1,
-  size: 1024,
-  updatedBy: null,
-  updatedAt: now,
-  builtin: false,
-  enabledInGroup: true,
-  bots: [],
-  personal: true,
-  connected: false,
-  missing: ['DW_MANAGER_API_KEY'],
-  sharedWith: [],
-  on: true,
-  status: 'unconnected',
-  account: null,
-  checkedAt: null,
-  ...o,
-})
 const dw = connector()
 const modao = connector({
   id: 'c2',
@@ -127,137 +50,6 @@ const off = connector({
   manifest: manifest({ name: 'jenkins', title: '研发流水线' }),
   enabledInGroup: false,
 })
-
-const group: GroupDto = {
-  id: 'g1',
-  teamId: 't1',
-  name: '产品设计组',
-  kind: 'group',
-  mode: 'partition',
-  adminOnlyInvite: false,
-  protectBase: false,
-  notice: '',
-  noticeHidden: false,
-  avatar: null,
-  repo: null,
-  members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }],
-  botIds: ['b1'],
-  unread: 0,
-  lastSeq: 1,
-  last: '',
-  pinned: false,
-  notifyLevel: 'mentions',
-  foldRuns: false,
-  liveRunIds: [],
-  liveRuns: [],
-}
-const bot: BotDto = {
-  id: 'b1',
-  teamId: 't1',
-  name: '设计助手',
-  ownerId: 'u1',
-  ownerName: '王磊',
-  agentKind: 'claude',
-  avatar: 'role-no',
-  followAgent: false,
-  avatarUrl: null,
-  machineId: 'mc1',
-  machineName: 'mbp',
-  binding: 'bound',
-  presence: 'online',
-  systemPrompt: '',
-  tier: 'workspace',
-  triggerScope: 'all',
-  access: { trusted: 'ask', others: 'auto' },
-  triggerList: [],
-  concurrency: 2,
-  createdBy: 'u1',
-  agentVersion: null,
-  agentMinVersion: null,
-  groupCount: 0,
-  defaultWorkspace: null,
-  gitName: null,
-  gitEmail: null,
-  gitDefaultEmail: 'b1@bots.gonggong.local',
-  sharedWith: [],
-  agentSettings: {},
-  approval: 'ask',
-  allowlist: [],
-  alwaysAllow: [],
-  aiReview: false,
-  model: null,
-  effort: null,
-  catalog: null,
-}
-
-const team: TeamDto = {
-  id: 't1',
-  name: '设计组',
-  avatar: null,
-  role: 'member',
-  archivedAt: null,
-  createdAt: now,
-  unread: 0,
-}
-
-class NoopSocket {
-  close() {}
-}
-
-const routes = (connectors: ConnectorDto[]) => ({
-  'GET /groups': [group],
-  'GET /users': [],
-  'GET /bots': [bot],
-  'GET /machines': [],
-  'GET /notifications/unread': { n: 0 },
-  'GET /groups/g1/timeline': { messages: [], runs: [] },
-  'POST /groups/g1/read': group,
-  'GET /groups/g1/params': { approvalTimeoutMin: 30, chainMaxHops: 3, offlineWaitMin: 30 },
-  'GET /groups/g1/plugins': [],
-  'GET /groups/g1/connectors': { connectors },
-})
-
-function Where() {
-  const l = useLocation()
-  return <div data-testid="where">{l.pathname + l.search}</div>
-}
-
-const renderChat = () =>
-  render(
-    <MemoryRouter initialEntries={['/g/g1']}>
-      <App />
-      <Where />
-    </MemoryRouter>,
-  )
-
-const box = () =>
-  screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
-
-async function openMenu() {
-  fireEvent.click(await screen.findByRole('button', { name: '连接器' }))
-  return screen.findByRole('dialog', { name: '连接器' })
-}
-
-beforeEach(() => {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 })
-  vi.stubGlobal('WebSocket', NoopSocket)
-  useSession.setState({
-    user: me,
-    status: 'ready',
-    tenancy: {
-      teams: [team],
-      singleTeamMode: true,
-      canCreateTeam: false,
-      demoMode: false,
-      pluginsEnabled: true,
-    },
-  })
-  useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
-  usePluginStore.setState({ lists: {} })
-  useConnectorStore.setState({ lists: {}, errors: {} })
-  sessionStorage.clear()
-})
-afterEach(() => vi.unstubAllGlobals())
 
 describe('输入框 · 连接器菜单', () => {
   it("lists the group's enabled connectors with their status, searches and links to the market", async () => {
@@ -353,6 +145,26 @@ describe('连接器详情弹窗', () => {
     )
     expect(await within(dialog).findByRole('button', { name: '去试试' })).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '解绑' })).toBeTruthy()
+  })
+
+  it('trims a pasted key and drops a leading Bearer', async () => {
+    const calls = mockApi({
+      ...routes([dw]),
+      'POST /groups/g1/connectors/c1/connect': connector({ connected: true, missing: [], status: 'ok' }),
+    })
+    renderChat()
+    const menu = await openMenu()
+    fireEvent.click(await within(menu).findByRole('button', { name: '连接' }))
+    const dialog = await screen.findByRole('dialog', { name: '数仓' })
+    fireEvent.change(within(dialog).getByLabelText('DW_MANAGER_API_KEY'), {
+      target: { value: '  Bearer sk-12345678 \n' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: '连接' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/groups/g1/connectors/c1/connect')?.body).toEqual({
+        values: { DW_MANAGER_API_KEY: 'sk-12345678' },
+      }),
+    )
   })
 
   it('a shared connector not connected yet waits for an admin', async () => {

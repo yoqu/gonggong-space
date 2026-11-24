@@ -498,4 +498,8 @@ export default {
   '已离线 {n} 分钟': 'Offline {n}m',
   '已离线 {n} 小时': 'Offline {n}h',
   '已离线 {n} 天': 'Offline {n}d',
+  群成员连接: 'Member connections',
+  允许群成员在本机连接: 'Let group members connect here',
+  '群成员可以在这台电脑上登录自己的飞书等账号，供本机 Bot 替他们使用；登录信息按人分开保存在这台电脑上。':
+    "Group members can sign in to their own Feishu and other accounts on this computer for its bots to use for them; each person's login is stored separately on this computer.",
 } satisfies Record<string, string>
