@@ -108,6 +108,9 @@ pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
 /// 空间: workspace.gc, `lastUsedAt` / `changes` / `disk` in workspaces.result, and deletes that skip busy dirs.
 pub const FEATURE_STORAGE_ADMIN: &str = "storageAdmin";
 
+/// connectors.* and `RunStart.cli_profiles` (plan 连接器-体验升级方案): CLI connectors detected and connected here.
+pub const FEATURE_CONNECTORS: &str = "connectors";
+
 pub const FEATURE_GIT_OPS: &str = "gitOps";
 
 /// git.diff, git.refresh and commit `paths`: without it a server must not send paths, or everything gets committed.
@@ -340,6 +343,14 @@ pub enum DaemonToServer {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         retry_in: Option<u64>,
     },
+    #[serde(rename = "connectors.progress", rename_all = "camelCase")]
+    ConnectorsProgress { request_id: String, stage: ConnectorsStage, line: String },
+    #[serde(rename = "connectors.auth")]
+    ConnectorsAuth(ConnectorsAuth),
+    #[serde(rename = "connectors.result")]
+    ConnectorsResult(ConnectorsResult),
+    #[serde(rename = "connectors.update")]
+    ConnectorsUpdate { probes: Vec<ConnectorProbe> },
     #[serde(rename = "tools.progress", rename_all = "camelCase")]
     ToolsProgress { request_id: String, line: String },
     #[serde(rename = "tools.result", rename_all = "camelCase")]

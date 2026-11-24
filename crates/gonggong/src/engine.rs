@@ -109,6 +109,8 @@ pub(crate) struct Inner {
     diff_slots: Arc<tokio::sync::Semaphore>,
     /// Agent tools and providers driven from the Web.
     manage: Manage,
+    /// CLI connectors: probed, connected and shimmed into the agents' PATH.
+    connectors: crate::connectors::Connectors,
     replicas: Arc<Replicas>,
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     terminals: crate::terminal::TerminalManager,
@@ -143,6 +145,7 @@ impl Engine {
             Casts::new(config.api.clone(), config.home.clone(), services.clone(), bin, crate::wechatide::devtools());
         let home = config.home.clone();
         let replicas = Replicas::new(home.clone(), config.api.as_ref());
+        let connectors = crate::connectors::Connectors::new(home.clone());
         let manage = Manage::new(home, config.user_home.clone());
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         let terminals = crate::terminal::TerminalManager::new(config.home.clone());
@@ -162,6 +165,7 @@ impl Engine {
             listings: files::Listings::default(),
             diff_slots: Arc::new(tokio::sync::Semaphore::new(DIFF_SLOTS)),
             manage,
+            connectors,
             replicas,
             #[cfg(any(target_os = "macos", target_os = "linux"))]
             terminals,
@@ -851,6 +855,8 @@ impl Handler for Engine {
                 });
             }
             ServerToDaemon::ToolsCmd(cmd) => self.0.manage.tools(cmd, out),
+            ServerToDaemon::ConnectorsSync { connectors } => self.0.connectors.sync(connectors, out),
+            ServerToDaemon::ConnectorsCmd(cmd) => self.0.connectors.cmd(cmd, out),
             ServerToDaemon::GitAccessCmd(cmd) => self.0.manage.git_access(cmd, out),
             ServerToDaemon::DiagRun { request_id } => self.0.manage.diag(request_id, self.0.config.api.clone(), out),
             // Answered by the service, which owns the upgrader.
@@ -906,6 +912,7 @@ impl Handler for Engine {
 impl Inner {
     async fn start(self: Arc<Self>, mut start: RunStart, out: Outbox) {
         let _preparing = Preparing(&self, start.run_id.clone());
+        self.connectors.before_run();
         // Read per run, so edits from the CLI or the desktop app apply from the next turn on.
         let local = match LocalSettings::load(&self.config.home) {
             Ok(local) => local,
@@ -1048,7 +1055,7 @@ impl Inner {
         }
         let cli = cli.map(|p| p.to_string_lossy().into_owned());
         let (provider, extra_env) = (selection.provider(), selection.process_env());
-        Ok(match bot.agent_kind {
+        let config = match bot.agent_kind {
             AgentKind::Claude => {
                 let base = match selection.claude_profile() {
                     Some(dir) => {
@@ -1084,7 +1091,8 @@ impl Inner {
                 let a = crate::adapters::get(bot.agent_kind).expect("a manifest agent");
                 self.manifest_launch(a, base, bot, cli.as_deref(), provider, extra_env, process).await?
             }
-        })
+        };
+        self.cli_path(config, process.cli_profiles).await
     }
 
     /// How a manifest agent's process starts (`install`, `acp`, `chdir`): its CLI as a node script on the daemon's
@@ -1300,20 +1308,6 @@ impl Inner {
     }
 }
 
-/// What a run's agent process starts with besides the bot and its provider (read by the manifest agents).
-#[derive(Default)]
-pub(crate) struct Process<'a> {
-    /// The (group, bot) pair `<group>-<bot>` (its `{state}`), or [`crate::adapters::PROBE`].
-    pub key: &'a str,
-    /// The team skills folder and the group's plugins (`skills.via: arg`).
-    pub plugin_dirs: &'a [PathBuf],
-    /// The workspace (`chdir`, and the launch script's `cwd`).
-    pub cwd: Option<&'a Path>,
-    /// The run's MCP servers and the built-in gonggong one (`mcp.via: env`, the launch script).
-    pub mcp_servers: &'a [crate::protocol::McpServer],
-    pub ask: Option<&'a acp::McpServer>,
-}
-
 fn installed_version(pkg: &Path) -> Option<String> {
     let raw = std::fs::read_to_string(pkg.join("package.json")).ok()?;
     serde_json::from_str::<serde_json::Value>(&raw).ok()?["version"].as_str().map(String::from)
@@ -1357,7 +1351,9 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
 }
 
 mod chdir;
+mod launch;
 mod probe;
+pub(crate) use launch::Process;
 
 #[cfg(test)]
 mod tests {

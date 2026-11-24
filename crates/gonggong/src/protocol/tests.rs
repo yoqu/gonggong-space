@@ -227,3 +227,20 @@ fn artifact_activity_fixture_round_trips() {
     );
     assert_eq!(serde_json::to_value(parsed).unwrap(), raw);
 }
+
+#[test]
+fn run_start_takes_cli_profiles_and_refuses_odd_ones() {
+    let mut raw: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../packages/protocol/fixtures/s2d.run.start.json")).unwrap();
+    let member = "gg-11111111-2222-4333-8444-555555555555";
+    raw["cliProfiles"] =
+        serde_json::json!([{"driver": "lark-cli", "profile": member}, {"driver": "meegle", "profile": "default"}]);
+    let ServerToDaemon::RunStart(start) = serde_json::from_value(raw.clone()).unwrap() else { panic!() };
+    assert_eq!(start.cli_profiles[0].driver, ConnectorDriver::LarkCli);
+    assert_eq!(start.cli_profiles[0].profile.as_str(), member);
+    assert!(start.cli_profiles[1].profile.is_default());
+    for odd in ["gg-../../etc", "--help", "Default", "gg-11111111-2222-4333-8444-55555555555Z"] {
+        raw["cliProfiles"] = serde_json::json!([{"driver": "lark-cli", "profile": odd}]);
+        assert!(serde_json::from_value::<ServerToDaemon>(raw.clone()).is_err(), "{odd}");
+    }
+}

@@ -14,6 +14,7 @@ pub mod claude_args;
 pub mod coalesce;
 pub mod config;
 pub mod configure;
+pub mod connectors;
 pub mod daemon;
 pub mod diag;
 pub mod engine;

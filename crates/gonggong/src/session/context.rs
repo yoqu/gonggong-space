@@ -2,7 +2,7 @@
 use super::Shared;
 use crate::ledger::Ledger;
 use crate::protocol::{CacheUsage, DaemonToServer, RunEvent};
-use agent_client_protocol::schema::v1::SessionId;
+use agent_client_protocol::schema::v1::{SessionId, Usage};
 use std::sync::Arc;
 
 /// How often the make-up of the context is sent while a turn goes on, at most.
@@ -20,7 +20,8 @@ impl Shared {
     }
 
     /// Sends the context's estimated make-up at the end of the active turn, if its agent reported an occupancy.
-    pub(super) fn report_context(&self, session: &SessionId, cache: Option<CacheUsage>) {
+    pub(super) fn report_context(&self, session: &SessionId, usage: Option<&Usage>) {
+        let cache = usage.and_then(cache_of);
         let mut guard = self.0.lock().unwrap();
         let s = &mut *guard;
         let (Some(a), Some(l)) = (s.active.as_ref(), s.ledgers.get_mut(&*session.0)) else { return };
@@ -50,4 +51,10 @@ impl Shared {
             shared.report_live(&run_id, &session);
         });
     }
+}
+
+fn cache_of(u: &Usage) -> Option<CacheUsage> {
+    let read = u.cached_read_tokens?;
+    let total = u.input_tokens + read + u.cached_write_tokens.unwrap_or(0);
+    (total > 0).then_some(CacheUsage { read, total })
 }

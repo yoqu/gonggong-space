@@ -48,6 +48,9 @@ pub struct RunStart {
     /// Only sent to daemons announcing [`FEATURE_PLUGINS`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginRef>,
+    /// The originator's CLI connector profiles ([`FEATURE_CONNECTORS`]): the agent's CLIs are shimmed to use them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cli_profiles: Vec<RunCliProfile>,
     /// gonggong tools left out of the session's `tools/list`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hidden_tools: Vec<String>,

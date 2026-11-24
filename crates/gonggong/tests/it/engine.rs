@@ -93,6 +93,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
         skills: vec![],
         plugins: vec![],
         hidden_tools: vec![],
+        cli_profiles: vec![],
         artifacts: vec![],
         artifact_exclude: vec![],
         command: None,
