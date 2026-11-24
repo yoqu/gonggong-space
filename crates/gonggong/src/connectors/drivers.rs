@@ -199,10 +199,15 @@ pub fn device_login(out: &str) -> Option<DeviceLogin> {
         .iter()
         .find_map(|k| text(&d[k]))
         .filter(|u| u.starts_with("https://"))?;
+    // lark-cli carries it only in the link.
+    let user_code = text(&d["user_code"]).or_else(|| {
+        let code = url.split("user_code=").nth(1)?.split('&').next()?;
+        (!code.is_empty()).then(|| code.to_string())
+    });
     Some(DeviceLogin {
         url,
         device_code: text(&d["device_code"]).filter(|c| !c.starts_with('-'))?,
-        user_code: text(&d["user_code"]),
+        user_code,
         expires_in: d["expires_in"].as_i64(),
         interval: d["interval"].as_u64(),
         client_id: text(&d["client_id"]).filter(|c| !c.starts_with('-')),
@@ -296,6 +301,8 @@ mod tests {
         assert_eq!(d.url, "https://project.feishu.cn/b/auth/mcp?usercode=XYFJJ-7WRV6");
         assert_eq!((d.client_id.as_deref(), d.interval), (Some("cli_x"), Some(5)));
         let lark = r#"{"verification_url":"https://accounts.feishu.cn/x","device_code":"dc","user_code":"AB","expires_in":600}"#;
+        let real = r#"{"device_code":"Ov-x","expires_in":600,"verification_url":"https://accounts.feishu.cn/oauth/v1/device/verify?flow_id=F&user_code=YALF-JFSU"}"#;
+        assert_eq!(device_login(real).unwrap().user_code.as_deref(), Some("YALF-JFSU"));
         assert_eq!(device_login(lark).unwrap().device_code, "dc");
         assert!(device_login(r#"{"verification_url":"http://evil","device_code":"dc"}"#).is_none());
         assert!(meegle_pending(r#"{"status":"authorization_pending"}"#));

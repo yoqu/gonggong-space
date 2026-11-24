@@ -371,7 +371,7 @@ impl Connectors {
             _ => {}
         }
         match spec.driver {
-            ConnectorDriver::LarkCli => within(self.lark_login(&cli, profile, &cmd.domains, r)).await,
+            ConnectorDriver::LarkCli => within(self.lark_login(spec, &cli, profile, &cmd.domains, r)).await,
             ConnectorDriver::Meegle => within(self.meegle_login(&cli, profile, r)).await,
         }
     }
@@ -431,6 +431,7 @@ impl Connectors {
 
     async fn lark_login(
         &self,
+        spec: &ConnectorSpec,
         cli: &Path,
         profile: &ConnectorProfile,
         domains: &[String],
@@ -445,7 +446,8 @@ impl Connectors {
                 r.progress(ConnectorsStage::Login, l)
             })
             .await?;
-        if !status.success() {
+        // A person who leaves some scopes out makes lark-cli exit non-zero, yet the login works.
+        if !status.success() && self.probe(spec, profile, false).await.state != ConnectorCliState::Ready {
             bail!(t!("登录未完成：{detail}", detail = last));
         }
         Ok(())

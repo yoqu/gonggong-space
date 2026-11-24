@@ -33,10 +33,9 @@ function cliStatus(c: ConnectorDto, cli: ConnectorCliView): { tone: Tone; text: 
       const account = cliMachine(c)?.account ?? c.account
       return { tone: 'ok', text: account ? t('已连接 · {account}', { account }) : t('已连接') }
     }
+    // The CLI cannot tell a lapsed login from none (a member's new profile reads the same): say 未登录.
     case 'needs_login':
-      return c.status === 'expired'
-        ? { tone: 'bad', text: t('登录已过期') }
-        : { tone: 'idle', text: t('未登录') }
+      return { tone: 'idle', text: t('未登录') }
     case 'needs_init':
     case 'not_installed':
       return { tone: 'idle', text: t('未连接') }

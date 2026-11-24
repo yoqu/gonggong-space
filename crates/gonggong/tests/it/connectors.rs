@@ -41,7 +41,9 @@ case "$1 $2" in
 "auth login")
   case "$*" in
   *--no-wait*) echo '{"verification_url":"https://accounts.feishu.cn/oauth/v1/device/verify?user_code=ABCD-EFGH","device_code":"dev-1","user_code":"ABCD-EFGH","expires_in":600}' ;;
-  *) while [ ! -f "$S/approve" ]; do sleep 0.05; done; touch "$S/logged-$P"; echo "授权成功" ;;
+  *) while [ ! -f "$S/approve" ]; do sleep 0.05; done; touch "$S/logged-$P"
+     if [ -f "$S/partial" ]; then echo "登录未完成：本次已成功授权：calendar:calendar:read，未授权：mail:x"; exit 1; fi
+     echo "授权成功" ;;
   esac ;;
 "auth logout") rm -f "$S/logged-$P" ;;
 "api GET") echo '{"data":{"name":"姜维川","open_id":"ou_1","user_id":"a1b2c3d4"}}' ;;
@@ -202,6 +204,22 @@ async fn connects_a_member_binding_an_app_then_logging_in() {
     assert!(r.ok, "{:?}", r.error);
     assert_eq!(r.probe.unwrap().state, ConnectorCliState::NeedsLogin);
     assert!(!std::fs::read_to_string(home.path().join("connectors.json")).unwrap().contains(MEMBER));
+}
+
+#[tokio::test]
+async fn a_login_granting_only_some_scopes_still_connects() {
+    // lark-cli exits non-zero when the person leaves some scopes out, yet the login works.
+    let (_home, bin, c) = setup();
+    fake(bin.path(), "lark-cli", LARK);
+    for f in ["inited-default", "approve", "partial"] {
+        std::fs::write(bin.path().join(f), "").unwrap();
+    }
+    let (out, mut rx) = Outbox::channel();
+    c.cmd(cmd("r1", ConnectorsAction::Connect, lark(), ConnectorProfile::default_profile()), &out);
+    let DaemonToServer::ConnectorsAuth(_) = next_event(&mut rx).await else { panic!() };
+    let r = result(&mut rx).await;
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(r.probe.unwrap().state, ConnectorCliState::Ready);
 }
 
 #[tokio::test]
