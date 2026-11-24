@@ -1,6 +1,7 @@
 import {
   type AgentKind,
   type Approval,
+  type ConnectorProbe,
   type ContextMessage,
   clientRunsAgent,
   type GitProtocol,
@@ -32,6 +33,9 @@ import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBots } from '../bots/dto.js'
 import { gitIdentity } from '../bots/git.js'
 import { runTier } from '../bots/tier.js'
+import { probesOf } from '../connectors/state.js'
+import { syncConnectors } from '../connectors/sync.js'
+import { runCli } from '../connectors/view.js'
 import { boundChat } from '../feishu/mirror.js'
 import { effectiveParams, replyStyleOf } from '../groups/params.js'
 import { knowledgeContext } from '../knowledge/context.js'
@@ -166,7 +170,15 @@ export async function schedule(ctx: Ctx, botId: string) {
       }
       if (machineId && busy < bot.concurrency) {
         const at = ctx.now()
-        const start = await buildRunStart(tx, bot, run, !unsynced, at, ctx.hub.features(machineId))
+        const start = await buildRunStart(
+          tx,
+          bot,
+          run,
+          !unsynced,
+          at,
+          ctx.hub.features(machineId),
+          probesOf(ctx, machineId),
+        )
         if (start.settled) out.push(start.settled)
         // Marked running inside the transaction, sent only after it committed: a fast run.done then finds the
         // committed running row, and a rollback never leaves a daemon executing a run the server has queued.
@@ -226,6 +238,8 @@ export async function schedule(ctx: Ctx, botId: string) {
     trustAsks,
   } of changed.dispatches) {
     await askPluginTrust(ctx, machineId, trustAsks)
+    // A bot added to a group with a CLI connector since the daemon was last told: it watches it before the run.
+    if (msg.cliProfiles.length) await syncConnectors(ctx, machineId)
     if (ctx.hub.send(machineId, msg)) {
       // After the send: a cursor advanced for a start that never went out would drop that context for good.
       // A detached (scheduled) turn moves none of the conversation's cursors, nor uses up a pending /new.
@@ -324,6 +338,8 @@ export async function buildRunStart(
   synced: boolean,
   now: Date,
   features: string[],
+  /** The daemon's CLI connector probes (connectors.update). */
+  probes: ConnectorProbe[] = [],
 ) {
   // Reads issued together are pipelined on the transaction's connection: one round trip per batch, not per read.
   const [[trigger], [group], [gb], repoRows, [owner], params, catalog, mcpServers, skills, secrets, admin] =
@@ -465,7 +481,16 @@ export async function buildRunStart(
     ])
   const plugins = granted?.refs ?? []
   const creations = granted?.creations ?? []
-  const unconnected = command ? null : connectorHint(granted?.connected ?? [], granted?.unconnected ?? [])
+  const cli =
+    granted && bot.machineId && features.includes('connectors')
+      ? await runCli(tx, bot.machineId, run.originUserId, granted.connected, probes)
+      : new Map<string, never>()
+  const unconnected = command
+    ? null
+    : connectorHint(
+        (granted?.connected ?? []).map((c) => ({ ...c, cli: cli.get(c.name) })),
+        granted?.unconnected ?? [],
+      )
   const context = recent?.kept.reverse() ?? []
   const fallbackContext = replay?.kept.reverse() ?? []
   const omitted = !recent || recent.complete ? 0 : (await countContext(tx, since)) - context.length
@@ -562,6 +587,7 @@ export async function buildRunStart(
     mcpServers: mcpServers.flatMap((c) => substitute(c, secrets.env) ?? []),
     skills: skills.map(({ name, versionId, digest }) => ({ name, versionId, digest })),
     plugins,
+    cliProfiles: [...cli.values()].map(({ driver, profile }) => ({ driver, profile })),
     // An agent command may open the session, so it hides nothing.
     hiddenTools: command
       ? []
@@ -571,6 +597,7 @@ export async function buildRunStart(
           ...(features.includes('artifacts') ? [] : ARTIFACT_TOOLS),
           ...(admin.any ? [] : LAYER_WRITE_TOOLS),
           ...(admin.sysadmin ? [] : RELEASE_TOOLS),
+          ...(cli.size ? [] : ['connector_request']),
         ],
     command,
     sync,

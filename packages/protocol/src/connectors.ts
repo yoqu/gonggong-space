@@ -114,6 +114,8 @@ export const ConnectorCard = z.object({
   connector: z.string(),
   title: z.string(),
   userId: z.string(),
+  /** The asking bot's machine: connecting there resolves the card (POST …/cli with this machineId). */
+  machineId: z.string().nullable().default(null),
   reason: z.enum(['unconnected', 'expired', 'missing_scope']),
   domains: z.array(z.string()),
   resolved: z.boolean(),

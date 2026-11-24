@@ -587,6 +587,22 @@ export function secretCard(o: { bot: string; text: string; filled: boolean; url:
   )
 }
 
+/** A 连接 card (connector_request): only a way back to the group, where the person connects in their own dialog. */
+export function connectorCard(o: { text: string; resolved: boolean; url: string | null }) {
+  if (o.resolved) return card(zt('连接'), 'green', [markdown(o.text)], zt('已连接'))
+  return card(
+    zt('连接'),
+    'orange',
+    [
+      markdown(o.text),
+      o.url
+        ? linkButton(zt('去连接'), o.url, true)
+        : markdown(grey(zt('请到共工群里连接；如需在飞书直接打开，请系统管理员设置对外地址'))),
+    ],
+    zt('等待连接'),
+  )
+}
+
 const STAGE_MARK: Record<ProgressStageStatus, string> = {
   pending: '⚪',
   running: '🔵',

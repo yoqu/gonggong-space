@@ -1,6 +1,7 @@
 import type {
   ActionAnswer,
   Attachment,
+  ConnectorCard,
   FeishuIssueEvent,
   HtmlRenderRef,
   I18nParams,
@@ -85,6 +86,10 @@ export type MessageMeta = {
   mcpSecret?: McpSecretCard
   /** A bot's 填写密钥 card (secret_request). */
   secretCard?: SecretCard
+  /** A bot's 就地连接 card (connector_request). */
+  connectorCard?: ConnectorCard
+  /** The run that asked for it, carried on once the card is resolved (server only). */
+  connectorAsk?: { runId: string }
   /** A bot's progress card (progress_card). */
   progress?: ProgressCard
   /** Generic card (plan 插件体系), e.g. a creation request. */
@@ -149,6 +154,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).syncConflict && { syncConflict: (m.meta as MessageMeta).syncConflict }),
     ...((m.meta as MessageMeta).mcpSecret && { mcpSecret: (m.meta as MessageMeta).mcpSecret }),
     ...((m.meta as MessageMeta).secretCard && { secretCard: (m.meta as MessageMeta).secretCard }),
+    ...((m.meta as MessageMeta).connectorCard && { connectorCard: (m.meta as MessageMeta).connectorCard }),
     ...((m.meta as MessageMeta).progress && { progress: (m.meta as MessageMeta).progress }),
     ...((m.meta as MessageMeta).card && { card: (m.meta as MessageMeta).card }),
     ...((m.meta as MessageMeta).actions && { actions: (m.meta as MessageMeta).actions }),

@@ -623,6 +623,17 @@ export const en = {
   // Plugins
   插件不存在: 'Plugin not found',
   连接器不存在: 'Connector not found',
+  这台电脑不能用来连接: "This computer can't be used to connect",
+  '需要一台在线电脑：安装桌面端，或请 Bot 所在电脑的主人开启「允许群成员在本机连接」':
+    'An online computer is needed: install the desktop app, or ask the owner of a bot\'s computer to turn on "Let group members connect here"',
+  '连接超时，请重试': 'Connecting timed out, try again',
+  只有电脑主人可以设置: 'Only the computer owner can change this',
+  连接: 'Connect',
+  已连接: 'Connected',
+  去连接: 'Connect',
+  等待连接: 'Waiting to connect',
+  '请到共工群里连接；如需在飞书直接打开，请系统管理员设置对外地址':
+    'Connect in the 共工 group; for a link that opens from Feishu, ask a system admin to set the public URL',
   '连接器「{title}」没有声明密钥 {name}': 'Connector "{title}" does not declare the secret {name}',
   '{name} 是团队共享密钥，请团队管理员填写': '{name} is a team-shared secret; a team admin fills it in',
   '插件不能超过 5 MB': 'A plugin cannot exceed 5 MB',

@@ -1,0 +1,1 @@
+ALTER TABLE "machines" ADD COLUMN "allow_member_connect" boolean DEFAULT false NOT NULL;

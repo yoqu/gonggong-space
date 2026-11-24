@@ -178,6 +178,16 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group: '',
         href: `/link/${p('requestId')}`,
       }
+    case 'connector_expiring':
+      return {
+        label: say('连接即将过期'),
+        text: say('{connector}在 {machine} 上的登录两天内过期，请重新连接', {
+          connector: p('connectorTitle'),
+          machine: p('machineName'),
+        }),
+        group,
+        href: at(''),
+      }
     case 'plugin_trust':
       return {
         label: say(n.resolvedAt ? '插件运行授权' : '待授权的插件'),

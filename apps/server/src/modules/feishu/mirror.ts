@@ -26,6 +26,7 @@ import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
 import {
   approvalCard,
+  connectorCard,
   type Interaction,
   isPending,
   type PageShot,
@@ -392,7 +393,7 @@ async function syncRun(ctx: Ctx, runId: string) {
 
 async function cardLink(
   ctx: Ctx,
-  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'progress' | 'reaction' | 'secret',
+  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'progress' | 'reaction' | 'secret' | 'connector',
   key: { runId?: string; refId?: string },
 ) {
   const [link] = await ctx.db
@@ -872,6 +873,48 @@ async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
     kind: 'secret',
     refId: requestId,
   })
+}
+
+/**
+ * Called when a 连接 card (connector_request) is posted or resolved: mirrors it to the bound chat as the asking bot's
+ * app with a link back to the group only; the login link never leaves the person's own dialog.
+ */
+export async function mirrorConnectorCard(ctx: Ctx, groupId: string, messageId: string) {
+  if ((await sysParams(ctx.db)).demoMode || !(await boundChat(ctx.db, groupId))?.syncOutbound) return
+  enqueue(ctx, groupId, () => syncConnectorCard(ctx, groupId, messageId))
+}
+
+async function syncConnectorCard(ctx: Ctx, groupId: string, messageId: string) {
+  const chat = await boundChat(ctx.db, groupId)
+  const [m] = await ctx.db.select().from(messages).where(eq(messages.id, messageId))
+  const meta = m?.meta as MessageMeta | undefined
+  const runId = meta?.connectorAsk?.runId
+  const card = meta?.connectorCard
+  if (!chat?.syncOutbound || !m || !runId || !card) return
+  const [run] = await ctx.db.select().from(runs).where(eq(runs.id, runId))
+  const app = run && (await appOfBot(ctx, run.botId))
+  if (!run || !app) return
+  const [trigger] = await ctx.db
+    .select({ chatId: feishuMessageLinks.chatId, feishuMessageId: feishuMessageLinks.feishuMessageId })
+    .from(feishuMessageLinks)
+    .where(
+      and(eq(feishuMessageLinks.messageId, run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
+    )
+  const base = await publicUrl(ctx)
+  const at = card.resolved ? '' : await cardAt(ctx, card.userId, app)
+  const existing = await cardLink(ctx, 'connector', { refId: card.id })
+  await putCard(
+    ctx,
+    app,
+    trigger ?? { chatId: chat.chatId },
+    existing,
+    connectorCard({
+      text: at ? `${at} ${m.body}` : m.body,
+      resolved: card.resolved,
+      url: base && `${base}/g/${groupId}`,
+    }),
+    { kind: 'connector', refId: card.id },
+  )
 }
 
 /**
