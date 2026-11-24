@@ -35,6 +35,7 @@ import { controlsRun, publishRun, type RunRow, UNFINISHED, WAITING } from './dto
 import { schedule } from './scheduler.js'
 import { runStep } from './step.js'
 import { forgetStream } from './streams.js'
+import { settleReports } from './trigger.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 type User = { id: string; name: string }
@@ -448,6 +449,7 @@ export async function expireOfflineRuns(ctx: Ctx) {
       botName,
       waitMin: min,
     })
+    await settleReports(ctx, row)
     await notifyChainDone(ctx, row)
   }
 }

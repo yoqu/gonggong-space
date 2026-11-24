@@ -386,12 +386,13 @@ describe('built-in plugins', () => {
 
   // Only checkouts of the internal GitLab have the submodule.
   it.skipIf(!existsSync(join(INTERNAL_PLUGINS, 'dw')))(
-    'installs the internal plugins: the dw, feishu and meegle connectors',
+    'installs the internal plugins: the dw, feishu and meegle connectors and the orchestra tool',
     async () => {
       await syncBuiltinPlugins(t.ctx, INTERNAL_PLUGINS)
       const rows = await t.db.select().from(plugins)
       const names = rows.map((r) => [r.scope, r.name])
-      for (const name of ['dw', 'feishu', 'meegle']) expect(names).toContainEqual(['platform', name])
+      for (const name of ['dw', 'feishu', 'meegle', 'orchestra'])
+        expect(names).toContainEqual(['platform', name])
     },
   )
 

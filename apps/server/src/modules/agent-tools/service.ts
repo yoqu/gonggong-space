@@ -420,17 +420,30 @@ async function handOff(ctx: Ctx, s: Scope, a: Args<'hand_off'>): Promise<ToolOut
     const where = away ? `群「${target.name}」` : '本群'
     return refuse(`${where}没有叫「${name}」的 Bot，可接手的有：${others.join('、') || '无'}`)
   }
+  if (a.report) {
+    if (away) refuse('交回只用于本群的 Bot')
+    if (bot.id === run.botId) refuse('交回不能交给自己')
+    if (run.hop + 2 > max)
+      refuse(`交回要再用 2 跳，超过接力上限（${max} 跳）；请自己完成，或在回复里说明由群成员决定`)
+  }
   const task = a.task.trim()
   const groupId = away ? target.id : undefined
   const handoffs = [
     ...run.handoffs.filter(
       (h) => h.threadRootId || h.botId !== bot.id || h.groupId !== groupId || !!h.toMain !== toMain,
     ),
-    { botId: bot.id, task, ...(groupId && { groupId }), ...(toMain && { toMain }) },
+    {
+      botId: bot.id,
+      task,
+      ...(groupId && { groupId }),
+      ...(toMain && { toMain }),
+      ...(a.report && { report: true }),
+    },
   ]
   await ctx.db.update(runs).set({ handoffs }).where(eq(runs.id, run.id))
   const who = away ? `群「${target.name}」的「${bot.name}」` : `「${bot.name}」${toMain ? '在主会话' : ''}`
-  return { text: `已登记：本轮结束后由${who}接手（任务：${task}）。回复里不需要再 @ 它。`, groups: [] }
+  const back = a.report ? '，做完自动交回给你' : ''
+  return { text: `已登记：本轮结束后由${who}接手（任务：${task}）${back}。回复里不需要再 @ 它。`, groups: [] }
 }
 
 const THREADS_PER_TURN = 3
