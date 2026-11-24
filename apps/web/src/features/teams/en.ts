@@ -97,6 +97,10 @@ export default {
   '加入中…': 'Joining…',
   已加入: 'Joined',
   登录后加入: 'Log in to join',
+  飞书登录并加入: 'Sign in with Feishu & join',
+  授权飞书后可一键创建账号或绑定已有账号并加入团队:
+    'Authorize Feishu to create or link an account and join the team in one step',
+  使用账号密码登录: 'Log in with account & password',
   注册并加入: 'Sign up and join',
   加入或新建团队: 'Join or create a team',
   '新建一个团队，或粘贴团队管理员发给你的邀请链接加入。':

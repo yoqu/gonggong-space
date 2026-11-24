@@ -65,7 +65,12 @@ describe('options', () => {
     expect((await anon().get<AuthOptionsDto>('/api/auth/options')).body.feishuLogin).toBe(false)
     const admin = (await t.db.select().from(users))[0]!
     await client(t, await t.seed.cookie(admin.id)).put('/api/admin/params', { publicUrl: PUBLIC })
-    expect((await anon().get<AuthOptionsDto>('/api/auth/options')).body.feishuLogin).toBe(true)
+    expect((await anon().get<AuthOptionsDto>('/api/auth/options')).body).toMatchObject({
+      feishuLogin: true,
+      feishuAutoSignup: true,
+    })
+    await client(t, await t.seed.cookie(admin.id)).put('/api/admin/params', { feishuAutoSignup: false })
+    expect((await anon().get<AuthOptionsDto>('/api/auth/options')).body.feishuAutoSignup).toBeUndefined()
   })
 
   it('refuses to start while 飞书登录 is unavailable', async () => {
@@ -163,6 +168,23 @@ describe('first 飞书登录 (ticket)', () => {
       canCreate: true,
       next: '/',
     })
+  })
+
+  it('suggests an existing active unlinked account when the Feishu email uniquely matches', async () => {
+    await configure()
+    await t.seed.user({ account: 'wanglei', email: 'WangLei@corp.com' })
+    const fu = t.feishu.user({ name: '王磊', email: 'wanglei@corp.com' })
+    const { location } = await feishuLogin(fu)
+    const ticket = await anon().get<FeishuTicketDto>(`/api/auth/feishu/ticket/${ticketOf(location)}`)
+    expect(ticket.body.suggestedAccount).toBe('wanglei')
+
+    // Disabled matching accounts are not suggested.
+    const disabled = await t.seed.user({ account: 'lina', email: 'lina@corp.com' })
+    await t.db.update(users).set({ disabledAt: new Date() }).where(eq(users.id, disabled.id))
+    const dLoc = (await feishuLogin(t.feishu.user({ name: '李娜', email: 'lina@corp.com' }))).location
+    expect(
+      (await anon().get<FeishuTicketDto>(`/api/auth/feishu/ticket/${ticketOf(dLoc)}`)).body.suggestedAccount,
+    ).toBeUndefined()
   })
 
   it('binds an existing account after the password checks out', async () => {

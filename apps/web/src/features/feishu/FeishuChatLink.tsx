@@ -3,7 +3,7 @@ import { Tooltip } from '../../ui'
 import './feishu.css'
 
 /** The Feishu mark, after IconPark's `new-lark` (ByteDance, Apache-2.0). */
-function FeishuMark({ size = 14 }: { size?: number }) {
+export function FeishuMark({ size = 14 }: { size?: number }) {
   return (
     <svg viewBox="0 0 48 48" width={size} height={size} fill="none" aria-hidden="true">
       <path

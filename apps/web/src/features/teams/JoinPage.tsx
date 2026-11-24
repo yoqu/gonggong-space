@@ -6,6 +6,8 @@ import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Alert, Button, Spinner } from '../../ui'
 import { AuthCard, AuthSubmit, type SubmitPhase } from '../auth/AuthCard'
+import { useAuthOptions } from '../auth/options'
+import { FeishuLoginButton } from '../feishu/login'
 import { switchTeam, teamsApi } from './store'
 
 /** /join/:token — the invite landing page; signed-out visitors log in or sign up first, then come back here. */
@@ -13,6 +15,7 @@ export function JoinPage() {
   const { token = '' } = useParams()
   const navigate = useNavigate()
   const { user, status, load } = useSession()
+  const options = useAuthOptions()
   const [invite, setInvite] = useState<InvitePreviewDto | null>(null)
   const [error, setError] = useState('')
   const [unreadable, setUnreadable] = useState(false)
@@ -83,15 +86,34 @@ export function JoinPage() {
           <AuthSubmit phase={phase} label={t('加入团队')} busy={t('加入中…')} done={t('已加入')} />
         ) : (
           <div className="auth__fields">
-            <Button
-              variant="primary"
-              size="xlarge"
-              fullWidth
-              className="auth__submit"
-              onClick={() => navigate(`/login?next=${encodeURIComponent(back)}`)}
-            >
-              {t('登录后加入')}
-            </Button>
+            {options?.feishuLogin ? (
+              <>
+                <FeishuLoginButton
+                  next={back}
+                  variant="primary"
+                  label={t('飞书登录并加入')}
+                  hint={t('授权飞书后可一键创建账号或绑定已有账号并加入团队')}
+                />
+                <p className="auth__or">{t('或')}</p>
+                <Button
+                  size="xlarge"
+                  fullWidth
+                  onClick={() => navigate(`/login?next=${encodeURIComponent(back)}`)}
+                >
+                  {t('使用账号密码登录')}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="primary"
+                size="xlarge"
+                fullWidth
+                className="auth__submit"
+                onClick={() => navigate(`/login?next=${encodeURIComponent(back)}`)}
+              >
+                {t('登录后加入')}
+              </Button>
+            )}
             <p className="auth__foot">
               {t('还没有账号？')}{' '}
               <Link to={`/register?invite=${encodeURIComponent(token)}`} className="auth__link">

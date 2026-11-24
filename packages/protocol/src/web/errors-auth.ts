@@ -97,6 +97,8 @@ export const AuthOptionsDto = z.object({
   registrationOpen: z.boolean(),
   /** The main Feishu app is configured: the login page offers 飞书登录. */
   feishuLogin: z.boolean(),
+  /** True when Feishu login is enabled and first-time Feishu users may create an account without open sign-up. */
+  feishuAutoSignup: z.boolean().optional(),
 })
 export type AuthOptionsDto = z.infer<typeof AuthOptionsDto>
 export const UpdateUserReq = z.object({ name: z.string().min(1).optional(), role: Role.optional() })

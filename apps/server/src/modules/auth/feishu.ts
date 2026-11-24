@@ -268,12 +268,15 @@ export function feishuAuthRoutes(ctx: Ctx) {
 
     app.get('/api/auth/feishu/ticket/:ticket', async (req): Promise<FeishuTicketDto> => {
       const { user, next } = ticketOf((req.params as { ticket: string }).ticket, true)
+      const matched = await accountByEmail(ctx, user.email)
+      const suggestedAccount = matched && !matched.disabledAt ? matched.account : undefined
       return {
         name: user.name,
         email: user.email,
         avatar: user.avatar,
         canCreate: (await sysParams(ctx.db)).feishuAutoSignup || !!(await inviteOf(ctx, next)),
         next,
+        ...(suggestedAccount ? { suggestedAccount } : {}),
       }
     })
 

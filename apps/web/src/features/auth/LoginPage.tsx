@@ -87,6 +87,9 @@ export function LoginPage() {
     }
   }
 
+  const inviteToken = /^\/join\/([^/?#]+)$/.exec(next)?.[1]
+  const registerTo = inviteToken ? `/register?invite=${inviteToken}` : '/register'
+
   return (
     <AuthCard
       testId="login-page"
@@ -100,15 +103,31 @@ export function LoginPage() {
         options?.registrationOpen ? (
           <p className="auth__foot">
             {t('还没有账号？')}{' '}
-            <Link to="/register" className="auth__link">
+            <Link to={registerTo} className="auth__link">
               {t('立即注册')}
             </Link>
           </p>
+        ) : options?.feishuLogin && options?.feishuAutoSignup ? (
+          <p className="auth__foot">{t('首次使用？点击上方「飞书登录」即可直接创建账号')}</p>
         ) : (
           <p className="auth__foot">{t('还没有账号？请联系系统管理员开通')}</p>
         )
       }
     >
+      {options?.feishuLogin ? (
+        <>
+          <FeishuLoginButton
+            next={next}
+            variant="primary"
+            hint={
+              options.feishuAutoSignup
+                ? t('首次使用飞书？授权后可新建账号或绑定已有账号')
+                : t('首次使用飞书？授权后可绑定已有的共工账号')
+            }
+          />
+          <p className="auth__or">{t('或使用账号密码登录')}</p>
+        </>
+      ) : null}
       <div className="auth__fields">
         <TextField
           label={t('账号')}
@@ -120,7 +139,7 @@ export function LoginPage() {
             setAccount(e.target.value)
             setError('')
           }}
-          autoFocus={!account}
+          autoFocus={!account && !options?.feishuLogin}
         />
         <SecureField
           label={t('密码')}
@@ -133,7 +152,7 @@ export function LoginPage() {
             setError('')
           }}
           aria-invalid={!!error || undefined}
-          autoFocus={!!account}
+          autoFocus={!!account && !options?.feishuLogin}
         />
         <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
           {error ? (
@@ -169,12 +188,6 @@ export function LoginPage() {
         ) : null}
       </AnimatePresence>
       <AuthSubmit phase={phase} label={t('登录')} busy={t('登录中…')} done={t('登录成功')} />
-      {options?.feishuLogin ? (
-        <>
-          <p className="auth__or">{t('或')}</p>
-          <FeishuLoginButton next={next} />
-        </>
-      ) : null}
     </AuthCard>
   )
 }

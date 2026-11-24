@@ -5,6 +5,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Icon, SecureField, TextField } from '../../ui'
+import { FeishuLoginButton } from '../feishu/login'
 import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
 import { useAuthOptions } from './options'
 
@@ -61,7 +62,11 @@ export function RegisterPage() {
     }
   }
 
-  const closed = options?.registrationOpen === false && !invite
+  const passwordClosed = options?.registrationOpen === false && !invite
+  const feishuSignup = !!options?.feishuLogin && (!!options?.feishuAutoSignup || !!invite || !passwordClosed)
+  const closed = passwordClosed && !feishuSignup
+  const feishuNext = invite ? `/join/${encodeURIComponent(invite)}` : '/'
+  const loginTo = invite ? `/login?next=${encodeURIComponent(feishuNext)}` : '/login'
   return (
     <AuthCard
       testId="register-page"
@@ -70,7 +75,9 @@ export function RegisterPage() {
       subtitle={
         closed
           ? t('当前未开放注册，请联系系统管理员创建账号。')
-          : t('注册后即可加入群、绑定电脑、创建你的 Bot。')
+          : passwordClosed && feishuSignup
+            ? t('本空间支持飞书快速开户，授权后可新建账号或绑定已有账号。')
+            : t('注册后即可加入群、绑定电脑、创建你的 Bot。')
       }
       errorKey={errorKey}
       leaving={phase === 'done'}
@@ -78,7 +85,7 @@ export function RegisterPage() {
       footer={
         <p className="auth__foot">
           {t('已有账号？')}{' '}
-          <Link to="/login" className="auth__link">
+          <Link to={loginTo} className="auth__link">
             {t('去登录')}
           </Link>
         </p>
@@ -86,49 +93,64 @@ export function RegisterPage() {
     >
       {closed ? null : (
         <>
-          <div className="auth__fields">
-            <TextField
-              label={t('账号')}
-              size="large"
-              autoComplete="username"
-              placeholder={t('登录用，如 wanglei')}
-              value={form.account}
-              onChange={set('account')}
-              autoFocus
-            />
-            <TextField
-              label={t('姓名')}
-              size="large"
-              autoComplete="name"
-              placeholder={t('群里显示的名字')}
-              value={form.name}
-              onChange={set('name')}
-            />
-            <SecureField
-              label={t('密码')}
-              size="large"
-              autoComplete="new-password"
-              placeholder={t('至少 {n} 位', { n: MIN_PASSWORD })}
-              value={form.password}
-              onChange={set('password')}
-            />
-            <SecureField
-              label={t('确认密码')}
-              size="large"
-              autoComplete="new-password"
-              value={form.confirm}
-              onChange={set('confirm')}
-            />
-            <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
-              {error ? (
-                <>
-                  <Icon name="exclamation-circle" size={13} />
-                  {error}
-                </>
-              ) : null}
-            </p>
-          </div>
-          <AuthSubmit phase={phase} label={t('注册并进入')} busy={t('注册中…')} done={t('注册成功')} />
+          {feishuSignup ? (
+            <>
+              <FeishuLoginButton
+                next={feishuNext}
+                variant="primary"
+                label={t('使用飞书快速注册')}
+                hint={t('免填表单，授权后可选择创建新账号或绑定已有共工账号')}
+              />
+              {!passwordClosed ? <p className="auth__or">{t('或使用账号密码注册')}</p> : null}
+            </>
+          ) : null}
+          {passwordClosed ? null : (
+            <>
+              <div className="auth__fields">
+                <TextField
+                  label={t('账号')}
+                  size="large"
+                  autoComplete="username"
+                  placeholder={t('登录用，如 wanglei')}
+                  value={form.account}
+                  onChange={set('account')}
+                  autoFocus={!feishuSignup}
+                />
+                <TextField
+                  label={t('姓名')}
+                  size="large"
+                  autoComplete="name"
+                  placeholder={t('群里显示的名字')}
+                  value={form.name}
+                  onChange={set('name')}
+                />
+                <SecureField
+                  label={t('密码')}
+                  size="large"
+                  autoComplete="new-password"
+                  placeholder={t('至少 {n} 位', { n: MIN_PASSWORD })}
+                  value={form.password}
+                  onChange={set('password')}
+                />
+                <SecureField
+                  label={t('确认密码')}
+                  size="large"
+                  autoComplete="new-password"
+                  value={form.confirm}
+                  onChange={set('confirm')}
+                />
+                <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
+                  {error ? (
+                    <>
+                      <Icon name="exclamation-circle" size={13} />
+                      {error}
+                    </>
+                  ) : null}
+                </p>
+              </div>
+              <AuthSubmit phase={phase} label={t('注册并进入')} busy={t('注册中…')} done={t('注册成功')} />
+            </>
+          )}
         </>
       )}
     </AuthCard>

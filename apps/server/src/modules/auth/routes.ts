@@ -53,13 +53,15 @@ export function authRoutes(ctx: Ctx) {
       return meDto(ctx, user)
     })
 
-    app.get(
-      '/api/auth/options',
-      async (): Promise<AuthOptionsDto> => ({
-        registrationOpen: (await sysParams(ctx.db)).registrationOpen,
-        feishuLogin: await feishuLoginReady(ctx),
-      }),
-    )
+    app.get('/api/auth/options', async (): Promise<AuthOptionsDto> => {
+      const params = await sysParams(ctx.db)
+      const feishuLogin = await feishuLoginReady(ctx)
+      return {
+        registrationOpen: params.registrationOpen,
+        feishuLogin,
+        ...(feishuLogin && params.feishuAutoSignup ? { feishuAutoSignup: true } : {}),
+      }
+    })
 
     app.post('/api/auth/register', async (req, reply) => {
       const body = RegisterReq.parse(req.body)

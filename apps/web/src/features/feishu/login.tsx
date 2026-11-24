@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useSearchParams } from 'react-router'
 import { t } from '../../i18n'
+import { cx } from '../../lib/cx'
 import { toast } from '../../ui'
+import { FeishuMark } from './FeishuChatLink'
 import './login.css'
 
 /** Why a 飞书登录 came back (`?feishu=` set by the server's callback). */
@@ -22,11 +24,31 @@ export const feishuStartUrl = (next: string, mode?: 'link' | 'silent') =>
 /** Running inside the Feishu / Lark client, where authorizing the main app needs no click. */
 export const inFeishuClient = () => /\b(Lark|Feishu)\//.test(navigator.userAgent)
 
-export function FeishuLoginButton({ next }: { next: string }) {
+export function FeishuLoginButton({
+  next,
+  label = t('飞书登录'),
+  variant = 'default',
+  hint,
+}: {
+  next: string
+  label?: string
+  variant?: 'default' | 'primary'
+  hint?: string
+}) {
   return (
-    <a className="ui-btn ui-btn--xlarge ui-btn--full feishu-login" href={feishuStartUrl(next)}>
-      {t('飞书登录')}
-    </a>
+    <div className="feishu-entry">
+      <a
+        className={cx(
+          'ui-btn ui-btn--xlarge ui-btn--full feishu-login',
+          variant === 'primary' && 'ui-btn--primary',
+        )}
+        href={feishuStartUrl(next)}
+      >
+        <FeishuMark size={16} />
+        <span>{label}</span>
+      </a>
+      {hint ? <p className="feishu-entry__hint">{hint}</p> : null}
+    </div>
   )
 }
 

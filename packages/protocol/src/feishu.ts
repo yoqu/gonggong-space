@@ -68,6 +68,8 @@ export const FeishuTicketDto = z.object({
   canCreate: z.boolean(),
   /** Where to land once signed in. */
   next: z.string(),
+  /** Existing active unlinked account matching the Feishu user's verified email, when unique. */
+  suggestedAccount: z.string().nullable().optional(),
 })
 export type FeishuTicketDto = z.infer<typeof FeishuTicketDto>
 
