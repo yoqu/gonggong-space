@@ -169,7 +169,8 @@ describe('run process', () => {
     const runId = await w.mention()
 
     w.send(runId, { kind: 'status', status: 'running', step: '读取' })
-    await expect.poll(async () => (await w.detail(runId)).run.lastActivityAt).toEqual(expect.any(String))
+    // lastActivityAt falls back to startedAt, so wait for the step to be published, not just any value.
+    await expect.poll(() => w.seen.some((e) => e.t === 'run.step' && e.runId === runId)).toBe(true)
     const at = (await w.detail(runId)).run.lastActivityAt
     expect(Date.parse(at)).toBeGreaterThanOrEqual(Date.parse((await w.detail(runId)).run.startedAt!))
     expect((await w.timeline()).runs.find((r) => r.id === runId)?.lastActivityAt).toBe(at)
