@@ -2,6 +2,8 @@
 
 ## v0.4.31 — 2026-11-24
 
+- 更新 24 个角色的骨骼动画，运行卡片加入角色走步交互 / Refined animations for 24 characters and added walking interactions to run cards
+- 连接器弹窗显示每台电脑上哪些 Bot 能用你的登录 / The connector dialog shows which bots on each computer can use your sign-in
 - 修复 lark-cli 1.0.100 起连接飞书时直接报错：未创建飞书应用时会先给出创建链接，再进入登录授权 / Fixed an error when connecting Feishu with lark-cli 1.0.100 or later: if no Feishu app exists yet, you now get a link to create one before signing in
 - 桌面客户端下载好新版本后，本机任务结束且空闲 1 分钟会自动重启完成升级 / The desktop app restarts to finish updating once a new version is downloaded, local tasks have finished, and it has been idle for 1 minute
 
