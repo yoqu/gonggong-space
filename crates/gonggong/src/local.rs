@@ -1008,8 +1008,7 @@ fn read_only(line: &str, words: &[String]) -> bool {
         return !words.iter().any(|w| {
             let w = unquote(w);
             w.starts_with("--output")
-                || (words[0] == "git"
-                    && (expands(w) || GIT_RUNS.iter().any(|o| w == *o || w.starts_with(&format!("{o}=")))))
+                || (words[0] == "git" && (expands(w) || GIT_RUNS.iter().any(|o| w == *o || w.starts_with(&format!("{o}=")))))
         }) && trust::git_read_only(words);
     }
     let Some((name, args)) = program(words) else { return false };
