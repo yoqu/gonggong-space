@@ -217,7 +217,7 @@ export function SettingsPage(_: PageProps) {
       </GroupBox>
       <GroupBox>
         <VersionRow version={info?.version} />
-        <GroupRow label={t('自动升级')} description={t('自动下载新版本，重启后生效')}>
+        <GroupRow label={t('自动升级')} description={t('自动下载新版本，本机任务结束后自动重启生效')}>
           <span className="dk-inline">
             <HelpButton help={t('服务器公布协议版本，不兼容时拒绝连接并提示升级。')} />
             <Switch

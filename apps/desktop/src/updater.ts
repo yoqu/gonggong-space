@@ -1,13 +1,17 @@
 /**
  * App updates (Tauri updater) from the bound server, or GitHub Releases while it hosts none: checked at launch and every
  * 6 hours while 自动升级 is on, or from Settings; a found update downloads in the background and is installed when
- * the user restarts. The bundled daemon is stopped right before the relaunch.
+ * the user restarts, or by itself while 自动升级 is on once this machine has run no task for a minute. The bundled
+ * daemon is stopped right before the relaunch.
  */
 import { create } from 'zustand'
 import { ipc, type Update } from './ipc'
 import { useDaemon } from './store'
 
 const EVERY_MS = 6 * 3600 * 1000
+/** How long the machine must stay idle before restarting by itself, so a follow-up message can still start a run. */
+const IDLE_MS = 60 * 1000
+const IDLE_POLL_MS = 15 * 1000
 
 export type UpdatePhase =
   | { phase: 'idle' }
@@ -18,9 +22,11 @@ export type UpdatePhase =
   | { phase: 'installing'; version: string }
   | { phase: 'error'; message: string }
 
-export const useUpdate = create<{ state: UpdatePhase; dismissed: boolean }>()(() => ({
+export const useUpdate = create<{ state: UpdatePhase; dismissed: boolean; auto: boolean }>()(() => ({
   state: { phase: 'idle' },
   dismissed: false,
+  /** 自动升级 is on: a downloaded update is installed by itself once the machine is idle. */
+  auto: false,
 }))
 
 /** The downloaded update, installed on restart. */
@@ -82,12 +88,43 @@ export async function checkForUpdate() {
 export function startUpdater() {
   const tick = () =>
     ipc.settings().then(
-      (s) => (s.autoUpgrade ? checkForUpdate() : undefined),
+      (s) => {
+        useUpdate.setState({ auto: s.autoUpgrade })
+        return s.autoUpgrade ? checkForUpdate() : undefined
+      },
       () => {},
     )
   void tick()
   const timer = setInterval(tick, EVERY_MS)
-  return () => clearInterval(timer)
+  const idle = setInterval(() => void autoRestart(), IDLE_POLL_MS)
+  return () => {
+    clearInterval(timer)
+    clearInterval(idle)
+  }
+}
+
+/** Since when the daemon has been online with no task, as seen by `autoRestart`. */
+let idleSince: number | null = null
+
+/**
+ * Restarts into the downloaded update once the daemon has been online with no run for `IDLE_MS` and 自动升级 is on.
+ * Online, so finished runs have been reported before the daemon stops.
+ */
+export async function autoRestart(now = Date.now()) {
+  const { snapshot } = useDaemon.getState()
+  const idle = snapshot.phase === 'running' && snapshot.status.conn.state === 'online' && activeRuns() === 0
+  if (!idle) {
+    idleSince = null
+    return
+  }
+  idleSince ??= now
+  if (useUpdate.getState().state.phase !== 'ready' || now - idleSince < IDLE_MS) return
+  const auto = await ipc.settings().then(
+    (s) => s.autoUpgrade,
+    () => false,
+  )
+  useUpdate.setState({ auto })
+  if (auto) await restartToUpdate()
 }
 
 /** Runs on this machine that a restart would interrupt. */

@@ -176,7 +176,7 @@ Appearance, upgrades, mirror, startup, and storage locations.
 | 主题 (Theme) | 浅色 / 深色 / 跟随系统 (Light / Dark / System) |
 | 玻璃效果 (Glass effect) | 清透 / 标准 / 着色 (Clear / Standard / Tinted); adjusts the transparency of the sidebar, menus, and overlays |
 | 版本 (Version) | The current version. Click 「检查更新」 (Check for updates) to check now; once a new version has downloaded, click 「立即重启」 (Restart now) to finish the upgrade |
-| 自动升级 (Auto upgrade) | Downloads new versions automatically; they apply after a restart |
+| 自动升级 (Auto upgrade) | Downloads new versions automatically and restarts to apply them once tasks on this computer finish |
 | 开机启动 (Launch at login) | Runs in the background after you log in |
 | 关闭窗口后隐藏程序坞图标 (Hide the Dock icon when the window closes) | macOS only. Keeps the menu bar icon so you can reopen the window from the menu bar; background services keep running |
 | 镜像源 (Mirror) | Download source for installing and upgrading Node.js and Agent tools: 淘宝镜像（npmmirror） (Taobao mirror (npmmirror), default) / 官方源 (Official registry) / 自定义 (Custom). Custom requires an npm registry and a Node.js download URL (the directory containing `index.json`) |

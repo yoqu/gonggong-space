@@ -38,7 +38,7 @@ export function useRestartToUpdate() {
 
 /** Non-blocking notice once an update has been downloaded. */
 export function UpdateBanner() {
-  const { state, dismissed } = useUpdate()
+  const { state, dismissed, auto } = useUpdate()
   const restart = useRestartToUpdate()
   return (
     <>
@@ -49,7 +49,11 @@ export function UpdateBanner() {
             title={t('发现新版本')}
             body={
               <>
-                <div>{t('新版本 v{v} 已下载，重启以更新', { v: state.version })}</div>
+                <div>
+                  {auto
+                    ? t('新版本 v{v} 已下载，本机任务结束后自动重启更新', { v: state.version })
+                    : t('新版本 v{v} 已下载，重启以更新', { v: state.version })}
+                </div>
                 {state.notes ? <pre className="dk-update__notes">{state.notes}</pre> : null}
               </>
             }

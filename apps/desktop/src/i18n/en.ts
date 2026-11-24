@@ -289,6 +289,8 @@ export const en = {
   共工空间: 'Gonggong Space',
   发现新版本: 'New version available',
   '新版本 v{v} 已下载，重启以更新': 'Version v{v} has been downloaded. Restart to update',
+  '新版本 v{v} 已下载，本机任务结束后自动重启更新':
+    'Version v{v} has been downloaded. The app restarts to update once tasks on this computer finish',
   立即重启: 'Restart now',
   '正在检查更新…': 'Checking for updates…',
   已是最新版本: 'You are up to date',
@@ -297,7 +299,8 @@ export const en = {
   '正在安装 v{v}…': 'Installing v{v}…',
   '检查更新失败：{message}': 'Update check failed: {message}',
   检查更新: 'Check for updates',
-  '自动下载新版本，重启后生效': 'Downloads new versions automatically; they apply after a restart',
+  '自动下载新版本，本机任务结束后自动重启生效':
+    'Downloads new versions automatically and restarts to apply them once tasks on this computer finish',
   上下文: 'Context',
   输出: 'Output',
   '{n} 秒': '{n} s',

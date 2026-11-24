@@ -5,7 +5,7 @@ import { ipc, type Update } from '../src/ipc'
 import { SettingsPage } from '../src/pages/Settings'
 import { UpdateBanner } from '../src/shell/UpdateBanner'
 import { useDaemon } from '../src/store'
-import { checkForUpdate, startUpdater, useUpdate } from '../src/updater'
+import { autoRestart, checkForUpdate, startUpdater, useUpdate } from '../src/updater'
 import { INFO, run, status } from './ipc-mock'
 
 const m = vi.mocked(ipc)
@@ -50,7 +50,7 @@ it('downloads an update at launch, offers a restart and can be put off', async (
   render(<UpdateBanner />)
   const stop = startUpdater()
   const banner = await screen.findByRole('alert')
-  expect(banner.textContent).toContain('新版本 v0.2.0 已下载，重启以更新')
+  expect(banner.textContent).toContain('新版本 v0.2.0 已下载，本机任务结束后自动重启更新')
   expect(banner.textContent).toContain('修复模型选择')
   expect(banner.textContent).toContain('支持多张图片')
   expect(calls).toEqual(['download 0.2.0'])
@@ -115,7 +115,7 @@ it('keeps checking while an update waits, so a restart skips straight to the lat
   await screen.findByRole('alert')
   m.checkUpdate.mockResolvedValue(fakeUpdate(calls, '0.4.0'))
   await act(() => checkForUpdate())
-  expect(screen.getByRole('alert').textContent).toContain('新版本 v0.4.0 已下载，重启以更新')
+  expect(screen.getByRole('alert').textContent).toContain('新版本 v0.4.0 已下载，本机任务结束后自动重启更新')
   fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '立即重启' }))
   await waitFor(() =>
     expect(calls).toEqual(['download 0.2.0', 'download 0.4.0', 'install 0.4.0', 'stop', 'relaunch']),
@@ -140,4 +140,45 @@ it('installs the downloaded update when the re-check at restart fails', async ()
   m.checkUpdate.mockRejectedValue('network down')
   fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '立即重启' }))
   await waitFor(() => expect(calls).toEqual(['download 0.2.0', 'install 0.2.0', 'stop', 'relaunch']))
+})
+
+it('restarts into a downloaded update by itself once no task has run for a minute', async () => {
+  useDaemon.setState({ snapshot: { phase: 'running', status: status({ runs: [run({})] }) } })
+  render(<UpdateBanner />)
+  startUpdater()()
+  expect((await screen.findByRole('alert')).textContent).toContain(
+    '新版本 v0.2.0 已下载，本机任务结束后自动重启更新',
+  )
+  await autoRestart(0)
+  await autoRestart(120_000)
+  expect(m.relaunch).not.toHaveBeenCalled()
+
+  useDaemon.setState({ snapshot: { phase: 'running', status: status() } })
+  await autoRestart(130_000)
+  await autoRestart(180_000)
+  expect(m.relaunch).not.toHaveBeenCalled()
+  await autoRestart(190_000)
+  await waitFor(() => expect(calls).toEqual(['download 0.2.0', 'install 0.2.0', 'stop', 'relaunch']))
+})
+
+it('does not restart by itself while offline or with 自动升级 off', async () => {
+  render(<UpdateBanner />)
+  startUpdater()()
+  await screen.findByRole('alert')
+  useDaemon.setState({
+    snapshot: { phase: 'running', status: status({ conn: { state: 'offline', retryAtMs: 0, error: 'x' } }) },
+  })
+  await autoRestart(0)
+  await autoRestart(120_000)
+  useDaemon.setState({ snapshot: { phase: 'running', status: status() } })
+  m.settings.mockResolvedValue({
+    autoUpgrade: false,
+    launchAtLogin: false,
+    hideDockOnClose: false,
+    mirror: { kind: 'npmmirror' },
+    env: {},
+  })
+  await autoRestart(130_000)
+  await autoRestart(300_000)
+  expect(m.relaunch).not.toHaveBeenCalled()
 })
