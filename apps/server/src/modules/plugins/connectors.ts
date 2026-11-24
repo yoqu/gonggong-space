@@ -17,6 +17,8 @@ import { fail, HttpError } from '../../lib/errors.js'
 import { open } from '../../lib/seal.js'
 import { refuse, type ToolOutput } from '../agent-tools/service.js'
 import { requireUser } from '../auth/session.js'
+import { cliSpec } from '../connectors/sync.js'
+import { cliMachines, cliView, legacyStatus } from '../connectors/view.js'
 import { requireMember } from '../groups/service.js'
 import { nearest, specDescription } from '../secrets/needs.js'
 import { visibleSecrets } from '../secrets/resolve.js'
@@ -31,7 +33,7 @@ const isConnector = (m: PluginManifest) => m.category === 'connector'
  * required secret on a bot's machine that is not theirs, i.e. their own value allowed on others' machines or a shared
  * value. Bot grants are left out, as in the member's secret needs.
  */
-async function connectorDtos(ctx: Ctx, groupId: string, teamId: string, userId: string) {
+export async function connectorDtos(ctx: Ctx, groupId: string, teamId: string, userId: string) {
   const now = ctx.now()
   const [plugins, defs, skills, [member], states] = await Promise.all([
     groupPluginDtos(ctx, groupId, userId),
@@ -61,7 +63,12 @@ async function connectorDtos(ctx: Ctx, groupId: string, teamId: string, userId: 
         )
     : []
   const live = defs.filter((r) => r.enabled && !(r.expiresAt && r.expiresAt <= now))
+  const machines = connectors.some((c) => c.manifest.connector?.cli)
+    ? await cliMachines(ctx, groupId, userId)
+    : null
   return connectors.map((c): ConnectorDto => {
+    const spec = cliSpec(c.manifest.name, c.manifest)
+    const cli = spec && machines?.featured ? cliView(ctx, machines, spec) : null
     const needs = secretSpecsOf(c.manifest)
       .filter((s) => s.required)
       .map((spec) => {
@@ -93,6 +100,8 @@ async function connectorDtos(ctx: Ctx, groupId: string, teamId: string, userId: 
       status,
       account: (c.manifest.connector?.login ? state : fresh)?.account ?? null,
       checkedAt: (c.manifest.connector?.login ? state : fresh)?.checkedAt.toISOString() ?? null,
+      ...(cli && legacyStatus(cli)),
+      cli,
       missing: needs.filter((n) => n.personal && !n.ok).map((n) => n.name),
       sharedWith: [
         ...new Set([
@@ -329,12 +338,29 @@ export async function connectorStatusTool(
   return { text: `已记录：发起人的${found.version.manifest.title}连接状态为 ${a.status}`, groups: [] }
 }
 
+const loginLine = (c: { login?: boolean; cli?: { account: string | null } }) =>
+  c.cli
+    ? c.cli.account !== null
+      ? ` 已由共工连接（以 ${c.cli.account || '发起人'} 登录）：命令行工具已安装并以发起人身份登录，直接用，不要自己安装或登录；命令提示未登录、登录过期或缺少权限时，调用 gonggong 的 connector_request 后结束本轮。`
+      : ' 由共工连接，但发起人在这台电脑上还没连接：需要时调用 connector_request（不要自己安装或登录），然后结束本轮。'
+    : c.login
+      ? ' 用命令行工具登录，没登录时按 Skill 用设备码请发起人授权。'
+      : ''
+
 /**
  * What the run's agent is told about the group's connectors (agent-facing: not translated): the ones it gets this turn
  * and how to reach them, and the ones held back for want of the originator's connection; null when there are none.
  */
 export function connectorHint(
-  connected: { name: string; title: string; description: string; entry: string | null; login?: boolean }[],
+  connected: {
+    name: string
+    title: string
+    description: string
+    entry: string | null
+    login?: boolean
+    /** CLI connectors on a daemon with `connectors`: the originator's login there (account null: not connected). */
+    cli?: { account: string | null }
+  }[],
   unconnected: { name: string; title: string; description: string; missing: string[] }[],
 ) {
   const out: string[] = []
@@ -343,7 +369,7 @@ export function connectorHint(
       '已连接的连接器：本群可用以下外部系统，相关请求优先用它们（不要在对话里索要密钥）：',
       ...connected.map(
         (c) =>
-          `- ${c.title}（${c.name}）：${c.description}${c.entry ? ` ${skillLine(c.name, c.entry)}` : ''}${c.login ? ' 用命令行工具登录，没登录时按 Skill 用设备码请发起人授权。' : ''}`,
+          `- ${c.title}（${c.name}）：${c.description}${c.entry ? ` ${skillLine(c.name, c.entry)}` : ''}${loginLine(c)}`,
       ),
     )
   if (unconnected.length)

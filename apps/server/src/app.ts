@@ -30,6 +30,7 @@ import { shareRequestRoutes } from './modules/bots/share-requests.js'
 import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
+import { connectorCliRoutes } from './modules/connectors/routes.js'
 import { conversationStatsRoutes } from './modules/conversation-stats/routes.js'
 import { feishuChatRoutes } from './modules/feishu/chats.js'
 import { startFeishuConfigRetry } from './modules/feishu/config.js'
@@ -228,6 +229,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
     }),
   )
   await app.register(machineRoutes(ctx))
+  await app.register(connectorCliRoutes(ctx))
   await app.register(providerRoutes(ctx))
   await app.register(botRoutes(ctx))
   await app.register(shareRequestRoutes(ctx))

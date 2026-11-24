@@ -27,6 +27,8 @@ export const NotificationType = z.enum([
   'reminder',
   'plugin_trust',
   'link_request',
+  /** A CLI connector's login on a machine runs out within 48 hours. */
+  'connector_expiring',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -49,6 +51,7 @@ export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
   'reminder',
   'link_request',
   'plugin_trust',
+  'connector_expiring',
   'approval',
   'question',
   'offline_expired',

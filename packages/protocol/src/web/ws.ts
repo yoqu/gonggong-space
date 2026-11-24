@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { ArtifactThreadDto } from '../artifact-threads.js'
 import { ArtifactActivityDto } from '../artifacts.js'
 import { ContextUsage, GitStatus, Tier } from '../common.js'
-import { RepoAccessReason } from '../daemon.js'
+import { ConnectorDto } from '../connectors.js'
+import { ConnectorsAuth, ConnectorsProgress, ConnectorsResult, RepoAccessReason } from '../daemon.js'
 import { GroupSchedulesDto } from '../schedules.js'
 import { SyncStatusDto } from '../sync.js'
 import { GroupWebhooksDto } from '../webhooks.js'
@@ -176,6 +177,12 @@ export const WebEvent = z.discriminatedUnion('t', [
     error: z.string().nullable(),
     state: MachineAgentsDto.nullable(),
   }),
+  /** The caller only: a line of their running CLI connect (POST …/connectors/:pluginId/cli `connect`). */
+  ConnectorsProgress.extend({ t: z.literal('connector.cli.progress') }),
+  /** The caller only: a link to open or scan (never posted anywhere else). */
+  ConnectorsAuth.extend({ t: z.literal('connector.cli.auth') }),
+  /** The caller only: the connect ended; `connector` their view of it now. */
+  ConnectorsResult.extend({ t: z.literal('connector.cli.result'), connector: ConnectorDto }),
   /** Group members: replaces the group's provider banner items. */
   GroupProviderStateDto.extend({ t: z.literal('group.providerState'), groupId: z.string() }),
   /** The receiving member's view of a team they are in (renamed, their role changed, or just joined). */

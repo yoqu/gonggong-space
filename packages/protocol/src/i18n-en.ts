@@ -313,6 +313,9 @@ export const protocolEn = {
   待确认的机器接入: 'Computer waiting to be allowed',
   '{machine} 请求接入': '{machine} asks to connect',
   待授权的插件: 'Plugin to authorize',
+  连接即将过期: 'Connection expiring',
+  '{connector}在 {machine} 上的登录两天内过期，请重新连接':
+    'Your {connector} login on {machine} runs out within two days; connect again',
   '插件 {plugin} {version} 要在 {machine} 上运行代码，请确认':
     'Plugin {plugin} {version} wants to run code on {machine}. Please confirm',
   '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you; please confirm the binding',
@@ -421,6 +424,9 @@ export const protocolEn = {
     '{bot} asks an admin to create the secrets skill "{skill}" declares: {names}',
   '已填写密钥，{bot} 继续处理': 'Secrets filled, {bot} carries on',
   '已填写密钥，重新 @{bot} 即可继续': 'Secrets filled, @{bot} again to carry on',
+  '{bot} 请 {user} 连接{title}': '{bot} asks {user} to connect {title}',
+  '已连接{title}，{bot} 继续处理': '{title} connected, {bot} carries on',
+  '已连接{title}，重新 @{bot} 即可继续': '{title} connected, @{bot} again to carry on',
   '{bot} 的进度：{title}': "{bot}'s progress: {title}",
   '产物「{title}」': 'Artifact "{title}"',
   '托管网页「{title}」': 'Hosted site "{title}"',

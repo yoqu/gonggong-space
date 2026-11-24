@@ -41,6 +41,7 @@ type Answered =
   | 'ccswitch.result'
   | 'agents.reprobe.result'
   | 'gitaccess.result'
+  | 'connectors.result'
 
 /** One round trip to the daemon; its own error (in its words, keys never included) becomes a 400. */
 export async function relay<T extends Answered>(

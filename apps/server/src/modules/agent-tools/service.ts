@@ -24,6 +24,7 @@ import { HttpError } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
 import { likePattern, patchPaths, snippet } from '../../lib/text.js'
+import { connectorRequestTool } from '../connectors/requests.js'
 import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, postMessage, userAuthorName } from '../messages/service.js'
@@ -530,6 +531,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   secret_list: (ctx, s) => secretList(ctx, s.run),
   secret_request: (ctx, s, a) => secretRequest(ctx, s.run, a),
   connector_status: async (ctx, s, a) => connectorStatusTool(ctx, s.run, await teamOf(ctx, s.run), a),
+  connector_request: (ctx, s, a) => connectorRequestTool(ctx, s.run, a),
   progress_card: (ctx, s, a) => progressCard(ctx, s.run, a),
   plugin_catalog: (ctx, s, a) => pluginCatalog(ctx, s.run, a),
   creation_propose: (ctx, s, a) => creationPropose(ctx, s.run, a),

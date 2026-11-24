@@ -22,6 +22,7 @@ import {
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
+import { resyncConnectors } from '../connectors/sync.js'
 import { requireAdmin, requireMember, requireReader } from '../groups/service.js'
 import { listingSummary } from '../market/service.js'
 import { type Authorize, eachLayer } from '../mcp/routes.js'
@@ -79,6 +80,7 @@ function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Au
     const { files } = UploadPluginReq.parse(req.body)
     const s = listingSnapshot(files)
     const saved = await savePlugin(ctx, layer, s, actorId)
+    await resyncConnectors(ctx)
     const row = await find(layer, saved.plugin.id)
     // A skill listing answers with its market summary: its manifest is not a plugin's.
     return reply
@@ -90,6 +92,7 @@ function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Au
     const { actorId, layer } = await writer(req)
     const { plugin } = await find(layer, req.params.pluginId ?? '')
     await deletePlugin(ctx, layer, plugin, actorId)
+    await resyncConnectors(ctx)
     return reply.status(204).send()
   })
 }
@@ -113,6 +116,7 @@ function groupRoutes(ctx: Ctx, app: FastifyInstance) {
     const found = (await groupPluginList(ctx.db, group.id)).find((r) => r.plugin.id === req.params.pluginId)
     if (!found) return fail('not_found', '插件不存在')
     await setGroupPlugin(ctx, group.id, found.plugin, enabled, me.id)
+    await resyncConnectors(ctx)
     return (await list(group.id, me.id)).find((p) => p.id === found.plugin.id)
   })
 
