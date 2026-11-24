@@ -618,8 +618,8 @@ export default {
   '编辑…': 'Edit…',
   恢复默认: 'Reset to default',
   重试: 'Retry',
-  '有未保存的更改，确定放弃？': 'Discard unsaved changes?',
-  '放弃后未保存的修改将不会保留。': 'Your unsaved changes will be lost.',
+  '要放弃未保存的更改吗？': 'Discard unsaved changes?',
+  '关闭后，当前未保存的修改不会保留。': 'Unsaved changes will not be kept if you close.',
   继续编辑: 'Keep editing',
   放弃更改: 'Discard changes',
 } satisfies Record<string, string>

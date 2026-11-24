@@ -1,5 +1,5 @@
 import type { GroupDto, TeamDto, TeamGroupDto, TeamMemberDto, UserDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
@@ -273,8 +273,10 @@ describe('team settings', () => {
     signIn({ teams: [team({ role: 'admin' })], singleTeamMode: false, canCreateTeam: false })
     render(<TeamSettingsDialog team={team({ role: 'admin' })} onClose={() => {}} />)
     fireEvent.change(screen.getByRole('textbox', { name: '团队名称' }), { target: { value: '支付中台' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const saveBtn = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
+    fireEvent.click(saveBtn)
     await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+    await waitFor(() => expect(saveBtn.disabled && !saveBtn.hasAttribute('aria-busy')).toBe(true))
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ name: '支付中台', avatar: null })
 
     const writeText = vi.fn().mockResolvedValue(undefined)
@@ -290,6 +292,45 @@ describe('team settings', () => {
       expiresInDays: 7,
       maxUses: null,
     })
+  })
+
+  it('locks leaving while saving and preserves edits typed while an earlier save is in flight', async () => {
+    let resolvePatch!: (v: TeamDto) => void
+    mockApi({
+      'PATCH /teams/t1': () =>
+        new Promise<TeamDto>((r) => {
+          resolvePatch = r
+        }),
+      'GET /teams/t1/members': members,
+    })
+    signIn({ teams: [team({ role: 'admin' })], singleTeamMode: false, canCreateTeam: false })
+    const onClose = vi.fn()
+    render(<TeamSettingsDialog team={team({ role: 'admin' })} onClose={onClose} />)
+
+    const input = screen.getByRole('textbox', { name: '团队名称' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '支付中台 A' } })
+    const saveBtn = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
+    fireEvent.click(saveBtn)
+    await waitFor(() => expect(saveBtn.getAttribute('aria-busy')).toBe('true'))
+
+    // While saving A, user continues typing B, and trying to close or switch tab is locked.
+    fireEvent.change(input, { target: { value: '支付中台 B' } })
+    fireEvent.click(screen.getByRole('button', { name: '成员' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.getByRole('textbox', { name: '团队名称' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+
+    // When save A completes, B is NOT overwritten and dirty stays true.
+    await act(async () => resolvePatch(team({ role: 'admin', name: '支付中台 A' })))
+    await waitFor(() => expect(saveBtn.hasAttribute('aria-busy')).toBe(false))
+    expect(input.value).toBe('支付中台 B')
+    expect(saveBtn.disabled).toBe(false)
+
+    // Attempting to close now opens DiscardChangesDialog because B is still unsaved.
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(screen.getByRole('alertdialog', { name: '要放弃未保存的更改吗？' })).toBeTruthy()
   })
 
   it('handles clipboard failure gracefully and clears the link card when that invite is revoked', async () => {
@@ -354,6 +395,53 @@ describe('team settings', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '恢复默认' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
+  })
+
+  it('guards unsaved OverviewTab edits on backdrop click, tab switch, close button and Escape', async () => {
+    mockApi({ 'GET /teams/t1/members': members })
+    signIn({ teams: [team({ role: 'admin' })], singleTeamMode: false, canCreateTeam: false })
+
+    const onCloseClean = vi.fn()
+    const cleanView = render(<TeamSettingsDialog team={team({ role: 'admin' })} onClose={onCloseClean} />)
+    fireEvent.click(screen.getByTestId('dialog-overlay'))
+    expect(onCloseClean).toHaveBeenCalledTimes(1)
+    cleanView.unmount()
+
+    const onClose = vi.fn()
+    render(<TeamSettingsDialog team={team({ role: 'admin' })} onClose={onClose} />)
+    const dlg = screen.getByRole('dialog', { name: '概览 · 支付组' })
+    const nameInput = within(dlg).getByRole('textbox', { name: '团队名称' }) as HTMLInputElement
+    fireEvent.change(nameInput, { target: { value: '未保存团队名' } })
+
+    // Backdrop click is blocked while dirty.
+    fireEvent.click(screen.getByTestId('dialog-overlay'))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+
+    // Switching tabs opens DiscardChangesDialog; 继续编辑 keeps edits.
+    fireEvent.click(within(dlg).getByRole('button', { name: '成员' }))
+    const alert1 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
+    fireEvent.click(within(alert1).getByRole('button', { name: '继续编辑' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(nameInput.value).toBe('未保存团队名')
+
+    // Confirming 放弃更改 switches to 成员 and clears dirty.
+    fireEvent.click(within(dlg).getByRole('button', { name: '成员' }))
+    const alert2 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
+    fireEvent.click(within(alert2).getByRole('button', { name: '放弃更改' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(screen.getByRole('dialog', { name: '成员 · 支付组' })).toBeTruthy()
+
+    // Switching back to 概览 resets the input; editing and pressing Escape prompts before closing.
+    fireEvent.click(within(dlg).getByRole('button', { name: '概览' }))
+    const freshInput = within(dlg).getByRole('textbox', { name: '团队名称' }) as HTMLInputElement
+    expect(freshInput.value).toBe('支付组')
+    fireEvent.change(freshInput, { target: { value: '待放弃名称' } })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    const alert3 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(within(alert3).getByRole('button', { name: '放弃更改' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
 

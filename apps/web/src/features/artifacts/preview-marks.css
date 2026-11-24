@@ -3,8 +3,8 @@
 /* ── The bar's switch ── */
 .proto-marks-toggle {
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast);
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 .proto-marks-toggle--on {
   background: var(--selection-fill);
@@ -213,7 +213,7 @@
   padding: var(--space-8);
   border-radius: var(--radius-menu);
   cursor: pointer;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
   animation:
     var(--fade-in) ui-fade-in backwards,
     var(--spring-smooth) proto-note-in backwards;

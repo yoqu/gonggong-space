@@ -258,7 +258,7 @@
   text-align: left;
   white-space: nowrap;
   cursor: default;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 .gs-settings__tab > svg {
   flex: none;
@@ -276,7 +276,7 @@
   background: var(--selection-fill);
   font-weight: 600;
 }
-/* Remounted per tab: the new section settles in instead of snapping. */
+/* Remounted per tab: calm crossfade without vertical jumping. */
 .gs-settings__body {
   flex: 1;
   min-width: 0;
@@ -286,10 +286,7 @@
   flex-direction: column;
   gap: var(--space-16);
   padding: var(--space-16) var(--space-20);
-  animation:
-    ui-fade-in var(--fade-in),
-    ui-enter var(--spring-snappy);
-  --enter-y: 6px;
+  animation: ui-fade-in var(--fade-fast);
 }
 .gs-value {
   min-width: 0;

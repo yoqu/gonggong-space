@@ -24,6 +24,17 @@
   transform-origin: top left;
   overflow: hidden;
 }
+.notif[data-state="open"] {
+  --enter-scale: 0.97;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.notif[data-state="closed"] {
+  --exit-scale: 0.97;
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
+}
 .notif__head {
   display: flex;
   align-items: center;
@@ -67,7 +78,13 @@
   color: var(--label-secondary);
 }
 .notif__row {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.notif__row-inner {
   position: relative;
+  min-height: 0;
+  overflow: hidden;
 }
 /* Pushed while the panel is open: drops in on top of the list. */
 .notif__row[data-new]:not(.ui-leaving) {
@@ -76,10 +93,27 @@
     ui-enter var(--spring-snappy);
   --enter-y: -8px;
 }
+/* Single-row delete collapses row height smoothly; bulk clear fades out cleanly in place. */
+.notif__row.notif__row--collapse {
+  animation:
+    notif-row-collapse var(--spring-snappy) forwards,
+    ui-leave var(--fade-out) forwards;
+}
+@keyframes notif-row-collapse {
+  to {
+    grid-template-rows: 0fr;
+  }
+}
+.notif__row.notif__row--bulk {
+  pointer-events: none;
+  animation: ui-fade-out var(--fade-out) forwards;
+}
 
 .notif__item {
   position: relative;
-  transition: background-color var(--motion-fast);
+  transition:
+    background-color var(--fade-fast),
+    opacity var(--fade-in);
   display: flex;
   width: 100%;
   gap: 10px;

@@ -251,15 +251,21 @@ describe('ComboBox', () => {
     expect(box.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('shows every option from the arrow button and closes on Escape', () => {
+  it('shows every option from the arrow button and closes on Escape with exit presence', async () => {
     render(<ComboBox label="字体" options={[{ value: 'pf', label: '苹方', detail: '系统' }, '宋体']} />)
     fireEvent.click(screen.getByRole('button', { name: '显示选项' }))
+    const list = screen.getByRole('listbox')
+    expect(list.dataset.state).toBe('open')
     expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('系统')).toBeTruthy()
     const box = screen.getByRole('combobox', { name: '字体' })
     fireEvent.keyDown(box, { key: 'ArrowDown' })
     expect(box.getAttribute('aria-activedescendant')).toBe(screen.getAllByRole('option')[0]?.id)
     fireEvent.keyDown(box, { key: 'Escape' })
+    expect(list.dataset.state).toBe('closed')
+    expect(list.isConnected).toBe(true)
+    fireEvent.animationEnd(list)
+    expect(list.isConnected).toBe(false)
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 
@@ -274,7 +280,7 @@ describe('ComboBox', () => {
     expect(screen.getByRole('listbox')).toBeTruthy()
   })
 
-  it('portals the list out of a clipping ancestor and closes when it scrolls', () => {
+  it('portals the list out of a clipping ancestor and closes when it scrolls', async () => {
     render(
       <div data-testid="clip" style={{ overflow: 'auto', height: 40 }}>
         <ComboBox label="所在城市" options={cities} />
@@ -283,7 +289,7 @@ describe('ComboBox', () => {
     fireEvent.click(screen.getByRole('button', { name: '显示选项' }))
     expect(screen.getByTestId('clip').contains(screen.getByRole('listbox'))).toBe(false)
     scrollAway(screen.getByTestId('clip'))
-    expect(screen.queryByRole('listbox')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
   })
 })
 

@@ -35,7 +35,7 @@
   background: transparent;
   color: var(--label-secondary);
   cursor: default;
-  transition: background var(--motion-fast);
+  transition: background var(--fade-fast);
 }
 .bench__btn:hover {
   background: var(--control-track);
@@ -66,7 +66,7 @@
   transition:
     background var(--fade-in),
     box-shadow var(--fade-in),
-    color var(--motion-fast);
+    color var(--fade-fast);
 }
 .bench__seg-item:hover {
   color: var(--label);
@@ -142,7 +142,7 @@
   font-size: var(--text-subheadline-size);
   cursor: default;
   user-select: none;
-  transition: background var(--motion-fast);
+  transition: background var(--fade-fast);
 }
 .bench-tab:hover {
   background: var(--control-track);

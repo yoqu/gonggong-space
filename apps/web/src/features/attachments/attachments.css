@@ -240,8 +240,8 @@
   color: var(--label-secondary);
   cursor: default;
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast);
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 .att-chip__rm:hover {
   color: var(--label);

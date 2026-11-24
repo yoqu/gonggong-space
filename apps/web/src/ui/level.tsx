@@ -124,19 +124,28 @@ export function LevelIndicator({
     )
   }
 
-  const bars = parts ?? [{ value: v }]
   return (
     <div className={cx('ui-levelwrap', className)} style={style}>
       {label ? <div className="ui-levelwrap__label">{label}</div> : null}
       <span className={cx('ui-level', `ui-level--${tone}`)} {...meter}>
-        {bars.map((p, i) => (
+        {parts ? (
+          parts.map((p, i) => (
+            <i
+              // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional
+              key={i}
+              style={{ width: `${(p.value / max) * 100}%`, background: p.color }}
+              title={'label' in p ? p.label : undefined}
+            />
+          ))
+        ) : (
           <i
-            // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional
-            key={i}
-            style={{ width: `${(p.value / max) * 100}%`, background: p.color }}
-            title={'label' in p ? p.label : undefined}
+            style={{
+              width: '100%',
+              transform: `scaleX(${max ? v / max : 0})`,
+              transformOrigin: 'left center',
+            }}
           />
-        ))}
+        )}
       </span>
       {parts?.some((p) => p.label) ? (
         <div className="ui-levelwrap__legend">

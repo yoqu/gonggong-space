@@ -112,9 +112,19 @@
   position: relative;
 }
 .ui-menu--context {
+  --enter-scale: 0.97;
   position: fixed;
   z-index: 60;
-  animation: var(--fade-in) ui-fade-in;
+  transform-origin: top left;
+}
+.ui-menu--context[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.ui-menu--context[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
 }
 .ui-menu--local {
   position: absolute;

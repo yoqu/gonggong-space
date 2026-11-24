@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, Spinner } from '../../ui'
+import { ActiveRunsContext } from '../chat/MessageActions'
 import { MessageComposer } from '../chat/MessageComposer'
 import { PendingMessages } from '../chat/PendingMessages'
 import { useThreadItem } from '../chat/ThreadView'
@@ -36,6 +37,9 @@ function ChatList({
   rootId: string
 }) {
   const tl = useTimeline(group.id, rootId)
+  const runList = useMemo(() => Object.values(tl.runs), [tl.runs])
+  const liveRuns = useRef(runList)
+  liveRuns.current = runList
   const replies = useMemo(() => tl.messages.filter((m) => m.id !== rootId), [tl.messages, rootId])
   const item = useThreadItem(group, tl.messages, tl.runs)
   const scroll = useRef<HTMLDivElement>(null)
@@ -65,36 +69,38 @@ function ChatList({
   }
 
   return (
-    <ThreadScope.Provider value={rootId}>
-      <div className="art-rail__scroll art-chat" ref={scroll} onScroll={onScroll} data-testid="art-chat">
-        {tl.failed ? (
-          <p className="art-log__empty">
-            {t('对话加载失败')}{' '}
-            <Button size="small" variant="plain" onClick={tl.retry}>
-              {t('重试')}
-            </Button>
-          </p>
-        ) : !tl.loaded ? (
-          <p className="art-log__empty">
-            <Spinner size={12} />
-          </p>
-        ) : (
-          <>
-            {tl.older === 'loading' ? <Spinner /> : null}
-            {replies.length ? null : (
-              <p className="art-log__empty">{t('在下方输入框描述要怎么改，AI 的回复显示在这里')}</p>
-            )}
-            {replies.map(item)}
-            <PendingMessages
-              groupId={group.id}
-              thread={rootId}
-              messages={tl.messages}
-              onSent={tl.addMessage}
-            />
-          </>
-        )}
-      </div>
-    </ThreadScope.Provider>
+    <ActiveRunsContext.Provider value={liveRuns}>
+      <ThreadScope.Provider value={rootId}>
+        <div className="art-rail__scroll art-chat" ref={scroll} onScroll={onScroll} data-testid="art-chat">
+          {tl.failed ? (
+            <p className="art-log__empty">
+              {t('对话加载失败')}{' '}
+              <Button size="small" variant="plain" onClick={tl.retry}>
+                {t('重试')}
+              </Button>
+            </p>
+          ) : !tl.loaded ? (
+            <p className="art-log__empty">
+              <Spinner size={12} />
+            </p>
+          ) : (
+            <>
+              {tl.older === 'loading' ? <Spinner /> : null}
+              {replies.length ? null : (
+                <p className="art-log__empty">{t('在下方输入框描述要怎么改，AI 的回复显示在这里')}</p>
+              )}
+              {replies.map(item)}
+              <PendingMessages
+                groupId={group.id}
+                thread={rootId}
+                messages={tl.messages}
+                onSent={tl.addMessage}
+              />
+            </>
+          )}
+        </div>
+      </ThreadScope.Provider>
+    </ActiveRunsContext.Provider>
   )
 }
 

@@ -15,7 +15,7 @@
   line-height: 16px;
   margin-inline: calc(-1 * var(--pn-list-x, 0px));
   padding: var(--space-4) var(--pn-list-x, 0px);
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 @media (hover: hover) {
   .pn-msg:hover {
@@ -244,7 +244,7 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
 /* A sent quote leads back to its original. */
 .pn-quote--link {
   cursor: default;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 @media (hover: hover) {
   .pn-quote--link:hover {
@@ -414,6 +414,24 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
   width: 15px;
   height: 15px;
 }
+/* Inactive message action bars skip backdrop-filter so dozens of rows never spawn offscreen blur surfaces. */
+.pn-msg__actions .pn-msgactions {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.pn-msg--show-actions .pn-msg__actions .pn-msgactions,
+.pn-msg:focus-within .pn-msg__actions .pn-msgactions,
+.pn-msg__actions:has([data-open]) .pn-msgactions,
+.pn-msg[data-actions="open"] .pn-msg__actions .pn-msgactions {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+@media (hover: hover) {
+  .pn-msg:hover .pn-msg__actions .pn-msgactions {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+}
 @media (pointer: coarse) {
   .pn-msgactions {
     height: 38px;
@@ -421,5 +439,14 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
   .pn-msgactions button:not([role^="menuitem"]):not([role="option"]) {
     width: 36px;
     height: 34px;
+  }
+  .pn-msgactions,
+  .pn-msg .pn-msg__actions .pn-msgactions {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--glass-fill-thick, var(--content-bg));
+    box-shadow:
+      0 0 0 0.5px var(--glass-edge),
+      var(--shadow-menu);
   }
 }

@@ -35,6 +35,25 @@
 }
 
 /* @ / candidates: the Pane MentionPicker anchored above the composer, wide enough for paths. */
+.mention-pop-wrap {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + var(--space-6));
+  z-index: 5;
+  width: min(420px, 100%);
+  --enter-y: 4px;
+  --enter-scale: 0.98;
+  transform-origin: bottom left;
+}
+.mention-pop-wrap[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.mention-pop-wrap[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
+}
 .mention-pop {
   position: absolute;
   left: 0;
@@ -45,6 +64,11 @@
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
+}
+.mention-pop-wrap > .mention-pop {
+  position: static;
+  width: 100%;
+  animation: none;
 }
 .mention-pop__group {
   min-width: 0;

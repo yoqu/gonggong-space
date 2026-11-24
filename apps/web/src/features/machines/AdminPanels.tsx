@@ -63,13 +63,15 @@ export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest:
         <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
         <span className="mx-sub">
           {t(
-            '这台电脑运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：',
+            '这台电脑运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录执行下方命令即可更新到 {version} 并重建容器：',
             {
               version: latest,
             },
           )}
         </span>
-        <CommandLine command="docker compose build && docker compose up -d" />
+        <CommandLine
+          command={`GG_VERSION=${latest} docker compose build && GG_VERSION=${latest} docker compose up -d`}
+        />
       </section>
     )
   return (

@@ -36,7 +36,7 @@
   text-decoration: none;
   cursor: default;
   transition:
-    background-color var(--motion-fast),
+    background-color var(--fade-fast),
     opacity var(--fade-in);
 }
 .pn-conv:hover {
@@ -209,8 +209,8 @@
   text-decoration: none;
   white-space: nowrap;
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast);
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 @media (pointer: coarse) {
   .pn-shortcut {

@@ -53,7 +53,7 @@ export function Shell() {
             <current.Component go={setPage} />
           </main>
         </div>
-        <StatusLine />
+        <StatusLine onOpenOverview={() => setPage('overview')} />
       </div>
     </div>
   )

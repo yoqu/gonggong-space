@@ -6,10 +6,13 @@ export const useDaemon = create<{
   snapshot: Snapshot
   /** The last 概览 stats: counting walks every workspace, so a revisit shows these meanwhile. */
   overview: Overview | null
+  /** Whether the post-bind create-Bot guide on 概览 was dismissed in this session. */
+  botGuideDismissed: boolean
 }>()(() => ({
   info: null,
   snapshot: { phase: 'unbound' },
   overview: null,
+  botGuideDismissed: false,
 }))
 
 /** Replaces the page's toolbar title while a page shows a sub-view (a run of 概览). */

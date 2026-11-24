@@ -958,7 +958,7 @@ describe('未读体验 (plan 未读与通知)', () => {
     }
   })
 
-  it('从这里标为未读 moves the divider and holds reads until Esc', async () => {
+  it('从这里标为未读 moves the divider, bare Esc protects the manual anchor with a toast action, and confirming clears it', async () => {
     const calls = mockApi(
       { messages: [theirs(1), theirs(2), theirs(3)], runs: [] },
       { 'PUT /groups/g1/unread': () => group({ unread: 2 }) },
@@ -985,11 +985,60 @@ describe('未读体验 (plan 未读与通知)', () => {
     } finally {
       vi.useRealTimers()
     }
+    // Bare Esc must NOT wipe the manual unread mark; it shows a toast with 全部标为已读 action.
+    act(() => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(reads(calls)).toEqual([{ seq: 3 }])
+    const toastMsg = await screen.findByText('已保留你手动标记的未读位置')
+    const toastRow = toastMsg.closest('.ui-toast') as HTMLElement
+    fireEvent.click(within(toastRow).getByRole('button', { name: '全部标为已读' }))
+    await waitFor(() => expect(reads(calls)).toContainEqual({}))
+  })
+
+  it('offers an inline 全部标为已读 button on the unread divider to clear a manual anchor in one click', async () => {
+    const calls = mockApi(
+      { messages: [theirs(1), theirs(2), theirs(3)], runs: [] },
+      { 'PUT /groups/g1/unread': () => group({ unread: 2 }) },
+    )
+    renderAt()
+    await screen.findByText('第 3 条')
+    await waitFor(() => expect(reads(calls)).toEqual([{ seq: 3 }]))
+    fireEvent.contextMenu(screen.getByText('第 2 条'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '从这里标为未读' }))
+    await waitFor(() => expect(screen.getByText('以下为新消息')).toBeTruthy())
+    const divider = screen.getByText('以下为新消息').closest('.pn-notice--unread') as HTMLElement
+    fireEvent.click(within(divider).getByRole('button', { name: '全部标为已读' }))
+    await waitFor(() => expect(reads(calls)).toContainEqual({}))
+    expect(screen.queryByText('以下为新消息')).toBeNull()
+  })
+
+  it('bare Esc clears ordinary unread immediately and skips redundant /read when already read', async () => {
+    const calls = mockApi(
+      { messages: [theirs(1), theirs(2)], runs: [] },
+      { 'GET /groups': () => [group({ unread: 2 })] },
+    )
+    const { unmount } = renderAt()
+    await screen.findByText('第 2 条')
     act(() => {
       ;(document.activeElement as HTMLElement | null)?.blur()
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     })
     await waitFor(() => expect(reads(calls)).toContainEqual({}))
+    expect(screen.queryByText('已保留你手动标记的未读位置')).toBeNull()
+    unmount()
+
+    // Already read (unread: 0, all seen): bare Esc does not send a redundant POST /read {}.
+    const calls2 = mockApi({ messages: [theirs(1)], runs: [] })
+    renderAt()
+    await screen.findByText('第 1 条')
+    await waitFor(() => expect(reads(calls2)).toEqual([{ seq: 1 }]))
+    act(() => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(reads(calls2)).toEqual([{ seq: 1 }])
   })
 
   it('Esc leaves a draft alone', async () => {

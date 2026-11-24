@@ -1,4 +1,4 @@
-import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
+import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from 'react'
 import { cx } from '../lib/cx'
 import { Toolbar } from './toolbar'
 import './window.css'
@@ -18,6 +18,7 @@ export interface AppFrameProps {
   contentStyle?: CSSProperties
   className?: string
   style?: CSSProperties
+  ref?: Ref<HTMLDivElement>
 }
 
 function Frame({
@@ -31,10 +32,11 @@ function Frame({
   contentStyle,
   className,
   style,
+  ref,
   ...rest
 }: AppFrameProps & { lights?: ReactNode; role?: string; 'aria-label'?: string }) {
   return (
-    <div className={cx('ui-frame', className)} style={style} {...rest}>
+    <div ref={ref} className={cx('ui-frame', className)} style={style} {...rest}>
       {rail ? (
         <div className="ui-frame__rail">
           {lights ? <div className="ui-frame__lights ui-frame__lights--rail">{lights}</div> : null}

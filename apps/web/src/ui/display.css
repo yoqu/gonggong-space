@@ -180,10 +180,12 @@
   background: var(--control-track);
 }
 .ui-progress__bar {
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--ui-progress-fill, var(--accent));
-  transition: width var(--spring-snappy);
+  transform-origin: left center;
+  transition: transform var(--spring-snappy);
 }
 .ui-progress--indeterminate .ui-progress__bar {
   width: 30%;
@@ -412,9 +414,9 @@
   background: var(--control-track);
   color: var(--label-secondary);
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast),
-    box-shadow var(--motion-fast);
+    background-color var(--fade-fast),
+    color var(--fade-fast),
+    box-shadow var(--fade-fast);
 }
 .ui-step[data-status="completed"],
 .ui-step[data-status="current"],

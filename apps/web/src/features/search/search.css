@@ -4,8 +4,12 @@
   inset: 0;
   z-index: 30;
 }
+.search__backdrop[data-state="closed"] {
+  pointer-events: none;
+}
 .search {
   --enter-scale: 0.97;
+  --exit-scale: 0.97;
   position: fixed;
   top: 72px;
   left: 50%;
@@ -23,9 +27,15 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-glass);
   color: var(--label);
+}
+.search[data-state="open"] {
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
+}
+.search[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
 }
 .search:focus-visible {
   outline: none;

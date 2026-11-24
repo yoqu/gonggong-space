@@ -16,7 +16,7 @@ import { AttachmentChips, type useUploads } from '../attachments/ComposerAttachm
 import { ImportDesignDialog } from './ImportDesignDialog'
 import type { CreationDraft } from './model'
 import { PluginTile, pluginIcon } from './PluginTile'
-import { closeCreation, deleteDesignSystem, useGroupDesignSystems } from './store'
+import { deleteDesignSystem, useGroupDesignSystems } from './store'
 
 const IMPORT = '__import'
 const DIRECTIONS = '__directions'
@@ -58,6 +58,7 @@ export function PromptComposer({
   uploads,
   busy,
   problems,
+  onClose,
   onSubmit,
 }: {
   group: GroupDto
@@ -71,6 +72,7 @@ export function PromptComposer({
   uploads: ReturnType<typeof useUploads>
   busy: boolean
   problems: string[]
+  onClose: () => void
   onSubmit: () => void
 }) {
   const m = plugin.manifest
@@ -138,7 +140,7 @@ export function PromptComposer({
   const blocked = busy || uploads.uploading || problems.length > 0
 
   return (
-    <Dialog open width={920} title={t('创作')} onClose={closeCreation} closeOnBackdrop={false}>
+    <Dialog open width={920} title={t('创作')} onClose={onClose} closeOnBackdrop={false}>
       <div className="plg-compose">
         {plugins.length > 1 ? (
           <div className="plg-chips">

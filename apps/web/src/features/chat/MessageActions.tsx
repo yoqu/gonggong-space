@@ -4,13 +4,25 @@ import {
   type MessageDto,
   RECALL_WINDOW_MS,
   type RunDto,
+  type RunStatus,
 } from '@gonggong/protocol'
-import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import { createContext, type ReactNode, type RefObject, useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import { Button, ContextMenu, Dialog, Icon, MenuButton, type MenuItem, Presence, toast } from '../../ui'
+import {
+  AlertDialog,
+  Button,
+  ContextMenu,
+  Dialog,
+  Icon,
+  MenuButton,
+  type MenuItem,
+  Presence,
+  toast,
+} from '../../ui'
 import { attachmentUrl } from '../attachments/api'
 import { KnowledgeEditor } from '../knowledge/KnowledgeEditor'
 import { ReactionPicker } from '../reactions'
@@ -24,6 +36,20 @@ import { t } from '../../i18n'
 import { pinsApi, usePins } from './PinnedMessages'
 
 const LONG_PRESS_MS = 500
+const ACTIVE_RECALL: RunStatus[] = [
+  'running',
+  'queued',
+  'awaiting_approval',
+  'awaiting_answer',
+  'offline_wait',
+]
+export const STARTED_RECALL: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
+
+export const startedRunIds = (runs: readonly RunDto[], messageId: string) =>
+  runs.filter((r) => r.triggerMessageId === messageId && STARTED_RECALL.includes(r.status)).map((r) => r.id)
+
+/** Latest runs of the active timeline (read on recall so active runs trigger confirmation). */
+export const ActiveRunsContext = createContext<RefObject<RunDto[]> | null>(null)
 
 /** Read before the recall, which erases the content for good: what 重新编辑 puts back. */
 async function snapshot(m: MessageDto): Promise<RecalledDraft> {
@@ -49,19 +75,68 @@ async function snapshot(m: MessageDto): Promise<RecalledDraft> {
   }
 }
 
-async function recall(m: MessageDto, started: string[]) {
+async function recall(m: MessageDto, getStarted: () => string[]) {
+  const before = getStarted()
   const draft = await snapshot(m)
   try {
     await api.post(`/messages/${m.id}/recall`)
   } catch (e) {
     const late = e instanceof ApiError && e.code === 'recall_expired'
     toast({ type: 'error', message: late ? t('超过 24 小时，无法撤回') : (e as Error).message })
-    return
+    return false
   }
   keepRecalled(m.id, draft)
   applyLocal({ t: 'message.recalled', groupId: m.groupId, messageId: m.id })
-  // The server voids only the runs that have not started; the started ones would go on with the recalled prompt.
-  for (const id of started) api.post(`/runs/${id}/stop`, {}).catch(toastError)
+  // The server voids only runs that have not started; re-read after snapshot/recall so queued->running transitions are caught too.
+  const ids = [...new Set([...before, ...getStarted()])]
+  if (ids.length) {
+    const results = await Promise.allSettled(ids.map((id) => api.post(`/runs/${id}/stop`, {})))
+    if (results.some((r) => r.status === 'rejected'))
+      toast({ type: 'error', message: t('消息已撤回，但未能停止正在运行的任务，请手动停止') })
+  }
+  return true
+}
+
+function RecallRunningDialog({
+  message,
+  bot,
+  getStarted,
+  onClose,
+}: {
+  message: MessageDto
+  bot: string
+  getStarted: () => string[]
+  onClose: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const close = () => {
+    if (!busy) onClose()
+  }
+  const confirm = async () => {
+    if (busy) return
+    setBusy(true)
+    const ok = await recall(message, getStarted)
+    if (ok) onClose()
+    else setBusy(false)
+  }
+  return (
+    <AlertDialog
+      open
+      title={t('要撤回这条消息并中断运行吗？')}
+      message={t('{bot} 正在根据这条消息执行任务，撤回会立即中断当前运行。', { bot })}
+      onClose={close}
+      actions={[
+        { label: t('取消'), disabled: busy, onClick: close },
+        {
+          label: t('撤回并中断'),
+          variant: 'destructive',
+          disabled: busy,
+          loading: busy,
+          onClick: () => void confirm(),
+        },
+      ]}
+    />
+  )
 }
 
 async function branch(m: MessageDto, open: (groupId: string) => void) {
@@ -219,7 +294,9 @@ export interface ActionTarget {
 function useMessageMenu(target: ActionTarget) {
   const [picking, setPicking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [recallingBot, setRecallingBot] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const liveRuns = useContext(ActiveRunsContext)
   const navigate = useNavigate()
   const bar = useRef<HTMLDivElement>(null)
   // Tapping 复制 or opening the menu may clear the selection before the click lands, so it is read first.
@@ -258,6 +335,12 @@ function useMessageMenu(target: ActionTarget) {
     { separator: true },
     ...more,
   ]
+  const getStarted = () => [
+    ...new Set([
+      ...(target.startedRuns?.() ?? []),
+      ...(mine ? startedRunIds(liveRuns?.current ?? [], mine.id) : []),
+    ]),
+  ]
   const select = (value: string) => {
     if (later.select(value)) return
     if (value === 'thread') target.onThread?.()
@@ -276,12 +359,35 @@ function useMessageMenu(target: ActionTarget) {
       void pinsApi.unpin(target.message.groupId, target.message.id)
     else if (value === 'knowledge') setSaving(true)
     else if (value === 'edit') target.onEdit?.()
-    else if (value === 'recall' && mine) void recall(mine, target.startedRuns?.() ?? [])
-    else if (value === 'delete') setDeleting(true)
+    else if (value === 'recall' && mine) {
+      const started = getStarted()
+      const activeRuns = (liveRuns?.current ?? []).filter(
+        (r) => r.triggerMessageId === mine.id && ACTIVE_RECALL.includes(r.status),
+      )
+      if (activeRuns.length || started.length) {
+        const allBots = useWorkspace.getState().bots
+        const names = [
+          ...new Set(activeRuns.map((r) => allBots.find((b) => b.id === r.botId)?.name ?? 'Bot')),
+        ]
+        setRecallingBot(names.length ? names.join(t('、')) : 'Bot')
+      } else {
+        void recall(mine, getStarted)
+      }
+    } else if (value === 'delete') setDeleting(true)
   }
   const dialog = (
     <>
       {later.dialog}
+      <Presence>
+        {mine && recallingBot ? (
+          <RecallRunningDialog
+            message={mine}
+            bot={recallingBot}
+            getStarted={getStarted}
+            onClose={() => setRecallingBot(null)}
+          />
+        ) : null}
+      </Presence>
       <Presence>
         {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
       </Presence>

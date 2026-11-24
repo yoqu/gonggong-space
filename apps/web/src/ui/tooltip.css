@@ -28,9 +28,9 @@
   pointer-events: none;
   transform: translate(-50%, 2px);
   transition:
-    opacity var(--motion-fast),
-    transform var(--motion-fast),
-    display var(--motion-fast) allow-discrete;
+    opacity var(--fade-fast),
+    transform var(--fade-fast),
+    display var(--fade-fast) allow-discrete;
 }
 .ui-tip--bottom {
   top: calc(100% + 8px);

@@ -55,7 +55,7 @@ export function RegisterPage() {
         setUser(me)
         // A sign-up with an invite has already joined its team.
         navigate('/', { replace: true })
-      }, 420)
+      }, 240)
     } catch (err) {
       fail(errorText(err))
       setPhase('idle')

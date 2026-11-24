@@ -697,7 +697,7 @@ describe('copying a selection (mobile partial copy)', () => {
     select(text.firstChild as Node, 7, 13)
     fireEvent.contextMenu(text)
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('menu')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
     getSelection()?.removeAllRanges()
     fireEvent.click(within(row).getByRole('button', { name: '复制' }), { detail: 0 })
     expect(writeText).toHaveBeenLastCalledWith(BODY)

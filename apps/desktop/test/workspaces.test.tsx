@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { ipc, type WorkspaceRow, type Workspaces } from '../src/ipc'
@@ -120,7 +120,9 @@ describe('工作区', () => {
     expect(within(pop).queryByRole('button', { name: '压缩上下文' })).toBeNull()
   })
 
-  it('deletes a removed workspace only after confirmation, then reloads', async () => {
+  it('deletes a removed workspace only after confirmation with a loading lock, then reloads', async () => {
+    let resolveDelete: () => void = () => {}
+    m.deleteWorkspace.mockImplementationOnce(() => new Promise<void>((r) => (resolveDelete = r)))
     render(<WorkspacesPage go={() => {}} />)
     const old = await screen.findByText('旧版后台')
     fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
@@ -129,17 +131,25 @@ describe('工作区', () => {
     expect(dialog.textContent).toContain('~/.gonggong/workspaces/g3/b1/r3')
     m.workspaces.mockResolvedValue({ ...DATA, rows: DATA.rows.slice(0, 2) })
     fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+    expect(within(dialog).getByRole('button', { name: '删除' }).getAttribute('aria-busy')).toBe('true')
+    expect((within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    await act(async () => resolveDelete())
     await waitFor(() =>
       expect(m.deleteWorkspace).toHaveBeenCalledWith('g3', 'b1', '/Users/wl/.gonggong/workspaces/g3/b1/r3'),
     )
     await waitFor(() => expect(old.isConnected).toBe(false))
   })
 
-  it('shows empty states and warns when the server was unreachable', async () => {
+  it('shows empty states and plain-language offline warning when the server was unreachable', async () => {
     m.workspaces.mockResolvedValue({ rows: [], backups: [], offline: true })
     render(<WorkspacesPage go={() => {}} />)
     expect(await screen.findByText('本机还没有工作区')).toBeTruthy()
     expect(screen.getByText('暂无本机备份')).toBeTruthy()
-    expect(screen.getByRole('alert').textContent).toContain('无法连接服务器')
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('无法连接服务器')
+    expect(alert.textContent).toContain('暂时连不上服务器，以下仅列出本机目录，群和 Bot 名称恢复连接后显示。')
+    expect(alert.textContent).not.toContain('/cd')
   })
 })

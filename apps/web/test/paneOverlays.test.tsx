@@ -6,6 +6,7 @@ import {
   Button,
   ContextMenu,
   Dialog,
+  DiscardChangesDialog,
   HUD,
   Menu,
   type MenuItem,
@@ -15,7 +16,10 @@ import {
   Sheet,
   Sidebar,
   Toast,
+  Toaster,
   Tooltip,
+  toast,
+  useToasts,
   Window,
 } from '../src/ui'
 
@@ -166,7 +170,7 @@ describe('ContextMenu', () => {
     expect(screen.getByRole('menu')).toBeTruthy()
   })
 
-  it('closes on an outside press', async () => {
+  it('closes on an outside press with a presence exit transition', async () => {
     render(
       <>
         <Host />
@@ -174,8 +178,14 @@ describe('ContextMenu', () => {
       </>,
     )
     fireEvent.contextMenu(screen.getByRole('button', { name: '消息' }))
+    const menu = screen.getByRole('menu')
+    expect(menu.dataset.state).toBe('open')
     fireEvent.mouseDown(screen.getByRole('button', { name: '外部' }))
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    expect(menu.dataset.state).toBe('closed')
+    expect(menu.isConnected).toBe(true)
+    fireEvent.animationEnd(menu)
+    expect(menu.isConnected).toBe(false)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })
 
@@ -396,6 +406,14 @@ describe('Dialog v2', () => {
     fireEvent.click(screen.getByTestId('dialog-overlay'))
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('uses crisp DiscardChangesDialog copy matching the Gonggong convention', () => {
+    render(<DiscardChangesDialog open onCancel={() => {}} onDiscard={() => {}} />)
+    const dialog = screen.getByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
+    expect(within(dialog).getByText('关闭后，当前未保存的修改不会保留。')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '继续编辑' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '放弃更改' })).toBeTruthy()
+  })
 })
 
 describe('Toast and HUD', () => {
@@ -426,6 +444,30 @@ describe('Toast and HUD', () => {
     const hud = screen.getByRole('status')
     expect(hud.querySelectorAll('.ui-hud__level i')).toHaveLength(16)
     expect(hud.querySelectorAll('.ui-hud__level i[data-on]')).toHaveLength(8)
+  })
+
+  it('marks a replaced toast with data-replaced so it fades in place, while normal dismiss glides up', () => {
+    useToasts.setState({ items: [] })
+    render(<Toaster />)
+    act(() => {
+      toast({ message: '第一条' })
+    })
+    const first = screen.getByText('第一条').closest('.ui-toast') as HTMLElement
+    expect(first.hasAttribute('data-replaced')).toBe(false)
+
+    act(() => {
+      toast({ message: '第二条' })
+    })
+    expect(first.dataset.state).toBe('closed')
+    expect(first.hasAttribute('data-replaced')).toBe(true)
+    fireEvent.animationEnd(first)
+
+    const second = screen.getByText('第二条').closest('.ui-toast') as HTMLElement
+    fireEvent.click(within(second).getByRole('button', { name: '关闭' }))
+    expect(second.dataset.state).toBe('closed')
+    expect(second.hasAttribute('data-replaced')).toBe(false)
+    fireEvent.animationEnd(second)
+    useToasts.setState({ items: [] })
   })
 })
 

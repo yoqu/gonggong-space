@@ -16,8 +16,9 @@ function show(s: DaemonStatus) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useDaemon.setState({ overview: null })
+  useDaemon.setState({ overview: null, botGuideDismissed: false })
   m.tunnels.mockResolvedValue({ previews: [], services: [] })
+  m.openWeb.mockResolvedValue()
   m.overview.mockResolvedValue({ workspaces: { count: 5, detail: '托管 4 · 本机目录 1 · 1.8 GB' } })
   m.bots.mockResolvedValue([
     bot({ presence: 'running' }),
@@ -296,6 +297,32 @@ describe('overview', () => {
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('电脑已解绑 · 账号已停用')
     expect(alert.textContent).toContain('已清理这台电脑上的团队密钥和 2 个托管工作区')
+    expect(alert.textContent).toContain('你手动选择的本机目录和本地备份保持不变')
+    expect(alert.textContent).not.toContain('/cd')
     expect(within(alert).getByRole('button', { name: '重新绑定' })).toBeTruthy()
+  })
+
+  it('shows a dismissible create-Bot guide when connected with 0 Bots and opens Web on click', async () => {
+    m.bots.mockResolvedValue([])
+    show(status())
+    const guide = await screen.findByTestId('create-bot-guide')
+    expect(guide.textContent).toContain('电脑已接入，接下来创建你的第一个 Bot')
+    expect(guide.textContent).toContain('在网页端为这台电脑创建 Bot 后，就能在群里 @ 它开始干活。')
+
+    fireEvent.click(within(guide).getByRole('button', { name: '去网页端创建 Bot' }))
+    expect(m.openWeb).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(within(guide).getByRole('button', { name: '稍后再说' }))
+    expect(screen.queryByTestId('create-bot-guide')).toBeNull()
+  })
+
+  it('hides the create-Bot guide when the machine already has Bots or is not connected', async () => {
+    show(status())
+    await within(screen.getByTestId('stats')).findByText('1 已绑定')
+    expect(screen.queryByTestId('create-bot-guide')).toBeNull()
+
+    m.bots.mockResolvedValue([])
+    show(status({ conn: { state: 'offline', retryAtMs: Date.now() + 10_000, error: 'down' } }))
+    expect(screen.queryByTestId('create-bot-guide')).toBeNull()
   })
 })

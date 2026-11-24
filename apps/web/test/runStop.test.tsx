@@ -113,12 +113,39 @@ describe('interrupt block', () => {
     expect((screen.getByRole('button', { name: '丢弃本轮改动' }) as HTMLButtonElement).disabled).toBe(true)
 
     act(() => me('u-li'))
-    const calls = mockApi({ 'POST /runs/r1/interrupt': { ok: true } })
+    let resolveDiscard: (() => void) | null = null
+    const calls = mockApi({
+      'POST /runs/r1/interrupt': () =>
+        new Promise<Response>((resolve) => {
+          resolveDiscard = () => resolve(new Response(JSON.stringify({ ok: true })))
+        }),
+    })
     rerender(<InterruptBlock run={stopped()} />)
     fireEvent.click(screen.getByRole('button', { name: '丢弃本轮改动' }))
-    await waitFor(() =>
-      expect(calls).toEqual([{ method: 'POST', path: '/runs/r1/interrupt', body: { choice: 'discard' } }]),
-    )
+    expect(calls).toEqual([])
+    const confirm1 = await screen.findByRole('alertdialog', { name: '要丢弃本轮未提交的改动吗？' })
+    expect(
+      within(confirm1).getByText('工作区里本轮触及的文件将还原到运行前状态，不影响此前已有的未提交改动。'),
+    ).toBeTruthy()
+    fireEvent.click(within(confirm1).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls).toEqual([])
+
+    fireEvent.click(screen.getByRole('button', { name: '丢弃本轮改动' }))
+    const confirm2 = await screen.findByRole('alertdialog', { name: '要丢弃本轮未提交的改动吗？' })
+    const discardBtn = within(confirm2).getByRole('button', { name: '丢弃改动' }) as HTMLButtonElement
+    const cancelBtn = within(confirm2).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    expect(discardBtn.className).toContain('ui-btn--destructive')
+    fireEvent.click(discardBtn)
+    await waitFor(() => expect(discardBtn.getAttribute('aria-busy')).toBe('true'))
+    expect(cancelBtn.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    await act(async () => {
+      resolveDiscard?.()
+    })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls).toEqual([{ method: 'POST', path: '/runs/r1/interrupt', body: { choice: 'discard' } }])
   })
 
   it('shows the outcome once chosen', () => {
@@ -152,5 +179,18 @@ describe('interrupt block', () => {
     expect(screen.getByText('已保留本轮改动 · 提交为一版')).toBeTruthy()
     rerender(<InterruptBlock run={force({ interrupt: 'discarded' })} />)
     expect(screen.getByText('已丢弃本轮改动 · 已备份并回滚到同步版本')).toBeTruthy()
+  })
+
+  it('uses backup-and-rollback copy in force mode and closes discard confirmation when resolved elsewhere', async () => {
+    const force = (o: Partial<RunDto> = {}) => stopped({ sync: { outcome: 'stopped', files: 2 }, ...o })
+    act(() => me('u-wang'))
+    const { rerender } = render(<InterruptBlock run={force()} />)
+    fireEvent.click(screen.getByRole('button', { name: '丢弃本轮改动' }))
+    const dlg = await screen.findByRole('alertdialog', { name: '要丢弃本轮未提交的改动吗？' })
+    expect(within(dlg).getByText('丢弃后会先保存本地备份，再将工作区回滚到同步版本。')).toBeTruthy()
+
+    // Another tab or member resolves the interrupt while the dialog is open: confirmation closes immediately.
+    rerender(<InterruptBlock run={force({ interrupt: 'kept' })} />)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 })

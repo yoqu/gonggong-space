@@ -32,7 +32,7 @@
   font: inherit;
   font-size: var(--text-callout-size);
   text-align: left;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 button.act-row:active {
   background: var(--quote-fill);
@@ -166,6 +166,10 @@ button.act-row:active {
   color: var(--label-tertiary);
   font: inherit;
   font-size: var(--text-subheadline-size);
+  cursor: pointer;
+}
+.act-detail__more:hover {
+  color: var(--accent-text);
 }
 .act-text {
   padding: var(--space-4) 0 var(--space-6);
@@ -360,9 +364,9 @@ button.act-row:hover .act-row__target--file {
   font: inherit;
   font-size: var(--text-subheadline-size);
   transition:
-    background-color var(--motion-fast),
-    border-color var(--motion-fast),
-    color var(--motion-fast);
+    background-color var(--fade-fast),
+    border-color var(--fade-fast),
+    color var(--fade-fast);
 }
 @media (hover: hover) {
   .act-chip:hover {
@@ -594,9 +598,9 @@ button.act-row:hover .act-row__target--file {
   font: inherit;
   font-size: var(--text-subheadline-size);
   transition:
-    background-color var(--motion-fast),
-    border-color var(--motion-fast),
-    color var(--motion-fast),
+    background-color var(--fade-fast),
+    border-color var(--fade-fast),
+    color var(--fade-fast),
     scale var(--spring-interactive);
 }
 @media (hover: hover) {
@@ -722,7 +726,7 @@ button.act-row:hover .act-row__target--file {
 }
 .act-web__stack .act-web__favicon + .act-web__favicon {
   margin-left: -5px;
-  transition: margin-left var(--motion-fast);
+  transition: margin-left var(--fade-fast);
 }
 @media (hover: hover) {
   button.act-row:hover .act-web__stack .act-web__favicon + .act-web__favicon {

@@ -5,14 +5,14 @@
 import { pathToFileURL } from 'node:url'
 
 export const SPRINGS = {
-  snappy: [0.35, 0],
-  smooth: [0.45, 0],
-  bouncy: [0.4, 0.15],
-  interactive: [0.2, 0],
+  snappy: [0.26, 0],
+  smooth: [0.32, 0],
+  bouncy: [0.32, 0.22],
+  interactive: [0.18, 0],
 }
 
 const SEGMENTS = 30
-const EPSILON = 0.001
+const EPSILON = 0.005
 
 function position(duration, bounce) {
   const w0 = (2 * Math.PI) / duration

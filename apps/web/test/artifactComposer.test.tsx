@@ -1,5 +1,5 @@
 import type { BotDto, GroupDto, MessageDto, RunDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -145,6 +145,118 @@ describe('variations ×n in the composer (G07)', () => {
     fireEvent.keyDown(input(), { key: 'Enter' })
     await new Promise((r) => setTimeout(r, 20))
     expect(calls.filter((c) => c.method === 'POST')).toEqual([])
+  })
+})
+
+describe('dismissible canvas Bot target chip', () => {
+  it('places 发给 @{bot} leftmost with title and × dismiss, restores via 恢复发给 @{bot}, and omits artifactContext when bypassed', async () => {
+    const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
+    setCanvas()
+    render(<MessageComposer group={group} onSent={() => {}} />)
+
+    const chips = screen.getByTestId('art-context-chips')
+    const target = screen.getByTestId('art-context-to')
+    expect(chips.firstElementChild).toBe(target)
+    expect(target.getAttribute('title')).toBe('将针对当前画布发送给 @设计助手')
+
+    const dismiss = within(target).getByRole('button', { name: '改为仅发给群成员，不触发 Bot' })
+    fireEvent.click(dismiss)
+
+    // Selection chip stays intact, target pill is dismissed, focus returns to textarea, bypass bar appears.
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
+    expect(screen.getByText('读书会 · 首页')).toBeTruthy()
+    expect(document.activeElement).toBe(input())
+    expect(input().placeholder).not.toContain('发给 @设计助手')
+    expect(screen.getByText('本次仅发给群成员，不触发 Bot')).toBeTruthy()
+
+    // Restore brings the target pill back and keeps focus in input.
+    fireEvent.click(screen.getByRole('button', { name: '恢复发给 @设计助手' }))
+    expect(screen.getByTestId('art-context-to')).toBeTruthy()
+    expect(document.activeElement).toBe(input())
+
+    // Dismiss again and send: message goes to members without triggering Bot (no artifactContext), then resets bypass.
+    fireEvent.click(screen.getByRole('button', { name: '改为仅发给群成员，不触发 Bot' }))
+    type('大家觉得这个布局怎么样')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
+    expect(posts(calls, '/groups/g1/messages')[0]).not.toHaveProperty('artifactContext')
+    // Bypass resets after sending so the kept canvas selection resumes targeting the Bot.
+    expect(screen.getByTestId('art-context-to')).toBeTruthy()
+  })
+
+  it('clears bypass mode when enabling 变体 so UI and command routing stay mutually exclusive', async () => {
+    const calls = mockApi({
+      'POST /artifacts/a1/commands': { id: 'm1' },
+      'POST /groups/g1/messages': (b: unknown) => ({ id: 'm2', ...(b as object) }),
+    })
+    setCanvas()
+    render(<MessageComposer group={group} onSent={() => {}} />)
+
+    // Dismiss Bot -> bypass bar is shown.
+    fireEvent.click(screen.getByRole('button', { name: '改为仅发给群成员，不触发 Bot' }))
+    expect(screen.getByTestId('art-context-bypass')).toBeTruthy()
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
+
+    // Turning on 变体 exits bypass mode immediately and restores 发给 @Bot.
+    fireEvent.click(screen.getByRole('button', { name: /变体/, pressed: false }))
+    expect(screen.queryByTestId('art-context-bypass')).toBeNull()
+    expect(screen.getByTestId('art-context-to')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /变体/, pressed: true })).toBeTruthy()
+
+    // Sending now routes to /artifacts/a1/commands as expected.
+    type('换一种温暖配色')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/artifacts/a1/commands')).toHaveLength(1))
+    expect(posts(calls, '/groups/g1/messages')).toEqual([])
+
+    // Conversely, turning on 变体 then dismissing Bot turns 变体 off and sends a plain group message.
+    await waitFor(() => expect(useCanvasContext.getState().context).toBeNull())
+    act(() => setCanvas())
+    fireEvent.click(screen.getByRole('button', { name: /变体/, pressed: false }))
+    expect(screen.getByRole('button', { name: /变体/, pressed: true })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '改为仅发给群成员，不触发 Bot' }))
+    expect(screen.getByRole('button', { name: /变体/, pressed: false })).toBeTruthy()
+    expect(screen.getByTestId('art-context-bypass')).toBeTruthy()
+    type('先讨论下需求')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
+    expect(posts(calls, '/groups/g1/messages')[0]).not.toHaveProperty('artifactContext')
+    expect(posts(calls, '/artifacts/a1/commands')).toHaveLength(1)
+  })
+
+  it('resets bypass when canvas selection changes and hides × in canvasChat mode', () => {
+    mockApi({})
+    setCanvas()
+    const { rerender } = render(<MessageComposer group={group} onSent={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '改为仅发给群成员，不触发 Bot' }))
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
+
+    // Changing selection resets bypassCanvasBot.
+    act(() => setCanvas([{ key: 'screen:detail', screenId: 'detail', screenTitle: '详情', pinned: false }]))
+    expect(screen.getByTestId('art-context-to')).toBeTruthy()
+
+    // In dedicated canvasChat mode, no × dismiss button is offered.
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    rerender(
+      <MessageComposer
+        group={group}
+        onSent={() => {}}
+        canvasChat={{ rootId: 'root1', artifactId: 'a1', botId: 'b1' }}
+      />,
+    )
+    const target = screen.getByTestId('art-context-to')
+    expect(within(target).queryByRole('button', { name: '改为仅发给群成员，不触发 Bot' })).toBeNull()
+  })
+
+  it('animates CandidatePopover enter/exit with usePresence data-state', () => {
+    mockApi({})
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    fireEvent.change(input(), { target: { value: '@', selectionStart: 1 } })
+    const wrap = screen.getByTestId('composer-popover').parentElement as HTMLElement
+    expect(wrap.dataset.state).toBe('open')
+    fireEvent.keyDown(input(), { key: 'Escape' })
+    expect(wrap.dataset.state).toBe('closed')
+    expect(wrap.getAttribute('aria-hidden')).toBe('true')
   })
 })
 

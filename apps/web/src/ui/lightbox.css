@@ -139,12 +139,15 @@
   touch-action: none;
   user-select: none;
   cursor: zoom-in;
-  /* The interactive spring: settles like a 150ms ease-out and is instant under reduced motion. */
-  transition: transform var(--spring-interactive);
+  /* Discrete zoom steps settle with snappy spring; continuous gestures disable transition via data-gesture. */
+  transition: transform var(--spring-snappy);
   /* Each image grows in slightly (scale, not transform: that one carries zoom and pan); reduced motion only fades. */
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-lightbox-in;
+}
+.ui-lightbox__img > img[data-gesture="direct"] {
+  transition: none;
 }
 @keyframes ui-lightbox-in {
   from {

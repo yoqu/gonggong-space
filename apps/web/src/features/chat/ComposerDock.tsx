@@ -13,6 +13,7 @@ import { FloatingChat, ShowFloatingChat } from '../../app/floatingChat'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
+import { motionTiming } from '../../lib/motion'
 import { Icon } from '../../ui'
 import { useCanvasChat } from '../artifacts/chatRoot'
 import { hudOffset, ORB } from './composerDockHud'
@@ -49,14 +50,6 @@ function clipText(raw: string, max = 28): string {
   const one = raw.replace(/\s+/g, ' ').trim()
   if (!one) return '…'
   return one.length > max ? `${one.slice(0, max)}…` : one
-}
-
-/** A spring token as WAAPI timing: `--spring-bouncy: 558ms linear(…)`; 0 under reduced motion. */
-function spring(name: string): { duration: number; easing: string } {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  const m = /^([\d.]+)(ms|s)\s+(.+)$/.exec(v)
-  if (!m) return { duration: 0, easing: 'linear' }
-  return { duration: Number(m[1]) * (m[2] === 's' ? 1000 : 1), easing: m[3] ?? 'linear' }
 }
 
 const stored = () => {
@@ -237,6 +230,8 @@ function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: D
   const hudPos = useRef<HTMLDivElement>(null)
   const [hudSize, setHudSize] = useState({ w: 0, h: 0 })
   const from = useRef<{ w: number; h: number } | null>(null)
+  const shellAnim = useRef<Animation | null>(null)
+  const bodyAnim = useRef<Animation | null>(null)
   const dragged = useRef(false)
 
   const autoHud = useAutoHud(floating, groupId, runs, messages, onLocate)
@@ -290,6 +285,8 @@ function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: D
     return { x: Math.round((clamp01(orbPos.ratio) - 0.5) * travelW), y: 0 }
   }, [orbPos, travelW, travelH])
   const activeOffset = dragOffset ?? dockedOffset
+  const dockedOffsetRef = useRef(dockedOffset)
+  dockedOffsetRef.current = dockedOffset
 
   const persist = (hidden: boolean) => {
     try {
@@ -309,115 +306,131 @@ function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: D
 
   const toggle = () => {
     const s = shell.current
-    if (phase === 'opening' || phase === 'closing' || !s) return
-    if (phase === 'closed') {
+    if (!s) return
+    // Fully interruptible mid-flight: pressing ⌘J while opening/closing reverses from the current animated state.
+    if (phase === 'closed' || phase === 'closing') {
       persist(false)
       return setPhase('opening')
     }
     persist(true)
-    const { duration } = spring('--spring-smooth')
-    if (!duration || typeof s.animate !== 'function') return setPhase('closed')
-    const r = s.getBoundingClientRect()
-    from.current = { w: r.width, h: r.height }
     if (s.contains(document.activeElement)) (document.activeElement as HTMLElement).blur()
+    const timing = motionTiming('--spring-smooth')
+    if (!timing || typeof s.animate !== 'function') return setPhase('closed')
+    const r = s.getBoundingClientRect()
+    from.current = { w: r.width || s.offsetWidth, h: r.height || s.offsetHeight }
     setPhase('closing')
   }
 
-  // Pure compositor + geometry FLIP transition without per-frame blur filter or 1-frame cancel flash.
+  // Pure compositor animation (transform + clipPath + opacity): zero width/height layout thrash and mid-flight reversible.
   useLayoutEffect(() => {
     const s = shell.current
     const b = body.current
     if (!s || !b) return
+    const prevShell = shellAnim.current
+    const prevBody = bodyAnim.current
+    const interrupting = prevShell?.playState === 'running'
+    // Snapshot primitives BEFORE cancel() — getComputedStyle returns a live CSSStyleDeclaration that resets on cancel.
+    const shellStyle = interrupting ? getComputedStyle(s) : null
+    const liveShell = shellStyle ? { transform: shellStyle.transform, clipPath: shellStyle.clipPath } : null
+    const bodyStyle = prevBody?.playState === 'running' ? getComputedStyle(b) : null
+    const parsedBodyOpacity = bodyStyle ? Number.parseFloat(bodyStyle.opacity) : Number.NaN
+    const liveBody = bodyStyle
+      ? {
+          opacity: Number.isFinite(parsedBodyOpacity) ? parsedBodyOpacity : null,
+          transform: bodyStyle.transform,
+        }
+      : null
+    const cancelRef = (ref: { current: Animation | null }) => {
+      const a = ref.current
+      if (!a) return
+      ref.current = null
+      a.onfinish = null
+      a.cancel()
+    }
+    cancelRef(shellAnim)
+    cancelRef(bodyAnim)
     if (phase === 'open' || phase === 'closed') {
       for (const a of s.getAnimations?.() ?? []) a.cancel()
       for (const a of b.getAnimations?.() ?? []) a.cancel()
       return
     }
-    const { x: ox, y: oy } = dockedOffset
+    const { x: ox, y: oy } = dockedOffsetRef.current
+    const r = s.getBoundingClientRect()
+    const w = Math.max(r.width || s.offsetWidth || from.current?.w || 400, ORB)
+    const h = Math.max(r.height || s.offsetHeight || from.current?.h || 96, ORB)
+    const radius = getComputedStyle(s).borderTopLeftRadius || '18px'
+    const topInset = Math.max(0, h - ORB)
+    const sideInset = Math.max(0, (w - ORB) / 2)
+    const openFrame = {
+      transform: 'translate3d(0px, 0px, 0)',
+      clipPath: `inset(0px 0px 0px 0px round ${radius})`,
+    }
+    const orbFrame = {
+      transform: `translate3d(${ox}px, ${oy}px, 0)`,
+      clipPath: `inset(${topInset}px ${sideInset}px 0px ${sideInset}px round ${ORB / 2}px)`,
+    }
+    const liveFrame = (fallback: typeof openFrame) =>
+      liveShell
+        ? {
+            transform:
+              liveShell.transform && liveShell.transform !== 'none'
+                ? liveShell.transform
+                : fallback.transform,
+            clipPath:
+              liveShell.clipPath && liveShell.clipPath !== 'none' ? liveShell.clipPath : fallback.clipPath,
+          }
+        : fallback
+
     if (phase === 'opening') {
-      const { duration, easing } = spring('--spring-bouncy')
-      const r = s.getBoundingClientRect()
-      if (!duration || typeof s.animate !== 'function') return setPhase('open')
-      const radius = getComputedStyle(s).borderTopLeftRadius
-      const grow = s.animate(
-        [
-          {
-            width: `${ORB}px`,
-            height: `${ORB}px`,
-            borderRadius: `${ORB / 2}px`,
-            transform: `translate3d(${ox}px, ${oy}px, 0)`,
-          },
-          {
-            offset: 0.5,
-            width: `${Math.max(r.width * 0.55, ORB)}px`,
-            height: `${r.height}px`,
-            borderRadius: radius,
-            transform: `translate3d(${Math.round(ox * 0.2)}px, ${Math.round(oy * 0.2 - 3)}px, 0)`,
-          },
-          {
-            width: `${r.width}px`,
-            height: `${r.height}px`,
-            borderRadius: radius,
-            transform: 'translate3d(0, 0, 0)',
-          },
-        ],
-        { duration, easing },
-      )
-      b.animate(
-        [
-          { opacity: 0, transform: 'translateY(6px) scale(0.98)' },
-          { opacity: 1, transform: 'none' },
-        ],
-        { duration: duration * 0.5, delay: duration * 0.25, easing, fill: 'backwards' },
-      )
+      const timing = motionTiming('--spring-bouncy')
+      if (!timing || typeof s.animate !== 'function') return setPhase('open')
+      const { duration, easing } = timing
+      const grow = s.animate([liveFrame(orbFrame), openFrame], { duration, easing })
+      shellAnim.current = grow
+      const bodyStart = liveBody
+        ? {
+            opacity: liveBody.opacity ?? 0,
+            transform: liveBody.transform && liveBody.transform !== 'none' ? liveBody.transform : 'none',
+          }
+        : { opacity: 0, transform: 'translateY(6px) scale(0.98)' }
+      bodyAnim.current = b.animate([bodyStart, { opacity: 1, transform: 'none' }], {
+        duration: duration * 0.5,
+        delay: interrupting ? 0 : duration * 0.25,
+        easing,
+        fill: 'backwards',
+      })
       grow.onfinish = () => {
+        if (shellAnim.current !== grow) return
+        shellAnim.current = null
         setPhase('open')
         b.querySelector('textarea')?.focus()
       }
       return
     }
-    if (phase === 'closing' && from.current) {
-      const { duration, easing } = spring('--spring-smooth')
-      const { w, h } = from.current
-      const radius = getComputedStyle(s).borderTopLeftRadius
-      b.animate(
-        [
-          { opacity: 1, transform: 'scale(1)' },
-          { opacity: 0, transform: 'scale(0.96)' },
-        ],
-        {
-          duration: duration * 0.25,
-          easing: 'ease-out',
-          fill: 'forwards',
-        },
-      )
-      const shrink = s.animate(
-        [
-          {
-            width: `${w}px`,
-            height: `${h}px`,
-            borderRadius: radius,
-            transform: 'translate3d(0, 0, 0)',
-          },
-          {
-            offset: 0.55,
-            width: `${Math.max(w * 0.32, ORB)}px`,
-            height: `${Math.max(h * 0.72, ORB)}px`,
-            borderRadius: radius,
-            transform: `translate3d(${Math.round(ox * 0.55)}px, ${Math.round(oy * 0.55)}px, 0)`,
-          },
-          {
-            width: `${ORB}px`,
-            height: `${ORB}px`,
-            borderRadius: `${ORB / 2}px`,
-            transform: `translate3d(${ox}px, ${oy}px, 0)`,
-          },
-        ],
-        { duration, easing, fill: 'forwards' },
-      )
-      shrink.onfinish = () => setPhase('closed')
+    if (phase === 'closing') {
+      const timing = motionTiming('--spring-smooth')
+      if (!timing || typeof s.animate !== 'function') return setPhase('closed')
+      const { duration, easing } = timing
+      const bodyStart = liveBody
+        ? {
+            opacity: liveBody.opacity ?? 1,
+            transform: liveBody.transform && liveBody.transform !== 'none' ? liveBody.transform : 'scale(1)',
+          }
+        : { opacity: 1, transform: 'scale(1)' }
+      bodyAnim.current = b.animate([bodyStart, { opacity: 0, transform: 'scale(0.96)' }], {
+        duration: duration * 0.25,
+        easing: 'ease-out',
+        fill: 'forwards',
+      })
+      const shrink = s.animate([liveFrame(openFrame), orbFrame], { duration, easing, fill: 'forwards' })
+      shellAnim.current = shrink
+      shrink.onfinish = () => {
+        if (shellAnim.current !== shrink) return
+        shellAnim.current = null
+        setPhase('closed')
+      }
     }
-  }, [phase, dockedOffset])
+  }, [phase])
 
   // ⌘J hides and shows it while floating.
   useEffect(() => {
@@ -524,6 +537,7 @@ function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: D
     <div
       className={cx('cdock', floating && 'cdock--float')}
       data-phase={floating ? phase : undefined}
+      data-dragging={closed && dragOffset ? '' : undefined}
       style={floating && at ? { left: at.left, width: at.width, bottom: at.bottom } : undefined}
     >
       {showHud && hud ? (

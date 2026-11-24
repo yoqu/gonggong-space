@@ -381,7 +381,7 @@ describe('composer attachments', () => {
     expect(within(sheet).queryByRole('button', { name: '复制路径' })).toBeNull()
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '发送前预览' })).toBeNull())
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:notes.md')
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:notes.md'))
 
     // A local PDF has no server to ask with HEAD: it is framed straight away.
     const fetch = vi.fn()

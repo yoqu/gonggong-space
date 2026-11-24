@@ -1,5 +1,5 @@
 import type { TeamDto, TeamInviteDto, TeamMemberDto, TeamRole } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { copyText, copyWithToast } from '../../lib/clipboard'
@@ -14,6 +14,7 @@ import {
   Button,
   ConfirmActionDialog,
   Dialog,
+  DiscardChangesDialog,
   GroupBox,
   GroupRow,
   Icon,
@@ -63,6 +64,8 @@ type Tab =
   | 'usage'
   | 'audit'
 
+type PendingAction = { kind: 'close' } | { kind: 'tab'; tab: Tab }
+
 /** 团队设置 (plan §5): everyone reads the overview and members; admins edit, owners archive and transfer. */
 export function TeamSettingsDialog({
   team,
@@ -74,15 +77,42 @@ export function TeamSettingsDialog({
   onClose: () => void
 }) {
   const [tab, setTab] = useState<Tab>(initial)
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   // Reopened on another tab while still closing, the dialog is reused rather than remounted.
-  useEffect(() => setTab(initial), [initial])
+  useEffect(() => {
+    setTab(initial)
+    setDirty(false)
+    setSaving(false)
+    setPendingAction(null)
+  }, [initial])
   const admin = team.role !== 'member'
+  const requestClose = () => {
+    if (saving) return
+    if (dirty) setPendingAction({ kind: 'close' })
+    else onClose()
+  }
+  const selectTab = (next: Tab) => {
+    if (saving || next === tab) return
+    if (dirty) setPendingAction({ kind: 'tab', tab: next })
+    else setTab(next)
+  }
+  const confirmDiscard = () => {
+    if (saving) return
+    const action = pendingAction
+    setPendingAction(null)
+    setDirty(false)
+    if (!action) return
+    if (action.kind === 'close') onClose()
+    else setTab(action.tab)
+  }
   const tabs: { value: Tab; label: string; icon: IconName; body: ReactNode }[] = [
     {
       value: 'overview',
       label: t('概览'),
       icon: 'info',
-      body: <OverviewTab team={team} onClose={onClose} />,
+      body: <OverviewTab team={team} onDirtyChange={setDirty} onSavingChange={setSaving} onClose={onClose} />,
     },
     { value: 'members', label: t('成员'), icon: 'person-2', body: <MembersTab team={team} /> },
     ...(admin
@@ -138,41 +168,70 @@ export function TeamSettingsDialog({
   ]
   const current = tabs.find((x) => x.value === tab) ?? tabs[0]
   return (
-    <Dialog open width={820} title={`${current?.label} · ${team.name}`} onClose={onClose}>
-      <div className="gs-settings">
-        <nav className="gs-settings__nav">
-          <span className="gs-settings__heading">{t('团队设置')}</span>
-          {tabs.map((x) => (
-            <button
-              key={x.value}
-              type="button"
-              className={cx('gs-settings__tab', x.value === tab && 'gs-settings__tab--on')}
-              aria-current={x.value === tab ? 'page' : undefined}
-              // Opening on the editable overview should not put a field in edit mode.
-              data-autofocus={x.value === tab || undefined}
-              onClick={() => setTab(x.value)}
-            >
-              <Icon name={x.icon} size={15} />
-              {x.label}
-            </button>
-          ))}
-        </nav>
-        <div className="gs-settings__body">{current?.body}</div>
-      </div>
-    </Dialog>
+    <>
+      <Dialog
+        open
+        width={820}
+        title={`${current?.label} · ${team.name}`}
+        closeOnBackdrop={!dirty && !saving}
+        onClose={requestClose}
+      >
+        <div className="gs-settings">
+          <nav className="gs-settings__nav">
+            <span className="gs-settings__heading">{t('团队设置')}</span>
+            {tabs.map((x) => (
+              <button
+                key={x.value}
+                type="button"
+                className={cx('gs-settings__tab', x.value === tab && 'gs-settings__tab--on')}
+                aria-current={x.value === tab ? 'page' : undefined}
+                // Opening on the editable overview should not put a field in edit mode.
+                data-autofocus={x.value === tab || undefined}
+                onClick={() => selectTab(x.value)}
+              >
+                <Icon name={x.icon} size={15} />
+                {x.label}
+              </button>
+            ))}
+          </nav>
+          <div key={tab} className="gs-settings__body">
+            {current?.body}
+          </div>
+        </div>
+      </Dialog>
+      <DiscardChangesDialog
+        open={!!pendingAction}
+        onCancel={() => setPendingAction(null)}
+        onDiscard={confirmDiscard}
+      />
+    </>
   )
 }
 
-function OverviewTab({ team, onClose }: { team: TeamDto; onClose: () => void }) {
+function OverviewTab({
+  team,
+  onDirtyChange,
+  onSavingChange,
+  onClose,
+}: {
+  team: TeamDto
+  onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
+  onClose: () => void
+}) {
   const admin = team.role !== 'member'
   const [name, setName] = useState(team.name)
   const image = teamImage(team)
   const glyph = image ? null : team.avatar
   const [avatar, setAvatar] = useState(glyph ?? '')
+  const [saved, setSaved] = useState({ name: team.name, glyph })
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<'leave' | 'archive' | null>(null)
   const me = useSession((s) => s.user)
   const { data: members } = useMembers(team.id)
+  useEffect(() => {
+    setSaved({ name: team.name, glyph })
+  }, [team.name, glyph])
   // The server refuses these too; a team left with nobody is cleaned up by a platform admin.
   const leaveBlock =
     team.role !== 'owner' || !members
@@ -182,13 +241,36 @@ function OverviewTab({ team, onClose }: { team: TeamDto; onClose: () => void }) 
         : members.filter((m) => m.role === 'owner').length === 1
           ? t('你是唯一的所有者，需先在「成员」里转让所有权')
           : null
-  const dirty = name.trim() !== team.name || (!image && (avatar.trim() || null) !== glyph)
+  const dirty = admin && (name.trim() !== saved.name || (!image && (avatar.trim() || null) !== saved.glyph))
+  const latestRef = useRef({ name, avatar })
+  latestRef.current = { name, avatar }
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
   const save = async () => {
+    if (busy) return
     setBusy(true)
-    await attempt(() =>
-      teamsApi.update(team.id, { name: name.trim(), ...(!image && { avatar: avatar.trim() || null }) }),
+    onSavingChange?.(true)
+    const nextName = name.trim()
+    const nextAvatar = avatar.trim() || null
+    const updated = await attempt(() =>
+      teamsApi.update(team.id, { name: nextName, ...(!image && { avatar: nextAvatar }) }),
     )
+    if (updated) {
+      // Only update the committed snapshot; preserve any newer text the user typed while saving.
+      const nextGlyph = image ? saved.glyph : nextAvatar
+      setSaved((prev) => ({ name: nextName, glyph: image ? prev.glyph : nextAvatar }))
+      setName((cur) => (cur.trim() === nextName ? nextName : cur))
+      if (!image) setAvatar((cur) => ((cur.trim() || null) === nextAvatar ? (nextAvatar ?? '') : cur))
+      const stillDirty =
+        latestRef.current.name.trim() !== nextName ||
+        (!image && (latestRef.current.avatar.trim() || null) !== nextGlyph)
+      onDirtyChange?.(stillDirty)
+    }
     setBusy(false)
+    onSavingChange?.(false)
   }
   return (
     <>
@@ -233,7 +315,12 @@ function OverviewTab({ team, onClose }: { team: TeamDto; onClose: () => void }) 
       </GroupBox>
       {admin ? (
         <div className="team-actions">
-          <Button variant="primary" disabled={busy || !dirty || !name.trim()} onClick={() => void save()}>
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={busy || !dirty || !name.trim()}
+            onClick={() => void save()}
+          >
             {t('保存')}
           </Button>
         </div>

@@ -125,7 +125,7 @@ export default {
   '其他成员的 Bot': "Others' Bots",
   '搜索 Bot': 'Search Bots',
   '参数#settings': 'Parameters',
-  群级参数已保存: 'Group parameters saved',
+  '群级参数已保存，对新会话生效': 'Group parameters saved; applies to new sessions',
   保存后对新会话生效: 'Applies to new sessions after saving',
   当前模式: 'Current mode',
   私聊名称: 'Chat name',

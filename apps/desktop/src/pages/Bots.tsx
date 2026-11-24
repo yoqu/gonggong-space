@@ -61,8 +61,13 @@ export function BotsPage({ go }: PageProps) {
       {bots?.length === 0 ? (
         <EmptyState
           icon="bot"
-          title={t('本机还没有 Bot')}
+          title={t('这台电脑还没有 Bot')}
           description={t('在网页端创建 Bot 并指定到这台电脑后，会显示在这里。')}
+          action={
+            <Button variant="primary" onClick={() => void ipc.openWeb().catch(fail)}>
+              {t('去网页端创建 Bot')}
+            </Button>
+          }
         />
       ) : null}
       {bots?.map((b) => {
@@ -86,13 +91,13 @@ export function BotsPage({ go }: PageProps) {
                     <span className="dk-strong">{b.name}</span>
                     <Tag tone={badge.tone}>{badge.text}</Tag>
                   </span>
-                  {pending ? <span className="dk-sub">{t('他人为你创建，请在 Web 中确认')}</span> : null}
+                  {pending ? <span className="dk-sub">{t('他人为你创建，请在网页端确认')}</span> : null}
                 </div>
                 <Button
                   variant={pending ? 'primary' : undefined}
                   onClick={() => ipc.openBotInWeb(b.id).catch(fail)}
                 >
-                  {pending ? t('在 Web 中确认') : t('在 Web 中管理')}
+                  {pending ? t('在网页端确认') : t('在网页端管理')}
                 </Button>
               </div>
               {b.teamName ? <GroupRow label={t('团队')} value={b.teamName} /> : null}
@@ -108,14 +113,7 @@ export function BotsPage({ go }: PageProps) {
                 }
               />
               {providers ? (
-                <GroupRow label={t('供应商/模型')} wideValue>
-                  <span className="dk-inline">
-                    {botProviderText(providers, b)}
-                    <Button variant="plain" size="small" onClick={() => ipc.openBotInWeb(b.id).catch(fail)}>
-                      {t('在 Web 中管理')}
-                    </Button>
-                  </span>
-                </GroupRow>
+                <GroupRow label={t('供应商/模型')} wideValue value={botProviderText(providers, b)} />
               ) : null}
               <GroupRow label={t('并发上限')} value={b.concurrency} />
               <GroupRow label={t('审批方式')} wideValue value={approvalText(b)} />
@@ -133,7 +131,7 @@ export function BotsPage({ go }: PageProps) {
       {bots?.length ? (
         <p className="dk-footnote">
           {t(
-            'Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。',
+            'Bot 的设置都在网页端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。',
           )}
         </p>
       ) : null}

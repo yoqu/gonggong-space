@@ -21,8 +21,8 @@
   font: inherit;
   text-align: left;
   transition:
-    background-color var(--motion-fast),
-    border-color var(--motion-fast);
+    background-color var(--fade-fast),
+    border-color var(--fade-fast);
 }
 /* Cards rise in as they arrive (first load, 加载更多, a new thread); a leaving one runs .ui-leaving instead. */
 .thread-inbox__card:not(.ui-leaving) {

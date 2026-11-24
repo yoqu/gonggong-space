@@ -71,7 +71,7 @@ export function LoginPage() {
       const me = await api.post<MeDto>('/auth/login', { account: account.trim(), password })
       remember(keep ? account.trim() : null)
       setPhase('done')
-      // Let the success state land before the app replaces the screen.
+      // Let the success check land crisply before navigating into the app.
       setTimeout(() => {
         setUser(me)
         // Memory only (router state, never storage): the forced change then need not ask for it again.
@@ -79,7 +79,7 @@ export function LoginPage() {
           replace: true,
           state: me.mustChangePassword ? { initialPassword: password } : undefined,
         })
-      }, 420)
+      }, 240)
     } catch (err) {
       setError(errorText(err))
       setErrorKey((k) => k + 1)

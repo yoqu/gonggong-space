@@ -13,6 +13,7 @@ import {
 } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
+import { motionTiming } from '../lib/motion'
 import { useControlled } from './controlled'
 import { ProgressIndicator } from './display'
 import { Icon, type IconName } from './icon'
@@ -124,10 +125,8 @@ function useWidthMorph(ref: { current: HTMLElement | null }, phase: string) {
     const prev = last.current
     last.current = { phase, width }
     if (!prev || prev.phase === phase || prev.width === width || !el.animate || reducedMotion()) return
-    el.animate([{ width: `${prev.width}px` }, { width: `${width}px` }], {
-      duration: 280,
-      easing: 'cubic-bezier(0.2, 0.9, 0.25, 1)',
-    })
+    const timing = motionTiming('--spring-interactive') ?? { duration: 213, easing: 'ease-out' }
+    el.animate([{ width: `${prev.width}px` }, { width: `${width}px` }], timing)
   })
 }
 
@@ -188,6 +187,8 @@ export interface SwitchProps {
   onChange?: (checked: boolean) => void
   size?: 'small' | 'regular'
   disabled?: boolean
+  /** Blocks toggling while an async save is in flight without setting native `disabled` (preserves keyboard focus). */
+  loading?: boolean
   label?: ReactNode
   labelPosition?: 'before' | 'after'
   'aria-label'?: string
@@ -201,6 +202,7 @@ export function Switch({
   onChange,
   size = 'regular',
   disabled,
+  loading,
   label,
   labelPosition = 'before',
   ariaLabel,
@@ -209,16 +211,29 @@ export function Switch({
   const [on, setOn] = useControlled(checked, defaultChecked)
   const text = label ? <span>{label}</span> : null
   return (
-    <label className={cx('ui-switch', size === 'small' && 'ui-switch--small', disabled && 'ui-disabled')}>
+    <label
+      className={cx(
+        'ui-switch',
+        size === 'small' && 'ui-switch--small',
+        disabled && 'ui-disabled',
+        loading && 'ui-switch--loading',
+      )}
+    >
       {labelPosition === 'before' ? text : null}
       <input
         type="checkbox"
         role="switch"
         aria-label={ariaLabel ?? aria['aria-label']}
         aria-checked={on}
+        aria-busy={loading || undefined}
+        aria-disabled={loading || undefined}
         checked={on}
         disabled={disabled}
+        onKeyDown={(e) => {
+          if (loading && e.key === ' ') e.preventDefault()
+        }}
         onChange={(e) => {
+          if (loading) return
           setOn(e.target.checked)
           onChange?.(e.target.checked)
         }}

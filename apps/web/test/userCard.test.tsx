@@ -97,14 +97,17 @@ describe('UserCardTrigger', () => {
     await tick(100)
     fireEvent.mouseEnter(dialog()!)
     await tick(1000)
-    expect(dialog()?.dataset.state).toBe('open')
-    fireEvent.mouseLeave(dialog()!)
+    const el = dialog()!
+    expect(el.dataset.state).toBe('open')
+    fireEvent.mouseLeave(el)
     await tick(150)
-    expect(dialog()?.dataset.state).toBe('open')
+    expect(el.dataset.state).toBe('open')
     await tick(50)
-    expect(dialog()?.dataset.state).toBe('closed')
-    await tick(300)
+    expect(el.dataset.state).toBe('closed')
+    expect(el.hasAttribute('inert')).toBe(true)
     expect(dialog()).toBeNull()
+    await tick(300)
+    expect(el.isConnected).toBe(false)
   })
 
   it('opens on keyboard focus and closes on Escape', async () => {
@@ -112,9 +115,12 @@ describe('UserCardTrigger', () => {
     fireEvent.focus(trigger())
     await tick(300)
     expect(trigger().getAttribute('aria-expanded')).toBe('true')
+    const el = dialog()!
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(trigger().getAttribute('aria-expanded')).toBe('false')
-    expect(dialog()?.dataset.state).toBe('closed')
+    expect(el.dataset.state).toBe('closed')
+    expect(el.hasAttribute('inert')).toBe(true)
+    expect(dialog()).toBeNull()
   })
 
   it('caches the card per user', async () => {

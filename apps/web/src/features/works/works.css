@@ -107,13 +107,13 @@
     transform: scale(1.02);
   }
 }
-/* Cards rise in one after another (first dozen only, so a long grid is not kept waiting); filters keep their keys,
+/* Cards rise in one after another (first six only, so a long grid is not kept waiting); filters keep their keys,
    so only cards that newly appear move. */
 .works__card {
   animation:
     ui-fade-in var(--fade-in) backwards,
     ui-enter var(--spring-smooth) backwards;
-  animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+  animation-delay: calc(min(var(--i, 0), 6) * 20ms);
   --enter-y: 8px;
 }
 /* Loading: placeholder cards in the same grid, so the page keeps its shape when they arrive. */

@@ -302,6 +302,7 @@
   background: transparent;
   color: var(--accent);
   font: inherit;
+  cursor: pointer;
 }
 /* Requests the run waits on, above its process. */
 .run-pending {

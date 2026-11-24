@@ -44,6 +44,9 @@ const layout = (opts: { bench?: boolean; rail?: ReactNode } = {}) => (
 const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { configurable: true, value: w })
 const bench = () => screen.queryByRole('region', { name: '工作台' })
 const chat = () => screen.getByText('聊天内容').closest('main') as HTMLElement
+const frame = () => document.querySelector('.chat') as HTMLElement
+const chatWidth = () => frame().style.getPropertyValue('--chat-width')
+const railWidth = () => frame().style.getPropertyValue('--rail-width')
 
 beforeEach(() => {
   localStorage.clear()
@@ -63,14 +66,15 @@ describe('workbench column', () => {
   it('shows right of the chat, which narrows to the default width', () => {
     render(layout())
     expect(bench()).not.toBeNull()
-    expect(chat().style.width).toBe('380px')
+    expect(chat().className).toContain('chat__center--narrow')
+    expect(chatWidth()).toBe('380px')
     expect(screen.getByTestId('body-web:p1')).toBeTruthy()
   })
 
   it('is absent without a workbench, and the chat takes the room', () => {
     render(layout({ bench: false }))
     expect(bench()).toBeNull()
-    expect(chat().style.width).toBe('')
+    expect(chat().className).not.toContain('chat__center--narrow')
     expect(screen.getByText('完整会话列表')).toBeTruthy()
   })
 
@@ -157,26 +161,26 @@ describe('chat splitter', () => {
     fireEvent.pointerDown(handle(), { clientX: 500, pointerId: 1 })
     fireEvent.pointerMove(window, { clientX: 600, pointerId: 1 })
     fireEvent.pointerUp(window, { pointerId: 1 })
-    expect(chat().style.width).toBe('480px')
+    expect(chatWidth()).toBe('480px')
     unmount()
     render(layout())
-    expect(chat().style.width).toBe('480px')
+    expect(chatWidth()).toBe('480px')
     act(() => useWorkbench.getState().setMode('focus'))
-    expect(chat().style.width).toBe('380px')
+    expect(chatWidth()).toBe('380px')
   })
 
   it('clamps to 320–560 and resizes from the keyboard', async () => {
     render(layout())
     fireEvent.pointerDown(handle(), { clientX: 500, pointerId: 1 })
     fireEvent.pointerMove(window, { clientX: 100, pointerId: 1 })
-    await waitFor(() => expect(chat().style.width).toBe('320px'))
+    await waitFor(() => expect(chatWidth()).toBe('320px'))
     fireEvent.pointerMove(window, { clientX: 1400, pointerId: 1 })
-    await waitFor(() => expect(chat().style.width).toBe('560px'))
+    await waitFor(() => expect(chatWidth()).toBe('560px'))
     fireEvent.pointerUp(window, { pointerId: 1 })
     fireEvent.keyDown(handle(), { key: 'ArrowLeft' })
-    expect(chat().style.width).toBe('544px')
+    expect(chatWidth()).toBe('544px')
     fireEvent.keyDown(handle(), { key: 'ArrowRight' })
-    expect(chat().style.width).toBe('560px')
+    expect(chatWidth()).toBe('560px')
   })
 })
 
@@ -207,7 +211,7 @@ describe('inspector while the workbench is open', () => {
     expect(chat().hidden).toBe(true)
     const dock = screen.getByRole('complementary', { name: '侧栏' })
     expect(dock.className).toContain('chat__dock--in-chat')
-    expect(dock.style.width).toBe('380px')
+    expect(chatWidth()).toBe('380px')
     expect(screen.getByRole('separator', { name: '调整聊天栏宽度' })).toBeTruthy()
     expect(screen.queryByRole('separator', { name: '调整侧栏宽度' })).toBeNull()
     view.rerender(layout())
@@ -220,9 +224,9 @@ describe('inspector while the workbench is open', () => {
     render(layout({ rail: <div>群信息</div> }))
     const dock = screen.getByRole('complementary', { name: '侧栏' })
     expect(dock.className).toContain('chat__dock--over')
-    expect(dock.style.left).toBe('40px')
+    expect(dock.hasAttribute('data-chat-over')).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: '展开聊天' }))
-    expect(dock.style.left).toBe('420px')
+    expect(dock.hasAttribute('data-chat-over')).toBe(true)
   })
 
   it('folds the list to the icon strip when that leaves room for the chat, without changing the stored mode', () => {
@@ -249,16 +253,17 @@ describe('inspector while the workbench is open', () => {
     setWidth(1100)
     localStorage.setItem('gonggong.railWidth.info', '600')
     const view = render(layout({ rail: <div>群信息</div> }))
-    expect(screen.getByRole('complementary', { name: '侧栏' }).style.width).toBe('380px')
+    expect(screen.getByRole('complementary', { name: '侧栏' }).className).toContain('chat__dock--in-chat')
+    expect(chatWidth()).toBe('380px')
     view.rerender(layout({ bench: false, rail: <div>群信息</div> }))
-    expect(screen.getByRole('complementary', { name: '侧栏' }).style.width).toBe('600px')
+    expect(railWidth()).toBe('600px')
   })
 
   it('resizes from the splitter on its left edge', () => {
     render(layout({ rail: <div>群信息</div> }))
     const handle = screen.getByRole('separator', { name: '调整侧栏宽度' })
     fireEvent.keyDown(handle, { key: 'ArrowLeft' })
-    expect(screen.getByRole('complementary', { name: '侧栏' }).style.width).toBe('336px')
+    expect(railWidth()).toBe('336px')
     expect(localStorage.getItem('gonggong.railWidth.info')).toBe('336')
   })
 

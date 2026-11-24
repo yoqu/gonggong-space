@@ -365,4 +365,13 @@ export default {
   '已访问 {n} 个网页': 'Visited {n} {n:page|pages}',
   '含可能删除数据或高风险的请求，请逐个审批':
     'Includes requests that may delete data or are high risk; decide them one by one',
+  '要丢弃本轮未提交的改动吗？': "Discard this turn's uncommitted changes?",
+  '丢弃后会先保存本地备份，再将工作区回滚到同步版本。':
+    'Discarding backs up your changes locally first, then rolls the workspace back to the synced version.',
+  '工作区里本轮触及的文件将还原到运行前状态，不影响此前已有的未提交改动。':
+    'Files touched in this turn will be restored to their pre-run state; earlier uncommitted changes stay untouched.',
+  丢弃改动: 'Discard changes',
+  收起详情: 'Hide details',
+  收起过程: 'Collapse output',
+  收起提示: 'Collapse details',
 } satisfies Record<string, string>

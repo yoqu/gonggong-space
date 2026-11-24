@@ -21,6 +21,7 @@ import { ipc, type Mirror, type Settings } from '../ipc'
 import { formatEnv, parseEnv } from '../lib/env'
 import { host } from '../lib/labels'
 import { fail, PathValue } from '../lib/ui'
+import { ConnectionDiagnosticsDialog } from '../shell/ConnectionDiagnosticsDialog'
 import { useRestartToUpdate } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
@@ -54,11 +55,18 @@ function EnvRows({
 }) {
   const [text, setText] = useState(() => formatEnv(env))
   const [error, setError] = useState<string | null>(null)
-  const save = () => {
+  const [saving, setSaving] = useState(false)
+  const save = async () => {
+    if (saving) return
     try {
       const parsed = parseEnv(text)
       setError(null)
-      void onSave(parsed)
+      setSaving(true)
+      try {
+        await onSave(parsed)
+      } finally {
+        setSaving(false)
+      }
     } catch (e) {
       setError((e as Error).message)
     }
@@ -85,7 +93,8 @@ function EnvRows({
           variant="primary"
           aria-label={t('保存环境变量')}
           disabled={text === formatEnv(env)}
-          onClick={save}
+          loading={saving}
+          onClick={() => void save()}
         >
           {t('保存')}
         </Button>
@@ -143,6 +152,9 @@ export function SettingsPage(_: PageProps) {
   const [theme, setThemeState] = useState<ThemePreference>(() => getTheme())
   const [glass, setGlassState] = useState<GlassPreference>(() => getGlass())
   const [confirming, setConfirming] = useState(false)
+  const [unbinding, setUnbinding] = useState(false)
+  const [diagOpen, setDiagOpen] = useState(false)
+  const [savingToggles, setSavingToggles] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     ipc.settings().then(setSettings, fail)
@@ -151,13 +163,34 @@ export function SettingsPage(_: PageProps) {
   const toggle =
     (key: 'autoUpgrade' | 'launchAtLogin' | 'hideDockOnClose', save: (on: boolean) => Promise<void>) =>
     async (on: boolean) => {
+      if (savingToggles[key]) return
+      setSavingToggles((s) => ({ ...s, [key]: true }))
       try {
         await save(on)
         setSettings((s) => s && { ...s, [key]: on })
       } catch (e) {
         fail(e)
+      } finally {
+        setSavingToggles((s) => ({ ...s, [key]: false }))
       }
     }
+
+  const closeUnbind = () => {
+    if (!unbinding) setConfirming(false)
+  }
+
+  const confirmUnbind = async () => {
+    if (unbinding) return
+    setUnbinding(true)
+    try {
+      await ipc.unbind()
+      setConfirming(false)
+    } catch (e) {
+      fail(e)
+    } finally {
+      setUnbinding(false)
+    }
+  }
 
   const saves = useSaves()
   const saveMirror = (mirror: Mirror) =>
@@ -219,11 +252,12 @@ export function SettingsPage(_: PageProps) {
         <VersionRow version={info?.version} />
         <GroupRow label={t('自动升级')} description={t('自动下载新版本，本机任务结束后自动重启生效')}>
           <span className="dk-inline">
-            <HelpButton help={t('服务器公布协议版本，不兼容时拒绝连接并提示升级。')} />
+            <HelpButton help={t('发现不兼容的旧版本时，会提示你升级后再连接。')} />
             <Switch
               aria-label={t('自动升级')}
               checked={settings?.autoUpgrade ?? false}
               disabled={!settings}
+              loading={Boolean(savingToggles.autoUpgrade)}
               onChange={toggle('autoUpgrade', ipc.setAutoUpgrade)}
             />
           </span>
@@ -233,6 +267,7 @@ export function SettingsPage(_: PageProps) {
             aria-label={t('开机启动')}
             checked={settings?.launchAtLogin ?? false}
             disabled={!settings}
+            loading={Boolean(savingToggles.launchAtLogin)}
             onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
           />
         </GroupRow>
@@ -245,6 +280,7 @@ export function SettingsPage(_: PageProps) {
               aria-label={t('关闭窗口后隐藏程序坞图标')}
               checked={settings?.hideDockOnClose ?? false}
               disabled={!settings}
+              loading={Boolean(savingToggles.hideDockOnClose)}
               onChange={toggle('hideDockOnClose', ipc.setHideDockOnClose)}
             />
           </GroupRow>
@@ -276,25 +312,33 @@ export function SettingsPage(_: PageProps) {
         <GroupRow label={t('备份目录')} description={t('被覆盖的本地修改、中断的半成品')}>
           {info ? <PathValue path={info.backupsDir} /> : <Skeleton count={1} width={160} />}
         </GroupRow>
-        <GroupRow label={t('服务器')} description={t('只出站连接 · HTTPS / WSS')}>
+        <GroupRow label={t('服务器')} description={t('由本机主动加密连接服务器')}>
           <span className="dk-value">{host(info?.server)}</span>
         </GroupRow>
+        <GroupRow label={t('连接诊断')} onClick={() => setDiagOpen(true)} />
       </GroupBox>
       <GroupBox>
         <GroupRow label={t('解除绑定…')} destructive onClick={() => setConfirming(true)} />
       </GroupBox>
       <p className="dk-footnote">{t('解除绑定后清除团队密钥与托管工作区，本机备份保留。')}</p>
+      <ConnectionDiagnosticsDialog open={diagOpen} onClose={() => setDiagOpen(false)} />
       <AlertDialog
         open={confirming}
-        onClose={() => setConfirming(false)}
+        onClose={closeUnbind}
         icon={<img src={logo} alt="" width={48} height={48} />}
-        title={t('要解除本机与团队服务器的绑定吗？')}
+        title={t('要解除这台电脑与团队服务器的绑定吗？')}
         message={t(
-          '本机将断开连接，清除团队密钥与托管工作区（/cd 绑定的目录与本机备份保留），并回到首次绑定引导。此操作不可撤销。',
+          '这台电脑将断开连接，团队密钥和托管工作区会被清理，你手动选择的本机目录和本地备份会保留。此操作不可撤销。',
         )}
         actions={[
-          { label: t('取消'), onClick: () => setConfirming(false) },
-          { label: t('解除绑定'), variant: 'destructive', onClick: () => void ipc.unbind().catch(fail) },
+          { label: t('取消'), disabled: unbinding, onClick: closeUnbind },
+          {
+            label: t('解除绑定'),
+            variant: 'destructive',
+            disabled: unbinding,
+            loading: unbinding,
+            onClick: () => void confirmUnbind(),
+          },
         ]}
       />
     </>

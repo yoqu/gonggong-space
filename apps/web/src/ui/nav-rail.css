@@ -46,8 +46,8 @@
 }
 .ui-rail__tile {
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast),
+    background-color var(--fade-fast),
+    color var(--fade-fast),
     scale var(--spring-interactive);
 }
 .ui-rail__tile > svg {

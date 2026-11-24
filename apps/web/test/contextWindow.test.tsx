@@ -88,4 +88,28 @@ describe('上下文窗口', () => {
     expect(screen.getByText('分项在本轮结束后统计。')).toBeTruthy()
     expect(screen.queryByText('提示词缓存')).toBeNull()
   })
+
+  it('expands beyond 8 items and collapses back with 收起详情 and aria-expanded', () => {
+    const many = {
+      tools: Array.from({ length: 10 }, (_, i) => ({
+        name: `Tool${i + 1}`,
+        kind: 'execute',
+        count: 1,
+        tokens: 1_000 * (10 - i),
+      })),
+      turns: [500],
+    }
+    render(<ContextWindow context={{ used: 100_000, size: 200_000 }} breakdown={many} />)
+    const listItems = () => screen.getAllByRole('listitem').filter((li) => li.closest('.ctxw__list'))
+    expect(listItems()).toHaveLength(8)
+    const toggle = screen.getByRole('button', { name: '显示全部 12 项' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(toggle)
+    expect(listItems()).toHaveLength(12)
+    const collapse = screen.getByRole('button', { name: '收起详情' })
+    expect(collapse.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(collapse)
+    expect(listItems()).toHaveLength(8)
+    expect(screen.getByRole('button', { name: '显示全部 12 项' }).getAttribute('aria-expanded')).toBe('false')
+  })
 })

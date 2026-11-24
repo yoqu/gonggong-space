@@ -2,6 +2,7 @@ import { m, useAnimationControls } from 'motion/react'
 import { type FormEvent, type ReactNode, useEffect } from 'react'
 import { t } from '../../i18n'
 import { Button, Icon, Logo, Spinner } from '../../ui'
+import { reducedMotion } from '../../ui/presence'
 import { AuthStage, type AuthVariant, LocaleToggle, ThemeToggle } from './AuthStage'
 import './auth.css'
 
@@ -34,7 +35,8 @@ export function AuthCard({
 }) {
   const shake = useAnimationControls()
   useEffect(() => {
-    if (errorKey) void shake.start({ x: [0, -10, 9, -6, 4, 0], transition: { duration: 0.42 } })
+    if (errorKey && !reducedMotion())
+      void shake.start({ x: [0, -10, 9, -6, 4, 0], transition: { duration: 0.42 } })
   }, [errorKey, shake])
 
   const hasHead = Boolean(title || subtitle || beforeTitle || variant === 'login')

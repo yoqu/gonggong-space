@@ -72,7 +72,10 @@ export function App() {
 
   // Unbinding (or rebinding after a revocation) stops the daemon: re-read the binding.
   useEffect(() => {
-    if (phase === 'unbound') refreshInfo()
+    if (phase === 'unbound') {
+      useDaemon.setState({ botGuideDismissed: false })
+      refreshInfo()
+    }
   }, [phase])
 
   // Not bound and not running → first-run flow, kept until its last step even once the daemon is up.
@@ -90,6 +93,7 @@ export function App() {
           onDone={() => {
             setOnboarding(false)
             setLink(null)
+            useDaemon.setState({ botGuideDismissed: false })
             void offerGuide(true)
           }}
         />

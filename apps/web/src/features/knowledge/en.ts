@@ -41,4 +41,7 @@ export default {
   查看方式: 'Show',
   内容: 'Content',
   'v{a} → v{b}': 'v{a} → v{b}',
+  '要回滚到版本 v{version} 吗？': 'Roll back to version v{version}?',
+  '当前内容会被替换为此版本。现有版本仍会保留在历史记录中，可随时切回。':
+    'Current content will be replaced with this version. The existing version stays in history and can be restored anytime.',
 }

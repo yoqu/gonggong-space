@@ -17,12 +17,14 @@ import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import {
   Alert,
+  AlertDialog,
   Button,
   Dialog,
   EmptyState,
   Form,
   FormRow,
   Icon,
+  Presence,
   SearchField,
   SegmentedControl,
   Switch,
@@ -60,6 +62,8 @@ const SEARCH_FROM = 9
 const valueText = (v: string | boolean | undefined) =>
   typeof v === 'boolean' ? (v ? t('是') : t('否')) : (v ?? '').trim()
 
+const normInput = (v: string | boolean | undefined) => (typeof v === 'boolean' ? v : (v ?? '').trim())
+
 /**
  * 创作 (prototype #sheet-0~3): type and template → design system → content → bot, with the summary on the right. The
  * steps follow the plugin and template (creationSteps): no design system step for a template with its own look, and
@@ -84,6 +88,11 @@ export function CreationSheet({
     const p = plugins.find((x) => x.id === open.pluginId) ?? (plugins[0] as GroupPluginDto)
     return newDraft(p, usableBot(p))
   })
+  const [baseline, setBaseline] = useState(() => ({
+    inputs: draft.inputs,
+    directions: draft.directions,
+  }))
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const facetsOf = (d: CreationDraft) => {
     const pm = (plugins.find((p) => p.id === d.pluginId) ?? (plugins[0] as GroupPluginDto)).manifest
     return {
@@ -130,10 +139,11 @@ export function CreationSheet({
   const setInput = (id: string, v: string | boolean) =>
     setDraft((d) => ({ ...d, inputs: { ...d.inputs, [id]: v } }))
   const pickPlugin = (p: GroupPluginDto) => {
-    if (p.id === draft.pluginId) return
+    if (busy || p.id === draft.pluginId) return
     const keep = draft.botId && !blockerOf(p, draft.botId) ? draft.botId : usableBot(p)
     const next = newDraft(p, keep)
     setDraft(next)
+    setBaseline({ inputs: next.inputs, directions: next.directions })
     setFilter(facetsOf(next))
   }
   const query = filter.query.trim().toLowerCase()
@@ -168,6 +178,7 @@ export function CreationSheet({
   const hasActiveProblem = problemItems.some((p) => p.active)
 
   const submit = async () => {
+    if (busy) return
     const req = requestOf({ ...draft, botId: bot?.id ?? null }, uploads.ids, m)
     if (!req) return
     setBusy(true)
@@ -180,22 +191,60 @@ export function CreationSheet({
     }
   }
 
+  const inputKeys = new Set([...Object.keys(draft.inputs), ...Object.keys(baseline.inputs)])
+  const hasUnsavedContent =
+    uploads.items.length > 0 ||
+    draft.directions !== baseline.directions ||
+    [...inputKeys].some((k) => normInput(draft.inputs[k]) !== normInput(baseline.inputs[k]))
+  const requestClose = () => {
+    if (busy) return
+    if (hasUnsavedContent) setConfirmDiscard(true)
+    else closeCreation()
+  }
+  const discardDialog = (
+    <Presence>
+      {confirmDiscard ? (
+        <AlertDialog
+          open
+          title={t('要放弃当前填写的创作内容吗？')}
+          message={t('关闭后，已填写的主题和参数不会保留。')}
+          onClose={() => setConfirmDiscard(false)}
+          actions={[
+            { label: t('继续填写'), onClick: () => setConfirmDiscard(false) },
+            {
+              label: t('放弃内容'),
+              variant: 'destructive',
+              onClick: () => {
+                setConfirmDiscard(false)
+                closeCreation()
+              },
+            },
+          ]}
+        />
+      ) : null}
+    </Presence>
+  )
+
   if (m.composer)
     return (
-      <PromptComposer
-        group={group}
-        plugins={plugins}
-        plugin={plugin}
-        draft={draft}
-        onDraft={set}
-        onPickPlugin={pickPlugin}
-        usable={usable}
-        bot={bot}
-        uploads={uploads}
-        busy={busy}
-        problems={problems}
-        onSubmit={() => void submit()}
-      />
+      <>
+        <PromptComposer
+          group={group}
+          plugins={plugins}
+          plugin={plugin}
+          draft={draft}
+          onDraft={set}
+          onPickPlugin={pickPlugin}
+          usable={usable}
+          bot={bot}
+          uploads={uploads}
+          busy={busy}
+          problems={problems}
+          onClose={requestClose}
+          onSubmit={() => void submit()}
+        />
+        {discardDialog}
+      </>
     )
 
   const subtitles: Record<CreationStep, string> = {
@@ -213,319 +262,327 @@ export function CreationSheet({
     i < at && !(key === 'content' && missing) && !(key === 'bot' && !bot)
 
   return (
-    <Dialog
-      open
-      width={1200}
-      title={t('创作')}
-      message={t('选好以后由 AI 一键完成，结果发到本群')}
-      onClose={closeCreation}
-      closeOnBackdrop={false}
-      footer={<span className="plg-sheet__count">{`${at + 1} / ${steps.length}`}</span>}
-      actions={[
-        { label: t('取消'), onClick: closeCreation },
-        ...(at > 0 ? [{ label: t('上一步'), onClick: () => goStep(steps[at - 1] as CreationStep) }] : []),
-        last
-          ? {
-              label: !asksBot && bot ? t('交给 {bot}', { bot: bot.name }) : t('交给 AI'),
-              variant: 'primary' as const,
-              disabled: busy || problems.length > 0 || uploads.uploading,
-              onClick: () => void submit(),
-            }
-          : {
-              label: t('下一步'),
-              variant: 'primary' as const,
-              onClick: () => goStep(steps[at + 1] as CreationStep),
-            },
-      ]}
-    >
-      <div className="plg-sheet">
-        <nav className="plg-steps" aria-label={t('步骤')}>
-          {steps.map((key, i) => (
-            <button
-              key={key}
-              type="button"
-              className={cx('plg-step', i === at && 'plg-step--on')}
-              aria-current={i === at ? 'step' : undefined}
-              onClick={() => goStep(key)}
-            >
-              <span className={cx('plg-step__n', done(key, i) && 'plg-step__n--done')}>
-                {done(key, i) ? <Icon name="check" size={10} /> : i + 1}
-              </span>
-              <span className="plg-step__text">
-                <span>{STEP_LABEL[key]}</span>
-                <span className="plg-step__sub">{subtitles[key]}</span>
-              </span>
-            </button>
-          ))}
-        </nav>
-        <div className="plg-pane">
-          {step === 'template' ? (
-            <>
-              {usable.length ? null : (
-                <Alert
-                  variant="warning"
-                  title={t('本群暂时没有 Bot 能接这个任务')}
-                  description={t('可以先选好内容，最后一步会写明每个 Bot 不能用的原因。')}
-                />
-              )}
-              <section>
-                <h3 className="plg-heading">{t('做什么')}</h3>
-                <div className="gs-note">
-                  {t('只显示本群已启用的插件。还想要别的类型，请群管理员到群设置里启用。')}
-                </div>
-                <div className="plg-chips">
-                  {plugins.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="plg-chip"
-                      aria-pressed={p.id === plugin.id}
-                      onClick={() => pickPlugin(p)}
-                    >
-                      <PluginTile m={p.manifest} size={20} src={pluginIcon(p)} />
-                      {p.manifest.title}
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <section>
-                <h3 className="plg-heading">{t('选一个模板')}</h3>
-                <div className="gs-note">
-                  {t('{desc} · {n} 个模板', { desc: m.description, n: m.templates.length })}
-                </div>
-                <Facets
-                  label={t('模板分组')}
-                  keys={m.templates.map((x) => x.group)}
-                  value={filter.group}
-                  onChange={(group) => setFilter((f) => ({ ...f, group }))}
-                />
-                <div className="plg-grid plg-grid--tpl">
-                  {templates.map((tp) => (
-                    <button
-                      key={tp.id}
-                      type="button"
-                      className="plg-card"
-                      aria-pressed={tp.id === draft.templateId}
-                      onClick={() => pickTemplate(tp.id)}
-                      onPointerEnter={() => tp.demo && !reducedMotion() && setHovered(tp.id)}
-                      onPointerLeave={() => setHovered(null)}
-                    >
-                      <span className="plg-card__check" aria-hidden="true">
-                        <Icon name="check" size={10} />
-                      </span>
-                      {tp.preview ? (
-                        <img
-                          className="plg-card__thumb"
-                          src={previewUrl(plugin.id, (hovered === tp.id && tp.demo) || tp.preview)}
-                          alt={tp.title}
-                        />
-                      ) : (
-                        <span
-                          className="plg-card__thumb plg-card__thumb--none"
-                          style={{ background: CATEGORY[m.category].color }}
-                        >
-                          <Icon name={CATEGORY[m.category].icon} size={22} />
-                        </span>
-                      )}
-                      <b>{tp.title}</b>
-                      <span className="plg-card__desc">{tp.description}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </>
-          ) : step === 'design' ? (
-            <section>
-              <h3 className="plg-heading">{t('设计系统')}</h3>
-              <div className="gs-note">{t('决定颜色、字体和组件样式，只对这一次创作生效。')}</div>
-              {m.designSystems.length ? (
-                <div className="plg-filters">
-                  <Facets
-                    label={t('设计系统分类')}
-                    keys={m.designSystems.map((x) => x.category)}
-                    value={filter.category}
-                    onChange={(category) => setFilter((f) => ({ ...f, category }))}
+    <>
+      <Dialog
+        open
+        width={1200}
+        title={t('创作')}
+        message={t('选好以后由 AI 一键完成，结果发到本群')}
+        onClose={requestClose}
+        closeOnBackdrop={false}
+        footer={<span className="plg-sheet__count">{`${at + 1} / ${steps.length}`}</span>}
+        actions={[
+          { label: t('取消'), onClick: requestClose },
+          ...(at > 0 ? [{ label: t('上一步'), onClick: () => goStep(steps[at - 1] as CreationStep) }] : []),
+          last
+            ? {
+                label: !asksBot && bot ? t('交给 {bot}', { bot: bot.name }) : t('交给 AI'),
+                variant: 'primary' as const,
+                disabled: busy || problems.length > 0 || uploads.uploading,
+                onClick: () => void submit(),
+              }
+            : {
+                label: t('下一步'),
+                variant: 'primary' as const,
+                onClick: () => goStep(steps[at + 1] as CreationStep),
+              },
+        ]}
+      >
+        <div className="plg-sheet">
+          <nav className="plg-steps" aria-label={t('步骤')}>
+            {steps.map((key, i) => (
+              <button
+                key={key}
+                type="button"
+                className={cx('plg-step', i === at && 'plg-step--on')}
+                aria-current={i === at ? 'step' : undefined}
+                onClick={() => goStep(key)}
+              >
+                <span className={cx('plg-step__n', done(key, i) && 'plg-step__n--done')}>
+                  {done(key, i) ? <Icon name="check" size={10} /> : i + 1}
+                </span>
+                <span className="plg-step__text">
+                  <span>{STEP_LABEL[key]}</span>
+                  <span className="plg-step__sub">{subtitles[key]}</span>
+                </span>
+              </button>
+            ))}
+          </nav>
+          <div className="plg-pane">
+            {step === 'template' ? (
+              <>
+                {usable.length ? null : (
+                  <Alert
+                    variant="warning"
+                    title={t('本群暂时没有 Bot 能接这个任务')}
+                    description={t('可以先选好内容，最后一步会写明每个 Bot 不能用的原因。')}
                   />
-                  {m.designSystems.length >= SEARCH_FROM ? (
-                    <SearchField
-                      className="plg-filters__search"
-                      placeholder={t('搜索设计系统')}
-                      value={filter.query}
-                      onChange={(q) => setFilter((f) => ({ ...f, query: q }))}
-                    />
-                  ) : null}
-                </div>
-              ) : null}
-              {systems.length ? (
-                <div className="plg-grid">
-                  {systems.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      className="plg-card"
-                      aria-pressed={d.id === draft.designSystemId}
-                      onClick={() => set({ designSystemId: d.id })}
-                    >
-                      <span className="plg-card__check" aria-hidden="true">
-                        <Icon name="check" size={10} />
-                      </span>
-                      <Swatches colors={d.swatches} />
-                      <b>{d.title}</b>
-                      <span className="plg-card__desc">{d.description}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : m.designSystems.length ? (
-                <EmptyState compact icon="search" title={t('没有匹配的设计系统')} />
-              ) : (
-                <EmptyState compact icon="appearance" title={t('这个插件没有设计系统，由 AI 自由发挥')} />
-              )}
-            </section>
-          ) : step === 'content' ? (
-            <section>
-              <h3 className="plg-heading">{t('内容与参数')}</h3>
-              <div className="gs-note">{t('带 * 的为必填项。')}</div>
-              <Form className="plg-form">
-                {asked.map((i) => (
-                  <FormRow
-                    key={i.id}
-                    label={i.required ? `${i.label} *` : i.label}
-                    align={i.type === 'text' ? 'top' : 'center'}
-                  >
-                    <InputField input={i} value={draft.inputs[i.id]} onChange={(v) => setInput(i.id, v)} />
-                  </FormRow>
-                ))}
-                <FormRow label={t('参考资料')} align="top">
-                  <div className="plg-files">
-                    <Button size="small" icon="paperclip" onClick={() => fileInput.current?.click()}>
-                      {t('添加附件…')}
-                    </Button>
-                    <input
-                      ref={fileInput}
-                      type="file"
-                      multiple
-                      hidden
-                      aria-label={t('添加附件')}
-                      onChange={(e) => {
-                        uploads.add([...(e.target.files ?? [])])
-                        e.target.value = ''
-                      }}
-                    />
-                    <AttachmentChips uploads={uploads} />
+                )}
+                <section>
+                  <h3 className="plg-heading">{t('做什么')}</h3>
+                  <div className="gs-note">
+                    {t('只显示本群已启用的插件。还想要别的类型，请群管理员到群设置里启用。')}
                   </div>
-                </FormRow>
-                <FormRow label={t('视觉方向')}>
-                  <Switch
-                    ariaLabel={t('视觉方向')}
-                    checked={draft.directions}
-                    onChange={(directions) => set({ directions })}
-                    labelPosition="after"
-                    label={t('先出 2–3 个方向草图，在群里选定后再做完整稿（多一轮生成）')}
+                  <div className="plg-chips">
+                    {plugins.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="plg-chip"
+                        aria-pressed={p.id === plugin.id}
+                        onClick={() => pickPlugin(p)}
+                      >
+                        <PluginTile m={p.manifest} size={20} src={pluginIcon(p)} />
+                        {p.manifest.title}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+                <section>
+                  <h3 className="plg-heading">{t('选一个模板')}</h3>
+                  <div className="gs-note">
+                    {t('{desc} · {n} 个模板', { desc: m.description, n: m.templates.length })}
+                  </div>
+                  <Facets
+                    label={t('模板分组')}
+                    keys={m.templates.map((x) => x.group)}
+                    value={filter.group}
+                    onChange={(group) => setFilter((f) => ({ ...f, group }))}
                   />
-                </FormRow>
-              </Form>
-            </section>
-          ) : (
-            <section>
-              <h3 className="plg-heading">{t('交给谁')}</h3>
-              <div className="gs-note">
-                {t('列出本群的 Bot。只能选在线、并且能用这个插件的 Bot；不能用的会写明原因。')}
-              </div>
-              <div className="plg-bots" role="radiogroup" aria-label={t('交给谁')}>
-                {bots.map((b) => {
-                  const why = blockerOf(plugin, b.id)
-                  return (
-                    // biome-ignore lint/a11y/useSemanticElements: a bot row with avatar and reason, not a bare radio input
-                    <button
-                      key={b.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={b.id === draft.botId}
-                      aria-disabled={why ? true : undefined}
-                      className={cx('plg-botrow', why && 'plg-botrow--off')}
-                      onClick={() => (why ? undefined : set({ botId: b.id }))}
+                  <div className="plg-grid plg-grid--tpl">
+                    {templates.map((tp) => (
+                      <button
+                        key={tp.id}
+                        type="button"
+                        className="plg-card"
+                        aria-pressed={tp.id === draft.templateId}
+                        onClick={() => pickTemplate(tp.id)}
+                        onPointerEnter={() => tp.demo && !reducedMotion() && setHovered(tp.id)}
+                        onPointerLeave={() => setHovered(null)}
+                      >
+                        <span className="plg-card__check" aria-hidden="true">
+                          <Icon name="check" size={10} />
+                        </span>
+                        {tp.preview ? (
+                          <img
+                            className="plg-card__thumb"
+                            src={previewUrl(plugin.id, (hovered === tp.id && tp.demo) || tp.preview)}
+                            alt={tp.title}
+                          />
+                        ) : (
+                          <span
+                            className="plg-card__thumb plg-card__thumb--none"
+                            style={{ background: CATEGORY[m.category].color }}
+                          >
+                            <Icon name={CATEGORY[m.category].icon} size={22} />
+                          </span>
+                        )}
+                        <b>{tp.title}</b>
+                        <span className="plg-card__desc">{tp.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </>
+            ) : step === 'design' ? (
+              <section>
+                <h3 className="plg-heading">{t('设计系统')}</h3>
+                <div className="gs-note">{t('决定颜色、字体和组件样式，只对这一次创作生效。')}</div>
+                {m.designSystems.length ? (
+                  <div className="plg-filters">
+                    <Facets
+                      label={t('设计系统分类')}
+                      keys={m.designSystems.map((x) => x.category)}
+                      value={filter.category}
+                      onChange={(category) => setFilter((f) => ({ ...f, category }))}
+                    />
+                    {m.designSystems.length >= SEARCH_FROM ? (
+                      <SearchField
+                        className="plg-filters__search"
+                        placeholder={t('搜索设计系统')}
+                        value={filter.query}
+                        onChange={(q) => setFilter((f) => ({ ...f, query: q }))}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+                {systems.length ? (
+                  <div className="plg-grid">
+                    {systems.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        className="plg-card"
+                        aria-pressed={d.id === draft.designSystemId}
+                        onClick={() => set({ designSystemId: d.id })}
+                      >
+                        <span className="plg-card__check" aria-hidden="true">
+                          <Icon name="check" size={10} />
+                        </span>
+                        <Swatches colors={d.swatches} />
+                        <b>{d.title}</b>
+                        <span className="plg-card__desc">{d.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : m.designSystems.length ? (
+                  <EmptyState compact icon="search" title={t('没有匹配的设计系统')} />
+                ) : (
+                  <EmptyState compact icon="appearance" title={t('这个插件没有设计系统，由 AI 自由发挥')} />
+                )}
+              </section>
+            ) : step === 'content' ? (
+              <section>
+                <h3 className="plg-heading">{t('内容与参数')}</h3>
+                <div className="gs-note">{t('带 * 的为必填项。')}</div>
+                <Form className="plg-form">
+                  {asked.map((i) => (
+                    <FormRow
+                      key={i.id}
+                      label={i.required ? `${i.label} *` : i.label}
+                      align={i.type === 'text' ? 'top' : 'center'}
                     >
-                      <BotAvatar id={b.id} name={b.name} size={28} />
-                      <span className="plg-botrow__text">
-                        <span className="plg-botrow__name">
-                          <b>{b.name}</b>
-                          <Tag tone="gray">{AGENT_META[b.agentKind].name}</Tag>
+                      <InputField input={i} value={draft.inputs[i.id]} onChange={(v) => setInput(i.id, v)} />
+                    </FormRow>
+                  ))}
+                  <FormRow label={t('参考资料')} align="top">
+                    <div className="plg-files">
+                      <Button size="small" icon="paperclip" onClick={() => fileInput.current?.click()}>
+                        {t('添加附件…')}
+                      </Button>
+                      <input
+                        ref={fileInput}
+                        type="file"
+                        multiple
+                        hidden
+                        aria-label={t('添加附件')}
+                        onChange={(e) => {
+                          uploads.add([...(e.target.files ?? [])])
+                          e.target.value = ''
+                        }}
+                      />
+                      <AttachmentChips uploads={uploads} />
+                    </div>
+                  </FormRow>
+                  <FormRow label={t('视觉方向')}>
+                    <Switch
+                      ariaLabel={t('视觉方向')}
+                      checked={draft.directions}
+                      onChange={(directions) => set({ directions })}
+                      labelPosition="after"
+                      label={t('先出 2–3 个方向草图，在群里选定后再做完整稿（多一轮生成）')}
+                    />
+                  </FormRow>
+                </Form>
+              </section>
+            ) : (
+              <section>
+                <h3 className="plg-heading">{t('交给谁')}</h3>
+                <div className="gs-note">
+                  {t('列出本群的 Bot。只能选在线、并且能用这个插件的 Bot；不能用的会写明原因。')}
+                </div>
+                <div className="plg-bots" role="radiogroup" aria-label={t('交给谁')}>
+                  {bots.map((b) => {
+                    const why = blockerOf(plugin, b.id)
+                    return (
+                      // biome-ignore lint/a11y/useSemanticElements: a bot row with avatar and reason, not a bare radio input
+                      <button
+                        key={b.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={b.id === draft.botId}
+                        aria-disabled={why ? true : undefined}
+                        className={cx('plg-botrow', why && 'plg-botrow--off')}
+                        onClick={() => (why ? undefined : set({ botId: b.id }))}
+                      >
+                        <BotAvatar id={b.id} name={b.name} size={28} />
+                        <span className="plg-botrow__text">
+                          <span className="plg-botrow__name">
+                            <b>{b.name}</b>
+                            <Tag tone="gray">{AGENT_META[b.agentKind].name}</Tag>
+                          </span>
+                          <span className="plg-botrow__sub">
+                            {why
+                              ? `⚠ ${blockerText(why, m, b.name)} · ${t('主人 {name}', { name: b.ownerName })}`
+                              : `${t('在线 · 支持该插件')} · ${t('主人 {name}', { name: b.ownerName })}`}
+                          </span>
                         </span>
-                        <span className="plg-botrow__sub">
-                          {why
-                            ? `⚠ ${blockerText(why, m, b.name)} · ${t('主人 {name}', { name: b.ownerName })}`
-                            : `${t('在线 · 支持该插件')} · ${t('主人 {name}', { name: b.ownerName })}`}
-                        </span>
-                      </span>
-                    </button>
-                  )
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
+          <aside className={cx('plg-side', sideOpen && 'plg-side--open')}>
+            <button
+              type="button"
+              className="plg-side__toggle"
+              aria-expanded={sideOpen}
+              onClick={() => setSideOpen((o) => !o)}
+            >
+              <span>
+                {problemItems.length
+                  ? t('检查：{n} 项未完成', { n: problemItems.length })
+                  : t('检查：可以开始')}
+              </span>
+              <Icon name={sideOpen ? 'chevron-down' : 'chevron-right'} size={12} />
+            </button>
+            <div className="plg-side__body">
+              <h4 className="plg-side__title">{t('将交给 AI 的内容')}</h4>
+              <section className="plg-side__box" aria-label={t('将交给 AI 的内容')}>
+                <div>{`${m.title} v${m.version}`}</div>
+                {template ? <div>{t('模板：{title}', { title: template.title })}</div> : null}
+                {ds ? <div>{t('设计系统：{title}', { title: ds.title })}</div> : null}
+                {filled.map((f) => (
+                  <div key={f.label}>{`${f.label}：${f.value}`}</div>
+                ))}
+                {draft.directions ? <div>{t('先出视觉方向：是')}</div> : null}
+                {uploads.items.length ? (
+                  <div>{t('参考附件：{n} 个', { n: uploads.items.length })}</div>
+                ) : null}
+                {!asksBot && bot ? <div>{t('交给：{bot}', { bot: bot.name })}</div> : null}
+              </section>
+              <h4 className="plg-side__title">{t('发出后群里会看到')}</h4>
+              <div className="plg-side__box">
+                {t('一张「创作请求」卡片，并自动 @{bot}。群成员都能看到参数，也可以「再来一版」。', {
+                  bot: bot?.name ?? t('选中的 Bot'),
                 })}
               </div>
-            </section>
-          )}
-        </div>
-        <aside className={cx('plg-side', sideOpen && 'plg-side--open')}>
-          <button
-            type="button"
-            className="plg-side__toggle"
-            aria-expanded={sideOpen}
-            onClick={() => setSideOpen((o) => !o)}
-          >
-            <span>
-              {problemItems.length
-                ? t('检查：{n} 项未完成', { n: problemItems.length })
-                : t('检查：可以开始')}
-            </span>
-            <Icon name={sideOpen ? 'chevron-down' : 'chevron-right'} size={12} />
-          </button>
-          <div className="plg-side__body">
-            <h4 className="plg-side__title">{t('将交给 AI 的内容')}</h4>
-            <section className="plg-side__box" aria-label={t('将交给 AI 的内容')}>
-              <div>{`${m.title} v${m.version}`}</div>
-              {template ? <div>{t('模板：{title}', { title: template.title })}</div> : null}
-              {ds ? <div>{t('设计系统：{title}', { title: ds.title })}</div> : null}
-              {filled.map((f) => (
-                <div key={f.label}>{`${f.label}：${f.value}`}</div>
-              ))}
-              {draft.directions ? <div>{t('先出视觉方向：是')}</div> : null}
-              {uploads.items.length ? <div>{t('参考附件：{n} 个', { n: uploads.items.length })}</div> : null}
-              {!asksBot && bot ? <div>{t('交给：{bot}', { bot: bot.name })}</div> : null}
-            </section>
-            <h4 className="plg-side__title">{t('发出后群里会看到')}</h4>
-            <div className="plg-side__box">
-              {t('一张「创作请求」卡片，并自动 @{bot}。群成员都能看到参数，也可以「再来一版」。', {
-                bot: bot?.name ?? t('选中的 Bot'),
-              })}
-            </div>
-            <h4 className="plg-side__title">{t('检查')}</h4>
-            <div
-              className={cx(
-                'plg-check',
-                !problemItems.length
-                  ? 'plg-check--ok'
-                  : hasActiveProblem
-                    ? 'plg-check--warn'
-                    : 'plg-check--muted',
-              )}
-            >
-              {problemItems.length ? (
-                problemItems.map((p) => (
-                  <div key={p.text} className={cx('plg-check__item', !p.active && 'plg-check__item--muted')}>
-                    <span aria-hidden="true">{p.active ? '⚠' : '·'}</span>
-                    <span>{p.text}</span>
+              <h4 className="plg-side__title">{t('检查')}</h4>
+              <div
+                className={cx(
+                  'plg-check',
+                  !problemItems.length
+                    ? 'plg-check--ok'
+                    : hasActiveProblem
+                      ? 'plg-check--warn'
+                      : 'plg-check--muted',
+                )}
+              >
+                {problemItems.length ? (
+                  problemItems.map((p) => (
+                    <div
+                      key={p.text}
+                      className={cx('plg-check__item', !p.active && 'plg-check__item--muted')}
+                    >
+                      <span aria-hidden="true">{p.active ? '⚠' : '·'}</span>
+                      <span>{p.text}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="plg-check__item">
+                    <span aria-hidden="true">✓</span>
+                    <span>{t('可以开始：Bot 在线，插件可用，密钥齐全')}</span>
                   </div>
-                ))
-              ) : (
-                <div className="plg-check__item">
-                  <span aria-hidden="true">✓</span>
-                  <span>{t('可以开始：Bot 在线，插件可用，密钥齐全')}</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        </aside>
-      </div>
-    </Dialog>
+          </aside>
+        </div>
+      </Dialog>
+      {discardDialog}
+    </>
   )
 }
 

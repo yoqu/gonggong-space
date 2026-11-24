@@ -141,6 +141,8 @@ export function PullDownButton({
                 portal && 'ui-pulldown__menu--fixed',
               )}
               data-state={presence.state}
+              aria-hidden={presence.state === 'closed' || undefined}
+              inert={presence.state === 'closed'}
               onAnimationEnd={presence.onAnimationEnd}
               onSelect={(value) => {
                 close(true)

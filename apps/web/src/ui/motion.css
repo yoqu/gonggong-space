@@ -19,7 +19,7 @@
 @keyframes ui-exit {
   to {
     opacity: 0;
-    transform: translateX(var(--exit-x, 0)) scale(var(--exit-scale, 1));
+    transform: translate(var(--exit-x, 0), var(--exit-y, 0)) scale(var(--exit-scale, 1));
   }
 }
 /* A list row on its way out (useLeaving): slides aside and fades; clicks no longer land on it. */
@@ -31,6 +31,25 @@
   to {
     opacity: 0;
     transform: translateX(24px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ui-enter {
+    from {
+      transform: none;
+    }
+  }
+  @keyframes ui-exit {
+    to {
+      opacity: 0;
+      transform: none;
+    }
+  }
+  @keyframes ui-leave {
+    to {
+      opacity: 0;
+      transform: none;
+    }
   }
 }
 /* Text that is still working: a light sweeps across it (Codex / Claude status lines). */
@@ -47,19 +66,38 @@
     background-position: -200% 0;
   }
 }
+[data-theme="hc-light"] .ui-shimmer,
+[data-theme="hc-dark"] .ui-shimmer {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--label);
+  animation: none;
+}
+@media (prefers-contrast: more) {
+  .ui-shimmer {
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--label);
+    animation: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .ui-shimmer {
     animation: none;
     color: var(--label);
   }
 }
-/* A live status dot (online machine, running bot): a ring in its own color spreads out and fades. */
+/* A live status dot (running bot, attention indicator): attach to a ::after ring so only transform/opacity animate. */
 @keyframes ui-live-ring {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+    transform: scale(1);
+    opacity: 0.45;
   }
   70%,
   100% {
-    box-shadow: 0 0 0 5px transparent;
+    transform: scale(2.4);
+    opacity: 0;
   }
 }

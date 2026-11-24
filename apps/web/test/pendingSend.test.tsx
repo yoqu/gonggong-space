@@ -7,6 +7,7 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { useQuote } from '../src/features/attachments/quote'
 import { usePending } from '../src/features/chat/pending'
+import { messageKey } from '../src/features/chat/TimelineItems'
 import { useAppend } from '../src/features/runs/append'
 import { apiError, mockApi } from './mockApi'
 
@@ -133,12 +134,24 @@ describe('optimistic send', () => {
     expect(within(pending).getByLabelText('正在发送')).toBeTruthy()
     expect(input().value).toBe('')
 
-    // The realtime echo can beat the response: it replaces the pending row by its clientId.
+    // The realtime echo can beat the response: it replaces the pending row by its clientId without double-animating.
     const clientId = String((posts(calls)[0]!.body as { clientId: string }).clientId)
+    expect(pending.dataset.clientId).toBe(clientId)
+    expect(pending.className).toContain('tl-item--enter')
     const real = msg({ seq: 2, body: '马上看到我', clientId })
+    expect(messageKey(real)).toBe(clientId)
+    expect(messageKey(msg({ seq: 3, body: '其他人' }))).toBe('m3')
     push({ t: 'message.new', message: real })
     expect(within(main).queryByTestId('pending-message')).toBeNull()
     expect(within(main).getAllByText('马上看到我')).toHaveLength(1)
+    const confirmedRow = main.querySelector(`[data-msg-id="${real.id}"]`) as HTMLElement
+    expect(confirmedRow.querySelector('.pn-msg--from-optimistic')).toBeTruthy()
+
+    // Another member's arriving message is not marked as optimistic so it plays its entrance normally.
+    const other = msg({ seq: 3, authorId: 'u2', authorName: '李建国', body: '他人消息' })
+    push({ t: 'message.new', message: other })
+    const otherRow = main.querySelector(`[data-msg-id="${other.id}"]`) as HTMLElement
+    expect(otherRow.querySelector('.pn-msg--from-optimistic')).toBeNull()
 
     await act(async () => reply(real))
     expect(within(main).queryByTestId('pending-message')).toBeNull()

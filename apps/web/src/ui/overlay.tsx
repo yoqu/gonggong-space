@@ -1,7 +1,9 @@
 import {
   type AnimationEvent,
+  Children,
   type CSSProperties,
   createContext,
+  Fragment,
   type ReactNode,
   type RefObject,
   useContext,
@@ -127,20 +129,34 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, open: boolean) 
 
 const PresenceOpen = createContext(true)
 
+/** Reads whether an enclosing `<Presence>` considers its child open (for custom overlays like SearchOverlay). */
+export const usePresenceOpen = () => useContext(PresenceOpen)
+
 /**
- * Wraps a conditionally rendered overlay (`{cond ? <XDialog open … /> : null}`) so that, when the
+ * Wraps one or more conditionally rendered overlays (`{cond && <XDialog open … />}`) so that, when the
  * condition clears, the last element stays mounted as closed and can play its exit animation.
  */
 export function Presence({ children }: { children: ReactNode }) {
-  const shown = children != null && children !== false
+  const shown = Children.toArray(children).length > 0
+  const [prevShown, setPrevShown] = useState(shown)
+  const [gen, setGen] = useState(0)
+  if (shown !== prevShown) {
+    setPrevShown(shown)
+    if (shown) setGen((n) => n + 1)
+  }
   const last = useRef(children)
   if (shown) last.current = children
   const { mounted } = usePresence(shown)
-  return mounted ? <PresenceOpen.Provider value={shown}>{last.current}</PresenceOpen.Provider> : null
+  return mounted ? (
+    <PresenceOpen.Provider value={shown}>
+      <Fragment key={gen}>{last.current}</Fragment>
+    </PresenceOpen.Provider>
+  ) : null
 }
 
 interface PanelProps {
   ref: RefObject<HTMLDivElement | null>
+  visible: boolean
   onAnimationEnd: (e: AnimationEvent) => void
 }
 
@@ -169,15 +185,16 @@ function Modal({
   useEscape(onClose, visible)
   useFocusTrap(ref, visible && trapFocus)
   if (!presence.mounted) return null
+  const closing = !visible
   const node = (
-    <div className={layer} data-state={presence.state}>
+    <div className={layer} data-state={presence.state} aria-hidden={closing || undefined} inert={closing}>
       <div
         className="ui-scrim"
         data-testid="dialog-overlay"
-        onClick={closeOnScrim ? onClose : undefined}
+        onClick={closeOnScrim && visible ? onClose : undefined}
         aria-hidden="true"
       />
-      {panel({ ref, onAnimationEnd: presence.onAnimationEnd })}
+      {panel({ ref, visible, onAnimationEnd: presence.onAnimationEnd })}
     </div>
   )
   return portal ? createPortal(node, document.body) : node
@@ -227,7 +244,8 @@ function ModalBody({
   actions,
   footer,
   onClose,
-}: Omit<SheetProps, 'open'> & { titleId: string }) {
+  interactive = true,
+}: Omit<SheetProps, 'open'> & { titleId: string; interactive?: boolean }) {
   return (
     <>
       {title || message || onClose ? (
@@ -240,7 +258,7 @@ function ModalBody({
             ) : null}
             {message ? <p className="ui-dialog__message">{message}</p> : null}
           </div>
-          {onClose ? <CloseButton onClick={onClose} /> : null}
+          {onClose ? <CloseButton onClick={() => interactive && onClose()} /> : null}
         </div>
       ) : null}
       {children != null ? <div className="ui-dialog__body">{children}</div> : null}
@@ -256,7 +274,7 @@ function ModalBody({
               loading={a.loading}
               type={a.type}
               form={a.form}
-              onClick={a.onClick}
+              onClick={a.onClick ? () => interactive && a.onClick?.() : undefined}
               data-autofocus={a.autoFocus || undefined}
               className="ui-dialog__action"
             >
@@ -292,7 +310,7 @@ export function Sheet({
       trapFocus={trapFocus}
       layer="ui-sheet-layer"
       portal={false}
-      panel={({ ref, onAnimationEnd }) => (
+      panel={({ ref, visible, onAnimationEnd }) => (
         <div
           ref={ref}
           role="dialog"
@@ -304,7 +322,7 @@ export function Sheet({
           style={{ width }}
           onAnimationEnd={onAnimationEnd}
         >
-          <ModalBody titleId={titleId} {...props} />
+          <ModalBody titleId={titleId} interactive={visible} {...props} />
         </div>
       )}
     />
@@ -353,7 +371,7 @@ export function Dialog({
       trapFocus={trapFocus}
       layer={cx('ui-overlay', contained && 'ui-overlay--contained')}
       portal={!contained}
-      panel={({ ref, onAnimationEnd }) => (
+      panel={({ ref, visible, onAnimationEnd }) => (
         // biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is dialog or alertdialog, both modal roles
         <div
           ref={ref}
@@ -372,6 +390,7 @@ export function Dialog({
             <ModalBody
               titleId={titleId}
               message={message}
+              interactive={visible}
               onClose={props.actions?.length ? undefined : onClose}
               {...props}
             >
@@ -414,7 +433,8 @@ function AlertContent({
   icon,
   suppression,
   actions,
-}: AlertPanelProps & { titleId: string }) {
+  interactive = true,
+}: AlertPanelProps & { titleId: string; interactive?: boolean }) {
   const [suppressed, setSuppressed] = useState(false)
   return (
     <>
@@ -438,7 +458,7 @@ function AlertContent({
             variant={a.variant ?? 'default'}
             disabled={a.disabled}
             loading={a.loading}
-            onClick={() => a.onClick?.(suppressed)}
+            onClick={() => interactive && a.onClick?.(suppressed)}
           >
             {a.label}
           </Button>
@@ -474,7 +494,7 @@ export function AlertDialog({
       open={open}
       onClose={onClose}
       closeOnScrim={false}
-      panel={({ ref, onAnimationEnd }) => (
+      panel={({ ref, visible, onAnimationEnd }) => (
         <div
           ref={ref}
           role="alertdialog"
@@ -487,7 +507,7 @@ export function AlertDialog({
           )}
           onAnimationEnd={onAnimationEnd}
         >
-          <AlertContent titleId={titleId} {...props} />
+          <AlertContent titleId={titleId} interactive={visible} {...props} />
         </div>
       )}
     />
@@ -507,8 +527,8 @@ export function DiscardChangesDialog({
   return (
     <AlertDialog
       open={open}
-      title={t('有未保存的更改，确定放弃？')}
-      message={t('放弃后未保存的修改将不会保留。')}
+      title={t('要放弃未保存的更改吗？')}
+      message={t('关闭后，当前未保存的修改不会保留。')}
       onClose={onCancel}
       actions={[
         { label: t('继续编辑'), onClick: onCancel },
@@ -548,12 +568,13 @@ export function Drawer({
   useEscape(onClose, visible)
   useFocusTrap(ref, visible)
   if (!presence.mounted) return null
+  const closing = !visible
   return createPortal(
     <>
       <div
         className="ui-drawer-overlay"
         data-state={presence.state}
-        onClick={closeOnBackdrop ? onClose : undefined}
+        onClick={closeOnBackdrop && visible ? onClose : undefined}
         aria-hidden="true"
       />
       <div
@@ -562,6 +583,8 @@ export function Drawer({
         aria-modal="true"
         aria-label={label}
         aria-labelledby={label ? undefined : titleId}
+        aria-hidden={closing || undefined}
+        inert={closing}
         tabIndex={-1}
         className="ui-drawer"
         style={width ? ({ '--drawer-width': `${width}px` } as CSSProperties) : undefined}
@@ -573,7 +596,7 @@ export function Drawer({
           <h2 id={titleId} className="ui-drawer__title">
             {title}
           </h2>
-          <CloseButton onClick={onClose} />
+          <CloseButton onClick={() => visible && onClose()} />
         </div>
         <div className="ui-drawer__body">{children}</div>
       </div>

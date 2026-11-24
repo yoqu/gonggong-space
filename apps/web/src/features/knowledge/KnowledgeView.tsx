@@ -152,7 +152,7 @@ export function KnowledgeView({ groupId }: { groupId: string }) {
         {open?.kind === 'edit' ? (
           <KnowledgeEditor groupId={groupId} entryId={open.entry?.id} onSaved={reload} onClose={close} />
         ) : open?.kind === 'history' ? (
-          <KnowledgeHistory entry={open.entry} onClose={close} />
+          <KnowledgeHistory entry={open.entry} onChanged={reload} onClose={close} />
         ) : open?.kind === 'delete' ? (
           <ConfirmActionDialog
             title={t('删除「{title}」？', { title: open.entry.title })}

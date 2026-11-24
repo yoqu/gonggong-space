@@ -19,7 +19,7 @@ export function RevokeMachineDialog({
       message={t('解绑后需要重新生成接入链接才能再次使用。')}
       consequences={[
         t('这台电脑的共工客户端会立即断开'),
-        t('客户端会清理这台电脑上的托管工作区；/cd 目录与本地备份保留'),
+        t('客户端会清理这台电脑上的托管工作区；你手动选择的本机目录和本地备份会保留'),
       ]}
       label={t('解绑#computer')}
       done={t('已解绑 {name}', { name: machine.name })}

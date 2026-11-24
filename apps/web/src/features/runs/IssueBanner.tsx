@@ -20,7 +20,8 @@ export function IssueBanner({ issue, onRetry }: { issue: RunIssue; onRetry?: () 
     if (!(await onRetry())) setRetrying(false)
   }
   const lines = issue.detail.replace(/\n+$/, '').split('\n')
-  const folded = !all && lines.length > HEAD_LINES
+  const expandable = lines.length > HEAD_LINES
+  const folded = !all && expandable
   const error = issue.tone === 'error'
   return (
     <div className="run-issue" data-tone={issue.tone} role={error ? 'alert' : 'status'}>
@@ -53,9 +54,14 @@ export function IssueBanner({ issue, onRetry }: { issue: RunIssue; onRetry?: () 
           <div className="run-issue__detail">{(folded ? lines.slice(0, HEAD_LINES) : lines).join('\n')}</div>
         )
       ) : null}
-      {folded ? (
-        <button type="button" className="run-issue__more" onClick={() => setAll(true)}>
-          {t('展开全部')}
+      {expandable ? (
+        <button
+          type="button"
+          className="run-issue__more"
+          aria-expanded={all}
+          onClick={() => setAll((v) => !v)}
+        >
+          {all ? t('收起提示') : t('展开全部')}
         </button>
       ) : null}
       {issue.hint ? <div className="run-issue__hint">{issue.hint}</div> : null}

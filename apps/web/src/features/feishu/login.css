@@ -23,8 +23,8 @@
   text-decoration: none;
   cursor: pointer;
   transition:
-    background-color var(--motion-fast),
-    box-shadow var(--motion-fast),
+    background-color var(--fade-fast),
+    box-shadow var(--fade-fast),
     transform var(--spring-interactive);
 }
 .feishu-card:hover {
@@ -63,8 +63,8 @@
   font-size: var(--text-callout-size);
   cursor: pointer;
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast);
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 .feishu-back:hover:not(:disabled) {
   background: var(--group-bg);
@@ -176,8 +176,8 @@
   text-align: left;
   cursor: pointer;
   transition:
-    background-color var(--motion-fast),
-    box-shadow var(--motion-fast),
+    background-color var(--fade-fast),
+    box-shadow var(--fade-fast),
     transform var(--spring-interactive);
 }
 .feishu-choice:hover:not(:disabled) {

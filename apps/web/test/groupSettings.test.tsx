@@ -1,5 +1,5 @@
 import type { BotDto, GroupBotStateDto, GroupDto, RunDto, Tier, UserDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
@@ -1178,11 +1178,21 @@ describe('group settings dialog', () => {
     expect(hops.value).toBe('3')
     expect((within(dlg).getByLabelText('权限审批等待（分钟）') as HTMLInputElement).value).toBe('30')
     expect((within(dlg).getByLabelText('Bot 离线等待上线（分钟）') as HTMLInputElement).value).toBe('30')
+    const saveBtn = within(dlg).getByRole('button', { name: '保存' }) as HTMLButtonElement
+    expect(saveBtn.disabled).toBe(true)
+    // live Stepper updates dirty immediately while typing, before blur.
     fireEvent.change(hops, { target: { value: '1' } })
-    fireEvent.blur(hops)
-    fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ ...params, chainMaxHops: 1 })
+    expect(saveBtn.disabled).toBe(false)
+    fireEvent.click(saveBtn)
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ ...params, chainMaxHops: 1 }),
+    )
+    // Stays in dialog, flashes done button state, and toasts.
+    expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
+    const doneBtn = await within(dlg).findByRole('button', { name: '已保存' })
+    expect(doneBtn.className).toContain('ui-btn--done')
+    expect((doneBtn as HTMLButtonElement).disabled).toBe(true)
+    expect(await screen.findByText('群级参数已保存，对新会话生效')).toBeTruthy()
   })
 
   it('reports invalid params and keeps the dialog open', async () => {
@@ -1210,6 +1220,44 @@ describe('group settings dialog', () => {
     fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
     expect(await screen.findByText('参数超出允许范围')).toBeTruthy()
     expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
+  })
+
+  it('locks closing and tab switching while params are saving and updates baseline only to submitted values', async () => {
+    let resolvePut!: (v: unknown) => void
+    mockApi(
+      routes([group()], {
+        'PUT /groups/g1/params': () =>
+          new Promise((r) => {
+            resolvePut = r
+          }),
+      }),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(await within(await openDrawer()).findByRole('button', { name: /群级参数/ }))
+    const dlg = await screen.findByRole('dialog', { name: '群级参数 · 支付服务重构' })
+    const hops = (await within(dlg).findByLabelText('接力链长上限（跳）')) as HTMLInputElement
+
+    fireEvent.change(hops, { target: { value: '5' } })
+    fireEvent.blur(hops)
+    const saveBtn = within(dlg).getByRole('button', { name: '保存' })
+    fireEvent.click(saveBtn)
+    await waitFor(() => expect(saveBtn.getAttribute('aria-busy')).toBe('true'))
+
+    // While saving, closing or switching tabs must be blocked (no DiscardChangesDialog while request is in flight).
+    fireEvent.click(within(dlg).getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '基本信息' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
+
+    // Editing to 7 while save(5) is in flight: when save(5) resolves, 7 remains dirty.
+    fireEvent.change(hops, { target: { value: '7' } })
+    fireEvent.blur(hops)
+    await act(async () => resolvePut({ ...params, chainMaxHops: 5 }))
+    await waitFor(() => expect(saveBtn.hasAttribute('aria-busy')).toBe(false))
+    expect(hops.value).toBe('7')
+    expect(within(dlg).getByText('有未保存的更改 · 保存后对新会话生效')).toBeTruthy()
   })
 
   it('lets an admin switch 禁止直推基准分支 in the repo tab', async () => {

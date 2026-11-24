@@ -47,7 +47,7 @@ export function FeishuChoosePage() {
     setTimeout(() => {
       setUser(me)
       navigate(info?.next ?? '/', { replace: true })
-    }, 420)
+    }, 240)
   }
   const fail = (message: string) => {
     setError(message)

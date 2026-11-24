@@ -129,7 +129,7 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
 
     // Tab switch opens the discard AlertDialog; 继续编辑 keeps edits in place.
     fireEvent.click(within(dlg).getByRole('button', { name: '成员' }))
-    const alert1 = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const alert1 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     const discardBtn = within(alert1).getByRole('button', { name: '放弃更改' })
     expect(discardBtn.className).toContain('ui-btn--destructive')
     fireEvent.click(within(alert1).getByRole('button', { name: '继续编辑' }))
@@ -139,7 +139,7 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
 
     // Confirming 放弃更改 resets dirty state and switches to the target tab.
     fireEvent.click(within(dlg).getByRole('button', { name: '成员' }))
-    const alert2 = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const alert2 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert2).getByRole('button', { name: '放弃更改' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(screen.getByRole('dialog', { name: '成员 · 支付服务重构' })).toBeTruthy()
@@ -153,7 +153,7 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
     // Editing again and clicking × or pressing Escape prompts before closing.
     fireEvent.change(freshInput, { target: { value: '待放弃名称' } })
     fireEvent.click(within(dlg).getByRole('button', { name: '关闭' }))
-    await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     expect(onClose).not.toHaveBeenCalled()
 
     // Escape closes only the AlertDialog; a second Escape prompts again, then 放弃更改 closes.
@@ -162,7 +162,7 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
     expect(onClose).not.toHaveBeenCalled()
 
     fireEvent.keyDown(document, { key: 'Escape' })
-    const alert3 = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const alert3 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert3).getByRole('button', { name: '放弃更改' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -187,7 +187,7 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
 
     // Switching tabs prompts; 放弃更改 resets the params draft back to saved values.
     fireEvent.click(within(dlg).getByRole('button', { name: '基本信息' }))
-    const alert = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const alert = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert).getByRole('button', { name: '放弃更改' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(screen.getByRole('dialog', { name: '基本信息 · 支付服务重构' })).toBeTruthy()
@@ -197,12 +197,37 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
     expect(resetHops.value).toBe('3')
     expect(within(dlg).queryByText(/有未保存的更改/)).toBeNull()
 
-    // Saving params closes directly without triggering the discard AlertDialog.
+    // Saving params stays open, flashes done state, clears dirty, and then closing skips DiscardChangesDialog.
     fireEvent.change(resetHops, { target: { value: '6' } })
-    fireEvent.blur(resetHops)
     fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    const doneBtn = await within(dlg).findByRole('button', { name: '已保存' })
+    expect(doneBtn.className).toContain('ui-btn--done')
+    expect(onClose).not.toHaveBeenCalled()
+    expect(within(dlg).queryByText(/有未保存的更改/)).toBeNull()
+    fireEvent.click(within(dlg).getByRole('button', { name: '关闭' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('omits empty footer bar on non-params tabs for admins while keeping it for params and read-only members', async () => {
+    mockApi({ 'GET /groups/g1/params': params })
+    const adminView = render(<GroupSettingsDialog group={group()} tab="basic" onClose={vi.fn()} />)
+    const dlg = screen.getByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    expect(dlg.querySelector('.ui-dialog__actions')).toBeNull()
+    fireEvent.click(within(dlg).getByRole('button', { name: '群级参数' }))
+    expect(dlg.querySelector('.ui-dialog__actions')).toBeTruthy()
+    adminView.unmount()
+
+    const plain = group({
+      members: [
+        { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+        { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
+      ],
+    })
+    render(<GroupSettingsDialog group={plain} tab="basic" onClose={vi.fn()} />)
+    const roDlg = screen.getByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    expect(roDlg.querySelector('.ui-dialog__actions')).toBeTruthy()
+    expect(within(roDlg).getByText('仅群管理员可修改')).toBeTruthy()
   })
 
   it('protects unsaved GroupMcpTab edits across tab switches and close', async () => {
@@ -224,14 +249,14 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
 
     // Switching tabs asks to confirm; 继续编辑 stays on MCP.
     fireEvent.click(within(dlg).getByRole('button', { name: '基本信息' }))
-    const alert1 = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const alert1 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert1).getByRole('button', { name: '继续编辑' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(screen.getByRole('dialog', { name: 'MCP · 支付服务重构' })).toBeTruthy()
 
     // Closing prompts and confirming 放弃更改 closes the dialog.
     fireEvent.click(within(dlg).getByRole('button', { name: '关闭' }))
-    const alert2 = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const alert2 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert2).getByRole('button', { name: '放弃更改' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })

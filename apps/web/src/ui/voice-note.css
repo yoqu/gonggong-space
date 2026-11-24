@@ -175,7 +175,7 @@
   inset: 0;
   pointer-events: none;
   clip-path: inset(0 calc((1 - var(--voice-progress)) * 100%) 0 0);
-  transition: clip-path var(--motion-fast);
+  transition: clip-path var(--fade-fast);
 }
 .ui-voice[data-scrubbing] .ui-voice__fill {
   transition: none;

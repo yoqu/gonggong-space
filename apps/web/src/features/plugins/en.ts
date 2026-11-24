@@ -175,4 +175,8 @@ export default {
   '检查：可以开始': 'Checks: Ready',
   插件加载失败: 'Failed to load plugins',
   还没有可用插件: 'No plugins available yet',
+  '要放弃当前填写的创作内容吗？': 'Discard your current creation inputs?',
+  '关闭后，已填写的主题和参数不会保留。': 'Closing will discard the topic and options you entered.',
+  继续填写: 'Keep editing',
+  放弃内容: 'Discard',
 }

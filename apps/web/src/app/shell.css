@@ -102,7 +102,7 @@ body {
 }
 .chat__rail {
   position: relative;
-  width: 320px;
+  width: var(--rail-width, 320px);
 }
 .chat__inspector {
   flex: 1;
@@ -113,9 +113,7 @@ body {
 /* Drag strip straddling the rail's left border; the line brightens on hover, drag and focus. */
 .chat__rail-handle {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -4px;
+  inset: 0 auto 0 -4px;
   z-index: 2;
   width: 8px;
   cursor: col-resize;
@@ -124,12 +122,10 @@ body {
 .chat__rail-handle::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
+  inset: 0 auto 0 3px;
   width: 2px;
   background: transparent;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 .chat__rail-handle:hover::after,
 .chat__rail-handle:focus-visible::after,
@@ -139,24 +135,23 @@ body {
 .chat__rail-handle:focus-visible {
   outline: none;
 }
-/* While dragging, keep the resize cursor everywhere and stop text selection. */
+/* While dragging, keep the resize cursor everywhere, disable pane transitions and stop text selection / iframe steals. */
 [data-resizing],
 [data-resizing] * {
   /* biome-ignore lint/complexity/noImportantStyles: must beat every control's own cursor while dragging */
   cursor: col-resize !important;
   user-select: none;
 }
-/* An iframe under the pointer would swallow the move events and the splitter would stop following. */
 [data-resizing] iframe {
   pointer-events: none;
 }
-/* Under 1100px the rail is collapsed by default and floats over the chat when opened. */
+[data-resizing] :is(.chat__center, .chat__rail, .chat__dock, .chat__sidebar) {
+  transition: none;
+}
 @media (max-width: 1099px) {
   .chat__rail {
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0 0 0 auto;
     z-index: 25;
     box-shadow: var(--shadow-menu);
   }
@@ -172,20 +167,18 @@ body {
   border-left: 0;
   animation: var(--spring-smooth) ui-enter;
 }
-/* The 360px panels fill the phone, whatever its width. */
 .chat__rail--overlay .pn-threadpanel {
   width: 100%;
 }
-/* With the workbench open the chat is a fixed-width column left of it (width set inline). */
+/* With the workbench open the chat is a fixed-width column left of it (--chat-width). */
 .chat--bench > .ui-frame__main > .ui-frame__content {
   position: relative;
 }
 .chat__center--narrow {
   flex: none;
+  width: var(--chat-width, 380px);
 }
-.chat__center[hidden] {
-  display: none;
-}
+.chat__center[hidden],
 .chat__sidebar[hidden],
 .chat--full > .ui-frame__sidebar {
   display: none;
@@ -231,30 +224,35 @@ body {
 }
 .chat__center--over {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 40px;
+  inset: 0 auto 0 40px;
   z-index: 24;
   box-shadow: var(--shadow-menu);
 }
-/* 全屏: the chat is out of view (zero size, clipped, invisible) while its composer floats over the workbench. */
 .chat__center--float {
   position: fixed;
   width: 0;
   height: 0;
   overflow: hidden;
   visibility: hidden;
-  /* Fixed, it is its own stacking context: above the workbench so the floating composer shows. */
   z-index: 30;
 }
-/* With the workbench open the rail docks between the chat and the workbench (width set inline). */
 .chat__dock {
   position: relative;
   flex: none;
   display: flex;
   flex-direction: column;
+  width: var(--rail-width, 320px);
   border-left: 1px solid var(--separator);
   background: var(--content-bg);
+}
+.chat__dock--in-chat {
+  width: var(--chat-width, 380px);
+}
+.chat__dock--over {
+  left: 40px;
+}
+.chat__dock--over[data-chat-over] {
+  left: calc(40px + var(--chat-width, 380px));
 }
 .chat__inspector-slot {
   display: contents;
@@ -369,7 +367,7 @@ body {
   font: inherit;
   text-align: left;
   cursor: default;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 .shellbar__search:hover {
   background: var(--control-stroke);
@@ -449,8 +447,8 @@ body {
   color: var(--label-secondary);
   cursor: default;
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast),
+    background-color var(--fade-fast),
+    color var(--fade-fast),
     opacity var(--fade-in);
 }
 .sidebar__list {
@@ -991,8 +989,8 @@ a.sidebar__open {
 .sidebar__section {
   border-radius: var(--radius-field);
   transition:
-    background-color var(--motion-fast),
-    box-shadow var(--motion-fast);
+    background-color var(--fade-fast),
+    box-shadow var(--fade-fast);
 }
 /* Drop target: a tint and an accent ring keep the section's text legible (a solid fill hid it). */
 .sidebar__section--drop {

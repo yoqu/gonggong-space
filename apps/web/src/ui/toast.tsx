@@ -148,7 +148,17 @@ const ICON = {
 }
 
 /** Errors stay until dismissed; others auto-dismiss, held (up to HOLD_DURATION) while hovered or focused. */
-function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: () => void }) {
+function ToastRow({
+  t,
+  open,
+  replaced,
+  onExited,
+}: {
+  t: ToastItem
+  open: boolean
+  replaced: boolean
+  onExited: () => void
+}) {
   const [hover, setHover] = useState(false)
   const [focused, setFocused] = useState(false)
   const swipeY = useRef<number>(undefined)
@@ -173,6 +183,7 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
     <div
       className={cx('ui-toast', t.title != null && 'ui-toast--card')}
       data-state={presence.state}
+      data-replaced={replaced || undefined}
       data-persistent={persistent || undefined}
       role={persistent ? 'alert' : 'status'}
       onAnimationEnd={presence.onAnimationEnd}
@@ -233,21 +244,26 @@ export function Toaster() {
   const items = useToasts((s) => s.items)
   const [prev, setPrev] = useState(items)
   // Dismissed toasts stay rendered until their exit animation ends.
-  const [leaving, setLeaving] = useState<ToastItem[]>([])
+  const [leaving, setLeaving] = useState<{ item: ToastItem; replaced: boolean }[]>([])
   if (prev !== items) {
     setPrev(items)
     const gone = prev.filter((p) => !items.some((t) => t.id === p.id))
-    if (gone.length) setLeaving((l) => [...l, ...gone])
+    const replaced = items.length > 0
+    if (gone.length) setLeaving((l) => [...l, ...gone.map((item) => ({ item, replaced }))])
   }
-  const rows = [...items, ...leaving].sort((a, b) => a.id - b.id)
+  const rows = [
+    ...items.map((item) => ({ item, open: true, replaced: false })),
+    ...leaving.map(({ item, replaced }) => ({ item, open: false, replaced })),
+  ].sort((a, b) => a.item.id - b.item.id)
   return (
     <div className="ui-toasts">
-      {rows.map((t) => (
+      {rows.map((r) => (
         <ToastRow
-          key={t.id}
-          t={t}
-          open={!leaving.includes(t)}
-          onExited={() => setLeaving((l) => l.filter((x) => x !== t))}
+          key={r.item.id}
+          t={r.item}
+          open={r.open}
+          replaced={r.replaced}
+          onExited={() => setLeaving((l) => l.filter((x) => x.item !== r.item))}
         />
       ))}
     </div>

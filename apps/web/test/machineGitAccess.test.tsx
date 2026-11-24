@@ -202,8 +202,14 @@ describe('诊断 self-checks', () => {
     })
     open({ ...server, features: [...server.features, 'container', 'noAutoUpgrade'] }, '/?tab=diagnostics')
     const guide = await screen.findByRole('region', { name: '如何升级' })
-    expect(guide.textContent).toContain('GG_VERSION 改为 1.0.0')
-    expect(within(guide).getByText('docker compose build && docker compose up -d')).toBeTruthy()
+    const prose = guide.querySelector('.mx-sub') as HTMLElement
+    expect(prose.textContent).toContain('1.0.0')
+    expect(prose.textContent).not.toContain('GG_VERSION')
+    expect(
+      within(guide).getByText(
+        'GG_VERSION=1.0.0 docker compose build && GG_VERSION=1.0.0 docker compose up -d',
+      ),
+    ).toBeTruthy()
     expect(guide.textContent).not.toContain('gg run')
   })
 

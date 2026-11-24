@@ -238,9 +238,14 @@ function ContextWindowView({
               </li>
             ))}
           </ul>
-          {!all && entries.length > SHOWN ? (
-            <button type="button" className="ctxw__more" onClick={() => setAll(true)}>
-              {t('显示全部 {n} 项', { n: entries.length })}
+          {entries.length > SHOWN ? (
+            <button
+              type="button"
+              className="ctxw__more"
+              aria-expanded={all}
+              onClick={() => setAll((v) => !v)}
+            >
+              {all ? t('收起详情') : t('显示全部 {n} 项', { n: entries.length })}
             </button>
           ) : null}
           <p className="ctxw__note">{t('分项按文本长度估算；系统提示词与工具定义为已用量减去其余各项。')}</p>

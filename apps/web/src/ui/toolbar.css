@@ -82,7 +82,7 @@
   text-decoration: none;
   cursor: default;
   transition:
-    background var(--motion-fast),
+    background var(--fade-fast),
     transform var(--spring-bouncy);
 }
 .ui-toolbar__btn:hover:not(:disabled) {

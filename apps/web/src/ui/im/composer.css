@@ -71,8 +71,8 @@
   place-items: center;
   cursor: default;
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast),
+    background-color var(--fade-fast),
+    color var(--fade-fast),
     scale var(--spring-interactive);
 }
 .pn-composer__tool:hover {
@@ -164,8 +164,8 @@
   cursor: default;
   flex: none;
   transition:
-    background-color var(--motion-fast),
-    color var(--motion-fast),
+    background-color var(--fade-fast),
+    color var(--fade-fast),
     opacity var(--fade-in),
     scale var(--spring-interactive);
 }
@@ -246,7 +246,7 @@
     scale: 0.88;
   }
   .pn-composer__send[data-state="ready"] {
-    animation: var(--spring-bouncy) pn-send-ready;
+    animation: var(--spring-interactive) pn-send-ready;
   }
   .pn-composer__send[data-state="busy"] .pn-composer__send-icon {
     animation: pn-send-busy 0.9s ease-in-out infinite alternate;

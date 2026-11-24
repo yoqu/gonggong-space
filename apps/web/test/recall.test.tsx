@@ -5,8 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { CanvasChat } from '../src/features/artifacts/CanvasChat'
 import { uploadFile } from '../src/features/attachments/api'
 import { useRecalled } from '../src/features/chat/recalled'
+import { ThreadView } from '../src/features/chat/ThreadView'
+import { Toaster, useToasts } from '../src/ui'
 import { apiError, mockApi } from './mockApi'
 
 vi.mock('../src/features/attachments/api', async (orig) => ({
@@ -296,11 +299,32 @@ describe('重新编辑', () => {
     expect(screen.queryByRole('button', { name: '重新编辑' })).toBeNull()
   })
 
-  it('stops the bot runs my recalled message already started', async () => {
+  it('confirms before recalling a message with running bots, then stops started runs', async () => {
+    let resolveRecall!: (v: MessageDto) => void
     const m = msg({ seq: 1, body: '@Claude 部署' })
     const calls = renderChat(
       [m],
-      { ...recalled(m), 'POST /runs/r1/stop': { stopped: 1 }, 'POST /runs/r2/stop': { stopped: 1 } },
+      {
+        'GET /bots': [
+          {
+            id: 'b1',
+            name: '小王的 Claude',
+            ownerId: 'u1',
+            agentKind: 'claude',
+            sharedWith: [],
+            systemPrompt: '',
+            avatar: 'role-no',
+            presence: 'online',
+            binding: 'bound',
+          },
+        ] as unknown as BotDto[],
+        'POST /messages/m1/recall': () =>
+          new Promise<MessageDto>((r) => {
+            resolveRecall = r
+          }),
+        'POST /runs/r1/stop': { stopped: 1 },
+        'POST /runs/r2/stop': { stopped: 1 },
+      },
       [
         run({ id: 'r1', status: 'running' }),
         run({ id: 'r2', status: 'awaiting_approval' }),
@@ -309,12 +333,198 @@ describe('重新编辑', () => {
         run({ id: 'r5', triggerMessageId: 'm9' }),
       ],
     )
-    await recallIt('@Claude 部署')
+    await openMore('@Claude 部署')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+
+    const dlg = screen.getByRole('alertdialog', { name: '要撤回这条消息并中断运行吗？' })
+    expect(
+      within(dlg).getByText('小王的 Claude 正在根据这条消息执行任务，撤回会立即中断当前运行。'),
+    ).toBeTruthy()
+    expect(calls.some((c) => c.path === '/messages/m1/recall')).toBe(false)
+
+    // Cancelling leaves the message and runs untouched.
+    fireEvent.click(within(dlg).getByRole('button', { name: '取消' }))
+    expect(calls.some((c) => c.path === '/messages/m1/recall')).toBe(false)
+
+    // Re-open and confirm: button locks with loading while recall is in flight, then stops started runs only.
+    await openMore('@Claude 部署')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+    const dlg2 = screen.getByRole('alertdialog', { name: '要撤回这条消息并中断运行吗？' })
+    const confirmBtn = within(dlg2).getByRole('button', { name: '撤回并中断' })
+    fireEvent.click(confirmBtn)
+    await waitFor(() => expect(confirmBtn.getAttribute('aria-busy')).toBe('true'))
+    expect((within(dlg2).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+
+    await act(async () => resolveRecall({ ...m, body: '', recalled: true }))
+    expect(await screen.findByText('你撤回了一条消息')).toBeTruthy()
     await waitFor(() =>
       expect(calls.filter((c) => c.method === 'POST' && c.path.endsWith('/stop')).map((c) => c.path)).toEqual(
         ['/runs/r1/stop', '/runs/r2/stop'],
       ),
     )
+  })
+
+  it('also confirms for queued or offline_wait runs, while recalling completed runs directly without a modal', async () => {
+    const m1 = msg({ seq: 1, body: '排队消息' })
+    const m2 = msg({ seq: 2, body: '已完成消息' })
+    const calls = renderChat(
+      [m1, m2],
+      {
+        'GET /bots': [
+          {
+            id: 'b1',
+            name: '小王的 Claude',
+            ownerId: 'u1',
+            agentKind: 'claude',
+            sharedWith: [],
+            systemPrompt: '',
+            avatar: 'role-no',
+            presence: 'online',
+            binding: 'bound',
+          },
+        ] as unknown as BotDto[],
+        'POST /messages/m1/recall': { ...m1, body: '', recalled: true },
+        'POST /messages/m2/recall': { ...m2, body: '', recalled: true },
+      },
+      [
+        run({ id: 'r1', triggerMessageId: 'm1', status: 'queued', startedAt: null }),
+        run({ id: 'r2', triggerMessageId: 'm2', status: 'completed' }),
+      ],
+    )
+    // Completed run: instant direct recall with no modal.
+    await openMore('已完成消息')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(await screen.findByText('你撤回了一条消息')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/messages/m2/recall')).toBe(true)
+
+    // Queued run: shows confirmation AlertDialog.
+    await openMore('排队消息')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+    expect(screen.getByRole('alertdialog', { name: '要撤回这条消息并中断运行吗？' })).toBeTruthy()
+    expect(calls.some((c) => c.path === '/messages/m1/recall')).toBe(false)
+  })
+
+  it('confirms and stops running bots when recalling inside ThreadView and CanvasChat', async () => {
+    const bot = {
+      id: 'b1',
+      name: '小王的 Claude',
+      ownerId: 'u1',
+      agentKind: 'claude',
+      sharedWith: [],
+      systemPrompt: '',
+      avatar: 'role-no',
+      presence: 'online',
+      binding: 'bound',
+    } as unknown as BotDto
+    useWorkspace.setState({ groups: [group], bots: [bot] })
+
+    // 1. ThreadView
+    const root = msg({ id: 'root1', seq: 1, body: '话题根消息' })
+    const reply = msg({ id: 'm2', seq: 2, threadRootId: 'root1', body: '话题内触发' })
+    const threadCalls = mockApi({
+      'GET /messages/root1/thread?limit=50': {
+        root,
+        replies: [reply],
+        runs: [run({ id: 'rt1', triggerMessageId: 'm2', threadRootId: 'root1', status: 'running' })],
+        state: { following: false, unread: 0, mentioned: false },
+      },
+      'POST /messages/m2/recall': { ...reply, body: '', recalled: true },
+      'POST /runs/rt1/stop': { stopped: 1 },
+    })
+    const tView = render(
+      <MemoryRouter>
+        <ThreadView group={group} rootId="root1" onClose={() => {}} />
+        <Toaster />
+      </MemoryRouter>,
+    )
+    await openMore('话题内触发')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+    const tDlg = screen.getByRole('alertdialog', { name: '要撤回这条消息并中断运行吗？' })
+    expect(within(tDlg).getByText(/小王的 Claude/)).toBeTruthy()
+    fireEvent.click(within(tDlg).getByRole('button', { name: '撤回并中断' }))
+    await waitFor(() =>
+      expect(threadCalls.some((c) => c.method === 'POST' && c.path === '/runs/rt1/stop')).toBe(true),
+    )
+    tView.unmount()
+
+    // 2. CanvasChat
+    const cRoot = msg({ id: 'croot1', seq: 1, body: '画布根' })
+    const cReply = msg({ id: 'cm2', seq: 2, threadRootId: 'croot1', body: '画布内触发' })
+    const canvasCalls = mockApi({
+      'POST /artifacts/a1/chat': { rootId: 'croot1' },
+      'GET /messages/croot1/thread?limit=50': {
+        root: cRoot,
+        replies: [cReply],
+        runs: [run({ id: 'rc1', triggerMessageId: 'cm2', threadRootId: 'croot1', status: 'running' })],
+        state: { following: false, unread: 0, mentioned: false },
+      },
+      'POST /messages/cm2/recall': { ...cReply, body: '', recalled: true },
+      'POST /runs/rc1/stop': { stopped: 1 },
+    })
+    render(
+      <MemoryRouter>
+        <CanvasChat artifactId="a1" groupId="g1" />
+        <Toaster />
+      </MemoryRouter>,
+    )
+    await openMore('画布内触发')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+    const cDlg = screen.getByRole('alertdialog', { name: '要撤回这条消息并中断运行吗？' })
+    fireEvent.click(within(cDlg).getByRole('button', { name: '撤回并中断' }))
+    await waitFor(() =>
+      expect(canvasCalls.some((c) => c.method === 'POST' && c.path === '/runs/rc1/stop')).toBe(true),
+    )
+  })
+
+  it('stops a queued run that transitions to running while a slow attachment snapshot is in flight, and reports stop failures clearly', async () => {
+    useToasts.setState({ items: [] })
+    let resolveAttach!: (r: Response) => void
+    const m = msg({
+      seq: 1,
+      body: '带附件排队',
+      attachments: [{ id: 'a1', name: 'spec.txt', size: 4, mime: 'text/plain', messageId: 'm1' }],
+    })
+    const calls = renderChat(
+      [m],
+      {
+        'GET /bots': [
+          {
+            id: 'b1',
+            name: '小王的 Claude',
+            ownerId: 'u1',
+            agentKind: 'claude',
+            sharedWith: [],
+            systemPrompt: '',
+            avatar: 'role-no',
+            presence: 'online',
+            binding: 'bound',
+          },
+        ] as unknown as BotDto[],
+        'GET /attachments/a1': () =>
+          new Promise<Response>((r) => {
+            resolveAttach = r
+          }),
+        'POST /messages/m1/recall': { ...m, body: '', recalled: true },
+        'POST /runs/r1/stop': apiError(500, 'internal', 'daemon unreachable'),
+      },
+      [run({ id: 'r1', triggerMessageId: 'm1', status: 'queued', startedAt: null })],
+    )
+    await openMore('带附件排队')
+    fireEvent.click(screen.getByRole('menuitem', { name: '撤回' }))
+    const dlg = screen.getByRole('alertdialog', { name: '要撤回这条消息并中断运行吗？' })
+    fireEvent.click(within(dlg).getByRole('button', { name: '撤回并中断' }))
+
+    // While attachment fetch is still pending, the queued run starts running.
+    await waitFor(() => expect(calls.some((c) => c.path === '/attachments/a1')).toBe(true))
+    push({ t: 'run.updated', run: run({ id: 'r1', triggerMessageId: 'm1', status: 'running' }) })
+
+    await act(async () => resolveAttach(new Response('data')))
+    expect(await screen.findByText('你撤回了一条消息')).toBeTruthy()
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/runs/r1/stop')).toBe(true),
+    )
+    expect(await screen.findByText('消息已撤回，但未能停止正在运行的任务，请手动停止')).toBeTruthy()
   })
 })
 

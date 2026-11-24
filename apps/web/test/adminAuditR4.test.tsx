@@ -377,7 +377,7 @@ describe('Round 4 UX Audit — TeamsPage, SchedulesPage, BotsAdminPage, UsersPag
 
     fireEvent.mouseDown(screen.getByText('Bot 乙'))
     const guard = await screen.findByRole('alertdialog')
-    expect(within(guard).getByText('有未保存的更改，确定放弃？')).toBeTruthy()
+    expect(within(guard).getByText('要放弃未保存的更改吗？')).toBeTruthy()
 
     fireEvent.click(within(guard).getByRole('button', { name: '继续编辑' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())

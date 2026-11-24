@@ -210,7 +210,8 @@ describe('knowledge history', () => {
     ...o,
   })
 
-  it('shows what each version changed and rolls back to it', async () => {
+  it('default-selects the latest version, confirms rollback with loading lock and reloads the list', async () => {
+    let resolveRollback: (() => void) | null = null
     const calls = mockApi({
       'GET /groups/g1/knowledge': kb([entry()]),
       'GET /knowledge/k1/versions': [
@@ -223,7 +224,10 @@ describe('knowledge history', () => {
         }),
         version({}),
       ],
-      'POST /knowledge/k1/rollback': detail({ version: 3 }),
+      'POST /knowledge/k1/rollback': () =>
+        new Promise<Response>((resolve) => {
+          resolveRollback = () => resolve(new Response(JSON.stringify(detail({ version: 3 }))))
+        }),
     })
     render(<KnowledgeView groupId="g1" />)
     fireEvent.click(within(await row('发布流程')).getByRole('button', { name: '更多' }))
@@ -232,15 +236,39 @@ describe('knowledge history', () => {
     expect(within(v2).getByText('当前')).toBeTruthy()
     expect(within(v2).getByText('Bot')).toBeTruthy()
     expect(within(v2).getByRole('button', { name: '回滚到此版本' })).toHaveProperty('disabled', true)
-    fireEvent.click(within(v2).getByRole('button', { name: '查看' }))
+    // Latest version (v2) is selected and previewed automatically on open.
     expect(await screen.findByText('+再部署')).toBeTruthy()
+
+    const listLoadsBefore = calls.filter((c) => c.path === '/groups/g1/knowledge').length
     const v1 = screen.getByText('v1').closest('.kb-version') as HTMLElement
     fireEvent.click(within(v1).getByRole('button', { name: '回滚到此版本' }))
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
+    const confirm = await screen.findByRole('alertdialog', { name: '要回滚到版本 v1 吗？' })
+    expect(
+      within(confirm).getByText('当前内容会被替换为此版本。现有版本仍会保留在历史记录中，可随时切回。'),
+    ).toBeTruthy()
+    fireEvent.click(within(confirm).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
+
+    fireEvent.click(within(v1).getByRole('button', { name: '回滚到此版本' }))
+    const confirm2 = await screen.findByRole('alertdialog', { name: '要回滚到版本 v1 吗？' })
+    const okBtn = within(confirm2).getByRole('button', { name: '回滚到此版本' }) as HTMLButtonElement
+    const cancelBtn = within(confirm2).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    expect(okBtn.className).toContain('ui-btn--destructive')
+    fireEvent.click(okBtn)
+    await waitFor(() => expect(okBtn.getAttribute('aria-busy')).toBe('true'))
+    expect(cancelBtn.disabled).toBe(true)
+    await act(async () => {
+      resolveRollback?.()
+    })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls.find((c) => c.method === 'POST')).toMatchObject({
+      path: '/knowledge/k1/rollback',
+      body: { version: 1 },
+    })
     await waitFor(() =>
-      expect(calls.find((c) => c.method === 'POST')).toMatchObject({
-        path: '/knowledge/k1/rollback',
-        body: { version: 1 },
-      }),
+      expect(calls.filter((c) => c.path === '/groups/g1/knowledge').length).toBeGreaterThan(listLoadsBefore),
     )
   })
 })

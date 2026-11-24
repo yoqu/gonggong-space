@@ -6,6 +6,7 @@ import { AppRail } from '../src/app/AppRail'
 import { AppShell, ShellBar } from '../src/app/AppShell'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { SearchOverlay } from '../src/features/search/SearchOverlay'
 import { useSettings } from '../src/features/settings/store'
 import { realtime } from '../src/lib/realtime'
 import { listTime } from '../src/ui'
@@ -339,13 +340,22 @@ describe('notification center', () => {
 
     const row = deletes[1]!.closest('.notif__row') as HTMLElement
     fireEvent.click(deletes[1]!)
-    // It slides out before it leaves the list.
-    await waitFor(() => expect(row.classList.contains('ui-leaving')).toBe(true))
+    // Single-row removal slides out and collapses height smoothly via grid-template-rows.
+    await waitFor(() => {
+      expect(row.classList.contains('ui-leaving')).toBe(true)
+      expect(row.classList.contains('notif__row--collapse')).toBe(true)
+    })
     await waitFor(() => expect(within(list).queryByText('Bot 离线超时')).toBeNull())
     expect(useWorkspace.getState().notifCount).toBe(0)
     expect(screen.getByTestId('where').textContent).toBe('/')
 
+    const readRows = [...list.querySelectorAll('.notif__row')]
     fireEvent.click(screen.getByRole('button', { name: '清除已读' }))
+    // Bulk clear fades smoothly without per-row height collapse.
+    await waitFor(() => {
+      expect(readRows[0]!.classList.contains('notif__row--bulk')).toBe(true)
+      expect(readRows[0]!.classList.contains('notif__row--collapse')).toBe(false)
+    })
     expect(await screen.findByText('暂无通知')).toBeTruthy()
     expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.path)).toEqual([
       '/notifications/n2',
@@ -512,13 +522,13 @@ describe('⌘K search', () => {
     fireEvent.click(screen.getByRole('tab', { name: '运行' }))
     fireEvent.click(await within(results).findByText('小王的 Claude · 迁移'))
     expect(screen.getByTestId('where').textContent).toBe('/g/g1?run=r7')
-    expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull()
+    await waitFor(() => expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull())
     expect(calls.filter((c) => c.path.startsWith('/search')).length).toBe(3)
 
     fireEvent.keyDown(document, { key: 'K', ctrlKey: true })
     await screen.findByPlaceholderText('搜索会话、消息、文件、运行')
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull()
+    await waitFor(() => expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull())
   })
 
   const q = '/search?q=%E9%80%80%E6%AC%BE&tab=msg'
@@ -576,7 +586,7 @@ describe('⌘K search', () => {
     fireEvent.keyDown(input, { key: 'Escape', isComposing: true })
     expect(screen.getByPlaceholderText('搜索会话、消息、文件、运行')).toBeTruthy()
     fireEvent.keyDown(input, { key: 'Escape' })
-    expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull()
+    await waitFor(() => expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull())
   })
 
   it('lists matching conversations above the results, by group name or DM bot name, and opens one', async () => {
@@ -604,7 +614,7 @@ describe('⌘K search', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(screen.getByTestId('where').textContent).toBe('/g/d1')
-    expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull()
+    await waitFor(() => expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull())
   })
 
   it('shows matching conversations instead of "no results" when the server finds nothing', async () => {
@@ -666,7 +676,7 @@ describe('⌘K search', () => {
         .map((r) => r.textContent),
     ).toEqual([expect.stringContaining('发版'), expect.stringContaining('退款')])
     fireEvent.click(screen.getByRole('button', { name: '关闭搜索' }))
-    expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull()
+    await waitFor(() => expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull())
   })
 
   it('opens from the sidebar search field', async () => {
@@ -674,5 +684,23 @@ describe('⌘K search', () => {
     renderShell()
     fireEvent.click(screen.getByRole('button', { name: /搜索会话、消息、文件、运行/ }))
     expect(await screen.findByRole('dialog', { name: '搜索' })).toBeTruthy()
+  })
+
+  it('plays an exit presence animation when SearchOverlay closes via open prop', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <SearchOverlay open onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: '搜索' })
+    expect(dialog.dataset.state).toBe('open')
+    rerender(
+      <MemoryRouter>
+        <SearchOverlay open={false} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    expect(dialog.dataset.state).toBe('closed')
+    fireEvent.animationEnd(dialog)
+    expect(screen.queryByRole('dialog', { name: '搜索' })).toBeNull()
   })
 })

@@ -17,6 +17,8 @@ import {
   useEscape,
   useFocusTrap,
 } from '../../ui'
+import { usePresenceOpen } from '../../ui/overlay'
+import { usePresence } from '../../ui/presence'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import './search.css'
 import { t } from '../../i18n'
@@ -80,7 +82,10 @@ function Highlight({ text, query }: { text: string; query: string }) {
 }
 
 /** ⌘K overlay (Web 对话.dc.html `ovSearch`): my conversations by name, then messages, files and runs of my groups. */
-export function SearchOverlay({ onClose }: { onClose: () => void }) {
+export function SearchOverlay({ open = true, onClose }: { open?: boolean; onClose: () => void }) {
+  const presenceOpen = usePresenceOpen()
+  const visible = open && presenceOpen
+  const presence = usePresence(visible)
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const listId = useId()
@@ -106,14 +111,29 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const convs = !trimmed || tab === 'msg' ? matchConversations(groups, q, pathname) : []
   const count = convs.length + results.length
   const safeActive = count ? Math.min(active, count - 1) : -1
-  useEscape(onClose)
+  useEscape(onClose, visible)
+
+  const [prevVisible, setPrevVisible] = useState(visible)
+  if (visible !== prevVisible) {
+    setPrevVisible(visible)
+    if (visible) {
+      setQ('')
+      setTab('msg')
+      setAttempt(0)
+      setFound({ key: '', list: [], failed: false })
+      setActive(0)
+    }
+  }
+  useEffect(() => {
+    if (visible) inputRef.current?.focus()
+  }, [visible])
 
   useEffect(() => () => clearTimeout(composingTimerRef.current), [])
 
   // Keep Tab inside real tab stops (excluding roving-tabindex tabs and tabIndex=-1 result options).
   useEffect(() => {
     const node = panelRef.current
-    if (!node) return
+    if (!visible || !node) return
     const onTab = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Tab' || e.defaultPrevented) return
       const items = [...node.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => el.tabIndex >= 0)
@@ -132,8 +152,8 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
     }
     node.addEventListener('keydown', onTab)
     return () => node.removeEventListener('keydown', onTab)
-  }, [])
-  useFocusTrap(panelRef, true)
+  }, [visible])
+  useFocusTrap(panelRef, visible)
 
   useEffect(() => {
     if (!trimmed) return
@@ -201,12 +221,18 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
     }
   }
 
+  if (!presence.mounted) return null
+
   return (
     <>
-      <div className="search__backdrop" onClick={onClose} aria-hidden="true" />
+      <div className="search__backdrop" data-state={presence.state} onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         className="search"
+        data-state={presence.state}
+        aria-hidden={presence.state === 'closed' || undefined}
+        inert={presence.state === 'closed' || undefined}
+        onAnimationEnd={presence.onAnimationEnd}
         role="dialog"
         aria-modal="true"
         aria-label={t('搜索')}

@@ -255,7 +255,7 @@ describe('GroupThreads and ThreadView Escape handling (R1-04)', () => {
 
   it('never falls through to ChatView mark-all-read when Escape closes GroupThreads or ThreadView', async () => {
     const calls = mockApi({
-      'GET /groups': [group()],
+      'GET /groups': [group({ unread: 2 })],
       'GET /bots': [],
       'GET /machines': [],
       'GET /notifications/unread': { n: 0 },

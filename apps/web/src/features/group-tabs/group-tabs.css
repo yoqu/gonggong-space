@@ -51,7 +51,7 @@
   font-size: var(--text-subheadline-size);
   cursor: default;
   user-select: none;
-  transition: background var(--motion-fast);
+  transition: background var(--fade-fast);
 }
 .gtab:hover {
   background: var(--control-track);

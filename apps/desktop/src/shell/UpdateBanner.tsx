@@ -1,5 +1,5 @@
-import { AlertDialog, NotificationBanner } from '@web/ui'
-import { useState } from 'react'
+import { AlertDialog, NotificationBanner, usePresence } from '@web/ui'
+import { useRef, useState } from 'react'
 import logo from '../assets/logo.svg'
 import logoSmall from '../assets/logo-small.svg'
 import { t } from '../i18n'
@@ -40,10 +40,21 @@ export function useRestartToUpdate() {
 export function UpdateBanner() {
   const { state, dismissed, auto } = useUpdate()
   const restart = useRestartToUpdate()
+  const open = state.phase === 'ready' && !dismissed
+  const presence = usePresence(open)
+  const lastReady = useRef<{ version: string; notes?: string } | null>(null)
+  if (state.phase === 'ready') lastReady.current = { version: state.version, notes: state.notes }
+  const shown = state.phase === 'ready' ? state : lastReady.current
   return (
     <>
-      {state.phase === 'ready' && !dismissed ? (
-        <div className="dk-update">
+      {presence.mounted && shown ? (
+        <div
+          className="dk-update"
+          data-state={presence.state}
+          aria-hidden={presence.state === 'closed' || undefined}
+          inert={presence.state === 'closed'}
+          onAnimationEnd={presence.onAnimationEnd}
+        >
           <NotificationBanner
             app={{ name: t('共工空间'), icon: <img src={logoSmall} alt="" width={20} height={20} /> }}
             title={t('发现新版本')}
@@ -51,10 +62,10 @@ export function UpdateBanner() {
               <>
                 <div>
                   {auto
-                    ? t('新版本 v{v} 已下载，本机任务结束后自动重启更新', { v: state.version })
-                    : t('新版本 v{v} 已下载，重启以更新', { v: state.version })}
+                    ? t('新版本 v{v} 已下载，本机任务结束后自动重启更新', { v: shown.version })
+                    : t('新版本 v{v} 已下载，重启以更新', { v: shown.version })}
                 </div>
-                {state.notes ? <pre className="dk-update__notes">{state.notes}</pre> : null}
+                {shown.notes ? <pre className="dk-update__notes">{shown.notes}</pre> : null}
               </>
             }
             actions={[

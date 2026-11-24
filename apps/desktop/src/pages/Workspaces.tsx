@@ -51,8 +51,13 @@ export function WorkspacesPage(_: PageProps) {
   // Kept after closing so the alert keeps its text while it animates out.
   const [doomed, setDoomed] = useState<WorkspaceRow | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [resettingKey, setResettingKey] = useState<string | null>(null)
 
   const resetCd = async (w: WorkspaceRow) => {
+    const key = `${w.groupId}:${w.botId}`
+    if (resettingKey === key) return
+    setResettingKey(key)
     try {
       await ipc.resetCd(w.groupId, w.botId)
       toast({ type: 'success', message: t('已请求 {bot} 改回托管工作区，结果见群消息', { bot: w.bot }) })
@@ -60,18 +65,28 @@ export function WorkspacesPage(_: PageProps) {
       setTimeout(() => void load(), RESET_RELOAD_MS)
     } catch (e) {
       fail(e)
+    } finally {
+      setResettingKey((cur) => (cur === key ? null : cur))
     }
   }
 
+  const closeConfirm = () => {
+    if (!deleting) setConfirming(false)
+  }
+
   const remove = async (w: WorkspaceRow) => {
-    setConfirming(false)
+    if (deleting) return
+    setDeleting(true)
     try {
       await ipc.deleteWorkspace(w.groupId, w.botId, w.path)
       toast({ type: 'success', message: t('已删除 {path}', { path: tildify(w.path) }) })
+      await load()
+      setConfirming(false)
     } catch (e) {
       fail(e)
+    } finally {
+      setDeleting(false)
     }
-    await load()
   }
 
   if (!data) {
@@ -115,7 +130,11 @@ export function WorkspacesPage(_: PageProps) {
             <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
               {t('打开')}
             </Button>
-            <Button size="small" onClick={() => resetCd(w)}>
+            <Button
+              size="small"
+              loading={resettingKey === `${w.groupId}:${w.botId}`}
+              onClick={() => void resetCd(w)}
+            >
               {t('改回托管')}
             </Button>
           </span>
@@ -143,7 +162,7 @@ export function WorkspacesPage(_: PageProps) {
         <Alert
           variant="warning"
           title={t('无法连接服务器')}
-          description={t('群与 Bot 名称、/cd 绑定暂不可用，以下仅按本机目录列出。')}
+          description={t('暂时连不上服务器，以下仅列出本机目录，群和 Bot 名称恢复连接后显示。')}
         />
       ) : null}
       <Table<Row>
@@ -178,7 +197,7 @@ export function WorkspacesPage(_: PageProps) {
       </Section>
       <AlertDialog
         open={confirming}
-        onClose={() => setConfirming(false)}
+        onClose={closeConfirm}
         icon={<img src={logo} alt="" width={48} height={48} />}
         title={
           doomed
@@ -194,8 +213,14 @@ export function WorkspacesPage(_: PageProps) {
             : null
         }
         actions={[
-          { label: t('取消'), onClick: () => setConfirming(false) },
-          { label: t('删除'), variant: 'destructive', onClick: () => doomed && remove(doomed) },
+          { label: t('取消'), disabled: deleting, onClick: closeConfirm },
+          {
+            label: t('删除'),
+            variant: 'destructive',
+            disabled: deleting,
+            loading: deleting,
+            onClick: () => doomed && void remove(doomed),
+          },
         ]}
       />
     </>

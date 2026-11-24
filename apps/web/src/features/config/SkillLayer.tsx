@@ -14,6 +14,7 @@ import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  AlertDialog,
   Button,
   ConfirmActionDialog,
   Dialog,
@@ -397,62 +398,97 @@ function SkillHistoryDialog({
   const url = `${base}/${skill.id}/versions`
   const versions = useGet<SkillVersionDto[]>(url)
   const [viewing, setViewing] = useState<string | null>(null)
-  const view = useGet<SkillVersionDetailDto>(viewing ? `${url}/${viewing}` : null)
+  const activeId = viewing ?? versions.data?.find((v) => v.current)?.id ?? versions.data?.[0]?.id ?? null
+  const view = useGet<SkillVersionDetailDto>(activeId ? `${url}/${activeId}` : null)
+  const [confirming, setConfirming] = useState<SkillVersionDto | null>(null)
+  const [rolling, setRolling] = useState(false)
   const [error, setError] = useState('')
 
-  const rollback = async (v: SkillVersionDto) => {
+  const confirmRollback = async () => {
+    if (!confirming || rolling) return
+    setRolling(true)
+    setError('')
     try {
-      await api.post(`${base}/${skill.id}/rollback`, { versionId: v.id })
-      toast({ type: 'success', message: t('已回滚到 v{n}，相关 Bot 下一轮生效', { n: v.version }) })
+      await api.post(`${base}/${skill.id}/rollback`, { versionId: confirming.id })
+      toast({ type: 'success', message: t('已回滚到 v{n}，相关 Bot 下一轮生效', { n: confirming.version }) })
+      setConfirming(null)
+      setViewing(null)
       versions.reload()
       onChanged()
     } catch (e) {
       setError(errorText(e))
+      setConfirming(null)
+    } finally {
+      setRolling(false)
     }
   }
   const main = view.data?.files.find((f) => f.path === 'SKILL.md')
 
   return (
-    <Dialog
-      open
-      title={t('{name} 的历史版本', { name: skill.name })}
-      width={620}
-      onClose={onClose}
-      actions={[{ label: t('完成'), variant: 'primary', onClick: onClose }]}
-    >
-      {error || versions.error ? <Alert variant="error" title={error || versions.error} /> : null}
-      <GroupBox>
-        {versions.data?.map((v) => (
-          <GroupRow
-            key={v.id}
-            className="cfg__item"
-            label={
-              <span className="cfg__name-line">
-                <span className="cfg__name">{`v${v.version}`}</span>
-                {v.current ? <Tag tone="green">{t('当前')}</Tag> : null}
+    <>
+      <Dialog
+        open
+        title={t('{name} 的历史版本', { name: skill.name })}
+        width={620}
+        onClose={onClose}
+        actions={[{ label: t('完成'), variant: 'primary', onClick: onClose }]}
+      >
+        {error || versions.error ? <Alert variant="error" title={error || versions.error} /> : null}
+        <GroupBox>
+          {versions.data?.map((v) => (
+            <GroupRow
+              key={v.id}
+              className="cfg__item"
+              label={
+                <span className="cfg__name-line">
+                  <span className="cfg__name">{`v${v.version}`}</span>
+                  {v.current ? <Tag tone="green">{t('当前')}</Tag> : null}
+                </span>
+              }
+              description={[v.createdBy, ago(v.createdAt), kb(v.size)].filter(Boolean).join(' · ')}
+            >
+              <span className="cfg__controls">
+                <Button size="small" onClick={() => setViewing(v.id)}>
+                  {t('查看')}
+                </Button>
+                <Button size="small" disabled={v.current || rolling} onClick={() => setConfirming(v)}>
+                  {t('回滚到此版本')}
+                </Button>
               </span>
-            }
-            description={[v.createdBy, ago(v.createdAt), kb(v.size)].filter(Boolean).join(' · ')}
-          >
-            <span className="cfg__controls">
-              <Button size="small" onClick={() => setViewing(v.id)}>
-                {t('查看')}
-              </Button>
-              <Button size="small" disabled={v.current} onClick={() => void rollback(v)}>
-                {t('回滚到此版本')}
-              </Button>
-            </span>
-          </GroupRow>
-        ))}
-      </GroupBox>
-      {view.data ? (
-        <div className="skill-ed__view">
-          <div className="cfg__eyebrow">
-            {t('v{n} · {count} 个文件', { n: view.data.version, count: view.data.files.length })}
+            </GroupRow>
+          ))}
+        </GroupBox>
+        {view.data ? (
+          <div className="skill-ed__view">
+            <div className="cfg__eyebrow">
+              {t('v{n} · {count} 个文件', { n: view.data.version, count: view.data.files.length })}
+            </div>
+            <pre className="skill-ed__pre">{main?.content}</pre>
           </div>
-          <pre className="skill-ed__pre">{main?.content}</pre>
-        </div>
-      ) : null}
-    </Dialog>
+        ) : null}
+      </Dialog>
+      <Presence>
+        {confirming ? (
+          <AlertDialog
+            open
+            title={t('要回滚到版本 v{version} 吗？', { version: confirming.version })}
+            message={t('当前内容会被替换为此版本。现有版本仍会保留在历史记录中，可随时切回。')}
+            onClose={() => {
+              if (!rolling) setConfirming(null)
+            }}
+            actions={[
+              { label: t('取消'), disabled: rolling, onClick: () => setConfirming(null) },
+              {
+                label: t('回滚到此版本'),
+                variant: 'destructive',
+                disabled: rolling,
+                loading: rolling,
+                onClick: () => void confirmRollback(),
+              },
+            ]}
+          />
+        ) : null}
+      </Presence>
+    </>
   )
 }

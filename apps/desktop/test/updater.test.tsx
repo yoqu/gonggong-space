@@ -55,8 +55,30 @@ it('downloads an update at launch, offers a restart and can be put off', async (
   expect(banner.textContent).toContain('支持多张图片')
   expect(calls).toEqual(['download 0.2.0'])
   fireEvent.click(within(banner).getByRole('button', { name: '稍后' }))
+  const wrap = banner.closest('.dk-update') as HTMLElement
+  expect(wrap.dataset.state).toBe('closed')
+  expect(wrap.hasAttribute('inert')).toBe(true)
+  expect(wrap.getAttribute('aria-hidden')).toBe('true')
+  fireEvent.animationEnd(wrap)
   expect(screen.queryByRole('alert')).toBeNull()
   stop()
+})
+
+it('fades the update banner out cleanly under prefers-reduced-motion', async () => {
+  vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' }))
+  try {
+    render(<UpdateBanner />)
+    const stop = startUpdater()
+    const banner = await screen.findByRole('alert')
+    const wrap = banner.closest('.dk-update') as HTMLElement
+    fireEvent.click(within(banner).getByRole('button', { name: '稍后' }))
+    expect(wrap.dataset.state).toBe('closed')
+    expect(screen.queryByRole('alert')).toBeNull()
+    await waitFor(() => expect(document.querySelector('.dk-update')).toBeNull())
+    stop()
+  } finally {
+    vi.unstubAllGlobals()
+  }
 })
 
 it('does not check by itself while 自动升级 is off', async () => {

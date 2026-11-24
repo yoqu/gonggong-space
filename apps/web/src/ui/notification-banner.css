@@ -47,7 +47,7 @@
   box-shadow: var(--shadow-control);
   color: var(--label-secondary);
   opacity: 0;
-  transition: opacity var(--motion-fast);
+  transition: opacity var(--fade-fast);
   cursor: default;
 }
 .ui-notif:hover .ui-notif__close,

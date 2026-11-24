@@ -49,8 +49,8 @@ export default {
   绑定新电脑: 'Bind new computer',
   完成: 'Done',
   取消: 'Cancel',
-  '绑定后这台电脑归属于你，客户端会上报电脑名称、系统、CPU、内存和可用的 Claude Code / Codex / Gemini CLI；同一台电脑重新绑定会恢复原记录。':
-    'Once bound, this computer is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex / Gemini CLI; rebinding the same computer restores its record.',
+  '绑定后这台电脑归属于你，客户端会上报电脑名称、系统、CPU、内存和已安装的 Agent 工具；同一台电脑重新绑定会恢复原记录。':
+    'Once bound, this computer is yours. The client reports its name, OS, CPU, memory and installed Agent tools; rebinding the same computer restores its record.',
   'macOS（Apple 芯片）': 'macOS (Apple silicon)',
   'macOS（Intel）': 'macOS (Intel)',
   'Linux x86_64（命令行）': 'Linux x86_64 (CLI)',
@@ -70,8 +70,8 @@ export default {
   '这台电脑已归属你 · {name}（{os} · {arch}）': 'This computer is now yours · {name} ({os} · {arch})',
   '这台电脑的 Agent': 'Agents on this computer',
   未安装: 'Not installed',
-  '未检测到 Claude Code / Codex / Gemini CLI，安装后在客户端中重新检测即可上报。':
-    'No Claude Code / Codex / Gemini CLI detected. Install one, then re-detect in the client to report it.',
+  '未检测到可用的 Agent 工具，安装后在客户端中重新检测即可上报。':
+    'No available Agent tools detected. Install one, then re-detect in the client to report it.',
   '等待上报 Agent…在电脑上打开共工空间客户端':
     'Waiting for Agents… Open the Gonggong Space client on the computer',
   '你自己创建的 Bot 已直接绑定到这台电脑；别人为你创建并指定到这台电脑的 Bot，需在通知里确认后才能使用。':
@@ -178,8 +178,8 @@ export default {
   '解绑后需要重新生成接入链接才能再次使用。':
     'After unbinding, a new connect link is needed to use it again.',
   这台电脑的共工客户端会立即断开: "This computer's Gonggong client disconnects immediately",
-  '客户端会清理这台电脑上的托管工作区；/cd 目录与本地备份保留':
-    'The client removes managed workspaces on this computer; /cd folders and local backups are kept',
+  '客户端会清理这台电脑上的托管工作区；你手动选择的本机目录和本地备份会保留':
+    'The client removes managed workspaces on this computer; local folders you chose and local backups are kept',
   '解绑#computer': 'Unbind',
   '已解绑 {name}': 'Unbound {name}',
   协议: 'Protocol',
@@ -379,8 +379,16 @@ export default {
   '把下面这句话粘贴给这台电脑上的 Claude Code 或 Codex（支持 macOS / Linux），它会自己安装、绑定电脑并建好 Bot。':
     'Paste the sentence below to Claude Code or Codex on this computer (macOS / Linux): it installs, binds the computer and sets up your Bot by itself.',
   '发给你的 Agent': 'Send to your agent',
-  'Windows 上请展开「其他方式」，用桌面客户端绑定。':
-    'On Windows, open "Other ways" and bind with the desktop app.',
+  '下载并打开共工客户端，用下方接入链接绑定这台电脑。':
+    'Download and open the Gonggong client, then use the connect link below to bind this computer.',
+  '创建 Bot': 'Create Bot',
+  '绑定其他系统的电脑（命令行或 Docker）': 'Bind a computer on another OS (CLI or Docker)',
+  '如果要绑定远程 Linux 或 macOS 电脑，可以把下面这句话发给那台电脑上的 Agent，或使用下方的命令行与 Docker 方式。':
+    'To bind a remote Linux or macOS computer, send the prompt below to an Agent on that computer, or use the command line or Docker options below.',
+  '等待电脑接入…在客户端中打开上方接入链接即可完成绑定':
+    'Waiting for the computer to connect… Open the connect link above in the client to finish binding',
+  版本号: 'version',
+  电脑编号: 'computer-id',
   其他方式: 'Other ways',
   '等待接入…Agent 会自己下载安装，通常 1–3 分钟':
     'Waiting… the agent downloads and installs by itself, usually in 1–3 minutes',
@@ -440,11 +448,11 @@ export default {
   '跳过#check': 'Skipped',
   自检: 'Self-check',
   '这台电脑关闭了自动升级。升级方式：': 'This computer has automatic upgrades turned off. To upgrade:',
-  '这台电脑运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：':
-    "This computer runs in a Docker container and doesn't upgrade itself. In docker/daemon on the server, set GG_VERSION in .env to {version}, then rebuild the container:",
+  '这台电脑运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录执行下方命令即可更新到 {version} 并重建容器：':
+    "This computer runs in a Docker container and doesn't upgrade itself. Run the command below in docker/daemon on the server to update to {version} and rebuild the container:",
   '在 Docker 中运行': 'Run in Docker',
-  '在服务器的 docker/daemon 目录，把这一行加到 .env（另需 GG_VERSION 与 GONGGONG_MACHINE_ID），然后运行 docker compose up -d --build，容器首次启动时自动绑定。':
-    'In docker/daemon on the server, add this line to .env (GG_VERSION and GONGGONG_MACHINE_ID are needed too), then run docker compose up -d --build: the container binds on its first start.',
+  '复制下方环境变量到服务器的 .env 文件（按注释填入版本号和电脑编号），再执行 docker compose up -d --build，容器启动后会自动绑定。':
+    'Copy the environment variables below into the server .env file (fill in the version and computer ID as noted), then run docker compose up -d --build. The container binds automatically on startup.',
   '登录…': 'Log in…',
   '登录 {agent} 官方账号': 'Log in to the official {agent} account',
   '官方账号在这台电脑上的 {agent} 里登录，登录信息只保存在这台电脑上。':

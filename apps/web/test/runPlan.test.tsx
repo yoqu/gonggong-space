@@ -37,6 +37,23 @@ describe('RunPlan', () => {
     expect(screen.getByRole('button', { name: '已完成 2 项' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '还有 2 项' }))
     expect(items()).toHaveLength(7)
+
+    // Collapsing back folds completed and remaining items again.
+    fireEvent.click(screen.getByRole('button', { name: '收起已完成（2 项）' }))
+    expect(items().map(([c]) => c)).toEqual(['三', '四', '五'])
+    expect(screen.getByRole('button', { name: '已完成 2 项' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '还有 2 项' })).toBeTruthy()
+  })
+
+  it('offers 收起其余项 when expanding a long plan with no completed items yet', () => {
+    const plan = [item('一'), item('二'), item('三'), item('四'), item('五'), item('六')]
+    render(<RunPlan plan={plan} live />)
+
+    expect(items()).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: '还有 4 项' }))
+    expect(items()).toHaveLength(6)
+    fireEvent.click(screen.getByRole('button', { name: '收起其余项' }))
+    expect(items()).toHaveLength(2)
   })
 
   it('opens on demand once the run ended, unfinished entries as they were and nothing spinning', () => {

@@ -76,7 +76,11 @@ import './recall.css'
 import { t } from '../../i18n'
 import { MessageCanvasChips, RunArtifactsLine } from '../artifacts/CanvasRefs'
 import { messageCanvas, runArtifacts } from '../artifacts/runContext'
+import { hasOptimisticClientId } from './PendingMessages'
 import { usePins } from './PinnedMessages'
+
+/** Stable timeline key across optimistic send (`clientId`) and server confirmation (`id`). */
+export const messageKey = (m: Pick<MessageDto, 'id' | 'clientId'>) => m.clientId || m.id
 
 const TONE: Record<RunStatus, TagTone> = {
   queued: 'gray',
@@ -490,6 +494,7 @@ export const UserMessage = memo(function UserMessage({
     >
       {(bar) => (
         <Message
+          className={hasOptimisticClientId(m.clientId) ? 'pn-msg--from-optimistic' : undefined}
           author={own ? { name: m.authorName, avatar: avatar ?? undefined } : person(m, avatar ?? undefined)}
           self={own}
           continued={compact}
@@ -738,11 +743,7 @@ const STEP_ICON: Partial<Record<RunStatus, IconName>> = {
 /** Runs that never started show their reason as a note instead of a step, without actions (prototype r4 / r5). */
 const NOTE: RunStatus[] = ['forbidden', 'offline_wait']
 
-/**
- * One run as a bare MessageCard whose header colour follows its status; once it has settled with a final reply, the
- * card gives way to the reply bubble at the reply's place, with the run's facts as tags under it.
- */
-/** A leaf, so the per-second tick of a live run re-renders only the clock and not the whole card. */
+/** Leaf clock so per-second ticks re-render only the clock; RunCard renders a status-tinted card that gives way to its reply. */
 function RunClock({ from, to, live }: { from: number; to: number | null; live: boolean }) {
   const now = useNow(live && to === null)
   const ms = (to ?? now) - from

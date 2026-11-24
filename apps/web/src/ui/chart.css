@@ -60,7 +60,7 @@
 }
 .ui-trend__bar {
   fill: var(--system-blue);
-  transition: opacity var(--motion-fast);
+  transition: opacity var(--fade-fast);
 }
 .ui-trend__plot[data-active] .ui-trend__bar:not([data-active]) {
   opacity: 0.45;

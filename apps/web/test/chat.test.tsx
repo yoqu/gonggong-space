@@ -1221,7 +1221,7 @@ async function addBot(dialog: HTMLElement, name: RegExp) {
 }
 
 describe('new group dialog', () => {
-  it('turns into a DM when only one of my bots is picked, with no kind switch to get in the way', async () => {
+  it('offers a flat 私聊 tab and a 切到私聊 suggestion when picking one of my bots in 建群', async () => {
     const created = group({
       id: 'd9',
       kind: 'dm',
@@ -1239,13 +1239,17 @@ describe('new group dialog', () => {
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
     const dialog = await screen.findByRole('dialog', { name: '发起会话' })
-    expect(within(dialog).queryByRole('radio', { name: '私聊' })).toBeNull()
-    expect(within(dialog).queryByRole('radio', { name: '群聊' })).toBeNull()
+    expect(within(dialog).getByRole('tab', { name: '建群' })).toBeTruthy()
+    expect(within(dialog).getByRole('tab', { name: '私聊' })).toBeTruthy()
+    expect(within(dialog).getByRole('tab', { name: '新建终端' })).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '创建群' })).toBeTruthy()
 
     await addBot(dialog, /小王的 Claude/)
-    expect(await within(dialog).findByText('将创建与它的私聊，之后不能再加人')).toBeTruthy()
-    // A DM is titled by its Bot: no name to fill.
+    expect(await within(dialog).findByText('只有你和 小王的 Claude，也可以直接发起私聊')).toBeTruthy()
+    // 建群 fields never vanish.
+    expect(within(dialog).getByLabelText('名称')).toBeTruthy()
+    expect(within(dialog).getByRole('switch', { name: '公开频道' })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '切到私聊' }))
     expect(within(dialog).queryByLabelText('名称')).toBeNull()
     expect(within(dialog).queryByRole('switch', { name: '公开频道' })).toBeNull()
     expect(screen.getByRole('dialog', { name: '发起会话' })).toBe(dialog)
@@ -1294,8 +1298,11 @@ describe('new group dialog', () => {
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
     const dialog = await screen.findByRole('dialog', { name: '发起会话' })
-    await addBot(dialog, /老李的 Codex/)
-    expect(await within(dialog).findByRole('button', { name: '开始私聊' })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('tab', { name: '私聊' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '选择 Bot…' }))
+    const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    fireEvent.click(within(pick).getByRole('menuitemcheckbox', { name: /老李的 Codex/ }))
+    expect(within(dialog).getByRole('button', { name: '开始私聊' }).hasAttribute('disabled')).toBe(false)
   })
 
   it('checks the repo on its own and marks the result on each bot row', async () => {
@@ -1635,7 +1642,7 @@ describe('repo picker', () => {
     fail = true
     fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'main' } })
     expect(await within(dialog).findByText('网络连接失败，请检查网络后重试')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '开始私聊' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByRole('button', { name: '创建群' }).hasAttribute('disabled')).toBe(true)
     fail = false
     fireEvent.click(within(dialog).getByRole('button', { name: '重新检查' }))
     await waitFor(() => expect(answers).toHaveLength(3))

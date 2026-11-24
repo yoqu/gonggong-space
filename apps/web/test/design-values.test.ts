@@ -87,7 +87,9 @@ describe('component CSS stays on the design scale', () => {
   })
 
   it('no longer references the legacy motion tokens', () => {
-    const legacy = files.filter((f) => /var\(--(motion-base|ease-apple)\)/.test(readFileSync(f, 'utf8')))
+    const legacy = files.filter((f) =>
+      /var\(--(motion-base|motion-fast|ease-apple)\)/.test(readFileSync(f, 'utf8')),
+    )
     expect(legacy).toEqual([])
   })
 })

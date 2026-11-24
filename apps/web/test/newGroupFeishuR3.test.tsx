@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs'
-import type {
-  BotDto,
-  FeishuChatChoicesDto,
-  FeishuIdentityView,
-  GroupDto,
-  GroupFeishuView,
-  UserDto,
+import {
+  type BotDto,
+  type FeishuChatChoicesDto,
+  type FeishuIdentityView,
+  type GroupDto,
+  type GroupFeishuView,
+  TERMINAL_DIR_FEATURE,
+  type UserDto,
 } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -151,8 +152,8 @@ afterEach(() => {
   useSettings.setState({ page: null })
 })
 
-describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
-  it('omits shared bot owner in DM and restores them after 改为建群', async () => {
+describe('NewGroupDialog · flat 3-way tabs, draft preservation, missing reason & close lock', () => {
+  it('keeps 建群 fields stable when picking 1 Bot, suggests 切到私聊 with Bot pre-selected, and creates cleanly', async () => {
     const onClose = vi.fn()
     const calls = mockApi({
       'GET /auth/options': { registrationOpen: false, feishuLogin: false },
@@ -166,26 +167,33 @@ describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
       </MemoryRouter>,
     )
     const dialog = screen.getByRole('dialog', { name: '发起会话' })
+    expect(within(dialog).getByRole('tab', { name: '建群' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(dialog).getByRole('tab', { name: '私聊' })).toBeTruthy()
+    expect(within(dialog).getByRole('tab', { name: '新建终端' })).toBeTruthy()
+
     await pickBot(dialog, /老李的 Codex/)
 
-    expect(within(dialog).getByRole('button', { name: '开始私聊' })).toBeTruthy()
-    expect(within(dialog).getByText('将创建与它的私聊，之后不能再加人')).toBeTruthy()
-    expect(within(dialog).getByRole('heading', { name: '成员 · 1' })).toBeTruthy()
-    expect(within(dialog).queryByText(/Bot 主人自动加入/)).toBeNull()
-    const members = within(dialog).getByRole('group', { name: '成员' })
-    expect(within(members).queryByText('李建国')).toBeNull()
-
-    fireEvent.click(within(dialog).getByRole('button', { name: '改为建群' }))
+    // 建群 stays stable: Name, Public switch, Members (including Bot owner), and 创建群 remain visible.
     expect(within(dialog).getByLabelText('名称')).toBeTruthy()
+    expect(within(dialog).getByRole('switch', { name: '公开频道' })).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '创建群' })).toBeTruthy()
     expect(within(dialog).getByRole('heading', { name: '成员 · 2（Bot 主人自动加入）' })).toBeTruthy()
+    const members = within(dialog).getByRole('group', { name: '成员' })
     expect(within(members).getByText('李建国')).toBeTruthy()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '改回私聊' }))
-    expect(within(dialog).getByRole('button', { name: '开始私聊' })).toBeTruthy()
-    expect(within(members).queryByText('李建国')).toBeNull()
+    // Calm inline suggestion under Bot section switches to 私聊 with the Bot pre-selected.
+    expect(within(dialog).getByText('只有你和 老李的 Codex，也可以直接发起私聊')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '切到私聊' }))
+    expect(within(dialog).getByRole('tab', { name: '私聊' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(dialog).queryByLabelText('名称')).toBeNull()
+    expect(within(dialog).queryByRole('switch', { name: '公开频道' })).toBeNull()
+    expect(within(dialog).queryByRole('group', { name: '成员' })).toBeNull()
+    expect(within(dialog).getByText('老李的 Codex')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '开始私聊' }).hasAttribute('disabled')).toBe(false)
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '改为建群' }))
+    // Switching back to 建群 preserves the group draft and submits as a group.
+    fireEvent.click(within(dialog).getByRole('tab', { name: '建群' }))
+    expect(within(dialog).getByText('老李的 Codex')).toBeTruthy()
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '共享协作' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '创建群' }))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
@@ -199,13 +207,70 @@ describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
     })
   })
 
-  it('creates a 1-person + 1-bot group after clicking 改为建群 with my own bot', async () => {
+  it('preserves drafts across 建群, 私聊 and 新建终端 tabs', async () => {
+    useWorkspace.setState({
+      groups: [],
+      bots,
+      machines: [
+        {
+          id: 'mc1',
+          name: 'wanglei-mbp',
+          ownerId: 'u1',
+          online: true,
+          os: 'macos',
+          features: [TERMINAL_DIR_FEATURE],
+        } as never,
+      ],
+      activeGroupId: null,
+    })
+    mockApi({
+      'GET /auth/options': { registrationOpen: false, feishuLogin: false },
+      'GET /users': users,
+      'GET /bots/recent': [],
+    })
+    render(
+      <MemoryRouter>
+        <NewGroupDialog me={me} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: '发起会话' })
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '跨端联调' } })
+    await pickBot(dialog, /小王的 Claude/)
+
+    // Switch to 私聊 and select a Bot.
+    fireEvent.click(within(dialog).getByRole('tab', { name: '私聊' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '选择 Bot…' }))
+    const dmPick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    fireEvent.click(within(dmPick).getByRole('menuitemcheckbox', { name: /老李的 Codex/ }))
+    expect(within(dialog).getByText('老李的 Codex')).toBeTruthy()
+
+    // Switch to 新建终端 and type cwd.
+    fireEvent.click(within(dialog).getByRole('tab', { name: '新建终端' }))
+    const dirInput = within(dialog).getByLabelText('目录') as HTMLInputElement
+    fireEvent.change(dirInput, { target: { value: '/Users/w/code/api' } })
+    expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('api')
+
+    // Switch back through 建群 -> 私聊 -> 新建终端: all drafts intact.
+    fireEvent.click(within(dialog).getByRole('tab', { name: '建群' }))
+    expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('跨端联调')
+    expect(within(dialog).getByText('小王的 Claude')).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: '私聊' }))
+    expect(within(dialog).getByText('老李的 Codex')).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: '新建终端' }))
+    expect((within(dialog).getByLabelText('目录') as HTMLInputElement).value).toBe('/Users/w/code/api')
+    expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('api')
+  })
+
+  it('shows first missing reason in footer linked via aria-describedby, locks close while creating, and guards Safari IME Enter', async () => {
+    const pending = deferred<GroupDto>()
     const onClose = vi.fn()
     const calls = mockApi({
       'GET /auth/options': { registrationOpen: false, feishuLogin: false },
       'GET /users': users,
       'GET /bots/recent': [],
-      'POST /groups': () => group({ id: 'g8', name: '个人工作群' }),
+      'POST /groups': () => pending.promise,
     })
     render(
       <MemoryRouter>
@@ -213,24 +278,44 @@ describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
       </MemoryRouter>,
     )
     const dialog = screen.getByRole('dialog', { name: '发起会话' })
-    await pickBot(dialog, /小王的 Claude/)
-    expect(within(dialog).getByRole('button', { name: '开始私聊' })).toBeTruthy()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '改为建群' }))
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '个人工作群' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '创建群' }))
+    // 建群 disabled reason: 请填写群名称, linked via aria-describedby and aria-live="polite".
+    const submitGroup = within(dialog).getByRole('button', { name: '创建群' }) as HTMLButtonElement
+    expect(submitGroup.disabled).toBe(true)
+    const descId = submitGroup.getAttribute('aria-describedby')
+    expect(descId).toBeTruthy()
+    const desc = document.getElementById(descId!) as HTMLElement
+    expect(desc.textContent).toBe('请填写群名称')
+    expect(desc.getAttribute('aria-live')).toBe('polite')
+
+    // 私聊 disabled reason: 请选择一个 Bot.
+    fireEvent.click(within(dialog).getByRole('tab', { name: '私聊' }))
+    const submitDm = within(dialog).getByRole('button', { name: '开始私聊' }) as HTMLButtonElement
+    expect(submitDm.disabled).toBe(true)
+    expect(document.getElementById(submitDm.getAttribute('aria-describedby')!)?.textContent).toBe(
+      '请选择一个 Bot',
+    )
+
+    // Back to 建群: Safari IME Enter (keyCode 229 / isComposing) does not submit.
+    fireEvent.click(within(dialog).getByRole('tab', { name: '建群' }))
+    const nameInput = within(dialog).getByLabelText('名称')
+    fireEvent.change(nameInput, { target: { value: '发版群' } })
+    fireEvent.keyDown(nameInput, { key: 'Enter', keyCode: 229 })
+    fireEvent.keyDown(nameInput, { key: 'Enter', isComposing: true })
+    expect(calls.filter((c) => c.path === '/groups')).toHaveLength(0)
+
+    // Real Enter submits; dialog close and Cancel are locked while creating.
+    fireEvent.keyDown(nameInput, { key: 'Enter' })
+    await waitFor(() => expect(calls.filter((c) => c.path === '/groups')).toHaveLength(1))
+    expect((within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+
+    await act(async () => pending.resolve(group({ id: 'g8', name: '发版群' })))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
-    expect(calls.find((c) => c.method === 'POST' && c.path === '/groups')?.body).toEqual({
-      name: '个人工作群',
-      kind: 'group',
-      memberIds: [],
-      botIds: ['b1'],
-      repo: null,
-      visibility: 'private',
-    })
   })
 
-  it('does not hijack into DM after typing a name, enabling 公开频道, or enabling 同时创建飞书群', async () => {
+  it('hides the DM suggestion once name, 公开频道 or 同时创建飞书群 is touched', async () => {
     mockApi({
       'GET /auth/options': { registrationOpen: false, feishuLogin: true },
       'GET /users': users,
@@ -248,11 +333,7 @@ describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
     fireEvent.change(nameInput, { target: { value: '发版准备' } })
     await pickBot(d1, /小王的 Claude/)
     expect(nameInput.value).toBe('发版准备')
-    expect(within(d1).getByRole('button', { name: '创建群' })).toBeTruthy()
-    expect(within(d1).queryByText('将创建与它的私聊，之后不能再加人')).toBeNull()
-    // Clearing a manually edited name to retype must not hide the Name field.
-    fireEvent.change(nameInput, { target: { value: '' } })
-    expect(within(d1).getByLabelText('名称')).toBeTruthy()
+    expect(within(d1).queryByText(/也可以直接发起私聊/)).toBeNull()
     first.unmount()
 
     const second = render(
@@ -265,8 +346,7 @@ describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
     fireEvent.click(pub)
     await pickBot(d2, /小王的 Claude/)
     expect(pub.checked).toBe(true)
-    expect(within(d2).getByRole('button', { name: '创建群' })).toBeTruthy()
-    expect(within(d2).queryByRole('button', { name: '开始私聊' })).toBeNull()
+    expect(within(d2).queryByText(/也可以直接发起私聊/)).toBeNull()
     second.unmount()
 
     render(
@@ -279,8 +359,7 @@ describe('NewGroupDialog · R3A P1-2 & P1-4', () => {
     fireEvent.click(feishuSw)
     await pickBot(d3, /小王的 Claude/)
     expect(feishuSw.checked).toBe(true)
-    expect(within(d3).getByRole('button', { name: '创建群' })).toBeTruthy()
-    expect(within(d3).queryByRole('button', { name: '开始私聊' })).toBeNull()
+    expect(within(d3).queryByText(/也可以直接发起私聊/)).toBeNull()
   })
 
   it('wires /users loading and error + retry into MemberPicker', async () => {

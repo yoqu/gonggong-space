@@ -1,10 +1,12 @@
+import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { SPRING, SPRINGS } from '../src/lib/motion'
 
 describe('motion springs', () => {
-  it('mirror the CSS spring generator', () => {
+  it('mirror the CSS spring generator with fast 0.005 settling epsilon', () => {
     const src = readFileSync('../../tools/gen-springs.mjs', 'utf8')
+    expect(src).toContain('const EPSILON = 0.005')
     const gen = Object.fromEntries(
       [...src.matchAll(/^\s+(\w+): \[([\d.]+), ([\d.]+)\],$/gm)].map((m) => [
         m[1],
@@ -12,6 +14,19 @@ describe('motion springs', () => {
       ]),
     )
     expect(SPRINGS).toEqual(gen)
+    expect(SPRINGS).toEqual({
+      snappy: [0.26, 0],
+      smooth: [0.32, 0],
+      bouncy: [0.32, 0.22],
+      interactive: [0.18, 0],
+    })
+    const generated = execFileSync('node', ['../../tools/gen-springs.mjs'], { encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .map((line) => line.trim())
+    const css = readFileSync('src/styles/motion.css', 'utf8')
+    for (const line of generated) expect(css).toContain(line)
+    expect(css).toContain('--fade-fast: 90ms ease-out;')
   })
 
   it('map zero bounce to critical damping', () => {
@@ -136,7 +151,7 @@ describe('motion and touch CSS contract', () => {
     expect(ruleOf(im, '.pn-composer')).toContain('box-shadow var(--fade-in)')
     expect(ruleOf(im, '.pn-composer__send')).toContain('scale var(--spring-interactive)')
     expect(im).toMatch(
-      /@media \(prefers-reduced-motion: no-preference\) \{[^@]*\.pn-composer__send\[data-state="ready"\] \{\s*animation: var\(--spring-bouncy\) pn-send-ready;[^@]*pn-send-busy/,
+      /@media \(prefers-reduced-motion: no-preference\) \{[^@]*\.pn-composer__send\[data-state="ready"\] \{\s*animation: var\(--spring-interactive\) pn-send-ready;[^@]*pn-send-busy/,
     )
     expect(im).toMatch(
       /@media \(pointer: coarse\) \{\s*\.pn-composer__tool,\s*\.pn-composer__send \{\s*width: 36px;/,
@@ -205,10 +220,12 @@ describe('motion and touch CSS contract', () => {
     expect(ruleOf(notif, '.notif__row[data-new]:not(.ui-leaving)')).toContain('ui-enter var(--spring-snappy)')
     expect(notif).toMatch(/@media \(pointer: coarse\) \{\s*\.notif__delete \{\s*min-width: 32px;/)
   })
-  it('round 7: settings sections settle in, phone tabs scroll in one row, armed danger rows turn red', () => {
+  it('round 7: settings sections fade in calmly, phone tabs scroll in one row, armed danger rows turn red', () => {
     const gs = read('features/groups/groups.css')
-    expect(ruleOf(gs, '.gs-settings__body')).toContain('ui-enter var(--spring-snappy)')
-    expect(ruleOf(gs, '.gs-settings__tab')).toContain('background-color var(--motion-fast)')
+    const settingsBody = ruleOf(gs, '.gs-settings__body')
+    expect(settingsBody).toContain('ui-fade-in var(--fade-fast)')
+    expect(settingsBody).not.toContain('ui-enter')
+    expect(ruleOf(gs, '.gs-settings__tab')).toContain('background-color var(--fade-fast)')
     expect(gs).toMatch(/@media \(hover: hover\) \{\s*\.gs-settings__tab:not\(\.gs-settings__tab--on\):hover/)
     expect(gs).toMatch(/@media \(max-width: 767px\) \{[\s\S]*?\.gs-settings__nav \{[^}]*overflow-x: auto;/)
     expect(ruleOf(gs, '.join-preview')).toContain('ui-enter var(--spring-smooth)')
@@ -218,10 +235,10 @@ describe('motion and touch CSS contract', () => {
     expect(panels).toMatch(/\.pn-info__row--danger\[data-armed\],[^{]*\{\s*background: var\(--tint-red\);/)
     expect(ruleOf(panels, '.pn-info__danger-note')).toContain('ui-enter var(--spring-snappy)')
   })
-  it('round 8: cards rise in one after another, press in, live dots ring, guide steps slide', () => {
+  it('round 8: cards cap stagger at 6x20ms, press in, static online machines stay calm, guide steps slide', () => {
     const works = read('features/works/works.css')
     expect(works).toMatch(
-      /\.works__card \{\s*animation:\s*ui-fade-in var\(--fade-in\) backwards,\s*ui-enter var\(--spring-smooth\) backwards;\s*animation-delay: calc\(min\(var\(--i, 0\), 12\) \* 30ms\);/,
+      /\.works__card \{\s*animation:\s*ui-fade-in var\(--fade-in\) backwards,\s*ui-enter var\(--spring-smooth\) backwards;\s*animation-delay: calc\(min\(var\(--i, 0\), 6\) \* 20ms\);/,
     )
     expect(works).toMatch(
       /@media \(prefers-reduced-motion: no-preference\) \{\s*\.works__card:active \{\s*scale: 0\.98;/,
@@ -230,12 +247,10 @@ describe('motion and touch CSS contract', () => {
     const mx = read('features/machines/machines.css')
     expect(ruleOf(mx, '.machine-card')).toContain('ui-enter var(--spring-smooth) backwards')
     expect(mx).toMatch(/@media \(hover: hover\) \{\s*\.machine-card:hover \{/)
-    expect(mx).toMatch(
-      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.machine__status\[data-online="true"\]::before \{\s*animation: ui-live-ring/,
-    )
+    expect(mx).not.toContain('ui-live-ring')
     expect(read('ui/motion.css')).toContain('@keyframes ui-live-ring')
     expect(read('features/bots/bots.css')).toMatch(
-      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.bot-page__dot\[data-presence="running"\] \{\s*animation: ui-live-ring/,
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.bot-page__dot\[data-presence="running"\]::after \{[\s\S]*animation: ui-live-ring/,
     )
     const guide = read('features/onboarding/onboarding.css')
     expect(ruleOf(guide, '.guide__step')).toContain('ui-enter var(--spring-snappy)')
@@ -278,5 +293,57 @@ describe('motion and touch CSS contract', () => {
     expect(skip).toContain('translate: 0 calc(-100% - 16px)')
     expect(skip).toContain('transition: translate var(--spring-snappy)')
     expect(ruleOf(shell, '.app__skip:focus')).toContain('translate: 0 0')
+  })
+
+  it('enforces performance redlines, directional exits, high-contrast shimmer, and accessible done buttons', () => {
+    const motion = read('ui/motion.css')
+    expect(motion).toMatch(
+      /@keyframes ui-exit \{\s*to \{\s*opacity: 0;\s*transform: translate\(var\(--exit-x, 0\), var\(--exit-y, 0\)\) scale\(var\(--exit-scale, 1\)\);/,
+    )
+    const liveRingStart = motion.indexOf('@keyframes ui-live-ring')
+    const liveRingBlock = motion.slice(liveRingStart, motion.indexOf('\n}', liveRingStart) + 2)
+    expect(liveRingBlock).not.toContain('box-shadow')
+    expect(liveRingBlock).toContain('transform: scale(')
+    expect(liveRingBlock).toContain('opacity:')
+    expect(motion).toContain('[data-theme="hc-light"] .ui-shimmer')
+    expect(motion).toContain('[data-theme="hc-dark"] .ui-shimmer')
+    expect(motion).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*@keyframes ui-exit \{[\s\S]*transform: none;/,
+    )
+
+    const controls = read('ui/controls.css')
+    const donePrimary = controls.slice(controls.indexOf('.ui-btn--done.ui-btn--primary'))
+    expect(donePrimary.slice(0, donePrimary.indexOf('}'))).not.toContain('#fff')
+    expect(donePrimary.slice(0, donePrimary.indexOf('}'))).not.toContain('--system-green')
+
+    const overlay = read('ui/overlay.css')
+    expect(overlay).toContain('--exit-y: 36px;')
+
+    const toast = read('ui/toast.css')
+    expect(ruleOf(toast, '.ui-toast')).toContain('--exit-y: -6px;')
+    expect(ruleOf(toast, '.ui-toast[data-replaced]')).toContain('--exit-y: 0;')
+
+    const msg = read('ui/im/message.css')
+    expect(ruleOf(msg, '.pn-msg__actions .pn-msgactions')).toContain('backdrop-filter: none;')
+    expect(msg).toMatch(/@media \(pointer: coarse\) \{[\s\S]*--glass-fill-thick/)
+
+    const display = read('ui/display.css')
+    expect(ruleOf(display, '.ui-progress__bar')).toContain('transition: transform var(--spring-snappy)')
+    expect(ruleOf(display, '.ui-progress__bar')).not.toContain('transition: width')
+
+    const auth = read('features/auth/auth.css')
+    const authDone = ruleOf(auth, '.ui-btn.auth__submit[data-phase="done"]')
+    expect(authDone).toContain('animation: auth-pop var(--spring-bouncy);')
+    expect(authDone).not.toContain('420ms')
+
+    const tl = read('features/chat/timeline.css')
+    expect(tl).toContain('.chat-scroll__pill[data-state="closed"]')
+    expect(tl).toContain('.chat-scroll__bottom[data-state="closed"]')
+    expect(tl).toContain('.tl-item--enter:has(.pn-msg--from-optimistic)')
+
+    // Every CSS file uses --fade-fast rather than legacy --motion-fast.
+    const allCss = ['ui', 'app', 'features', 'styles'].flatMap(cssFiles)
+    const leftover = allCss.filter((f) => read(f).includes('--motion-fast'))
+    expect(leftover).toEqual([])
   })
 })

@@ -59,10 +59,13 @@ export function Float({
 }: FloatProps) {
   const presence = usePresence(open)
   if (!presence.mounted) return null
+  const closing = presence.state === 'closed'
   return (
     <div
       className={cx('ui-float', `ui-float--${kind}`, `ui-float--${placement}`, className)}
       data-state={presence.state}
+      aria-hidden={closing || undefined}
+      inert={closing}
       onAnimationEnd={presence.onAnimationEnd}
       {...rest}
     />

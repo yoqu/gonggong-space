@@ -686,7 +686,8 @@ function Output({ text, mono }: { text: string; mono: boolean }) {
   const lines = text.replace(/\n+$/, '').split('\n')
   const q = query.trim().toLowerCase()
   const matched = q ? lines.filter((l) => l.toLowerCase().includes(q)) : lines
-  const hidden = mono && !all && !q ? Math.max(0, lines.length - OUT_LINES) : 0
+  const expandable = mono && !q && lines.length > OUT_LINES
+  const hidden = expandable && !all ? lines.length - OUT_LINES : 0
   return (
     <div className={cx('act-detail', mono ? 'act-detail--mono' : 'act-detail--text')}>
       {mono ? (
@@ -713,9 +714,14 @@ function Output({ text, mono }: { text: string; mono: boolean }) {
           </button>
         </div>
       ) : null}
-      {hidden ? (
-        <button type="button" className="act-detail__more" onClick={() => setAll(true)}>
-          {t('… 另有 {n} 行', { n: hidden })}
+      {expandable ? (
+        <button
+          type="button"
+          className="act-detail__more"
+          aria-expanded={all}
+          onClick={() => setAll((v) => !v)}
+        >
+          {all ? t('收起过程') : t('… 另有 {n} 行', { n: hidden })}
         </button>
       ) : null}
       {mono ? <pre>{matched.slice(hidden).join('\n')}</pre> : text}

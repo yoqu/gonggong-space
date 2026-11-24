@@ -22,9 +22,10 @@ export function OverviewPage({ go }: PageProps) {
   const info = useDaemon((s) => s.info)
   const status = snapshot.phase === 'running' ? snapshot.status : null
   const runs = status?.runs ?? []
-  const [bots, setBots] = useState<MachineBot[]>([])
+  const [bots, setBots] = useState<MachineBot[] | null>(null)
   const [failedLive, setFailedLive] = useState<Tunnels['previews']>([])
   const overview = useDaemon((s) => s.overview)
+  const botGuideDismissed = useDaemon((s) => s.botGuideDismissed)
   const [detail, setDetail] = useState<string | null>(null)
   const kind = connKind(snapshot)
 
@@ -50,10 +51,13 @@ export function OverviewPage({ go }: PageProps) {
 
   const running = runs.filter((r) => !r.queued)
   const queued = runs.filter((r) => r.queued)
-  const bound = bots.filter((b) => b.binding === 'bound')
+  const botList = bots ?? []
+  const bound = botList.filter((b) => b.binding === 'bound')
   const capacity = bound.reduce((n, b) => n + b.concurrency, 0)
   const agents = status?.agents ?? []
   const secure = info?.server?.startsWith('https') ? t('加密连接') : t('未加密连接')
+  const showBotGuide =
+    kind === 'ok' && Boolean(info?.server) && bots !== null && bots.length === 0 && !botGuideDismissed
 
   if (detail)
     return (
@@ -76,6 +80,27 @@ export function OverviewPage({ go }: PageProps) {
             {t('查看')}
           </Button>
         </Alert>
+      ) : null}
+      {showBotGuide ? (
+        <GroupBox>
+          <div className="dk-guide" data-testid="create-bot-guide">
+            <span className="dk-tile" style={{ background: 'var(--system-indigo)' }}>
+              <Icon name="bot" size={16} />
+            </span>
+            <div className="dk-row__main">
+              <span className="dk-strong">{t('电脑已接入，接下来创建你的第一个 Bot')}</span>
+              <span className="dk-sub">{t('在网页端为这台电脑创建 Bot 后，就能在群里 @ 它开始干活。')}</span>
+            </div>
+            <div className="dk-guide__actions">
+              <Button size="small" onClick={() => useDaemon.setState({ botGuideDismissed: true })}>
+                {t('稍后再说')}
+              </Button>
+              <Button variant="primary" size="small" onClick={() => void ipc.openWeb().catch(fail)}>
+                {t('去网页端创建 Bot')}
+              </Button>
+            </div>
+          </div>
+        </GroupBox>
       ) : null}
       <div className="dk-stats" data-testid="stats">
         <Stat k={t('连接')} v={CONN_STAT[kind]} s={secure} />
@@ -214,7 +239,7 @@ function ConnAlert({
         variant="error"
         title={t('电脑已解绑 · 账号已停用')}
         description={t(
-          '已清理这台电脑上的团队密钥和 {n} 个托管工作区；/cd 绑定的目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。',
+          '已清理这台电脑上的团队密钥和 {n} 个托管工作区；你手动选择的本机目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。',
           { n: workspaces },
         )}
       >

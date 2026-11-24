@@ -59,17 +59,17 @@ export const en = {
   待确认: 'Pending confirmation',
   'Agent 未就绪': 'Agent unavailable',
   离线: 'Offline',
-  '本机还没有 Bot': 'No Bots on this computer yet',
+  '这台电脑还没有 Bot': 'No Bots on this computer yet',
   '在网页端创建 Bot 并指定到这台电脑后，会显示在这里。':
     'Bots created on the Web and assigned to this computer show up here.',
-  '他人为你创建，请在 Web 中确认': 'Created for you by someone else. Confirm it on the Web',
-  '在 Web 中确认': 'Confirm on Web',
-  '在 Web 中管理': 'Manage on Web',
+  '他人为你创建，请在网页端确认': 'Created for you by someone else. Confirm it on the Web',
+  在网页端确认: 'Confirm on Web',
+  在网页端管理: 'Manage on Web',
   '{name} · 未安装': '{name} · not installed',
   供应商: 'Provider',
   '供应商/模型': 'Provider / model',
   '使用电脑默认（{name}）': 'Computer default ({name})',
-  'Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。':
+  'Bot 的设置都在网页端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。':
     "Bot settings are managed on the Web (name, role description, provider and model, concurrency limit, approval, etc.); this computer's providers and defaults are set on the Agent page.",
   团队: 'Team',
   并发上限: 'Concurrency limit',
@@ -101,7 +101,7 @@ export const en = {
   '{name} 正在远程操作': '{name} is controlling remotely',
   关闭并停止应用: 'Close and stop app',
   关闭: 'Close',
-  '群成员在 Web 端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。':
+  '群成员在网页端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。':
     'This computer streams a window only while a group member watches it on the Web, and stops when nobody does. Failed streams retry automatically, with the reason shown here.',
   正常: 'OK',
   注意: 'Warning',
@@ -145,9 +145,14 @@ export const en = {
   '协议版本不兼容 · 服务器拒绝连接': 'Protocol version incompatible · server refused the connection',
   '这台电脑的共工客户端（v{version}）版本太旧，与服务器不兼容（{message}）。请升级后重启；升级前这台电脑上的 Bot 会显示离线。':
     "This computer's Gonggong client (v{version}) is too old for the server ({message}). Upgrade and restart; until then the Bots on this computer show as offline.",
+  '电脑已接入，接下来创建你的第一个 Bot': 'Computer connected. Next, create your first Bot',
+  '在网页端为这台电脑创建 Bot 后，就能在群里 @ 它开始干活。':
+    'Create a Bot for this computer on the Web, then @ it in a group to get started.',
+  '去网页端创建 Bot': 'Create Bot on Web',
+  稍后再说: 'Maybe later',
   '电脑已解绑 · 账号已停用': 'Computer unbound · account disabled',
-  '已清理这台电脑上的团队密钥和 {n} 个托管工作区；/cd 绑定的目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。':
-    'Cleared the team secrets and {n} managed {n:workspace|workspaces} on this computer; /cd directories and local backups are untouched. If this is a mistake, contact your system admin and bind again.',
+  '已清理这台电脑上的团队密钥和 {n} 个托管工作区；你手动选择的本机目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。':
+    'Cleared the team secrets and {n} managed {n:workspace|workspaces} on this computer; local folders you chose and local backups are untouched. If this is a mistake, contact your system admin and bind again.',
   '绑定已失效 · 服务器拒绝连接': 'Binding invalid · server refused the connection',
   '未授权：{list}': 'Not granted: {list}',
   'Bot 推送的桌面应用、小程序实时画面或远程操作在本机不可用，授权后即可使用。':
@@ -179,21 +184,21 @@ export const en = {
   玻璃效果: 'Glass effect',
   '调节侧栏、菜单和浮层的透明程度': 'Adjusts the transparency of the sidebar, menus and overlays',
   自动升级: 'Auto upgrade',
-  '服务器公布协议版本，不兼容时拒绝连接并提示升级。':
-    'The server announces its protocol version and refuses incompatible connections with an upgrade prompt.',
+  '发现不兼容的旧版本时，会提示你升级后再连接。':
+    'When an incompatible older version is detected, you will be prompted to upgrade before connecting.',
   开机启动: 'Launch at login',
   登录系统后在后台运行: 'Runs in the background after you log in',
   工作区根目录: 'Workspaces root',
   托管工作区与附件目录: 'Managed workspaces and attachments',
   备份目录: 'Backups',
   '被覆盖的本地修改、中断的半成品': 'Overwritten local changes and interrupted work',
-  '只出站连接 · HTTPS / WSS': 'Outbound only · HTTPS / WSS',
+  由本机主动加密连接服务器: 'Encrypted connection initiated from this computer',
   '解除绑定…': 'Unbind…',
   '解除绑定后清除团队密钥与托管工作区，本机备份保留。':
     'Unbinding clears the team secrets and managed workspaces; local backups are kept.',
-  '要解除本机与团队服务器的绑定吗？': 'Unbind this computer from the team server?',
-  '本机将断开连接，清除团队密钥与托管工作区（/cd 绑定的目录与本机备份保留），并回到首次绑定引导。此操作不可撤销。':
-    'This computer will disconnect, clear the team secrets and managed workspaces (/cd directories and local backups are kept), and return to first-time setup. This cannot be undone.',
+  '要解除这台电脑与团队服务器的绑定吗？': 'Unbind this computer from the team server?',
+  '这台电脑将断开连接，团队密钥和托管工作区会被清理，你手动选择的本机目录和本地备份会保留。此操作不可撤销。':
+    'This computer will disconnect, and team secrets and managed workspaces will be cleared. Local folders you chose and local backups will be kept. This cannot be undone.',
   取消: 'Cancel',
   解除绑定: 'Unbind',
   服务已停止: 'Service stopped',
@@ -218,7 +223,20 @@ export const en = {
   收起技术详情: 'Hide technical details',
   '仅后台运行（未开放预览）': 'Running in background only (no preview)',
   停止: 'Stop',
-  'Bot 开放的网页与后台服务由这台电脑运行。在这里操作与在 Web 群里效果相同，群成员会立即看到变化。':
+  停止预览: 'Stop preview',
+  '要停止「{title}」的在线预览吗？': 'Stop the online preview for "{title}"?',
+  '停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。':
+    'Group members will no longer be able to open this preview link, and its background service will also stop.',
+  '要彻底关闭「{title}」吗？': 'Close "{title}" permanently?',
+  '关闭后该预览卡片会移除，之后无法再从这里重新启动。':
+    'This preview card will be removed and cannot be restarted from here.',
+  '已停止「{title}」的在线预览': 'Stopped online preview for "{title}"',
+  '已彻底关闭「{title}」': 'Closed "{title}" permanently',
+  '已暂停「{title}」的后台进程': 'Paused background process for "{title}"',
+  '已关闭「{title}」': 'Closed "{title}"',
+  '已重新启动「{title}」': 'Restarted "{title}"',
+  '已停止「{name}」': 'Stopped "{name}"',
+  'Bot 开放的网页与后台服务由这台电脑运行。在这里操作与在网页端群里效果相同，群成员会立即看到变化。':
     'Web pages and background services opened by Bots run on this computer. Actions here have the same effect as in the Web group; group members see the change immediately.',
   '已请求 {bot} 改回托管工作区，结果见群消息':
     'Asked {bot} to switch back to the managed workspace; see the group messages for the result',
@@ -230,8 +248,8 @@ export const en = {
   改回托管: 'Back to managed',
   '删除…': 'Delete…',
   无法连接服务器: 'Cannot connect to the server',
-  '群与 Bot 名称、/cd 绑定暂不可用，以下仅按本机目录列出。':
-    'Group and Bot names and /cd bindings are unavailable; only local directories are listed below.',
+  '暂时连不上服务器，以下仅列出本机目录，群和 Bot 名称恢复连接后显示。':
+    'Cannot reach the server right now. Only local folders are listed below; group and Bot names will appear once reconnected.',
   本机还没有工作区: 'No workspaces on this computer yet',
   '本机备份 · 不上传': 'Local backups · never uploaded',
   '被覆盖的本地修改、中断的半成品保存在这里，不上传服务器。':
@@ -247,10 +265,10 @@ export const en = {
   执行: 'Execution',
   '本机的 Node.js 与 CLI 运行时：安装升级、检测与供应商':
     'Node.js and CLI runtimes on this computer: install, upgrade, detection and providers',
-  '本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改':
+  '本机运行的 Bot 与其供应商/模型，设置请在网页端修改':
     'Bots running on this computer with their provider / model; change their settings on the Web',
-  '每个「群 × Bot」一个托管目录，或绑定的本机目录':
-    'One managed directory per "group × Bot", or a bound local directory',
+  '每个「群 × Bot」一个托管工作区，或绑定的本机目录':
+    'One managed workspace per "group × Bot", or a bound local folder',
   在线预览: 'Online previews',
   'Bot 对外开放的网页与后台运行的服务，可在本机查看或停止':
     'Web pages and background services opened by Bots, which can be viewed or stopped here',
@@ -271,15 +289,25 @@ export const en = {
     'Remote control of desktop apps and mini programs, and auto-trusting mini program projects; without it remote clicks and typing do nothing',
   '环境变量每行一个 KEY=VALUE：{line}': 'Environment variables take one KEY=VALUE per line: {line}',
   导航: 'Navigation',
-  '上次 {n} 秒前': 'last {n} s ago',
-  尚未发送: 'not sent yet',
-  '心跳 {sec}s · {beat}': 'Heartbeat {sec}s · {beat}',
-  '心跳 — · 未连接': 'Heartbeat — · not connected',
-  '延迟 {ms} ms': 'Latency {ms} ms',
-  '延迟 —': 'Latency —',
-  '运行 {running} · 队列 {queued}': 'Running {running} · queued {queued}',
-  'ACP 适配器 {list}': 'ACP adapters {list}',
-  'v{version} · 协议 v{protocol}': 'v{version} · protocol v{protocol}',
+  '重连中…': 'Reconnecting…',
+  未连接: 'Disconnected',
+  空闲: 'Idle',
+  '运行中 {n}': '{n} running',
+  '运行中 {n} · 排队 {m}': '{n} running · {m} queued',
+  查看连接诊断: 'View connection diagnostics',
+  连接诊断: 'Connection diagnostics',
+  连接状态: 'Connection status',
+  心跳间隔: 'Heartbeat interval',
+  上次心跳: 'Last heartbeat',
+  '上次 {n} 秒前（{time}）': '{n} s ago ({time})',
+  尚未发送: 'Not sent yet',
+  延迟: 'Latency',
+  '{ms} ms': '{ms} ms',
+  协议版本: 'Protocol version',
+  客户端版本: 'Client version',
+  复制诊断信息: 'Copy diagnostics',
+  已复制诊断信息: 'Diagnostics copied',
+  复制诊断信息失败: 'Failed to copy diagnostics',
   '已连接 {host}': 'Connected to {host}',
   在浏览器中打开共工: 'Open Gonggong in the browser',
   '有运行中的任务，重启会中断': 'Tasks are running. Restarting will interrupt them',
@@ -334,4 +362,6 @@ export const en = {
   市场: 'Market',
   市场里还没有条目: 'The market has no listings yet',
   '{n} 次引入': '{n} {n:install|installs}',
+  '停止后，群成员将无法继续打开这个预览链接。':
+    'Once stopped, group members will no longer be able to open this preview link.',
 } satisfies Record<string, string>

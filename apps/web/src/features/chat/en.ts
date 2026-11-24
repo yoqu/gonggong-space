@@ -337,4 +337,33 @@ export default {
   改回私聊: 'Switch back to DM',
   收起回复: 'Hide reply',
   加载更多失败: "Couldn't load more",
+  '请先为 {name} 确认工作区，确认后即可开始工作': 'Choose a workspace for {name} before it can start working',
+  '请先为 {n} 个 Bot 确认工作区，确认后即可开始工作':
+    'Choose workspaces for {n} {n:Bot|Bots} before they can start working',
+  '确认 {name}': 'Confirm {name}',
+  '工作区：托管工作区': 'Workspace: Managed workspace',
+  '更换本机目录…': 'Change local folder…',
+  已保留你手动标记的未读位置: 'Kept your manual unread position',
+  建群: 'New group',
+  '私聊#new': 'Direct chat',
+  '只有你和 {name}，也可以直接发起私聊': 'Only you and {name} here; you can also start a direct chat',
+  切到私聊: 'Switch to direct chat',
+  '选择 Bot…': 'Select Bot…',
+  '更换 Bot…': 'Change Bot…',
+  '还没有可用于私聊的 Bot，先新建或请同事共享一个 Bot':
+    'No Bots available for direct chat yet. Create one or ask a teammate to share one',
+  请填写群名称: 'Enter a group name',
+  '请选择一个 Bot': 'Select a Bot',
+  '正在检查仓库访问权限…': 'Checking repository access…',
+  请等待仓库访问检查完成: 'Wait for repository access check to finish',
+  没有可用的电脑: 'No available computer',
+  请选择一台电脑: 'Select a computer',
+  '请填写以 / 开头的目录路径': 'Enter a folder path starting with /',
+  请填写终端名称: 'Enter a terminal name',
+  '要撤回这条消息并中断运行吗？': 'Recall this message and stop the run?',
+  '{bot} 正在根据这条消息执行任务，撤回会立即中断当前运行。':
+    '{bot} is currently working on this message. Recalling it will stop the run right away.',
+  撤回并中断: 'Recall and stop',
+  '消息已撤回，但未能停止正在运行的任务，请手动停止':
+    'Message recalled, but failed to stop the running task. Please stop it manually',
 } satisfies Record<string, string>

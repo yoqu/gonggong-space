@@ -8,7 +8,6 @@ import demoLightPoster from '../../assets/demo/a1-light-poster.webp'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import {
-  Alert,
   Button,
   DemoVideo,
   Dialog,
@@ -20,7 +19,7 @@ import {
   StepIndicator,
   type StepStatus,
 } from '../../ui'
-import { AgentPrompt, BindCodePanel, useBindCode } from './BindCodePanel'
+import { AgentPrompt, BindCliDockerDisclosures, BindCodePanel, useBindCode } from './BindCodePanel'
 import { ClientDownload } from './ClientDownload'
 import { LinkRequestCard } from './LinkRequestCard'
 import { OS_LABEL } from './model'
@@ -98,24 +97,63 @@ export function BindMachineDialog({
     })
   }, [open])
 
+  const win = onWindows()
   const online = !!bound?.online
   const handedOver = (!!code && copied === code.code) || !!request
-  const steps: { label: string; status: StepStatus }[] = [
-    {
-      label: t('复制给 Agent'),
-      status: bound || handedOver ? 'completed' : error ? 'error' : code ? 'current' : 'pending',
-    },
-    { label: t('电脑接入'), status: bound ? 'completed' : handedOver ? 'active' : 'pending' },
-    { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
-  ]
+  const steps: { label: string; status: StepStatus }[] = win
+    ? [
+        { label: t('安装客户端'), status: bound || installed ? 'completed' : 'current' },
+        {
+          label: t('打开接入链接'),
+          status: bound ? 'completed' : error ? 'error' : installed || request ? 'active' : 'pending',
+        },
+        { label: t('创建 Bot'), status: bound ? 'active' : 'pending' },
+      ]
+    : [
+        {
+          label: t('复制给 Agent'),
+          status: bound || handedOver ? 'completed' : error ? 'error' : code ? 'current' : 'pending',
+        },
+        { label: t('电脑接入'), status: bound ? 'completed' : handedOver ? 'active' : 'pending' },
+        { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
+      ]
+
+  const clientSteps = (
+    <>
+      <section className="bind__section" aria-label={t('安装客户端')}>
+        <h3 className="bind__heading">{t('① 安装客户端')}</h3>
+        {installed ? (
+          <span className="bind__note">{t('已安装客户端')}</span>
+        ) : (
+          <>
+            <span className="bind__step-line">
+              <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
+              <Button size="small" onClick={() => setInstalled(true)}>
+                {t('我已安装')}
+              </Button>
+            </span>
+            <ClientDownload open={open} />
+          </>
+        )}
+      </section>
+      <section className="bind__section" aria-label={t('打开接入链接')}>
+        <h3 className="bind__heading">{t('② 打开接入链接')}</h3>
+        <BindCodePanel bind={bind} showCliDocker={!win} />
+      </section>
+    </>
+  )
 
   return (
     <Dialog
       open={open}
       title={t('绑定新电脑')}
-      message={t(
-        '把下面这句话粘贴给这台电脑上的 Claude Code 或 Codex（支持 macOS / Linux），它会自己安装、绑定电脑并建好 Bot。',
-      )}
+      message={
+        win
+          ? t('下载并打开共工客户端，用下方接入链接绑定这台电脑。')
+          : t(
+              '把下面这句话粘贴给这台电脑上的 Claude Code 或 Codex（支持 macOS / Linux），它会自己安装、绑定电脑并建好 Bot。',
+            )
+      }
       width={520}
       onClose={onClose}
       actions={
@@ -131,7 +169,25 @@ export function BindMachineDialog({
     >
       <div className="bind">
         <StepIndicator steps={steps} />
-        {bound ? null : (
+        {bound ? null : win ? (
+          <>
+            {clientSteps}
+            {request ? <LinkRequestCard key={request.id} request={request} /> : null}
+            <Disclosure title={t('绑定其他系统的电脑（命令行或 Docker）')}>
+              <div className="bind">
+                <p className="bind__note">
+                  {t(
+                    '如果要绑定远程 Linux 或 macOS 电脑，可以把下面这句话发给那台电脑上的 Agent，或使用下方的命令行与 Docker 方式。',
+                  )}
+                </p>
+                <AgentPrompt bind={bind} onCopied={setCopied} />
+                <Form>
+                  <BindCliDockerDisclosures bind={bind} />
+                </Form>
+              </div>
+            </Disclosure>
+          </>
+        ) : (
           <>
             <section className="bind__section" aria-label={t('发给你的 Agent')}>
               <h3 className="bind__heading">{t('发给你的 Agent')}</h3>
@@ -146,37 +202,9 @@ export function BindMachineDialog({
               />
               <AgentPrompt bind={bind} onCopied={setCopied} />
               {request ? <LinkRequestCard key={request.id} request={request} /> : null}
-              {onWindows() ? (
-                <Alert variant="info" description={t('Windows 上请展开「其他方式」，用桌面客户端绑定。')} />
-              ) : null}
             </section>
-            <Disclosure
-              title={t('其他方式')}
-              defaultOpen={onWindows()}
-              onToggle={(o) => o && setViaClient(true)}
-            >
-              <div className="bind">
-                <section className="bind__section" aria-label={t('安装客户端')}>
-                  <h3 className="bind__heading">{t('① 安装客户端')}</h3>
-                  {installed ? (
-                    <span className="bind__note">{t('已安装客户端')}</span>
-                  ) : (
-                    <>
-                      <span className="bind__step-line">
-                        <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
-                        <Button size="small" onClick={() => setInstalled(true)}>
-                          {t('我已安装')}
-                        </Button>
-                      </span>
-                      <ClientDownload open={open} />
-                    </>
-                  )}
-                </section>
-                <section className="bind__section" aria-label={t('打开接入链接')}>
-                  <h3 className="bind__heading">{t('② 打开接入链接')}</h3>
-                  <BindCodePanel bind={bind} />
-                </section>
-              </div>
+            <Disclosure title={t('其他方式')} onToggle={(o) => o && setViaClient(true)}>
+              <div className="bind">{clientSteps}</div>
             </Disclosure>
           </>
         )}
@@ -192,13 +220,15 @@ export function BindMachineDialog({
               {code ? (
                 <span className="bind__waiting">
                   <Spinner size={14} />
-                  {t('等待接入…Agent 会自己下载安装，通常 1–3 分钟')}
+                  {win
+                    ? t('等待电脑接入…在客户端中打开上方接入链接即可完成绑定')
+                    : t('等待接入…Agent 会自己下载安装，通常 1–3 分钟')}
                 </span>
               ) : null}
               <Disclosure title={t('了解上报内容')}>
                 <p className="bind__note">
                   {t(
-                    '绑定后这台电脑归属于你，客户端会上报电脑名称、系统、CPU、内存和可用的 Claude Code / Codex / Gemini CLI；同一台电脑重新绑定会恢复原记录。',
+                    '绑定后这台电脑归属于你，客户端会上报电脑名称、系统、CPU、内存和已安装的 Agent 工具；同一台电脑重新绑定会恢复原记录。',
                   )}
                 </p>
               </Disclosure>
@@ -251,7 +281,7 @@ function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: 
             </ul>
           ) : machine.online ? (
             <span className="bind__note">
-              {t('未检测到 Claude Code / Codex / Gemini CLI，安装后在客户端中重新检测即可上报。')}
+              {t('未检测到可用的 Agent 工具，安装后在客户端中重新检测即可上报。')}
             </span>
           ) : (
             <span className="bind__waiting">

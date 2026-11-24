@@ -14,7 +14,7 @@ import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
-import { Checkbox, Composer, Presence, useEscape, useOutsidePress } from '../../ui'
+import { Checkbox, Composer, Presence, useEscape, useOutsidePress, usePresence } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { useCanvasChat } from '../artifacts/chatRoot'
@@ -35,7 +35,13 @@ import { openCreation, useCreationPlugins } from '../plugins/store'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
 import { BotPresenceHint } from './BotPresenceHint'
-import { type Candidate, CandidatePopover, placeCommand, useCandidates } from './ComposerCandidates'
+import {
+  type Candidate,
+  CandidatePopover,
+  placeCommand,
+  type Section,
+  useCandidates,
+} from './ComposerCandidates'
 import { useCite } from './cite'
 import { startEditing } from './editing'
 import { mentions, useMention } from './mention'
@@ -146,6 +152,8 @@ export const MessageComposer = memo(function MessageComposer({
   const [picks, setPicks] = useState<Picks>({})
   /** Variations ×n: the next message asks for n variations of the selected screens. */
   const [variations, setVariations] = useState<number | null>(null)
+  /** Member dismissed implicit canvas Bot routing for this message (keeps selection chips intact). */
+  const [bypassCanvasBot, setBypassCanvasBot] = useState(false)
   const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const plugins = useCreationPlugins(group.id)
   const pluginsOn = useSession((s) => !!s.tenancy?.pluginsEnabled)
@@ -153,6 +161,7 @@ export const MessageComposer = memo(function MessageComposer({
   useConnectors(group.id, pluginsOn)
   const [connectorMenu, setConnectorMenu] = useState(false)
   const [connectorId, setConnectorId] = useState<string | null>(null)
+  const [emojiOpen, setEmojiOpen] = useState(false)
   const appending = useAppend((s) => s.target?.groupId === main)
   const mentioned = mentionedBots(draft, groupBots)
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
@@ -174,12 +183,15 @@ export const MessageComposer = memo(function MessageComposer({
         }
       : null
   const canvas = selection ?? editingContext
+  const canvasKey = canvas ? `${canvas.artifactId}:${canvas.items.map((i) => i.key).join(',')}` : ''
   // …and a plain message sent with the canvas selected (or from the canvas's composer) goes to the artifact's bot.
   const botOfCanvas = canvas ? canvas.botId : canvasChat ? canvasChat.botId : undefined
-  const canvasBot =
+  const rawCanvasBot =
     botOfCanvas !== undefined && !appending && !command && !mentioned.length && !soleDm
       ? (groupBots.find((b) => b.id === botOfCanvas) ?? null)
       : null
+  const canvasBotBypassed = bypassCanvasBot && !canvasChat && !!rawCanvasBot
+  const canvasBot = canvasBotBypassed ? null : rawCanvasBot
   const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
   const target = useArtifactTarget(canvasChat ? '' : canvasScope, editingContext)
   const artifact =
@@ -254,6 +266,10 @@ export const MessageComposer = memo(function MessageComposer({
   useEffect(() => {
     if (!canvas) setVariations(null)
   }, [canvas])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset bypass whenever canvas selection or artifact changes
+  useEffect(() => {
+    setBypassCanvasBot(false)
+  }, [canvasKey])
   // 继续对话 hands the focus over; an artifact deleted meanwhile ends its 正在编辑.
   useEffect(() => {
     if (editingFocus && main) input.current?.focus()
@@ -285,6 +301,15 @@ export const MessageComposer = memo(function MessageComposer({
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
   const popoverShown = Boolean(token && (open || empty))
+  const popPresence = usePresence(popoverShown)
+  const lastPop = useRef<{
+    char: '@' | '/' | '#'
+    sections: Section[]
+    empty: string | null
+    active: Candidate | undefined
+  } | null>(null)
+  if (popoverShown && token)
+    lastPop.current = { char: token.char, sections, empty, active: candidates[current] }
 
   useEscape(() => setDismissed(true), popoverShown)
   useOutsidePress([wrapRef], () => setDismissed(true), popoverShown)
@@ -420,7 +445,7 @@ export const MessageComposer = memo(function MessageComposer({
   /** Variations ×n, or a leading artifact command: POST …/commands instead of a message. */
   const artifactRequest = () => {
     if (!artifact || !artifactBot) return null
-    if (variations && canvas)
+    if (variations && canvas && !canvasBotBypassed)
       return {
         command: 'variations' as const,
         count: variations,
@@ -476,7 +501,8 @@ export const MessageComposer = memo(function MessageComposer({
       ...(thread ? { threadRootId: thread, alsoSent } : chatRoot ? { threadRootId: chatRoot } : {}),
     }
     if (Object.keys(runOptions).length) req.runOptions = runOptions
-    if (canvas) req.artifactContext = artifactContextOf(canvas)
+    const sendWithCanvas = !!canvas && (!bypassCanvasBot || mentioned.length > 0)
+    if (sendWithCanvas && canvas) req.artifactContext = artifactContextOf(canvas)
     if (foreground) req.foregroundArtifactId = foreground.artifactId
     // Shown in the timeline at once (发送中, then 发送失败 with 重发), so the composer is free for the next one;
     // one the server refuses comes back here (see `rejected`).
@@ -496,9 +522,10 @@ export const MessageComposer = memo(function MessageComposer({
     setPicks({})
     setNoFront(null)
     setAlsoSent(false)
+    setBypassCanvasBot(false)
     uploads.clear()
     if (q) useQuote.getState().clear()
-    if (selection) clearContext()
+    if (selection && sendWithCanvas) clearContext()
   }
 
   const chips = appending || quote || canvas || foreground || uploads.items.length > 0
@@ -524,8 +551,9 @@ export const MessageComposer = memo(function MessageComposer({
         value={draft}
         onChange={change}
         onCaretChange={setCaret}
-        onEmojiOpenChange={(emojiOpen) => {
-          if (emojiOpen) setDismissed(true)
+        onEmojiOpenChange={(open) => {
+          setEmojiOpen(open)
+          if (open) setDismissed(true)
         }}
         onSend={() => void send()}
         canSend={
@@ -642,8 +670,29 @@ export const MessageComposer = memo(function MessageComposer({
                   bot={canvasBot}
                   others={canvasBot ? groupBots.filter((b) => b.id !== canvasBot.id) : []}
                   onSwitch={(name) => change(`@${name} ${draft}`, name.length + 2)}
+                  onDismissBot={
+                    canvasBot && !canvasChat
+                      ? () => {
+                          setBypassCanvasBot(true)
+                          setVariations(null)
+                          input.current?.focus()
+                        }
+                      : undefined
+                  }
+                  bypassedBot={canvasBotBypassed ? rawCanvasBot : null}
+                  onRestoreBot={
+                    canvasBotBypassed
+                      ? () => {
+                          setBypassCanvasBot(false)
+                          input.current?.focus()
+                        }
+                      : undefined
+                  }
                   variations={variations}
-                  onVariations={setVariations}
+                  onVariations={(v) => {
+                    setVariations(v)
+                    if (v !== null) setBypassCanvasBot(false)
+                  }}
                 />
               ) : null}
               {foreground ? (
@@ -665,16 +714,7 @@ export const MessageComposer = memo(function MessageComposer({
           'aria-activedescendant': open && current >= 0 ? `${listId}-${current}` : undefined,
         }}
         popover={
-          popoverShown && token ? (
-            <CandidatePopover
-              id={listId}
-              char={token.char}
-              sections={sections}
-              empty={empty}
-              active={candidates[current]}
-              onPick={pick}
-            />
-          ) : connectorMenu ? (
+          connectorMenu ? (
             <ConnectorMenu
               groupId={group.id}
               onClose={() => setConnectorMenu(false)}
@@ -683,6 +723,23 @@ export const MessageComposer = memo(function MessageComposer({
                 setConnectorId(c.id)
               }}
             />
+          ) : !emojiOpen && popPresence.mounted && lastPop.current ? (
+            <div
+              className="mention-pop-wrap"
+              data-state={popPresence.state}
+              aria-hidden={popPresence.state === 'closed' || undefined}
+              inert={popPresence.state === 'closed' || undefined}
+              onAnimationEnd={popPresence.onAnimationEnd}
+            >
+              <CandidatePopover
+                id={listId}
+                char={lastPop.current.char}
+                sections={lastPop.current.sections}
+                empty={lastPop.current.empty}
+                active={lastPop.current.active}
+                onPick={pick}
+              />
+            </div>
           ) : null
         }
       />

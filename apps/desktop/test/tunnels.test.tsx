@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { Toaster, useToasts } from '@web/ui'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { ipc, type Tunnels } from '../src/ipc'
@@ -78,6 +79,7 @@ const LIST: Tunnels = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  useToasts.setState({ items: [] })
   m.tunnels.mockResolvedValue(LIST)
   m.closeTunnel.mockResolvedValue()
   m.startPreview.mockResolvedValue()
@@ -145,23 +147,66 @@ it('stops both by default, pauses via menu, restarts paused previews, and shows 
       },
     ],
   })
-  render(<TunnelsPage go={() => {}} />)
+  render(
+    <>
+      <TunnelsPage go={() => {}} />
+      <Toaster />
+    </>,
+  )
+  // Stopping an online preview requires confirmation and locks while closing.
+  let resolveClose: () => void = () => {}
+  m.closeTunnel.mockImplementationOnce(() => new Promise<void>((r) => (resolveClose = r)))
   fireEvent.click((await row('登录页')).getByRole('button', { name: '停止' }))
+  expect(m.closeTunnel).not.toHaveBeenCalled()
+  const stopDialog = screen.getByRole('alertdialog')
+  expect(stopDialog.textContent).toContain('要停止「登录页」的在线预览吗？')
+  expect(stopDialog.textContent).toContain(
+    '停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。',
+  )
+  fireEvent.click(within(stopDialog).getByRole('button', { name: '停止预览' }))
+  expect(within(stopDialog).getByRole('button', { name: '停止预览' }).getAttribute('aria-busy')).toBe('true')
+  expect((within(stopDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(screen.getByRole('alertdialog')).toBeTruthy()
+  await act(async () => resolveClose())
   await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p1', true))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
 
+  // Stopping an external tunnel also confirms, without claiming a managed background service will stop.
   fireEvent.click((await row('外部服务')).getByRole('button', { name: '停止穿透' }))
+  const extDialog = screen.getByRole('alertdialog')
+  expect(extDialog.textContent).toContain('要停止「外部服务」的在线预览吗？')
+  expect(extDialog.textContent).toContain('停止后，群成员将无法继续打开这个预览链接。')
+  expect(extDialog.textContent).not.toContain('相关后台服务也会一并停止')
+  fireEvent.click(within(extDialog).getByRole('button', { name: '停止预览' }))
   await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p_ext', false))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
 
+  // Pausing background process runs directly without a confirmation dialog and shows a success toast.
   fireEvent.click((await row('登录页')).getByRole('button', { name: '登录页 的更多操作' }))
   fireEvent.click(await screen.findByRole('menuitem', { name: '仅暂停后台进程（保留卡片）' }))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
   await waitFor(() => expect(m.stopService).toHaveBeenCalledWith('sv1'))
 
+  // Restarting shows loading spinner and interlocks 彻底关闭 on the same row; permanently closing confirms first.
   const paused = await row('调试台')
   expect(paused.getByText('服务已停止')).toBeTruthy()
+  let resolveStart: () => void = () => {}
+  m.startPreview.mockImplementationOnce(() => new Promise<void>((r) => (resolveStart = r)))
   fireEvent.click(paused.getByRole('button', { name: '重新启动' }))
+  expect(paused.getByRole('button', { name: '重新启动' }).getAttribute('aria-busy')).toBe('true')
+  expect((paused.getByRole('button', { name: '彻底关闭' }) as HTMLButtonElement).disabled).toBe(true)
+  await act(async () => resolveStart())
   await waitFor(() => expect(m.startPreview).toHaveBeenCalledWith('p_paused'))
+
   fireEvent.click(paused.getByRole('button', { name: '彻底关闭' }))
+  expect(m.closeTunnel).not.toHaveBeenCalledWith('p_paused', false)
+  const closeDialog = screen.getByRole('alertdialog')
+  expect(closeDialog.textContent).toContain('要彻底关闭「调试台」吗？')
+  expect(closeDialog.textContent).toContain('关闭后该预览卡片会移除，之后无法再从这里重新启动。')
+  fireEvent.click(within(closeDialog).getByRole('button', { name: '彻底关闭' }))
   await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p_paused', false))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
 
   expect(screen.getByText('仅后台运行（未开放预览）')).toBeTruthy()
   fireEvent.click((await row(/python worker\.py/)).getByRole('button', { name: '停止' }))
@@ -178,13 +223,32 @@ it('keeps in step with the Web by reloading every few seconds and shows one empt
   expect(screen.queryByText(/仅后台运行/)).toBeNull()
 })
 
+it('dismisses stale confirmation dialog if polling reports the preview changed status or disappeared', async () => {
+  vi.useFakeTimers()
+  render(<TunnelsPage go={() => {}} />)
+  await act(async () => {})
+  fireEvent.click(
+    within(screen.getByText('登录页').closest('.dk-row-item') as HTMLElement).getByRole('button', {
+      name: '停止',
+    }),
+  )
+  expect(screen.getByRole('alertdialog')).toBeTruthy()
+  // Preview was stopped from the Web before the user confirmed.
+  m.tunnels.mockResolvedValue({
+    previews: [{ ...LIST.previews[0]!, status: 'stopped' }],
+    services: LIST.services,
+  })
+  await act(async () => vi.advanceTimersByTime(5000))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+})
+
 it('uses 在线预览 in sidebar and explains without internal tool names', async () => {
   const nav = SECTIONS.flatMap((s) => s.pages).find((p) => p.key === 'tunnels')
   expect(nav?.label).toBe('在线预览')
   render(<TunnelsPage go={() => {}} />)
   const note = await screen.findByText(/由这台电脑运行/)
   expect(note.textContent).toBe(
-    'Bot 开放的网页与后台服务由这台电脑运行。在这里操作与在 Web 群里效果相同，群成员会立即看到变化。',
+    'Bot 开放的网页与后台服务由这台电脑运行。在这里操作与在网页端群里效果相同，群成员会立即看到变化。',
   )
 })
 
@@ -244,6 +308,7 @@ it('matches Web on offline bound previews and exited/failed orphan services, and
   expect(screen.queryByRole('menuitem', { name: '仅暂停后台进程（保留卡片）' })).toBeNull()
   expect(screen.getByRole('menuitem', { name: '查看技术详情' })).toBeTruthy()
   fireEvent.click(offline.getByRole('button', { name: '关闭' }))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
   await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p_off', false))
 
   expect((await row('old-worker')).queryByRole('button', { name: '停止' })).toBeNull()

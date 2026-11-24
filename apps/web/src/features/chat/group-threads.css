@@ -30,7 +30,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 @media (hover: hover) {
   .group-threads__row:hover {

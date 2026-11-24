@@ -13,6 +13,7 @@ beforeEach(() => {
   m.tools.mockResolvedValue({ ...STATE, agents: [CLAUDE, CODEX] })
   m.providers.mockResolvedValue({ view: VIEW })
   m.openBotInWeb.mockResolvedValue()
+  m.openWeb.mockResolvedValue()
   m.bots.mockResolvedValue([
     bot({ followAgent: true }),
     bot({
@@ -50,7 +51,7 @@ it('shows the server settings of each bot read-only', async () => {
   expect(codex.getByRole('img', { name: '小王的 Codex' }).querySelector('img')?.getAttribute('src')).toBe(
     avatarSrc('role-sentry'),
   )
-  expect(codex.getByText('他人为你创建，请在 Web 中确认')).toBeTruthy()
+  expect(codex.getByText('他人为你创建，请在网页端确认')).toBeTruthy()
   expect(codex.getByText('支付组')).toBeTruthy()
   expect(codex.getByText('Codex · 未安装')).toBeTruthy()
   expect(codex.getByText('帮我审批 · 已允许 go build、npm test')).toBeTruthy()
@@ -60,29 +61,37 @@ it('shows the server settings of each bot read-only', async () => {
 
   expect(screen.queryByRole('button', { name: '设置…' })).toBeNull()
   expect(screen.queryByRole('button', { name: '确认' })).toBeNull()
-  expect(screen.getByText(/Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型/)).toBeTruthy()
+  expect(screen.getByText(/Bot 的设置都在网页端管理（名称、角色说明、供应商与模型/)).toBeTruthy()
 })
 
-it('opens each bot on the Web to manage or confirm it', async () => {
+it('shows the empty state with a 去网页端创建 Bot button when this computer has no Bots', async () => {
+  m.bots.mockResolvedValue([])
   render(<BotsPage go={() => {}} />)
-  fireEvent.click(
-    (await card('小王的 Claude')).getAllByRole('button', { name: '在 Web 中管理' })[0] as HTMLElement,
-  )
+  expect(await screen.findByText('这台电脑还没有 Bot')).toBeTruthy()
+  expect(screen.getByText('在网页端创建 Bot 并指定到这台电脑后，会显示在这里。')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '去网页端创建 Bot' }))
+  await waitFor(() => expect(m.openWeb).toHaveBeenCalledTimes(1))
+})
+
+it('opens each bot on the Web with a single header button per card', async () => {
+  render(<BotsPage go={() => {}} />)
+  const claude = await card('小王的 Claude')
+  expect(claude.getAllByRole('button', { name: '在网页端管理' })).toHaveLength(1)
+  fireEvent.click(claude.getByRole('button', { name: '在网页端管理' }))
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b1'))
   const codex = await card('小王的 Codex')
-  expect(codex.getAllByRole('button', { name: '在 Web 中管理' })).toHaveLength(1)
-  fireEvent.click(codex.getByRole('button', { name: '在 Web 中确认' }))
+  expect(codex.queryByRole('button', { name: '在网页端管理' })).toBeNull()
+  expect(codex.getAllByRole('button', { name: '在网页端确认' })).toHaveLength(1)
+  fireEvent.click(codex.getByRole('button', { name: '在网页端确认' }))
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
 })
 
 it('describes what the page manages', async () => {
   const { PAGES } = await import('../src/pages')
-  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe(
-    '本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改',
-  )
+  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe('本机运行的 Bot 与其供应商/模型，设置请在网页端修改')
 })
 
-it('shows each bot’s provider and model read-only, managed on the Web', async () => {
+it('shows each bot’s provider and model read-only without a duplicate button', async () => {
   m.providers.mockResolvedValue({
     view: {
       ...VIEW,
@@ -99,10 +108,12 @@ it('shows each bot’s provider and model read-only, managed on the Web', async 
   render(<BotsPage go={() => {}} />)
   const claude = await card('小王的 Claude')
   expect(await claude.findByText('使用电脑默认（Kimi / kimi-k2）')).toBeTruthy()
+  expect(claude.getAllByRole('button', { name: '在网页端管理' })).toHaveLength(1)
   expect(screen.queryByRole('button', { name: /的供应商$/ })).toBeNull()
   const codex = await card('小王的 Codex')
   expect(codex.getByText('官方登录 / gpt-5')).toBeTruthy()
-  fireEvent.click(codex.getAllByRole('button', { name: '在 Web 中管理' })[0] as HTMLElement)
+  expect(codex.getAllByRole('button', { name: '在网页端管理' })).toHaveLength(1)
+  fireEvent.click(codex.getByRole('button', { name: '在网页端管理' }))
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
   expect((await card('小王的 Gemini')).getByText('使用电脑默认（官方登录）')).toBeTruthy()
   expect(m.providers).toHaveBeenCalledWith({ action: 'list' })

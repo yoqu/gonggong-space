@@ -1,4 +1,12 @@
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from 'react'
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  useRef,
+  useState,
+} from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { AppFrame } from '../ui'
@@ -49,8 +57,17 @@ const storedWidth = (key: string, fallback: number) => {
 /**
  * A column width dragged or arrowed on its splitter and kept in this browser under `key`.
  * `grow` is the pointer direction that widens it: -1 for a right-hand rail, 1 for a column left of the splitter.
+ * During drag, updates `cssVar` directly on `containerRef` to avoid re-rendering the chat tree per frame.
  */
-function useSplitWidth(key: string, fallback: number, min: number, max: number, grow: 1 | -1) {
+function useSplitWidth(
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+  grow: 1 | -1,
+  containerRef: RefObject<HTMLDivElement | null>,
+  cssVar: string,
+) {
   const [widths, setWidths] = useState<Record<string, number>>({})
   const clamp = (w: number) => Math.round(Math.min(Math.max(w, min), max))
   const width = clamp(widths[key] ?? storedWidth(key, fallback))
@@ -69,27 +86,36 @@ function useSplitWidth(key: string, fallback: number, min: number, max: number, 
   const set = (w: number) => store(show(w))
   const onPointerDown = (e: PointerEvent<HTMLElement>) => {
     e.preventDefault()
+    const handle = e.currentTarget
     // Keeps the move events coming while the pointer crosses the workbench's iframes.
-    e.currentTarget.setPointerCapture?.(e.pointerId)
+    handle.setPointerCapture?.(e.pointerId)
     const from = e.clientX
     const start = width
     let latest = width
     let frame = 0
+    const container = containerRef.current
     document.documentElement.dataset.resizing = ''
-    // Pointer events can fire far faster than frames; re-laying out the chat once per frame keeps the edge on the pointer.
+    if (container) container.dataset.resizing = ''
+    const apply = (w: number) => {
+      container?.style.setProperty(cssVar, `${w}px`)
+      handle.setAttribute('aria-valuenow', String(w))
+    }
+    // Mutate only the CSS variable once per frame so heavy chat/workbench subtrees never re-render while dragging.
     const move = (ev: globalThis.PointerEvent) => {
       latest = clamp(start + grow * (ev.clientX - from))
       frame ||= requestAnimationFrame(() => {
         frame = 0
-        show(latest)
+        apply(latest)
       })
     }
     const up = () => {
       cancelAnimationFrame(frame)
       delete document.documentElement.dataset.resizing
+      if (container) delete container.dataset.resizing
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
+      apply(latest)
       store(show(latest))
     }
     window.addEventListener('pointermove', move)
@@ -172,6 +198,7 @@ export function ChatLayout({
   /** Under 768px only one column is shown. */
   mobileView: 'list' | 'chat'
 }) {
+  const frameRef = useRef<HTMLDivElement>(null)
   const width = useViewportWidth()
   const mobile = width < MOBILE_MAX
   const sidebarHidden = !mobile && sidebarCollapsed
@@ -214,8 +241,10 @@ export function ChatLayout({
         )
       : width * RAIL_MAX_SHARE,
     -1,
+    frameRef,
+    '--rail-width',
   )
-  const chat = useSplitWidth(chatKey(mode), CHAT_DEFAULT, CHAT_MIN, CHAT_MAX, 1)
+  const chat = useSplitWidth(chatKey(mode), CHAT_DEFAULT, CHAT_MIN, CHAT_MAX, 1, frameRef, '--chat-width')
   const [over, setOver] = useState(false)
   if (over && !full) setOver(false)
   useEscape(() => {
@@ -242,10 +271,7 @@ export function ChatLayout({
     <aside
       aria-label={t('侧栏')}
       className={cx('chat__dock', railTakesChat && 'chat__dock--in-chat', full && 'chat__dock--over')}
-      style={{
-        width: railTakesChat ? chat.width : resize.width,
-        left: full ? CHAT_STRIP_WIDTH + (over ? chat.width : 0) : undefined,
-      }}
+      data-chat-over={full && over ? '' : undefined}
     >
       {railTakesChat ? null : (
         <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
@@ -253,8 +279,14 @@ export function ChatLayout({
       {railBody}
     </aside>
   )
+  const splitVars = {
+    '--rail-width': `${resize.width}px`,
+    '--chat-width': `${chat.width}px`,
+  } as CSSProperties
   return (
     <AppFrame
+      ref={frameRef}
+      style={splitVars}
       className={cx(
         'chat',
         mobile && `chat--${mobileView}`,
@@ -285,7 +317,6 @@ export function ChatLayout({
       inspectorProps={{
         'aria-label': t('侧栏'),
         className: cx('chat__rail', mobile && 'chat__rail--overlay'),
-        style: mobile ? undefined : { width: resize.width },
       }}
     >
       {full ? (
@@ -308,7 +339,6 @@ export function ChatLayout({
             over && 'chat__center--over',
             floating && 'chat__center--float',
           )}
-          style={bench && !floating ? { width: chat.width } : undefined}
           // Kept mounted under the phone workbench so the draft and scroll survive 返回聊天.
           hidden={phoneBench || railTakesChat}
         >

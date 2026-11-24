@@ -62,7 +62,7 @@
   cursor: pointer;
 }
 .task-dock__main {
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 .task-dock__main:active {
   background: var(--control-fill);

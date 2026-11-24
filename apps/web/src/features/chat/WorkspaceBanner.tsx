@@ -7,6 +7,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Button, PinnedBanner, Presence, toast } from '../../ui'
+import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 
 const PAUSING: Partial<Record<RepoAccessReason, string>> = {
@@ -46,10 +47,38 @@ export const workspaceBannerHideKey = (
   reason?: string | null,
 ) => `${groupId}:${botId}:${state}:${reason ?? ''}`
 
+/** A team admin viewing a group of the team they are not in (plan D19): nothing can be sent, changed or acted on. */
+export function ReadOnlyBanner({ group }: { group: GroupDto }) {
+  const [taking, setTaking] = useState(false)
+  return (
+    <div data-testid="readonly-banner">
+      <PinnedBanner
+        icon="eye"
+        title={t('只读查看')}
+        text={t('你正以团队管理员身份查看此群，不能发言或管理。')}
+        action={
+          <Button size="small" onClick={() => setTaking(true)}>
+            {t('进群并成为管理员')}
+          </Button>
+        }
+      />
+      <Presence>
+        {taking ? (
+          <TakeoverDialog
+            teamId={group.teamId}
+            group={group}
+            onDone={() => setTaking(false)}
+            onClose={() => setTaking(false)}
+          />
+        ) : null}
+      </Presence>
+    </div>
+  )
+}
+
 /**
- * Bots waiting for their owner's workspace choice (plan W5): one to confirm in a repo group is not run meanwhile; one
- * left without any (from before managed became the default) moves onto a managed directory when @-ed.
- * Also bots paused because their machine cannot reach the repo: the owner (or an admin) rechecks after fixing it.
+ * Blocking workspace banners: bots awaiting their owner's workspace confirmation in a repo group, and bots paused
+ * because their computer cannot reach the repo. Non-repo bots silently use a managed workspace with no top banner.
  */
 export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const me = useSession((s) => s.user)
@@ -64,7 +93,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
     workspaceBannerHideKey(group.id, b.id, states?.[b.id]?.state, states?.[b.id]?.reason)
   const hide = (list: BotDto[]) => addHidden(list.map(hideKey))
   const inGroup = bots.filter((b) => group.botIds.includes(b.id) && !hidden.includes(hideKey(b)))
-  const waiting = inGroup.filter((b) => ['unbound', 'confirm'].includes(states?.[b.id]?.state ?? ''))
+  const waiting = inGroup.filter((b) => states?.[b.id]?.state === 'confirm')
   const paused = inGroup.filter((b) => {
     const s = states?.[b.id]
     return s?.state === 'failed' && !!s.reason && !!PAUSING[s.reason]
@@ -138,7 +167,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
         <PinnedBanner
           icon="folder-open"
           title={null}
-          text={t('{n} 个 Bot 还没有选工作区，@ 它们时会先用托管目录', { n: mineReady.length })}
+          text={t('请先为 {n} 个 Bot 确认工作区，确认后即可开始工作', { n: mineReady.length })}
           action={mineReady.map((b) => (
             <Button
               key={b.id}
@@ -147,7 +176,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               data-testid={`ws-banner-${b.id}`}
               onClick={() => setPicking(b)}
             >
-              {t('绑定 {name}', { name: b.name })}
+              {t('确认 {name}', { name: b.name })}
             </Button>
           ))}
           onClose={() => hide(mineReady)}
@@ -158,12 +187,9 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
         if (mineReady.length > 1 && mineReady.includes(b)) return null
         const mine = b.ownerId === me?.id
         const error = states?.[b.id]?.error
-        const confirm = states?.[b.id]?.state === 'confirm'
-        const text = confirm
-          ? mine
-            ? t('为 {name} 确认工作区后才能开始工作：自动克隆或使用本机已有目录', { name: b.name })
-            : t('等待 {owner} 为 {name} 确认工作区', { owner: b.ownerName, name: b.name })
-          : t('{name} 还没有选工作区，@ 它时会先用托管目录', { name: b.name })
+        const text = mine
+          ? t('请先为 {name} 确认工作区，确认后即可开始工作', { name: b.name })
+          : t('等待 {owner} 为 {name} 确认工作区', { owner: b.ownerName, name: b.name })
         return (
           <div key={b.id} data-testid={`ws-banner-${b.id}`}>
             <PinnedBanner
@@ -173,7 +199,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               action={
                 mine && b.machineId ? (
                   <Button size="small" variant="primary" onClick={() => setPicking(b)}>
-                    {confirm ? t('确认工作区') : t('绑定工作区')}
+                    {t('确认工作区')}
                   </Button>
                 ) : null
               }

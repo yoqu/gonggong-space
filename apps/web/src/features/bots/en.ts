@@ -249,8 +249,14 @@ export default {
   共享对象: 'Shared with',
   还没有共享给任何人: 'Not shared with anyone yet',
   '添加成员…': 'Add members…',
-  '对方可以和 Bot 私聊、查看它的配置，每个私聊使用独立的托管工作区，命令审批仍由 Bot 主人处理；取消共享后对方的私聊转为只读。即时生效':
-    'They can message the Bot directly and see its settings. Each of their chats gets a managed workspace of its own; command approvals stay with the Bot owner. Once unshared, their chats turn read-only. Saved at once',
+  其他标签页有未保存的更改: 'Unsaved changes on other tabs',
+  '本页修改即时生效，无需点击底部「保存」。': 'Changes on this tab apply immediately without clicking Save.',
+  '对方可以和 Bot 私聊、查看它的配置，每个私聊使用独立的托管工作区，命令审批仍由 Bot 主人处理；取消共享后对方的私聊转为只读。':
+    'They can message the Bot directly and see its settings. Each of their chats gets a managed workspace of its own; command approvals stay with the Bot owner. Once unshared, their chats turn read-only.',
+  '要取消与 {name} 共享「{bot}」吗？': 'Stop sharing "{bot}" with {name}?',
+  '取消后，对方与该 Bot 的私聊会转为只读，历史记录保留。随时可以重新共享。':
+    'Their direct chat with this Bot will become read-only, with history kept. You can share it again anytime.',
+  取消共享: 'Stop sharing',
   等待主人同意: 'Waiting for the owner',
   申请共享: 'Request access',
   '申请共享 {name}': 'Request access to {name}',

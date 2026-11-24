@@ -1,25 +1,24 @@
-import type { BotDto, GroupBotStateDto, GroupDto } from '@gonggong/protocol'
-import { useEffect, useRef, useState } from 'react'
+import type { BotDto, GitStatus, GroupBotStateDto, GroupDto } from '@gonggong/protocol'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { loadBotStates, loadGitOperations, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
-import { Icon, type IconName, Presence } from '../../ui'
+import { Icon, type IconName, Popover, Presence } from '../../ui'
 import { PRESENCE } from '../bots/model'
 import { refreshGitQuietly } from '../git/api'
 import { ongoingLabel } from '../git/commands'
-import { BranchLabel, WorkspaceMenu } from '../git/GitControls'
+import { BranchLabel } from '../git/GitControls'
 import { PendingBadge } from '../git/GitOperations'
 import { openTab } from '../workbench/open'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 import { ContextMeter } from './ContextMeter'
 import { contextGauge } from './ContextRing'
 import { startNewSession } from './newSession'
-import { useWorkspaceBannerHidden, workspaceBannerHideKey } from './WorkspaceBanner'
 
-const WORKSPACE_LABEL = { managed: t('托管目录'), cd: t('本机目录') }
+const WORKSPACE_LABEL = { managed: t('托管工作区'), cd: t('本机目录') }
 const FOCUS_REFRESH_MS = 30_000
 const POLL_REFRESH_MS = 30_000
 const NO_STATES: Record<string, GroupBotStateDto> = {}
@@ -77,6 +76,148 @@ function Changes({ git, onClick }: { git: NonNullable<GroupBotStateDto['git']>; 
   )
 }
 
+function BotMenuItem({
+  icon,
+  label,
+  note,
+  disabled,
+  aria,
+  onClick,
+}: {
+  icon: IconName
+  label: string
+  note?: string | null
+  disabled?: boolean
+  aria?: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      className="git-subs__item"
+      aria-label={aria}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span className="git-menu__icon">
+        <Icon name={icon} size={13} />
+      </span>
+      {label}
+      {note ? <span className="git-menu__note">{note}</span> : null}
+    </button>
+  )
+}
+
+function BotWorkspaceMenu({
+  botId,
+  name,
+  git,
+  head,
+  showDiff,
+  defaultManaged,
+  onDiff,
+  onFiles,
+  onChange,
+  onNewSession,
+}: {
+  botId: string
+  name: string
+  git: GitStatus | null
+  head: ReactNode
+  showDiff: boolean
+  /** Non-repo bot running on default managed workspace: label the action as picking a local folder. */
+  defaultManaged: boolean
+  onDiff?: () => void
+  onFiles?: () => void
+  onChange?: () => void
+  onNewSession?: () => void
+}) {
+  const label = t('{name} 的工作区', { name })
+  return (
+    <Popover
+      portal
+      placement="bottom-end"
+      width={320}
+      aria-label={label}
+      trigger={
+        <button type="button" className="git-bar__act" aria-label={label} title={t('工作区')}>
+          <Icon name="more" size={13} />
+        </button>
+      }
+    >
+      {(close) => {
+        const then = (run: () => void) => () => {
+          close()
+          run()
+        }
+        return (
+          <div
+            className="git-subs"
+            role="menu"
+            aria-label={label}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+              const items = [
+                ...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
+              ]
+              if (!items.length) return
+              e.preventDefault()
+              const i = items.indexOf(document.activeElement as HTMLButtonElement)
+              const next =
+                e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length
+              items[next]?.focus()
+            }}
+          >
+            <div className="git-menu__head">{head}</div>
+            {onNewSession ? (
+              <BotMenuItem
+                icon="arrow-clockwise"
+                label={t('新对话')}
+                note={t('下一轮不带之前的上下文')}
+                aria={t('让 {name} 开新对话', { name })}
+                onClick={then(onNewSession)}
+              />
+            ) : null}
+            {showDiff ? (
+              <BotMenuItem
+                icon="doc-text"
+                label={t('查看改动')}
+                aria={t('查看 {name} 的改动', { name })}
+                disabled={!onDiff}
+                onClick={then(() => onDiff?.())}
+              />
+            ) : null}
+            <BotMenuItem
+              icon="folder"
+              label={t('浏览文件')}
+              aria={t('浏览 {name} 的文件', { name })}
+              disabled={!onFiles}
+              onClick={then(() => onFiles?.())}
+            />
+            {onChange ? (
+              <BotMenuItem
+                icon="folder-open"
+                label={defaultManaged ? t('更换本机目录…') : t('更换工作区…')}
+                aria={defaultManaged ? undefined : t('更换 {name} 的工作区', { name })}
+                onClick={then(onChange)}
+              />
+            ) : null}
+            {git ? (
+              <BotMenuItem
+                icon="git-branch"
+                label={t('Git 面板')}
+                aria={t('打开 {name} 的 Git', { name })}
+                onClick={then(() => openTab({ kind: 'git', botId }))}
+              />
+            ) : null}
+          </div>
+        )
+      }}
+    </Popover>
+  )
+}
+
 /** 执行位置 at the head of a bot's menu: where it works in this group, to tell which code it is changing (郑晓佳 #1488). */
 function Where({
   s,
@@ -88,53 +229,57 @@ function Where({
   machine: string | null
 }) {
   const current = s.git?.branch ?? null
+  const defaultManaged = !repo && s.workspace === 'managed'
   return (
-    <dl className="git-loc">
-      <dt>{t('电脑')}</dt>
-      <dd>{machine ?? t('未绑定电脑')}</dd>
-      <dt>{t('目录#one')}</dt>
-      <dd className="git-loc__dir">
-        <span className="git-loc__mono">
-          {s.path ?? '—'}
-          <span className="git-loc__kind">{WORKSPACE_LABEL[s.workspace]}</span>
-        </span>
-        {s.path ? (
-          <button
-            type="button"
-            className="git-bar__act"
-            aria-label={t('复制目录')}
-            onClick={() => void copyWithToast(s.path ?? '', t('已复制目录'))}
-          >
-            <Icon name="copy" size={13} />
-          </button>
+    <>
+      {defaultManaged ? <div className="git-loc__ws">{t('工作区：托管工作区')}</div> : null}
+      <dl className="git-loc">
+        <dt>{t('电脑')}</dt>
+        <dd>{machine ?? t('未绑定电脑')}</dd>
+        <dt>{t('目录#one')}</dt>
+        <dd className="git-loc__dir">
+          <span className="git-loc__mono">
+            {s.path ?? '—'}
+            <span className="git-loc__kind">{WORKSPACE_LABEL[s.workspace]}</span>
+          </span>
+          {s.path ? (
+            <button
+              type="button"
+              className="git-bar__act"
+              aria-label={t('复制目录')}
+              onClick={() => void copyWithToast(s.path ?? '', t('已复制目录'))}
+            >
+              <Icon name="copy" size={13} />
+            </button>
+          ) : null}
+        </dd>
+        <dt>{t('仓库')}</dt>
+        {repo ? <dd className="git-loc__mono">{repo.url}</dd> : <dd>{t('未绑定仓库')}</dd>}
+        {repo ? (
+          <>
+            <dt>{t('基准')}</dt>
+            <dd>
+              <span className="git-loc__mono">{repo.branch}</span>
+              {current && current !== repo.branch ? (
+                <span className="git-loc__warn">{t('当前在 {branch}', { branch: current })}</span>
+              ) : null}
+            </dd>
+          </>
         ) : null}
-      </dd>
-      <dt>{t('仓库')}</dt>
-      {repo ? <dd className="git-loc__mono">{repo.url}</dd> : <dd>{t('未绑定仓库')}</dd>}
-      {repo ? (
-        <>
-          <dt>{t('基准')}</dt>
-          <dd>
-            <span className="git-loc__mono">{repo.branch}</span>
-            {current && current !== repo.branch ? (
-              <span className="git-loc__warn">{t('当前在 {branch}', { branch: current })}</span>
-            ) : null}
-          </dd>
-        </>
-      ) : null}
-      {s.extraDirs.length ? (
-        <>
-          <dt>{t('附加目录')}</dt>
-          <dd>
-            {s.extraDirs.map((d) => (
-              <div key={d} className="git-loc__mono">
-                {d}
-              </div>
-            ))}
-          </dd>
-        </>
-      ) : null}
-    </dl>
+        {s.extraDirs.length ? (
+          <>
+            <dt>{t('附加目录')}</dt>
+            <dd>
+              {s.extraDirs.map((d) => (
+                <div key={d} className="git-loc__mono">
+                  {d}
+                </div>
+              ))}
+            </dd>
+          </>
+        ) : null}
+      </dl>
+    </>
   )
 }
 
@@ -158,14 +303,9 @@ function Item({
 }) {
   const groupId = group.id
   const git = s.git
-  const bannerHidden = useWorkspaceBannerHidden((st) => st.hidden)
-  const bannerDismissed = bannerHidden.includes(workspaceBannerHideKey(groupId, s.botId, s.state, s.reason))
+  const defaultManaged = !group.repo && s.workspace === 'managed'
   const hint =
-    s.state === 'unbound' ? (
-      bannerDismissed ? (
-        <span className="git-bar__hint">{t('未选工作区')}</span>
-      ) : null
-    ) : s.state === 'confirm' ? (
+    s.state === 'confirm' ? (
       <span className="git-bar__hint">{t('待主人确认')}</span>
     ) : s.state === 'pending' && !git ? (
       <span className="git-bar__hint">{t('待创建')}</span>
@@ -244,12 +384,13 @@ function Item({
         <ContextMeter groupId={groupId} bot={name} context={s.context} />
       ) : null}
       <span className="git-bar__actions">
-        <WorkspaceMenu
+        <BotWorkspaceMenu
           botId={s.botId}
           name={name}
           git={showGit && !hint ? git : null}
           head={<Where s={s} repo={group.repo} machine={machine} />}
           showDiff={showGit}
+          defaultManaged={defaultManaged}
           onDiff={hint ? undefined : diff}
           onFiles={files}
           onChange={onChange}
@@ -260,10 +401,10 @@ function Item({
   )
 }
 
-function hasIssue(s: GroupBotStateDto, pendingApproval: boolean) {
+function hasIssue(s: GroupBotStateDto, pendingApproval: boolean, hasRepo: boolean) {
   const git = s.git
   return (
-    ['failed', 'unbound', 'confirm'].includes(s.state) ||
+    (hasRepo ? ['failed', 'unbound', 'confirm'] : ['failed', 'confirm']).includes(s.state) ||
     pendingApproval ||
     !!git?.dirty ||
     !!git?.behind ||
@@ -344,7 +485,9 @@ export function GitBar({ group }: { group: GroupDto }) {
   const operationsFor = (id: string) => gitOps?.filter((op) => op.botId === id) ?? []
   const needsApproval = (id: string) => operationsFor(id).some((op) => op.status === 'pending_approval')
   const owned = group.botIds.filter((id) => bots.find((b) => b.id === id)?.ownerId === me)
-  const issues = group.botIds.filter((id) => !owned.includes(id) && hasIssue(stateOf(id), needsApproval(id)))
+  const issues = group.botIds.filter(
+    (id) => !owned.includes(id) && hasIssue(stateOf(id), needsApproval(id), !!group.repo),
+  )
   const anchor = owned.length ? null : (group.botIds.find((id) => !issues.includes(id)) ?? null)
   const visible = [...owned, ...(anchor ? [anchor] : []), ...issues]
   const others = group.botIds.filter((id) => !visible.includes(id))

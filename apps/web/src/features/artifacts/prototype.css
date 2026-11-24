@@ -623,7 +623,7 @@
 }
 .proto-thumb {
   transition:
-    background-color var(--motion-fast),
+    background-color var(--fade-fast),
     box-shadow var(--spring-interactive);
 }
 .proto-thumb__shot img {

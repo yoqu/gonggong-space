@@ -154,7 +154,7 @@ beforeEach(() => {
       // 管理后台 · Bot lists every team's bots; here they are the open team's.
       const h = routes[key] ?? (key === 'GET /api/admin/bots' ? routes['GET /api/bots'] : undefined)
       if (!h) return new Response(JSON.stringify({ error: 'not_found', message: key }), { status: 404 })
-      const res = h(body)
+      const res = await h(body)
       return res instanceof Response ? res : new Response(JSON.stringify(res))
     }),
   )
@@ -728,8 +728,30 @@ describe('bot detail', () => {
     expect(within(detail).queryByText(/飞书应用/)).toBeNull()
     openTab(detail, '飞书')
     expect(await within(detail).findByText(/飞书应用/)).toBeTruthy()
+    expect(within(detail).getByText('本页修改即时生效，无需点击底部「保存」。')).toBeTruthy()
     expect(within(detail).getByRole('button', { name: '扫码创建或接入' })).toBeTruthy()
     expect(within(detail).queryByRole('button', { name: '保存' })).toBeNull()
+  })
+
+  it('keeps 保存 visible with an unsaved hint on 共享, 飞书 and 用量 tabs whenever dirty', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['GET /api/bots/b1/feishu'] = () => ({ app: null })
+    routes['GET /api/usage?by=user&days=7&botId=b1'] = () => []
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/admin/bots', admin)
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    fireEvent.change(within(detail).getByRole('textbox', { name: '名称' }), { target: { value: '跨页修改' } })
+
+    for (const tabName of ['飞书', '共享', '用量']) {
+      openTab(detail, tabName)
+      expect(within(detail).getByText('其他标签页有未保存的更改')).toBeTruthy()
+      const saveBtn = within(detail).getByRole('button', { name: '保存' }) as HTMLButtonElement
+      expect(saveBtn.disabled).toBe(false)
+    }
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({ name: '跨页修改' }),
+    )
   })
 
   it('lets the owner pick 审批方式 and set concurrency', async () => {
@@ -1364,17 +1386,27 @@ describe('bot page profile', () => {
     expect(calls.some((c) => c.key === 'POST /api/groups')).toBe(false)
   })
 
-  it('lets the owner share the bot and stop sharing it, saved at once', async () => {
+  it('lets the owner share the bot and confirms with loading lock before stopping sharing', async () => {
+    let resolveUnshare: (() => void) | null = null
     routes['GET /api/bots'] = () => [bot({ sharedWith: ['u2'] })]
     routes['GET /api/users'] = () => [
       { id: 'u1', name: '王磊', account: 'wanglei' },
       { id: 'u2', name: '李建国', account: 'lijg' },
       { id: 'u3', name: '赵敏', account: 'zhaom' },
     ]
-    routes['PUT /api/bots/b1/shares'] = (b) => bot({ sharedWith: (b as { userIds: string[] }).userIds })
+    routes['PUT /api/bots/b1/shares'] = (b) => {
+      const ids = (b as { userIds: string[] }).userIds
+      if (ids.length === 1) {
+        return new Promise<Response>((resolve) => {
+          resolveUnshare = () => resolve(new Response(JSON.stringify(bot({ sharedWith: ids }))))
+        })
+      }
+      return bot({ sharedWith: ids })
+    }
     renderAt('/', wang)
     const detail = await openMyBot()
     openTab(detail, '共享')
+    expect(within(detail).getByText('本页修改即时生效，无需点击底部「保存」。')).toBeTruthy()
     expect(within(detail).queryByRole('button', { name: '保存' })).toBeNull()
     const list = within(detail).getByRole('list', { name: '共享对象' })
     expect(within(list).getByText('李建国')).toBeTruthy()
@@ -1387,12 +1419,38 @@ describe('bot page profile', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PUT /api/bots/b1/shares')?.body).toEqual({ userIds: ['u2', 'u3'] }),
     )
+    const shareCallsBefore = calls.filter((c) => c.key === 'PUT /api/bots/b1/shares').length
     fireEvent.click(await within(detail).findByRole('button', { name: '移除 李建国' }))
-    await waitFor(() =>
-      expect(calls.filter((c) => c.key === 'PUT /api/bots/b1/shares').at(-1)?.body).toEqual({
-        userIds: ['u3'],
-      }),
-    )
+    expect(calls.filter((c) => c.key === 'PUT /api/bots/b1/shares')).toHaveLength(shareCallsBefore)
+    const confirm = await screen.findByRole('alertdialog', {
+      name: '要取消与 李建国 共享「小王的 Claude」吗？',
+    })
+    expect(
+      within(confirm).getByText('取消后，对方与该 Bot 的私聊会转为只读，历史记录保留。随时可以重新共享。'),
+    ).toBeTruthy()
+    fireEvent.click(within(confirm).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls.filter((c) => c.key === 'PUT /api/bots/b1/shares')).toHaveLength(shareCallsBefore)
+
+    fireEvent.click(await within(detail).findByRole('button', { name: '移除 李建国' }))
+    const confirm2 = await screen.findByRole('alertdialog', {
+      name: '要取消与 李建国 共享「小王的 Claude」吗？',
+    })
+    const okBtn = within(confirm2).getByRole('button', { name: '取消共享' }) as HTMLButtonElement
+    const cancelBtn = within(confirm2).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    expect(okBtn.className).toContain('ui-btn--destructive')
+    fireEvent.click(okBtn)
+    await waitFor(() => expect(okBtn.getAttribute('aria-busy')).toBe('true'))
+    expect(cancelBtn.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    await act(async () => {
+      resolveUnshare?.()
+    })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls.filter((c) => c.key === 'PUT /api/bots/b1/shares').at(-1)?.body).toEqual({
+      userIds: ['u3'],
+    })
   })
 })
 
@@ -1503,13 +1561,13 @@ describe('slice W1: bot settings, permissions, admin and new bot fixes', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
-    const guard = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const guard = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(guard).getByRole('button', { name: '继续编辑' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(onClose).not.toHaveBeenCalled()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
-    const guard2 = await screen.findByRole('alertdialog', { name: '有未保存的更改，确定放弃？' })
+    const guard2 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(guard2).getByRole('button', { name: '放弃更改' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })

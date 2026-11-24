@@ -213,6 +213,14 @@ function Panel({
     !groups.some((g) => g.id === n.payload.groupId)
   useEscape(onClose, state === 'open')
   const { leaving, leave } = useLeaving()
+  const [bulkClearing, setBulkClearing] = useState<ReadonlySet<string>>(() => new Set())
+  const bulkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (bulkTimer.current) clearTimeout(bulkTimer.current)
+    },
+    [],
+  )
   const unread = items?.filter((n) => !n.readAt).length ?? 0
 
   const load = useCallback(() => {
@@ -261,8 +269,16 @@ function Panel({
       toastError(e, t('清除已读失败'))
       return
     }
-    for (const n of items ?? [])
-      if (n.readAt) leave(n.id, () => setItems((list) => list?.filter((x) => x.id !== n.id) ?? null))
+    const ids = new Set((items ?? []).filter((n) => n.readAt).map((n) => n.id))
+    if (ids.size === 0) return
+    // Bulk removal fades rows out together instead of collapsing each row's height one by one.
+    setBulkClearing(ids)
+    if (bulkTimer.current) clearTimeout(bulkTimer.current)
+    bulkTimer.current = setTimeout(() => {
+      bulkTimer.current = null
+      setItems((list) => list?.filter((x) => !ids.has(x.id)) ?? null)
+      setBulkClearing(new Set())
+    }, 130)
   }
 
   const remove = async (n: NotificationDto) => {
@@ -344,45 +360,51 @@ function Panel({
                 return (
                   <div
                     key={n.id}
-                    className={cx('notif__row', leaving.has(n.id) && 'ui-leaving')}
+                    className={cx(
+                      'notif__row',
+                      leaving.has(n.id) && 'ui-leaving notif__row--collapse',
+                      bulkClearing.has(n.id) && 'notif__row--bulk',
+                    )}
                     data-new={arrived.current.some((x) => x.id === n.id) || undefined}
                   >
-                    <button
-                      type="button"
-                      className={cx(
-                        'notif__item',
-                        !n.readAt && 'notif__item--unread',
-                        n.resolvedAt && 'notif__item--resolved',
-                      )}
-                      onClick={() => open(n)}
-                    >
-                      <span className="notif__icon" style={{ color }}>
-                        <Icon name={icon} />
-                      </span>
-                      <div className="notif__body">
-                        <div className="notif__line">
-                          <span className="notif__type">{v.label}</span>
-                          {n.resolvedAt ? <Tag>{t('已处理')}</Tag> : null}
-                          <span className="spacer" />
-                          <span className="notif__time">{listTime(n.createdAt)}</span>
+                    <div className="notif__row-inner">
+                      <button
+                        type="button"
+                        className={cx(
+                          'notif__item',
+                          !n.readAt && 'notif__item--unread',
+                          n.resolvedAt && 'notif__item--resolved',
+                        )}
+                        onClick={() => open(n)}
+                      >
+                        <span className="notif__icon" style={{ color }}>
+                          <Icon name={icon} />
+                        </span>
+                        <div className="notif__body">
+                          <div className="notif__line">
+                            <span className="notif__type">{v.label}</span>
+                            {n.resolvedAt ? <Tag>{t('已处理')}</Tag> : null}
+                            <span className="spacer" />
+                            <span className="notif__time">{listTime(n.createdAt)}</span>
+                          </div>
+                          <div className="notif__text" title={v.text}>
+                            {v.text}
+                          </div>
+                          {v.group ? <div className="notif__group">{v.group}</div> : null}
                         </div>
-                        <div className="notif__text" title={v.text}>
-                          {v.text}
-                        </div>
-                        {v.group ? <div className="notif__group">{v.group}</div> : null}
-                      </div>
-                    </button>
-                    {outside(n) ? <ApprovalActions n={n} /> : null}
-                    {DECIDED_HERE.has(n.type) && !n.resolvedAt ? <DecideActions n={n} /> : null}
-                    <IconButton
-                      size="small"
-                      variant="plain"
-                      title={t('删除通知')}
-                      className="notif__delete"
-                      onClick={() => void remove(n)}
-                    >
-                      <Icon name="xmark" />
-                    </IconButton>
+                      </button>
+                      {outside(n) ? <ApprovalActions n={n} /> : null}
+                      {DECIDED_HERE.has(n.type) && !n.resolvedAt ? <DecideActions n={n} /> : null}
+                      <IconButton
+                        size="small"
+                        variant="plain"
+                        title={t('删除通知')}
+                        className="notif__delete"
+                        onClick={() => void remove(n)}
+                      >
+                        <Icon name="xmark" />
+                      </IconButton>
+                    </div>
                   </div>
                 )
               })}

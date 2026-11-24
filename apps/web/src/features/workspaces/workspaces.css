@@ -234,7 +234,7 @@
   text-align: left;
   cursor: default;
   transition:
-    background var(--motion-fast),
+    background var(--fade-fast),
     transform var(--spring-interactive);
 }
 .dirpick__choice:hover {

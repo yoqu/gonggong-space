@@ -5,7 +5,7 @@ import type {
   SkillVersionDto,
   UserDto,
 } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { strToU8, zipSync } from 'fflate'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -221,16 +221,25 @@ describe('配置中心 · Skill', () => {
     )
   })
 
-  it('shows the version history, previews a version and rolls back to it', async () => {
+  it('default-selects the current version, previews another and confirms rollback with loading lock', async () => {
+    let resolveRollback: (() => void) | null = null
     const calls = mockApi({
       ...base,
       'GET /admin/skills': [review],
       'GET /admin/skills/s1/versions': versions,
+      'GET /admin/skills/s1/versions/v2': {
+        ...versions[0],
+        files: [{ path: 'SKILL.md', content: md('review-pr', 'v2 body'), encoding: 'utf8' }],
+      },
       'GET /admin/skills/s1/versions/v1': {
         ...versions[1],
         files: [{ path: 'SKILL.md', content: md('review-pr', 'v1 body'), encoding: 'utf8' }],
       },
-      'POST /admin/skills/s1/rollback': { ...reviewDetail, version: 1, versionId: 'v1' },
+      'POST /admin/skills/s1/rollback': () =>
+        new Promise<Response>((resolve) => {
+          resolveRollback = () =>
+            resolve(new Response(JSON.stringify({ ...reviewDetail, version: 1, versionId: 'v1' })))
+        }),
     })
     await openSkills()
     await screen.findByText('/gonggong-team:review-pr')
@@ -239,6 +248,9 @@ describe('配置中心 · Skill', () => {
     )
     const dialog = await screen.findByRole('dialog', { name: 'review-pr 的历史版本' })
     await within(dialog).findByText('v1')
+    // Current active version (v2) is selected and previewed automatically on open.
+    expect(await within(dialog).findByText(/v2 body/)).toBeTruthy()
+    expect(within(dialog).getByText('v2 · 1 个文件')).toBeTruthy()
     const v2 = within(dialog).getByText('v2').closest('.cfg__item') as HTMLElement
     const v1 = within(dialog).getByText('v1').closest('.cfg__item') as HTMLElement
     expect(v2.textContent).toContain('当前')
@@ -248,14 +260,34 @@ describe('配置中心 · Skill', () => {
     fireEvent.click(within(v1).getByRole('button', { name: '查看' }))
     expect(await within(dialog).findByText(/v1 body/)).toBeTruthy()
     expect(within(dialog).getByText('v1 · 1 个文件')).toBeTruthy()
+
     fireEvent.click(within(v1).getByRole('button', { name: '回滚到此版本' }))
-    await waitFor(() =>
-      expect(calls).toContainEqual({
-        method: 'POST',
-        path: '/admin/skills/s1/rollback',
-        body: { versionId: 'v1' },
-      }),
-    )
+    expect(calls.some((c) => c.path === '/admin/skills/s1/rollback')).toBe(false)
+    const confirm = await screen.findByRole('alertdialog', { name: '要回滚到版本 v1 吗？' })
+    expect(
+      within(confirm).getByText('当前内容会被替换为此版本。现有版本仍会保留在历史记录中，可随时切回。'),
+    ).toBeTruthy()
+    fireEvent.click(within(confirm).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls.some((c) => c.path === '/admin/skills/s1/rollback')).toBe(false)
+
+    fireEvent.click(within(v1).getByRole('button', { name: '回滚到此版本' }))
+    const confirm2 = await screen.findByRole('alertdialog', { name: '要回滚到版本 v1 吗？' })
+    const okBtn = within(confirm2).getByRole('button', { name: '回滚到此版本' }) as HTMLButtonElement
+    const cancelBtn = within(confirm2).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    expect(okBtn.className).toContain('ui-btn--destructive')
+    fireEvent.click(okBtn)
+    await waitFor(() => expect(okBtn.getAttribute('aria-busy')).toBe('true'))
+    expect(cancelBtn.disabled).toBe(true)
+    await act(async () => {
+      resolveRollback?.()
+    })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls).toContainEqual({
+      method: 'POST',
+      path: '/admin/skills/s1/rollback',
+      body: { versionId: 'v1' },
+    })
   })
 })
 

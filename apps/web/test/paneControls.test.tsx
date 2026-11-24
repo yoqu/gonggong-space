@@ -40,6 +40,29 @@ describe('Button', () => {
     const btn = screen.getByRole('button', { name: '继续' })
     expect(btn.className).toBe('ui-btn ui-btn--primary ui-btn--xlarge')
   })
+
+  it('morphs width with --spring-interactive timing when phase changes instead of hardcoded 280ms', () => {
+    const calls: { options?: KeyframeAnimationOptions }[] = []
+    document.documentElement.style.setProperty('--spring-interactive', '213ms linear(0, 1)')
+    let width = 80
+    const widthSpy = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(() => width)
+    const prevAnimate = Element.prototype.animate
+    Element.prototype.animate = function (_frames, options) {
+      calls.push({ options: options as KeyframeAnimationOptions })
+      return {} as Animation
+    }
+    try {
+      const { rerender } = render(<Button>保存</Button>)
+      width = 112
+      rerender(<Button loading>正在保存</Button>)
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.options).toMatchObject({ duration: 213, easing: 'linear(0, 1)' })
+    } finally {
+      widthSpy.mockRestore()
+      Element.prototype.animate = prevAnimate
+      document.documentElement.removeAttribute('style')
+    }
+  })
 })
 
 describe('Switch', () => {
@@ -64,6 +87,22 @@ describe('Switch', () => {
   it('names itself by a visible label', () => {
     render(<Switch label="自动更新" labelPosition="after" defaultChecked />)
     expect(screen.getByRole('switch', { name: '自动更新' })).toBeTruthy()
+  })
+
+  it('locks toggles during loading with aria-busy/aria-disabled without setting native disabled so focus stays', () => {
+    const onChange = vi.fn()
+    const { container } = render(<Switch aria-label="自动同步" defaultChecked loading onChange={onChange} />)
+    const sw = screen.getByRole('switch', { name: '自动同步' }) as HTMLInputElement
+    expect(sw.disabled).toBe(false)
+    expect(sw.getAttribute('aria-busy')).toBe('true')
+    expect(sw.getAttribute('aria-disabled')).toBe('true')
+    expect(container.querySelector('.ui-switch--loading')).toBeTruthy()
+    sw.focus()
+    expect(document.activeElement).toBe(sw)
+    fireEvent.click(sw)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(sw.checked).toBe(true)
+    expect(document.activeElement).toBe(sw)
   })
 })
 
@@ -377,14 +416,18 @@ describe('Badge and Tag', () => {
 })
 
 describe('ProgressIndicator and Slider', () => {
-  it('reports determinate progress and omits the value when indeterminate', () => {
+  it('reports determinate progress using scaleX transform and omits the value when indeterminate', () => {
     render(
       <>
         <ProgressIndicator value={64} aria-label="下载进度" />
         <ProgressIndicator aria-label="正在准备" />
       </>,
     )
-    expect(screen.getByRole('progressbar', { name: '下载进度' }).getAttribute('aria-valuenow')).toBe('64')
+    const det = screen.getByRole('progressbar', { name: '下载进度' })
+    expect(det.getAttribute('aria-valuenow')).toBe('64')
+    const bar = det.querySelector('.ui-progress__bar') as HTMLElement
+    expect(bar.style.transform).toBe('scaleX(0.64)')
+    expect(bar.style.width).toBe('')
     const indet = screen.getByRole('progressbar', { name: '正在准备' })
     expect(indet.getAttribute('aria-valuenow')).toBeNull()
     expect(indet.className).toContain('ui-progress--indeterminate')

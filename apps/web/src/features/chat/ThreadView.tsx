@@ -13,9 +13,10 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast, useEscape } from '../../ui'
 import { lastEditable } from './editing'
+import { ActiveRunsContext, startedRunIds } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
 import { PendingMessages } from './PendingMessages'
-import { BotReply, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
+import { BotReply, EventRow, messageKey, RecallRow, RunCard, UserMessage } from './TimelineItems'
 import { InThread, ThreadScope } from './threadSummary'
 import { useTimeline } from './useTimeline'
 
@@ -132,6 +133,9 @@ export function ThreadView({
   }
 
   const item = useThreadItem(group, tl.messages, tl.runs, readOnly)
+  const runList = useMemo(() => Object.values(tl.runs), [tl.runs])
+  const liveRuns = useRef(runList)
+  liveRuns.current = runList
 
   const following = tl.threadState?.following ?? false
   const follow = async () => {
@@ -148,54 +152,61 @@ export function ThreadView({
   }
 
   return (
-    <ThreadScope.Provider value={rootId}>
-      <ThreadPanel
-        className="thread-view"
-        subtitle={`# ${group.name}`}
-        onClose={onClose}
-        onBack={onBack}
-        scrollRef={scroll}
-        onScroll={onScroll}
-        replyCount={root?.thread?.replyCount ?? replies.length}
-        actions={
-          readOnly || !tl.loaded ? null : (
-            <Button size="small" variant="plain" icon={following ? 'bell-slash' : 'bell'} onClick={follow}>
-              {following ? t('取消关注#thread') : t('关注#thread')}
-            </Button>
-          )
-        }
-        root={
-          tl.failed ? (
-            <EmptyState
-              bare
-              illustration={<FailedArt />}
-              title={t('话题加载失败')}
-              actions={
-                <Button size="small" onClick={tl.retry}>
-                  {t('重试')}
-                </Button>
-              }
+    <ActiveRunsContext.Provider value={liveRuns}>
+      <ThreadScope.Provider value={rootId}>
+        <ThreadPanel
+          className="thread-view"
+          subtitle={`# ${group.name}`}
+          onClose={onClose}
+          onBack={onBack}
+          scrollRef={scroll}
+          onScroll={onScroll}
+          replyCount={root?.thread?.replyCount ?? replies.length}
+          actions={
+            readOnly || !tl.loaded ? null : (
+              <Button size="small" variant="plain" icon={following ? 'bell-slash' : 'bell'} onClick={follow}>
+                {following ? t('取消关注#thread') : t('关注#thread')}
+              </Button>
+            )
+          }
+          root={
+            tl.failed ? (
+              <EmptyState
+                bare
+                illustration={<FailedArt />}
+                title={t('话题加载失败')}
+                actions={
+                  <Button size="small" onClick={tl.retry}>
+                    {t('重试')}
+                  </Button>
+                }
+              />
+            ) : root ? (
+              <InThread.Provider value>{item(root)}</InThread.Provider>
+            ) : (
+              <Mascot action="wait" size={56} label={t('加载中')} />
+            )
+          }
+          composer={false}
+          footer={
+            readOnly ? undefined : (
+              <MessageComposer group={group} thread={rootId} onSent={tl.addMessage} lastEditable={editLast} />
+            )
+          }
+        >
+          {tl.older === 'loading' ? <Spinner /> : null}
+          {replies.map(item)}
+          {tl.loaded && !readOnly ? (
+            <PendingMessages
+              groupId={group.id}
+              thread={rootId}
+              messages={tl.messages}
+              onSent={tl.addMessage}
             />
-          ) : root ? (
-            <InThread.Provider value>{item(root)}</InThread.Provider>
-          ) : (
-            <Mascot action="wait" size={56} label={t('加载中')} />
-          )
-        }
-        composer={false}
-        footer={
-          readOnly ? undefined : (
-            <MessageComposer group={group} thread={rootId} onSent={tl.addMessage} lastEditable={editLast} />
-          )
-        }
-      >
-        {tl.older === 'loading' ? <Spinner /> : null}
-        {replies.map(item)}
-        {tl.loaded && !readOnly ? (
-          <PendingMessages groupId={group.id} thread={rootId} messages={tl.messages} onSent={tl.addMessage} />
-        ) : null}
-      </ThreadPanel>
-    </ThreadScope.Provider>
+          ) : null}
+        </ThreadPanel>
+      </ThreadScope.Provider>
+    </ActiveRunsContext.Provider>
   )
 }
 
@@ -212,6 +223,9 @@ export function useThreadItem(
   const me = useSession((s) => s.user)
   const bots = useWorkspace((s) => s.bots)
   const botsById = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
+  const liveRuns = useRef<RunDto[]>([])
+  liveRuns.current = Object.values(runs)
+  const startedRuns = useCallback((messageId: string) => startedRunIds(liveRuns.current, messageId), [])
   const { runsByTrigger, replyRuns } = useMemo(() => {
     const replyRuns = new Map<string, RunDto>()
     for (const m of messages) {
@@ -259,10 +273,16 @@ export function useThreadItem(
     ) : m.kind === 'bot' ? (
       <BotReply m={m} />
     ) : (
-      <UserMessage m={m} targets={targets} meId={me?.id} mine={m.authorId === me?.id} />
+      <UserMessage
+        m={m}
+        targets={targets}
+        meId={me?.id}
+        mine={m.authorId === me?.id}
+        startedRuns={startedRuns}
+      />
     )
     return (
-      <div key={m.id} data-msg-id={m.id} className="tl-item" inert={readOnly}>
+      <div key={messageKey(m)} data-msg-id={m.id} className="tl-item" inert={readOnly}>
         {body}
         {runsByTrigger.get(m.id)?.map((r) => card(r))}
       </div>

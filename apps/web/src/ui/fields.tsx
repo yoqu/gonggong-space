@@ -6,6 +6,7 @@ import { useControlled } from './controlled'
 import { type LineFieldProps, TextField } from './form'
 import { Icon } from './icon'
 import { useDismiss, useFixedPosition } from './popover'
+import { usePresence } from './presence'
 import './fields.css'
 
 export interface SecureFieldProps extends Omit<LineFieldProps, 'type' | 'multiline'> {
@@ -274,6 +275,10 @@ export function ComboBox({
   const q = text.toLowerCase()
   const list = filtering && q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all
   const shown = open && list.length > 0
+  const presence = usePresence(shown)
+  const lastList = useRef(list)
+  if (shown) lastList.current = list
+  const renderedList = shown ? list : lastList.current
   // Portalled so a scrolling ancestor (a Dialog body) cannot clip the list.
   useFixedPosition(shown, wrap, listRef, 'bottom-start', 4, () => setOpen(false), true)
   const choose = (o: ComboOption) => {
@@ -341,15 +346,19 @@ export function ComboBox({
           <Icon name="chevron-down" weight={2.2} />
         </button>
       </span>
-      {shown
+      {presence.mounted
         ? createPortal(
             <div
               ref={listRef}
               id={listId}
               role="listbox"
               className="ui-float ui-float--menu ui-float--fixed ui-combo__list"
+              data-state={presence.state}
+              aria-hidden={presence.state === 'closed' || undefined}
+              inert={presence.state === 'closed' || undefined}
+              onAnimationEnd={presence.onAnimationEnd}
             >
-              {list.map((o, i) => (
+              {renderedList.map((o, i) => (
                 <div
                   key={o.value}
                   id={`${listId}-${i}`}

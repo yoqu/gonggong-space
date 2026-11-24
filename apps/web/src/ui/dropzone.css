@@ -16,8 +16,8 @@
   background: var(--group-bg);
   text-align: center;
   transition:
-    background var(--motion-fast),
-    border-color var(--motion-fast);
+    background var(--fade-fast),
+    border-color var(--fade-fast);
 }
 .ui-drop--over {
   border-style: solid;

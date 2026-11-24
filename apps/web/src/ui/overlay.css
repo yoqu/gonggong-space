@@ -262,13 +262,24 @@
   :where(.ui-overlay:not(.ui-overlay--contained)) > .ui-dialog:where(:not(.ui-dialog--bare)) {
     --enter-y: 100%;
     --enter-scale: 1;
+    --exit-y: 36px;
     --exit-scale: 1;
     max-height: 100%;
     padding-bottom: calc(var(--space-20) + env(safe-area-inset-bottom));
     border-radius: var(--radius-window) var(--radius-window) 0 0;
   }
+  :where(.ui-overlay:not(.ui-overlay--contained))[data-state="closed"]
+    > .ui-dialog:where(:not(.ui-dialog--bare)) {
+    animation: 150ms ease-in ui-exit forwards;
+  }
   .ui-dialog__actions {
     flex-wrap: wrap;
+  }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  :where(.ui-overlay:not(.ui-overlay--contained))[data-state="closed"]
+    > .ui-dialog:where(:not(.ui-dialog--bare)) {
+    animation: var(--fade-out) ui-exit forwards;
   }
 }
 @media (pointer: coarse) {

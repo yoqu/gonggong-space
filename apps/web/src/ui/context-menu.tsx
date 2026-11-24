@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { cx } from '../lib/cx'
 import { Menu, type MenuItem } from './menu'
 import { useEscape, useOutsidePress } from './overlay'
+import { usePresence } from './presence'
 
 export interface ContextMenuProps {
   items: MenuItem[]
@@ -50,9 +51,15 @@ export function ContextMenu({
   const [pos, setPos] = useState<Position | null>(
     defaultPosition ? { ...defaultPosition, keyboard: false, local: true } : null,
   )
+  const [openKey, setOpenKey] = useState(0)
+  const presence = usePresence(pos !== null)
+  const lastPos = useRef<Position | null>(pos)
+  if (pos) lastPos.current = pos
+  const activePos = pos ?? lastPos.current
 
   const show = (x: number, y: number, keyboard: boolean) => {
     restore.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setOpenKey((k) => k + 1)
     setPos({ x, y, keyboard })
     onOpen?.()
   }
@@ -67,9 +74,11 @@ export function ContextMenu({
     const el = menu.current
     if (!el || !pos || pos.local) return
     const { width, height } = el.getBoundingClientRect()
-    if (pos.x + width > window.innerWidth - EDGE) el.style.left = `${Math.max(EDGE, pos.x - width)}px`
-    if (pos.y + height > window.innerHeight - EDGE)
-      el.style.top = `${Math.max(EDGE, window.innerHeight - EDGE - height)}px`
+    const flipX = pos.x + width > window.innerWidth - EDGE
+    const flipY = pos.y + height > window.innerHeight - EDGE
+    if (flipX) el.style.left = `${Math.max(EDGE, pos.x - width)}px`
+    if (flipY) el.style.top = `${Math.max(EDGE, window.innerHeight - EDGE - height)}px`
+    el.style.transformOrigin = `${flipY ? 'bottom' : 'top'} ${flipX ? 'right' : 'left'}`
     // Pointer-opened menus take focus without highlighting a row, as on macOS; ↓ then starts at the top.
     if (!pos.keyboard) el.focus({ preventScroll: true, focusVisible: false } as FocusOptions)
   }, [pos])
@@ -86,20 +95,26 @@ export function ContextMenu({
     }
   })
 
-  const menuAt = pos ? (
-    <Menu
-      ref={menu}
-      items={items}
-      activeValue={activeValue}
-      autoFocus={pos.keyboard}
-      className={cx('ui-menu--context', pos.local && 'ui-menu--local')}
-      style={{ left: pos.x, top: pos.y }}
-      onSelect={(v) => {
-        close(true)
-        onSelect?.(v)
-      }}
-    />
-  ) : null
+  const menuAt =
+    presence.mounted && activePos ? (
+      <Menu
+        key={openKey}
+        ref={menu}
+        items={items}
+        activeValue={activeValue}
+        autoFocus={activePos.keyboard}
+        className={cx('ui-menu--context', activePos.local && 'ui-menu--local')}
+        style={{ left: activePos.x, top: activePos.y }}
+        data-state={presence.state}
+        aria-hidden={presence.state === 'closed' || undefined}
+        inert={presence.state === 'closed' || undefined}
+        onAnimationEnd={presence.onAnimationEnd}
+        onSelect={(v) => {
+          close(true)
+          onSelect?.(v)
+        }}
+      />
+    ) : null
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: forwards the platform context-menu gestures of its content
@@ -124,7 +139,7 @@ export function ContextMenu({
       }}
     >
       {children}
-      {pos ? (pos.local ? menuAt : createPortal(menuAt, document.body)) : null}
+      {menuAt ? (activePos?.local ? menuAt : createPortal(menuAt, document.body)) : null}
     </div>
   )
 }

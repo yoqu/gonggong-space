@@ -141,6 +141,29 @@ describe('long output', () => {
     fireEvent.click(screen.getByRole('button', { name: '复制输出' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(out))
   })
+
+  it('expands hidden lines and collapses them back with 收起过程 and aria-expanded', () => {
+    const out = ['$ make test', ...Array.from({ length: 12 }, (_, i) => `line ${i + 1}`)].join('\n')
+    render(
+      <ProcessView
+        steps={[cmd('c1', 'make test', { failed: true, out })]}
+        root={null}
+        live={false}
+        startedAt={at}
+        workedMs={null}
+      />,
+    )
+    expect(screen.queryByText(/\$ make test/)).toBeNull()
+    const more = screen.getByRole('button', { name: '… 另有 7 行' })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(more)
+    expect(screen.getByText(/\$ make test/)).toBeTruthy()
+    const collapse = screen.getByRole('button', { name: '收起过程' })
+    expect(collapse.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(collapse)
+    expect(screen.queryByText(/\$ make test/)).toBeNull()
+    expect(screen.getByRole('button', { name: '… 另有 7 行' }).getAttribute('aria-expanded')).toBe('false')
+  })
 })
 
 describe('following a live run', () => {

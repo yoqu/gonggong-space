@@ -133,11 +133,15 @@ describe('ReactionPicker portal', () => {
     // Reopen and verify Escape closes and returns focus to trigger.
     fireEvent.click(trigger)
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    const reopenPop = screen.getByRole('dialog', { name: '表情回应' })
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(document.activeElement).toBe(trigger)
-    fireEvent.animationEnd(screen.getByRole('dialog', { name: '表情回应' }))
+    expect(reopenPop.dataset.state).toBe('closed')
+    expect(reopenPop.hasAttribute('inert')).toBe(true)
     expect(screen.queryByRole('dialog', { name: '表情回应' })).toBeNull()
+    fireEvent.animationEnd(reopenPop)
+    expect(reopenPop.isConnected).toBe(false)
   })
 })
 

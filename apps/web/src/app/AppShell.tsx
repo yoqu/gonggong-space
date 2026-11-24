@@ -110,6 +110,8 @@ export function AppShell() {
   // Loaded on the first open, then kept mounted so closing still plays its exit animation.
   const [notifUsed, setNotifUsed] = useState(false)
   if (overlay === 'notif' && !notifUsed) setNotifUsed(true)
+  const [searchUsed, setSearchUsed] = useState(false)
+  if (overlay === 'search' && !searchUsed) setSearchUsed(true)
   usePushSync()
   useTitleCount()
   useEffect(() => {
@@ -142,9 +144,9 @@ export function AppShell() {
           <NotificationPanel open={overlay === 'notif'} onClose={close} />
         </Suspense>
       ) : null}
-      {overlay === 'search' ? (
+      {searchUsed ? (
         <Suspense fallback={null}>
-          <SearchOverlay onClose={close} />
+          <SearchOverlay open={overlay === 'search'} onClose={close} />
         </Suspense>
       ) : null}
       <SettingsHost />

@@ -66,7 +66,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: 'Bot',
         icon: 'bot',
         color: 'var(--system-indigo)',
-        desc: t('本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改'),
+        desc: t('本机运行的 Bot 与其供应商/模型，设置请在网页端修改'),
         Component: BotsPage,
       },
       {
@@ -74,7 +74,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: t('工作区'),
         icon: 'folder-git',
         color: 'var(--system-orange)',
-        desc: t('每个「群 × Bot」一个托管目录，或绑定的本机目录'),
+        desc: t('每个「群 × Bot」一个托管工作区，或绑定的本机目录'),
         Component: WorkspacesPage,
       },
       {

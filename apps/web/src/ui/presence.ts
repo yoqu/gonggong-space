@@ -3,23 +3,27 @@ import './motion.css'
 
 export type PresenceState = 'open' | 'closed'
 
-const reducedMotion = () =>
+const REDUCED_TIMEOUT = 130
+
+export const reducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * Keeps a closing element mounted with `state: 'closed'` until its own exit animation ends
  * (attach `onAnimationEnd`), or after `timeout` ms in case no animation runs.
+ * Under `prefers-reduced-motion: reduce`, keeps the short opacity fade-out (movement is zeroed in CSS).
  */
 export function usePresence(open: boolean, { timeout = 300 }: { timeout?: number } = {}) {
   const [prev, setPrev] = useState(open)
   const [leaving, setLeaving] = useState(false)
   if (prev !== open) {
     setPrev(open)
-    setLeaving(!open && !reducedMotion())
+    setLeaving(!open)
   }
   useEffect(() => {
     if (!leaving) return
-    const timer = setTimeout(() => setLeaving(false), timeout)
+    const ms = reducedMotion() ? Math.min(timeout, REDUCED_TIMEOUT) : timeout
+    const timer = setTimeout(() => setLeaving(false), ms)
     return () => clearTimeout(timer)
   }, [leaving, timeout])
   return {
@@ -33,13 +37,13 @@ export function usePresence(open: boolean, { timeout = 300 }: { timeout?: number
 
 /**
  * List rows that leave with an exit animation: `leave(id, gone)` marks the row (render `data-leaving`), then calls
- * `gone` to drop it after `timeout` ms; at once under reduced motion.
+ * `gone` to drop it after `timeout` ms (matching `--fade-out` under reduced motion).
  */
 export function useLeaving(timeout = 220) {
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set())
   const leave = useCallback(
     (id: string, gone: () => void) => {
-      if (reducedMotion()) return gone()
+      const ms = reducedMotion() ? Math.min(timeout, REDUCED_TIMEOUT) : timeout
       setLeaving((s) => new Set(s).add(id))
       setTimeout(() => {
         setLeaving((s) => {
@@ -48,7 +52,7 @@ export function useLeaving(timeout = 220) {
           return next
         })
         gone()
-      }, timeout)
+      }, ms)
     },
     [timeout],
   )

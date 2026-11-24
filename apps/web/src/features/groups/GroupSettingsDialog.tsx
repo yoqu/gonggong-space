@@ -24,6 +24,7 @@ import {
   Switch,
   TextField,
   toast,
+  useFlash,
   useLeaving,
 } from '../../ui'
 import { InheritedMcpList, McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
@@ -69,17 +70,20 @@ export function GroupSettingsDialog({
 }) {
   const [tab, setTab] = useState(initial)
   const [tabDirty, setTabDirty] = useState(false)
+  const [tabSaving, setTabSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   // Reopened on another tab while still closing, the dialog is reused rather than remounted.
   useEffect(() => {
     setTab(initial)
     setTabDirty(false)
+    setTabSaving(false)
     setPendingAction(null)
   }, [initial])
   const [params, setParams] = useState<Draft | null>(null)
   const [savedParams, setSavedParams] = useState<Draft | null>(null)
   const [paramsError, setParamsError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saved, flashSaved] = useFlash()
   const paramsReq = useRef(0)
   const dm = group.kind === 'dm'
   const meId = useSession((s) => s.user?.id)
@@ -138,17 +142,20 @@ export function GroupSettingsDialog({
   const parsed = params && parseDraft(params)
   const dirty = !!params && PARAMS.some(({ key }) => params[key] !== savedParams?.[key])
   const hasDirty = !readOnly && (activeTab === 'params' ? dirty : tabDirty)
+  const anySaving = saving || tabSaving
 
   const requestClose = () => {
+    if (anySaving) return
     if (hasDirty) setPendingAction({ kind: 'close' })
     else onClose()
   }
   const selectTab = (next: SettingsTab) => {
-    if (next === activeTab) return
+    if (anySaving || next === activeTab) return
     if (hasDirty) setPendingAction({ kind: 'tab', tab: next })
     else setTab(next)
   }
   const confirmDiscard = () => {
+    if (anySaving) return
     const action = pendingAction
     setPendingAction(null)
     setTabDirty(false)
@@ -159,13 +166,14 @@ export function GroupSettingsDialog({
   }
 
   const save = async () => {
-    if (!parsed?.success) return
+    if (!parsed?.success || !dirty || saving) return
+    const submitted = parsed.data
     setSaving(true)
     try {
-      await groupsApi.saveParams(group.id, parsed.data)
-      setSavedParams(params)
-      toast({ type: 'success', message: t('群级参数已保存') })
-      onClose()
+      await groupsApi.saveParams(group.id, submitted)
+      setSavedParams(submitted)
+      flashSaved()
+      toast({ type: 'success', message: t('群级参数已保存，对新会话生效') })
     } catch (e) {
       toastError(e)
     } finally {
@@ -181,31 +189,32 @@ export function GroupSettingsDialog({
         open
         width={820}
         title={`${activeLabel} · ${group.name}`}
-        closeOnBackdrop={!hasDirty}
+        closeOnBackdrop={!hasDirty && !anySaving}
         onClose={requestClose}
         footer={
-          <>
-            <span className="gs-desc">
-              {readOnly
-                ? t('仅群管理员可修改')
-                : activeTab === 'params'
-                  ? dirty
+          readOnly || activeTab === 'params' ? (
+            <>
+              <span className="gs-desc">
+                {readOnly
+                  ? t('仅群管理员可修改')
+                  : dirty
                     ? t('有未保存的更改 · 保存后对新会话生效')
-                    : t('保存后对新会话生效')
-                  : ''}
-            </span>
-            <span className="spacer" />
-            {activeTab === 'params' && !readOnly ? (
-              <Button
-                variant="primary"
-                disabled={!parsed?.success}
-                loading={saving}
-                onClick={() => void save()}
-              >
-                {t('保存')}
-              </Button>
-            ) : null}
-          </>
+                    : t('保存后对新会话生效')}
+              </span>
+              <span className="spacer" />
+              {activeTab === 'params' && !readOnly ? (
+                <Button
+                  variant="primary"
+                  disabled={!dirty || !parsed?.success || saving}
+                  loading={saving}
+                  done={saved && !dirty}
+                  onClick={() => void save()}
+                >
+                  {saving ? t('保存中…') : saved && !dirty ? t('已保存') : t('保存')}
+                </Button>
+              ) : null}
+            </>
+          ) : undefined
         }
       >
         <div className="gs-settings">
@@ -227,7 +236,12 @@ export function GroupSettingsDialog({
           </nav>
           <div key={activeTab} className="gs-settings__body">
             {activeTab === 'basic' ? (
-              <BasicTab group={group} readOnly={readOnly} onDirtyChange={setTabDirty} />
+              <BasicTab
+                group={group}
+                readOnly={readOnly}
+                onDirtyChange={setTabDirty}
+                onSavingChange={setTabSaving}
+              />
             ) : activeTab === 'members' ? (
               <MembersTab group={group} readOnly={readOnly} />
             ) : activeTab === 'bots' ? (
@@ -237,7 +251,7 @@ export function GroupSettingsDialog({
             ) : readOnly && activeTab === 'mcp' ? (
               <GroupConfigView groupId={group.id} kind="mcp" />
             ) : activeTab === 'mcp' ? (
-              <GroupMcpTab group={group} onDirtyChange={setTabDirty} />
+              <GroupMcpTab group={group} onDirtyChange={setTabDirty} onSavingChange={setTabSaving} />
             ) : activeTab === 'skill' ? (
               <GroupSkillTab group={group} readOnly={readOnly} onClose={onClose} />
             ) : activeTab === 'secrets' ? (
@@ -253,6 +267,7 @@ export function GroupSettingsDialog({
                 {PARAMS.map((p) => (
                   <GroupRow key={p.key} label={p.label}>
                     <Stepper
+                      live
                       aria-label={p.label}
                       disabled={readOnly}
                       min={1}
@@ -290,10 +305,12 @@ function BasicTab({
   group,
   readOnly,
   onDirtyChange,
+  onSavingChange,
 }: {
   group: GroupDto
   readOnly: boolean
   onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
 }) {
   const me = useSession((s) => s.user)
   const dm = group.kind === 'dm'
@@ -305,12 +322,15 @@ function BasicTab({
     onDirtyChange?.(dirty)
   }, [dirty, onDirtyChange])
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
   const save = async () => {
     if (!changed || saving) return
     setSaving(true)
+    onSavingChange?.(true)
     if (await attempt(() => groupsApi.update(group.id, { name: name.trim() })))
       toast({ type: 'success', message: t('名称已保存') })
     setSaving(false)
+    onSavingChange?.(false)
   }
   return (
     <GroupBox>
@@ -518,11 +538,17 @@ function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean })
 function GroupMcpTab({
   group,
   onDirtyChange,
+  onSavingChange,
 }: {
   group: GroupDto
   onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
 }) {
   const layer = useMcpLayer(`/groups/${group.id}/mcp`)
+  useEffect(() => {
+    onSavingChange?.(layer.busy)
+  }, [layer.busy, onSavingChange])
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
   return (
     <>
       <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>

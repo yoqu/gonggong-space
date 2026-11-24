@@ -488,7 +488,16 @@ export function BotDetail({
 
   const feishu = (
     <Form>
-      <FormRow label={t('飞书应用')} align="top" hint={t('该 Bot 专属的飞书自建应用，用于在飞书群里被 @')}>
+      <FormRow
+        label={t('飞书应用')}
+        align="top"
+        hint={
+          <>
+            {t('该 Bot 专属的飞书自建应用，用于在飞书群里被 @')}
+            <span style={{ display: 'block' }}>{t('本页修改即时生效，无需点击底部「保存」。')}</span>
+          </>
+        }
+      >
         <FeishuAppForm path={`/bots/${bot.id}/feishu`} removeLabel={t('移除飞书应用')} />
       </FormRow>
     </Form>
@@ -530,7 +539,12 @@ export function BotDetail({
             {t('删除 Bot')}
           </Button>
           <span className="spacer" />
-          {tab === 'usage' || tab === 'share' || tab === 'feishu' ? null : (
+          {(tab === 'usage' || tab === 'share' || tab === 'feishu') && dirty ? (
+            <span className="bots-detail__meta" style={{ marginRight: 'var(--space-8)' }}>
+              {t('其他标签页有未保存的更改')}
+            </span>
+          ) : null}
+          {(tab === 'usage' || tab === 'share' || tab === 'feishu') && !dirty ? null : (
             <Button
               variant="primary"
               disabled={!dirty || saving || !name.trim()}

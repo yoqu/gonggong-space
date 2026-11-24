@@ -316,5 +316,159 @@ describe('composer dock', () => {
     expect(css).toContain('.cdock__hud-wave')
     expect(css).toContain('@keyframes cdock-hud-wave')
     expect(css).toContain('prefers-reduced-motion: reduce')
+    expect(css).toContain('.cdock[data-dragging] .cdock__hud-pos')
+  })
+
+  it('sets data-dragging on .cdock while dragging the orb so the HUD tracks 1:1 with zero transition lag', () => {
+    localStorage.setItem('gg.composerDock.hidden', '1')
+    const { container } = render(dock(true, { tone: 'running', text: '共字君' }))
+    const root = container.querySelector('.cdock') as HTMLElement
+    const orb = screen.getByRole('button', { name: '展开输入框' })
+    expect(root.hasAttribute('data-dragging')).toBe(false)
+
+    fireEvent.pointerDown(orb, { pointerId: 1, clientX: 400, clientY: 500 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 350, clientY: 460 })
+    expect(root.hasAttribute('data-dragging')).toBe(true)
+
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 350, clientY: 460 })
+    expect(root.hasAttribute('data-dragging')).toBe(false)
+  })
+
+  it('keeps ⌘J toggle 100% interruptible mid-flight using pure compositor animations (no width/height)', () => {
+    type Frame = Record<string, string | number>
+    const anims: { el: Element; frames: Frame[]; cancel: ReturnType<typeof vi.fn>; finish: () => void }[] = []
+    document.documentElement.style.setProperty('--spring-smooth', '379ms linear(0, 1)')
+    document.documentElement.style.setProperty('--spring-bouncy', '340ms linear(0, 1)')
+    const prevAnimate = Element.prototype.animate
+    const prevGetAnims = Element.prototype.getAnimations
+    Element.prototype.animate = function (
+      this: Element,
+      frames: Keyframe[] | PropertyIndexedKeyframes | null,
+    ) {
+      const cancel = vi.fn()
+      const rec = {
+        el: this,
+        frames: (Array.isArray(frames) ? frames : []) as Frame[],
+        cancel,
+        finish() {
+          anim.onfinish?.(new Event('finish') as AnimationPlaybackEvent)
+        },
+      }
+      const anim = {
+        playState: 'running',
+        onfinish: null as ((ev: AnimationPlaybackEvent) => void) | null,
+        cancel,
+      } as unknown as Animation
+      anims.push(rec)
+      return anim
+    }
+    Element.prototype.getAnimations = () => []
+    try {
+      const { container } = render(dock(true))
+      const root = container.querySelector('.cdock') as HTMLElement
+      expect(root.dataset.phase).toBe('open')
+
+      // Start closing via ⌘J.
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+      expect(root.dataset.phase).toBe('closing')
+      const shellClose = anims.find((a) => a.el.classList.contains('cdock__shell'))!
+      expect(shellClose).toBeTruthy()
+      for (const f of shellClose.frames) {
+        expect(f).not.toHaveProperty('width')
+        expect(f).not.toHaveProperty('height')
+        expect(f).toHaveProperty('transform')
+        expect(f).toHaveProperty('clipPath')
+      }
+
+      // Interrupt mid-close with ⌘J -> immediately reverses to opening without waiting for close to finish.
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+      expect(root.dataset.phase).toBe('opening')
+      expect(shellClose.cancel).toHaveBeenCalled()
+
+      // Interrupt mid-open with ⌘J -> reverses back to closing.
+      const shellOpen = [...anims].reverse().find((a) => a.el.classList.contains('cdock__shell'))!
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+      expect(root.dataset.phase).toBe('closing')
+      expect(shellOpen.cancel).toHaveBeenCalled()
+
+      // Finish closing cleanly.
+      const finalClose = [...anims].reverse().find((a) => a.el.classList.contains('cdock__shell'))!
+      act(() => finalClose.finish())
+      expect(root.dataset.phase).toBe('closed')
+    } finally {
+      Element.prototype.animate = prevAnimate
+      Element.prototype.getAnimations = prevGetAnims
+      document.documentElement.removeAttribute('style')
+    }
+  })
+
+  it('snapshots live computed transform, clipPath and opacity=0 BEFORE cancelling the interrupted animation', () => {
+    type Frame = Record<string, string | number>
+    const anims: { el: Element; frames: Frame[]; cancel: ReturnType<typeof vi.fn> }[] = []
+    document.documentElement.style.setProperty('--spring-smooth', '379ms linear(0, 1)')
+    document.documentElement.style.setProperty('--spring-bouncy', '340ms linear(0, 1)')
+    const prevAnimate = Element.prototype.animate
+    const prevGetAnims = Element.prototype.getAnimations
+    const liveState = new WeakMap<Element, { transform: string; clipPath: string; opacity: string }>()
+
+    Element.prototype.animate = function (
+      this: Element,
+      frames: Keyframe[] | PropertyIndexedKeyframes | null,
+    ) {
+      if (this.classList.contains('cdock__shell')) {
+        liveState.set(this, {
+          transform: 'matrix(1, 0, 0, 1, 120, -40)',
+          clipPath: 'inset(24px 80px 0px 80px round 22px)',
+          opacity: '1',
+        })
+      } else if (this.classList.contains('cdock__body')) {
+        liveState.set(this, { transform: 'scale(0.98)', clipPath: 'none', opacity: '0' })
+      }
+      const el = this
+      const cancel = vi.fn(() => {
+        // Real browser live CSSStyleDeclaration immediately reverts animated values once cancel() runs.
+        liveState.set(el, { transform: 'none', clipPath: 'none', opacity: '1' })
+      })
+      const rec = { el, frames: (Array.isArray(frames) ? frames : []) as Frame[], cancel }
+      anims.push(rec)
+      return { playState: 'running', onfinish: null, cancel } as unknown as Animation
+    }
+    Element.prototype.getAnimations = () => []
+
+    const realGetComputedStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element) => {
+      const base = realGetComputedStyle(el)
+      return new Proxy(base, {
+        get(target, prop) {
+          const cur = liveState.get(el)
+          if (cur && (prop === 'transform' || prop === 'clipPath' || prop === 'opacity')) return cur[prop]
+          const val = Reflect.get(target, prop, target)
+          return typeof val === 'function' ? val.bind(target) : val
+        },
+      })
+    })
+
+    try {
+      render(dock(true))
+      // Start closing via ⌘J.
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+      // Interrupt mid-close -> opening must start from the mid-flight matrix & inset, NOT 'none' / orbFrame!
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+      const openShell = [...anims].reverse().find((a) => a.el.classList.contains('cdock__shell'))!
+      expect(openShell.frames[0]).toEqual({
+        transform: 'matrix(1, 0, 0, 1, 120, -40)',
+        clipPath: 'inset(24px 80px 0px 80px round 22px)',
+      })
+
+      // Interrupt mid-open while body opacity is '0' -> closing must preserve opacity 0 (NOT coerce to 1).
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+      const closeBody = [...anims].reverse().find((a) => a.el.classList.contains('cdock__body'))!
+      expect(closeBody.frames[0]?.opacity).toBe(0)
+    } finally {
+      styleSpy.mockRestore()
+      Element.prototype.animate = prevAnimate
+      Element.prototype.getAnimations = prevGetAnims
+      document.documentElement.removeAttribute('style')
+    }
   })
 })

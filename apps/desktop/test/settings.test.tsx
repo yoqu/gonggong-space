@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { ipc } from '../src/ipc'
@@ -48,6 +48,10 @@ it('shows local paths and the server, toggles preferences and unbinds after conf
   fireEvent.click(within(backups).getByRole('button', { name: 'backups' }))
   expect(m.reveal).toHaveBeenCalledWith('/Users/wl/.gonggong/backups')
   expect(screen.getByText('gonggong.corp.cn')).toBeTruthy()
+  expect(screen.getByText('由本机主动加密连接服务器')).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: '帮助' }))
+  expect(screen.getByText('发现不兼容的旧版本时，会提示你升级后再连接。')).toBeTruthy()
 
   const upgrade = screen.getByRole('switch', { name: '自动升级' })
   await waitFor(() => expect(upgrade).toHaveProperty('checked', true))
@@ -57,9 +61,22 @@ it('shows local paths and the server, toggles preferences and unbinds after conf
   fireEvent.click(screen.getByRole('switch', { name: '开机启动' }))
   expect(m.setLaunchAtLogin).toHaveBeenCalledWith(true)
 
+  let resolveUnbind: () => void = () => {}
+  m.unbind.mockImplementationOnce(() => new Promise<void>((r) => (resolveUnbind = r)))
   fireEvent.click(screen.getByRole('button', { name: '解除绑定…' }))
   expect(m.unbind).not.toHaveBeenCalled()
-  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '解除绑定' }))
+  const dialog = screen.getByRole('alertdialog')
+  expect(dialog.textContent).toContain('要解除这台电脑与团队服务器的绑定吗？')
+  expect(dialog.textContent).toContain(
+    '这台电脑将断开连接，团队密钥和托管工作区会被清理，你手动选择的本机目录和本地备份会保留。此操作不可撤销。',
+  )
+  expect(dialog.textContent).not.toContain('/cd')
+  fireEvent.click(within(dialog).getByRole('button', { name: '解除绑定' }))
+  expect(within(dialog).getByRole('button', { name: '解除绑定' }).getAttribute('aria-busy')).toBe('true')
+  expect((within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(screen.getByRole('alertdialog')).toBeTruthy()
+  await act(async () => resolveUnbind())
   expect(m.unbind).toHaveBeenCalled()
 })
 
@@ -109,4 +126,25 @@ it('saves the agent environment as KEY=VALUE lines and refuses a malformed line'
   fireEvent.change(env, { target: { value: 'FOO=1\n BAR = a=b \n' } })
   fireEvent.click(save)
   await waitFor(() => expect(m.setEnv).toHaveBeenCalledWith({ FOO: '1', BAR: 'a=b' }))
+})
+
+it('opens 连接诊断 from Settings', async () => {
+  render(<SettingsPage go={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: '连接诊断' }))
+  const dialog = screen.getByRole('dialog', { name: '连接诊断' })
+  expect(dialog.textContent).toContain('gonggong.corp.cn')
+})
+
+it('immediately makes the unbind AlertDialog inert and ignores activation after Esc', () => {
+  render(<SettingsPage go={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: '解除绑定…' }))
+  const dialog = screen.getByRole('alertdialog')
+  const danger = within(dialog).getByRole('button', { name: '解除绑定' })
+  fireEvent.keyDown(document, { key: 'Escape' })
+  const overlay = dialog.closest('.ui-overlay') as HTMLElement
+  expect(overlay.hasAttribute('inert')).toBe(true)
+  expect(overlay.getAttribute('aria-hidden')).toBe('true')
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+  fireEvent.click(danger)
+  expect(m.unbind).not.toHaveBeenCalled()
 })

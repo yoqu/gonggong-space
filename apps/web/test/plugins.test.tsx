@@ -13,7 +13,7 @@ import type {
   TeamDto,
   UserDto,
 } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { strToU8, zipSync } from 'fflate'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -38,7 +38,7 @@ function mockApi(routes: Record<string, unknown>) {
       if (!(key in routes))
         return new Response(JSON.stringify({ error: 'not_found', message: key }), { status: 404 })
       const route = routes[key]
-      const out = typeof route === 'function' ? route(body) : route
+      const out = await (typeof route === 'function' ? route(body) : route)
       return out === undefined ? new Response(null, { status: 204 }) : new Response(JSON.stringify(out))
     }),
   )
@@ -467,6 +467,43 @@ describe('插件 · 创作入口', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
     expect(await screen.findByText('创作请求 · 网页原型')).toBeTruthy()
   })
+
+  it('closes immediately when only browsing templates/design systems, and guards closing once content or params are entered', async () => {
+    mockApi(chatRoutes([plugin()]))
+    renderAt('/g/g1')
+    // Browsing templates & design systems without typing never prompts on close.
+    fireEvent.click(await screen.findByRole('button', { name: '创作' }))
+    const dlg1 = within(await screen.findByRole('dialog', { name: '创作' }))
+    fireEvent.click(dlg1.getByRole('button', { name: /活动报名页/ }))
+    fireEvent.click(dlg1.getByRole('button', { name: '下一步' }))
+    fireEvent.click(dlg1.getByRole('button', { name: /温暖编辑/ }))
+    fireEvent.click(dlg1.getByRole('button', { name: '下一步' }))
+    fireEvent.click(dlg1.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
+
+    // Entering text in 内容与参数 triggers the discard confirmation on 取消 and Escape.
+    fireEvent.click(screen.getByRole('button', { name: '创作' }))
+    const dlg2 = within(await screen.findByRole('dialog', { name: '创作' }))
+    fireEvent.click(dlg2.getByRole('button', { name: /内容与参数/ }))
+    const titleInput = dlg2.getByLabelText('主标题') as HTMLInputElement
+    fireEvent.change(titleInput, { target: { value: '新品发布会' } })
+
+    fireEvent.click(dlg2.getByRole('button', { name: '取消' }))
+    const confirm1 = await screen.findByRole('alertdialog', { name: '要放弃当前填写的创作内容吗？' })
+    expect(within(confirm1).getByText('关闭后，已填写的主题和参数不会保留。')).toBeTruthy()
+    expect(within(confirm1).getByRole('button', { name: '放弃内容' }).className).toContain(
+      'ui-btn--destructive',
+    )
+    fireEvent.click(within(confirm1).getByRole('button', { name: '继续填写' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(titleInput.value).toBe('新品发布会')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    const confirm2 = await screen.findByRole('alertdialog', { name: '要放弃当前填写的创作内容吗？' })
+    fireEvent.click(within(confirm2).getByRole('button', { name: '放弃内容' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
+  })
 })
 
 describe('插件 · 输入框式创作（产品原型）', () => {
@@ -537,6 +574,48 @@ describe('插件 · 输入框式创作（产品原型）', () => {
     const dialog = await screen.findByRole('dialog', { name: '创作' })
     return { calls, d: within(dialog) }
   }
+
+  it('protects unsaved drafts on close and blocks closing while submitting in PromptComposer', async () => {
+    let resolveCreate!: (v: MessageDto) => void
+    const { d } = await openComposer({
+      'POST /groups/g1/creations': () =>
+        new Promise<MessageDto>((r) => {
+          resolveCreate = r
+        }),
+    })
+
+    // Unedited PromptComposer closes cleanly without a confirm dialog.
+    fireEvent.click(d.getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
+
+    // Reopen, type a prompt -> closing asks before discarding.
+    fireEvent.click(screen.getByRole('button', { name: '创作' }))
+    const dialog2 = await screen.findByRole('dialog', { name: '创作' })
+    const prompt = within(dialog2).getByRole('textbox', { name: '需求' }) as HTMLTextAreaElement
+    fireEvent.change(prompt, { target: { value: '做一款日程管理 App' } })
+    fireEvent.click(within(dialog2).getByRole('button', { name: '关闭' }))
+    const confirm = screen.getByRole('alertdialog', { name: '要放弃当前填写的创作内容吗？' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '继续填写' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(prompt.value).toBe('做一款日程管理 App')
+
+    // Submitting locks closing until the request finishes.
+    fireEvent.click(within(dialog2).getByRole('button', { name: '交给 设计助手' }))
+    await waitFor(() =>
+      expect(within(dialog2).getByRole('button', { name: '交给 设计助手' }).hasAttribute('disabled')).toBe(
+        true,
+      ),
+    )
+    fireEvent.click(within(dialog2).getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.getByRole('dialog', { name: '创作' })).toBeTruthy()
+
+    await act(async () =>
+      resolveCreate(msg({ seq: 2, id: 'm2', body: '@设计助手 请用插件', mentions: ['b1'], card })),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
+  })
 
   it('starts from one box: the request, the device and 自动 for the design system', async () => {
     const { calls, d } = await openComposer()

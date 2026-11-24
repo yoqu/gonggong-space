@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BindMachineDialog } from '../src/features/machines/BindMachineDialog'
+import { RevokeMachineDialog } from '../src/features/machines/RevokeMachineDialog'
 import { realtime } from '../src/lib/realtime'
 import { mockApi } from './mockApi'
 
@@ -128,7 +129,8 @@ describe('bind machine dialog', () => {
     expect(card.textContent).not.toContain('支持 macOS 和 Linux')
     expect(screen.queryByText(/客户端会上报电脑名/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '了解上报内容' }))
-    expect(screen.getByText(/客户端会上报电脑名/)).toBeTruthy()
+    expect(screen.getByText(/客户端会上报电脑名称、系统、CPU、内存和已安装的 Agent 工具/)).toBeTruthy()
+    expect(screen.queryByText(/Gemini CLI/)).toBeNull()
     expect(screen.getByText('等待接入…Agent 会自己下载安装，通常 1–3 分钟')).toBeTruthy()
     expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
     expect(screen.queryByText(/Windows 上请展开/)).toBeNull()
@@ -206,7 +208,7 @@ describe('bind machine dialog', () => {
       'POST /bind-codes': {
         code: 'K7QM-4X2P',
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
-        link: '',
+        link: linkOf('K7QM-4X2P'),
         agentPrompt: promptOf('K7QM-4X2P'),
       },
       'GET /machines': [],
@@ -242,7 +244,7 @@ describe('bind machine dialog', () => {
     expect(screen.getByText('命令行客户端 · v0.3.2')).toBeTruthy()
   })
 
-  it('tells Intel Macs and Windows apart', async () => {
+  it('tells Intel Macs and Windows apart, giving Windows a desktop-client primary flow', async () => {
     browser(MAC, 'x86')
     withDownloads(published)
     const { unmount } = show()
@@ -250,14 +252,25 @@ describe('bind machine dialog', () => {
     others()
     expect(await screen.findByRole('link', { name: '下载 macOS（Intel）' })).toBeTruthy()
     unmount()
-    // Windows has no install.sh: the other ways open at once, with a word on why.
+    // Windows leads directly with the desktop client flow: no Agent prompt/video or legacy alert.
     browser(WIN)
     withDownloads(published)
     show()
-    expect(await screen.findByText('Windows 上请展开「其他方式」，用桌面客户端绑定。')).toBeTruthy()
+    const dialog = screen.getByRole('dialog', { name: '绑定新电脑' })
+    expect(within(dialog).getByText('下载并打开共工客户端，用下方接入链接绑定这台电脑。')).toBeTruthy()
+    const labels = [...dialog.querySelectorAll('.ui-step__label')].map((el) => el.textContent)
+    expect(labels).toEqual(['安装客户端', '打开接入链接', '创建 Bot'])
+    expect(within(dialog).queryByText(/Windows 上请展开/)).toBeNull()
+    expect(within(dialog).queryByLabelText('一句话接入演示')).toBeNull()
+    expect(within(dialog).queryByRole('region', { name: '发给你的 Agent' })).toBeNull()
     expect((await screen.findByRole('link', { name: '下载 Windows' })).getAttribute('href')).toBe(
       '/downloads/Gonggong_0.3.2_x64-setup.exe',
     )
+    expect(await screen.findByRole('link', { name: '在客户端中打开' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '复制接入链接' })).toBeTruthy()
+    // Remote Linux / macOS binding stays tucked inside the bottom disclosure.
+    fireEvent.click(within(dialog).getByRole('button', { name: '绑定其他系统的电脑（命令行或 Docker）' }))
+    expect(await within(dialog).findByText(promptOf('K7QM-4X2P'))).toBeTruthy()
   })
 
   it('points to GitHub before any client is published', async () => {
@@ -395,12 +408,47 @@ describe('bind machine dialog', () => {
     expect(calls.filter((c) => c.path === '/bind-codes')).toHaveLength(2)
   })
 
-  it('keeps a validity note for Docker, which only binds with the code', async () => {
+  it('shows generic Agent copy when an online machine reports no installed agents', async () => {
+    api()
+    show()
+    await openLink()
+    emit({ ...fresh, online: true, agents: [] })
+    expect(screen.getByText('未检测到可用的 Agent 工具，安装后在客户端中重新检测即可上报。')).toBeTruthy()
+    expect(screen.queryByText(/Gemini CLI/)).toBeNull()
+  })
+
+  it('keeps a copyable .env snippet and clean prose for Docker', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     api()
     show()
     await openLink()
     fireEvent.click(screen.getByRole('button', { name: '在 Docker 中运行' }))
+    const prose = screen.getByText(
+      '复制下方环境变量到服务器的 .env 文件（按注释填入版本号和电脑编号），再执行 docker compose up -d --build，容器启动后会自动绑定。',
+    )
+    expect(prose.textContent).not.toContain('GG_VERSION')
+    expect(prose.textContent).not.toContain('GONGGONG_MACHINE_ID')
     expect(screen.getByText(/接入码 30 分钟内有效，过期请重新生成/)).toBeTruthy()
+    const expectedEnv = [
+      `GONGGONG_BIND_URL='${linkOf('K7QM-4X2P')}'`,
+      '# GG_VERSION=<版本号>',
+      '# GONGGONG_MACHINE_ID=<电脑编号>',
+    ].join('\n')
+    const dockerPanel = prose.parentElement as HTMLElement
+    expect(dockerPanel.textContent).toContain('# GG_VERSION=<版本号>')
+    expect(dockerPanel.textContent).toContain('# GONGGONG_MACHINE_ID=<电脑编号>')
+    fireEvent.click(within(dockerPanel).getByRole('button', { name: '复制' }))
+    expect(writeText).toHaveBeenCalledWith(expectedEnv)
+  })
+
+  it('explains local folders without /cd jargon when unbinding a computer', () => {
+    render(<RevokeMachineDialog machine={fresh} onClose={() => {}} />)
+    const dialog = screen.getByRole('alertdialog')
+    expect(
+      within(dialog).getByText('客户端会清理这台电脑上的托管工作区；你手动选择的本机目录和本地备份会保留'),
+    ).toBeTruthy()
+    expect(dialog.textContent).not.toContain('/cd')
   })
 
   it('asks right here when a machine whose code expired requests to be bound', async () => {

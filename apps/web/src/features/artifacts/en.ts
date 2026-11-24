@@ -230,4 +230,8 @@ export default {
   切换这一屏的状态: "Switch this screen's state",
   '状态：{label}': 'State: {label}',
   '仅在状态 {when} 时显示': 'Shows only in state {when}',
+  '将针对当前画布发送给 @{name}': 'Will send to @{name} for the current canvas',
+  '改为仅发给群成员，不触发 Bot': 'Send to group members only without starting a Bot',
+  '本次仅发给群成员，不触发 Bot': 'This message goes to group members only and will not start a Bot',
+  '恢复发给 @{name}': 'Restore sending to @{name}',
 }

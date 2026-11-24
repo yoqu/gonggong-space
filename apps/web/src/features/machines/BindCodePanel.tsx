@@ -45,7 +45,12 @@ export function useBindCode(open: boolean, done = false): BindCode {
 
 const loginCommand = (code: BindCodeDto) => `gg login --server ${location.origin} --code ${code.code}`
 
-const dockerEnv = (code: BindCodeDto) => `GONGGONG_BIND_URL='${code.link}'`
+const dockerEnv = (code: BindCodeDto) =>
+  [
+    `GONGGONG_BIND_URL='${code.link}'`,
+    `# GG_VERSION=<${t('版本号')}>`,
+    `# GONGGONG_MACHINE_ID=<${t('电脑编号')}>`,
+  ].join('\n')
 
 const copy = (text: string, message: string) => void copyWithToast(text, message)
 
@@ -91,8 +96,54 @@ export function AgentPrompt({ bind, onCopied }: { bind: BindCode; onCopied?: (co
   )
 }
 
+/** CLI and Docker binding disclosures; inline in BindCodePanel on macOS/Linux, grouped under other-OS on Windows. */
+export function BindCliDockerDisclosures({ bind }: { bind: BindCode }) {
+  const { code } = bind
+  return (
+    <>
+      <FormRow align="top">
+        <Disclosure title={t('使用命令行')}>
+          <div className="bind__cmd">
+            <span className="bind__cmd-text">{code ? loginCommand(code) : '—'}</span>
+            <IconButton
+              title={t('复制命令')}
+              disabled={!code}
+              onClick={() => code && copy(loginCommand(code), t('已复制绑定命令'))}
+            >
+              <Icon name="copy" />
+            </IconButton>
+          </div>
+          <p className="bind__note">{t('没有安装客户端时，在电脑的终端里执行。')}</p>
+        </Disclosure>
+      </FormRow>
+      <FormRow align="top">
+        <Disclosure title={t('在 Docker 中运行')}>
+          <p className="bind__note">
+            {t(
+              '复制下方环境变量到服务器的 .env 文件（按注释填入版本号和电脑编号），再执行 docker compose up -d --build，容器启动后会自动绑定。',
+            )}
+          </p>
+          <div className="bind__cmd">
+            <pre className="bind__cmd-text" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+              {code ? dockerEnv(code) : '—'}
+            </pre>
+            <IconButton
+              title={t('复制')}
+              disabled={!code}
+              onClick={() => code && copy(dockerEnv(code), t('已复制'))}
+            >
+              <Icon name="copy" />
+            </IconButton>
+          </div>
+          <p className="bind__note">{t('接入码 30 分钟内有效，过期请重新生成。')}</p>
+        </Disclosure>
+      </FormRow>
+    </>
+  )
+}
+
 /** 接入链接: open it in the desktop app, or copy it; the gg login command sits under 使用命令行. */
-export function BindCodePanel({ bind }: { bind: BindCode }) {
+export function BindCodePanel({ bind, showCliDocker = true }: { bind: BindCode; showCliDocker?: boolean }) {
   const { code, error, generate } = bind
   return (
     <Form>
@@ -118,41 +169,7 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
           <Spinner size={18} />
         )}
       </FormRow>
-      <FormRow align="top">
-        <Disclosure title={t('使用命令行')}>
-          <div className="bind__cmd">
-            <span className="bind__cmd-text">{code ? loginCommand(code) : '—'}</span>
-            <IconButton
-              title={t('复制命令')}
-              disabled={!code}
-              onClick={() => code && copy(loginCommand(code), t('已复制绑定命令'))}
-            >
-              <Icon name="copy" />
-            </IconButton>
-          </div>
-          <p className="bind__note">{t('没有安装客户端时，在电脑的终端里执行。')}</p>
-        </Disclosure>
-      </FormRow>
-      <FormRow align="top">
-        <Disclosure title={t('在 Docker 中运行')}>
-          <div className="bind__cmd">
-            <span className="bind__cmd-text">{code ? dockerEnv(code) : '—'}</span>
-            <IconButton
-              title={t('复制')}
-              disabled={!code}
-              onClick={() => code && copy(dockerEnv(code), t('已复制'))}
-            >
-              <Icon name="copy" />
-            </IconButton>
-          </div>
-          <p className="bind__note">
-            {t(
-              '在服务器的 docker/daemon 目录，把这一行加到 .env（另需 GG_VERSION 与 GONGGONG_MACHINE_ID），然后运行 docker compose up -d --build，容器首次启动时自动绑定。',
-            )}
-          </p>
-          <p className="bind__note">{t('接入码 30 分钟内有效，过期请重新生成。')}</p>
-        </Disclosure>
-      </FormRow>
+      {showCliDocker ? <BindCliDockerDisclosures bind={bind} /> : null}
     </Form>
   )
 }

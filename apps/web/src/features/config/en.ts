@@ -106,6 +106,9 @@ export default {
   '已回滚到 v{n}，相关 Bot 下一轮生效': 'Rolled back to v{n}; affected Bots pick it up next run',
   '{name} 的历史版本': 'Version history of {name}',
   回滚到此版本: 'Roll back to this version',
+  '要回滚到版本 v{version} 吗？': 'Roll back to version v{version}?',
+  '当前内容会被替换为此版本。现有版本仍会保留在历史记录中，可随时切回。':
+    'Current content will be replaced with this version. The existing version stays in history and can be restored anytime.',
   'v{n} · {count} 个文件': 'v{n} · {count} {count:file|files}',
   本群: 'This group',
   仅群管理员可修改: 'Only group admins can make changes',

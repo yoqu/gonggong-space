@@ -115,6 +115,45 @@ describe('login page', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('账号或密码错误')
     expect(screen.getByTestId('login-page')).toBeTruthy()
   })
+
+  it('skips the form shake animation under prefers-reduced-motion: reduce', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' }))
+    const { AuthCard } = await import('../src/features/auth/AuthCard')
+    const { rerender, container } = render(
+      <MemoryRouter>
+        <AuthCard variant="login" errorKey={0} onSubmit={(e) => e.preventDefault()}>
+          <div />
+        </AuthCard>
+      </MemoryRouter>,
+    )
+    const form = container.querySelector('.auth__form') as HTMLElement
+    rerender(
+      <MemoryRouter>
+        <AuthCard variant="login" errorKey={1} onSubmit={(e) => e.preventDefault()}>
+          <div />
+        </AuthCard>
+      </MemoryRouter>,
+    )
+    // Reduced motion must not animate horizontal translate on the form.
+    expect(form.style.transform).toBe('')
+  })
+
+  it('navigates crisply (~240ms) after login succeeds without blanking the form', async () => {
+    vi.useFakeTimers()
+    try {
+      mockApi({ 'GET /me': () => apiError(401, 'unauthorized'), 'POST /auth/login': me })
+      renderAt('/login')
+      await vi.waitFor(() => expect(screen.getByTestId('login-page')).toBeTruthy())
+      fill('账号', 'wanglei')
+      fill('密码', 'password123')
+      fireEvent.click(screen.getByRole('button', { name: '登录' }))
+      await vi.waitFor(() => expect(screen.getByTestId('login-page').hasAttribute('data-leaving')).toBe(true))
+      await vi.advanceTimersByTimeAsync(240)
+      expect(useSession.getState().user?.id).toBe('u1')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('self sign-up', () => {

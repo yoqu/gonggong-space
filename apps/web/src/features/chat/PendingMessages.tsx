@@ -4,6 +4,21 @@ import { t } from '../../i18n'
 import { Button, Message, Tag } from '../../ui'
 import { dropPending, pendingOf, sendPending, usePending } from './pending'
 
+const MAX_TRACKED = 200
+const optimisticClientIds = new Set<string>()
+
+function rememberOptimisticClientId(id: string) {
+  if (!id || optimisticClientIds.has(id)) return
+  optimisticClientIds.add(id)
+  if (optimisticClientIds.size > MAX_TRACKED) {
+    const first = optimisticClientIds.values().next().value
+    if (first) optimisticClientIds.delete(first)
+  }
+}
+
+/** Whether `clientId` was rendered as an optimistic pending row (suppresses a second entrance when confirmed). */
+export const hasOptimisticClientId = (id?: string | null) => !!id && optimisticClientIds.has(id)
+
 /** My messages still on their way (发送中) or refused (发送失败, with 重发 / 删除), after the timeline. */
 export function PendingMessages({
   groupId,
@@ -19,9 +34,15 @@ export function PendingMessages({
   const list = usePending((s) => s.list)
   const me = useSession((s) => s.user)
   return pendingOf(list, groupId, thread, messages).map((p) => {
+    rememberOptimisticClientId(p.req.clientId)
     const retry = () => void sendPending(p, onSent)
     return (
-      <div key={p.req.clientId} className="tl-item" data-testid="pending-message">
+      <div
+        key={p.req.clientId}
+        className="tl-item tl-item--enter"
+        data-client-id={p.req.clientId}
+        data-testid="pending-message"
+      >
         <Message
           author={{ name: me?.name ?? '', avatar: me?.avatar ?? undefined }}
           self

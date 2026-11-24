@@ -2,6 +2,7 @@
 .ui-toast {
   --enter-y: -8px;
   --enter-scale: 0.96;
+  --exit-y: -6px;
   --exit-scale: 0.96;
   display: inline-flex;
   align-items: center;
@@ -37,6 +38,10 @@
   padding-top: 10px;
   padding-bottom: 10px;
   border-radius: var(--radius-menu);
+}
+.ui-toast[data-replaced] {
+  --exit-y: 0;
+  --exit-scale: 0.96;
 }
 .ui-toast[data-state="closed"] {
   pointer-events: none;

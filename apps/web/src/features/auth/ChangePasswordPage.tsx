@@ -48,7 +48,7 @@ function usePasswordChange(onChanged: (me: UserDto) => void, initialOld = '') {
     try {
       const me = await api.post<UserDto>('/auth/password', { oldPassword: form.old, newPassword: form.next })
       setPhase('done')
-      setTimeout(() => onChanged(me), 420)
+      setTimeout(() => onChanged(me), 240)
     } catch (err) {
       fail(errorText(err))
       setPhase('idle')

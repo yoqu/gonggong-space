@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  AlertDialog,
   Button,
   Dialog,
   Drawer,
@@ -94,14 +97,56 @@ describe('Presence', () => {
     )
   }
 
-  it('keeps a conditionally rendered dialog mounted while it animates out, then removes it', () => {
+  it('keeps a conditionally rendered dialog mounted while it animates out, inert and out of the a11y tree, then removes it', () => {
     render(<Host />)
     fireEvent.click(screen.getByRole('button', { name: '打开' }))
-    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
     const dialog = screen.getByRole('dialog')
-    expect(dialog.closest('.ui-overlay')?.getAttribute('data-state')).toBe('closed')
-    fireEvent.animationEnd(dialog)
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    const overlay = dialog.closest('.ui-overlay') as HTMLElement
+    expect(overlay.getAttribute('data-state')).toBe('closed')
+    expect(overlay.hasAttribute('inert')).toBe(true)
+    expect(overlay.getAttribute('aria-hidden')).toBe('true')
     expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.animationEnd(dialog)
+    expect(document.querySelector('.ui-dialog')).toBeNull()
+  })
+
+  it('makes an exiting AlertDialog immediately inert and blocks activating destructive buttons after Esc/cancel', () => {
+    const onDanger = vi.fn()
+    function DangerHost() {
+      const [open, setOpen] = useState(true)
+      return (
+        <AlertDialog
+          open={open}
+          title="要删除吗？"
+          message="此操作不可恢复。"
+          onClose={() => setOpen(false)}
+          actions={[
+            { label: '取消', onClick: () => setOpen(false) },
+            { label: '彻底删除', variant: 'destructive', onClick: onDanger },
+          ]}
+        />
+      )
+    }
+    render(<DangerHost />)
+    const alert = screen.getByRole('alertdialog')
+    const dangerBtn = screen.getByRole('button', { name: '彻底删除' })
+    esc()
+    const overlay = alert.closest('.ui-overlay') as HTMLElement
+    expect(overlay.dataset.state).toBe('closed')
+    expect(overlay.hasAttribute('inert')).toBe(true)
+    expect(overlay.getAttribute('aria-hidden')).toBe('true')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    fireEvent.click(dangerBtn)
+    expect(onDanger).not.toHaveBeenCalled()
+    fireEvent.animationEnd(alert)
+    expect(document.querySelector('.ui-alert-panel')).toBeNull()
+  })
+
+  it('aligns mobile bottom-sheet exit duration under prefers-reduced-motion with --fade-out', () => {
+    const css = readFileSync(resolve(__dirname, '../src/ui/overlay.css'), 'utf8')
+    expect(css).toMatch(/@media\s*\(max-width:\s*767px\)\s*and\s*\(prefers-reduced-motion:\s*reduce\)/)
+    expect(css).toMatch(/var\(--fade-out\)\s+ui-exit\s+forwards/)
   })
 
   it('reopens a dialog that is still animating out', () => {
@@ -330,11 +375,15 @@ describe('useLeaving', () => {
     expect(result.current.leaving.has('a')).toBe(false)
   })
 
-  it('drops the row at once under reduced motion', () => {
+  it('keeps the short fade-out window under reduced motion before dropping the row', () => {
+    vi.useFakeTimers()
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }))
     const gone = vi.fn()
     const { result } = renderHook(() => useLeaving())
     act(() => result.current.leave('a', gone))
+    expect(result.current.leaving.has('a')).toBe(true)
+    expect(gone).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(130))
     expect(gone).toHaveBeenCalledOnce()
     expect(result.current.leaving.size).toBe(0)
     vi.unstubAllGlobals()

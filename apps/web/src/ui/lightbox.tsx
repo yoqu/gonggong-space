@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
+import { motionTiming } from '../lib/motion'
 import { CloseButton } from './controls'
 import { Icon } from './icon'
 import { useEscape, useFocusTrap } from './overlay'
@@ -29,12 +30,6 @@ const DRAG_PX = 4
 type View = { s: number; x: number; y: number }
 const FIT: View = { s: 1, x: 0, y: 0 }
 const REST = 'translate(0px, 0px) scale(1)'
-
-/** A motion token as Web Animations timing; null when it is 0s (reduced motion collapses the springs). */
-function timing(token: string) {
-  const m = /^(\d+)ms\s+(.+)$/.exec(getComputedStyle(document.documentElement).getPropertyValue(token).trim())
-  return m ? { duration: Number(m[1]), easing: m[2] } : null
-}
 
 /**
  * The fitted image laid over the thumbnail: scaled to cover it, centred on it, cropped to its shape (thumbnails
@@ -103,24 +98,40 @@ export function Lightbox({
   viewRef.current = view
   const zoomed = view.s > 1
   const [dragging, setDragging] = useState(false)
+  const [direct, setDirect] = useState(false)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const moved = useRef(false)
   const touch = useRef<{ x: number; y: number } | null>(null)
   const [closing, setClosing] = useState(false)
   // Only the image it was opened on flies; paging shows the others with the plain entrance.
   const flying = useRef(origin ? item.src : null)
+  const flyAnim = useRef<Animation | null>(null)
+  const absorbFlyIn = () => {
+    flying.current = null
+    const anim = flyAnim.current
+    if (anim) {
+      flyAnim.current = null
+      anim.cancel()
+    }
+    if (img.current) img.current.style.clipPath = ''
+  }
   const flyIn = () => {
     const el = img.current
     const from = origin?.(index)
-    const spring = timing('--spring-snappy')
+    const spring = motionTiming('--spring-snappy')
     if (flying.current !== item.src || !el?.animate || !spring || !seen(from)) return
     flying.current = null
     // The flight is the entrance: the CSS fade and grow-in would run on top of it.
     for (const a of el.getAnimations()) a.cancel()
-    el.animate(
+    const anim = el.animate(
       [over(from, el.getBoundingClientRect()), { transform: REST, clipPath: 'inset(0px 0px round 0px)' }],
       spring,
     )
+    flyAnim.current = anim
+    const clear = () => {
+      if (flyAnim.current === anim) flyAnim.current = null
+    }
+    anim.finished?.then(clear, clear)
   }
   // A cached image (the thumbnail's own source) is complete before its load event could be listened for.
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, for the image it opened on
@@ -131,11 +142,12 @@ export function Lightbox({
   useEffect(() => () => unhide(landing), [])
   const close = () => {
     if (closing) return
+    absorbFlyIn()
     const el = img.current
     const root = ref.current
     const from = origin?.(index)
-    const spring = timing('--spring-snappy')
-    const fade = timing('--fade-out')
+    const spring = motionTiming('--spring-snappy')
+    const fade = motionTiming('--fade-out')
     if (!root?.animate) return onClose()
     setClosing(true)
     let run: Animation
@@ -164,7 +176,9 @@ export function Lightbox({
   useEscape(close)
   useFocusTrap(ref, true)
   /** Scales to `to`, keeping the point at client (cx, cy) (default: the image centre) where it is. */
-  const zoomTo = (to: number, cx?: number, cy?: number) => {
+  const zoomTo = (to: number, cx?: number, cy?: number, gesture: 'discrete' | 'direct' = 'discrete') => {
+    absorbFlyIn()
+    setDirect(gesture === 'direct')
     const v = viewRef.current
     const s = Math.min(MAX_SCALE, Math.max(1, to))
     if (s === 1) return setView(FIT)
@@ -179,6 +193,8 @@ export function Lightbox({
   zoomRef.current = zoomTo
   const go = (to: number) => {
     if (to < 0 || to >= items.length || to === index) return
+    absorbFlyIn()
+    setDirect(false)
     setView(FIT)
     source.onIndexChange?.(to)
   }
@@ -197,13 +213,13 @@ export function Lightbox({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = viewRef.current.s
-      if (e.key === '+' || e.key === '=') zoomRef.current(s * STEP)
-      else if (e.key === '-') zoomRef.current(s / STEP)
-      else if (e.key === '0') zoomRef.current(1)
+      if (e.key === '+' || e.key === '=') zoomRef.current(s * STEP, undefined, undefined, 'discrete')
+      else if (e.key === '-') zoomRef.current(s / STEP, undefined, undefined, 'discrete')
+      else if (e.key === '0') zoomRef.current(1, undefined, undefined, 'discrete')
     }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      zoomRef.current(viewRef.current.s * Math.exp(-e.deltaY / 300), e.clientX, e.clientY)
+      zoomRef.current(viewRef.current.s * Math.exp(-e.deltaY / 300), e.clientX, e.clientY, 'direct')
     }
     const el = ref.current
     document.addEventListener('keydown', onKey)
@@ -230,9 +246,11 @@ export function Lightbox({
     if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(p.clientY - from.y)) go(index + (dx < 0 ? 1 : -1))
   }
   const onPointerDown = (e: PointerEvent) => {
+    absorbFlyIn()
     e.currentTarget.setPointerCapture?.(e.pointerId)
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 1) moved.current = false
+    setDirect(true)
     setDragging(true)
   }
   const onPointerMove = (e: PointerEvent) => {
@@ -248,8 +266,11 @@ export function Lightbox({
     if (ps.size === 2) {
       const [c, d] = [...ps.values()] as [{ x: number; y: number }, { x: number; y: number }]
       const after = Math.hypot(c.x - d.x, c.y - d.y)
-      if (before > 0) zoomTo(viewRef.current.s * (after / before), (c.x + d.x) / 2, (c.y + d.y) / 2)
-    } else if (zoomed) setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
+      if (before > 0) zoomTo(viewRef.current.s * (after / before), (c.x + d.x) / 2, (c.y + d.y) / 2, 'direct')
+    } else if (zoomed) {
+      setDirect(true)
+      setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
+    }
   }
   const onPointerUp = (e: PointerEvent) => {
     pointers.current.delete(e.pointerId)
@@ -257,10 +278,12 @@ export function Lightbox({
   }
   const onImageClick = (e: MouseEvent) => {
     if (moved.current) return
+    absorbFlyIn()
+    setDirect(false)
     if (zoomed) return setView(FIT)
     const el = img.current
     const natural = el?.naturalWidth && el.clientWidth ? el.naturalWidth / el.clientWidth : 0
-    zoomTo(natural > 1.05 ? natural : 2, e.clientX, e.clientY)
+    zoomTo(natural > 1.05 ? natural : 2, e.clientX, e.clientY, 'discrete')
   }
   return createPortal(
     <div
@@ -292,7 +315,11 @@ export function Lightbox({
             className="ui-lightbox__scale"
             aria-label={t('适应窗口')}
             title={t('适应窗口')}
-            onClick={() => setView(FIT)}
+            onClick={() => {
+              absorbFlyIn()
+              setDirect(false)
+              setView(FIT)
+            }}
           >
             {`${Math.round(view.s * 100)}%`}
           </button>
@@ -317,9 +344,10 @@ export function Lightbox({
             src={item.src}
             alt={item.alt}
             draggable={false}
+            data-gesture={direct || dragging ? 'direct' : undefined}
             style={{
               transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`,
-              transition: dragging ? 'none' : undefined,
+              transition: direct || dragging ? 'none' : undefined,
             }}
             onClick={onImageClick}
             onLoad={flyIn}

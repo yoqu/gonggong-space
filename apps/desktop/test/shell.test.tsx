@@ -66,3 +66,11 @@ it('opens the server in the browser from the connection pill only while connecte
   expect(within(toolbar()).queryByRole('button', { name: /未绑定/ })).toBeNull()
   expect(within(toolbar()).getByTestId('conn-pill').textContent).toBe('未绑定')
 })
+
+it('jumps back to 概览 when clicking the StatusLine task count', () => {
+  render(<Shell />)
+  fireEvent.click(screen.getByRole('button', { name: '设置' }))
+  expect(within(toolbar()).getByRole('heading', { name: '设置' })).toBeTruthy()
+  fireEvent.click(within(screen.getByTestId('status-line')).getByRole('button', { name: '运行中 1' }))
+  expect(within(toolbar()).getByRole('heading', { name: '概览' })).toBeTruthy()
+})

@@ -407,7 +407,7 @@ describe('git status bar', () => {
 
     const other = await menu('老李的 Codex')
     expect(within(other).getByText('未绑定电脑')).toBeTruthy()
-    expect(within(other).getByText('托管目录')).toBeTruthy()
+    expect(within(other).getByText('托管工作区')).toBeTruthy()
     expect(within(other).queryByText(/当前在/)).toBeNull()
     expect(within(other).queryByText('附加目录')).toBeNull()
   })
@@ -684,6 +684,45 @@ describe('git status bar', () => {
     expect(within(panel).queryByText('基准')).toBeNull()
     fireEvent.click(within(panel).getByRole('button', { name: '复制目录' }))
     expect(writeText).toHaveBeenCalledWith('/w/b1')
+  })
+
+  it('renders an unbound managed bot in a non-repo group cleanly, showing 工作区：托管工作区 and 更换本机目录… in its menu', async () => {
+    useWorkspace.setState({
+      bots: [
+        { ...bot('b1', '小王的 Claude'), machineId: 'm1', machineName: '王磊的 MacBook' },
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2', machineId: 'm2' },
+      ],
+    })
+    mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1', { state: 'unbound', workspace: 'managed', path: null, git: null }),
+        state('b2', { state: 'unbound', workspace: 'managed', path: null, git: null }),
+      ],
+      'GET /groups/g1/git/operations': { operations: [] },
+      'GET /machines/m1/dirs': {
+        path: '/Users/w',
+        entries: [],
+        git: null,
+        unusable: null,
+        roots: ['/'],
+        places: [],
+        canCreate: false,
+        error: null,
+      },
+    })
+    render(<GitBar group={group({ repo: null, botIds: ['b1', 'b2'] })} />)
+    const b1 = await screen.findByTestId('git-b1')
+    expect(b1.textContent).toBe('小王的 Claude')
+    expect(b1.textContent).not.toContain('未选工作区')
+    expect(b1.textContent).not.toContain('待绑定')
+    // Non-repo unbound bots are healthy/ready, so other members' unbound bots stay folded in 更多工作区.
+    expect(screen.queryByTestId('git-b2')).toBeNull()
+
+    const panel = await menu('小王的 Claude')
+    expect(within(panel).getByText('工作区：托管工作区')).toBeTruthy()
+    const changeBtn = within(panel).getByRole('menuitem', { name: '更换本机目录…' })
+    fireEvent.click(changeBtn)
+    expect(await screen.findByRole('dialog', { name: '为 小王的 Claude 选择工作区' })).toBeTruthy()
   })
 })
 

@@ -122,6 +122,13 @@
   cursor: default;
 }
 
+.chat-scroll__pill[data-state="closed"] {
+  --exit-y: 8px;
+  --exit-scale: 0.94;
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
+}
+
 .chat-scroll__pill:active,
 .chat-scroll__bottom:active {
   scale: 0.92;
@@ -133,6 +140,9 @@
   bottom: auto;
   z-index: 3;
   margin-bottom: calc(-1 * var(--control-large));
+}
+.chat-scroll__pill--top[data-state="closed"] {
+  --exit-y: -8px;
 }
 
 /* Overlaps the messages (negative margin) rather than taking a row under them. */
@@ -160,8 +170,14 @@
     var(--fade-in) ui-fade-in,
     var(--spring-bouncy) ui-enter;
   transition:
-    color var(--motion-fast),
+    color var(--fade-fast),
     scale var(--spring-interactive);
+}
+.chat-scroll__bottom[data-state="closed"] {
+  --exit-y: 6px;
+  --exit-scale: 0.85;
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
 }
 .chat-scroll__bottom:hover {
   color: var(--label);
@@ -184,6 +200,10 @@
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-smooth) ui-enter;
+}
+/* Confirmed echo of an optimistic send already animated in while pending; suppress duplicate entrance. */
+.tl-item--enter:has(.pn-msg--from-optimistic) {
+  animation: none;
 }
 .tl-item--flash {
   animation: tl-flash 2s ease-out;
@@ -327,6 +347,12 @@
   translate: none;
   scale: none;
 }
+@media (hover: hover) {
+  .run-card:hover .pn-msg__actions .pn-msgactions {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+}
 /* In a narrow column the author name stays on one line; the secondary meta truncates first. */
 .chat-view .pn-msg__meta > * {
   flex: none;
@@ -344,7 +370,7 @@
 .run-mcard {
   width: 460px;
   max-width: 100%;
-  transition: box-shadow var(--motion-fast);
+  transition: box-shadow var(--fade-fast);
 }
 .run-mcard.run-mcard--selected {
   box-shadow:
@@ -478,6 +504,21 @@
 @media (prefers-reduced-motion: reduce) {
   .run-card__steptext.ui-shimmer {
     animation: var(--fade-in) ui-fade-in;
+    color: var(--label);
+  }
+}
+[data-theme="hc-light"] .run-card__steptext.ui-shimmer,
+[data-theme="hc-dark"] .run-card__steptext.ui-shimmer {
+  animation: var(--fade-in) ui-fade-in;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--label);
+}
+@media (prefers-contrast: more) {
+  .run-card__steptext.ui-shimmer {
+    animation: var(--fade-in) ui-fade-in;
+    background: none;
+    -webkit-text-fill-color: currentColor;
     color: var(--label);
   }
 }
@@ -623,7 +664,7 @@
   padding: 2px var(--space-6);
   border-radius: var(--radius-field);
   color: var(--label);
-  transition: background-color var(--motion-fast);
+  transition: background-color var(--fade-fast);
 }
 @media (hover: hover) {
   .chat-pins__item:hover {

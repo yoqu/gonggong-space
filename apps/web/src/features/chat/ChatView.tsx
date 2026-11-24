@@ -68,7 +68,6 @@ import { ScheduleTag } from '../schedules/ScheduleTag'
 import { SecretBanner } from '../secrets/SecretBanner'
 import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
-import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { openTab } from '../workbench/open'
 import { ComposerDock } from './ComposerDock'
 import { useRunDeltas } from './deltas'
@@ -79,7 +78,7 @@ import { GroupThreads } from './GroupThreads'
 import { continues, eventFolds, isAbsorbedMessage, sameDay, unreadStart } from './grouping'
 import { useImmersive } from './immersive'
 import { MentionNames } from './Markdown'
-import { branchableRuns } from './MessageActions'
+import { ActiveRunsContext, branchableRuns } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
 import { PendingMessages } from './PendingMessages'
 import { PinnedMessages } from './PinnedMessages'
@@ -88,6 +87,7 @@ import { ProviderBanner } from './ProviderBanner'
 import { useOnQueued } from './pending'
 import { isRequestCard, RequestCard } from './RequestCard'
 import { repoName } from './repo'
+import { BottomScrollPill, TopUnreadPill } from './ScrollPills'
 import { TaskDock } from './TaskDock'
 import { type ThreadFocus, ThreadView } from './ThreadView'
 import {
@@ -97,6 +97,7 @@ import {
   EventRow,
   eventText,
   type MentionTarget,
+  messageKey,
   RecallRow,
   RunCard,
   UserMessage,
@@ -106,7 +107,7 @@ import { useThreadLive } from './threadSummary'
 import { escFree, releaseUnreadMark, useUnreadMark } from './unreadMark'
 import { useMarkRead } from './useMarkRead'
 import { useTimeline } from './useTimeline'
-import { WorkspaceBanner } from './WorkspaceBanner'
+import { ReadOnlyBanner, WorkspaceBanner } from './WorkspaceBanner'
 import './chat.css'
 import './timeline.css'
 import { t } from '../../i18n'
@@ -153,35 +154,6 @@ function useFileDrag() {
       onDrop: reset,
     },
   }
-}
-
-/** A team admin viewing a group of the team they are not in (plan D19): nothing can be sent, changed or acted on. */
-function ReadOnlyBanner({ group }: { group: GroupDto }) {
-  const [taking, setTaking] = useState(false)
-  return (
-    <div data-testid="readonly-banner">
-      <PinnedBanner
-        icon="eye"
-        title={t('只读查看')}
-        text={t('你正以团队管理员身份查看此群，不能发言或管理。')}
-        action={
-          <Button size="small" onClick={() => setTaking(true)}>
-            {t('进群并成为管理员')}
-          </Button>
-        }
-      />
-      <Presence>
-        {taking ? (
-          <TakeoverDialog
-            teamId={group.teamId}
-            group={group}
-            onDone={() => setTaking(false)}
-            onClose={() => setTaking(false)}
-          />
-        ) : null}
-      </Presence>
-    </div>
-  )
 }
 
 export function ChatView({
@@ -235,6 +207,17 @@ export function ChatView({
   const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
   const [params, setParams] = useSearchParams()
   const linked = params.get('msg')
+  const patchParams = useCallback(
+    (fn: (p: URLSearchParams) => void) =>
+      setParams(
+        (p) => {
+          fn(p)
+          return p
+        },
+        { replace: true },
+      ),
+    [setParams],
+  )
   // `?thread=<root id>` (links, notifications, search hits): opens that thread in the rail.
   const linkedThread = params.get('thread')
   useEffect(() => {
@@ -242,15 +225,11 @@ export function ChatView({
     // `&msg=<reply id>` locates that reply inside the thread; old links carry the thread alone.
     setThreadFocus(linked ? { rootId: linkedThread, messageId: linked } : null)
     openThread(linkedThread)
-    setParams(
-      (p) => {
-        p.delete('thread')
-        p.delete('msg')
-        return p
-      },
-      { replace: true },
-    )
-  }, [linkedThread, linked, setParams])
+    patchParams((p) => {
+      p.delete('thread')
+      p.delete('msg')
+    })
+  }, [linkedThread, linked, patchParams])
   useLinkedSync(group.id)
   const linkPages = useRef(0)
   /** Run located from the live runs bar: its process opens when the link target can't be found. */
@@ -406,20 +385,35 @@ export function ChatView({
     setDividerDone(true)
   }
 
-  const latestSeq = useRef(lastSeq)
-  latestSeq.current = lastSeq
-  // Esc: everything here is read (also after 标为未读). Overlays and a draft in the composer keep Esc for themselves.
+  const readMeta = useRef({ seq: 0, held: false, hasUnread: false })
+  readMeta.current = {
+    seq: lastSeq,
+    held: !!held,
+    hasUnread: group.unread > 0 || unseen > 0 || seenSeq < lastSeq,
+  }
+  const markAllRead = useCallback(() => {
+    releaseUnreadMark(group.id)
+    setUnreadAt(null)
+    setUnseen(0)
+    setSeenSeq((s) => Math.max(s, readMeta.current.seq))
+    api.post(`/groups/${group.id}/read`, {}).catch(() => {})
+  }, [group.id])
+  // Bare Esc clears ordinary unread; a manual unread anchor is protected and only cleared via the toast action.
   useEffect(() => {
     if (readOnly) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.shiftKey || e.defaultPrevented || !escFree()) return
-      releaseUnreadMark(group.id)
-      setSeenSeq((s) => Math.max(s, latestSeq.current))
-      api.post(`/groups/${group.id}/read`, {}).catch(() => {})
+      if (readMeta.current.held)
+        return void toast({
+          type: 'info',
+          message: t('已保留你手动标记的未读位置'),
+          action: { label: t('全部标为已读'), onClick: markAllRead },
+        })
+      if (readMeta.current.hasUnread) markAllRead()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [group.id, readOnly])
+  }, [readOnly, markAllRead])
 
   // Each link pages back afresh: a later one (pin, quote) must not inherit an earlier link's spent budget.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset per link
@@ -442,14 +436,8 @@ export function ChatView({
     else if (linkRun.current) openTab({ kind: 'run', runId: linkRun.current, view: 'process', file: null })
     else toast({ message: t('没有找到这条消息，它可能在话题里或已太久远') })
     linkRun.current = null
-    setParams(
-      (p) => {
-        p.delete('msg')
-        return p
-      },
-      { replace: true },
-    )
-  }, [linked, linkedThread, tl.loaded, tl.messages, tl.hasMore, tl.older, tl.loadOlder, setParams])
+    patchParams((p) => p.delete('msg'))
+  }, [linked, linkedThread, tl.loaded, tl.messages, tl.hasMore, tl.older, tl.loadOlder, patchParams])
 
   useEffect(() => {
     if (!flash) return
@@ -519,13 +507,7 @@ export function ChatView({
       setThreadFocus({ rootId: pin.threadRootId, messageId: pin.messageId })
       return openThread(pin.threadRootId)
     }
-    setParams(
-      (p) => {
-        p.set('msg', pin.messageId)
-        return p
-      },
-      { replace: true },
-    )
+    patchParams((p) => p.set('msg', pin.messageId))
   }
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloaded per group and after a reconnect
   useEffect(() => {
@@ -540,13 +522,7 @@ export function ChatView({
     }
     linkPages.current = 0
     linkRun.current = r.id
-    setParams(
-      (p) => {
-        p.set('msg', replies.get(r.id)?.id ?? r.triggerMessageId)
-        return p
-      },
-      { replace: true },
-    )
+    patchParams((p) => p.set('msg', replies.get(r.id)?.id ?? r.triggerMessageId))
   }
   const runList = useMemo(() => Object.values(tl.runs), [tl.runs])
   const liveRuns = useRef(runList)
@@ -710,344 +686,347 @@ export function ChatView({
   // The notice banner already shows it; once hidden, its first line stays in the header as the channel topic.
   const topic = dm || !group.noticeHidden ? '' : (group.notice ?? '').trim().split('\n')[0]?.trim()
   return (
-    <MentionNames.Provider value={mentionNames}>
-      <div
-        className={cx('chat-view', immersive && 'chat-view--immersive')}
-        {...(readOnly ? {} : drag.handlers)}
-      >
-        <ChatHeader
-          group
-          avatar={<GroupAvatar group={group} size={32} />}
-          title={
-            dm ? (
-              group.name
-            ) : (
-              <span className="chat-view__title">
-                <Icon name={kind.icon} size={14} />
-                {group.name}
-              </span>
-            )
-          }
-          onBack={onBack}
-          {...(readOnly
-            ? {}
-            : dm
-              ? group.botIds[0]
-                ? { avatarLabel: t('查看 Bot'), onAvatarClick: () => navigate(`/bot/${group.botIds[0]}`) }
-                : {}
-              : isAdmin
-                ? { avatarLabel: t('打开群设置'), onAvatarClick: () => setSettings('basic') }
-                : {
-                    avatarLabel: t('打开群信息'),
-                    onAvatarClick: () => inspect('group-info', 'main'),
-                  })}
-          badges={
-            group.feishu || pluginBadge ? (
-              <>
-                {group.feishu ? <FeishuChatLink chat={group.feishu} /> : null}
-                {pluginBadge}
-              </>
-            ) : null
-          }
-          subtitle={
-            <>
-              {group.notifyLevel === 'off' ? (
-                <Icon
-                  name="bell-slash"
-                  size={11}
-                  label={t('消息免打扰#muted')}
-                  className="chat-view__muted"
-                />
-              ) : null}
-              {dm ? (
-                <>
-                  {dmLead(bots, group.botIds[0], sharer)}
-                  <span title={group.repo?.url}>
-                    {group.repo
-                      ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-                      : dmWorkspace === 'managed'
-                        ? t('未绑定仓库 · Bot 使用托管工作区')
-                        : dmWorkspace === 'cd'
-                          ? t('未绑定仓库 · Bot 使用本机目录')
-                          : t('未绑定仓库')}
-                  </span>
-                </>
+    <ActiveRunsContext.Provider value={liveRuns}>
+      <MentionNames.Provider value={mentionNames}>
+        <div
+          className={cx('chat-view', immersive && 'chat-view--immersive')}
+          {...(readOnly ? {} : drag.handlers)}
+        >
+          <ChatHeader
+            group
+            avatar={<GroupAvatar group={group} size={32} />}
+            title={
+              dm ? (
+                group.name
               ) : (
+                <span className="chat-view__title">
+                  <Icon name={kind.icon} size={14} />
+                  {group.name}
+                </span>
+              )
+            }
+            onBack={onBack}
+            {...(readOnly
+              ? {}
+              : dm
+                ? group.botIds[0]
+                  ? { avatarLabel: t('查看 Bot'), onAvatarClick: () => navigate(`/bot/${group.botIds[0]}`) }
+                  : {}
+                : isAdmin
+                  ? { avatarLabel: t('打开群设置'), onAvatarClick: () => setSettings('basic') }
+                  : {
+                      avatarLabel: t('打开群信息'),
+                      onAvatarClick: () => inspect('group-info', 'main'),
+                    })}
+            badges={
+              group.feishu || pluginBadge ? (
                 <>
-                  {topic ? (
-                    // Slack's channel topic: the notice's first line; the whole notice is one click away.
-                    <>
-                      <button
-                        type="button"
-                        className="pn-chathead__link chat-view__topic"
-                        title={group.notice}
-                        onClick={() => inspect('group-info', 'notices')}
-                      >
-                        {topic}
-                      </button>
-                      {' · '}
-                    </>
-                  ) : null}
-                  <span title={group.repo?.url}>
-                    {group.repo
-                      ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-                      : t('未绑定仓库 · 各 Bot 使用本机目录')}
-                  </span>
+                  {group.feishu ? <FeishuChatLink chat={group.feishu} /> : null}
+                  {pluginBadge}
                 </>
-              )}
-            </>
-          }
-          actions={[
-            ...(!dm
-              ? [
-                  {
-                    icon: 'person-2' as const,
-                    label: botCount
-                      ? t('群成员：{n} 人，{bots} 个 Bot', { n: group.members.length, bots: botCount })
-                      : t('群成员：{n} 人', { n: group.members.length }),
-                    text: String(group.members.length),
-                    onClick: () => inspect('group-info', 'members'),
-                  },
-                ]
-              : []),
-            {
-              icon: 'thread' as const,
-              label: t('话题#inbox'),
-              active: threadsOpen,
-              onClick: () => (threadsOpen && !threadBack ? closeInspector() : inspect('threads')),
-            },
-            {
-              icon: 'dashboard' as const,
-              label: t('工作台'),
-              text: benchTabs || undefined,
-              active: benchOpen,
-              onClick: () => useWorkbench.getState().setOpen(!benchOpen),
-            },
-            ...(readOnly
-              ? []
-              : [
-                  {
-                    icon: 'cog' as const,
-                    label: t('群设置'),
-                    active: infoOpen,
-                    onClick: () => (infoOpen ? closeInspector() : inspect('group-info', 'main')),
-                  },
-                ]),
-          ]}
-        />
-        {dm || readOnly ? null : <GroupTabBar group={group} />}
-        <InspectorPortal view="thread">
-          {threadRoot ? (
-            <ThreadView
-              key={threadRoot}
-              group={group}
-              rootId={threadRoot}
-              readOnly={readOnly}
-              focus={threadFocus?.rootId === threadRoot ? threadFocus : null}
-              onFocused={() => setThreadFocus(null)}
-              onBack={threadBack ? () => inspect(threadBack) : undefined}
-              onClose={closeInspector}
-            />
-          ) : null}
-        </InspectorPortal>
-        <InspectorPortal view="threads">
-          <GroupThreads group={group} onClose={closeInspector} />
-        </InspectorPortal>
-        <InspectorPortal view="group-info">
-          <GroupInfo
-            key={String(infoView)}
-            group={group}
-            initialView={infoView ?? 'main'}
-            readOnly={readOnly}
-            onClose={closeInspector}
-            onSettings={setSettings}
+              ) : null
+            }
+            subtitle={
+              <>
+                {group.notifyLevel === 'off' ? (
+                  <Icon
+                    name="bell-slash"
+                    size={11}
+                    label={t('消息免打扰#muted')}
+                    className="chat-view__muted"
+                  />
+                ) : null}
+                {dm ? (
+                  <>
+                    {dmLead(bots, group.botIds[0], sharer)}
+                    <span title={group.repo?.url}>
+                      {group.repo
+                        ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+                        : dmWorkspace === 'managed'
+                          ? t('未绑定仓库 · Bot 使用托管工作区')
+                          : dmWorkspace === 'cd'
+                            ? t('未绑定仓库 · Bot 使用本机目录')
+                            : t('未绑定仓库')}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {topic ? (
+                      // Slack's channel topic: the notice's first line; the whole notice is one click away.
+                      <>
+                        <button
+                          type="button"
+                          className="pn-chathead__link chat-view__topic"
+                          title={group.notice}
+                          onClick={() => inspect('group-info', 'notices')}
+                        >
+                          {topic}
+                        </button>
+                        {' · '}
+                      </>
+                    ) : null}
+                    <span title={group.repo?.url}>
+                      {group.repo
+                        ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+                        : t('未绑定仓库 · 各 Bot 使用本机目录')}
+                    </span>
+                  </>
+                )}
+              </>
+            }
+            actions={[
+              ...(!dm
+                ? [
+                    {
+                      icon: 'person-2' as const,
+                      label: botCount
+                        ? t('群成员：{n} 人，{bots} 个 Bot', { n: group.members.length, bots: botCount })
+                        : t('群成员：{n} 人', { n: group.members.length }),
+                      text: String(group.members.length),
+                      onClick: () => inspect('group-info', 'members'),
+                    },
+                  ]
+                : []),
+              {
+                icon: 'thread' as const,
+                label: t('话题#inbox'),
+                active: threadsOpen,
+                onClick: () => (threadsOpen && !threadBack ? closeInspector() : inspect('threads')),
+              },
+              {
+                icon: 'dashboard' as const,
+                label: t('工作台'),
+                text: benchTabs || undefined,
+                active: benchOpen,
+                onClick: () => useWorkbench.getState().setOpen(!benchOpen),
+              },
+              ...(readOnly
+                ? []
+                : [
+                    {
+                      icon: 'cog' as const,
+                      label: t('群设置'),
+                      active: infoOpen,
+                      onClick: () => (infoOpen ? closeInspector() : inspect('group-info', 'main')),
+                    },
+                  ]),
+            ]}
           />
-        </InspectorPortal>
-        <Presence>
-          {settings ? (
-            <Suspense fallback={null}>
-              <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
-            </Suspense>
-          ) : null}
-        </Presence>
-        <SyncBar
-          group={group}
-          isAdmin={isAdmin}
-          hidden={readOnly}
-          onSettings={isAdmin ? () => setSettings('repo') : undefined}
-        />
-        <LinkedConflict groupId={group.id} />
-        <LinkedGitOperation groupId={group.id} />
-        {readOnly ? null : <GitBar group={group} />}
-        <div className="chat-view__body">
-          {drag.over ? (
-            <div className="chat-view__drop">
-              <DropZone
-                defaultDragging
-                multiple
-                aria-label={t('添加附件')}
-                title={t('将文件拖到这里')}
-                overTitle={t('松开以添加附件')}
-                description={t('随下一条消息发送给群里的 Bot')}
-                onFiles={(files) => dropFiles.current?.(files)}
+          {dm || readOnly ? null : <GroupTabBar group={group} />}
+          <InspectorPortal view="thread">
+            {threadRoot ? (
+              <ThreadView
+                key={threadRoot}
+                group={group}
+                rootId={threadRoot}
+                readOnly={readOnly}
+                focus={threadFocus?.rootId === threadRoot ? threadFocus : null}
+                onFocused={() => setThreadFocus(null)}
+                onBack={threadBack ? () => inspect(threadBack) : undefined}
+                onClose={closeInspector}
               />
-            </div>
-          ) : null}
-          <div className="chat-scroll" ref={box} onScroll={onScroll}>
-            <div className="chat-view__banners" ref={banners}>
-              {readOnly ? <ReadOnlyBanner group={group} /> : null}
-              {closed && !readOnly ? (
-                <PinnedBanner
-                  icon="eye"
-                  title={t('只读')}
-                  text={t('Bot 已取消共享或已删除，只能查看历史消息。')}
-                />
-              ) : null}
-              <GroupNotice group={group} readOnly={readOnly} />
-              <PinnedMessages groupId={group.id} readOnly={readOnly || closed} onLocate={locateMessage} />
-              {readOnly ? null : <WorkspaceBanner group={group} />}
-              {readOnly ? null : <SecretBanner groupId={group.id} />}
-            </div>
-            {pastDivider && !dividerDone && entryUnread > 0 && !held ? (
-              <button type="button" className="chat-scroll__pill chat-scroll__pill--top" onClick={toDivider}>
-                <Icon name="chevron-up" size={13} />
-                {t('{n} 条新消息 · 跳到首条', { n: entryUnread >= 100 ? '99+' : entryUnread })}
-              </button>
             ) : null}
-            <MessageList className="chat-scroll__list">
-              {tl.older === 'loading' ? (
-                <div className="chat-scroll__older" data-testid="older-loading">
-                  <Spinner />
-                </div>
-              ) : tl.older === 'failed' ? (
-                <div className="chat-scroll__older" data-testid="older-error">
-                  {t('加载更早消息失败')}
-                  <Button size="small" variant="plain" onClick={loadOlder}>
-                    {t('重试')}
-                  </Button>
-                </div>
-              ) : null}
-              {tl.failed ? (
-                <EmptyState
-                  bare
-                  illustration={<FailedArt />}
-                  title={t('消息加载失败')}
-                  description={t('请检查网络后重试。')}
-                  actions={
-                    <Button size="small" onClick={tl.retry}>
+          </InspectorPortal>
+          <InspectorPortal view="threads">
+            <GroupThreads group={group} onClose={closeInspector} />
+          </InspectorPortal>
+          <InspectorPortal view="group-info">
+            <GroupInfo
+              key={String(infoView)}
+              group={group}
+              initialView={infoView ?? 'main'}
+              readOnly={readOnly}
+              onClose={closeInspector}
+              onSettings={setSettings}
+            />
+          </InspectorPortal>
+          <Presence>
+            {settings ? (
+              <Suspense fallback={null}>
+                <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
+              </Suspense>
+            ) : null}
+          </Presence>
+          <SyncBar
+            group={group}
+            isAdmin={isAdmin}
+            hidden={readOnly}
+            onSettings={isAdmin ? () => setSettings('repo') : undefined}
+          />
+          <LinkedConflict groupId={group.id} />
+          <LinkedGitOperation groupId={group.id} />
+          {readOnly ? null : <GitBar group={group} />}
+          <div className="chat-view__body">
+            {drag.over ? (
+              <div className="chat-view__drop">
+                <DropZone
+                  defaultDragging
+                  multiple
+                  aria-label={t('添加附件')}
+                  title={t('将文件拖到这里')}
+                  overTitle={t('松开以添加附件')}
+                  description={t('随下一条消息发送给群里的 Bot')}
+                  onFiles={(files) => dropFiles.current?.(files)}
+                />
+              </div>
+            ) : null}
+            <div className="chat-scroll" ref={box} onScroll={onScroll}>
+              <div className="chat-view__banners" ref={banners}>
+                {readOnly ? <ReadOnlyBanner group={group} /> : null}
+                {closed && !readOnly ? (
+                  <PinnedBanner
+                    icon="eye"
+                    title={t('只读')}
+                    text={t('Bot 已取消共享或已删除，只能查看历史消息。')}
+                  />
+                ) : null}
+                <GroupNotice group={group} readOnly={readOnly} />
+                <PinnedMessages groupId={group.id} readOnly={readOnly || closed} onLocate={locateMessage} />
+                {readOnly ? null : <WorkspaceBanner group={group} />}
+                {readOnly ? null : <SecretBanner groupId={group.id} />}
+              </div>
+              <TopUnreadPill
+                show={pastDivider && !dividerDone && entryUnread > 0 && !held}
+                count={entryUnread}
+                onClick={toDivider}
+              />
+              <MessageList className="chat-scroll__list">
+                {tl.older === 'loading' ? (
+                  <div className="chat-scroll__older" data-testid="older-loading">
+                    <Spinner />
+                  </div>
+                ) : tl.older === 'failed' ? (
+                  <div className="chat-scroll__older" data-testid="older-error">
+                    {t('加载更早消息失败')}
+                    <Button size="small" variant="plain" onClick={loadOlder}>
                       {t('重试')}
                     </Button>
-                  }
-                />
-              ) : !tl.loaded ? (
-                <div className="chat-scroll__loading">
-                  <Mascot action="wait" size={72} label={t('加载中')} />
-                </div>
-              ) : shown.length ? (
-                <>
-                  {shown.map((m, i) => {
-                    const prev = shown[i - 1]
-                    const fold = folds.get(i)
-                    if (folded.has(i)) return null
-                    return (
-                      <Fragment key={m.id}>
-                        {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
-                          <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
-                        )}
-                        {m.id === dividerShown ? <ChatNotice kind="unread" /> : null}
-                        {fold === undefined ? (
-                          <div
-                            inert={readOnly}
-                            data-msg-id={m.id}
-                            className={cx(
-                              'tl-item',
-                              tl.arrived.has(m.id) && 'tl-item--enter',
-                              flash === m.id && 'tl-item--flash',
-                            )}
-                          >
-                            {renderMessage(m, isCompact(prev, m))}
-                          </div>
-                        ) : (
-                          <EventFold events={fold} flash={flash} />
-                        )}
-                        {runsByTrigger.get(m.id)?.map((r) =>
-                          replies.has(r.id) ? null : readOnly ? (
-                            <div key={r.id} inert className="chat-view__inert">
-                              {card(r)}
+                  </div>
+                ) : null}
+                {tl.failed ? (
+                  <EmptyState
+                    bare
+                    illustration={<FailedArt />}
+                    title={t('消息加载失败')}
+                    description={t('请检查网络后重试。')}
+                    actions={
+                      <Button size="small" onClick={tl.retry}>
+                        {t('重试')}
+                      </Button>
+                    }
+                  />
+                ) : !tl.loaded ? (
+                  <div className="chat-scroll__loading">
+                    <Mascot action="wait" size={72} label={t('加载中')} />
+                  </div>
+                ) : shown.length ? (
+                  <>
+                    {shown.map((m, i) => {
+                      const prev = shown[i - 1]
+                      const fold = folds.get(i)
+                      if (folded.has(i)) return null
+                      return (
+                        <Fragment key={messageKey(m)}>
+                          {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
+                            <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
+                          )}
+                          {m.id === dividerShown ? (
+                            <ChatNotice kind="unread">
+                              <span className="chat-unread-divider">
+                                <span>{t('以下为新消息')}</span>
+                                {readOnly ? null : (
+                                  <button
+                                    type="button"
+                                    className="chat-unread-divider__btn"
+                                    onClick={markAllRead}
+                                  >
+                                    {t('全部标为已读')}
+                                  </button>
+                                )}
+                              </span>
+                            </ChatNotice>
+                          ) : null}
+                          {fold === undefined ? (
+                            <div
+                              inert={readOnly}
+                              data-msg-id={m.id}
+                              className={cx(
+                                'tl-item',
+                                tl.arrived.has(m.id) && 'tl-item--enter',
+                                flash === m.id && 'tl-item--flash',
+                              )}
+                            >
+                              {renderMessage(m, isCompact(prev, m))}
                             </div>
                           ) : (
-                            card(r)
-                          ),
-                        )}
-                      </Fragment>
-                    )
-                  })}
-                  {firstDm ? <FirstDmIntro groupId={group.id} owner={sharer} /> : null}
-                </>
-              ) : firstDm ? (
-                <FirstDmIntro groupId={group.id} owner={sharer} />
-              ) : (
-                <EmptyState
-                  bare
-                  illustration={<EmptyChatArt />}
-                  title={t('还没有消息')}
-                  description={t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')}
-                />
-              )}
-              {tl.loaded && !readOnly ? (
-                <PendingMessages groupId={group.id} messages={tl.messages} onSent={onSent} />
-              ) : null}
-              {readOnly && working.length ? (
-                <TypingIndicator
-                  name={working}
-                  action={t('正在处理')}
-                  bubble={<Mascot action="think" costume={workingCostume} size={36} />}
-                />
-              ) : null}
-            </MessageList>
-            {unseen ? (
-              <button type="button" className="chat-scroll__pill" onClick={toBottom}>
-                <Icon name="chevron-down" size={13} />
-                <span className="chat-scroll__count">
-                  <RollingNumber value={t('{n} 条新消息', { n: unseen })} />
-                </span>
-              </button>
-            ) : away ? (
-              <button
-                type="button"
-                className="chat-scroll__bottom"
-                aria-label={t('回到底部')}
-                title={t('回到底部')}
-                onClick={toBottom}
-              >
-                <Icon name="chevron-down" size={16} weight={2} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-        {readOnly || closed ? null : (
-          <>
-            {/* Reading mode: any tap or focus here brings everything back. */}
-            <div className="chat-view__foot" onClickCapture={leaveImmersive} onFocusCapture={leaveImmersive}>
-              <div className="chat-view__pins">
-                <ScheduleTag groupId={group.id} onManage={() => inspect('group-info', 'schedules')} />
-                <PreviewTags groupId={group.id} />
-              </div>
-              <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
-              <ProviderBanner group={group} />
-              <ComposerDock groupId={group.id} runs={runList} messages={shown} onLocate={locate}>
-                <MessageComposer
-                  group={group}
-                  dropFiles={dropFiles}
-                  onSent={onSent}
-                  lastEditable={editLast}
-                />
-              </ComposerDock>
+                            <EventFold events={fold} flash={flash} />
+                          )}
+                          {runsByTrigger.get(m.id)?.map((r) =>
+                            replies.has(r.id) ? null : readOnly ? (
+                              <div key={r.id} inert className="chat-view__inert">
+                                {card(r)}
+                              </div>
+                            ) : (
+                              card(r)
+                            ),
+                          )}
+                        </Fragment>
+                      )
+                    })}
+                    {firstDm ? <FirstDmIntro groupId={group.id} owner={sharer} /> : null}
+                  </>
+                ) : firstDm ? (
+                  <FirstDmIntro groupId={group.id} owner={sharer} />
+                ) : (
+                  <EmptyState
+                    bare
+                    illustration={<EmptyChatArt />}
+                    title={t('还没有消息')}
+                    description={t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')}
+                  />
+                )}
+                {tl.loaded && !readOnly ? (
+                  <PendingMessages groupId={group.id} messages={tl.messages} onSent={onSent} />
+                ) : null}
+                {readOnly && working.length ? (
+                  <TypingIndicator
+                    name={working}
+                    action={t('正在处理')}
+                    bubble={<Mascot action="think" costume={workingCostume} size={36} />}
+                  />
+                ) : null}
+              </MessageList>
+              <BottomScrollPill unseen={unseen} away={away} onClick={toBottom} />
             </div>
-            <CreationHost group={group} onSent={onSent} />
-          </>
-        )}
-      </div>
-    </MentionNames.Provider>
+          </div>
+          {readOnly || closed ? null : (
+            <>
+              {/* Reading mode: any tap or focus here brings everything back. */}
+              <div
+                className="chat-view__foot"
+                onClickCapture={leaveImmersive}
+                onFocusCapture={leaveImmersive}
+              >
+                <div className="chat-view__pins">
+                  <ScheduleTag groupId={group.id} onManage={() => inspect('group-info', 'schedules')} />
+                  <PreviewTags groupId={group.id} />
+                </div>
+                <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
+                <ProviderBanner group={group} />
+                <ComposerDock groupId={group.id} runs={runList} messages={shown} onLocate={locate}>
+                  <MessageComposer
+                    group={group}
+                    dropFiles={dropFiles}
+                    onSent={onSent}
+                    lastEditable={editLast}
+                  />
+                </ComposerDock>
+              </div>
+              <CreationHost group={group} onSent={onSent} />
+            </>
+          )}
+        </div>
+      </MentionNames.Provider>
+    </ActiveRunsContext.Provider>
   )
 }

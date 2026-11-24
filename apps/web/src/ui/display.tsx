@@ -360,7 +360,12 @@ export function ProgressIndicator({
       aria-valuenow={value}
       aria-label={aria['aria-label']}
     >
-      <div className="ui-progress__bar" style={value == null ? undefined : { width: `${value}%` }} />
+      <div
+        className="ui-progress__bar"
+        style={
+          value == null ? undefined : { transform: `scaleX(${Math.max(0, Math.min(100, value)) / 100})` }
+        }
+      />
     </div>
   )
 }

@@ -249,8 +249,59 @@ describe('Lightbox flight from the thumbnail', () => {
     measure.mockRestore()
   })
 
-  it('eases zoom and pan with a motion token, so reduced motion makes them instant', () => {
+  it('separates continuous gestures (transition: none) from discrete zoom steps (--spring-snappy)', () => {
     const css = readFileSync(join(import.meta.dirname, '../src/ui/lightbox.css'), 'utf8')
-    expect(css).toMatch(/transition: transform var\(--spring-interactive\)/)
+    expect(css).toMatch(/transition: transform var\(--spring-snappy\)/)
+    expect(css).toContain('[data-gesture="direct"]')
+
+    render(<Lightbox src="/a.png" alt="a.png" onClose={() => {}} />)
+    const img = screen.getByRole('dialog').querySelector('.ui-lightbox__img img') as HTMLElement
+
+    // Wheel zoom is continuous -> immediate direct tracking (no spring lag).
+    fireEvent.wheel(screen.getByRole('dialog'), { deltaY: -200, clientX: 50, clientY: 50 })
+    expect(img.dataset.gesture).toBe('direct')
+    expect(img.style.transition).toBe('none')
+
+    // Discrete zoom (+ / button / reset) clears direct gesture so --spring-snappy animates it.
+    fireEvent.keyDown(document, { key: '+' })
+    expect(img.dataset.gesture).toBeUndefined()
+    expect(img.style.transition).toBe('')
+
+    // Pointer drag sets direct tracking.
+    fireEvent.pointerDown(img, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(img.dataset.gesture).toBe('direct')
+    expect(img.style.transition).toBe('none')
+    fireEvent.pointerUp(img, { pointerId: 1, clientX: 100, clientY: 100 })
+
+    // Discrete reset clears direct gesture again.
+    fireEvent.keyDown(document, { key: '0' })
+    expect(img.dataset.gesture).toBeUndefined()
+  })
+
+  it('cancels an in-flight flyIn animation smoothly if the user interacts mid-flight', () => {
+    stub('300ms linear(0, 1)')
+    const cancels: ReturnType<typeof vi.fn>[] = []
+    Element.prototype.animate = function (
+      this: Element,
+      frames: Keyframe[] | PropertyIndexedKeyframes | null,
+    ) {
+      const cancel = vi.fn()
+      cancels.push(cancel)
+      let finish = () => {}
+      const finished = new Promise<void>((r) => {
+        finish = r
+      })
+      calls.push({ el: this, frames: frames as Frame[], finish })
+      return { finished, cancel } as unknown as Animation
+    }
+    const origin = thumb()
+    render(<Lightbox src="/a.png" alt="a.png" origin={() => origin} onClose={() => {}} />)
+    loaded()
+    expect(calls).toHaveLength(1)
+
+    // User wheel-zooms mid-flight: in-flight flyIn animation is cancelled instead of snapping back.
+    fireEvent.wheel(screen.getByRole('dialog'), { deltaY: -120, clientX: 100, clientY: 100 })
+    expect(cancels[0]).toHaveBeenCalledOnce()
+    origin.remove()
   })
 })

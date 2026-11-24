@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { usePresence } from '../src/ui/presence'
+import { Dialog, Presence } from '../src/ui/overlay'
+import { useLeaving, usePresence } from '../src/ui/presence'
 
 function Box({ open }: { open: boolean }) {
   const p = usePresence(open, { timeout: 500 })
@@ -62,10 +63,64 @@ describe('usePresence', () => {
     expect(box()?.dataset.state).toBe('open')
   })
 
-  it('unmounts immediately under reduced motion', () => {
+  it('keeps the fade-out exit under reduced motion and unmounts on animationend or short timeout', () => {
+    vi.useFakeTimers()
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' }))
     const { rerender } = render(<Box open />)
     rerender(<Box open={false} />)
+    expect(box()?.dataset.state).toBe('closed')
+    act(() => vi.advanceTimersByTime(129))
+    expect(box()).not.toBeNull()
+    act(() => vi.advanceTimersByTime(1))
     expect(box()).toBeNull()
+  })
+})
+
+describe('useLeaving', () => {
+  it('keeps fade-out leaving state under reduced motion instead of dropping synchronously', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' }))
+    const gone = vi.fn()
+    function Rows() {
+      const { leaving, leave } = useLeaving(220)
+      return (
+        <button type="button" data-leaving={leaving.has('a') || undefined} onClick={() => leave('a', gone)}>
+          删
+        </button>
+      )
+    }
+    render(<Rows />)
+    const btn = screen.getByRole('button', { name: '删' })
+    fireEvent.click(btn)
+    expect(btn.hasAttribute('data-leaving')).toBe(true)
+    expect(gone).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(130))
+    expect(gone).toHaveBeenCalledOnce()
+    expect(btn.hasAttribute('data-leaving')).toBe(false)
+  })
+})
+
+describe('Presence', () => {
+  it('treats multiple false conditional children as closed and animates the last open child out', () => {
+    vi.useFakeTimers()
+    function Host({ a, b }: { a: boolean; b: boolean }) {
+      return (
+        <Presence>
+          {a && <Dialog open title="弹窗甲" onClose={() => {}} />}
+          {b && <Dialog open title="弹窗乙" onClose={() => {}} />}
+        </Presence>
+      )
+    }
+    const { rerender } = render(<Host a={false} b={false} />)
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    rerender(<Host a b={false} />)
+    const dlg = screen.getByRole('dialog', { name: '弹窗甲' })
+    expect(dlg.parentElement?.dataset.state).toBe('open')
+
+    rerender(<Host a={false} b={false} />)
+    expect(dlg.parentElement?.dataset.state).toBe('closed')
+    act(() => vi.advanceTimersByTime(300))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

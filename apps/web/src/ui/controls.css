@@ -48,8 +48,8 @@
   cursor: default;
   user-select: none;
   transition:
-    background var(--motion-fast),
-    filter var(--motion-fast),
+    background var(--fade-fast),
+    filter var(--fade-fast),
     scale var(--spring-interactive);
 }
 .ui-btn:active {
@@ -175,14 +175,12 @@
     stroke-dashoffset: 14;
   }
 }
-.ui-btn--done {
-  background: var(--tint-green);
-  color: var(--tint-green-text);
-}
+.ui-btn--done,
 .ui-btn--done.ui-btn--primary,
 .ui-btn--done.ui-btn--primary:active {
-  background: var(--system-green);
-  color: #fff;
+  background: var(--tint-green);
+  color: var(--tint-green-text);
+  box-shadow: var(--shadow-control);
 }
 @media (prefers-reduced-motion: reduce) {
   .ui-btn__check path {
@@ -252,6 +250,23 @@
   width: 20px;
   height: 13px;
 }
+.ui-switch--loading {
+  cursor: progress;
+}
+.ui-switch--loading .ui-switch__track {
+  opacity: 0.72;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-switch--loading .ui-switch__knob {
+    animation: ui-switch-pulse 1.1s ease-in-out infinite;
+  }
+}
+@keyframes ui-switch-pulse {
+  50% {
+    opacity: 0.55;
+    scale: 0.92;
+  }
+}
 
 /* Checkbox & Radio */
 .ui-check,
@@ -274,7 +289,7 @@
     inset 0 0 0 1px var(--control-stroke),
     0 0.5px 1px rgba(0, 0, 0, 0.08);
   color: var(--on-accent);
-  transition: background var(--motion-fast);
+  transition: background var(--fade-fast);
 }
 .ui-check__box {
   border-radius: var(--radius-check);

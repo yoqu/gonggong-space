@@ -264,8 +264,18 @@
 .ng-foot {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
+}
+.ng-foot__msg:empty {
+  display: none;
+}
+.ng-foot__warn {
+  color: var(--tint-orange-text);
 }
 @media (pointer: coarse) {
   .ng-member {
@@ -515,6 +525,11 @@
   display: none;
 }
 /* 执行位置 panel: label column + values that wrap anywhere (paths, URLs). */
+.git-loc__ws {
+  margin-bottom: var(--space-6);
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+}
 .git-loc {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -677,4 +692,31 @@ button.chat-view__plugins:hover {
 }
 .tl-pending__failed {
   color: var(--system-red);
+}
+
+/* Inline unread divider action: lets the reader clear a manual unread mark in one click. */
+.chat-unread-divider {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: none;
+}
+.chat-unread-divider__btn {
+  padding: 2px var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--selection-fill);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.chat-unread-divider__btn:hover {
+  background: var(--tint-blue);
+}
+@media (pointer: coarse) {
+  .chat-unread-divider__btn {
+    min-height: 28px;
+    padding: 0 var(--space-10);
+  }
 }

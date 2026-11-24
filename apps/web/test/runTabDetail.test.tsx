@@ -119,8 +119,17 @@ describe('run tab detail', () => {
     expect(within(banner).getByText('运行失败：Agent 异常')).toBeTruthy()
     expect(within(banner).getByText(/API Error: 529 overloaded/)).toBeTruthy()
     expect(within(banner).queryByText(/at line 7/)).toBeNull()
-    fireEvent.click(within(banner).getByRole('button', { name: '展开全部' }))
+    const expand = within(banner).getByRole('button', { name: '展开全部' })
+    expect(expand.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(expand)
     expect(within(banner).getByText(/at line 7/)).toBeTruthy()
+    const collapse = within(banner).getByRole('button', { name: '收起提示' })
+    expect(collapse.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(collapse)
+    expect(within(banner).queryByText(/at line 7/)).toBeNull()
+    expect(within(banner).getByRole('button', { name: '展开全部' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    )
     expect(within(banner).getByRole('button', { name: '复制错误信息' })).toBeTruthy()
     expect(within(banner).getByText(/重新 @ Bot/)).toBeTruthy()
   })

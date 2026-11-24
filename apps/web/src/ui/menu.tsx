@@ -427,6 +427,8 @@ export function MenuButton({
         side === 'above' && 'ui-menu--above',
       )}
       data-state={presence.state}
+      aria-hidden={presence.state === 'closed' || undefined}
+      inert={presence.state === 'closed'}
       onAnimationEnd={presence.onAnimationEnd}
       onSelect={(value) => {
         close(true)

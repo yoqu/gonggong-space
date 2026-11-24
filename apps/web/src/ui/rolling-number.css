@@ -31,3 +31,11 @@
   transform: translateY(calc(var(--d) * -10%));
   transition: transform var(--spring-snappy);
 }
+.ui-roll[data-static] .ui-roll__digit::before {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-roll__digit::before {
+    transition: none;
+  }
+}
