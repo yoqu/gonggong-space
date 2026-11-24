@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ArtifactExportFormat, ArtifactKind, ArtifactStore } from './artifact-kind.js'
 import { ArtifactCard } from './artifacts.js'
 import { AgentKind } from './common.js'
+import { ConnectorDriver } from './daemon/connectors.js'
 import { ApiProtocol, LegacyProviderPreset, ProviderPreset, SkillFile } from './daemon.js'
 import { type SecretRequirement, SecretRequirements } from './secrets.js'
 
@@ -53,6 +54,18 @@ export const PluginConnector = z.object({
    * fills this request into the chat box for the bot to walk them through the login; 共工 cannot tell whether they did.
    */
   login: z.string().min(1).max(200).optional(),
+  /**
+   * Detected, installed and logged in by daemons with `connectors` (plan 连接器-体验升级方案): `driver` picks the
+   * built-in commands, `npm` the package installed when missing, `urlHosts` links that mean the connector is needed.
+   * Older daemons fall back to `login`.
+   */
+  cli: z
+    .object({
+      driver: ConnectorDriver,
+      npm: z.string().min(1).max(100),
+      urlHosts: z.array(z.string().min(1).max(100)).max(10).default([]),
+    })
+    .optional(),
   /**
    * How the server checks a key-based connection (连通性): a request whose headers / body may reference the
    * connector's secrets as `${secret:NAME}`; 2xx is connected, 401 / 403 an expired or wrong key, anything else unknown.

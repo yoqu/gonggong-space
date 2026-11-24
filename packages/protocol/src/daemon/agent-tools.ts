@@ -99,6 +99,8 @@ export const DaemonFeature = z.enum([
    * `use` takes `model` and `catalog` takes `agent`. Older daemons speak the legacy.ts shapes.
    */
   'protocolProviders',
+  /** connectors.* and RunStart.cliProfiles (plan 连接器-体验升级方案): CLI connectors detected and connected by the daemon. */
+  'connectors',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

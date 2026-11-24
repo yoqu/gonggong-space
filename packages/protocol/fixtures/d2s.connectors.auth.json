@@ -1,0 +1,8 @@
+{
+  "t": "connectors.auth",
+  "requestId": "r1",
+  "step": "login",
+  "url": "https://accounts.feishu.cn/oauth/v1/device/verify?user_code=ABCD-EFGH",
+  "userCode": "ABCD-EFGH",
+  "expiresAt": "2026-11-24T10:10:00.000Z"
+}

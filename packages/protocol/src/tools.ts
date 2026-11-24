@@ -436,6 +436,22 @@ export const ConnectorStatusArgs = z.object({
   account: z.string().max(100).describe('Who the CLI is logged in as (its user name), when known').optional(),
   detail: z.string().max(300).describe('One line on why, for expired / error').optional(),
 })
+export const ConnectorRequestArgs = z.object({
+  connector: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
+    .describe('Connector plugin name, e.g. feishu'),
+  reason: z
+    .enum(['unconnected', 'expired', 'missing_scope'])
+    .describe(
+      'unconnected: the CLI is not set up / logged in; expired: the login lapsed; missing_scope: a permission is missing',
+    ),
+  domains: z
+    .array(z.string().regex(/^[a-z_]{1,30}$/))
+    .max(30)
+    .describe('missing_scope: the CLI domains to authorize (lark-cli --domain values, e.g. calendar, mail)')
+    .optional(),
+})
 export const ArtifactCheckoutArgs = z.object({
   artifact: z.string().min(1).max(80).describe('Artifact id, or its title in this group'),
 })
@@ -760,6 +776,13 @@ export const GONGGONG_TOOLS = {
     description:
       "Report the turn initiator's login to a CLI-login connector (its skill says when: after the CLI's own status command), so their 连接器 menu shows whether it works. Not for key-based connectors: the platform checks those itself.",
     input: ConnectorStatusArgs,
+  },
+  connector_request: {
+    title: GONGGONG_TOOL_TITLES.connector_request,
+    description:
+      'Ask the turn initiator to connect a CLI connector when its command says they are not logged in, the login expired or a permission is missing: posts a private 「连接」 card only they can use (the login link never shows in the chat). ' +
+      'Returns at once; end your turn. Once they connect, this turn is run again by itself — do not ask them to resend.',
+    input: ConnectorRequestArgs,
   },
   plugin_catalog: {
     title: GONGGONG_TOOL_TITLES.plugin_catalog,

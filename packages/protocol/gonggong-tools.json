@@ -1814,6 +1814,36 @@
     }
   },
   {
+    "name": "connector_request",
+    "title": "请求连接",
+    "description": "Ask the turn initiator to connect a CLI connector when its command says they are not logged in, the login expired or a permission is missing: posts a private 「连接」 card only they can use (the login link never shows in the chat). Returns at once; end your turn. Once they connect, this turn is run again by itself — do not ask them to resend.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "connector": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "description": "Connector plugin name, e.g. feishu"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["unconnected", "expired", "missing_scope"],
+          "description": "unconnected: the CLI is not set up / logged in; expired: the login lapsed; missing_scope: a permission is missing"
+        },
+        "domains": {
+          "maxItems": 30,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]{1,30}$"
+          },
+          "description": "missing_scope: the CLI domains to authorize (lark-cli --domain values, e.g. calendar, mail)"
+        }
+      },
+      "required": ["connector", "reason"]
+    }
+  },
+  {
     "name": "plugin_catalog",
     "title": "插件目录",
     "description": "Creation plugins enabled here (slides, prototypes…). Without plugin: plugins, template and design system counts, whether you can use each. With plugin: its templates (id, title, group, inputs, uses a design system), design systems (id, title, category, palette) and inputs. When members ask for such work in the chat, pick a template here, then creation_propose.",

@@ -60,6 +60,8 @@ export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
   lastSeenAt: z.string().nullable(),
   /** DaemonFeature values of the connected daemon; empty while offline or for daemons that predate them. */
   features: z.array(z.string()),
+  /** Group members may log their own CLI connector accounts in on this machine (owner's switch, off by default). */
+  allowMemberConnect: z.boolean().default(false),
 })
 export type MachineDto = z.infer<typeof MachineDto>
 /** PATCH /api/machines/:id; an empty name falls back to the hostname. */

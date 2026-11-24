@@ -13,6 +13,7 @@ import {
   Usage,
 } from '../common.js'
 import { RunSyncStart } from '../sync.js'
+import { RunCliProfile } from './connectors.js'
 
 // ── Shared run payloads ─────────────────────────────────────────────────────
 export const McpServer = z.discriminatedUnion('transport', [
@@ -169,6 +170,8 @@ export const RunStart = z.object({
    * loaded like a Claude plugin named `name`; Codex links its skills as `<name>-<skill>`. Same timing as `skills`.
    */
   plugins: z.array(PluginRef).default([]),
+  /** The originator's CLI connector profiles (daemons with `connectors`): the daemon shims the CLIs to use them. */
+  cliProfiles: z.array(RunCliProfile).default([]),
   /** gonggong tools left out of the session's `tools/list` (useless in this group, e.g. Feishu ones when unbound). */
   hiddenTools: z.array(z.string()).default([]),
   /** An agent command (`/compact …`): sent verbatim as the prompt so the adapter runs it; `prompt` is not composed. */

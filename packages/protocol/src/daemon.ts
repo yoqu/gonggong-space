@@ -1,5 +1,6 @@
 export * from './daemon/agent-state.js'
 export * from './daemon/agent-tools.js'
+export * from './daemon/connectors.js'
 export * from './daemon/d2s.js'
 export * from './daemon/git.js'
 export * from './daemon/legacy.js'

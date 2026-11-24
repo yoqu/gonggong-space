@@ -10,6 +10,7 @@ import {
   TOOL_VERSION,
   ToolKind,
 } from './agent-tools.js'
+import { ConnectorsCmd, ConnectorsSync } from './connectors.js'
 import { LogLevelName } from './d2s.js'
 import {
   GitAction,
@@ -507,6 +508,8 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   SiteHost,
   PresetsSync,
   ToolsCmd,
+  ConnectorsCmd,
+  ConnectorsSync,
   ProvidersCmd,
   CcSwitchRead,
   CcSwitchApply,

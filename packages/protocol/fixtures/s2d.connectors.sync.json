@@ -1,0 +1,15 @@
+{
+  "t": "connectors.sync",
+  "connectors": [
+    {
+      "connector": "feishu",
+      "driver": "lark-cli",
+      "npm": "@larksuite/cli"
+    },
+    {
+      "connector": "meegle",
+      "driver": "meegle",
+      "npm": "@lark-project/meegle"
+    }
+  ]
+}

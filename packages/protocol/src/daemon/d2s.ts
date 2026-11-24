@@ -24,6 +24,7 @@ import {
   ToolsSettings,
   UpgradeResult,
 } from './agent-tools.js'
+import { ConnectorsAuth, ConnectorsProgress, ConnectorsResult, ConnectorsUpdate } from './connectors.js'
 import {
   FilesReadResult,
   FilesTreeResult,
@@ -584,6 +585,10 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   CastState,
   ToolsProgress,
   ToolsResult,
+  ConnectorsProgress,
+  ConnectorsAuth,
+  ConnectorsResult,
+  ConnectorsUpdate,
   ProvidersResult,
   CcSwitchResult,
   AgentsReprobeResult,

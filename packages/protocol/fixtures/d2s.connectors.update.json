@@ -1,0 +1,29 @@
+{
+  "t": "connectors.update",
+  "probes": [
+    {
+      "connector": "feishu",
+      "driver": "lark-cli",
+      "profile": "default",
+      "state": "ready",
+      "account": "姜维川",
+      "feishuUserId": null,
+      "expiresAt": null,
+      "refreshExpiresAt": "2026-11-30T17:49:43+08:00",
+      "version": "1.0.96",
+      "detail": null
+    },
+    {
+      "connector": "meegle",
+      "driver": "meegle",
+      "profile": "default",
+      "state": "not_installed",
+      "account": null,
+      "feishuUserId": null,
+      "expiresAt": null,
+      "refreshExpiresAt": null,
+      "version": null,
+      "detail": null
+    }
+  ]
+}

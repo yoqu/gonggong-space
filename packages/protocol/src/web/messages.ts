@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ArtifactContext, MessageCanvas } from '../artifacts.js'
 import { Attachment, MAX_ATTACHMENTS, RunConfigPick } from '../common.js'
+import { ConnectorCard } from '../connectors.js'
 import { FeishuIssueEvent } from '../feishu-errors.js'
 import { HtmlRenderRef } from '../html-render.js'
 import { I18nText } from '../i18n.js'
@@ -137,6 +138,7 @@ export const MessageDto = z.object({
   mcpSecret: McpSecretCard.optional(),
   /** A bot's 填写密钥 card (secret_request). */
   secretCard: SecretCard.optional(),
+  connectorCard: ConnectorCard.optional(),
   /** A bot's progress card (progress_card), updated in place. */
   progress: ProgressCard.optional(),
   /** A bot reply's answered ```actions blocks, by block id (plan 富交互消息). */
