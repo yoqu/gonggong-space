@@ -17,6 +17,8 @@ export default {
   '{n} 个话题有新回复': '{n} {n:thread has|threads have} new replies',
   回复: 'Reply',
   '回复话题，@ 触发 Bot': 'Reply in thread, @ to run a Bot',
+  '回复话题，直接发送即可触发 Bot': 'Reply in thread, send directly to run the Bot',
+  同时发送到私聊: 'Also send to chat',
   '消息免打扰#muted': 'Muted',
   '仅你和你的 Bot · ': 'Only you and your Bot · ',
   '{owner} 共享的 Bot · ': 'Bot shared by {owner} · ',

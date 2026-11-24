@@ -151,14 +151,14 @@ export async function triggerRuns(
   })
 }
 
-/** Where a run for `message` answers: its thread, or a new one under it when the group puts bot replies in threads. */
+/** Where a run for `message` answers: its thread, or a new one under it when the chat puts bot replies in threads. */
 async function replyThread(ctx: Ctx, message: typeof messages.$inferSelect) {
   if (message.threadRootId) return message.threadRootId
   const [group] = await ctx.db
-    .select({ kind: groups.kind, params: groups.params })
+    .select({ params: groups.params })
     .from(groups)
     .where(eq(groups.id, message.groupId))
-  return group?.kind === 'group' && botRepliesInThreadOf(group.params) ? message.id : null
+  return group && botRepliesInThreadOf(group.params) ? message.id : null
 }
 
 /** A fresh hop-1 run of `botIds` for the (edited) user message `message` (plan F8). */

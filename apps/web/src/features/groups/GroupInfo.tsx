@@ -254,6 +254,7 @@ function MainView({
   const [params, setParams] = useState<GroupParams | null>(null)
   const [paramsFailed, setParamsFailed] = useState(false)
   const [pending, setPending] = useState<GroupPrefs | null>(null)
+  const [threadBusy, setThreadBusy] = useState(false)
   const [confirm, setConfirm] = useState<'leave' | 'dissolve' | null>(null)
   const [busy, setBusy] = useState(false)
   const sync = useSyncStatus(group)
@@ -431,6 +432,29 @@ function MainView({
                 : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
             rows: [
               manage(dm ? t('私聊名称') : t('基本信息'), group.name, 'basic'),
+              {
+                label: t('Bot 回复进话题'),
+                description: dm
+                  ? t('Bot 的回复放进这条消息的话题，多 Bot 讨论不刷屏')
+                  : t('在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏'),
+                ...(isAdmin
+                  ? {
+                      control: (
+                        <Switch
+                          aria-label={t('Bot 回复进话题')}
+                          checked={!!group.botRepliesInThread}
+                          loading={threadBusy}
+                          onChange={async (v) => {
+                            if (threadBusy) return
+                            setThreadBusy(true)
+                            await attempt(() => groupsApi.update(group.id, { botRepliesInThread: v }))
+                            setThreadBusy(false)
+                          }}
+                        />
+                      ),
+                    }
+                  : { value: group.botRepliesInThread ? t('已开启') : t('已关闭#off') }),
+              },
               ...(dm
                 ? []
                 : [

@@ -272,6 +272,81 @@ describe('Bot 回复进话题', () => {
       .where(and(eq(messages.groupId, w.group.id), eq(messages.kind, 'event')))
     expect(events.map((e) => e.body)).toEqual(['王磊 开启了「Bot 回复进话题」'])
   })
+
+  it('works in a DM too (single or multi-bot): replies land in a thread of the trigger message', async () => {
+    const alice = await t.seed.user({ name: '王磊' })
+    const { machine, token } = await t.seed.machine(alice.id)
+    const bot1 = await t.seed.bot({
+      ownerId: alice.id,
+      name: '小王的 Claude',
+      machineId: machine.id,
+      binding: 'bound',
+    })
+    const bot2 = await t.seed.bot({
+      ownerId: alice.id,
+      name: '小王的 Codex',
+      machineId: machine.id,
+      binding: 'bound',
+    })
+    const dm = await t.seed.group({
+      createdBy: alice.id,
+      kind: 'dm',
+      name: '多 Bot 私聊',
+      botIds: [bot1.id, bot2.id],
+    })
+    await t.db
+      .update(groupBots)
+      .set({ sessionId: 'sess-dm', workspaceState: 'ready' })
+      .where(eq(groupBots.groupId, dm.id))
+
+    const asAlice = client(t, await t.seed.cookie(alice.id))
+    const patched = await asAlice.patch<{ botRepliesInThread?: boolean }>(`/api/groups/${dm.id}`, {
+      botRepliesInThread: true,
+    })
+    expect(patched.status).toBe(200)
+    expect(patched.body.botRepliesInThread).toBe(true)
+
+    const d = await daemon(token)
+    const [trigger] = await t.db
+      .insert(messages)
+      .values({
+        groupId: dm.id,
+        kind: 'user',
+        authorUserId: alice.id,
+        body: '@小王的 Claude 查下接口',
+        meta: { mentions: [bot1.id] },
+      })
+      .returning()
+    await triggerRuns(t.ctx, trigger!)
+    const start = await d.next()
+    expect(start.resumeSessionId).toBe('sess-dm')
+    const [r1] = await t.db.select().from(runs).where(eq(runs.id, start.runId))
+    expect(r1?.threadRootId).toBe(trigger!.id)
+    d.send(done(start.runId, { reply: '接口超时了', sessionId: 'sess-dm-2' }))
+    const reply = await vi.waitFor(async () => {
+      const [m] = await t.db.select().from(messages).where(eq(messages.runId, start.runId))
+      if (!m) throw new Error('no reply yet')
+      return m
+    })
+    expect(reply.threadRootId).toBe(trigger!.id)
+
+    // Follow up with the second bot inside the same DM thread: sees the root and bot1's reply.
+    const [follow] = await t.db
+      .insert(messages)
+      .values({
+        groupId: dm.id,
+        kind: 'user',
+        authorUserId: alice.id,
+        body: '@小王的 Codex 怎么修',
+        meta: { mentions: [bot2.id] },
+        threadRootId: trigger!.id,
+      })
+      .returning()
+    await triggerRuns(t.ctx, follow!)
+    const next = await d.next()
+    expect(next.resumeSessionId).toBeNull()
+    expect(next.prompt.context.map((c) => c.body)).toEqual(['@小王的 Claude 查下接口', '接口超时了'])
+  })
 })
 
 describe('a bot answering in a thread', () => {

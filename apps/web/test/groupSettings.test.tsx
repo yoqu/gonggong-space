@@ -518,19 +518,58 @@ describe('group settings inspector', () => {
     )
   })
 
-  it('lets an admin put bot replies into threads in 基本信息 (plan 话题)', async () => {
+  it('lets an admin put bot replies into threads in both 群设置 drawer and 基本信息 (plan 话题)', async () => {
     const calls = mockApi(
       routes([group()], { 'PATCH /groups/g1': (b: unknown) => group(b as Partial<GroupDto>) }),
     )
     renderAt('/g/g1')
-    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /基本信息/ }))
-    const dlg = await screen.findByRole('dialog', { name: '基本信息 · 支付服务重构' })
-    const toggle = within(dlg).getByRole('switch', { name: 'Bot 回复进话题' })
-    expect(toggle.getAttribute('aria-checked') ?? String((toggle as HTMLInputElement).checked)).toBe('false')
-    fireEvent.click(toggle)
+    const drawer = await openDrawer()
+    const drawerToggle = within(drawer).getByRole('switch', { name: 'Bot 回复进话题' })
+    expect(
+      drawerToggle.getAttribute('aria-checked') ?? String((drawerToggle as HTMLInputElement).checked),
+    ).toBe('false')
+    fireEvent.click(drawerToggle)
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ botRepliesInThread: true }),
     )
+
+    fireEvent.click(within(drawer).getByRole('button', { name: /基本信息/ }))
+    const dlg = await screen.findByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    const toggle = within(dlg).getByRole('switch', { name: 'Bot 回复进话题' })
+    expect(toggle.getAttribute('aria-checked') ?? String((toggle as HTMLInputElement).checked)).toBe('true')
+    fireEvent.click(toggle)
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === 'PATCH').at(-1)?.body).toEqual({ botRepliesInThread: false }),
+    )
+  })
+
+  it('allows enabling Bot 回复进话题 in a DM from both 私聊设置 drawer and 基本信息 dialog', async () => {
+    const dm: Partial<GroupDto> = {
+      kind: 'dm',
+      name: '多 Bot 私聊',
+      members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
+      botIds: ['b1', 'b2'],
+    }
+    const calls = mockApi(
+      routes([group(dm)], {
+        'PATCH /groups/g1': (b: unknown) => group({ ...dm, ...(b as Partial<GroupDto>) }),
+      }),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('complementary', { name: '私聊设置' })
+    const drawerToggle = within(drawer).getByRole('switch', { name: 'Bot 回复进话题' })
+    fireEvent.click(drawerToggle)
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ botRepliesInThread: true }),
+    )
+
+    fireEvent.click(within(drawer).getByRole('button', { name: /私聊名称/ }))
+    const dlg = await screen.findByRole('dialog', { name: /^基本信息/ })
+    const modalToggle = within(dlg).getByRole('switch', { name: 'Bot 回复进话题' })
+    expect(
+      modalToggle.getAttribute('aria-checked') ?? String((modalToggle as HTMLInputElement).checked),
+    ).toBe('true')
   })
 
   it('uploads a cropped group avatar from 基本信息 and shows it instead of the mosaic', async () => {

@@ -316,6 +316,7 @@ function BasicTab({
   const dm = group.kind === 'dm'
   const [name, setName] = useState(group.name)
   const [saving, setSaving] = useState(false)
+  const [threadBusy, setThreadBusy] = useState(false)
   const changed = !!name.trim() && name.trim() !== group.name
   const dirty = !readOnly && changed
   useEffect(() => {
@@ -385,19 +386,27 @@ function BasicTab({
           />
         )}
       </GroupRow>
-      {dm ? null : (
-        <GroupRow
-          label={t('Bot 回复进话题')}
-          description={t('在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏')}
-        >
-          <Switch
-            aria-label={t('Bot 回复进话题')}
-            disabled={readOnly}
-            checked={!!group.botRepliesInThread}
-            onChange={(v) => void attempt(() => groupsApi.update(group.id, { botRepliesInThread: v }))}
-          />
-        </GroupRow>
-      )}
+      <GroupRow
+        label={t('Bot 回复进话题')}
+        description={
+          dm
+            ? t('Bot 的回复放进这条消息的话题，多 Bot 讨论不刷屏')
+            : t('在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏')
+        }
+      >
+        <Switch
+          aria-label={t('Bot 回复进话题')}
+          disabled={readOnly}
+          loading={threadBusy}
+          checked={!!group.botRepliesInThread}
+          onChange={async (v) => {
+            if (threadBusy) return
+            setThreadBusy(true)
+            await attempt(() => groupsApi.update(group.id, { botRepliesInThread: v }))
+            setThreadBusy(false)
+          }}
+        />
+      </GroupRow>
       {dm ? (
         <GroupRow label={t('类型')}>
           <span className="gs-value">{t('私聊 · 仅你和你的 Bot，不能邀请他人')}</span>

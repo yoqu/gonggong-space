@@ -565,7 +565,9 @@ export const MessageComposer = memo(function MessageComposer({
         maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
         placeholder={
           thread
-            ? t('回复话题，@ 触发 Bot')
+            ? soleDm
+              ? t('回复话题，直接发送即可触发 Bot')
+              : t('回复话题，@ 触发 Bot')
             : chatRoot && !variations
               ? canvasBot
                 ? t('描述要怎么改，发给 @{name}，回复显示在左侧「AI 对话」', { name: canvasBot.name })
@@ -651,7 +653,11 @@ export const MessageComposer = memo(function MessageComposer({
           targets.length || thread ? (
             <>
               {thread ? (
-                <Checkbox label={t('同时发送到群')} checked={alsoSent} onChange={setAlsoSent} />
+                <Checkbox
+                  label={group.kind === 'dm' ? t('同时发送到私聊') : t('同时发送到群')}
+                  checked={alsoSent}
+                  onChange={setAlsoSent}
+                />
               ) : null}
               {targets.length ? (
                 <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
