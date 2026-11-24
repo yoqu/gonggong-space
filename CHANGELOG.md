@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.31 — 2026-11-24
+
+- 修复 lark-cli 1.0.100 起连接飞书时直接报错：未创建飞书应用时会先给出创建链接，再进入登录授权 / Fixed an error when connecting Feishu with lark-cli 1.0.100 or later: if no Feishu app exists yet, you now get a link to create one before signing in
+- 桌面客户端下载好新版本后，本机任务结束且空闲 1 分钟会自动重启完成升级 / The desktop app restarts to finish updating once a new version is downloaded, local tasks have finished, and it has been idle for 1 minute
+
 ## v0.4.30 — 2026-11-24
 
 - 飞书和飞书项目支持在连接器弹窗内安装工具、扫码授权和查看连接状态 / Install the Feishu and Feishu Project tools, scan to authorize, and check connection status in the connector dialog
