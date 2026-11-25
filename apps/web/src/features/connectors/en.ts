@@ -89,4 +89,8 @@ export default {
   '飞书应用还没启用，请在飞书开放平台发布应用后重试':
     'The Feishu app is not enabled yet; publish it on the Feishu Open Platform and retry',
   验证码: 'Code',
+  复制验证码: 'Copy code',
+  已复制验证码: 'Code copied',
+  '无法打开连接器，请确认已在市场安装并启用':
+    "Can't open connector. Make sure it is installed and enabled in the market",
 }

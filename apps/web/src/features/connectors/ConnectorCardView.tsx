@@ -3,7 +3,8 @@ import { memo, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
-import { Button, ChatNotice, Icon, Presence, Tag } from '../../ui'
+import { errorText } from '../../lib/api'
+import { Button, ChatNotice, Icon, Presence, Tag, toast } from '../../ui'
 import { PluginTile, pluginIcon } from '../plugins/PluginTile'
 import { ConnectorDialog } from './ConnectorDialog'
 import { loadConnectors, useConnectorStore } from './store'
@@ -31,8 +32,28 @@ export const ConnectorCardView = memo(function ConnectorCardView({
   const inGroup = useWorkspace((s) => s.groups.find((g) => g.id === m.groupId)?.kind !== 'dm')
   const c = useConnectorStore((s) => s.lists[m.groupId]?.find((x) => x.id === card.pluginId))
   const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
   const show = async () => {
-    if (!c) await loadConnectors(m.groupId)
+    if (loading) return
+    if (!c) {
+      setLoading(true)
+      try {
+        await loadConnectors(m.groupId)
+      } catch (e) {
+        toast({ type: 'error', message: errorText(e) })
+        return
+      } finally {
+        setLoading(false)
+      }
+      const { lists, errors } = useConnectorStore.getState()
+      if (!lists[m.groupId]?.find((x) => x.id === card.pluginId)) {
+        toast({
+          type: 'error',
+          message: errors[m.groupId] || t('无法打开连接器，请确认已在市场安装并启用'),
+        })
+        return
+      }
+    }
     setOpen(true)
   }
   return (
@@ -45,7 +66,7 @@ export const ConnectorCardView = memo(function ConnectorCardView({
         {card.resolved ? (
           <Tag tone="green">{t('已连接，正在继续')}</Tag>
         ) : mine ? (
-          <Button size="small" variant="primary" onClick={() => void show()}>
+          <Button size="small" variant="primary" loading={loading} onClick={() => void show()}>
             {t('连接')}
           </Button>
         ) : (

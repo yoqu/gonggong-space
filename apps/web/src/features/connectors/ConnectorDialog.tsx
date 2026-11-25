@@ -57,6 +57,7 @@ export function ConnectorDialog({
   const [error, setError] = useState('')
   const [unbinding, setUnbinding] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [toggling, setToggling] = useState(false)
   const attempt = async (f: () => Promise<unknown>) => {
     setError('')
     try {
@@ -77,6 +78,25 @@ export function ConnectorDialog({
   // Expired: asks the required keys again, filled or not.
   const asked = c.missing.length ? c.missing : specs.filter((x) => x.required).map((x) => x.name)
   const ready = asked.every((n) => keyOf(values[n] ?? '').length >= SECRET_MIN_LENGTH)
+  const hasDraft = Object.values(values).some((v) => v.length > 0)
+  const toggleInGroup = async (on: boolean) => {
+    if (toggling) return
+    setToggling(true)
+    setError('')
+    try {
+      await switchConnector(groupId, c.id, on)
+      toast({
+        type: 'success',
+        message: on
+          ? t('已在本群启用「{name}」', { name: m.title })
+          : t('已在本群停用「{name}」，Bot 处理你的消息时不再使用它', { name: m.title }),
+      })
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setToggling(false)
+    }
+  }
   const submit = async () => {
     if (busy) return
     setBusy(true)
@@ -102,8 +122,10 @@ export function ConnectorDialog({
       open
       aria-label={m.title}
       width={560}
-      closeOnBackdrop={!Object.keys(values).length}
-      onClose={onClose}
+      closeOnBackdrop={!hasDraft && !busy}
+      onClose={() => {
+        if (!busy) onClose()
+      }}
     >
       <div className="cn-detail">
         <div className="cn-detail__hero" aria-hidden="true">
@@ -142,7 +164,8 @@ export function ConnectorDialog({
                 size="small"
                 label={t('在本群启用')}
                 checked={c.on}
-                onChange={(on) => void attempt(() => switchConnector(groupId, c.id, on))}
+                disabled={toggling}
+                onChange={(on) => void toggleInGroup(on)}
               />
             ) : null}
           </div>
@@ -206,7 +229,13 @@ export function ConnectorDialog({
             ) : null}
           </div>
         ) : c.missing.length || c.status === 'expired' ? (
-          <div className="cn-detail__form">
+          <form
+            className="cn-detail__form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (ready && !busy) void submit()
+            }}
+          >
             {asked.map((n) => {
               const spec = specs.find((s) => s.name === n)
               const val = values[n] ?? ''
@@ -235,13 +264,7 @@ export function ConnectorDialog({
               )}
             </div>
             <div className="cn-detail__actions">
-              <Button
-                size="large"
-                variant="primary"
-                disabled={!ready || busy}
-                loading={busy}
-                onClick={() => void submit()}
-              >
+              <Button size="large" variant="primary" type="submit" disabled={!ready || busy} loading={busy}>
                 {t('连接')}
               </Button>
               {m.connector?.docs ? (
@@ -250,7 +273,7 @@ export function ConnectorDialog({
                 </Link>
               ) : null}
             </div>
-          </div>
+          </form>
         ) : (
           <Alert
             variant="info"

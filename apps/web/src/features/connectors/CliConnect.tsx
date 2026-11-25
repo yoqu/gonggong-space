@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
 import { Alert, Button, ConfirmActionDialog, Disclosure, Presence, Spinner, Tag, toast } from '../../ui'
@@ -285,6 +286,15 @@ function CliProgress({ run, onCancel }: { run: Run; onCancel: () => void }) {
           {auth.userCode ? (
             <span className="cn-auth__code">
               {t('验证码')} <code>{auth.userCode}</code>
+              <Button
+                size="small"
+                variant="plain"
+                icon="copy"
+                aria-label={t('复制验证码')}
+                onClick={() => auth.userCode && void copyWithToast(auth.userCode, t('已复制验证码'))}
+              >
+                {t('复制')}
+              </Button>
             </span>
           ) : null}
           <Button variant="primary" onClick={() => window.open(auth.url, '_blank', 'noopener,noreferrer')}>

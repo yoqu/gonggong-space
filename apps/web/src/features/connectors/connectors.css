@@ -155,9 +155,15 @@
 }
 .cn-detail__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--space-10);
+}
+@media (max-width: 480px) {
+  .cn-detail__actions .ui-btn {
+    min-width: 0;
+  }
 }
 .cn-detail__tries {
   display: flex;
@@ -282,6 +288,11 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-8);
+}
+.cn-auth__code {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
 }
 .cn-auth__code code {
   font-family: var(--font-mono);

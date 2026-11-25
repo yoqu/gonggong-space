@@ -324,6 +324,11 @@
   }
 }
 .auth__foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
   margin: 0;
   align-self: center;
   font-size: var(--text-callout-size);
@@ -433,6 +438,9 @@
   .auth__tagline {
     display: block;
   }
+  .auth__brand .auth__logo {
+    margin-bottom: 0;
+  }
 }
 @media (max-width: 480px) {
   .auth__panel {
@@ -449,6 +457,7 @@
   }
 }
 .auth__or {
+  margin: 0;
   display: flex;
   align-items: center;
   gap: var(--space-8);

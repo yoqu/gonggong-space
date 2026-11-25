@@ -157,6 +157,11 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.team-invites__loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-16) 0;
+}
 .team-group__name {
   display: flex;
   align-items: center;

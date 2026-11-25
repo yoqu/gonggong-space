@@ -9,7 +9,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { storedTeam } from '../../lib/team'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, GroupBox, GroupRow, Presence, ProgressIndicator, Spinner } from '../../ui'
+import { Alert, Button, Dialog, GroupBox, GroupRow, Presence, ProgressIndicator, Spinner } from '../../ui'
 import { uuid } from '../chat/MessageComposer'
 import { postMessage } from '../chat/pending'
 import { feishuStartUrl } from '../feishu/login'
@@ -54,7 +54,12 @@ function GuideDialog() {
   }
   const me = useSession((s) => s.user)
   const teamId = useSession((s) => storedTeam() ?? s.tenancy?.teams[0]?.id ?? null)
-  const { data: starter } = useGet<TeamOnboardingDto>(teamId ? `/teams/${teamId}/onboarding` : null)
+  const {
+    data: starter,
+    error: starterError,
+    loading: starterLoading,
+    reload: reloadStarter,
+  } = useGet<TeamOnboardingDto>(teamId ? `/teams/${teamId}/onboarding` : null)
   const { data: feishu } = useGet<FeishuIdentityView>('/me/feishu')
   const groups = useWorkspace((s) => s.groups).filter((g) => g.kind === 'group')
   const bots = useWorkspace((s) => s.bots)
@@ -88,6 +93,7 @@ function GuideDialog() {
     navigate(`/g/${starter.groupId}`)
   }
 
+  const sending = asking !== null
   const last = step === STEPS.length - 1
   return (
     <Dialog
@@ -95,7 +101,9 @@ function GuideDialog() {
       width={520}
       title={t('新手指引')}
       closeOnScrim={false}
-      onClose={() => leave('skipped')}
+      onClose={() => {
+        if (!sending) leave('skipped')
+      }}
       footer={
         <span className="guide__progress">
           <span>{t('第 {n}/3 步', { n: step + 1 })}</span>
@@ -103,11 +111,16 @@ function GuideDialog() {
         </span>
       }
       actions={[
-        ...(last ? [] : [{ label: t('跳过#guide'), onClick: () => leave('skipped') }]),
-        ...(step > 0 ? [{ label: t('上一步'), onClick: () => go(step - 1) }] : []),
+        ...(last ? [] : [{ label: t('跳过#guide'), disabled: sending, onClick: () => leave('skipped') }]),
+        ...(step > 0 ? [{ label: t('上一步'), disabled: sending, onClick: () => go(step - 1) }] : []),
         last
-          ? { label: t('完成'), variant: 'primary' as const, onClick: () => leave('done') }
-          : { label: t('下一步'), variant: 'primary' as const, onClick: () => go(step + 1) },
+          ? { label: t('完成'), variant: 'primary' as const, disabled: sending, onClick: () => leave('done') }
+          : {
+              label: t('下一步'),
+              variant: 'primary' as const,
+              disabled: sending,
+              onClick: () => go(step + 1),
+            },
       ]}
     >
       <div key={step} className="guide__step" data-back={back || undefined}>
@@ -131,7 +144,15 @@ function GuideDialog() {
             <p className="guide__lead">{t('你还没有加入任何群，等管理员或同事把你拉进群。')}</p>
           )
         ) : step === 1 ? (
-          !starter ? (
+          starterError ? (
+            <Alert
+              variant="error"
+              title={starterError}
+              onRetry={reloadStarter}
+              retrying={starterLoading}
+              retryLabel={t('重试')}
+            />
+          ) : !starter ? (
             <Spinner />
           ) : joined && starter.botName ? (
             <>

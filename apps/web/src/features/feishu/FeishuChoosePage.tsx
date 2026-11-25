@@ -32,15 +32,29 @@ export function FeishuChoosePage() {
   const base = `/auth/feishu/ticket/${encodeURIComponent(ticket)}`
 
   useEffect(() => {
+    if (!ticket) {
+      setInfo(null)
+      setExpired(t('飞书登录已过期，请重新登录'))
+      return
+    }
+    let cancelled = false
+    setInfo(null)
+    setExpired('')
     api.get<FeishuTicketDto>(base).then(
       (dto) => {
+        if (cancelled) return
         setInfo(dto)
         if (dto.suggestedAccount) setAccount(dto.suggestedAccount)
         if (!dto.canCreate) setMode('bind')
       },
-      (e) => setExpired(errorText(e)),
+      (e) => {
+        if (!cancelled) setExpired(errorText(e))
+      },
     )
-  }, [base])
+    return () => {
+      cancelled = true
+    }
+  }, [ticket, base])
 
   const enter = (me: MeDto) => {
     setPhase('done')
@@ -76,7 +90,9 @@ export function FeishuChoosePage() {
     setCreating(true)
     setError('')
     try {
-      enter(await api.post<MeDto>(`${base}/create`))
+      const me = await api.post<MeDto>(`${base}/create`)
+      setCreating(false)
+      enter(me)
     } catch (err) {
       fail(errorText(err))
       setCreating(false)
@@ -141,10 +157,10 @@ export function FeishuChoosePage() {
         </span>
       </span>
       <span className="feishu-choice__end">
-        {creating ? (
-          <Spinner size={14} />
-        ) : phase === 'done' ? (
+        {phase === 'done' ? (
           <Icon name="check" size={16} weight={2.2} />
+        ) : creating ? (
+          <Spinner size={14} />
         ) : (
           <Icon name="chevron-right" size={16} />
         )}

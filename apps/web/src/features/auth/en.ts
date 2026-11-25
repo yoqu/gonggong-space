@@ -96,4 +96,6 @@ export default {
   注册并进入: 'Sign up and continue',
   '注册中…': 'Signing up…',
   注册成功: 'Signed up',
+  请输入邀请链接: 'Enter an invite link',
+  邀请链接格式不正确: 'Invalid invite link format',
 } satisfies Record<string, string>

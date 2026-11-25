@@ -9,6 +9,7 @@ import { realtime } from '../../lib/realtime'
 import { dateLocale } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
   Avatar,
   AvatarEditor,
   Button,
@@ -268,6 +269,7 @@ function OverviewTab({
         latestRef.current.name.trim() !== nextName ||
         (!image && (latestRef.current.avatar.trim() || null) !== nextGlyph)
       onDirtyChange?.(stillDirty)
+      toast({ type: 'success', message: t('已保存团队设置') })
     }
     setBusy(false)
     onSavingChange?.(false)
@@ -395,15 +397,24 @@ function MembersTab({ team }: { team: TeamDto }) {
   const me = useSession((s) => s.user)
   const { data, error, reload } = useMembers(team.id)
   const [account, setAccount] = useState('')
+  const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<TeamMemberDto | null>(null)
   const [transferring, setTransferring] = useState<TeamMemberDto | null>(null)
   const admin = team.role !== 'member'
   const owner = team.role === 'owner'
 
   const add = async () => {
-    if (await attempt(() => teamsApi.addMember(team.id, account.trim()))) {
-      setAccount('')
-      reload()
+    const target = account.trim()
+    if (!target || adding) return
+    setAdding(true)
+    try {
+      if (await attempt(() => teamsApi.addMember(team.id, target))) {
+        setAccount('')
+        toast({ type: 'success', message: t('已添加成员') })
+        reload()
+      }
+    } finally {
+      setAdding(false)
     }
   }
   const act = (m: TeamMemberDto) => async (value: string) => {
@@ -437,7 +448,7 @@ function MembersTab({ team }: { team: TeamDto }) {
             value={account}
             onChange={(e) => setAccount(e.target.value)}
           />
-          <Button type="submit" size="small" disabled={!account.trim()}>
+          <Button type="submit" size="small" loading={adding} disabled={adding || !account.trim()}>
             {t('添加成员')}
           </Button>
         </form>
@@ -472,7 +483,7 @@ function MembersTab({ team }: { team: TeamDto }) {
           ))}
         </GroupBox>
       ) : error ? (
-        <div className="gs-note">{error}</div>
+        <Alert variant="error" title={error} onRetry={reload} retryLabel={t('重试')} />
       ) : (
         <Spinner />
       )}
@@ -712,10 +723,14 @@ function InvitesTab({ team }: { team: TeamDto }) {
           </GroupBox>
         </div>
       ) : error ? (
-        <div className="gs-note">{error}</div>
+        <Alert variant="error" title={error} onRetry={reload} retryLabel={t('重试')} />
       ) : data ? (
         <div className="team-invites__empty">{t('暂无邀请链接')}</div>
-      ) : null}
+      ) : (
+        <div className="team-invites__loading">
+          <Spinner />
+        </div>
+      )}
     </>
   )
 }

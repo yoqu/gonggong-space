@@ -23,7 +23,9 @@ export function RegisterPage() {
   const [errorKey, setErrorKey] = useState(0)
   const [phase, setPhase] = useState<SubmitPhase>('idle')
 
-  if (user && phase !== 'done') return <Navigate to="/" replace />
+  if (user && phase !== 'done') {
+    return <Navigate to={invite ? `/join/${encodeURIComponent(invite)}` : '/'} replace />
+  }
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [k]: e.target.value }))

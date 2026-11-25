@@ -26,12 +26,28 @@ export function JoinPage() {
     if (status === 'idle') void load()
   }, [status, load])
   useEffect(() => {
-    teamsApi.preview(token).then(setInvite, () => setUnreadable(true))
+    let cancelled = false
+    setInvite(null)
+    setError('')
+    setUnreadable(false)
+    setPhase('idle')
+    teamsApi.preview(token).then(
+      (dto) => {
+        if (!cancelled) setInvite(dto)
+      },
+      () => {
+        if (!cancelled) setUnreadable(true)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   const accept = async (e: FormEvent) => {
     e.preventDefault()
     if (phase !== 'idle' || !user) return
+    setError('')
     setPhase('busy')
     try {
       const team = await teamsApi.accept(token)
@@ -45,7 +61,7 @@ export function JoinPage() {
 
   const back = `/join/${token}`
   const dead = unreadable || invite?.valid === false
-  const usable = Boolean(invite?.valid && !error)
+  const usable = Boolean(invite?.valid)
   const showCard = !dead && Boolean(invite) && status === 'ready'
 
   const beforeTitle = dead ? (

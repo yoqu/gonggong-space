@@ -38,9 +38,11 @@ export default {
   '该团队的群转为只读，运行中的轮次将停止': "The team's groups become read-only and running turns stop",
   成员的团队列表中不再显示该团队: "The team no longer shows in members' team lists",
   团队已归档: 'Team archived',
+  已保存团队设置: 'Team settings saved',
 
   // Settings · members
   输入账号添加成员: 'Add a member by account',
+  已添加成员: 'Member added',
   '管理#member': 'Manage',
   '设为{role}': 'Make {role}',
   转让所有权: 'Transfer ownership',
@@ -84,6 +86,12 @@ export default {
   已用完: 'Used up',
   '{until} 前有效': 'Valid until {until}',
   撤销: 'Revoke',
+  '撤销该邀请链接？': 'Revoke this invite link?',
+  '撤销后该邀请链接将立即失效，无法再用于加入团队，已加入的成员不受影响。':
+    'The link will stop working immediately and cannot be used to join the team. Existing members are unaffected.',
+  使用该链接的新访客将无法加入团队: 'New visitors using this link will not be able to join',
+  已通过该链接加入的成员不受影响: 'Members who already joined via this link are unaffected',
+  撤销邀请: 'Revoke invite',
   已撤销邀请链接: 'Invite link revoked',
 
   // Join & welcome

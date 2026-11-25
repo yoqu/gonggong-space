@@ -351,3 +351,24 @@
 - P2 新建 Bot 弹窗（`NewBotDialog`）390px 移动端「运行电脑」单选项名称与状态同行折成两行显拥挤（`bots/bots.css`）：长主机名 `yoquM4MacBook-Pro-1082` 与 `macOS · 离线` 并排互相挤压 → `@media (max-width: 640px)` 下 `.newbot__machine` 改纵向堆叠，机器名与状态各占一行（验收：390px 下运行电脑选项清爽不折碎）。
 - P3 `BotPage` 与 `MachineDetails` 离线状态圆点为实心灰点，与头像角标空心灰环视觉不统一（`bots/bots.css`、`machines/machines.css`）→ 离线态圆点统一为空心描边环（验收：头像角标与详情卡内离线指示视觉全站一致）。
 - P3 市场「我的发布」空态页顶部工具栏与居中空态插画同时出现两个同名蓝色「发布…」主按钮（`market/MyListings.tsx`）→ 列表为空（`!data?.length`）时隐藏顶部工具栏的「发布…」按钮，仅保留空态居中主按钮（验收：空态页全屏仅一个实心蓝色「发布…」主操作）。
+
+## 11-24 第 1 轮（认证与飞书首次授权全流程、团队邀请落地与无团队引导、连接器菜单/详情/就地连接卡、团队设置弹窗、新手指引；桌面 1440 + 深色 + 390 触屏）
+
+已修（9 项 P1，本轮直接修复，待本轮 P2/P3 关闭后一并归档）：
+- P1 团队邀请落地页 `JoinPage` 接受邀请失败后直接隐藏操作按钮与返回入口变死路，且切换 `token` 未重置状态与取消旧请求（`teams/JoinPage.tsx`）→ `usable` 仅依赖 `Boolean(invite?.valid)`、`accept()` 前清空旧错误允许直接重试、`useEffect` 切换 `token` 重置状态并补 `cancelled` 竞态保护（验收：接受失败后仍可点击「加入团队」重试或返回消息）。
+- P1 无团队引导页 `WelcomePage` 输入为空或无效链接点「下一步」完全静默无反馈，管理员底栏双按钮粘连（`teams/WelcomePage.tsx`、`auth/auth.css`、`auth/en.ts`）→ 空值或无效链接展示带警示图标的 `.auth-error`、触发 `errorKey` 抖动并聚焦输入框；`.auth__foot` 补 `flex` 与 `gap` 间距（验收：空点或贴错链接立即可见红图标报错并聚焦，管理员底栏两按钮间距清晰）。
+- P1 认证页与飞书授权页三处缺陷：`FeishuChoosePage` 新建账号成功后 `creating` 未重置致完成态永远转圈看不到对勾、无 `ticket` 仍发空请求且缺竞态清理；`RegisterPage` 已登录带 `?invite=` 丢弃邀请直跳 `/`；`auth.css` 中 `.auth__or` 缺 `margin: 0` 形成双倍大空隙、手机端 `.auth__logo` `margin-bottom: 8px` 致 Logo 与「共工空间」字标错位（`feishu/FeishuChoosePage.tsx`、`auth/RegisterPage.tsx`、`auth/auth.css`）→ `create()` 成功后重置 `creating` 并优先渲染完成勾、空 `ticket` 直接进过期态并加 `cancelled`；已登录带 `invite` 跳 `/join/:token`；`.auth__or` 设 `margin: 0`、`.auth__brand .auth__logo` 设 `margin-bottom: 0`（验收：创建完成显对勾，登录/注册分割线紧凑均衡，390px 品牌字标垂直居中）。
+- P1 群聊就地连接卡 `ConnectorCardView` 点击「连接」加载中无反馈且找不到连接器时彻底死点击（`connectors/ConnectorCardView.tsx`、`connectors/en.ts`）→ 按钮补 `loading` 防连点，拉取失败或目标连接器不存在时弹错误 Toast 明确提示原因（验收：加载中防重复点击，目标连接器缺失时清晰报错不再无反应）。
+- P1 连接器详情弹窗 `ConnectorDialog` 密钥表单不支持 Enter 提交、删空输入仍锁死背景关闭且提交中可误关、群开关缺防重入，390px 手机端 CLI 已连接态 3 个按钮横向溢出，CLI 扫码验证码缺一键复制（`connectors/ConnectorDialog.tsx`、`CliConnect.tsx`、`connectors.css`、`connectors/en.ts`）→ 密钥区改 `<form onSubmit>` 支持回车提交、`hasDraft` 判定实际非空值且 `busy` 期间锁关闭、群启用开关加 `toggling` 锁与 Toast、`.cn-detail__actions` 补 `flex-wrap: wrap` 且窄屏取消 `min-width: 120px`、`auth.userCode` 旁补一键复制按钮（验收：输密钥回车可提交，删空可点背景关，390px 零溢出，验证码可一键复制）。
+- P1 连接器菜单 `ConnectorMenu` 加载失败仅显纯文本无重试按钮、切换群开关缺在途防重入锁（`connectors/ConnectorMenu.tsx`）→ 报错改渲染 `<Alert variant="error">` +「重试」，按 `c.id` 维护 `togglingId` 锁防连点并发（验收：接口报错可原位重试，连点开关不并发乱序）。
+- P1 团队设置 › 邀请「撤销」零二次确认直接永久作废，加载中返回空白无 `<Spinner />`，加载失败无重试（`teams/TeamSettingsDialog.tsx`、`teams/en.ts`、`teams/teams.css`）→ 「撤销」接入 `ConfirmActionDialog` 确认弹窗说明链接立即失效、加载中渲染 `<Spinner />`、失败渲染错误 `<Alert>` +「重试」（验收：点撤销先确认，取消不发 DELETE，加载与报错反馈完整）。
+- P1 团队设置 `OverviewTab` 修改未保存切标签/关闭静默丢稿、保存缺 `loading` 与成功 Toast，`MembersTab` 加载失败无重试且添加成员缺防重入（`teams/TeamSettingsDialog.tsx`、`teams/en.ts`）→ 接入共享 `DiscardChangesDialog` 拦截未保存切换与关闭并禁用背景点击关闭，保存补 `loading` 与成功 Toast，成员列表失败补错误 `<Alert>` +「重试」、添加补 `adding` 锁与成功 Toast（验收：未保存切标签/关窗先确认，保存与添加反馈明确）。
+- P1 新手指引 `UserGuide` 第 2 步 `/teams/:id/onboarding` 接口失败永久卡在 `<Spinner />`，发示例问题途中未锁定导航/关闭（`onboarding/UserGuide.tsx`）→ 解构 `error`/`loading`/`reload` 在失败时展示错误 `<Alert>` +「重试」，`asking` 期间禁用底部操作与关闭（验收：接口失败可原位重试不卡死，发问题中防误切步骤）。
+
+- P2 `FeishuChoosePage` 移动端（390px）绑定页顶部多余展示登录页标语「在群里 @ 一下，队友的 Bot 就开工。」且「← 返回选择」触控高度仅 ~26px（`auth/AuthCard.tsx`、`feishu/FeishuChoosePage.tsx`、`feishu/login.css`）→ 仅 `LoginPage` 渲染窄屏标语，粗指针下 `.feishu-back` 升至 `min-height: 32px`（验收：390px 绑定页顶部简洁无多余标语、返回按钮触控热区 ≥32px）。
+- P2 `FeishuChoosePage` 授权过期态「重新使用飞书登录」硬编码 `next="/"`，从团队邀请链接进入过期重登后丢失邀请目标（`feishu/FeishuChoosePage.tsx`）→ 从查询参数或服务端保留 `next` 透传给 `FeishuLoginButton`（验收：由 `/join/:token` 触发的飞书授权过期重登后仍回到邀请页）。
+- P2 `RegisterPage` 前端校验失败未聚焦首个出错字段且未标 `aria-invalid`（`auth/RegisterPage.tsx`）→ 补 ref 在校验失败时聚焦对应字段并设置 `aria-invalid`（验收：与 `LoginPage` 一致，提交空表单自动聚焦账号框）。
+- P2 `TeamSettingsDialog` 390px 移动端顶部 15 个横向标签切到靠后项时未自动滚入可见区（`teams/TeamSettingsDialog.tsx`）→ 监听 `tab` 变化将 `[aria-current="page"]` `scrollIntoView({ block: 'nearest', inline: 'nearest' })`（验收：390px 直达靠后标签自动居中可见）。
+- P3 `ConnectorMenu` 移动端（390px）行内「连接」按钮与 `Switch` 触控热区偏小（`connectors/connectors.css`）→ `@media (pointer: coarse)` 下 `.cn-row` 扩至 `min-height: 44px`、右侧控件热区 ≥32px（验收：390px 触屏下开关与连接键易点不误触）。
+- P3 `JoinPage` 邀请卡片内超长团队名或邀请人名缺少强制换行兜底（`teams/teams.css`）→ `.join-card__head` 与 `.auth__title` 补 `max-width: 100%; overflow-wrap: anywhere`（验收：30 字无空格团队名不撑破 340px 卡片）。
+- P3 `auth.css` 中 `.auth__or` 分割线文字使用 `--label-tertiary` 对比度偏低（`auth/auth.css`）→ 改用 `var(--label-secondary)`（验收：浅/深色下「或」字清晰可辨）。

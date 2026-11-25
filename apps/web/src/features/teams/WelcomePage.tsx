@@ -1,8 +1,8 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
-import { Button, Presence, TextField } from '../../ui'
+import { Button, Icon, Presence, TextField } from '../../ui'
 import { AuthCard, AuthSubmit } from '../auth/AuthCard'
 import { logout } from '../auth/logout'
 import { tokenOf } from './store'
@@ -14,13 +14,23 @@ export function WelcomePage() {
   const admin = useSession((s) => s.user?.role === 'sysadmin')
   const navigate = useNavigate()
   const [text, setText] = useState('')
+  const [error, setError] = useState('')
+  const [errorKey, setErrorKey] = useState(0)
   const [creating, setCreating] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
   const canCreate = !!tenancy?.canCreateTeam
   if (tenancy?.teams.length) return <Navigate to="/" replace />
   const token = tokenOf(text)
+  const fail = (message: string) => {
+    setError(message)
+    setErrorKey((k) => k + 1)
+    inputRef.current?.focus()
+  }
   const join = (e: FormEvent) => {
     e.preventDefault()
-    if (token) navigate(`/join/${token}`)
+    if (!text.trim()) return fail(t('请输入邀请链接'))
+    if (!token) return fail(t('邀请链接格式不正确'))
+    navigate(`/join/${token}`)
   }
   return (
     <>
@@ -33,6 +43,7 @@ export function WelcomePage() {
             ? t('新建一个团队，或粘贴团队管理员发给你的邀请链接加入。')
             : t('需要加入团队才能使用。请向团队管理员索取邀请链接，粘贴到下方加入。')
         }
+        errorKey={errorKey}
         onSubmit={join}
         footer={
           <p className="auth__foot">
@@ -49,13 +60,25 @@ export function WelcomePage() {
       >
         <div className="auth__fields">
           <TextField
+            ref={inputRef}
             label={t('邀请链接')}
             size="large"
             placeholder={`${location.origin}/join/…`}
             value={text}
             autoFocus
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value)
+              setError('')
+            }}
           />
+          <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
+            {error ? (
+              <>
+                <Icon name="exclamation-circle" size={13} />
+                {error}
+              </>
+            ) : null}
+          </p>
         </div>
         <AuthSubmit phase="idle" label={t('下一步')} busy="" done="" />
         {canCreate ? (
