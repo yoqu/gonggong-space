@@ -122,7 +122,7 @@ function ReviewDialog({
       </div>
       <div className="cfg__eyebrow">{t('变更')}</div>
       <VersionDiff listingId={item.listing.id} versionId={item.version.id} />
-      <ListingDetail id={item.listing.id} versionId={item.version.id} />
+      <ListingDetail id={item.listing.id} versionId={item.version.id} onChanged={onDone} />
       <TextArea
         label={t('审核意见')}
         aria-label={t('审核意见')}

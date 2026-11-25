@@ -1,5 +1,5 @@
 import type { MessageDto, SavedListDto, SavedMessageDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -83,12 +83,14 @@ function Item({
             <Button
               size="small"
               icon="check"
+              disabled={leaving}
               onClick={() => onLeave(t('已完成'), savedApi.done(id, true), () => savedApi.done(id, false))}
             >
               {t('完成')}
             </Button>
             <MenuButton
               className="ui-btn ui-btn--small"
+              disabled={leaving}
               items={remindPresets().map((p) => ({ value: p.value, label: p.label }))}
               onSelect={(v) => {
                 if (v === 'remind:custom') setCustom(true)
@@ -102,6 +104,7 @@ function Item({
           <Button
             size="small"
             icon="undo"
+            disabled={leaving}
             onClick={() =>
               onLeave(t('已移回进行中'), savedApi.done(id, false), () => savedApi.done(id, true))
             }
@@ -115,6 +118,7 @@ function Item({
         <Button
           size="small"
           variant="plain"
+          disabled={leaving}
           onClick={() =>
             onLeave(t('已移除#later'), savedApi.remove(id), async () => {
               const back = await savedApi.save(id, item.remindAt ? new Date(item.remindAt) : null)
@@ -143,19 +147,26 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
   const [more, setMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const { leaving, leave } = useLeaving()
+  // A response for the tab just left must not land on the new one.
+  const seq = useRef(0)
 
   const load = useCallback(async () => {
+    const mine = ++seq.current
     try {
       const { items } = await api.get<SavedListDto>(`/saved?state=${tab}`)
+      if (mine !== seq.current) return
       setList(items)
       setMore(items.length === PAGE)
       setFailed(false)
     } catch {
-      setFailed(true)
+      if (mine === seq.current) setFailed(true)
     }
   }, [tab])
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab starts from the loading view
-  useEffect(() => setList(null), [tab])
+  useEffect(() => {
+    setList(null)
+    setFailed(false)
+  }, [tab])
   useRealtimeRefresh(load, (e) => e.t === 'saved.changed')
 
   const older = async () => {

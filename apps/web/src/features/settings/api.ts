@@ -1,5 +1,6 @@
 import type { GitAccountDto, GitProvider, ProviderRepoDto } from '@gonggong/protocol'
 import { create } from 'zustand'
+import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
 
 export const gitAccountsApi = {
@@ -20,12 +21,40 @@ export const useGitAccounts = create<{
   accounts: GitAccountDto[] | null
   load: () => Promise<void>
   set: (accounts: GitAccountDto[]) => void
-}>()((set) => ({
-  accounts: null,
-  load: () => gitAccountsApi.list().then((accounts) => set({ accounts })),
-  set: (accounts) => set({ accounts }),
-}))
+  reset: () => void
+}>()((set) => {
+  // A list fetched before a local change (or a sign-out) must not overwrite it.
+  let gen = 0
+  return {
+    accounts: null,
+    load: () => {
+      const mine = ++gen
+      return gitAccountsApi.list().then((accounts) => {
+        if (mine === gen) set({ accounts })
+      })
+    },
+    set: (accounts) => {
+      gen++
+      set({ accounts })
+    },
+    reset: () => {
+      gen++
+      set({ accounts: null })
+    },
+  }
+})
 
-/** `https://github.com` → GitHub; other instances by host. */
-export const accountLabel = (a: GitAccountDto) =>
-  a.baseUrl === 'https://github.com' ? 'GitHub' : new URL(a.baseUrl).host
+// Signing out in place must not leave one user's accounts for the next to see.
+useSession.subscribe((s, prev) => {
+  if (prev.user && !s.user) useGitAccounts.getState().reset()
+})
+
+/** `https://github.com` → GitHub; other instances by host, or the address as typed when it is not a URL. */
+export function accountLabel(a: GitAccountDto) {
+  if (a.baseUrl === 'https://github.com') return 'GitHub'
+  try {
+    return new URL(a.baseUrl).host
+  } catch {
+    return a.baseUrl
+  }
+}

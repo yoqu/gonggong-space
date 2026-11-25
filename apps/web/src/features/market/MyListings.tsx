@@ -37,6 +37,7 @@ import {
 import { FolderInput } from '../config/SkillLayer'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
 import { ListingIcon, ReviewTag } from './ListingDetail'
+import { useRowLocks } from './rowLocks'
 import { TYPE_LABEL } from './status'
 import '../config/config.css'
 import '../groups/groups.css'
@@ -64,33 +65,22 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
   const upstream = useGet<UpstreamMovedDto[]>(data?.some((l) => l.ghSource) ? '/market/mine/upstream' : null)
   const [publishing, setPublishing] = useState(false)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
-  const [submitBusy, setSubmitBusy] = useState(false)
   const [unlisting, setUnlisting] = useState<MyListingDto | null>(null)
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [checkingId, setCheckingId] = useState<string | null>(null)
+  const patching = useRowLocks()
+  const checking = useRowLocks()
   const [filter, setFilter] = useState<Filter>('all')
   const patch = async (l: MyListingDto, body: UpdateListingReq) => {
-    if (busyId === l.id) return
-    setBusyId(l.id)
-    try {
-      const ok = await attempt(() => api.patch(`/market/${l.id}`, body))
-      if (ok) reload()
-    } finally {
-      setBusyId((id) => (id === l.id ? null : id))
-    }
+    const ok = await patching.run(l.id, () => attempt(() => api.patch(`/market/${l.id}`, body)))
+    if (ok) reload()
   }
   const checkUpstream = async (l: MyListingDto) => {
-    if (checkingId === l.id) return
-    setCheckingId(l.id)
-    let res: CheckUpstreamRes
-    try {
-      res = await api.post<CheckUpstreamRes>(`/market/${l.id}/check-upstream`)
-    } catch (e) {
-      toastError(e)
-      return
-    } finally {
-      setCheckingId((id) => (id === l.id ? null : id))
-    }
+    const res = await checking.run(l.id, () =>
+      api.post<CheckUpstreamRes>(`/market/${l.id}/check-upstream`).catch((e) => {
+        toastError(e)
+        return null
+      }),
+    )
+    if (!res) return
     const commit = res.commit.slice(0, 7)
     toast({
       type: res.drafted ? 'success' : 'info',
@@ -201,8 +191,8 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                     <Button
                       size="small"
                       variant="plain"
-                      loading={checkingId === l.id}
-                      disabled={checkingId === l.id}
+                      loading={checking.busy.has(l.id)}
+                      disabled={checking.busy.has(l.id)}
                       onClick={() => void checkUpstream(l)}
                     >
                       {movedOf(l) ? t('同步上游更新') : t('检查上游更新')}
@@ -212,8 +202,8 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                     <Button
                       size="small"
                       variant="plain"
-                      loading={l.status !== 'listed' && busyId === l.id}
-                      disabled={busyId === l.id}
+                      loading={l.status !== 'listed' && patching.busy.has(l.id)}
+                      disabled={patching.busy.has(l.id)}
                       onClick={() =>
                         l.status === 'listed' ? setUnlisting(l) : void patch(l, { status: 'listed' })
                       }
@@ -225,8 +215,8 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                     <Button
                       size="small"
                       variant="plain"
-                      loading={busyId === l.id}
-                      disabled={busyId === l.id}
+                      loading={patching.busy.has(l.id)}
+                      disabled={patching.busy.has(l.id)}
                       onClick={() =>
                         void patch(l, { visibility: l.visibility === 'public' ? 'team' : 'public' })
                       }
@@ -272,27 +262,14 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
             }}
           />
         ) : submitting ? (
-          <Dialog
-            open
-            title={t('提交审核 {name}', { name: submitting.title })}
-            width={480}
-            closeOnScrim={false}
-            onClose={submitBusy ? () => {} : () => setSubmitting(null)}
-          >
-            <SubmitForm
-              listing={submitting}
-              onBusyChange={setSubmitBusy}
-              onCancel={() => {
-                setSubmitBusy(false)
-                setSubmitting(null)
-              }}
-              onDone={() => {
-                setSubmitBusy(false)
-                setSubmitting(null)
-                reload()
-              }}
-            />
-          </Dialog>
+          <SubmitDialog
+            listing={submitting}
+            onClose={() => setSubmitting(null)}
+            onDone={() => {
+              setSubmitting(null)
+              reload()
+            }}
+          />
         ) : unlisting ? (
           <ConfirmActionDialog
             title={t('下架「{name}」？', { name: unlisting.title })}
@@ -313,42 +290,30 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
   )
 }
 
-/** The changelog and 提交审核 of a listing's latest version. */
-function SubmitForm({
-  listing,
-  cancelLabel = t('取消'),
-  onBusyChange,
-  onCancel,
-  onDone,
-}: {
-  listing: MyListingDto
-  cancelLabel?: string
-  onBusyChange?: (busy: boolean) => void
-  onCancel: () => void
-  onDone: () => void
-}) {
-  const [changelog, setChangelog] = useState(listing.latest.changelog)
+/** The changelog and 提交审核 of a listing's latest version (none yet: `listing` null), for a dialog to lay out. */
+function useSubmit(listing: MyListingDto | null, onDone: () => void) {
+  const [changelog, setChangelog] = useState(listing?.latest.changelog ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const versionId = listing?.latest.id
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new version starts from its own changelog
+  useEffect(() => setChangelog(listing?.latest.changelog ?? ''), [versionId])
   const submit = async () => {
-    if (busy) return
+    if (busy || !listing) return
     setBusy(true)
-    onBusyChange?.(true)
     setError('')
     try {
       await api.post(`/market/${listing.id}/versions/${listing.latest.id}/submit`, {
         changelog: changelog.trim(),
       })
       toast({ type: 'success', message: t('已提交审核') })
-      onBusyChange?.(false)
       onDone()
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
-      onBusyChange?.(false)
     }
   }
-  return (
+  const body = (
     <>
       {error ? <Alert variant="error" title={error} /> : null}
       <TextArea
@@ -356,19 +321,44 @@ function SubmitForm({
         aria-label={t('更新说明')}
         placeholder={t('这个版本改了什么，审核人和引入者都会看到')}
         maxLength={2000}
+        disabled={busy}
         value={changelog}
         onChange={(e) => setChangelog(e.target.value)}
       />
-      <div className="cfg__foot">
-        <span className="spacer" />
-        <Button disabled={busy} onClick={onCancel}>
-          {cancelLabel}
-        </Button>
-        <Button variant="primary" loading={busy} disabled={busy} onClick={() => void submit()}>
-          {t('提交审核')}
-        </Button>
-      </div>
     </>
+  )
+  const action = {
+    label: t('提交审核'),
+    variant: 'primary' as const,
+    disabled: busy,
+    loading: busy,
+    onClick: () => void submit(),
+  }
+  return { busy, body, action }
+}
+
+function SubmitDialog({
+  listing,
+  onClose,
+  onDone,
+}: {
+  listing: MyListingDto
+  onClose: () => void
+  onDone: () => void
+}) {
+  const form = useSubmit(listing, onDone)
+  const close = form.busy ? () => {} : onClose
+  return (
+    <Dialog
+      open
+      title={t('提交审核 {name}', { name: listing.title })}
+      width={480}
+      closeOnScrim={false}
+      onClose={close}
+      actions={[{ label: t('取消'), disabled: form.busy, onClick: close }, form.action]}
+    >
+      {form.body}
+    </Dialog>
   )
 }
 
@@ -384,22 +374,34 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
   const [skillMd, setSkillMd] = useState('')
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
-  const [submitBusy, setSubmitBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState<PublishRes | null>(null)
   const folder = useRef<HTMLInputElement>(null)
   const zip = useRef<HTMLInputElement>(null)
-  const locked = busy || submitBusy
+  // A slow read that a newer pick or a source switch superseded must not land.
+  const readSeq = useRef(0)
+  const submitting = useSubmit(
+    saved &&
+      (saved.listing.latest.reviewStatus === 'draft' || saved.listing.latest.reviewStatus === 'rejected')
+      ? saved.listing
+      : null,
+    onClose,
+  )
+  const locked = busy || submitting.busy
   const close = () => {
     if (!locked) onClose()
   }
 
   const read = async (load: Promise<SkillFile[]>) => {
+    const mine = ++readSeq.current
     try {
       const next = await load
+      if (mine !== readSeq.current) return
       setFiles(next.length ? next : null)
       setError(next.length ? '' : t('没有读到文件'))
     } catch (e) {
+      if (mine !== readSeq.current) return
+      setFiles(null)
       setError(t('无法读取：{e}', { e: errorText(e) }))
     }
   }
@@ -435,7 +437,9 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
       onClose={locked ? () => {} : onClose}
       actions={
         saved
-          ? undefined
+          ? saved.listing.latest.reviewStatus === 'draft' || saved.listing.latest.reviewStatus === 'rejected'
+            ? [{ label: t('稍后提交'), disabled: locked, onClick: close }, submitting.action]
+            : [{ label: t('关闭'), onClick: close }]
           : [
               { label: t('取消'), disabled: busy, onClick: close },
               {
@@ -466,21 +470,9 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             />
           )}
           <Warnings items={saved.warnings} />
-          {saved.listing.latest.reviewStatus === 'draft' ||
-          saved.listing.latest.reviewStatus === 'rejected' ? (
-            <SubmitForm
-              listing={saved.listing}
-              cancelLabel={t('稍后提交')}
-              onBusyChange={setSubmitBusy}
-              onCancel={close}
-              onDone={onClose}
-            />
-          ) : (
-            <div className="cfg__foot">
-              <span className="spacer" />
-              <Button onClick={close}>{t('关闭')}</Button>
-            </div>
-          )}
+          {saved.listing.latest.reviewStatus === 'draft' || saved.listing.latest.reviewStatus === 'rejected'
+            ? submitting.body
+            : null}
         </>
       ) : (
         <>
@@ -490,6 +482,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
               <RadioGroup
                 aria-label={t('团队')}
                 direction="row"
+                disabled={busy}
                 value={teamId}
                 onChange={setTeamId}
                 options={teams.map((x) => ({ value: x.id, label: x.name }))}
@@ -500,6 +493,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
           <RadioGroup<ListingVisibility>
             aria-label={t('可见范围')}
             direction="row"
+            disabled={busy}
             value={visibility}
             onChange={setVisibility}
             options={[
@@ -515,20 +509,23 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             aria-label={t('来源')}
             value={source}
             onChange={(s) => {
+              readSeq.current++
               setSource(s)
               setFiles(null)
               setError('')
             }}
-            items={[
-              { value: 'folder', label: t('文件夹') },
-              { value: 'zip', label: 'ZIP' },
-              { value: 'paste', label: t('粘贴 SKILL.md') },
-              { value: 'github', label: t('GitHub 链接') },
-            ]}
+            items={(
+              [
+                ['folder', t('文件夹')],
+                ['zip', 'ZIP'],
+                ['paste', t('粘贴 SKILL.md')],
+                ['github', t('GitHub 链接')],
+              ] as const
+            ).map(([value, label]) => ({ value, label, disabled: busy }))}
           />
           {source === 'folder' ? (
             <div className="mkt-source">
-              <Button size="small" onClick={() => folder.current?.click()}>
+              <Button size="small" disabled={busy} onClick={() => folder.current?.click()}>
                 {t('选择文件夹…')}
               </Button>
               <FolderInput inputRef={folder} onFiles={(fs) => void read(folderSkillFiles(fs))} />
@@ -536,7 +533,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             </div>
           ) : source === 'zip' ? (
             <div className="mkt-source">
-              <Button size="small" onClick={() => zip.current?.click()}>
+              <Button size="small" disabled={busy} onClick={() => zip.current?.click()}>
                 {t('选择 zip…')}
               </Button>
               <input
@@ -558,6 +555,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
               aria-label="SKILL.md"
               placeholder={'---\nname: my-skill\ndescription: …\n---\n'}
               rows={10}
+              disabled={busy}
               value={skillMd}
               onChange={(e) => setSkillMd(e.target.value)}
             />
@@ -565,6 +563,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             <TextField
               aria-label={t('GitHub 链接')}
               placeholder="https://github.com/<owner>/<repo>/tree/<ref>/<path>"
+              disabled={busy}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
@@ -574,7 +573,9 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
               '文件夹或 ZIP 的根目录要有 SKILL.md（Skill）或 gonggong-plugin.json（插件）；同团队同名即发布新版本。',
             )}
           </div>
-          {check.error ? <Alert variant="error" title={check.error} /> : null}
+          {check.error ? (
+            <Alert variant="error" title={check.error} retrying={check.loading} onRetry={check.retry} />
+          ) : null}
           {check.result ? <Preflight result={check.result} visibility={visibility} /> : null}
         </>
       )}
@@ -584,28 +585,45 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
 
 /** POST /market/preflight for the files as they are picked or typed; null while there is nothing to check. */
 function usePreflight(teamId: string, visibility: ListingVisibility, files: SkillFile[] | null) {
-  const [state, setState] = useState<{ result: PublishPreflightRes | null; error: string }>({
-    result: null,
-    error: '',
-  })
+  const [state, setState] = useState<{ result: PublishPreflightRes | null; error: string; loading: boolean }>(
+    {
+      result: null,
+      error: '',
+      loading: false,
+    },
+  )
+  const [tick, setTick] = useState(0)
+  const retried = useRef(false)
   const body = files && teamId ? JSON.stringify({ teamId, visibility, files }) : null
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` retries
   useEffect(() => {
-    setState({ result: null, error: '' })
+    const retry = retried.current
+    retried.current = false
+    setState((s) => ({ result: null, error: retry ? s.error : '', loading: !!body }))
     if (!body) return
     let live = true
-    // Typing in 粘贴 SKILL.md settles before it asks.
-    const id = setTimeout(() => {
-      api.post<PublishPreflightRes>('/market/preflight', JSON.parse(body)).then(
-        (result) => live && setState({ result, error: '' }),
-        (e) => live && setState({ result: null, error: errorText(e) }),
-      )
-    }, 300)
+    // Typing in 粘贴 SKILL.md settles before it asks; a retry asks at once.
+    const id = setTimeout(
+      () => {
+        api.post<PublishPreflightRes>('/market/preflight', JSON.parse(body)).then(
+          (result) => live && setState({ result, error: '', loading: false }),
+          (e) => live && setState({ result: null, error: errorText(e), loading: false }),
+        )
+      },
+      retry ? 0 : 300,
+    )
     return () => {
       live = false
       clearTimeout(id)
     }
-  }, [body])
-  return state
+  }, [body, tick])
+  return {
+    ...state,
+    retry: () => {
+      retried.current = true
+      setTick((n) => n + 1)
+    },
+  }
 }
 
 /** What saving the picked files will do, before saving them. */

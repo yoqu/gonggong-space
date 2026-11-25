@@ -92,11 +92,12 @@ export function MarketPage() {
   const tab = TABS.find((x) => x === params.get('tab') && (x !== 'reviews' || queues.length)) ?? 'market'
   const setTab = (next: Tab) => setParams(next === 'market' ? {} : { tab: next }, { replace: true })
   const openId = params.get('listing')
-  const [openTitle, setOpenTitle] = useState('')
-  // Bumped after an install so the open detail shows where it now is.
+  // Keyed by id: a `?listing=` changed from outside must not keep the last one's title.
+  const [openTitle, setOpenTitle] = useState<{ id: string; title: string } | null>(null)
+  // Bumped after an install or request so the open detail shows where it now is.
   const [installedAt, setInstalledAt] = useState(0)
   const setOpen = (l: { id: string; title: string } | null) => {
-    setOpenTitle(l?.title ?? '')
+    setOpenTitle(l ? { id: l.id, title: l.title } : null)
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -134,7 +135,10 @@ export function MarketPage() {
     setQuery('')
   }
   const sorted = shown && sort === 'installs' ? [...shown].sort((a, b) => b.installs - a.installs) : shown
-  const openName = openTitle || shown?.find((l) => l.id === openId)?.title || t('条目详情')
+  const openName =
+    (openTitle?.id === openId && openTitle.title) ||
+    shown?.find((l) => l.id === openId)?.title ||
+    t('条目详情')
 
   return (
     <section className="works" aria-label={t('市场')}>
@@ -186,7 +190,7 @@ export function MarketPage() {
       ) : tab === 'requests' ? (
         <div className="mkt-body">
           <div className="mkt-body__inner">
-            <InstallRequests onDecided={todoList.reload} />
+            <InstallRequests todo={todoList} />
           </div>
         </div>
       ) : (
@@ -324,6 +328,8 @@ export function MarketPage() {
           <ListingDetail
             key={installedAt}
             id={openId}
+            onData={(d) => setOpenTitle({ id: d.id, title: d.title })}
+            onChanged={reload}
             actions={({ listedVersionId, listedRevision, ...d }) =>
               d.status === 'listed' && listedVersionId && listedRevision !== null && !machineOnly(d) ? (
                 <Button
@@ -344,7 +350,7 @@ export function MarketPage() {
           <InstallTargetDialog
             listing={installing}
             onClose={() => setInstalling(null)}
-            onInstalled={() => {
+            onChanged={() => {
               setInstalledAt(Date.now())
               reload()
             }}

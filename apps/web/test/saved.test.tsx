@@ -321,6 +321,67 @@ describe('稍后处理 加载更多', () => {
   })
 })
 
+describe('稍后处理 tab races and double-click guards', () => {
+  it('ignores a slow open response that resolves after switching to done', async () => {
+    let resolveOpen!: (v: unknown) => void
+    renderAt('/later', {
+      'GET /saved?state=open': () =>
+        new Promise((resolve) => {
+          resolveOpen = resolve
+        }),
+      'GET /saved?state=done': {
+        items: [saved({ message: msg({ seq: 2, body: '已完成条目' }), doneAt: '2026-11-08T04:00:00.000Z' })],
+      },
+    })
+    fireEvent.click(await screen.findByRole('radio', { name: '已完成' }))
+    expect(await screen.findByText('已完成条目')).toBeTruthy()
+
+    await act(async () => {
+      resolveOpen({ items: [saved({ message: msg({ seq: 1, body: '陈旧进行中条目' }) })] })
+    })
+    expect(screen.getByText('已完成条目')).toBeTruthy()
+    expect(screen.queryByText('陈旧进行中条目')).toBeNull()
+  })
+
+  it('resets failed state immediately when switching tabs after an error', async () => {
+    let resolveDone!: (v: unknown) => void
+    renderAt('/later', {
+      'GET /saved?state=open': apiError(500, 'internal', '加载失败'),
+      'GET /saved?state=done': () =>
+        new Promise((resolve) => {
+          resolveDone = resolve
+        }),
+    })
+    expect(await screen.findByText('稍后处理加载失败')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('radio', { name: '已完成' }))
+    expect(screen.queryByText('稍后处理加载失败')).toBeNull()
+
+    await act(async () => {
+      resolveDone({ items: [] })
+    })
+    expect(await screen.findByText('还没有完成的消息')).toBeTruthy()
+  })
+
+  it('disables action buttons while leaving so double-clicking 完成 sends one request', async () => {
+    const calls = renderAt('/later', {
+      'GET /saved?state=open': { items: [saved()] },
+      'PUT /messages/m1/save/done': { ok: true },
+    })
+    const item = await screen.findByTestId('later-m1')
+    const doneBtn = within(item).getByRole('button', { name: '完成' })
+    const removeBtn = within(item).getByRole('button', { name: '移除' })
+
+    fireEvent.click(doneBtn)
+    expect(doneBtn.hasAttribute('disabled')).toBe(true)
+    expect(removeBtn.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(doneBtn)
+
+    await waitFor(() => expect(screen.queryByTestId('later-m1')).toBeNull())
+    expect(calls.filter((c) => c.method === 'PUT' && c.path === '/messages/m1/save/done')).toHaveLength(1)
+  })
+})
+
 describe('reminder presets', () => {
   it('offers the next Monday at 9, a week ahead on a Monday', () => {
     const monday = new Date(2026, 10, 9, 15, 0)

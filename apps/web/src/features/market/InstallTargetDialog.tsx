@@ -34,10 +34,13 @@ interface Target {
 function useRepos(teams: { id: string; name: string; role: string }[]) {
   const [repos, setRepos] = useState<Target[] | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
   const key = teams.map((x) => x.id).join(',')
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the team list
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the team list, `tick` retries
   useEffect(() => {
     let live = true
+    setLoading(true)
     Promise.all(
       teams.map(async (team) =>
         (await api.get<RepoDto[]>(`/teams/${team.id}/repos`)).map(
@@ -50,15 +53,21 @@ function useRepos(teams: { id: string; name: string; role: string }[]) {
           }),
         ),
       ),
-    ).then(
-      (all) => live && setRepos(all.flat()),
-      (e) => live && setError(errorText(e)),
     )
+      .then(
+        (all) => {
+          if (!live) return
+          setRepos(all.flat())
+          setError('')
+        },
+        (e) => live && setError(errorText(e)),
+      )
+      .finally(() => live && setLoading(false))
     return () => {
       live = false
     }
-  }, [key])
-  return { repos, error }
+  }, [key, tick])
+  return { repos, error, loading, reload: () => setTick((n) => n + 1) }
 }
 
 /**
@@ -68,7 +77,7 @@ function useRepos(teams: { id: string; name: string; role: string }[]) {
 export function InstallTargetDialog({
   listing,
   onClose,
-  onInstalled,
+  onChanged,
 }: {
   listing: {
     id: string
@@ -84,13 +93,13 @@ export function InstallTargetDialog({
     secretSpecs: SecretRequirement[]
   }
   onClose: () => void
-  /** A direct install went through (a request changes nothing yet). */
-  onInstalled?: () => void
+  /** An install or a request went through: the listing's 已引入 / 已申请 changed. */
+  onChanged?: () => void
 }) {
   const me = useSession((s) => s.user?.id)
   const teams = useSession((s) => s.tenancy?.teams) ?? []
   const groups = useWorkspace((s) => s.groups).filter((g) => g.kind === 'group')
-  const { repos, error: reposError } = useRepos(teams)
+  const { repos, error: reposError, loading: reposLoading, reload: reloadRepos } = useRepos(teams)
   const [kind, setKind] = useState<Kind>('group')
   const [picked, setPicked] = useState<string | null>(null)
   const [policy, setPolicy] = useState<Policy>('follow')
@@ -143,6 +152,7 @@ export function InstallTargetDialog({
         const req: InstallRequestReq = { listingId: listing.id, ...ask, pinVersionId, note: note.trim() }
         await api.post('/install-requests', req)
         toast({ type: 'success', message: t('已向「{name}」的管理员提交引入申请', { name: target.label }) })
+        onChanged?.()
       } else {
         await api.put(`${target.base}/installs/${listing.id}`, { enabled: true, pinVersionId })
         const failed = await secrets.apply()
@@ -153,7 +163,7 @@ export function InstallTargetDialog({
             message: failed.join('；'),
           })
         else toast({ type: 'success', message: t('已引入到「{name}」', { name: target.label }) })
-        onInstalled?.()
+        onChanged?.()
       }
       onClose()
     } catch (e) {
@@ -176,7 +186,8 @@ export function InstallTargetDialog({
         {
           label: ask ? t('申请引入') : t('引入'),
           variant: 'primary',
-          disabled: !target || there || busy || (!ask && (secrets.loading || secrets.cancelled)),
+          disabled:
+            !target || there || busy || (!ask && (secrets.loading || !!secrets.error || secrets.cancelled)),
           loading: busy,
           onClick: () => void submit(),
         },
@@ -209,7 +220,7 @@ export function InstallTargetDialog({
               : t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
         </div>
       ) : kind === 'repo' && reposError ? (
-        <Alert variant="error" title={reposError} />
+        <Alert variant="error" title={reposError} retrying={reposLoading} onRetry={reloadRepos} />
       ) : !targets ? (
         <Spinner />
       ) : targets.length ? (
@@ -257,7 +268,7 @@ export function InstallTargetDialog({
         <div className="gs-note">{t('没有可引入的目标')}</div>
       )}
       <VersionPolicy value={policy} onChange={setPolicy} revision={listing.listedRevision} />
-      {target && !ask && !there ? <InstallSecrets plan={secrets} /> : null}
+      {target && !ask && !there ? <InstallSecrets plan={secrets} onEdit={() => setError('')} /> : null}
       {ask ? (
         <TextArea
           label={t('申请说明')}

@@ -89,8 +89,11 @@ function AvatarCropDialog({ src, shape = 'circle', onCancel, onDone }: AvatarCro
     e.preventDefault()
     move(box.x + (delta[0] as number), box.y + (delta[1] as number))
   }
+  const close = () => {
+    if (!busy) onCancel()
+  }
   const done = async () => {
-    if (!img.current || !box) return
+    if (busy || !img.current || !box) return
     setBusy(true)
     try {
       await onDone(
@@ -106,13 +109,19 @@ function AvatarCropDialog({ src, shape = 'circle', onCancel, onDone }: AvatarCro
   return (
     <Dialog
       open
-      onClose={onCancel}
+      onClose={close}
       closeOnBackdrop={false}
       title={t('编辑头像')}
       width={320}
       actions={[
-        { label: t('取消'), onClick: onCancel },
-        { label: busy ? t('保存中…') : t('完成'), variant: 'primary', disabled: busy || !box, onClick: done },
+        { label: t('取消'), disabled: busy, onClick: close },
+        {
+          label: busy ? t('保存中…') : t('完成'),
+          variant: 'primary',
+          disabled: busy || !box,
+          loading: busy,
+          onClick: () => void done(),
+        },
       ]}
     >
       <div className="ui-avatar-crop">

@@ -9,8 +9,11 @@ const STATUS = { added: 'added', removed: 'deleted', modified: 'modified' } as c
 
 /** A version's changed files against the listing's latest approved version before it, one unified diff each. */
 export function VersionDiff({ listingId, versionId }: { listingId: string; versionId: string }) {
-  const { data, error } = useGet<VersionDiffDto>(`/market/${listingId}/versions/${versionId}/diff`)
-  if (!data) return error ? <Alert variant="error" title={error} /> : <Spinner />
+  const { data, error, loading, reload } = useGet<VersionDiffDto>(
+    `/market/${listingId}/versions/${versionId}/diff`,
+  )
+  if (!data)
+    return error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : <Spinner />
   return (
     <div className="mkt-diff">
       <div className="gs-note">

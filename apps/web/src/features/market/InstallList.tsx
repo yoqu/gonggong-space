@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { attempt } from '../../lib/errors'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -18,11 +19,13 @@ import {
   Presence,
   RadioGroup,
   SearchField,
+  Spinner,
   Switch,
   Tag,
 } from '../../ui'
 import '../config/config.css'
 import './market.css'
+import { useRowLocks } from './rowLocks'
 import { newlyRequired } from './SecretSpecs'
 import { newerFor, statusNote, TYPE_LABEL, VersionTags } from './status'
 
@@ -49,16 +52,34 @@ export function InstallList({
   /** Offers 打开市场 to browse for more, closing the caller's dialog on the way. */
   onLeave?: () => void
 }) {
-  const { data, error, reload } = useGet<InstallDto[]>(`${base}/installs`)
+  const { data, error, loading, reload } = useGet<InstallDto[]>(`${base}/installs`)
   const [importing, setImporting] = useState(false)
   const [removing, setRemoving] = useState<InstallDto | null>(null)
-  const put = (i: InstallDto, enabled: boolean, pinVersionId = i.pinVersionId) =>
-    attempt(() => api.put(`${base}/installs/${i.listing.id}`, { enabled, pinVersionId })).then(reload)
+  const locks = useRowLocks()
+  const put = async (i: InstallDto, enabled: boolean, pinVersionId = i.pinVersionId) => {
+    const id = i.listing.id
+    const ok = await locks.run(id, () =>
+      attempt(() => api.put(`${base}/installs/${id}`, { enabled, pinVersionId })),
+    )
+    if (ok) reload()
+  }
 
   return (
     <>
-      {error ? <Alert variant="error" title={t('配置加载失败')} description={error} /> : null}
-      {data?.length === 0 ? (
+      {error ? (
+        <Alert
+          variant="error"
+          title={t('配置加载失败')}
+          description={error}
+          retrying={loading}
+          onRetry={reload}
+        />
+      ) : null}
+      {!data ? (
+        error ? null : (
+          <Spinner />
+        )
+      ) : data.length === 0 ? (
         emptyArt ? (
           <EmptyState
             compact
@@ -74,9 +95,10 @@ export function InstallList({
         )
       ) : (
         <GroupBox>
-          {data?.map((i) => {
+          {data.map((i) => {
             const newer = newerFor(i)
             const note = statusNote(i)
+            const busy = locks.busy.has(i.listing.id)
             return (
               <GroupRow
                 key={i.listing.id}
@@ -106,18 +128,29 @@ export function InstallList({
                 ) : (
                   <span className="cfg__controls">
                     {newer ? (
-                      <Button size="small" onClick={() => void put(i, i.enabled, i.listing.versionId)}>
+                      <Button
+                        size="small"
+                        disabled={busy}
+                        loading={busy}
+                        onClick={() => void put(i, i.enabled, i.listing.versionId)}
+                      >
                         {t('升级到 r{n}', { n: newer })}
                       </Button>
                     ) : null}
                     {i.listing.status === 'banned' ? (
-                      <Button size="small" variant="destructive" onClick={() => setRemoving(i)}>
+                      <Button
+                        size="small"
+                        variant="destructive"
+                        disabled={busy}
+                        onClick={() => setRemoving(i)}
+                      >
                         {t('移除')}
                       </Button>
                     ) : (
                       <IconButton
                         title={t('移除 {name}', { name: i.listing.title })}
                         size="regular"
+                        disabled={busy}
                         onClick={() => setRemoving(i)}
                       >
                         {'trash' as const}
@@ -126,6 +159,7 @@ export function InstallList({
                     <Switch
                       ariaLabel={t('启用 {name}', { name: i.listing.title })}
                       checked={i.enabled}
+                      disabled={busy}
                       onChange={(on) => void put(i, on)}
                     />
                   </span>
@@ -274,19 +308,18 @@ function ImportDialog({
   onClose: () => void
   onDone: () => void
 }) {
-  const { data, error: loadError } = useGet<InstallableDto[]>(`${base}/installable`)
+  const { data, error: loadError, loading, reload } = useGet<InstallableDto[]>(`${base}/installable`)
   const [picked, setPicked] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [policy, setPolicy] = useState<Policy>('follow')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const listing = data?.find((l) => l.id === picked)
-  const needle = q.trim().toLowerCase()
-  const shown = data?.filter((l) =>
-    [l.title, l.name, l.description].some((x) => x.toLowerCase().includes(needle)),
-  )
+  const shown = data?.filter((l) => matchAny(q, l.title, l.name, l.description))
+  // Only what is on screen can be imported: a pick the search hid is not.
+  const listing = shown?.find((l) => l.id === picked)
+  const close = busy ? () => {} : onClose
   const submit = async () => {
-    if (!listing) return
+    if (!listing || busy) return
     setBusy(true)
     setError('')
     try {
@@ -306,13 +339,23 @@ function ImportDialog({
       title={t('从已有条目引入')}
       width={520}
       closeOnScrim={false}
-      onClose={onClose}
+      onClose={close}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('引入'), variant: 'primary', disabled: !listing || busy, onClick: () => void submit() },
+        { label: t('取消'), disabled: busy, onClick: close },
+        {
+          label: t('引入'),
+          variant: 'primary',
+          disabled: !listing || busy,
+          loading: busy,
+          onClick: () => void submit(),
+        },
       ]}
     >
-      {loadError || error ? <Alert variant="error" title={loadError || error} /> : null}
+      {loadError && !data ? (
+        <Alert variant="error" title={loadError} retrying={loading} onRetry={reload} />
+      ) : error ? (
+        <Alert variant="error" title={error} />
+      ) : null}
       {data?.length === 0 ? (
         <div className="gs-note">{t('没有可引入的条目')}</div>
       ) : data ? (
@@ -329,7 +372,10 @@ function ImportDialog({
               <RadioGroup
                 aria-label={t('条目')}
                 value={picked ?? undefined}
-                onChange={setPicked}
+                onChange={(id) => {
+                  setPicked(id)
+                  setError('')
+                }}
                 options={shown.map((l) => ({
                   value: l.id,
                   disabled: l.nameTaken,

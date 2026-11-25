@@ -254,6 +254,119 @@ describe('InstallList', () => {
     expect(screen.queryByRole('button', { name: '从已有条目引入…' })).toBeNull()
     expect(within(row('幻灯片')).getByText('已停用')).toBeTruthy()
   })
+
+  it('shows spinner while loading, retryable alert on error without empty card, and per-id locks without reload on put failure', async () => {
+    let failLoad = true
+    let releaseLoad = () => {}
+    let loadGate = new Promise<void>((r) => {
+      releaseLoad = r
+    })
+    let releasePut = () => {}
+    const putGate = new Promise<void>((r) => {
+      releasePut = r
+    })
+    const calls = mockApi({
+      'GET /groups/g1/installs': async () => {
+        await loadGate
+        return failLoad ? apiError(500, 'internal', '拉取失败') : installs
+      },
+      'PUT /groups/g1/installs/l6': async () => {
+        await putGate
+        return installs[3]
+      },
+      'PUT /groups/g1/installs/l2': apiError(500, 'internal', '切换失败'),
+    })
+
+    const { container } = render(<InstallList base="/groups/g1" />)
+    expect(screen.getByRole('status', { name: '加载中' })).toBeTruthy()
+    expect(container.querySelector('.ui-group')).toBeNull()
+
+    releaseLoad()
+    expect(await screen.findByText('拉取失败')).toBeTruthy()
+    expect(container.querySelector('.ui-group')).toBeNull()
+    expect(screen.queryByRole('status', { name: '加载中' })).toBeNull()
+
+    failLoad = false
+    loadGate = new Promise<void>((r) => {
+      releaseLoad = r
+    })
+    const retryBtn = screen.getByRole('button', { name: '重试' }) as HTMLButtonElement
+    fireEvent.click(retryBtn)
+    expect(retryBtn.getAttribute('aria-busy')).toBe('true')
+    releaseLoad()
+    await screen.findByText('lint')
+
+    const lintRow = row('lint')
+    const upgradeBtn = within(lintRow).getByRole('button', { name: '升级到 r5' }) as HTMLButtonElement
+    const lintSwitch = within(lintRow).getByRole('switch', { name: '启用 lint' }) as HTMLInputElement
+    const slidesSwitch = within(row('幻灯片')).getByRole('switch', { name: '启用 幻灯片' }) as HTMLInputElement
+    fireEvent.click(upgradeBtn)
+    expect(upgradeBtn.disabled).toBe(true)
+    expect(upgradeBtn.getAttribute('aria-busy')).toBe('true')
+    expect(lintSwitch.disabled).toBe(true)
+    expect(slidesSwitch.disabled).toBe(false)
+
+    // Failing PUT on another row must not trigger a GET reload.
+    const getsBeforeFail = calls.filter((c) => c.method === 'GET').length
+    fireEvent.click(slidesSwitch)
+    await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/installs/l2')).toBe(true))
+    expect(calls.filter((c) => c.method === 'GET').length).toBe(getsBeforeFail)
+
+    releasePut()
+    await waitFor(() => expect(calls.filter((c) => c.method === 'GET').length).toBe(getsBeforeFail + 1))
+  })
+
+  it('ImportDialog retries load errors, prevents installing hidden items, clears submit error on pick, and locks while busy', async () => {
+    let failLoad = true
+    let releaseSubmit = () => {}
+    const submitGate = new Promise<void>((r) => {
+      releaseSubmit = r
+    })
+    const calls = mockApi({
+      'GET /groups/g1/installs': [],
+      'GET /groups/g1/installable': () => (failLoad ? apiError(500, 'internal', '列表加载失败') : installable),
+      'PUT /groups/g1/installs/l4': apiError(409, 'conflict', '同名冲突错误'),
+      'PUT /groups/g1/installs/l5': async () => {
+        await submitGate
+        return install({ listing: installable[1] })
+      },
+    })
+    render(<InstallList base="/groups/g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '从已有条目引入…' }))
+    const dialog = await screen.findByRole('dialog', { name: '从已有条目引入' })
+    expect(await within(dialog).findByText('列表加载失败')).toBeTruthy()
+    failLoad = false
+    fireEvent.click(within(dialog).getByRole('button', { name: '重试' }))
+
+    // Pick l4, then filter it out: hidden item must not be installable.
+    fireEvent.click(await within(dialog).findByRole('radio', { name: /lint-fix/ }))
+    const importBtn = within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement
+    expect(importBtn.disabled).toBe(false)
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: '搜索条目' }), {
+      target: { value: '演示' },
+    })
+    expect(importBtn.disabled).toBe(true)
+
+    // Clear search, trigger submit error on l4, then pick l5: submit error clears.
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: '搜索条目' }), { target: { value: '' } })
+    fireEvent.click(importBtn)
+    expect(await within(dialog).findByText('同名冲突错误')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('radio', { name: /演示文稿/ }))
+    expect(within(dialog).queryByText('同名冲突错误')).toBeNull()
+
+    // Lock dialog while submitting l5.
+    const cancelBtn = within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
+    fireEvent.click(importBtn)
+    expect(importBtn.getAttribute('aria-busy')).toBe('true')
+    expect(cancelBtn.disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: '从已有条目引入' })).toBeTruthy()
+    fireEvent.click(importBtn)
+    expect(calls.filter((c) => c.path === '/groups/g1/installs/l5')).toHaveLength(1)
+
+    releaseSubmit()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '从已有条目引入' })).toBeNull())
+  })
 })
 
 describe('team settings · repos', () => {

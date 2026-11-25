@@ -6,7 +6,7 @@ import {
   PERSONAL_BASE,
   type UserDto,
 } from '@gonggong/protocol'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { createContext, type FormEvent, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
@@ -81,44 +81,65 @@ const LOCALE_OPTIONS: { value: Locale; label: string }[] = [
 const revealTab = (el: HTMLButtonElement | null) =>
   el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
 
+/** Sheets over the settings window hold it open: its scrim and Escape belong to the sheet then. */
+const HoldOpen = createContext<(held: boolean) => void>(() => {})
+
+function useHoldOpen(held: boolean) {
+  const hold = useContext(HoldOpen)
+  useEffect(() => {
+    if (!held) return
+    hold(true)
+    return () => hold(false)
+  }, [held, hold])
+}
+
 export function SettingsDialog({ page: initial, onClose }: { page: SettingsPage; onClose: () => void }) {
   const [page, setPage] = useState(initial)
+  const [holds, setHolds] = useState(0)
+  const hold = useCallback((held: boolean) => setHolds((n) => n + (held ? 1 : -1)), [])
   useEffect(() => setPage(initial), [initial])
   return (
-    <Dialog open width={720} title={PAGES.find((p) => p.value === page)?.label} onClose={onClose}>
-      <div className="gs-settings">
-        <nav className="gs-settings__nav">
-          <span className="gs-settings__heading">{t('设置')}</span>
-          {PAGES.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              className={cx('gs-settings__tab', p.value === page && 'gs-settings__tab--on')}
-              aria-current={p.value === page ? 'page' : undefined}
-              ref={p.value === page ? revealTab : undefined}
-              onClick={() => setPage(p.value)}
-            >
-              <Icon name={p.icon} size={15} />
-              {p.label}
-            </button>
-          ))}
-        </nav>
-        <div key={page} className="gs-settings__body">
-          {page === 'appearance' ? (
-            <AppearancePage />
-          ) : page === 'notifications' ? (
-            <NotificationSettings />
-          ) : page === 'git' ? (
-            <GitPage />
-          ) : page === 'secrets' ? (
-            <MySecrets />
-          ) : page === 'skills' ? (
-            <MySkillsPage onClose={onClose} />
-          ) : (
-            <AccountPage />
-          )}
+    <Dialog
+      open
+      width={720}
+      title={PAGES.find((p) => p.value === page)?.label}
+      onClose={holds ? () => {} : onClose}
+    >
+      <HoldOpen.Provider value={hold}>
+        <div className="gs-settings">
+          <nav className="gs-settings__nav">
+            <span className="gs-settings__heading">{t('设置')}</span>
+            {PAGES.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                className={cx('gs-settings__tab', p.value === page && 'gs-settings__tab--on')}
+                aria-current={p.value === page ? 'page' : undefined}
+                ref={p.value === page ? revealTab : undefined}
+                onClick={() => setPage(p.value)}
+              >
+                <Icon name={p.icon} size={15} />
+                {p.label}
+              </button>
+            ))}
+          </nav>
+          <div key={page} className="gs-settings__body">
+            {page === 'appearance' ? (
+              <AppearancePage />
+            ) : page === 'notifications' ? (
+              <NotificationSettings />
+            ) : page === 'git' ? (
+              <GitPage />
+            ) : page === 'secrets' ? (
+              <MySecrets />
+            ) : page === 'skills' ? (
+              <MySkillsPage onClose={onClose} />
+            ) : (
+              <AccountPage />
+            )}
+          </div>
         </div>
-      </div>
+      </HoldOpen.Provider>
     </Dialog>
   )
 }
@@ -182,26 +203,42 @@ function GitPage() {
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(false)
   const [disconnecting, setDisconnecting] = useState<GitAccountDto | null>(null)
+  const alive = useRef(true)
+  const protocolSeq = useRef(0)
+  useEffect(
+    () => () => {
+      alive.current = false
+    },
+    [],
+  )
   const refresh = useCallback(() => {
     setLoading(true)
     setLoadError('')
     return load()
       .catch((e) => {
+        if (!alive.current) return
         if (useGitAccounts.getState().accounts !== null) toastError(e)
         setLoadError(errorText(e))
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (alive.current) setLoading(false)
+      })
   }, [load])
   useEffect(() => {
     void refresh()
   }, [refresh])
   if (!user) return null
 
-  const setProtocol = (gitProtocol: UserDto['gitProtocol']) =>
-    api
+  // Only the last pick lands: an earlier PATCH answering late must not flip the preference back.
+  const setProtocol = (gitProtocol: UserDto['gitProtocol']) => {
+    const mine = ++protocolSeq.current
+    return api
       .patch<UserDto>('/me', { gitProtocol })
-      .then((u) => useSession.getState().setUser(u))
+      .then((u) => {
+        if (mine === protocolSeq.current) useSession.getState().setUser(u)
+      })
       .catch(toastError)
+  }
 
   return (
     <>
@@ -379,6 +416,7 @@ function AddAccountSheet({
   const [token, setToken] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  useHoldOpen(open)
   useEffect(() => {
     if (!open) return
     setProvider('github')
@@ -457,16 +495,23 @@ function AddAccountSheet({
 function AccountPage() {
   const user = useSession((s) => s.user)
   const [changing, setChanging] = useState(false)
-  const [editing, setEditing] = useState<ProfileField | null>(null)
+  const [editing, setEditing] = useState(false)
+  // Kept after the sheet closes so its title stays put while it animates out.
+  const [field, setField] = useState<ProfileField>('name')
+  const feishu = useGet<FeishuIdentityView>('/me/feishu')
+  const edit = (f: ProfileField) => {
+    setField(f)
+    setEditing(true)
+  }
   return (
     <>
       <GroupBox>
-        <AvatarRow />
+        <AvatarRow feishuAvatar={feishu.data?.identity?.avatar ?? null} />
         <GroupRow label={t('账号')}>{user?.account}</GroupRow>
         <GroupRow label={t('显示名')}>
           <span className="gs-value-line">
             {user?.name}
-            <Button size="small" onClick={() => setEditing('name')}>
+            <Button size="small" onClick={() => edit('name')}>
               {t('修改显示名…')}
             </Button>
           </span>
@@ -474,7 +519,7 @@ function AccountPage() {
         <GroupRow label={t('邮箱')}>
           <span className="gs-value-line">
             {user?.email ?? <span className="settings-account__login">{t('未设置')}</span>}
-            <Button size="small" onClick={() => setEditing('email')}>
+            <Button size="small" onClick={() => edit('email')}>
               {t('修改邮箱…')}
             </Button>
           </span>
@@ -484,27 +529,25 @@ function AccountPage() {
             {t('修改密码…')}
           </Button>
         </GroupRow>
-        <FeishuIdentityRow />
+        <FeishuIdentityRow data={feishu.data ?? null} reload={feishu.reload} />
       </GroupBox>
       <Presence>{changing ? <ChangePasswordDialog onClose={() => setChanging(false)} /> : null}</Presence>
       <ProfileSheet
-        field={editing ?? 'name'}
-        open={editing !== null}
-        current={(editing && user?.[editing]) ?? ''}
-        onClose={() => setEditing(null)}
+        field={field}
+        open={editing}
+        current={user?.[field] ?? ''}
+        onClose={() => setEditing(false)}
       />
     </>
   )
 }
 
 /** Upload and crop a picture, take the linked Feishu avatar, or fall back to the generated one. */
-function AvatarRow() {
+function AvatarRow({ feishuAvatar }: { feishuAvatar: string | null }) {
   const user = useSession((s) => s.user)
-  const { data: feishu } = useGet<FeishuIdentityView>('/me/feishu')
   const [busy, setBusy] = useState(false)
   if (!user) return null
   const save = async (call: () => Promise<UserDto>) => useSession.getState().setUser(await call())
-  const feishuAvatar = feishu?.identity?.avatar
   return (
     <GroupRow label={t('头像')}>
       <AvatarEditor
@@ -518,7 +561,9 @@ function AvatarRow() {
           <Button
             size="small"
             disabled={busy}
+            loading={busy}
             onClick={async () => {
+              if (busy) return
               setBusy(true)
               await save(() => api.post<UserDto>('/me/avatar/feishu')).catch(toastError)
               setBusy(false)
@@ -553,11 +598,13 @@ function ProfileSheet({
   const [value, setValue] = useState(current)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  useHoldOpen(open)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a draft survives the session user updating underneath it
   useEffect(() => {
     if (!open) return
     setValue(current)
     setError('')
-  }, [open, current])
+  }, [open])
 
   const spec = PROFILE_SHEET[field]
   const next = value.trim()

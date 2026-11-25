@@ -121,7 +121,7 @@ const differs = (spec: SecretRequirement, def: SecretDto) =>
  */
 export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | null, teamId: string | null) {
   const base = specs.length ? secretsBase : null
-  const { data, error } = useGet<SecretDto[]>(base)
+  const { data, error, loading: fetching, reload } = useGet<SecretDto[]>(base)
   const [edits, setEdits] = useState<Record<string, Partial<Choice>>>({})
   const sysadmin = useSession((s) => s.user?.role === 'sysadmin')
   const teamAdmin = useSession(
@@ -187,6 +187,8 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
     layerFor,
     items,
     error,
+    fetching,
+    reload,
     set,
     loading: !!base && !data && !error,
     cancelled: !!items?.some((i) => i.choice.action === 'cancel'),
@@ -197,21 +199,33 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
 
 export type SecretPlan = ReturnType<typeof useSecretPlan>
 
-/** 需要的密钥 in an install dialog: each declared secret, the target layer's state and what to do about it. */
-export function InstallSecrets({ plan }: { plan: SecretPlan }) {
+/**
+ * 需要的密钥 in an install dialog: each declared secret, the target layer's state and what to do about it. `onEdit`
+ * tells the dialog a choice changed, so an error about the old one goes.
+ */
+export function InstallSecrets({ plan, onEdit }: { plan: SecretPlan; onEdit?: () => void }) {
   if (!plan.base) return null
   return (
     <section className="mkt-secrets" aria-label={t('需要的密钥')}>
       <div className="cfg__eyebrow">{t('需要的密钥')}</div>
       {plan.error ? (
-        <Alert variant="error" title={t('密钥加载失败')} description={plan.error} />
+        <Alert
+          variant="error"
+          title={t('密钥加载失败')}
+          description={plan.error}
+          retrying={plan.fetching}
+          onRetry={plan.reload}
+        />
       ) : !plan.items ? (
         <Spinner />
       ) : (
         plan.items.map(({ spec, own, upper, choice, canCreate, canPersonal }) => {
           const def = own ?? upper
           const above = upper ? SCOPE_LABEL[upper.scope] : ''
-          const set = (c: Partial<Choice>) => plan.set(spec.name, c)
+          const set = (c: Partial<Choice>) => {
+            plan.set(spec.name, c)
+            onEdit?.()
+          }
           const inGroup = plan.layerFor(choice.mode) === 'group'
           return (
             <div key={spec.name} className="mkt-secret">
@@ -294,7 +308,8 @@ export function InstallSecrets({ plan }: { plan: SecretPlan }) {
                     options={MODES.map((m) => ({
                       value: m,
                       label: MODE_LABEL[m],
-                      disabled: m === 'personal' && !canPersonal,
+                      // Per-member ones go in the team, where the definition this one overrides already is.
+                      disabled: m === 'personal' && (!canPersonal || !!upper),
                     }))}
                   />
                   {canPersonal ? null : <div className="cfg__hint">{PERSONAL_NOTE}</div>}

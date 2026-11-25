@@ -7,9 +7,9 @@ import type {
   PluginConnector,
   ReviewStatus,
 } from '@gonggong/protocol'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
+import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { localDate } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
@@ -26,12 +26,12 @@ import {
   PullDownButton,
   Spinner,
   Tag,
-  TextArea,
   toast,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { mcpTarget, permissionsText } from '../plugins/model'
 import { ListingFiles } from './ListingFiles'
+import { ReasonDialog } from './ReasonDialog'
 import { SecretSpecList } from './SecretSpecs'
 import { TYPE_LABEL, targetLabels } from './status'
 import { VersionDiff } from './VersionDiff'
@@ -98,24 +98,35 @@ export const installedText = (where: NonNullable<MarketListingDto['installedIn']
 
 /**
  * One listing: meta, README, files, version history and the GitHub source. `versionId` asks for that version's
- * content (a reviewer looking at a pending one).
+ * content (a reviewer looking at a pending one). `onData` hears each load (the drawer's title), `onChanged` a ban or
+ * unban made here (lists showing the listing).
  */
 export function ListingDetail({
   id,
   versionId,
   actions,
+  onData,
+  onChanged,
 }: {
   id: string
   versionId?: string
   actions?: (d: MarketListingDetailDto) => ReactNode
+  onData?: (d: MarketListingDetailDto) => void
+  onChanged?: () => void
 }) {
-  const { data, error, reload } = useGet<MarketListingDetailDto>(
+  const { data, error, loading, reload } = useGet<MarketListingDetailDto>(
     `/market/${id}${versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''}`,
   )
   const [banning, setBanning] = useState(false)
   const [unbanning, setUnbanning] = useState(false)
   const [diffOf, setDiffOf] = useState<ListingVersionDto | null>(null)
-  if (!data) return error ? <Alert variant="error" title={error} onRetry={reload} /> : <Spinner />
+  const onDataRef = useRef(onData)
+  onDataRef.current = onData
+  useEffect(() => {
+    if (data) onDataRef.current?.(data)
+  }, [data])
+  if (!data)
+    return error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : <Spinner />
   const gh = data.ghSource
   const banned = data.status === 'banned'
   const unban = async () => {
@@ -126,6 +137,7 @@ export function ListingDetail({
       if (ok) {
         toast({ type: 'success', message: t('已解封「{name}」', { name: data.title }) })
         reload()
+        onChanged?.()
       }
     } finally {
       setUnbanning(false)
@@ -140,6 +152,7 @@ export function ListingDetail({
   const action = actions?.(data)
   return (
     <div className="mkt-detail">
+      {error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : null}
       <div className="mkt-detail__hero">
         <ListingIcon type={data.type} size={44} listing={data} />
         <div className="mkt-detail__summary">
@@ -249,7 +262,7 @@ export function ListingDetail({
         <div className="cfg__eyebrow">
           {t('文件')} <span className="mkt-detail__n">{data.files.length}</span>
         </div>
-        <ListingFiles listingId={data.id} versionId={versionId} files={data.files} />
+        <ListingFiles listingId={data.id} versionId={data.versionId} files={data.files} />
       </section>
       <section className="mkt-detail__section" aria-label={t('版本历史')}>
         <div className="cfg__eyebrow">
@@ -286,12 +299,19 @@ export function ListingDetail({
       </section>
       <Presence>
         {banning ? (
-          <BanDialog
-            listing={data}
+          <ReasonDialog
+            title={t('封禁「{name}」', { name: data.title })}
+            note={t('封禁后所有引入下一轮起停止加载，市场不再显示，也不能新引入。')}
+            fieldLabel={t('封禁原因')}
+            placeholder={t('维护者会看到这个原因')}
+            confirmLabel={t('封禁')}
+            done={t('已封禁「{name}」', { name: data.title })}
+            run={(reason) => api.post(`/market/${data.id}/ban`, { reason })}
             onClose={() => setBanning(false)}
             onDone={() => {
               setBanning(false)
               reload()
+              onChanged?.()
             }}
           />
         ) : diffOf ? (
@@ -327,66 +347,5 @@ function ConnectorTries({ connector }: { connector: PluginConnector }) {
         </Link>
       ) : null}
     </section>
-  )
-}
-
-/** 封禁: stops a listing everywhere from the next turn; the reason shows to its maintainers. */
-function BanDialog({
-  listing,
-  onClose,
-  onDone,
-}: {
-  listing: MarketListingDetailDto
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const ban = async () => {
-    if (busy) return
-    setBusy(true)
-    setError('')
-    try {
-      await api.post(`/market/${listing.id}/ban`, { reason: reason.trim() })
-      toast({ type: 'success', message: t('已封禁「{name}」', { name: listing.title }) })
-      onDone()
-    } catch (e) {
-      setError(errorText(e))
-      setBusy(false)
-    }
-  }
-  const close = () => {
-    if (!busy) onClose()
-  }
-  return (
-    <Dialog
-      open
-      title={t('封禁「{name}」', { name: listing.title })}
-      width={480}
-      closeOnScrim={false}
-      onClose={busy ? () => {} : onClose}
-      actions={[
-        { label: t('取消'), disabled: busy, onClick: close },
-        {
-          label: t('封禁'),
-          variant: 'destructive',
-          disabled: busy || !reason.trim(),
-          loading: busy,
-          onClick: () => void ban(),
-        },
-      ]}
-    >
-      {error ? <Alert variant="error" title={error} /> : null}
-      <div className="gs-note">{t('封禁后所有引入下一轮起停止加载，市场不再显示，也不能新引入。')}</div>
-      <TextArea
-        label={t('封禁原因')}
-        aria-label={t('封禁原因')}
-        placeholder={t('维护者会看到这个原因')}
-        maxLength={500}
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-      />
-    </Dialog>
   )
 }

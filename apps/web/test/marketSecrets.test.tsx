@@ -265,6 +265,60 @@ describe('需要的密钥', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: '取消引入' }))
     expect(install.disabled).toBe(true)
   })
+
+  it('blocks install on secret load failure with retry, retries failed repo loads, clears errors on edits, and disables personal over team secret', async () => {
+    let failSecrets = true
+    let failRepos = true
+    mockApi({
+      'GET /teams/t1/repos': () =>
+        failRepos
+          ? apiError(500, 'internal', '仓库列表失败')
+          : [{ id: 'r1', name: 'core', key: 'git.example.com/pay/core' }],
+      'GET /groups/g1/secrets': () =>
+        failSecrets
+          ? apiError(500, 'internal', '密钥接口挂了')
+          : [def({ name: 'DW_TEST_KEY', description: '别的用途', mode: 'shared', scope: 'team' })],
+    })
+    const dialog = openDialog()
+
+    // Repos error shows retry button and recovers on click.
+    fireEvent.click(
+      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '仓库' }),
+    )
+    expect(await within(dialog).findByText('仓库列表失败')).toBeTruthy()
+    failRepos = false
+    fireEvent.click(within(dialog).getByRole('button', { name: '重试' }))
+    expect(await within(dialog).findByRole('radio', { name: '支付组 / core' })).toBeTruthy()
+
+    // Switch to group: secrets fail → blocks 引入 and offers Retry.
+    fireEvent.click(
+      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '群' }),
+    )
+    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
+    expect(await within(dialog).findByText('密钥接口挂了')).toBeTruthy()
+    const installBtn = within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement
+    expect(installBtn.disabled).toBe(true)
+
+    // Retry loads secrets: install becomes enabled; overriding team-level secret disables 每人自填.
+    failSecrets = false
+    const secretsRegion = within(dialog).getByRole('region', { name: '需要的密钥' })
+    fireEvent.click(within(secretsRegion).getByRole('button', { name: '重试' }))
+    const override = await within(secretsRegion).findByRole('radio', {
+      name: '在本群新建同名定义（仅本群生效，覆盖团队层）',
+    })
+    expect(installBtn.disabled).toBe(false)
+    fireEvent.click(override)
+    const modes = within(secretsRegion).getByRole('radiogroup', { name: 'DW_TEST_KEY 的模式' })
+    expect((within(modes).getByRole('radio', { name: '每人自填' }) as HTMLInputElement).disabled).toBe(true)
+
+    // Validation error clears when editing secret input.
+    const valInput = within(secretsRegion).getByLabelText('DW_TEST_KEY 的统一值')
+    fireEvent.change(valInput, { target: { value: 'short' } })
+    fireEvent.click(installBtn)
+    expect(await within(dialog).findByText('DW_TEST_KEY 的统一值至少 8 个字符')).toBeTruthy()
+    fireEvent.change(valInput, { target: { value: '12345678' } })
+    expect(within(dialog).queryByText('DW_TEST_KEY 的统一值至少 8 个字符')).toBeNull()
+  })
 })
 
 describe('upgrading an install', () => {

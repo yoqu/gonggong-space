@@ -34,6 +34,7 @@ export function ConfirmActionDialog({
   const confirm = async () => {
     if (busy) return
     setBusy(true)
+    setError('')
     try {
       await run()
       toast({ type: 'success', message: done })

@@ -3,16 +3,23 @@ import { useState } from 'react'
 import { useLocation } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
-import { useGet } from '../../lib/useGet'
 import { Button, ConfirmActionDialog, GroupRow, Presence } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { feishuStartUrl } from './login'
 import './login.css'
 
-/** 设置 · 账户 · 飞书: the linked Feishu identity (sign-in and @Bot in Feishu need it), or a link to bind one. */
-export function FeishuIdentityRow() {
+/**
+ * 设置 · 账户 · 飞书: the linked Feishu identity (sign-in and @Bot in Feishu need it), or a link to bind one. The
+ * account page loads `data` once for this row and the avatar row.
+ */
+export function FeishuIdentityRow({
+  data,
+  reload,
+}: {
+  data: FeishuIdentityView | null
+  reload: () => unknown
+}) {
   const options = useAuthOptions()
-  const { data, reload } = useGet<FeishuIdentityView>('/me/feishu')
   const { pathname, search } = useLocation()
   const [unlinking, setUnlinking] = useState(false)
   const identity = data?.identity ?? null
