@@ -30,6 +30,7 @@ import { notify } from '../notifications/notify.js'
 import { voidQuestions } from '../questions/service.js'
 import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors } from '../secrets/resolve.js'
+import { touchThread } from '../threads/service.js'
 import { settleWebhook } from '../webhooks/service.js'
 import { controlsRun, publishRun, type RunRow, UNFINISHED, WAITING } from './dto.js'
 import { schedule } from './scheduler.js'
@@ -101,6 +102,7 @@ export async function teardownRun(
     await voidApprovals(ctx, run.id, o.voidReason)
     await voidQuestions(ctx, run.id)
   }
+  await touchThread(ctx, run.threadRootId)
   await publishRun(ctx, run)
   if (o.reschedule) await schedule(ctx, run.botId)
   if (o.publishBot !== false) await publishBots(ctx, eq(bots.id, run.botId))

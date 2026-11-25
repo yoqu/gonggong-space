@@ -11,7 +11,7 @@ import { audienceOf } from '../bots/access.js'
 import { botRepliesInThreadOf, groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { authorName, messageDto, postEvent, postMessage, publishMessage } from '../messages/service.js'
-import { publishThread } from '../threads/service.js'
+import { publishThread, touchThread } from '../threads/service.js'
 import { adoptManaged, PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
@@ -122,7 +122,10 @@ async function createRuns(ctx: Ctx, t: Trigger) {
         })
         .returning()
       if (!refused) await schedule(ctx, bot.id)
-      else if (run) await publishRun(ctx, run)
+      else if (run) {
+        await touchThread(ctx, run.threadRootId)
+        await publishRun(ctx, run)
+      }
     }),
   )
 }

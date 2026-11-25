@@ -269,6 +269,38 @@ describe('thread root in the main timeline', () => {
     expect(screen.queryByTestId('run-card')).toBeNull()
   })
 
+  it('keeps the thread entry on the main timeline after a thread run fails without a reply message', async () => {
+    const bareRoot = msg({ seq: 1, body: '@小王的 Claude CC' })
+    const failedRun = run({
+      threadRootId: 'm1',
+      status: 'interrupted',
+      step: '运行出错：API Error: Request rejected (429)',
+      endedAt: min(2),
+    })
+    renderAt('/g/g1', {
+      'GET /groups/g1/timeline?limit=50': { messages: [bareRoot], runs: [run({ threadRootId: 'm1' })] },
+      'GET /messages/m1/thread?limit=50': threadDto({
+        root: { ...bareRoot, thread: { replyCount: 1, lastReplyAt: min(2), participants: ['b1'] } },
+        replies: [],
+        runs: [failedRun],
+      }),
+    })
+    expect(await screen.findByRole('button', { name: /查看话题/ })).toBeTruthy()
+    push({
+      t: 'thread.updated',
+      groupId: 'g1',
+      rootId: 'm1',
+      thread: { replyCount: 1, lastReplyAt: min(2), participants: ['b1'] },
+    })
+    push({ t: 'run.updated', run: failedRun })
+    const entry = await screen.findByRole('button', { name: /1 条回复/ })
+    expect(screen.queryByText('Bot 回复中')).toBeNull()
+    fireEvent.click(entry)
+    const rail = await panel()
+    expect(await within(rail).findByText('1 条回复')).toBeTruthy()
+    expect(within(rail).getByText(/API Error: Request rejected/)).toBeTruthy()
+  })
+
   it('opens the thread of a ?thread= link', async () => {
     renderAt('/g/g1?thread=m1')
     const rail = await panel()

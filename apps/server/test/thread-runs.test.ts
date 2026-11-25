@@ -1,13 +1,17 @@
 import {
+  type GroupThreadsDto,
   type MessageDto,
   type NotificationDto,
   PROTOCOL_VERSION,
   type RunStart,
   type ThreadUnreadDto,
+  type TimelineDto,
+  type WebEvent,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  bots,
   groupBots,
   groupMembers,
   groups,
@@ -16,7 +20,10 @@ import {
   threadFollows,
   threadSessions,
 } from '../src/db/schema.js'
+import { recallMessage } from '../src/modules/messages/recall.js'
+import { stopRuns } from '../src/modules/runs/stop.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
+import { threadSummaries } from '../src/modules/threads/service.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -404,5 +411,96 @@ describe('a bot answering in a thread', () => {
       .onConflictDoNothing()
     expect(await notes(asBob)).toEqual([])
     expect((await asBob.get<ThreadUnreadDto>('/api/threads/unread')).body.mentioned).toBe(0)
+  })
+})
+
+describe('abnormal bot runs in a thread', () => {
+  it('keeps the thread entry on timeline, thread list and realtime when a run fails without a reply', async () => {
+    const w = await world()
+    await t.db
+      .update(groups)
+      .set({ params: { botRepliesInThread: true } })
+      .where(eq(groups.id, w.group.id))
+    const d = await daemon(w.token)
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(w.alice.id, (e) => seen.push(e))
+
+    const root = await w.mention('@小王的 Claude CC')
+    const start = await d.next()
+    d.send(done(start.runId, { outcome: 'failed', reply: '', error: 'API Error: Request rejected (429)' }))
+
+    await vi.waitFor(async () => {
+      const [r] = await t.db.select().from(runs).where(eq(runs.id, start.runId))
+      expect(r?.status).toBe('interrupted')
+    })
+
+    const summary = (await threadSummaries(t.ctx, [root.id])).get(root.id)
+    expect(summary).toMatchObject({ replyCount: 1, participants: [w.bot.id] })
+    expect(seen.find((e) => e.t === 'thread.updated' && e.rootId === root.id)).toMatchObject({
+      t: 'thread.updated',
+      rootId: root.id,
+      thread: { replyCount: 1, participants: [w.bot.id] },
+    })
+
+    const asAlice = client(t, await t.seed.cookie(w.alice.id))
+    const tl = (await asAlice.get<TimelineDto>(`/api/groups/${w.group.id}/timeline`)).body
+    expect(tl.messages.find((m) => m.id === root.id)?.thread).toMatchObject({
+      replyCount: 1,
+      participants: [w.bot.id],
+    })
+    const list = (await asAlice.get<GroupThreadsDto>(`/api/groups/${w.group.id}/threads`)).body
+    expect(list.threads.map((x) => [x.root.id, x.live, x.root.thread?.replyCount])).toEqual([
+      [root.id, false, 1],
+    ])
+  })
+
+  it('does not double-count a completed run that posted a reply message', async () => {
+    const w = await world()
+    await t.db
+      .update(groups)
+      .set({ params: { botRepliesInThread: true } })
+      .where(eq(groups.id, w.group.id))
+    const d = await daemon(w.token)
+    const root = await w.mention('@小王的 Claude 正常回答')
+    const start = await d.next()
+    d.send(done(start.runId, { reply: '正常回复' }))
+    await w.replyOf(start.runId)
+
+    const summary = (await threadSummaries(t.ctx, [root.id])).get(root.id)
+    expect(summary).toMatchObject({ replyCount: 1, participants: [w.bot.id] })
+  })
+
+  it('counts stopped waiting runs and refused runs, but ignores runs voided by recalling the root', async () => {
+    const w = await world()
+    await t.db
+      .update(groups)
+      .set({ params: { botRepliesInThread: true } })
+      .where(eq(groups.id, w.group.id))
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(w.alice.id, (e) => seen.push(e))
+
+    // Stopped while waiting/offline (no daemon connected).
+    const stoppedRoot = await w.mention('@小王的 Claude 等下')
+    const [queued] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, stoppedRoot.id))
+    await stopRuns(t.ctx, { groupId: w.group.id, runId: queued!.id }, w.alice)
+    expect((await threadSummaries(t.ctx, [stoppedRoot.id])).get(stoppedRoot.id)).toMatchObject({
+      replyCount: 1,
+      participants: [w.bot.id],
+    })
+    expect(seen.some((e) => e.t === 'thread.updated' && e.rootId === stoppedRoot.id)).toBe(true)
+
+    // Recalled root voids its unstarted run and leaves no phantom reply bar.
+    const recalledRoot = await w.mention('@小王的 Claude 撤回我')
+    await recallMessage(t.ctx, w.alice, recalledRoot.id)
+    expect((await threadSummaries(t.ctx, [recalledRoot.id])).get(recalledRoot.id)).toBeUndefined()
+
+    // Refused (forbidden) run under a thread-replies group also gets a thread entry.
+    await t.db.update(bots).set({ triggerScope: 'self' }).where(eq(bots.id, w.bot.id))
+    const refusedRoot = await w.say('@小王的 Claude 帮我看看', { userId: w.bob.id, mentions: [w.bot.id] })
+    await triggerRuns(t.ctx, refusedRoot)
+    expect((await threadSummaries(t.ctx, [refusedRoot.id])).get(refusedRoot.id)).toMatchObject({
+      replyCount: 1,
+      participants: [w.bot.id],
+    })
   })
 })

@@ -14,6 +14,7 @@ import { forgetStream } from '../runs/engine.js'
 import { runStep } from '../runs/step.js'
 import { notifyChainDone, stopRuns } from '../runs/stop.js'
 import { leaveBots } from '../sync/switch.js'
+import { touchThread } from '../threads/service.js'
 import { toUserDto } from './dto.js'
 
 async function load(ctx: Ctx, id: string) {
@@ -91,6 +92,7 @@ export async function disableUser(ctx: Ctx, id: string, actor: SessionUser) {
     : []
   for (const run of cut) {
     await forgetStream(run.id)
+    await touchThread(ctx, run.threadRootId)
     await publishRun(ctx, run)
     await notifyChainDone(ctx, run)
   }

@@ -18,7 +18,7 @@ import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/s
 import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
 import { pauseStopped, requeueRun } from '../sync/resolve.js'
-import { followOnReply, isArtifactChat, publishThread } from '../threads/service.js'
+import { followOnReply, isArtifactChat, publishThread, touchThread } from '../threads/service.js'
 import { settleWebhook } from '../webhooks/service.js'
 import { publishBotState, updateContextUsage } from '../workspaces/state.js'
 import { cardColumns, LIVE, publishRun, publishStep, type RunRow } from './dto.js'
@@ -497,6 +497,8 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
     if (ended.root) await publishThread(ctx, ended.root)
     await notifyMentions(ctx, ended.message, name)
     await pushToAll(ctx, ended.message, name)
+  } else if (ended.run.threadRootId) {
+    await touchThread(ctx, ended.run.threadRootId)
   }
   if (ended.state && done.git) await publishBotState(ctx, ended.state)
   // The sealed patch just written may be large and nothing after the end reads it, so it is not sent back.

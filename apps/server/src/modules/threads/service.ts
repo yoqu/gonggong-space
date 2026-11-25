@@ -1,14 +1,25 @@
-import type { ThreadStateDto, ThreadSummary } from '@gonggong/protocol'
+import { TERMINAL_RUN_STATUS, type ThreadStateDto, type ThreadSummary } from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { messages, threadFollows } from '../../db/schema.js'
+import { messages, runs, statusIn, threadFollows } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { type MessageRow, memberIds } from '../messages/service.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 const PARTICIPANTS = 3
+
+/**
+ * A terminal run in a thread that produced no bot reply message (failed, stopped, expired, refused, or empty):
+ * counts as a reply so the root keeps its thread entry, except unstarted runs voided only because the triggering
+ * message was recalled.
+ */
+export const standaloneThreadRun = and(
+  statusIn(runs.status, TERMINAL_RUN_STATUS),
+  sql`not exists (select 1 from messages m where m.run_id = ${runs.id} and m.kind = 'bot' and m.recalled_at is null)`,
+  sql`not (${runs.status} = 'expired' and ${runs.startedAt} is null and exists (select 1 from messages tm where tm.id = ${runs.triggerMessageId} and tm.recalled_at is not null))`,
+)
 
 /** The root a reply in `groupId` may hang under: a user or bot message of the group that is not a reply itself. */
 export async function threadRoot(ctx: Ctx, groupId: string, rootId: string) {
@@ -45,37 +56,80 @@ export async function threadSummaries(
     isNull(messages.recalledAt),
     ne(messages.kind, 'event'),
   )
-  const [totals, authors] = await Promise.all([
+  const inThreadRuns = and(inArray(runs.threadRootId, rootIds), standaloneThreadRun)
+  const runAt = sql<Date>`coalesce(${runs.endedAt}, ${runs.queuedAt})`
+  const toDate = (v: string | Date) => new Date(v)
+  const [totals, authors, runTotals, runAuthors] = await Promise.all([
     ctx.db
       .select({
         rootId: messages.threadRootId,
         n: sql<number>`count(*)`.mapWith(Number),
-        last: sql<Date>`max(${messages.createdAt})`.mapWith((v: string | Date) => new Date(v)),
+        last: sql<Date>`max(${messages.createdAt})`.mapWith(toDate),
       })
       .from(messages)
       .where(inThreads)
       .groupBy(messages.threadRootId),
     ctx.db
-      .select({ rootId: messages.threadRootId, author, first: sql<number>`min(${messages.seq})` })
+      .select({
+        rootId: messages.threadRootId,
+        author,
+        firstAt: sql<Date>`min(${messages.createdAt})`.mapWith(toDate),
+        firstSeq: sql<number>`min(${messages.seq})`.mapWith(Number),
+      })
       .from(messages)
       .where(and(inThreads, sql`${author} is not null`))
-      .groupBy(messages.threadRootId, author)
-      .orderBy(sql`min(${messages.seq})`),
+      .groupBy(messages.threadRootId, author),
+    ctx.db
+      .select({
+        rootId: runs.threadRootId,
+        n: sql<number>`count(*)`.mapWith(Number),
+        last: sql<Date>`max(${runAt})`.mapWith(toDate),
+      })
+      .from(runs)
+      .where(inThreadRuns)
+      .groupBy(runs.threadRootId),
+    ctx.db
+      .select({
+        rootId: runs.threadRootId,
+        author: runs.botId,
+        firstAt: sql<Date>`min(${runAt})`.mapWith(toDate),
+      })
+      .from(runs)
+      .where(inThreadRuns)
+      .groupBy(runs.threadRootId, runs.botId),
   ])
   const states = viewerId ? await threadStates(ctx, rootIds, viewerId) : new Map<string, ThreadStateDto>()
-  for (const t of totals)
-    if (t.rootId) {
-      const mine = states.get(t.rootId)
-      out.set(t.rootId, {
-        replyCount: t.n,
-        lastReplyAt: t.last.toISOString(),
-        participants: [],
-        ...(viewerId && { unread: mine?.unread ?? 0, mentioned: mine?.mentioned ?? false }),
-      })
+  const merge = (rootId: string | null, n: number, last: Date) => {
+    if (!rootId) return
+    const cur = out.get(rootId)
+    if (cur) {
+      cur.replyCount += n
+      if (last.getTime() > Date.parse(cur.lastReplyAt)) cur.lastReplyAt = last.toISOString()
+      return
     }
-  for (const a of authors) {
+    const mine = states.get(rootId)
+    out.set(rootId, {
+      replyCount: n,
+      lastReplyAt: last.toISOString(),
+      participants: [],
+      ...(viewerId && { unread: mine?.unread ?? 0, mentioned: mine?.mentioned ?? false }),
+    })
+  }
+  for (const t of totals) merge(t.rootId, t.n, t.last)
+  for (const r of runTotals) merge(r.rootId, r.n, r.last)
+  const combined = [
+    ...authors.map((a) => ({ rootId: a.rootId, author: a.author, at: a.firstAt.getTime(), seq: a.firstSeq })),
+    ...runAuthors.map((a) => ({
+      rootId: a.rootId,
+      author: a.author,
+      at: a.firstAt.getTime(),
+      seq: Number.MAX_SAFE_INTEGER,
+    })),
+  ].sort((a, b) => a.at - b.at || a.seq - b.seq)
+  for (const a of combined) {
     const s = a.rootId ? out.get(a.rootId) : undefined
-    if (s && s.participants.length < PARTICIPANTS) s.participants.push(a.author)
+    if (s && s.participants.length < PARTICIPANTS && !s.participants.includes(a.author))
+      s.participants.push(a.author)
   }
   return out
 }
@@ -199,6 +253,13 @@ export async function publishThread(ctx: Ctx, root: Pick<MessageRow, 'id' | 'gro
     thread: summary.get(root.id) ?? null,
   })
   for (const f of followers) ctx.bus.publish([f.userId], { t: 'thread.state', ...stateDto(f) })
+}
+
+/** Refreshes the root's thread summary when activity lands under `rootId` without a regular reply message. */
+export async function touchThread(ctx: Ctx, rootId: string | null | undefined) {
+  if (!rootId) return
+  const [root] = await ctx.db.select().from(messages).where(eq(messages.id, rootId))
+  if (root && !isArtifactChat(root)) await publishThread(ctx, root)
 }
 
 /** Thread replies not also sent to the group live in their thread only. */

@@ -51,6 +51,7 @@ import { currentTeam } from '../teams/service.js'
 import {
   isArtifactChat,
   readThread,
+  standaloneThreadRun,
   stateColumns,
   stateDto,
   threadState,
@@ -220,28 +221,48 @@ export function threadRoutes(ctx: Ctx) {
         .orderBy(desc(max(runs.queuedAt)))
         .limit(200)
       const lastSeq = max(messages.seq)
-      // Bots at work come with the first page, whatever its size; the pages after it hold the quiet threads.
-      const quiet = await ctx.db
-        .select({ id: sql<string>`${messages.threadRootId}`, lastSeq })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.groupId, groupId),
-            isNotNull(messages.threadRootId),
-            isNull(messages.recalledAt),
-            ne(messages.kind, 'event'),
-            live.length
-              ? notInArray(
-                  messages.threadRootId,
-                  live.map((r) => r.id),
-                )
-              : undefined,
-          ),
-        )
-        .groupBy(messages.threadRootId)
-        .having(cursor ? lt(lastSeq, cursor) : undefined)
-        .orderBy(desc(lastSeq))
-        .limit(limit)
+      const liveIdsList = live.map((r) => r.id)
+      // Bots at work come with the first page, whatever its size; the pages after it hold the quiet threads
+      // (both threads with reply messages and run-only threads whose bot run ended abnormally without a reply).
+      const [quietMessages, quietRuns] = await Promise.all([
+        ctx.db
+          .select({ id: sql<string>`${messages.threadRootId}`, lastSeq })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.groupId, groupId),
+              isNotNull(messages.threadRootId),
+              isNull(messages.recalledAt),
+              ne(messages.kind, 'event'),
+              liveIdsList.length ? notInArray(messages.threadRootId, liveIdsList) : undefined,
+            ),
+          )
+          .groupBy(messages.threadRootId)
+          .having(cursor ? lt(lastSeq, cursor) : undefined)
+          .orderBy(desc(lastSeq))
+          .limit(limit),
+        ctx.db
+          .select({ id: sql<string>`${runs.threadRootId}`, lastSeq: messages.seq })
+          .from(runs)
+          .innerJoin(messages, eq(messages.id, runs.threadRootId))
+          .where(
+            and(
+              eq(runs.groupId, groupId),
+              isNotNull(runs.threadRootId),
+              isNull(messages.threadRootId),
+              standaloneThreadRun,
+              sql`not exists (select 1 from messages m where m.thread_root_id = ${runs.threadRootId} and m.recalled_at is null and m.kind <> 'event')`,
+              liveIdsList.length ? notInArray(runs.threadRootId, liveIdsList) : undefined,
+              cursor ? lt(messages.seq, cursor) : undefined,
+            ),
+          )
+          .groupBy(runs.threadRootId, messages.seq)
+          .orderBy(desc(messages.seq))
+          .limit(limit),
+      ])
+      const quiet = [...quietMessages, ...quietRuns]
+        .sort((a, b) => (b.lastSeq ?? 0) - (a.lastSeq ?? 0))
+        .slice(0, limit)
       const atWork = cursor ? [] : live
       const ids = [...atWork, ...quiet].map((r) => r.id)
       if (!ids.length) return { threads: [], next: null }
