@@ -64,6 +64,9 @@ const rules = (list: string[], mcp?: ApprovalMcp | null) =>
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
   kinds.map((k) => options.find((o) => o.kind === k)).find(Boolean)
 
+/** 自动审批 rejects these outright for someone other than the owner. */
+export const redLine = (a: ApprovalDto) => a.reason === 'high_risk' || a.reason === 'protected_base'
+
 function outcome(a: ApprovalDto) {
   const at = a.decidedAt ? hm(a.decidedAt) : ''
   switch (a.status) {
@@ -76,6 +79,11 @@ function outcome(a: ApprovalDto) {
     case 'rejected':
       if (a.decidedByName)
         return t('{name} 已拒绝 · {at} · Bot 会换个方式继续', { name: a.decidedByName, at })
+      if (redLine(a))
+        return at
+          ? t('命中高危红线，已自动拒绝 · {at} · Bot 会换个方式继续', { at })
+          : t('命中高危红线，已自动拒绝 · Bot 会换个方式继续')
+      // Rejected by 自动审批 before only red lines were: keeps its old wording.
       return at
         ? t('按规则自动拒绝 · {at} · Bot 会换个方式继续', { at })
         : t('按规则自动拒绝 · Bot 会换个方式继续')

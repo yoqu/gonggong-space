@@ -294,8 +294,8 @@ export default {
   确定允许: 'Allow',
   '不再询问，Bot 可以执行任何操作，包括危险命令。':
     'Never asks; the Bot may do anything, dangerous commands included.',
-  '按「帮我审批」的规则自动放行，规则拦下的操作直接拒绝，不打扰你。':
-    'Allowed by the "Review for me" rules; whatever they stop is rejected without bothering you.',
+  '常规开发与工作区内操作自动放行；高危红线自动拒绝；其余不确定的操作发审批卡片给你。':
+    'Routine development and work inside the workspace run; red lines are rejected automatically; anything else uncertain sends you an approval card.',
   '只读命令自动放行，其余操作发审批卡片给你。':
     'Read-only commands run; everything else sends you an approval card.',
   'Bot 只能读取，其余操作发审批卡片给你。':

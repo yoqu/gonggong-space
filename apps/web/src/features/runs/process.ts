@@ -2,7 +2,7 @@ import type { ApprovalDto, QuestionSetDto, RunDetailDto } from '@gonggong/protoc
 import { t } from '../../i18n'
 import { newSessionNote } from '../chat/TimelineItems'
 import { parsePatch } from '../diff/patch'
-import { VOID_TEXT } from './ApprovalBlock'
+import { redLine, VOID_TEXT } from './ApprovalBlock'
 import { CONFIG_ECHO } from './mcp'
 import { processSteps, type Step, type Timed } from './steps'
 
@@ -15,7 +15,8 @@ export function approvalText(a: ApprovalDto) {
     case 'approved':
       return a.decidedByName ? t('{name} 已批准', { name: a.decidedByName }) : t('已批准')
     case 'rejected':
-      return a.decidedByName ? t('{name} 已拒绝', { name: a.decidedByName }) : t('按规则自动拒绝')
+      if (a.decidedByName) return t('{name} 已拒绝', { name: a.decidedByName })
+      return redLine(a) ? t('命中高危红线，已自动拒绝') : t('按规则自动拒绝')
     case 'expired':
       return t('超时未审批，已自动拒绝')
     case 'void':

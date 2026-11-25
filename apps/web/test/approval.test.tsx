@@ -294,6 +294,7 @@ describe('ApprovalBlock', () => {
       {},
       '按规则自动拒绝 · Bot 会换个方式继续',
     ],
+
     [
       approval({ status: 'expired', decidedAt: NOW.toISOString() }),
       {},
@@ -316,6 +317,26 @@ describe('ApprovalBlock', () => {
     expect(container.querySelector('.approval__done > span:last-child')?.textContent).toBe(text)
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
     expect(screen.getByText(/未被只读规则或已保存的允许规则覆盖/)).toBeTruthy()
+  })
+
+  it.each([
+    [
+      approval({
+        status: 'rejected',
+        reason: 'high_risk',
+        decidedByName: null,
+        decidedAt: NOW.toISOString(),
+      }),
+      '命中高危红线，已自动拒绝 · 10:21 · Bot 会换个方式继续',
+    ],
+    [
+      approval({ status: 'rejected', reason: 'protected_base', decidedByName: null, decidedAt: null }),
+      '命中高危红线，已自动拒绝 · Bot 会换个方式继续',
+    ],
+  ] as const)('says a red line was rejected automatically %#', (a, text) => {
+    login('u1', '王磊')
+    const { container } = render(<ApprovalBlock run={run([a])} />)
+    expect(container.querySelector('.approval__done > span:last-child')?.textContent).toBe(text)
   })
 
   it('shows auto-rejected and unnamed outcomes cleanly in English', async () => {
@@ -355,6 +376,16 @@ describe('ApprovalBlock', () => {
         />,
       )
       expect(doneText()).toBe('Auto-rejected by rule · the Bot will carry on another way')
+
+      const redLine = approval({
+        status: 'rejected',
+        reason: 'high_risk',
+        decidedByName: null,
+        decidedAt: null,
+      })
+      rerender(<EnApprovalBlock run={run([redLine])} />)
+      expect(doneText()).toBe('Red line hit, rejected automatically · the Bot will carry on another way')
+      expect(enApprovalText(redLine)).toBe('Red line hit, rejected automatically')
 
       const unnamedApproved = approval({
         status: 'approved',

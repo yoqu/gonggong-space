@@ -113,7 +113,7 @@ Relayed (hand_off) tasks count as started by whoever started the chain.
 | Option | Meaning |
 | --- | --- |
 | 完全允许 (Allow everything) | Never asks; the Bot can do anything. Choosing it asks you to confirm once more |
-| 自动审批 (Auto-approve) | Allowed by the 「帮我审批」 (Review for me) rules; whatever they stop (dangerous commands included) is **rejected outright** without a card bothering you, and the agent tries another way |
+| 自动审批 (Auto-approve) | Allowed by the 「帮我审批」 (Review for me) rules; red lines (dangerous commands, possible changes to a protected base branch) are **rejected outright** without a card bothering you, and the agent tries another way; anything else the rules aren't sure about (network, file edits, unparsable commands…) sends you an approval card |
 | 需要审批 (Needs approval) | Read-only commands run; everything else sends you an approval card |
 | 只读 (Read-only) | The Bot can only read; everything else sends you an approval card |
 | 不可触发 (Cannot be triggered) | An @ starts no run; the run card shows 「无权触发」 (Not allowed) |

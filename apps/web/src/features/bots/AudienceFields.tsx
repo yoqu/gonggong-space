@@ -17,7 +17,7 @@ export const AUDIENCE_LEVEL_LABEL: Record<AudienceLevel, string> = {
 
 const LEVEL_HINT: Record<AudienceLevel, string> = {
   full: t('不再询问，Bot 可以执行任何操作，包括危险命令。'),
-  auto: t('按「帮我审批」的规则自动放行，规则拦下的操作直接拒绝，不打扰你。'),
+  auto: t('常规开发与工作区内操作自动放行；高危红线自动拒绝；其余不确定的操作发审批卡片给你。'),
   ask: t('只读命令自动放行，其余操作发审批卡片给你。'),
   'read-only': t('Bot 只能读取，其余操作发审批卡片给你。'),
   deny: t('@ 它不会启动运行。'),

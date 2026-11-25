@@ -44,6 +44,9 @@ export function runAccess(
     : own
 }
 
+/** Approval reasons 自动审批 rejects outright for someone else; the rest go to the owner. */
+export const RED_LINE = new Set<string>(['high_risk', 'protected_base'])
+
 export const autoRejects = (
   bot: { tier: string; aiReview: boolean; access: BotAccess },
   groupTier: string | null,

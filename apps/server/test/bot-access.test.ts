@@ -163,9 +163,66 @@ describe('per-audience access', () => {
     expect((await w.runOf(s.runId)).audience).toBe('trusted')
   })
 
-  it('rejects what 自动审批 leaves for someone else at once instead of asking the owner', async () => {
+  it.each(['high_risk', 'protected_base'] as const)(
+    'rejects a %s red line under 自动审批 for someone else at once instead of asking the owner',
+    async (reason) => {
+      const w = await world({ access: { trusted: 'ask', others: 'auto' } })
+      await w.trigger(w.other.id)
+      const { runId } = await w.start()
+      w.d.send({
+        t: 'approval.request',
+        runId,
+        requestId: `${runId}/1`,
+        title: 'Bash',
+        toolKind: 'execute',
+        detail: 'sudo rm -rf /',
+        reason,
+        options: OPTIONS,
+      })
+      expect(await w.d.next()).toEqual({
+        t: 'approval.decision',
+        runId,
+        requestId: `${runId}/1`,
+        optionId: 'reject',
+      })
+      const [a] = await t.db.select().from(approvals)
+      expect([a!.status, a!.decidedBy]).toEqual(['rejected', null])
+      expect((await w.runOf(runId)).status).toBe('running')
+      expect(await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))).toEqual([])
+    },
+  )
+
+  it.each(['not_allowed', 'unparsed', 'network', 'write', 'ai_denied'] as const)(
+    'asks the owner for a %s grey-zone request under 自动审批',
+    async (reason) => {
+      const w = await world({ access: { trusted: 'ask', others: 'auto' } })
+      await w.trigger(w.other.id)
+      const { runId } = await w.start()
+      w.d.send({
+        t: 'approval.request',
+        runId,
+        requestId: `${runId}/1`,
+        title: 'Bash',
+        toolKind: 'execute',
+        detail: 'curl https://example.com',
+        reason,
+        options: OPTIONS,
+      })
+      await expect.poll(async () => (await w.runOf(runId)).status).toBe('awaiting_approval')
+      const [a] = await t.db.select().from(approvals)
+      expect(a!.status).toBe('pending')
+      await expect
+        .poll(
+          async () =>
+            (await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))).length,
+        )
+        .toBe(1)
+    },
+  )
+
+  it('asks the owner about a red line the owner triggered', async () => {
     const w = await world({ access: { trusted: 'ask', others: 'auto' } })
-    await w.trigger(w.other.id)
+    await w.trigger(w.owner.id)
     const { runId } = await w.start()
     w.d.send({
       t: 'approval.request',
@@ -174,18 +231,12 @@ describe('per-audience access', () => {
       title: 'Bash',
       toolKind: 'execute',
       detail: 'sudo rm -rf /',
+      reason: 'high_risk',
       options: OPTIONS,
     })
-    expect(await w.d.next()).toEqual({
-      t: 'approval.decision',
-      runId,
-      requestId: `${runId}/1`,
-      optionId: 'reject',
-    })
+    await expect.poll(async () => (await w.runOf(runId)).status).toBe('awaiting_approval')
     const [a] = await t.db.select().from(approvals)
-    expect([a!.status, a!.decidedBy]).toEqual(['rejected', null])
-    expect((await w.runOf(runId)).status).toBe('running')
-    expect(await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))).toEqual([])
+    expect(a!.status).toBe('pending')
   })
 
   it('asks the owner for a trusted member at 需要审批', async () => {
@@ -217,7 +268,8 @@ describe('per-audience access', () => {
       requestId: `${runId}/1`,
       title: 'Bash',
       toolKind: 'execute',
-      detail: 'ls',
+      detail: 'sudo rm -rf /',
+      reason: 'high_risk',
       options: OPTIONS,
     })
     await expect.poll(async () => (await w.runOf(runId)).status).toBe('awaiting_approval')

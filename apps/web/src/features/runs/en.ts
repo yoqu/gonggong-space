@@ -36,6 +36,10 @@ export default {
   '按规则自动拒绝 · {at} · Bot 会换个方式继续':
     'Auto-rejected by rule · {at} · the Bot will carry on another way',
   '按规则自动拒绝 · Bot 会换个方式继续': 'Auto-rejected by rule · the Bot will carry on another way',
+  '命中高危红线，已自动拒绝 · {at} · Bot 会换个方式继续':
+    'Red line hit, rejected automatically · {at} · the Bot will carry on another way',
+  '命中高危红线，已自动拒绝 · Bot 会换个方式继续':
+    'Red line hit, rejected automatically · the Bot will carry on another way',
   '超时未处理，已自动拒绝 · {at} · Bot 会换个方式继续':
     'No response in time, rejected automatically · {at} · the Bot will carry on another way',
   '权限请求 · {kind}': 'Permission request · {kind}',
@@ -211,6 +215,7 @@ export default {
   '{name} 已批准': 'Approved by {name}',
   '{name} 已拒绝': 'Rejected by {name}',
   按规则自动拒绝: 'Auto-rejected by rule',
+  '命中高危红线，已自动拒绝': 'Red line hit, rejected automatically',
   '超时未审批，已自动拒绝': 'Not approved in time; rejected automatically',
   '续用上次会话，补送上次被 @ 以来的群消息': 'Resumed the last session with group messages since the last @',
   '首次会话，补送此前的群消息': 'First session, with earlier group messages',

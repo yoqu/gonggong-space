@@ -602,6 +602,9 @@ describe('approvalText', () => {
     expect(approvalText(approval({ status: 'approved', decidedByName: null }))).toBe('已批准')
     expect(approvalText(approval({ status: 'rejected', decidedByName: '王磊' }))).toBe('王磊 已拒绝')
     expect(approvalText(approval({ status: 'rejected', decidedByName: null }))).toBe('按规则自动拒绝')
+    expect(
+      approvalText(approval({ status: 'rejected', reason: 'protected_base', decidedByName: null })),
+    ).toBe('命中高危红线，已自动拒绝')
   })
 })
 

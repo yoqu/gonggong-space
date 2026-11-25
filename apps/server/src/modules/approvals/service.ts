@@ -11,7 +11,7 @@ import { approvals, auditLogs, bots, groupBots, groups, runs } from '../../db/sc
 import { audit, teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { startSweep } from '../../lib/sweep.js'
-import { autoRejects } from '../bots/access.js'
+import { autoRejects, RED_LINE } from '../bots/access.js'
 import { normalizeAllowlist } from '../bots/allowlist.js'
 import { publishBots } from '../bots/dto.js'
 import { groupParams } from '../groups/params.js'
@@ -83,8 +83,11 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       createdAt: ctx.now(),
     })
     .returning()) as [Approval]
-  // 自动审批 for someone other than the owner: what the rules left is refused, the owner is not disturbed.
-  if (autoRejects(row.bot, row.groupTier, row.run.audience as RunAudience | null)) {
+  // 自动审批 for someone other than the owner: a red line is refused without disturbing the owner; the grey zone asks.
+  if (
+    RED_LINE.has(req.reason) &&
+    autoRejects(row.bot, row.groupTier, row.run.audience as RunAudience | null)
+  ) {
     const reject = req.options.find((o) => o.kind === 'reject_once')
     await settle(ctx, { a, groupId: row.group.id, machineId }, 'rejected', reject?.optionId ?? null, null)
     return

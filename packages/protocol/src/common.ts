@@ -57,8 +57,8 @@ export const TriggerScope = z.enum(['all', 'list', 'self'])
 export type TriggerScope = z.infer<typeof TriggerScope>
 
 /**
- * How a bot runs for someone other than its owner: full / workspace with 帮我审批 (requests its rules leave are
- * rejected, not asked) / workspace asking the owner / read-only. Who may trigger at all stays `triggerScope`.
+ * How a bot runs for someone other than its owner: full / workspace with 帮我审批 (of what its rules leave, red lines
+ * — high_risk, protected_base — are rejected, the rest asked) / workspace asking the owner / read-only. Who may trigger at all stays `triggerScope`.
  */
 export const AccessLevel = z.enum(['full', 'auto', 'ask', 'read-only'])
 export type AccessLevel = z.infer<typeof AccessLevel>
