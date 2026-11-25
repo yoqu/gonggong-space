@@ -27,6 +27,10 @@ export interface Candidate {
   hint: string
   /** Replaces the typed `@query` / `/query`. */
   insert: string
+  /** Uploaded member avatar URL; absent or null falls back to initials. */
+  avatar?: string | null
+  /** Bot id so BotAvatar resolves by id rather than name. */
+  botId?: string
   /** Bots only: presence dot + text. */
   status?: { label: string; color: string }
   /** A skill: agents read its mention anywhere, so it is inserted where typed (commands move to the head). */
@@ -135,7 +139,7 @@ export function useCandidates(
       ? [
           {
             key: 'everyone',
-            icon: 'person' as const,
+            icon: 'at' as const,
             name: '所有人',
             hint: t('{n} 人', { n: group.members.length }),
           },
@@ -144,6 +148,7 @@ export function useCandidates(
     ...bots.map((b) => ({
       key: `bot:${b.id}`,
       icon: 'bot' as const,
+      botId: b.id,
       name: b.name,
       hint: b.ownerName,
       status: PRESENCE[b.presence],
@@ -151,6 +156,7 @@ export function useCandidates(
     ...group.members.map((m) => ({
       key: `member:${m.userId}`,
       icon: 'person' as const,
+      avatar: m.avatar,
       name: m.name,
       hint: t('成员'),
     })),
@@ -321,11 +327,22 @@ export function useCandidates(
   return { token, names, sections: shown, items: shown.flatMap((s) => s.items), empty }
 }
 
-/** People (members and Bots) show their avatar; files and commands a glyph tile. */
+/** People (members and Bots) show their avatar; @所有人 uses the MentionPicker badge; files and commands a glyph tile. */
 function Lead({ c }: { c: Candidate }) {
+  if (c.icon === 'at') {
+    return (
+      <span aria-hidden="true" className="pn-mentionpicker__all">
+        <Icon name="at" weight={1.8} />
+      </span>
+    )
+  }
   return c.icon === 'bot' || c.icon === 'person' ? (
     <span aria-hidden="true" className="mention-pop__lead">
-      {c.icon === 'bot' ? <BotAvatar name={c.label} size={24} /> : <Avatar name={c.label} size={24} />}
+      {c.icon === 'bot' ? (
+        <BotAvatar id={c.botId} name={c.label} size={24} />
+      ) : (
+        <Avatar name={c.label} src={c.avatar ?? undefined} size={24} />
+      )}
     </span>
   ) : (
     <span aria-hidden="true" className="mention-pop__lead mention-pop__tile">
