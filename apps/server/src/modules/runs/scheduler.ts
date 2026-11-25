@@ -483,7 +483,7 @@ export async function buildRunStart(
   const creations = granted?.creations ?? []
   const cli =
     granted && bot.machineId && features.includes('connectors')
-      ? await runCli(tx, bot.machineId, run.originUserId, granted.connected, probes)
+      ? runCli(granted.connected, probes)
       : new Map<string, never>()
   const unconnected = command
     ? null

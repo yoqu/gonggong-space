@@ -1,10 +1,4 @@
-import {
-  type ConnectorCliState,
-  type ConnectorDriver,
-  type ConnectorProbe,
-  type ConnectorProfile,
-  memberProfile,
-} from '@gonggong/protocol'
+import type { ConnectorCliState, ConnectorProbe } from '@gonggong/protocol'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 
@@ -57,52 +51,16 @@ export function syncChanged(ctx: Pick<Ctx, 'hub'>, machineId: string, json: stri
   return true
 }
 
-export type Person = { id: string; name: string; feishuUserId: string | null }
-
-/** Whether the probe's account is the person, by Feishu user_id; null when either side lacks one. */
-const accountIs = (probe: ConnectorProbe, p: Person) =>
-  probe.feishuUserId && p.feishuUserId ? probe.feishuUserId === p.feishuUserId : null
-
-export type ProfileOn = {
-  profile: ConnectorProfile
-  probe: ConnectorProbe | undefined
-  verified: boolean | null
-}
-
 /**
- * The profile `p` uses for `connector` on a machine `ownerId` owns (§5.3 机主复用): the owner keeps to `default` unless
- * it is logged in as someone else (by Feishu user_id, else by name, unverified); everyone else to their `gg-<userId>`.
+ * The machine's CLI login for `connector`: always the owner's own (`default`) profile. Whoever @s a bot on the machine
+ * uses it; nobody else logs in there (plan 连接器-机主授权).
  */
-export function profileOn(
-  probes: ConnectorProbe[],
-  connector: string,
-  ownerId: string,
-  p: Person,
-): ProfileOn {
-  if (ownerId === p.id) {
-    const d = probes.find((x) => x.connector === connector && x.profile === 'default')
-    if (d?.state !== 'ready') return { profile: 'default', probe: d, verified: null }
-    const verified = accountIs(d, p)
-    if (verified === true || (verified === null && d.account === p.name))
-      return { profile: 'default', probe: d, verified }
-  }
-  const profile = memberProfile(p.id)
-  const probe = probes.find((x) => x.connector === connector && x.profile === profile)
-  return { profile, probe, verified: probe?.state === 'ready' ? accountIs(probe, p) : null }
-}
+export const ownerProbe = (probes: ConnectorProbe[], connector: string) =>
+  probes.find((x) => x.connector === connector && x.profile === 'default')
 
-/** A profile the daemon has not reported reads as its CLI would: not installed, or still to set up. */
-export function stateOf(
-  probes: ConnectorProbe[],
-  connector: string,
-  driver: ConnectorDriver,
-  probe: ConnectorProbe | undefined,
-): ConnectorCliState {
-  if (probe) return probe.state
-  const d = probes.find((x) => x.connector === connector && x.profile === 'default')
-  if (!d || d.state === 'not_installed') return 'not_installed'
-  return driver === 'lark-cli' ? 'needs_init' : 'needs_login'
-}
+/** A login the daemon has not reported reads as not installed yet. */
+export const stateOf = (probe: ConnectorProbe | undefined): ConnectorCliState =>
+  probe?.state ?? 'not_installed'
 
 /** Best first: ready on any machine wins. */
 export const STATE_RANK: ConnectorCliState[] = [

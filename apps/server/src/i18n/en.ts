@@ -624,10 +624,9 @@ export const en = {
   插件不存在: 'Plugin not found',
   连接器不存在: 'Connector not found',
   这台电脑不能用来连接: "This computer can't be used to connect",
-  '需要一台在线电脑：安装桌面端，或请 Bot 所在电脑的主人开启「允许群成员在本机连接」':
-    'An online computer is needed: install the desktop app, or ask the owner of a bot\'s computer to turn on "Let group members connect here"',
+  '本群没有运行在你电脑上的在线 Bot': 'None of the online bots here runs on your computer',
+  只有电脑主人可以在这台电脑上连接: 'Only the computer owner can connect on it',
   '连接超时，请重试': 'Connecting timed out, try again',
-  只有电脑主人可以设置: 'Only the computer owner can change this',
   连接: 'Connect',
   已连接: 'Connected',
   去连接: 'Connect',

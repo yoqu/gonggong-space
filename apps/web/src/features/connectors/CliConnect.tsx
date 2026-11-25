@@ -7,7 +7,7 @@ import { errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
 import { Alert, Button, ConfirmActionDialog, Disclosure, Presence, Spinner, Tag, toast } from '../../ui'
-import { cliMachine, humanError } from './cli'
+import { humanError } from './cli'
 import { cliAction, cliConnect, put } from './store'
 
 type CliEvent = Extract<
@@ -147,7 +147,7 @@ export function CliConnect({
     setBusy('detect')
     setFailure(null)
     try {
-      await cliAction(groupId, c.id, 'detect', cliMachine(c)?.machineId)
+      await cliAction(groupId, c.id, 'detect', mine?.machineId)
     } catch (e) {
       setFailure(errorText(e))
     } finally {
@@ -155,74 +155,58 @@ export function CliConnect({
     }
   }
 
-  const here = cliMachine(c)
+  // Only the owner connects, checks or signs out on a machine; everyone else just uses what is there.
+  const target = cli.machines.find((x) => x.machineId === (cardMachine ?? cli.target) && x.own)
+  const mine = cli.machines.find((x) => x.own && x.state === 'ready')
   const example = m.connector?.examples[0]
-  const foreign = cli.machines.filter((x) => x.state === 'ready' && x.verified === false)
-  const groupBots = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.botIds)
   const bots = useWorkspace((s) => s.bots)
   const names = (ids: string[]) => ids.map((id) => bots.find((b) => b.id === id)?.name ?? id).join(t('、'))
-  // Bots whose machine is not listed (closed to members or offline): my login here never reaches them.
-  const unreachable = (groupBots ?? []).filter((id) => !cli.machines.some((x) => x.botIds.includes(id)))
   return (
     <div className="cn-cli">
-      {foreign.map((x) => (
-        <Alert
-          key={x.machineId}
-          variant="warning"
-          title={t('{machine} 登录的是 {account}，不是你', {
-            machine: x.machineName,
-            account: x.account ?? t('别人的账号'),
-          })}
-        />
-      ))}
-      {cli.state === 'ready' && unreachable.length ? (
-        <Alert
-          variant="warning"
-          title={t('{bots} 用不了你的登录', { bots: names(unreachable) })}
-          description={t(
-            '它们所在的电脑不在下面的列表里（未开启『允许群成员在本机连接』或不在线）。请电脑主人开启后在那台电脑上连接，或改 @ 可用的 Bot。',
-          )}
-        />
-      ) : null}
       {failure ? (
         <Alert variant="error" title={failure} onRetry={() => void connect()} retryLabel={t('重试')} />
       ) : null}
       {run ? (
         <CliProgress run={run} onCancel={cancel} />
       ) : cli.state === 'no_machine' ? (
-        <Alert
-          variant="info"
-          title={t('需要一台在线电脑')}
-          description={t('安装桌面端，或请 Bot 所在电脑的主人开启『允许群成员在本机连接』')}
-        />
-      ) : cli.state === 'ready' ? (
+        <Alert variant="info" title={t('Bot 所在电脑不在线')} />
+      ) : cli.state === 'ready' && (!target || target.state === 'ready') ? (
         <div className="cn-detail__actions">
           {example && onTry ? (
             <Button size="large" variant="primary" icon="bubble" onClick={() => onTry(example)}>
               {t('去试试')}
             </Button>
           ) : null}
-          <Button size="large" loading={busy === 'detect'} onClick={() => void detect()}>
-            {t('重新检测')}
-          </Button>
-          <Button size="large" variant="plain" onClick={() => setLoggingOut(true)}>
-            {t('退出登录')}
-          </Button>
+          {mine ? (
+            <>
+              <Button size="large" loading={busy === 'detect'} onClick={() => void detect()}>
+                {t('重新检测')}
+              </Button>
+              <Button size="large" variant="plain" onClick={() => setLoggingOut(true)}>
+                {t('退出登录')}
+              </Button>
+            </>
+          ) : null}
         </div>
+      ) : !target ? (
+        <Alert variant="info" title={t('请 Bot 所在电脑的主人连接')} />
       ) : (
         <>
           {domains.length ? (
             <div className="gs-note">{t('需要补充权限：{domains}', { domains: domains.join(t('、')) })}</div>
           ) : null}
           <div className="cn-detail__actions">
-            <Button size="large" variant="primary" onClick={() => void connect()}>
+            <Button size="large" variant="primary" onClick={() => void connect(target.machineId)}>
               {cli.state === 'error' ? t('重试') : c.status === 'expired' ? t('重新连接') : t('连接')}
             </Button>
           </div>
           <div className="gs-note">
-            {t('在 {machine} 上用你自己的账号登录，自动安装所需工具，授权链接只显示给你。', {
-              machine: here?.machineName ?? t('Bot 所在电脑'),
-            })}
+            {t(
+              '在 {machine} 上用你的账号登录，自动安装所需工具；群里任何人 @ 这台电脑上的 Bot 都会用这个账号。',
+              {
+                machine: target.machineName,
+              },
+            )}
           </div>
         </>
       )}
@@ -245,7 +229,7 @@ export function CliConnect({
                     ? t('已连接 · {account}', { account: x.account })
                     : STATE[x.state]}
                 </span>
-                {x.state === 'ready' ? null : (
+                {x.state === 'ready' || !x.own ? null : (
                   <Button
                     size="small"
                     disabled={!!run}
@@ -264,11 +248,13 @@ export function CliConnect({
         {loggingOut ? (
           <ConfirmActionDialog
             title={t('退出「{name}」的登录？', { name: m.title })}
-            message={t('Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。', { name: m.title })}
+            message={t('这台电脑上的 Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。', {
+              name: m.title,
+            })}
             consequences={[]}
             label={t('退出登录')}
             done={t('已退出「{name}」', { name: m.title })}
-            run={() => cliAction(groupId, c.id, 'logout', here?.machineId)}
+            run={() => cliAction(groupId, c.id, 'logout', mine?.machineId)}
             onClose={() => setLoggingOut(false)}
           />
         ) : null}

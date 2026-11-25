@@ -121,7 +121,3 @@ export const ConnectorCard = z.object({
   resolved: z.boolean(),
 })
 export type ConnectorCard = z.infer<typeof ConnectorCard>
-
-/** PUT /api/machines/:id/member-connect — the owner allows group members to log their own CLI accounts in there. */
-export const MachineMemberConnectReq = z.object({ allow: z.boolean() })
-export type MachineMemberConnectReq = z.infer<typeof MachineMemberConnectReq>

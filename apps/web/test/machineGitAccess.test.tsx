@@ -29,7 +29,6 @@ const server: MachineDto = {
   agents: [],
   daemonVersion: '0.9.0',
   features: ['tools', 'providers', 'machineAdmin', 'gitAccess', 'diag'],
-  allowMemberConnect: false,
   lastSeenAt: null,
   hostname: 'gg-server-1',
   system: null,

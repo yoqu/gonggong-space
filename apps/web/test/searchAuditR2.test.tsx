@@ -112,7 +112,6 @@ const machine = (id: string, online: boolean, ownerId = 'u1'): MachineDto => ({
   agents: [],
   daemonVersion: '0.1.0',
   features: [],
-  allowMemberConnect: false,
   lastSeenAt: null,
   hostname: id,
   system: null,

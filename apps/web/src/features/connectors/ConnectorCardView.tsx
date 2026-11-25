@@ -17,7 +17,7 @@ const reasonText = (card: ConnectorCard) =>
       : t('未连接')
 
 /**
- * A bot's 就地连接 card (connector_request, plan 连接器-体验升级方案 §6): only the turn's originator connects from it, in
+ * A bot's 就地连接 card (connector_request): only the owner of the bot's machine connects from it, in
  * a private dialog; once connected the server resolves it and the run goes on.
  */
 export const ConnectorCardView = memo(function ConnectorCardView({
@@ -49,7 +49,7 @@ export const ConnectorCardView = memo(function ConnectorCardView({
             {t('连接')}
           </Button>
         ) : (
-          <Tag tone="gray">{t('仅发起人可连接')}</Tag>
+          <Tag tone="gray">{t('仅电脑主人可连接')}</Tag>
         )}
       </span>
       <Presence>

@@ -213,7 +213,6 @@ describe('Round 5 UX Audit — Admin Config & Observability Pages', () => {
         netMeasuredAt: '2026-11-21T10:00:00Z',
         agents: [],
         features: [],
-        allowMemberConnect: false,
       },
     ]
     mockApi({

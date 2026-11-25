@@ -756,8 +756,8 @@ export const GONGGONG_TOOLS = {
   connector_request: {
     title: GONGGONG_TOOL_TITLES.connector_request,
     description:
-      'Ask the turn initiator to connect a CLI connector when its command says they are not logged in, the login expired or a permission is missing: posts a private 「连接」 card only they can use (the login link never shows in the chat). ' +
-      'Returns at once; end your turn. Once they connect, this turn is run again by itself — do not ask them to resend.',
+      "Ask the owner of the computer you run on to connect a CLI connector when its command says it is not logged in, the login expired or a permission is missing (every turn on this computer uses the owner's login, whoever started it): posts a 「连接」 card only the owner can use (the login link never shows in the chat). " +
+      'Returns at once; end your turn. Once connected, this turn is run again by itself — do not ask anyone to resend.',
     input: ConnectorRequestArgs,
   },
   plugin_catalog: {

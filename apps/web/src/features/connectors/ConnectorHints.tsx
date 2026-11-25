@@ -37,7 +37,10 @@ export function ConnectorHints({
   const list = useConnectorStore((s) => s.lists[groupId])
   if (!draft.trim() || !list) return null
   const cli = list.flatMap((c) => (c.enabledInGroup && c.on && c.cli ? [{ c, view: c.cli }] : []))
-  const link = cli.find(({ c, view }) => view.state !== 'ready' && linksTo(draft, hostsOf(c)))?.c
+  // Only a machine's owner can connect: the others get no hint they cannot act on.
+  const link = cli.find(
+    ({ c, view }) => view.state !== 'ready' && view.target && linksTo(draft, hostsOf(c)),
+  )?.c
   if (link)
     return (
       <p className="cn-hint" role="status">
@@ -62,9 +65,11 @@ export function ConnectorHints({
         <Button size="small" variant="plain" onClick={swap}>
           {t('切换到 @{bot}', { bot: alt.name })}
         </Button>
-        <Button size="small" variant="plain" onClick={() => onConnect(c)}>
-          {t('立即连接')}
-        </Button>
+        {view.target ? (
+          <Button size="small" variant="plain" onClick={() => onConnect(c)}>
+            {t('立即连接')}
+          </Button>
+        ) : null}
       </p>
     )
   }

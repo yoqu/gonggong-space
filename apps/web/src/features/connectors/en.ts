@@ -42,27 +42,25 @@ export default {
   重新登录: 'Sign in again',
   在对话里重新登录: 'Sign in again in chat',
   '「{name}」拒绝了这个密钥，请确认后重新填写': '"{name}" refused this key; check it and fill it again',
-  'Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。':
-    'Bots can no longer reach "{name}" with your account; you can connect again any time.',
   'Bot 所在电脑': "the bot's computer",
   '{bot} 所在电脑还没连接{name}': "{bot}'s computer is not connected to {name} yet",
-  '{machine} 登录的是 {account}，不是你': '{machine} is signed in as {account}, not you',
   '下载命令行工具超时，请检查这台电脑的网络后重试':
     "Downloading the command-line tool timed out; check this computer's network and retry",
-  仅发起人可连接: 'Only the requester can connect',
+  仅电脑主人可连接: 'Only the computer owner can connect',
+  'Bot 所在电脑不在线': "The bots' computers are offline",
+  '请 Bot 所在电脑的主人连接': "Ask the owner of the bot's computer to connect",
+  待电脑主人连接: 'Waiting for the computer owner',
+  '在 {machine} 上用你的账号登录，自动安装所需工具；群里任何人 @ 这台电脑上的 Bot 都会用这个账号。':
+    'Signs in with your account on {machine}, installing what is needed; anyone who @s a bot on this computer uses this account.',
+  '这台电脑上的 Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。':
+    'Bots on this computer will no longer reach "{name}" with your account. You can reconnect any time.',
+  '用 Bot 所在电脑主人的账号，群里任何人 @ 它都会用这个账号':
+    "Uses the account of the bot's computer owner, for anyone here who @s it",
   '切换到 @{bot}': 'Switch to @{bot}',
   创建飞书应用: 'Create Feishu app',
-  别人的账号: "someone else's account",
   各电脑的连接状态: 'Connection on each computer',
-  '在 {machine} 上用你自己的账号登录，自动安装所需工具，授权链接只显示给你。':
-    'Signs in with your own account on {machine}, installing what is needed; the authorization link is shown only to you.',
   '在 {machine} 上连接': 'Connect on {machine}',
-  '安装桌面端，或请 Bot 所在电脑的主人开启『允许群成员在本机连接』':
-    'Install the desktop app, or ask the owner of the bot\'s computer to turn on "Let group members connect here"',
   '已连接，正在继续': 'Connected, continuing',
-  '{bots} 用不了你的登录': "{bots} can't use your login",
-  '它们所在的电脑不在下面的列表里（未开启『允许群成员在本机连接』或不在线）。请电脑主人开启后在那台电脑上连接，或改 @ 可用的 Bot。':
-    'Their computers aren\'t listed below ("Let group members connect on this computer" is off, or they\'re offline). Ask the owner to turn it on and connect there, or @ a bot that can use it.',
   '可用的 Bot：{bots}': 'Bots: {bots}',
   '已退出「{name}」': 'Signed out of "{name}"',
   我的: 'Mine',
@@ -87,7 +85,6 @@ export default {
   连接出错: 'Connection error',
   连接进度: 'Connection progress',
   '退出「{name}」的登录？': 'Sign out of "{name}"?',
-  需要一台在线电脑: 'Needs an online computer',
   '需要补充权限：{domains}': 'More permissions needed: {domains}',
   '飞书应用还没启用，请在飞书开放平台发布应用后重试':
     'The Feishu app is not enabled yet; publish it on the Feishu Open Platform and retry',

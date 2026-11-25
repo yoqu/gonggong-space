@@ -4,20 +4,14 @@ import {
   type ConnectorCliStarted,
   type ConnectorProbe,
   type DaemonToServer,
-  type MachineDto,
-  MachineMemberConnectReq,
 } from '@gonggong/protocol'
-import { eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { machines } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
-import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
-import { machineDto } from '../bots/dto.js'
 import { requireMember } from '../groups/service.js'
-import { OFFLINE, ownMachine, relay, requireFeature } from '../machines/relay.js'
+import { OFFLINE, relay, requireFeature } from '../machines/relay.js'
 import { connectorDtos } from '../plugins/connectors.js'
 import { groupPluginList, requirePluginsOn } from '../plugins/service.js'
 import { remindExpiring, resolveCards } from './requests.js'
@@ -127,12 +121,8 @@ export function connectorCliRoutes(ctx: Ctx) {
         const machineId = body.machineId ?? view.target
         const on = view.machines.find((m) => m.machineId === machineId)
         if (!on)
-          return fail(
-            'conflict',
-            machineId
-              ? '这台电脑不能用来连接'
-              : '需要一台在线电脑：安装桌面端，或请 Bot 所在电脑的主人开启「允许群成员在本机连接」',
-          )
+          return fail('conflict', machineId ? '这台电脑不能用来连接' : '本群没有运行在你电脑上的在线 Bot')
+        if (!on.own) return fail('forbidden', '只有电脑主人可以在这台电脑上连接')
         requireFeature(ctx, on.machineId, 'connectors')
         const op: Op = {
           userId: me.id,
@@ -171,29 +161,6 @@ export function connectorCliRoutes(ctx: Ctx) {
           }
         } else await relay(ctx, on.machineId, cmd(body.action), 'connectors.result', ACTION_TIMEOUT_MS)
         return dtoOf(op)
-      },
-    )
-
-    app.put<{ Params: { id: string } }>(
-      '/api/machines/:id/member-connect',
-      async (req): Promise<MachineDto> => {
-        const me = await requireUser(ctx, req)
-        const m = await ownMachine(ctx, me.id, req.params.id, '只有电脑主人可以设置')
-        const { allow } = MachineMemberConnectReq.parse(req.body)
-        const [row] = await ctx.db
-          .update(machines)
-          .set({ allowMemberConnect: allow })
-          .where(eq(machines.id, m.id))
-          .returning()
-        const dto = machineDto(ctx, row!)
-        ctx.bus.publish([m.ownerId], { t: 'machine.updated', machine: dto })
-        await audit(ctx, {
-          category: 'admin',
-          actorUserId: me.id,
-          action: 'machine.member_connect',
-          detail: { machineId: m.id, allow },
-        })
-        return dto
       },
     )
   }

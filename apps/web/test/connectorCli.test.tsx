@@ -110,7 +110,7 @@ describe('CLI 连接器 · 状态', () => {
     expect(rows.map((r) => r.textContent)).toEqual([
       '飞书已连接 · 王磊',
       '飞书项目未登录连接',
-      '某系统需要一台在线电脑连接',
+      '某系统Bot 所在电脑不在线',
     ])
     expect(within(rows[0]!).getByRole('switch')).toBeTruthy()
   })
@@ -139,6 +139,7 @@ describe('CLI 连接器 · 一站式连接', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/groups/g1/connectors/c5/cli')?.body).toEqual({
         action: 'connect',
+        machineId: 'mc1',
         domains: [],
       }),
     )
@@ -234,35 +235,23 @@ describe('CLI 连接器 · 一站式连接', () => {
     )
   })
 
-  it('ready: checks again, signs out after confirming, warns of someone else’s login', async () => {
+  it('ready: the owner checks again and signs out; others’ machines offer no connect', async () => {
     const cli = view({
       state: 'ready',
-      readyBotIds: ['b1'],
+      readyBotIds: ['b1', 'b2'],
       machines: [
-        machine({ state: 'ready', account: '王磊', verified: true }),
-        machine({
-          machineId: 'mc2',
-          machineName: '办公室电脑',
-          own: false,
-          state: 'ready',
-          account: '李四',
-          verified: false,
-        }),
+        machine({ state: 'ready', account: '王磊' }),
+        machine({ machineId: 'mc2', machineName: '办公室电脑', own: false, state: 'ready', account: '李四' }),
         machine({ machineId: 'mc3', machineName: '测试机', own: false, state: 'needs_init' }),
       ],
     })
     const calls = mockApi({
       ...routes([lark(cli)]),
       'POST /groups/g1/connectors/c5/cli': (b: unknown) =>
-        (b as { action: string }).action === 'logout'
-          ? lark(view())
-          : (b as { action: string }).action === 'connect'
-            ? { requestId: 'r1', machineId: 'mc3' }
-            : lark(cli),
+        (b as { action: string }).action === 'logout' ? lark(view()) : lark(cli),
     })
     renderChat()
     const dialog = await openDialog()
-    expect(within(dialog).getByText('办公室电脑 登录的是 李四，不是你')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '重新检测' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ action: 'detect', machineId: 'mc1' }),
@@ -270,54 +259,56 @@ describe('CLI 连接器 · 一站式连接', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '电脑 · 3' }))
     const list = within(dialog).getByRole('list', { name: '各电脑的连接状态' })
     expect(within(list).getByText('已连接 · 李四')).toBeTruthy()
-    fireEvent.click(within(list).getByRole('button', { name: '在 测试机 上连接' }))
-    await waitFor(() =>
-      expect(calls.some((c) => (c.body as { machineId?: string })?.machineId === 'mc3')).toBe(true),
-    )
-    emit({
-      t: 'connector.cli.result',
-      requestId: 'r1',
-      ok: true,
-      error: null,
-      probe: null,
-      connector: lark(cli),
-    })
+    expect(within(list).queryByRole('button', { name: '在 测试机 上连接' })).toBeNull()
 
-    fireEvent.click(await within(dialog).findByRole('button', { name: '退出登录' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '退出登录' }))
     const confirm = await screen.findByRole('alertdialog')
     fireEvent.click(within(confirm).getByRole('button', { name: '退出登录' }))
     await waitFor(() =>
-      expect(calls.some((c) => (c.body as { action?: string })?.action === 'logout')).toBe(true),
+      expect(
+        calls.filter((c) => (c.body as { action?: string })?.action === 'logout').map((c) => c.body),
+      ).toEqual([{ action: 'logout', machineId: 'mc1' }]),
     )
     expect(await within(dialog).findByRole('button', { name: '连接' })).toBeTruthy()
   })
 
-  it('says which bots can use the login: those on no listed machine cannot', async () => {
-    mockApi({
-      ...routes([lark(ready())]),
-      'GET /groups': [{ ...group, botIds: ['b1', 'b2'] }],
-      'GET /bots': [bot, { ...bot, id: 'b2', name: '共字君', machineId: 'mc9', machineName: 'Mac-mini-2' }],
-    })
+  it('a member uses the owner’s login and cannot connect or sign out', async () => {
+    mockApi(
+      routes([
+        lark(view({ machines: [machine({ own: false })], target: null }), {
+          id: 'c6',
+          manifest: manifest({ name: 'meegle', title: '飞书项目' }),
+        }),
+        lark(
+          view({
+            state: 'ready',
+            readyBotIds: ['b1'],
+            machines: [machine({ own: false, state: 'ready', account: '王磊' })],
+            target: null,
+          }),
+        ),
+      ]),
+    )
     renderChat()
+    const menu = await openMenu()
+    const rows = await within(menu).findAllByRole('listitem')
+    expect(rows.map((r) => r.textContent)).toEqual(['飞书项目待电脑主人连接', '飞书已连接 · 王磊'])
+    fireEvent.click(within(menu).getByRole('button', { name: '飞书项目' }))
+    const waiting = await screen.findByRole('dialog', { name: '飞书项目' })
+    expect(within(waiting).getByText('请 Bot 所在电脑的主人连接')).toBeTruthy()
+    expect(within(waiting).queryByRole('button', { name: '连接' })).toBeNull()
+    fireEvent.keyDown(document, { key: 'Escape' })
     const dialog = await openDialog()
-    expect(within(dialog).getByText('共字君 用不了你的登录')).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: '电脑 · 1' }))
-    const list = within(dialog).getByRole('list', { name: '各电脑的连接状态' })
-    expect(within(list).getByText('可用的 Bot：设计助手')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '去试试' })).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: '重新检测' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: '退出登录' })).toBeNull()
   })
 
-  it('every bot covered: no warning', async () => {
-    mockApi(routes([lark(ready())]))
-    renderChat()
-    const dialog = await openDialog()
-    expect(within(dialog).queryByText(/用不了你的登录/)).toBeNull()
-  })
-
-  it('no machine: guides to the desktop app or the owner’s switch', async () => {
+  it('no machine: says the bots’ computers are offline', async () => {
     mockApi(routes([lark(view({ state: 'no_machine', machines: [], target: null }))]))
     renderChat()
     const dialog = await openDialog()
-    expect(within(dialog).getByText(/允许群成员在本机连接/)).toBeTruthy()
+    expect(within(dialog).getByRole('alert')).toHaveProperty('textContent', 'Bot 所在电脑不在线')
     expect(within(dialog).queryByRole('button', { name: '连接' })).toBeNull()
   })
 
@@ -369,7 +360,7 @@ describe('就地连接卡', () => {
     connector: 'feishu',
     title: '飞书',
     userId: me.id,
-    machineId: 'm1',
+    machineId: 'mc1',
     reason: 'missing_scope',
     domains: ['calendar', 'docs'],
     resolved: false,
@@ -383,7 +374,7 @@ describe('就地连接卡', () => {
     )
   beforeEach(() => useSession.setState({ user: me }))
 
-  it("only the requester connects, on the asking bot's machine, for the missing domains", async () => {
+  it("only the machine owner connects, on the asking bot's machine, for the missing domains", async () => {
     const calls = mockApi({
       'GET /groups/g1/connectors': { connectors: [lark(view())] },
       'POST /groups/g1/connectors/c5/cli': { requestId: 'r1', machineId: 'mc1' },
@@ -398,7 +389,7 @@ describe('就地连接卡', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
         action: 'connect',
-        machineId: 'm1',
+        machineId: 'mc1',
         domains: ['calendar', 'docs'],
       }),
     )
@@ -406,7 +397,7 @@ describe('就地连接卡', () => {
 
   it('others wait; a resolved card says it goes on', () => {
     show(card({ userId: 'u9' }))
-    expect(screen.getByText('仅发起人可连接')).toBeTruthy()
+    expect(screen.getByText('仅电脑主人可连接')).toBeTruthy()
     show(card({ resolved: true }))
     expect(screen.getByText('已连接，正在继续')).toBeTruthy()
   })

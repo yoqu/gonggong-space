@@ -33,14 +33,16 @@ function cliStatus(c: ConnectorDto, cli: ConnectorCliView): { tone: Tone; text: 
       const account = cliMachine(c)?.account ?? c.account
       return { tone: 'ok', text: account ? t('已连接 · {account}', { account }) : t('已连接') }
     }
-    // The CLI cannot tell a lapsed login from none (a member's new profile reads the same): say 未登录.
     case 'needs_login':
-      return { tone: 'idle', text: t('未登录') }
     case 'needs_init':
     case 'not_installed':
-      return { tone: 'idle', text: t('未连接') }
+      // Only a machine's owner connects there: everyone else waits for them.
+      return {
+        tone: 'idle',
+        text: cli.target ? (cli.state === 'needs_login' ? t('未登录') : t('未连接')) : t('待电脑主人连接'),
+      }
     case 'no_machine':
-      return { tone: 'idle', text: t('需要一台在线电脑') }
+      return { tone: 'idle', text: t('Bot 所在电脑不在线') }
     case 'error':
       return { tone: 'warn', text: t('连接出错') }
   }
@@ -49,7 +51,7 @@ function cliStatus(c: ConnectorDto, cli: ConnectorCliView): { tone: Tone; text: 
 /** Needs the person to connect (again): never connected, or the system refused the key / login. */
 export const needsConnect = (c: ConnectorDto) =>
   c.cli
-    ? c.cli.state !== 'ready'
+    ? c.cli.state !== 'ready' && !!c.cli.target
     : c.status === 'expired' ||
       (c.status === 'unconnected' && c.missing.length > 0) ||
       (!!c.manifest.connector?.login && c.status === 'unchecked')

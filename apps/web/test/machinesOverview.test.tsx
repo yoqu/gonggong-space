@@ -19,7 +19,6 @@ const machine = (o: Partial<MachineDto>): MachineDto => ({
   agents: [],
   daemonVersion: '0.9.0',
   features: ['providers'],
-  allowMemberConnect: false,
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,

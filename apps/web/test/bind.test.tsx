@@ -28,7 +28,6 @@ const old: MachineDto = {
   agents: [],
   daemonVersion: '0.1.0',
   features: [],
-  allowMemberConnect: false,
   lastSeenAt: null,
   hostname: 'old-box',
   system: null,

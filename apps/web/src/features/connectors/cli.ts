@@ -1,7 +1,7 @@
 import type { ConnectorDto, ConnectorMachineView } from '@gonggong/protocol'
 import { t } from '../../i18n'
 
-/** The machine whose login the connector uses for me: the first ready one, else where 连接 runs. */
+/** The machine whose login the connector shows: the first ready one, else where I would connect. */
 export const cliMachine = (c: ConnectorDto): ConnectorMachineView | undefined =>
   c.cli?.machines.find((m) => m.state === 'ready') ??
   c.cli?.machines.find((m) => m.machineId === c.cli?.target)

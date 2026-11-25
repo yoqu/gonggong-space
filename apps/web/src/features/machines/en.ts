@@ -27,6 +27,11 @@ export default {
   'Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」':
     "The Agent uses this directory's own login and settings.json. Pick one from the list or Browse…",
   这台电脑上的绝对路径: 'Absolute path on this computer',
+  使用默认目录: 'Use default directory',
+  '这是 Claude Code 的默认目录：会话使用主目录的登录、MCP、Skill 与 CLAUDE.md，模型由本供应商的 --settings 决定':
+    "This is Claude Code's default directory: sessions use your home login, MCP servers, Skills and CLAUDE.md, with models from this provider's --settings",
+  '默认目录还不存在，请先在这台电脑上运行一次 Claude Code 完成登录或初始化':
+    "The default directory doesn't exist yet. Run Claude Code once on this computer to sign in or initialize it",
   进入配置目录后选择: 'Open the configuration directory, then choose it',
   '使用这台电脑上另一个 Claude 配置目录里的登录与设置，无需 API Key':
     'Use the login and settings of another Claude configuration directory on this computer; no API key needed',
@@ -510,10 +515,6 @@ export default {
   '已离线 {n} 分钟': 'Offline {n}m',
   '已离线 {n} 小时': 'Offline {n}h',
   '已离线 {n} 天': 'Offline {n}d',
-  群成员连接: 'Member connections',
-  允许群成员在本机连接: 'Let group members connect here',
-  '群成员可以在这台电脑上登录自己的飞书等账号，供本机 Bot 替他们使用；登录信息按人分开保存在这台电脑上。':
-    "Group members can sign in to their own Feishu and other accounts on this computer for its bots to use for them; each person's login is stored separately on this computer.",
   '已删除 {ok} 个，{fail} 个失败': 'Deleted {ok}, {fail} failed',
   '已删除 {n} 个工作区': 'Deleted {n} {n:workspace|workspaces}',
   已删除的群: 'Deleted group',

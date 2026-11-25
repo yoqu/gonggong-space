@@ -44,6 +44,13 @@
 - 创作：`POST /api/groups/:id/creations`（`plugins/creations.ts`），步骤由 `creationSteps` 推导；对话里 AI 先 `creation_propose` 发确认卡，成员点「开始」才开工。
 - 样例插件：`examples/plugins/dashboard`。
 
+## 命令行连接器授权（飞书、飞书项目）
+- 2026-11-25 姜维川定：**谁的电脑谁连接**。每台电脑只用 CLI 自己的 `default` 配置档（机主本人的登录）；不论谁 @ 这台电脑上的 Bot，都用机主的授权。取代 `连接器-体验升级方案` §5.3 的按人分档（`gg-<userId>`）与「允许群成员在本机连接」开关。
+- 只有机主能在自己电脑上连接、重新检测、退出（`POST /api/groups/:id/connectors/:pluginId/cli` 非机主 403）；成员只看本群 Bot 所在电脑的就绪状态，没有连接入口。
+- `connector_request` 卡片发给 Bot 所在电脑的主人（`card.userId = machines.ownerId`），只有机主能点；到期提醒只发机主。
+- 协议暂保留 `profile`（恒为 `default`）、`verified`（恒为 null），旧 daemon 无需升级；`machines.allow_member_connect` 已停用，随下次迁移删除；daemon 里的成员档与 PATH 垫片待下次发版清理。
+- 数仓等密钥型连接器不受影响，仍按触发人取个人密钥。
+
 ## 安全约束
 - 两个系统参数，默认都关：`pluginsEnabled`（插件总开关，关闭时零下发）、`pluginCodeEnabled`（插件代码）（`apps/server/src/modules/admin/params.ts`）。
 - 路径白名单：只收 `gonggong-plugin.json`、根目录 `*.md`、`LICENSE`、`skills/`、`previews/`、`assets/`、`contrib/{mcp,agents,tabs}/`（`ALLOWED_PATH`，`plugins/service.ts`）；daemon 解包时 `confine` 再删一遍其余路径。

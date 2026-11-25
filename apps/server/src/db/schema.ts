@@ -220,7 +220,7 @@ export const machines = pgTable('machines', {
   latencyMs: integer('latency_ms'),
   bandwidthMbps: doublePrecision('bandwidth_mbps'),
   netMeasuredAt: ts('net_measured_at'),
-  /** Group members may log their own CLI connector accounts in here (连接器 D4; owner's switch, off by default). */
+  /** Unused since 连接器-机主授权 (only the owner connects); drop with the next migration. */
   allowMemberConnect: boolean('allow_member_connect').notNull().default(false),
   /** Latest successful `gg login`; differs from createdAt once the host was restored or transferred. */
   boundAt: timestamp('bound_at', { withTimezone: true }).notNull().defaultNow(),

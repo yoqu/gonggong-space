@@ -124,7 +124,9 @@ export function ConnectorDialog({
         {(c.personal || m.connector?.login || c.cli) && inGroup ? (
           <div className="cn-detail__note">
             <Icon name="eye" size={13} />
-            {t('用你自己的账号连接，Bot 的回复群内可见')}
+            {c.cli
+              ? t('用 Bot 所在电脑主人的账号，群里任何人 @ 它都会用这个账号')
+              : t('用你自己的账号连接，Bot 的回复群内可见')}
           </div>
         ) : null}
         {!c.cli && c.status === 'unconnected' ? null : (

@@ -62,7 +62,6 @@ const mbp: MachineDto = {
   ],
   daemonVersion: '0.1.0',
   features: [],
-  allowMemberConnect: false,
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,

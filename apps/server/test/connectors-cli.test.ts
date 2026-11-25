@@ -2,14 +2,13 @@ import type {
   ConnectorDto,
   ConnectorList,
   ConnectorProbe,
-  MachineDto,
   PluginDto,
   ServerToDaemon,
   WebEvent,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { feishuIdentities, messages, notifications, runs } from '../src/db/schema.js'
+import { messages, notifications, runs } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { probesOf } from '../src/modules/connectors/state.js'
 import { buildRunStart } from '../src/modules/runs/scheduler.js'
@@ -185,83 +184,60 @@ describe('CLI connectors', () => {
     expect(await w.feishu()).toMatchObject({ cli: null, status: 'unchecked' })
   })
 
-  it('shows each person their own profile, on machines they may connect on', async () => {
+  it('shows everyone the owner’s login on the bot’s machine; only the owner may connect there', async () => {
     const w = await world()
     await w.upload()
     w.online()
-    w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊' })] })
+    w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊', feishuUserId: 'u_other' })] })
 
-    // The owner's default login is theirs (told by name: no Feishu ids to compare).
+    const machine = {
+      machineId: w.machine.id,
+      machineName: w.machine.name,
+      profile: 'default',
+      state: 'ready',
+      account: '王磊',
+      verified: null,
+      botIds: [w.bot.id],
+    }
+    // Whatever account the owner signed in with is the machine's: no matching against Feishu ids.
     const mine = await w.feishu('wang')
     expect(mine.cli).toEqual({
       state: 'ready',
       target: w.machine.id,
       readyBotIds: [w.bot.id],
-      machines: [
-        {
-          machineId: w.machine.id,
-          machineName: w.machine.name,
-          own: true,
-          profile: 'default',
-          state: 'ready',
-          account: '王磊',
-          verified: null,
-          botIds: [w.bot.id],
-        },
-      ],
+      machines: [{ ...machine, own: true }],
     })
     expect(mine).toMatchObject({ status: 'ok', account: '王磊' })
-
-    // Zhao cannot use Wang's machine until Wang allows members to connect there.
+    // Zhao uses it as is, with nowhere to connect.
     expect((await w.feishu()).cli).toEqual({
-      state: 'no_machine',
-      machines: [],
+      state: 'ready',
       target: null,
-      readyBotIds: [],
+      readyBotIds: [w.bot.id],
+      machines: [{ ...machine, own: false }],
     })
-    expect((await w.feishu()).status).toBe('unconnected')
-    expect(
-      (await w.api.zhao.put(`/api/machines/${w.machine.id}/member-connect`, { allow: true })).status,
-    ).toBe(403)
-    const allowed = await w.api.wang.put<MachineDto>(`/api/machines/${w.machine.id}/member-connect`, {
-      allow: true,
-    })
-    expect(allowed.body.allowMemberConnect).toBe(true)
-    expect((await w.api.wang.get<MachineDto[]>('/api/machines')).body[0]?.allowMemberConnect).toBe(true)
-    expect((await w.feishu()).cli).toMatchObject({
-      state: 'needs_init',
-      target: w.machine.id,
-      readyBotIds: [],
-      machines: [{ own: false, profile: `gg-${w.zhao.id}`, state: 'needs_init', account: null }],
-    })
+    expect((await w.feishu()).status).toBe('ok')
 
-    // A Feishu user_id that differs from the owner's: the default login is someone else's.
-    await t.db.insert(feishuIdentities).values({
-      userId: w.wang.id,
-      unionId: 'on_wang',
-      openId: 'ou_wang',
-      feishuUserId: 'u_wang',
-      name: '王磊',
-    })
-    w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊', feishuUserId: 'u_other' })] })
-    expect((await w.feishu('wang')).cli?.machines[0]).toMatchObject({
-      profile: `gg-${w.wang.id}`,
-      state: 'needs_init',
-    })
-    w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊', feishuUserId: 'u_wang' })] })
-    expect((await w.feishu('wang')).cli?.machines[0]).toMatchObject({ profile: 'default', verified: true })
+    w.daemon({ t: 'connectors.update', probes: [] })
+    expect((await w.feishu()).cli).toMatchObject({ state: 'not_installed', target: null })
   })
 
-  it('connects on the machine, streaming progress and links to the caller only', async () => {
+  it('connects on the machine, streaming progress and links to the owner only', async () => {
     const w = await world()
     const plugin = await w.upload()
     w.online()
-    w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊' })] })
-    await w.api.wang.put(`/api/machines/${w.machine.id}/member-connect`, { allow: true })
+    w.daemon({ t: 'connectors.update', probes: [probe({ state: 'needs_init' })] })
     const zhaoGot = w.events(w.zhao.id)
     const wangGot = w.events(w.wang.id)
 
-    const res = await w.api.zhao.post<{ requestId: string; machineId: string }>(
+    // A member cannot log in on someone else's machine.
+    expect((await w.api.zhao.post(`${w.base}/${plugin.id}/cli`, { action: 'connect' })).status).toBe(409)
+    const denied = await w.api.zhao.post(`${w.base}/${plugin.id}/cli`, {
+      action: 'connect',
+      machineId: w.machine.id,
+    })
+    expect(denied.status).toBe(403)
+
+    const res = await w.api.wang.post<{ requestId: string; machineId: string }>(
       `${w.base}/${plugin.id}/cli`,
       {
         action: 'connect',
@@ -270,14 +246,16 @@ describe('CLI connectors', () => {
     expect(res.status).toBe(202)
     expect(res.body.machineId).toBe(w.machine.id)
     const { requestId } = res.body
-    expect(w.sent.find((m) => m.t === 'connectors.cmd')).toEqual({
-      t: 'connectors.cmd',
-      requestId,
-      action: 'connect',
-      spec: { connector: 'feishu', driver: 'lark-cli', npm: '@larksuite/cli' },
-      profile: `gg-${w.zhao.id}`,
-      domains: [],
-    })
+    expect(w.sent.filter((m) => m.t === 'connectors.cmd')).toEqual([
+      {
+        t: 'connectors.cmd',
+        requestId,
+        action: 'connect',
+        spec: { connector: 'feishu', driver: 'lark-cli', npm: '@larksuite/cli' },
+        profile: 'default',
+        domains: [],
+      },
+    ])
     w.daemon({ t: 'connectors.progress', requestId, stage: 'install', line: 'added 1 package' })
     w.daemon({
       t: 'connectors.auth',
@@ -287,27 +265,22 @@ describe('CLI connectors', () => {
       userCode: 'ABCD',
       expiresAt: null,
     })
-    w.daemon({
-      t: 'connectors.result',
-      requestId,
-      ok: true,
-      error: null,
-      probe: probe({ profile: `gg-${w.zhao.id}`, account: '赵敏' }),
-    })
-    await until(() => zhaoGot.some((e) => e.t === 'connector.cli.result'))
-    expect(zhaoGot.map((e) => e.t)).toEqual([
+    w.daemon({ t: 'connectors.result', requestId, ok: true, error: null, probe: probe({ account: '王磊' }) })
+    await until(() => wangGot.some((e) => e.t === 'connector.cli.result'))
+    const cliGot = wangGot.filter((e) => e.t.startsWith('connector.cli'))
+    expect(cliGot.map((e) => e.t)).toEqual([
       'connector.cli.progress',
       'connector.cli.auth',
       'connector.cli.result',
     ])
-    expect(zhaoGot[1]).toMatchObject({
+    expect(cliGot[1]).toMatchObject({
       url: 'https://accounts.feishu.cn/oauth/device?code=SECRET',
       userCode: 'ABCD',
     })
-    const end = zhaoGot[2] as Extract<WebEvent, { t: 'connector.cli.result' }>
+    const end = cliGot[2] as Extract<WebEvent, { t: 'connector.cli.result' }>
     expect(end).toMatchObject({ ok: true, connector: { id: plugin.id } })
     expect(end.connector?.cli).toMatchObject({ state: 'ready', readyBotIds: [w.bot.id] })
-    expect(wangGot.filter((e) => e.t.startsWith('connector.cli'))).toEqual([])
+    expect(zhaoGot.filter((e) => e.t.startsWith('connector.cli'))).toEqual([])
     // The link never lands in a message.
     const bodies = await t.db.select({ body: messages.body }).from(messages)
     expect(JSON.stringify(bodies)).not.toContain('SECRET')
@@ -333,59 +306,62 @@ describe('CLI connectors', () => {
     expect(
       w.sent.filter((m) => m.t === 'connectors.cmd').map((m) => m.t === 'connectors.cmd' && m.profile),
     ).toEqual(['default', 'default'])
-    // No machine Zhao may use.
-    expect((await w.api.zhao.post(`${w.base}/${plugin.id}/cli`, { action: 'detect' })).status).toBe(409)
+    expect(
+      (await w.api.zhao.post(`${w.base}/${plugin.id}/cli`, { action: 'logout', machineId: w.machine.id }))
+        .status,
+    ).toBe(403)
   })
 
-  it('runs the CLIs as the originator, and tells the agent whether they are connected', async () => {
+  it('runs the CLIs with the owner’s login whoever started the turn', async () => {
     const w = await world()
     await w.upload()
     w.online()
     w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊' })] })
 
-    const own = await w.build(await w.startRun(w.wang.id))
-    expect(own.cliProfiles).toEqual([{ driver: 'lark-cli', profile: 'default' }])
-    expect(own.bot.systemPrompt).toContain('已由共工连接（以 王磊 登录）')
-    expect(own.hiddenTools).not.toContain('connector_request')
+    for (const who of [w.wang, w.zhao]) {
+      const msg = await w.build(await w.startRun(who.id))
+      expect(msg.cliProfiles).toEqual([{ driver: 'lark-cli', profile: 'default' }])
+      expect(msg.bot.systemPrompt).toContain(
+        '已由共工连接（以 王磊 登录）：命令行工具已安装，用的是这台电脑主人的账号',
+      )
+      expect(msg.hiddenTools).not.toContain('connector_request')
+    }
 
+    w.daemon({ t: 'connectors.update', probes: [probe({ state: 'needs_login' })] })
     const zhaoRun = await w.startRun(w.zhao.id)
-    const theirs = await w.build(zhaoRun)
-    // Never the owner's login: their own profile, not connected yet.
-    expect(theirs.cliProfiles).toEqual([{ driver: 'lark-cli', profile: `gg-${w.zhao.id}` }])
-    expect(theirs.bot.systemPrompt).toContain(
-      '由共工连接，但发起人在这台电脑上还没连接：需要时调用 connector_request',
+    expect((await w.build(zhaoRun)).bot.systemPrompt).toContain(
+      '由共工连接，但这台电脑的主人还没连接：需要时调用 connector_request',
     )
-
     const old = await w.build(zhaoRun, ['plugins'])
     expect(old.cliProfiles).toEqual([])
     expect(old.hiddenTools).toContain('connector_request')
     expect(old.bot.systemPrompt).toContain('用命令行工具登录')
   })
 
-  it('asks the originator to connect in place, and carries the run on once they did', async () => {
+  it('asks the machine owner to connect in place, and carries the run on once they did', async () => {
     const w = await world()
     const plugin = await w.upload()
     w.online()
-    await w.api.wang.put(`/api/machines/${w.machine.id}/member-connect`, { allow: true })
     const run = await w.startRun(w.zhao.id)
     const out = await w.tool(run, 'connector_request', { connector: 'feishu', reason: 'expired' })
     expect(out.isError).toBeFalsy()
+    expect(out.text).toContain('王磊')
     const [card] = await t.db
       .select()
       .from(messages)
       .where(and(eq(messages.groupId, w.group.id), eq(messages.kind, 'event')))
-    expect(card!.body).toBe('Claude 请 赵敏 连接飞书')
+    expect(card!.body).toBe('Claude 请 王磊 连接飞书')
     expect((card!.meta as { connectorCard: unknown }).connectorCard).toMatchObject({
       pluginId: plugin.id,
       connector: 'feishu',
       title: '飞书',
-      userId: w.zhao.id,
+      userId: w.wang.id,
       machineId: w.machine.id,
       reason: 'expired',
       resolved: false,
     })
 
-    const { body } = await w.api.zhao.post<{ requestId: string }>(`${w.base}/${plugin.id}/cli`, {
+    const { body } = await w.api.wang.post<{ requestId: string }>(`${w.base}/${plugin.id}/cli`, {
       action: 'connect',
       machineId: w.machine.id,
     })
@@ -394,7 +370,7 @@ describe('CLI connectors', () => {
       requestId: body.requestId,
       ok: true,
       error: null,
-      probe: probe({ profile: `gg-${w.zhao.id}`, account: '赵敏' }),
+      probe: probe({ account: '王磊' }),
     })
     await until(async () => {
       const [m] = await t.db.select().from(messages).where(eq(messages.id, card!.id))
@@ -405,32 +381,36 @@ describe('CLI connectors', () => {
         (await t.db.select().from(runs).where(eq(runs.triggerMessageId, run.triggerMessageId))).length === 2,
     )
     // Reported again: not run a second time.
-    w.daemon({ t: 'connectors.update', probes: [probe({ profile: `gg-${w.zhao.id}`, account: '赵敏' })] })
+    w.daemon({ t: 'connectors.update', probes: [probe({ account: '王磊' })] })
     await new Promise((r) => setTimeout(r, 50))
     expect(
       await t.db.select().from(runs).where(eq(runs.triggerMessageId, run.triggerMessageId)),
     ).toHaveLength(2)
   })
 
-  it('reminds a person once when their login runs out within two days', async () => {
+  it('reminds the owner once when the login runs out within two days; old member profiles are ignored', async () => {
     const w = await world()
     await w.upload()
     w.online()
     const soon = new Date(Date.now() + 24 * 3600_000).toISOString()
     const update = {
       t: 'connectors.update',
-      probes: [probe({ profile: `gg-${w.zhao.id}`, account: '赵敏', refreshExpiresAt: soon })],
+      probes: [
+        probe({ account: '王磊', refreshExpiresAt: soon }),
+        probe({ profile: `gg-${w.zhao.id}`, account: '赵敏', refreshExpiresAt: soon }),
+      ],
     }
     w.daemon(update)
     w.daemon(update)
     await until(
       async () =>
-        (await t.db.select().from(notifications).where(eq(notifications.userId, w.zhao.id))).length > 0,
+        (await t.db.select().from(notifications).where(eq(notifications.userId, w.wang.id))).length > 0,
     )
     await new Promise((r) => setTimeout(r, 50))
-    const got = await t.db.select().from(notifications).where(eq(notifications.userId, w.zhao.id))
+    const got = await t.db.select().from(notifications).where(eq(notifications.userId, w.wang.id))
     expect(got).toHaveLength(1)
     expect(got[0]).toMatchObject({ type: 'connector_expiring' })
     expect(got[0]!.payload).toMatchObject({ connectorTitle: '飞书', machineName: w.machine.name })
+    expect(await t.db.select().from(notifications).where(eq(notifications.userId, w.zhao.id))).toEqual([])
   })
 })

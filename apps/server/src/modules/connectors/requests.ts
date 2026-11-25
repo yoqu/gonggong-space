@@ -18,9 +18,8 @@ import {
 import { notify } from '../notifications/notify.js'
 import { groupPluginList } from '../plugins/service.js'
 import { rerunFor } from '../runs/trigger.js'
-import { probesOf, profileOn } from './state.js'
+import { ownerProbe, probesOf } from './state.js'
 import { cliSpec, machineConnectors } from './sync.js'
-import { personOf } from './view.js'
 
 type Args = z.infer<(typeof GONGGONG_TOOLS)['connector_request']['input']>
 
@@ -29,8 +28,8 @@ const CARD_TTL_MS = 24 * 3600_000
 const RENEW_WITHIN_MS = 48 * 3600_000
 
 /**
- * connector_request (plan 连接器-体验升级方案 §6 就地授权): a 连接 card for the originator in the group; the login link
- * only ever opens in their own dialog. The asking run carries on once their profile on the bot's machine is ready.
+ * connector_request (plan 连接器-机主授权): a 连接 card in the group for the owner of the asking bot's machine, whose
+ * login every turn there uses; only they connect from it. The asking run carries on once the login is ready.
  */
 export async function connectorRequestTool(ctx: Ctx, run: Run, a: Args): Promise<ToolOutput> {
   const found = (await groupPluginList(ctx.db, run.groupId)).find(
@@ -38,18 +37,20 @@ export async function connectorRequestTool(ctx: Ctx, run: Run, a: Args): Promise
   )
   if (!found) return refuse(`本群没有开启命令行连接器 ${a.connector}`)
   const title = found.version.manifest.title
-  const [bot] = await ctx.db
-    .select({ name: bots.name, machineId: bots.machineId })
+  const [row] = await ctx.db
+    .select({ bot: bots.name, machineId: machines.id, ownerId: machines.ownerId, owner: users.name })
     .from(bots)
+    .innerJoin(machines, eq(machines.id, bots.machineId))
+    .innerJoin(users, eq(users.id, machines.ownerId))
     .where(eq(bots.id, run.botId))
-  const [user] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, run.originUserId))
+  if (!row) return refuse('这个 Bot 没有运行的电脑')
   const connectorCard: ConnectorCard = {
     id: randomUUID(),
     pluginId: found.plugin.id,
     connector: a.connector,
     title,
-    userId: run.originUserId,
-    machineId: bot?.machineId ?? null,
+    userId: row.ownerId,
+    machineId: row.machineId,
     reason: a.reason,
     domains: a.domains ?? [],
     resolved: false,
@@ -58,19 +59,19 @@ export async function connectorRequestTool(ctx: Ctx, run: Run, a: Args): Promise
     ctx,
     run.groupId,
     '{bot} 请 {user} 连接{title}',
-    { bot: bot?.name ?? '', user: user?.name ?? '', title },
+    { bot: row.bot, user: row.owner, title },
     { connectorCard, connectorAsk: { runId: run.id } },
   )
   await mirrorConnectorCard(ctx, run.groupId, msg.id)
   return {
-    text: `已给发起人发了「连接${title}」卡片（授权链接只在发起人自己的弹窗里显示）。请结束本轮；连接好后本轮会自动重新运行。`,
+    text: `已给这台电脑的主人 ${row.owner} 发了「连接${title}」卡片（只有电脑主人本人能连接，授权链接只在其本人的弹窗里显示）。请结束本轮；连接好后本轮会自动重新运行。`,
     groups: [],
   }
 }
 
 /**
- * Resolves the machine's open cards whose user's profile is ready there now; a missing_scope card only once `connected`
- * says that user just connected with every domain it asked for. Each asking run is carried on once.
+ * Resolves the machine's open cards once its login is ready; a missing_scope card only once `connected` says the
+ * owner just connected with every domain it asked for. Each asking run is carried on once.
  */
 export async function resolveCards(
   ctx: Ctx,
@@ -89,21 +90,15 @@ export async function resolveCards(
       ),
     )
   if (!open.length) return
-  const [machine] = await ctx.db
-    .select({ ownerId: machines.ownerId })
-    .from(machines)
-    .where(eq(machines.id, machineId))
-  if (!machine) return
   const probes = probesOf(ctx, machineId)
   for (const m of open) {
     const card = (m.meta as MessageMeta).connectorCard!
-    const on = profileOn(probes, card.connector, machine.ownerId, await personOf(ctx.db, card.userId))
     const ready =
       card.reason === 'missing_scope'
         ? connected?.userId === card.userId &&
           connected.connector === card.connector &&
           card.domains.every((d) => connected.domains.includes(d))
-        : on.probe?.state === 'ready'
+        : ownerProbe(probes, card.connector)?.state === 'ready'
     if (ready) await resolveCard(ctx, m)
   }
 }
@@ -141,14 +136,14 @@ async function carryOn(ctx: Ctx, runId: string | undefined, title: string) {
 
 const reminded = new WeakMap<Ctx['hub'], Set<string>>()
 
-/** §6 续期提醒: a ready login whose refresh token runs out within 48 hours notifies its person, once per expiry. */
+/** §6 续期提醒: the owner's ready login whose refresh token runs out within 48 hours notifies them, once per expiry. */
 export async function remindExpiring(ctx: Ctx, machineId: string, probes: ConnectorProbe[]) {
   const now = ctx.now().getTime()
   const sent = reminded.get(ctx.hub) ?? new Set<string>()
   reminded.set(ctx.hub, sent)
   const due = probes.filter((p) => {
     const at = p.refreshExpiresAt ? Date.parse(p.refreshExpiresAt) : Number.NaN
-    return p.state === 'ready' && at > now && at - now < RENEW_WITHIN_MS
+    return p.profile === 'default' && p.state === 'ready' && at > now && at - now < RENEW_WITHIN_MS
   })
   const fresh = due.filter((p) => !sent.has(`${machineId}|${p.connector}|${p.profile}|${p.refreshExpiresAt}`))
   if (!fresh.length) return
@@ -160,7 +155,7 @@ export async function remindExpiring(ctx: Ctx, machineId: string, probes: Connec
     if (sent.has(key)) continue
     sent.add(key)
     const c = connectors.find((x) => x.spec.connector === p.connector)
-    await notify(ctx, p.profile === 'default' ? machine.ownerId : p.profile.slice(3), 'connector_expiring', {
+    await notify(ctx, machine.ownerId, 'connector_expiring', {
       connector: p.connector,
       connectorTitle: c?.title ?? p.connector,
       machineId,

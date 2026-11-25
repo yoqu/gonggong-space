@@ -341,8 +341,8 @@ export async function connectorStatusTool(
 const loginLine = (c: { login?: boolean; cli?: { account: string | null } }) =>
   c.cli
     ? c.cli.account !== null
-      ? ` 已由共工连接（以 ${c.cli.account || '发起人'} 登录）：命令行工具已安装并以发起人身份登录，直接用，不要自己安装或登录；命令提示未登录、登录过期或缺少权限时，调用 gonggong 的 connector_request 后结束本轮。`
-      : ' 由共工连接，但发起人在这台电脑上还没连接：需要时调用 connector_request（不要自己安装或登录），然后结束本轮。'
+      ? ` 已由共工连接（以 ${c.cli.account || '电脑主人'} 登录）：命令行工具已安装，用的是这台电脑主人的账号（不论谁触发都用它），直接用，不要自己安装或登录；命令提示未登录、登录过期或缺少权限时，调用 gonggong 的 connector_request 后结束本轮。`
+      : ' 由共工连接，但这台电脑的主人还没连接：需要时调用 connector_request（不要自己安装或登录），然后结束本轮。'
     : c.login
       ? ' 用命令行工具登录，没登录时按 Skill 用设备码请发起人授权。'
       : ''
