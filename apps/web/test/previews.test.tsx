@@ -175,7 +175,7 @@ describe('preview card', () => {
     await waitFor(() => expect(useToasts.getState().items.map((x) => x.message)).toContain('已托管到服务器'))
     const [shown] = useToasts.getState().items
     ;[shown!.action].flat()[0]!.onClick()
-    expect(location.pathname + location.search).toBe('/g/g1?artifact=a1')
+    expect(location.pathname + location.search).toBe('/works/a1')
     expect(calls.some((c) => c.method === 'POST' && c.path === '/previews/p1/host')).toBe(true)
   })
 

@@ -11,6 +11,11 @@ import { useCreation } from '../src/features/plugins/store'
 import { resetWorks, WorksPage } from '../src/features/works/WorksPage'
 import { mockApi } from './mockApi'
 
+vi.mock('../src/features/artifacts/ArtifactTab', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/features/artifacts/ArtifactTab')>()),
+  ArtifactTab: ({ tab }: { tab: { artifactId: string } }) => <div data-testid="editor">{tab.artifactId}</div>,
+}))
+
 const me = { id: 'u1', name: '姜维川', role: 'member' } as UserDto
 
 const team = (o: Partial<TeamDto> = {}): TeamDto => ({
@@ -283,7 +288,8 @@ describe('作品 page', () => {
     ])
   })
 
-  it('opens an editable one in its group, and tailors read-only viewer notes for public/private groups and DMs', async () => {
+  it('opens an editable one in its editor after joining, and tailors read-only viewer notes for public/private groups and DMs', async () => {
+    let joined = false
     const privateGroupWork = work({
       id: 'a4',
       groupId: 'g5',
@@ -298,7 +304,8 @@ describe('作品 page', () => {
     })
     const calls = mockApi({
       'GET /works/groups': GROUPS,
-      'GET /works': [...WORKS, privateGroupWork],
+      'GET /works': () =>
+        [...WORKS, privateGroupWork].map((w) => (joined && w.id === 'a2' ? { ...w, access: 'edit' } : w)),
       'POST /artifacts/a2/preview': {
         previewId: 'p2',
         origin: 'https://p2.preview.test',
@@ -314,14 +321,17 @@ describe('作品 page', () => {
         origin: 'https://p4.preview.test',
         url: '/api/previews/p4/open',
       },
-      'POST /groups/g2/join': {
-        id: 'g2',
-        name: '运营群',
-        members: [],
-        unread: 0,
-        mentionCount: 0,
-        liveRuns: [],
-      } as unknown as GroupDto,
+      'POST /groups/g2/join': () => {
+        joined = true
+        return {
+          id: 'g2',
+          name: '运营群',
+          members: [],
+          unread: 0,
+          mentionCount: 0,
+          liveRuns: [],
+        } as unknown as GroupDto
+      },
     })
     renderAt('/works')
     // Public group: shows public-group note and 加入群并编辑 button.
@@ -346,27 +356,72 @@ describe('作品 page', () => {
     expect(screen.getByText('只读 · 来自「核心架构群」（仅群成员可修改）')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '加入群并编辑' })).toBeNull()
 
-    // Public group join-and-edit joins the group and jumps to its editable canvas.
+    // Public group join-and-edit joins the group and opens the work's editor on the same page.
     fireEvent.click(screen.getByRole('button', { name: '返回作品' }))
     fireEvent.click(await screen.findByRole('button', { name: '打开 双十一活动汇报' }))
     fireEvent.click(await screen.findByRole('button', { name: '加入群并编辑' }))
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g2/join')).toBe(true),
     )
-    await waitFor(() => expect(where()).toContain('/g/g2?artifact=a2'))
+    expect((await screen.findByTestId('editor')).textContent).toBe('a2')
+    expect(where()).toContain('/works/a2')
   })
 
-  it('opens an editable work directly in its group', async () => {
+  it('opens an editable work straight in its editor, without its group chat', async () => {
     mockApi({ 'GET /works/groups': GROUPS, 'GET /works': WORKS })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '打开 湖畔露营地预约' }))
-    await waitFor(() => expect(where()).toContain('/g/g1?artifact=a1'))
+    expect((await screen.findByTestId('editor')).textContent).toBe('a1')
+    expect(where()).toContain('/works/a1')
+    fireEvent.click(screen.getByRole('button', { name: '返回作品' }))
+    await screen.findByRole('button', { name: '打开 湖畔露营地预约' })
   })
 
-  it('redirects direct /works/:id links for editable works to their group canvas', async () => {
-    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': WORKS })
+  it('shares an editable work into a group chat, widening it to the team for another group', async () => {
+    useWorkspace.setState({
+      groups: [
+        { id: 'g1', name: '麓客产品群', kind: 'group', members: [] },
+        { id: 'g3', name: '设计群', kind: 'group', members: [] },
+      ] as unknown as GroupDto[],
+    })
+    const calls = mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': WORKS,
+      'GET /artifacts/a1': {
+        id: 'a1',
+        groupId: 'g1',
+        title: '湖畔露营地预约',
+        createdBy: 'u1',
+        visibility: 'group',
+      },
+      'GET /artifacts/a1/versions': [],
+      'PUT /artifacts/a1/visibility': {
+        id: 'a1',
+        groupId: 'g1',
+        title: '湖畔露营地预约',
+        visibility: 'team',
+      },
+      'POST /artifacts/a1/post': undefined,
+    })
     renderAt('/works/a1')
-    await waitFor(() => expect(where()).toContain('/g/g1?artifact=a1'))
+    const share = await screen.findByRole('button', { name: '分享到群聊' })
+    await waitFor(() => expect((share as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(share)
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: '分享到' }))
+    expect(screen.getAllByRole('menuitemcheckbox').map((o) => o.textContent)).toEqual([
+      '麓客产品群（作品所在群）',
+      '设计群',
+    ])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '设计群' }))
+    expect(within(dialog).getByText(/会把作品设为「团队可见」/)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '分享' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST' && c.path === '/artifacts/a1/post')?.body).toEqual({
+        groupId: 'g3',
+      }),
+    )
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ visibility: 'team' })
   })
 
   it('switches teams when opening /works/:id belonging to another of my teams', async () => {

@@ -1,6 +1,5 @@
 import type { ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
-import { useWorkbench } from '../../app/workbench'
 import { t } from '../../i18n'
 import { downloadUrl } from '../../lib/download'
 import { attempt } from '../../lib/errors'
@@ -24,6 +23,7 @@ import { CanvasComposer } from './CanvasChat'
 import { useFrontCanvasChat } from './chatRoot'
 import { useDesignSystem } from './DesignSystemPanel'
 import { exportZipUrl } from './ExportPanel'
+import { useLeaveArtifact } from './host'
 import { IssuesButton } from './IssuesButton'
 import { MoveDialog } from './MoveDialog'
 import { PageRail, useRail } from './PageRail'
@@ -131,6 +131,7 @@ function PrototypeArtifactTab({
   const [archiving, setArchiving] = useState(false)
   const [moving, setMoving] = useState(false)
   const manager = useArtifactManager(a?.groupId ?? '', a?.botId, a?.createdBy ?? null)
+  const leave = useLeaveArtifact(tabKey)
   const groupBots = useGroupBots(a?.groupId ?? '')
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
@@ -529,7 +530,7 @@ function PrototypeArtifactTab({
             label={t('删除')}
             done={t('已删除')}
             run={() => archiveArtifact(a.id)}
-            onDone={() => useWorkbench.getState().closeTab(tabKey)}
+            onDone={leave}
             onClose={() => setArchiving(false)}
           />
         ) : null}

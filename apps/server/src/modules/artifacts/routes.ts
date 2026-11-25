@@ -20,6 +20,7 @@ import {
   ArtifactMoveReq,
   ArtifactPatchReq,
   type ArtifactPluginCommandDto,
+  ArtifactPostReq,
   ArtifactPublishReq,
   type ArtifactPublishRes,
   ArtifactRestoreFilesReq,
@@ -116,7 +117,7 @@ import {
   replyThread,
   updateThread,
 } from './threads.js'
-import { listWorks, setVisibility, workGroups } from './works.js'
+import { listWorks, postWork, setVisibility, workGroups } from './works.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
 
@@ -701,6 +702,14 @@ export function artifactRoutes(ctx: Ctx) {
         if (!(e instanceof QuotaExceeded)) throw e
         return quotaFull(reply)
       }
+    })
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/post', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      const { a } = await viewArtifact(ctx, req.params.id, me.id)
+      const { groupId } = ArtifactPostReq.parse(req.body)
+      await postWork(ctx, me, a, groupId)
+      return reply.code(204).send()
     })
 
     app.put<{ Params: { id: string } }>('/api/artifacts/:id/favorites', async (req): Promise<ArtifactDto> => {

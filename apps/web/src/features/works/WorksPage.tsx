@@ -1,5 +1,5 @@
 import type { ArtifactDto, ArtifactVisibility, WorkDto, WorkGroupDto } from '@gonggong/protocol'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
@@ -28,6 +28,7 @@ import { channelsApi } from '../groups/sections'
 import { openCreation } from '../plugins/store'
 import { otherTeam, switchTeam } from '../teams/store'
 import { TeamSwitcher } from '../teams/TeamSwitcher'
+import { WorkEditor } from './WorkEditor'
 import './works.css'
 
 interface Works {
@@ -97,7 +98,7 @@ function useForeignWork(artifactId: string | undefined, missing: boolean) {
       (a) => {
         if (!live) return
         if (otherTeam(a.teamId ?? null) && a.teamId) {
-          switchTeam(a.teamId, a.access === 'edit' ? `/g/${a.groupId}?artifact=${a.id}` : `/works/${a.id}`)
+          switchTeam(a.teamId, `/works/${a.id}`)
           return
         }
         void loadWorks().finally(() => {
@@ -137,13 +138,15 @@ export function WorksPage() {
 
   const viewing = artifactId ? list?.find((w) => w.id === artifactId) : undefined
   const checkingForeign = useForeignWork(artifactId, list !== null && !viewing)
-  useEffect(() => {
-    if (viewing?.access === 'edit')
-      navigate(`/g/${viewing.groupId}?artifact=${viewing.id}`, { replace: true })
-  }, [viewing, navigate])
+  const back = useCallback(() => {
+    navigate('/works')
+    void loadWorks()
+  }, [navigate])
   if (artifactId)
-    return viewing?.access === 'view' ? (
-      <WorkViewer work={viewing} onBack={() => navigate('/works')} />
+    return viewing?.access === 'edit' ? (
+      <WorkEditor key={viewing.id} work={viewing} onBack={back} />
+    ) : viewing?.access === 'view' ? (
+      <WorkViewer work={viewing} onBack={back} />
     ) : (
       <section className="works" aria-label={t('作品')}>
         <div className="works__center">
@@ -186,8 +189,7 @@ export function WorksPage() {
     setGroup('all')
     setQuery('')
   }
-  const open = (w: WorkDto) =>
-    navigate(w.access === 'edit' ? `/g/${w.groupId}?artifact=${w.id}` : `/works/${w.id}`)
+  const open = (w: WorkDto) => navigate(`/works/${w.id}`)
   const create = (groupId: string) => {
     navigate(`/g/${groupId}`)
     openCreation({ groupId })
@@ -403,7 +405,6 @@ export function WorksPage() {
 
 /** A work I may only look at (a team member outside its group): its preview, presentable, nothing to edit. */
 function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
-  const navigate = useNavigate()
   const { preview, error } = useArtifactPreview(work.id, null, true)
   const frame = useRef<HTMLIFrameElement>(null)
   const [joining, setJoining] = useState(false)
@@ -422,7 +423,6 @@ function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
     setJoining(false)
     if (!joined) return
     void loadWorks()
-    navigate(`/g/${work.groupId}?artifact=${work.id}`)
   }
   return (
     <section className="works works--viewer" aria-label={work.title}>

@@ -432,6 +432,7 @@ export const protocolEn = {
   '托管网页「{title}」': 'Hosted site "{title}"',
   '产物「{title}」从群「{group}」移入': 'Artifact "{title}", moved here from "{group}"',
   '产物「{title}」已移到群「{group}」': 'Artifact "{title}" moved to "{group}"',
+  '{user} 分享了作品「{title}」': '{user} shared the work "{title}"',
   '{bot} 提议用「{plugin}」创作，等群成员确认':
     '{bot} proposes a {plugin} creation, waiting for a member to confirm',
   '{user} 置顶了一条消息：{text}': '{user} pinned a message: {text}',

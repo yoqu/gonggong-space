@@ -5,7 +5,8 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Alert, Dialog, Select, toast } from '../../ui'
-import { moveArtifact } from './store'
+import { useArtifactPage } from './host'
+import { loadArtifact, moveArtifact } from './store'
 
 /** 移动到群…: picks another group the caller is in; the artifact goes there with its versions and share link. */
 export function MoveDialog({
@@ -18,6 +19,7 @@ export function MoveDialog({
   onClose: () => void
 }) {
   const navigate = useNavigate()
+  const page = useArtifactPage()
   const groups = useWorkspace((s) => s.groups)
   const options = groups
     .filter((g) => g.kind === 'group' && g.id !== artifact.groupId)
@@ -32,6 +34,11 @@ export function MoveDialog({
       await moveArtifact(artifact.id, target)
       const name = options.find((o) => o.value === target)?.label ?? ''
       toast({ type: 'success', message: t('已移到群「{group}」', { group: name }) })
+      if (page) {
+        await loadArtifact(artifact.id)
+        onClose()
+        return
+      }
       useWorkbench.getState().closeTab(tabKey)
       navigate(`/g/${target}`)
     } catch (e) {

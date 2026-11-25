@@ -6,7 +6,6 @@ import type {
 } from '@gonggong/protocol'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '../../../app/session'
-import { useWorkbench } from '../../../app/workbench'
 import { t } from '../../../i18n'
 import { downloadUrl } from '../../../lib/download'
 import { attempt } from '../../../lib/errors'
@@ -26,6 +25,7 @@ import { useGroupBots } from '../actions'
 import { CanvasChat, CanvasComposer } from '../CanvasChat'
 import { useFrontCanvasChat } from '../chatRoot'
 import { exportZipUrl } from '../ExportPanel'
+import { useLeaveArtifact } from '../host'
 import { MoveDialog } from '../MoveDialog'
 import { type RunnerStatus, runnerText } from '../runner'
 import { Panel } from '../SidePanel'
@@ -96,6 +96,7 @@ export function ArtifactShell({
 }) {
   const me = useSession((s) => s.user)
   const manager = useArtifactManager(a.groupId, a.botId, a.createdBy)
+  const leave = useLeaveArtifact(tabKey)
   const groupBots = useGroupBots(a.groupId)
   const [viewing, setViewing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -559,7 +560,7 @@ export function ArtifactShell({
             label={t('删除')}
             done={t('已删除')}
             run={() => archiveArtifact(a.id)}
-            onDone={() => useWorkbench.getState().closeTab(tabKey)}
+            onDone={leave}
             onClose={() => setArchiving(false)}
           />
         ) : null}

@@ -37,4 +37,16 @@ export default {
   '创作要在开启了创作插件（如产品原型、幻灯片）的群里进行：请群管理员在「群设置 · 插件」里开启；还没有合适的插件，可以去市场挑选并引入到群。':
     'Creating happens in a group with a creation plugin (such as prototypes or slides) on: ask a group admin to turn one on under Group settings · Plugins, or pick a plugin in the market and install it into the group.',
   托管网页: 'Hosted site',
+  分享到群聊: 'Share to chat',
+  '{group}（作品所在群）': '{group} (where the work lives)',
+  已分享到群聊: 'Shared to the chat',
+  去群聊: 'Go to chat',
+  '分享「{title}」到群聊': 'Share "{title}" to a chat',
+  '群里会出现作品卡片，大家可以在群聊里讨论；编辑仍在作品页进行':
+    "The work's card appears in the group for discussion; editing stays on the work's page.",
+  分享到: 'Share to',
+  '分享到其他群会把作品设为「团队可见」，该群成员可以查看，进作品所在群后才能修改':
+    "Sharing to another group makes the work visible to the team: that group's members can view it, and can change it after joining the group it lives in.",
+  '作品还不是团队可见，只有创建人、Bot 主人或群管理员能分享到其他群':
+    "The work is not visible to the team yet: only its creator, its bot's owner or a group admin can share it to other groups.",
 }

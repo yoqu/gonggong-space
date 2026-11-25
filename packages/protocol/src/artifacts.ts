@@ -224,6 +224,12 @@ export type ArtifactPatchReq = z.infer<typeof ArtifactPatchReq>
  */
 export const ArtifactMoveReq = z.object({ groupId: z.uuid() })
 export type ArtifactMoveReq = z.infer<typeof ArtifactMoveReq>
+/**
+ * POST /api/artifacts/:id/post — shares the work into a group chat the caller is in, as a card for discussion: its own
+ * group, or another of its team's groups once it is visible to the team. Answers 204.
+ */
+export const ArtifactPostReq = z.object({ groupId: z.uuid() })
+export type ArtifactPostReq = z.infer<typeof ArtifactPostReq>
 // POST /api/artifacts/:id/duplicate — a new artifact in the group whose v1 is a copy of the head (new `dir`, its own
 // card); answers the new ArtifactDto. POST /api/artifacts/:id/archive deletes one: archived artifacts leave the
 // group's list and are no longer checked out by runs.

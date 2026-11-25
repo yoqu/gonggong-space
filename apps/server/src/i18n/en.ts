@@ -1055,6 +1055,10 @@ export const en = {
   产物已在这个群: 'The artifact is already in this group',
   已删除的产物不能移动: 'A deleted artifact cannot be moved',
   不能跨团队移动产物: "Artifacts can't be moved to another team",
+  作品已删除: 'The work has been deleted',
+  只能分享到本团队的群: 'Works can only be shared to groups of their team',
+  '先把作品设为团队可见，其他群的成员才能打开':
+    'Make the work visible to the team first, so other groups can open it',
   '目标群已有同一目录的产物：{dir}': 'The target group already has an artifact in {dir}',
   'Bot 正在修改这个产物，等本轮结束后再移动': 'A bot is working on this artifact; move it once its turn ends',
   '只有产物创建人、Bot 主人或群管理员能移动产物':

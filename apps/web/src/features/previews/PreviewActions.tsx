@@ -43,7 +43,7 @@ export function PreviewActions({
         toast({
           type: 'success',
           message: t('已托管到服务器'),
-          action: { label: t('打开作品'), onClick: () => go(`/g/${p.groupId}?artifact=${res.artifactId}`) },
+          action: { label: t('打开作品'), onClick: () => go(`/works/${res.artifactId}`) },
         })
     } catch (e) {
       toastError(e)
