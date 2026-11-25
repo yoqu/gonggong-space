@@ -215,8 +215,17 @@ describe('works', () => {
     await t.db.delete(installs)
     expect(await groups('zhao')).toEqual([])
     await t.db.insert(installs).values(on)
-    expect(await groups('zhao')).toEqual([{ id: s.g.id, title: '设计群' }])
+    expect(await groups('zhao')).toEqual([{ id: s.g.id, title: '设计群', kind: 'group' }])
     expect(await groups('outsider')).toEqual([])
+  })
+
+  it('offers private chats with bots for 新建, where creation plugins are on without a group', async () => {
+    const s = await setup()
+    const root = await t.seed.user({ name: '根', role: 'sysadmin', teamId: null })
+    await saveSysParams(t.ctx, { pluginsEnabled: true }, root.id)
+    const dm = await t.seed.group({ createdBy: s.g.createdBy, kind: 'dm', name: '私聊', botIds: [s.bot.id] })
+    const listed = (await s.req('wang', 'GET', '/api/works/groups')).json() as WorkGroupDto[]
+    expect(listed).toEqual([{ id: dm.id, title: '小王的 Claude', kind: 'dm' }])
   })
 
   it('names the plugin and leaves archived artifacts out', async () => {
@@ -276,8 +285,8 @@ describe('works', () => {
       (
         await s.req('li', 'GET', '/api/works/groups', undefined, { 'x-gg-team': teamId })
       ).json() as WorkGroupDto[]
-    expect(await groupsIn(s.g.teamId)).toEqual([{ id: s.g.id, title: '设计群' }])
-    expect(await groupsIn(teamB.id)).toEqual([{ id: gB.id, title: 'B团队设计群' }])
+    expect(await groupsIn(s.g.teamId)).toEqual([{ id: s.g.id, title: '设计群', kind: 'group' }])
+    expect(await groupsIn(teamB.id)).toEqual([{ id: gB.id, title: 'B团队设计群', kind: 'group' }])
   })
 
   it('defaults DM sites to private, masks DM groupTitle from other team members, and exposes group metadata', async () => {

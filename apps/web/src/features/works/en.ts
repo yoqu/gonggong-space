@@ -4,7 +4,6 @@ export default {
   我创建的: 'Created by me',
   团队共享: 'Team shared',
   搜索作品: 'Search works',
-  '选一个群，在群里创作': 'Pick a group and create in its chat',
   还没有开启创作插件的群: 'None of your groups has a creation plugin on',
   '打开 {title}': 'Open {title}',
   仅自己可见: 'Only me',
@@ -49,4 +48,9 @@ export default {
     "Sharing to another group makes the work visible to the team: that group's members can view it, and can change it after joining the group it lives in.",
   '作品还不是团队可见，只有创建人、Bot 主人或群管理员能分享到其他群':
     "The work is not visible to the team yet: only its creator, its bot's owner or a group admin can share it to other groups.",
+  '{bot}（私聊，不用建群）': '{bot} (private chat, no group needed)',
+  '群「{group}」': 'Group "{group}"',
+  新建作品: 'New work',
+  '选一个 Bot 直接创作，作品做好后在作品页编辑；也可以到群里和大家一起创作':
+    'Pick a bot to create with directly and edit the work on its page, or create together in a group.',
 }

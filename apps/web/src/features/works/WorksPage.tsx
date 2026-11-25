@@ -12,7 +12,6 @@ import {
   Dialog,
   EmptyState,
   Icon,
-  MenuButton,
   NoResultsArt,
   NoWorksArt,
   PopUpButton,
@@ -28,6 +27,7 @@ import { channelsApi } from '../groups/sections'
 import { openCreation } from '../plugins/store'
 import { otherTeam, switchTeam } from '../teams/store'
 import { TeamSwitcher } from '../teams/TeamSwitcher'
+import { NewWorkDialog, WorkCreationHost } from './NewWork'
 import { WorkEditor } from './WorkEditor'
 import './works.css'
 
@@ -131,6 +131,7 @@ export function WorksPage() {
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
   const [noCreation, setNoCreation] = useState(false)
+  const [creating, setCreating] = useState(false)
   useEffect(() => {
     void loadWorks()
     if (useWorks.getState().groups === null) void loadWorkGroups()
@@ -202,29 +203,21 @@ export function WorksPage() {
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
-        {groups && groups.length <= 1 ? (
-          <Button
-            size="small"
-            variant="primary"
-            icon="plus"
-            onClick={() => (groups[0] ? create(groups[0].id) : setNoCreation(true))}
-          >
-            {t('新建')}
-          </Button>
-        ) : (
-          <MenuButton
-            className="ui-btn ui-btn--primary ui-btn--small"
-            aria-label={t('新建')}
-            title={t('选一个群，在群里创作')}
-            disabled={!groups}
-            align="end"
-            items={(groups ?? []).map((g) => ({ label: g.title, value: g.id, icon: 'message' as const }))}
-            onSelect={create}
-          >
-            <Icon name="plus" size={14} />
-            {t('新建')}
-          </MenuButton>
-        )}
+        <Button
+          size="small"
+          variant="primary"
+          icon="plus"
+          disabled={!groups}
+          onClick={() =>
+            !groups?.length
+              ? setNoCreation(true)
+              : groups.length === 1 && groups[0]?.kind === 'group'
+                ? create(groups[0].id)
+                : setCreating(true)
+          }
+        >
+          {t('新建')}
+        </Button>
       </header>
       {list?.length ? (
         <div className="works__bar">
@@ -379,6 +372,10 @@ export function WorksPage() {
           />
         </div>
       )}
+      <Presence>
+        {creating && groups ? <NewWorkDialog groups={groups} onClose={() => setCreating(false)} /> : null}
+      </Presence>
+      <WorkCreationHost onCreated={() => void loadWorks()} />
       <Presence>
         {noCreation ? (
           <Dialog

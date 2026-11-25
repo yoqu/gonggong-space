@@ -1,4 +1,4 @@
-import type { ArtifactCard, GroupDto, TeamDto, UserDto, WorkDto } from '@gonggong/protocol'
+import type { ArtifactCard, GroupDto, TeamDto, UserDto, WorkDto, WorkGroupDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -77,9 +77,9 @@ const WORKS = [
     access: 'view',
   }),
 ]
-const GROUPS = [
-  { id: 'g1', title: '麓客产品群' },
-  { id: 'g3', title: '设计群' },
+const GROUPS: WorkGroupDto[] = [
+  { id: 'g1', title: '麓客产品群', kind: 'group' },
+  { id: 'g3', title: '设计群', kind: 'group' },
 ]
 
 function Where() {
@@ -449,9 +449,29 @@ describe('作品 page', () => {
     const empty = (await screen.findByText('还没有作品')).closest('.ui-empty') as HTMLElement
     expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '新建' }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: '设计群' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '交给谁' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '群「设计群」' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
     await waitFor(() => expect(where()).toContain('/g/g3'))
     expect(useCreation.getState().open).toEqual({ groupId: 'g3' })
+  })
+
+  it('creates with a bot in our private chat right on 作品, no group needed, defaulting to the last pick', async () => {
+    mockApi({
+      'GET /works/groups': [...GROUPS, { id: 'd1', title: '小王的 Claude', kind: 'dm' }],
+      'GET /works': WORKS,
+    })
+    renderAt('/works')
+    fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    expect(within(dialog).getByRole('button', { name: '交给谁' }).textContent).toContain(
+      '小王的 Claude（私聊，不用建群）',
+    )
+    fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
+    await waitFor(() => expect(useCreation.getState().open).toEqual({ groupId: 'd1' }))
+    expect(where()).toContain('/works')
+    expect(localStorage.getItem('gg.works.newIn')).toBe('d1')
   })
 
   it('explains how to turn creation on when no group has a creation plugin, with a way to the market', async () => {

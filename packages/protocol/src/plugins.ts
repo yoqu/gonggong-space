@@ -5,6 +5,7 @@ import { AgentKind } from './common.js'
 import { ConnectorDriver } from './daemon/connectors.js'
 import { ApiProtocol, LegacyProviderPreset, ProviderPreset, SkillFile } from './daemon.js'
 import { type SecretRequirement, SecretRequirements } from './secrets.js'
+import type { MessageDto } from './web/messages.js'
 
 // ── Plugins (plan 插件体系-方案): a folder with a manifest, layered like team skills ────
 /** The manifest at the root of a plugin folder; the rest is a Claude plugin layout (`skills/<name>/SKILL.md`). */
@@ -653,6 +654,8 @@ export const CreationReq = z.object({
   fromDraft: z.string().optional(),
 })
 export type CreationReq = z.infer<typeof CreationReq>
+/** Its answer: the creation card message, and the work made up front for it (a daemon that hosts artifacts). */
+export type CreationRes = MessageDto & { artifactId?: string }
 
 /** The creation request card (message `card`); the message body is a plain summary for old clients and Feishu. */
 export const CreationCard = z.object({

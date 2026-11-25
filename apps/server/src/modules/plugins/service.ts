@@ -263,7 +263,10 @@ export async function deletePlugin(ctx: Ctx, l: Layer, row: PluginRow, actorId: 
 export async function groupPluginLists(db: Read, groupIds: string[]) {
   const [found, installed] = await Promise.all([
     groupIds.length
-      ? db.select({ id: groups.id, teamId: groups.teamId }).from(groups).where(inArray(groups.id, groupIds))
+      ? db
+          .select({ id: groups.id, teamId: groups.teamId, kind: groups.kind })
+          .from(groups)
+          .where(inArray(groups.id, groupIds))
       : [],
     groupsInstalls(db, groupIds, 'plugin'),
   ])
@@ -314,8 +317,11 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
           .map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name })),
       ).map((r) => {
         const install = top.get(r.plugin.id)
-        // Connectors are on in every group unless its admin turned one off; other plugins wait to be turned on.
-        const byDefault = r.version.manifest.category === 'connector'
+        // Connectors are on in every group unless its admin turned one off, and creation plugins in a private chat
+        // (作品 新建 creates there, no group needed); other plugins wait to be turned on.
+        const byDefault =
+          r.version.manifest.category === 'connector' ||
+          (g.kind === 'dm' && createsArtifacts(r.version.manifest))
         return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? byDefault }
       })
       return [g.id, list] as const

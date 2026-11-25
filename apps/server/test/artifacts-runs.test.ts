@@ -5,7 +5,9 @@ import {
   type ArtifactCard,
   type ArtifactSubmitRes,
   AUTO_DESIGN_SYSTEM,
+  type CreationRes,
   type GroupDesignSystemDto,
+  type GroupPluginDto,
   groupDesignSystemKey,
   type MessageDto,
   PROTOCOL_VERSION,
@@ -323,6 +325,24 @@ describe('creations', () => {
       issueCount: 0,
     })
     w.ws.close()
+  })
+
+  it('creates in a private chat with the bot without turning the plugin on, privately, naming the work', async () => {
+    const w = await creationWorld(['plugins', 'artifacts'])
+    const dm = await t.seed.group({
+      createdBy: w.g.createdBy,
+      kind: 'dm',
+      name: '小王的 Claude',
+      botIds: [w.bot.id],
+    })
+    const listed = await w.wang.get<GroupPluginDto[]>(`/api/groups/${dm.id}/plugins`)
+    expect(listed.body.find((p) => p.id === w.req.pluginId)?.enabledInGroup).toBe(true)
+    const res = await w.wang.post<CreationRes>(`/api/groups/${dm.id}/creations`, w.req)
+    expect(res.status).toBe(200)
+    const [a] = await t.db.select().from(artifacts).where(eq(artifacts.groupId, dm.id))
+    expect(a).toMatchObject({ visibility: 'private', createdBy: w.g.createdBy, botId: w.bot.id })
+    expect(res.body.artifactId).toBe(a!.id)
+    expect((await w.next()).artifacts.map((x) => x.id)).toEqual([a!.id])
   })
 
   it('lets a bot on any agent create, naming the skill as that agent finds it', async () => {

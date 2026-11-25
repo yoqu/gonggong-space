@@ -872,8 +872,11 @@ export const WorkDto = z.object({
   access: ArtifactAccess,
 })
 export type WorkDto = z.infer<typeof WorkDto>
-/** GET /api/works/groups — the caller's groups with a creation plugin on: 作品 shows when there is one. */
-export const WorkGroupDto = z.object({ id: z.string(), title: z.string() })
+/**
+ * GET /api/works/groups — where the caller can create (作品 shows when there is one): their groups with a creation
+ * plugin on, then their private chats with bots (`dm`, creation plugins on there by default), which need no group.
+ */
+export const WorkGroupDto = z.object({ id: z.string(), title: z.string(), kind: z.enum(['group', 'dm']) })
 export type WorkGroupDto = z.infer<typeof WorkGroupDto>
 
 /**

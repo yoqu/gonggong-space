@@ -1,9 +1,10 @@
-import type {
-  ArtifactVisibility,
-  PluginManifest,
-  ProtocolKey,
-  WorkDto,
-  WorkGroupDto,
+import {
+  type ArtifactVisibility,
+  createsArtifacts,
+  type PluginManifest,
+  type ProtocolKey,
+  type WorkDto,
+  type WorkGroupDto,
 } from '@gonggong/protocol'
 import { and, desc, eq, isNull, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -143,17 +144,18 @@ export async function listWorks(ctx: Ctx, userId: string, teamId: string): Promi
 export async function workGroups(ctx: Ctx, userId: string, teamId: string): Promise<WorkGroupDto[]> {
   if (!(await pluginsOn(ctx.db))) return []
   const mine = await ctx.db
-    .selectDistinct({ id: groups.id, title: groups.name })
+    .selectDistinct({ id: groups.id, title: groupTitle, kind: groups.kind })
     .from(groups)
     .innerJoin(teams, and(eq(teams.id, groups.teamId), isNull(teams.archivedAt)))
     .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
-    .where(and(eq(groups.teamId, teamId), isNull(groups.archivedAt), eq(groups.kind, 'group')))
+    .where(and(eq(groups.teamId, teamId), isNull(groups.archivedAt)))
   const lists = await groupPluginLists(
     ctx.db,
     mine.map((g) => g.id),
   )
   return mine
-    .filter((g) => lists.get(g.id)?.some((p) => p.enabledInGroup))
-    .sort((x, y) => x.title.localeCompare(y.title, 'zh'))
+    .filter((g) => lists.get(g.id)?.some((p) => p.enabledInGroup && createsArtifacts(p.version.manifest)))
+    .map((g) => ({ id: g.id, title: translateGroupTitle(g.title), kind: g.kind as WorkGroupDto['kind'] }))
+    .sort((x, y) => (x.kind === y.kind ? x.title.localeCompare(y.title, 'zh') : x.kind === 'group' ? -1 : 1))
 }

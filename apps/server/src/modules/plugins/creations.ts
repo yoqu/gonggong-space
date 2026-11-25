@@ -4,6 +4,7 @@ import {
   type CreationCard,
   type CreationDraftCard,
   type CreationReq,
+  type CreationRes,
   createsArtifacts,
   groupDesignSystemId,
   type PluginInput,
@@ -310,7 +311,7 @@ export async function createCreation(
     await settleDraft(ctx, draft.row, draft.card, { status: 'started', by: me.name, creationId: row.id })
   await mirrorUserMessage(ctx, row, me)
   await triggerRuns(ctx, row)
-  return dto
+  return { ...dto, ...(artifact && { artifactId: artifact.id }) } satisfies CreationRes
 }
 
 /** POST /api/groups/:id/creation-drafts/:messageId/dismiss — 不用了. */
