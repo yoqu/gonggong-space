@@ -4,7 +4,15 @@ import {
   type GgArtifactManifest,
   type GgArtifactScreen,
 } from '@gonggong/protocol'
-import { type DragEvent, type PointerEvent, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type DragEvent,
+  type PointerEvent,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
@@ -15,19 +23,23 @@ import { setArtifactPage, setCanvasScreen, useArtifactPage, useCanvasScreen } fr
 import {
   addGroup,
   canNest,
+  canNestScreen,
   deleteGroup,
   flatGroups,
   groupDepth,
+  indentScreen,
   insertGroup,
   moveGroup,
   moveScreen,
   newGroupId,
+  outdentScreen,
   type PageGroupNode,
   type PagesOp,
   pageTree,
   renameGroup,
   shiftGroup,
   shiftScreen,
+  subpages,
 } from './pageTree'
 import { focusArtifact } from './store'
 import './rail.css'
@@ -282,9 +294,11 @@ function Pages({
   const [over, setOver] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState<GgArtifactScreen | null>(null)
+  /** Pages whose subpages are folded away. */
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set())
   const current = useCanvasScreen(artifactId)
   const asked = useArtifactPage(artifactId)
-  const page = m?.groups?.some((g) => g.id === asked) ? asked : null
+  const page = m?.groups?.some((g) => g.id === asked) || m?.screens.some((s) => s.id === asked) ? asked : null
   const show = (id: string | null) => {
     setArtifactPage(artifactId, id)
     onPicked()
@@ -372,6 +386,41 @@ function Pages({
     const before = place === 'above' ? other : siblings[siblings.indexOf(other) + 1]
     return moveGroup(m, id, parent, before)
   }
+  /**
+   * A page dropped on another page: on its top or bottom quarter beside it (same folder, same parent page), on its
+   * middle under it as its last subpage.
+   */
+  const screenTarget = (s: GgArtifactScreen, edge: 'above' | 'below' | null) => {
+    const d = dragged?.id
+    if (!d) return null
+    if (!edge) return moveScreen(m, d, undefined, undefined, s.id)
+    const siblings = m.screens.filter((x) => x.group === s.group && x.parent === s.parent && x.id !== d)
+    const before = edge === 'above' ? s.id : siblings[siblings.findIndex((x) => x.id === s.id) + 1]?.id
+    return moveScreen(m, d, s.group, before, s.parent)
+  }
+  const screenDropProps = (s: GgArtifactScreen) => {
+    const key = `s:${s.id}`
+    return edit && dragged?.kind === 'screen' && dragged.id !== s.id
+      ? {
+          onDragOver: (e: DragEvent) => {
+            const edge = edgeOf(e)
+            if (!edge && !canNestScreen(m, dragged.id, s.id)) return
+            e.preventDefault()
+            e.stopPropagation()
+            setOver(edge ? `${key}:${edge}` : key)
+          },
+          onDragLeave: () => setOver((o) => (o === key || o?.startsWith(`${key}:`) ? null : o)),
+          onDrop: (e: DragEvent) => {
+            e.preventDefault()
+            e.stopPropagation()
+            const next = screenTarget(s, edgeOf(e))
+            setDragged(null)
+            setOver(null)
+            void save(next)
+          },
+        }
+      : {}
+  }
   /** A page dragged over another page's top or bottom quarter goes beside it; over its middle, into it. */
   const edgeOf = (e: DragEvent): 'above' | 'below' | null => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -436,29 +485,53 @@ function Pages({
     />
   )
 
-  const screenRow = (s: GgArtifactScreen, depth: number) => {
+  const screenRow = (s: GgArtifactScreen, depth: number): ReactElement[] => {
+    const kids = subpages(m, s.id)
+    const open = !folded.has(s.id)
     const moveItems: MenuItem[] = [
-      ...(s.group ? [{ label: t('移到顶层'), value: 'to:' }] : []),
+      ...(s.group || s.parent ? [{ label: t('移到顶层'), value: 'to:' }] : []),
       ...groups
-        .filter((g) => g.group.id !== s.group)
+        .filter((g) => g.group.id !== s.group || !!s.parent)
         .map((g) => ({
           label: `${'　'.repeat(g.depth - 1)}${clip(g.group.title)}`,
           title: g.group.title,
           value: `to:${g.group.id}`,
         })),
     ]
-    return (
+    const row = (
       <li
         key={s.id}
         className={cx(
           'art-rail__row',
-          over === `s:${s.id}` && 'art-rail__row--over',
-          current === s.id && 'is-current',
+          over === `s:${s.id}` && 'art-rail__row--into',
+          over === `s:${s.id}:above` && 'art-rail__row--above',
+          over === `s:${s.id}:below` && 'art-rail__row--below',
+          (page === s.id || current === s.id) && 'is-current',
         )}
         style={{ paddingLeft: 8 + depth * 14 }}
         {...dragProps('screen', s.id)}
-        {...dropProps(`s:${s.id}`, { group: s.group, before: s.id })}
+        {...screenDropProps(s)}
       >
+        {kids.length ? (
+          <button
+            type="button"
+            className="art-rail__twisty"
+            aria-label={open ? t('收起子页面') : t('展开子页面')}
+            aria-expanded={open}
+            onClick={() =>
+              setFolded((f) => {
+                const next = new Set(f)
+                if (open) next.add(s.id)
+                else next.delete(s.id)
+                return next
+              })
+            }
+          >
+            <Icon name={open ? 'chevron-down' : 'chevron-right'} size={11} />
+          </button>
+        ) : (
+          <span className="art-rail__twisty" aria-hidden="true" />
+        )}
         <Icon name="doc" size={13} className="art-rail__glyph" />
         {editing?.kind === 'screen' && editing.id === s.id ? (
           nameInput(s.title, t('页面名称'))
@@ -466,9 +539,11 @@ function Pages({
           <button
             type="button"
             className="art-rail__name"
+            aria-current={page === s.id ? 'page' : undefined}
             onClick={() => {
               setCanvasScreen(artifactId, s.id)
-              setArtifactPage(artifactId, s.group ?? null)
+              // One page on its own: the canvas shows it alone; the others stay under 全部页面.
+              setArtifactPage(artifactId, s.id)
               focusArtifact(artifactId, { screenIds: [s.id], versionId })
               onPicked()
             }}
@@ -489,6 +564,8 @@ function Pages({
               { separator: true },
               { label: t('上移'), value: 'up', disabled: !shiftScreen(m, s.id, -1) },
               { label: t('下移'), value: 'down', disabled: !shiftScreen(m, s.id, 1) },
+              { label: t('设为上一页的子页面'), value: 'indent', disabled: !indentScreen(m, s.id) },
+              ...(s.parent ? [{ label: t('移出子页面'), value: 'outdent' }] : []),
               ...(moveItems.length ? [{ separator: true } as const, ...moveItems] : []),
               { separator: true },
               { label: t('删除页面'), value: 'delete', destructive: true, disabled: m.screens.length === 1 },
@@ -498,6 +575,8 @@ function Pages({
               else if (v === 'duplicate') void save({ kind: 'manifest', op: 'duplicate', screenId: s.id })
               else if (v === 'delete') setDeleting(s)
               else if (v === 'up' || v === 'down') void save(shiftScreen(m, s.id, v === 'up' ? -1 : 1))
+              else if (v === 'indent') void save(indentScreen(m, s.id))
+              else if (v === 'outdent') void save(outdentScreen(m, s.id))
               else if (v.startsWith('to:')) void save(moveScreen(m, s.id, v.slice(3) || undefined))
             }}
           >
@@ -506,6 +585,7 @@ function Pages({
         ) : null}
       </li>
     )
+    return open ? [row, ...kids.flatMap((k) => screenRow(k, depth + 1))] : [row]
   }
 
   const groupRow = (g: PageGroupNode) => {
@@ -578,7 +658,7 @@ function Pages({
         <ul className="art-rail__list">
           {newRow(id, g.depth)}
           {g.groups.flatMap(groupRow)}
-          {g.screens.map((s) => screenRow(s, g.depth))}
+          {g.screens.flatMap((s) => screenRow(s, g.depth))}
         </ul>
       </li>,
       besideRow(id, 'below', g.depth - 1),
@@ -621,7 +701,7 @@ function Pages({
           </li>
           {newRow(undefined, 0)}
           {tree.groups.flatMap(groupRow)}
-          {tree.screens.map((s) => screenRow(s, 0))}
+          {tree.screens.flatMap((s) => screenRow(s, 0))}
         </ul>
         {!readOnly && !m.groups?.length ? (
           <p className="art-rail__hint">{t('新建文件夹后，可以把页面拖进去；每个文件夹单独显示它的页面')}</p>

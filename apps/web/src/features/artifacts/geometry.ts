@@ -10,6 +10,7 @@ import {
   type GgArtifactScreen,
 } from '@gonggong/protocol'
 import { t } from '../../i18n'
+import { shownScreens } from './pageTree'
 
 /** Screen sizes per device (the web-prototype kit's DEVICES). */
 const DEVICE_SIZE: Record<ArtifactDevice, { w: number; h: number }> = {
@@ -136,7 +137,10 @@ export interface LayoutInput {
   refs?: GgArtifactRef[]
   /** Measured heights of image references, by ref id. */
   refHeights?: Record<string, number>
-  /** The page (画布, a `groups` entry) shown: its screens only, no other node; null or absent: 全部页面. */
+  /**
+   * What is shown: a folder (a `groups` entry) with its pages and their subpages, or one page alone, no other node;
+   * null or absent: 全部页面.
+   */
   page?: string | null
   /** Web pages on the canvas. */
   links?: GgArtifactLink[]
@@ -161,7 +165,7 @@ export function layoutNodes({ page, ...input }: LayoutInput) {
   return page && manifest
     ? layoutAll({
         ...{ title, frames, content, system: null },
-        manifest: { ...manifest, screens: manifest.screens.filter((s) => s.group === page) },
+        manifest: { ...manifest, screens: shownScreens(manifest, page) },
         prototype: false,
       })
     : layoutAll(input)

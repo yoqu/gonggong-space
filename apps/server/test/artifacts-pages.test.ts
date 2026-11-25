@@ -108,6 +108,60 @@ describe('page list (多级分类)', () => {
   })
 })
 
+describe('subpages (页面下挂子页面)', () => {
+  it('nests a page under another page, and refuses unknown parents, cycles or a parent with a folder', async () => {
+    const s = await setup()
+    const edit = (ops: object[], base?: string) =>
+      s.req('POST', `/api/artifacts/${s.a.id}/edits`, { baseVersionId: base ?? s.v1.versionId, ops })
+    const bad = [
+      [{ id: 'home' }, { id: 'done', parent: 'nope' }],
+      [{ id: 'home' }, { id: 'done', parent: 'done' }],
+      [
+        { id: 'home', parent: 'done' },
+        { id: 'done', parent: 'home' },
+      ],
+    ]
+    for (const screens of bad)
+      expect([screens, (await edit([{ kind: 'pages', groups: [], screens }])).statusCode]).toEqual([
+        screens,
+        400,
+      ])
+    const foldered = await edit([
+      {
+        kind: 'pages',
+        groups: [{ id: 'f', title: 'f' }],
+        screens: [{ id: 'home' }, { id: 'done', group: 'f', parent: 'home' }],
+      },
+    ])
+    expect(foldered.statusCode).toBe(400)
+
+    expect(
+      (await edit([{ kind: 'pages', groups: [], screens: [{ id: 'home' }, { id: 'done', parent: 'home' }] }]))
+        .statusCode,
+    ).toBe(200)
+    expect((await s.manifest()).screens.map((x) => [x.id, x.parent])).toEqual([
+      ['home', undefined],
+      ['done', 'home'],
+    ])
+  })
+
+  it('moves the subpages of a deleted page up to its place', async () => {
+    const s = await setup()
+    const edit = async (ops: object[]) =>
+      (await s.req('POST', `/api/artifacts/${s.a.id}/edits`, { baseVersionId: await s.head(), ops }))
+        .statusCode
+    expect(await edit([{ kind: 'manifest', op: 'duplicate', screenId: 'home' }])).toBe(200)
+    const copy = (await s.manifest()).screens.find((x) => x.id !== 'home' && x.id !== 'done')!.id
+    const screens = [{ id: 'home' }, { id: copy, parent: 'home' }, { id: 'done', parent: copy }]
+    expect(await edit([{ kind: 'pages', groups: [], screens }])).toBe(200)
+    expect(await edit([{ kind: 'manifest', op: 'delete', screenId: copy }])).toBe(200)
+    expect((await s.manifest()).screens.map((x) => [x.id, x.parent])).toEqual([
+      ['home', undefined],
+      ['done', 'home'],
+    ])
+  })
+})
+
 describe('command history (命令记录)', () => {
   it('lists the commands sent about the artifact with their runs and versions, latest first', async () => {
     const s = await setup()

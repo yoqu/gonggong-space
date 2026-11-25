@@ -491,7 +491,13 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
     kind: z.literal('pages'),
     groups: z.array(GgArtifactPageGroup).max(ARTIFACT_PAGE_GROUPS_MAX),
     screens: z
-      .array(z.object({ id: ArtifactScreenId, group: ArtifactScreenId.optional() }))
+      .array(
+        z.object({
+          id: ArtifactScreenId,
+          group: ArtifactScreenId.optional(),
+          parent: ArtifactScreenId.optional(),
+        }),
+      )
       .min(1)
       .max(100),
   }),
@@ -948,7 +954,7 @@ export const ArtifactCommandReq = z
     count: z.number().int().min(1).max(5).optional(),
     /** apply-design-system: a design system the group imported, rewritten into DESIGN.md and tokens.css first. */
     designSystemId: z.string().optional(),
-    /** The page (画布, a `groups` entry of the manifest) the member is on: new screens go into it. */
+    /** What the canvas shows: a folder (`groups` entry; new screens go into it) or one page (new ones go beside it). */
     page: ArtifactScreenId.optional(),
   })
   .superRefine((r, ctx) => {
@@ -982,7 +988,7 @@ export const ArtifactContext = z.object({
     .optional(),
   /** Reference nodes by file (`refs/…` of the head's GgArtifactRef): the agent is told where they are. */
   refs: z.array(ArtifactRefFile).max(20).optional(),
-  /** The page (画布) the member is on: new screens go into it. */
+  /** What the canvas shows: a folder (new screens go into it) or one page (new ones go beside it). */
   page: ArtifactScreenId.optional(),
 })
 export type ArtifactContext = z.infer<typeof ArtifactContext>

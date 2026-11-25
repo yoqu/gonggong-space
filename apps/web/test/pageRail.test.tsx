@@ -7,12 +7,16 @@ import { PageRail } from '../src/features/artifacts/PageRail'
 import {
   addGroup,
   deleteGroup,
+  indentScreen,
   insertGroup,
   moveGroup,
   moveScreen,
+  outdentScreen,
   pageTree,
   shiftGroup,
   shiftScreen,
+  shownScreens,
+  subpages,
 } from '../src/features/artifacts/pageTree'
 import { group } from './gitFixtures'
 import { mockApi } from './mockApi'
@@ -165,7 +169,9 @@ const chatRoutes = (replies: MessageDto[]) => ({
   },
 })
 
-function renderRail(o: { canEdit?: boolean; versionId?: string; narrow?: boolean } = {}) {
+function renderRail(
+  o: { canEdit?: boolean; versionId?: string; narrow?: boolean; manifest?: GgArtifactManifest } = {},
+) {
   const onPicked = vi.fn()
   const onClose = vi.fn()
   const onEdit = vi.fn<(ops: ArtifactEditOp[]) => Promise<unknown>>(async () => {})
@@ -174,7 +180,7 @@ function renderRail(o: { canEdit?: boolean; versionId?: string; narrow?: boolean
       <PageRail
         artifactId="a1"
         groupId="g1"
-        manifest={M}
+        manifest={o.manifest ?? M}
         readOnly={false}
         canEdit={o.canEdit ?? true}
         narrow={o.narrow}
@@ -188,6 +194,64 @@ function renderRail(o: { canEdit?: boolean; versionId?: string; narrow?: boolean
   )
   return Object.assign(onEdit, { onPicked, onClose })
 }
+
+describe('subpages (页面下挂子页面)', () => {
+  const sub = (id: string, parent: string) => ({ id, title: id, file: `screens/${id}.html`, parent })
+  const N: GgArtifactManifest = {
+    ...M,
+    screens: [...M.screens, sub('detail', 'cart'), sub('spec', 'detail')],
+  }
+
+  it('lists subpages under their page, not at their folder level, and shows them with their folder', () => {
+    expect(pageTree(N).groups[0]?.screens.map((s) => s.id)).toEqual(['cart'])
+    expect(subpages(N, 'cart').map((s) => s.id)).toEqual(['detail'])
+    expect(shownScreens(N, 'order').map((s) => s.id)).toEqual(['cart', 'detail', 'spec'])
+    expect(shownScreens(N, 'detail').map((s) => s.id)).toEqual(['detail'])
+    expect(shownScreens(N, null)).toHaveLength(6)
+  })
+
+  it('moves a page under another, many levels deep, but never under itself', () => {
+    expect(moveScreen(N, 'me', undefined, undefined, 'spec')?.screens.at(-1)).toEqual({
+      id: 'me',
+      parent: 'spec',
+    })
+    expect(moveScreen(N, 'cart', undefined, undefined, 'spec')).toBeNull()
+    expect(moveScreen(N, 'cart', undefined, undefined, 'cart')).toBeNull()
+    // Into a folder: no longer a subpage.
+    expect(moveScreen(N, 'detail', 'pay')?.screens.find((s) => s.id === 'detail')).toEqual({
+      id: 'detail',
+      group: 'pay',
+    })
+    expect(indentScreen(N, 'me')?.screens.find((s) => s.id === 'me')).toEqual({ id: 'me', parent: 'home' })
+    expect(indentScreen(N, 'home')).toBeNull()
+    const out = outdentScreen(N, 'spec')?.screens
+    expect(out?.find((s) => s.id === 'spec')).toEqual({ id: 'spec', parent: 'cart' })
+    expect(out?.map((s) => s.id).indexOf('spec')).toBe((out?.map((s) => s.id).indexOf('detail') ?? 0) + 1)
+  })
+
+  it('drags a page onto the middle of another to make it a subpage, folds it away and shows one page alone', async () => {
+    mockApi({ 'GET /artifacts/a1/history': [] })
+    const { artifactPage } = await import('../src/features/artifacts/page')
+    const onEdit = renderRail({ manifest: N })
+    expect(screen.getByRole('button', { name: 'spec' })).toBeTruthy()
+    const dataTransfer = { setData: () => {}, effectAllowed: '' }
+    const row = screen.getByRole('button', { name: '我的' }).closest('li')!
+    fireEvent.dragStart(row, { dataTransfer })
+    const target = screen.getByRole('button', { name: /^首页/ }).closest('li')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 0, height: 28 } as DOMRect)
+    fireEvent.dragOver(target, { dataTransfer, clientY: 14 })
+    fireEvent.drop(target, { dataTransfer, clientY: 14 })
+    await waitFor(() =>
+      expect(onEdit).toHaveBeenCalledWith([moveScreen(N, 'me', undefined, undefined, 'home')]),
+    )
+
+    fireEvent.click(screen.getAllByRole('button', { name: '收起子页面' })[0]!)
+    expect(screen.queryByRole('button', { name: 'detail' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '展开子页面' }))
+    fireEvent.click(screen.getByRole('button', { name: 'detail' }))
+    expect(artifactPage('a1')).toBe('detail')
+  })
+})
 
 describe('page rail', () => {
   it('lists groups and pages, and shows each command with its run result', async () => {
@@ -277,7 +341,7 @@ describe('page rail', () => {
     expect(onPicked).toHaveBeenCalled()
   })
 
-  it('opens 全部页面 by default, one page (画布) per click, and a screen on its own page', async () => {
+  it('opens 全部页面 by default, a folder per click, and a page on its own', async () => {
     mockApi({ 'GET /artifacts/a1/history': [] })
     const { artifactPage } = await import('../src/features/artifacts/page')
     renderRail()
@@ -287,7 +351,8 @@ describe('page rail', () => {
     expect(artifactPage('a1')).toBe('pay')
     expect(screen.getByRole('button', { name: '支付' }).closest('div')?.className).toContain('is-current')
     fireEvent.click(screen.getByRole('button', { name: '购物车' }))
-    expect(artifactPage('a1')).toBe('order')
+    expect(artifactPage('a1')).toBe('cart')
+    expect(screen.getByRole('button', { name: '购物车' }).closest('li')?.className).toContain('is-current')
     fireEvent.click(all)
     expect(artifactPage('a1')).toBeNull()
   })

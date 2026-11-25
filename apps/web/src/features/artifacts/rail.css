@@ -186,6 +186,27 @@
 .art-rail__row--group.art-rail__row--over {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
+.art-rail__row--into {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.art-rail__twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-right: -2px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  color: var(--label-tertiary);
+  cursor: pointer;
+}
+.art-rail__twisty:hover {
+  color: var(--label);
+}
 .art-rail__glyph {
   flex: none;
   color: var(--label-tertiary);

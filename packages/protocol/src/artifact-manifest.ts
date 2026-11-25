@@ -32,6 +32,8 @@ export const GgArtifactScreen = z.object({
   dims: z.array(GgArtifactDim).max(ARTIFACT_SCREEN_DIMS_MAX).optional(),
   /** The page group it sits in (`groups` of the manifest); absent: the top level. */
   group: ArtifactScreenId.optional(),
+  /** The page it is a subpage of (子页面), up to ARTIFACT_PAGE_GROUP_DEPTH deep; it then sits in no group of its own. */
+  parent: ArtifactScreenId.optional(),
 })
 export type GgArtifactScreen = z.infer<typeof GgArtifactScreen>
 /** Reference files members put on the canvas (images, PDFs, text): AI context, not part of the prototype. */
@@ -97,6 +99,32 @@ export function pageGroupIssues(groups: readonly GgArtifactPageGroup[]): string[
   return issues
 }
 
+/** Subpages (`parent`): a known other page, no cycle, at most ARTIFACT_PAGE_GROUP_DEPTH deep, not also in a group. */
+export function subpageIssues(screens: readonly Pick<GgArtifactScreen, 'id' | 'parent' | 'group'>[]) {
+  const parentOf = new Map(screens.map((s) => [s.id, s.parent]))
+  const issues: [number, string][] = []
+  for (const [i, s] of screens.entries()) {
+    if (s.parent === undefined) continue
+    if (s.group !== undefined) issues.push([i, `子页面不能再放进分组：${s.id}`])
+    let depth = 1
+    for (let p: string | undefined = s.parent; p !== undefined; p = parentOf.get(p)) {
+      if (!parentOf.has(p)) {
+        issues.push([i, `没有页面 ${p}`])
+        break
+      }
+      if (p === s.id) {
+        issues.push([i, `页面不能挂在自己下面：${s.id}`])
+        break
+      }
+      if (++depth > ARTIFACT_PAGE_GROUP_DEPTH) {
+        issues.push([i, `子页面最多 ${ARTIFACT_PAGE_GROUP_DEPTH} 级：${s.id}`])
+        break
+      }
+    }
+  }
+  return issues
+}
+
 export const GG_ARTIFACT_MANIFEST = 'gg-artifact.json'
 export const GgArtifactManifest = z
   .object({
@@ -119,6 +147,8 @@ export const GgArtifactManifest = z
     for (const [i, s] of m.screens.entries())
       if (s.group !== undefined && !groupIds.has(s.group))
         ctx.addIssue({ code: 'custom', path: ['screens', i, 'group'], message: `没有分组 ${s.group}` })
+    for (const [i, message] of subpageIssues(m.screens))
+      ctx.addIssue({ code: 'custom', path: ['screens', i, 'parent'], message })
     const ids = new Set<string>()
     for (const [i, s] of m.screens.entries()) {
       if (s.file !== `screens/${s.id}.html`)

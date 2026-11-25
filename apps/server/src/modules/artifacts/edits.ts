@@ -118,14 +118,21 @@ function copyId(id: string, taken: Set<string>) {
   }
 }
 
-/** The `pages` op: the same screens in the op's order, each in its group (the manifest check validates the groups). */
+/**
+ * The `pages` op: the same screens in the op's order, each in its group or under its parent page (the manifest check
+ * validates both).
+ */
 function pageList(screens: GgArtifactScreen[], op: Extract<ArtifactEditOp, { kind: 'pages' }>) {
   const byId = new Map(screens.map((s) => [s.id, s]))
   if (op.screens.length !== screens.length || new Set(op.screens.map((s) => s.id)).size !== screens.length)
     fail('invalid', '页面列表已变化，请刷新后重试')
-  return op.screens.map(({ id, group }) => {
-    const { group: _, ...screen } = byId.get(id) ?? fail('invalid', '页面列表已变化，请刷新后重试')
-    return group ? { ...screen, group } : screen
+  return op.screens.map(({ id, group, parent }) => {
+    const {
+      group: _,
+      parent: __,
+      ...screen
+    } = byId.get(id) ?? fail('invalid', '页面列表已变化，请刷新后重试')
+    return { ...screen, ...(group && { group }), ...(parent && { parent }) }
   })
 }
 
@@ -276,6 +283,13 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
       } else if (op.op === 'delete') {
         if (m.screens.length === 1) fail('invalid', '不能删除最后一屏')
         m.screens.splice(i, 1)
+        // Its subpages take its place: under its parent page, or in its group.
+        for (const sub of m.screens)
+          if (sub.parent === screen.id) {
+            delete sub.parent
+            if (screen.parent) sub.parent = screen.parent
+            else if (screen.group) sub.group = screen.group
+          }
         for (const path of [screen.file, ruleFileOf(screen.id)]) {
           removed.add(path)
           changed.delete(path)

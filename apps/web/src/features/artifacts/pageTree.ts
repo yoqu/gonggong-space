@@ -25,9 +25,46 @@ export function pageTree(m: GgArtifactManifest): PageTree {
     groups: groups
       .filter((g) => g.parent === parent)
       .map((g) => ({ group: g, depth, ...level(g.id, depth + 1) })),
-    screens: m.screens.filter((s) => (s.group && known.has(s.group) ? s.group : undefined) === parent),
+    screens: m.screens.filter(
+      (s) => !s.parent && (s.group && known.has(s.group) ? s.group : undefined) === parent,
+    ),
   })
   return level(undefined, 1)
+}
+
+/** The page's subpages (子页面), in manifest order. */
+export const subpages = (m: GgArtifactManifest, id: string) => m.screens.filter((s) => s.parent === id)
+
+/** The page itself, then each of its ancestors' ids up to its top-level page. */
+function lineage(m: GgArtifactManifest, id: string | undefined) {
+  const out: string[] = []
+  for (let p = id; p !== undefined && !out.includes(p); p = m.screens.find((s) => s.id === p)?.parent)
+    out.push(p)
+  return out
+}
+
+/** The top-level page above it (itself when it has no parent): its folder is the subtree's. */
+const rootOf = (m: GgArtifactManifest, id: string) => {
+  const top = lineage(m, id).at(-1)
+  return m.screens.find((s) => s.id === top)
+}
+
+/**
+ * The screens the canvas shows for `page`: one page (a screen id) alone, or a folder's pages with their subpages;
+ * null: 全部页面.
+ */
+export function shownScreens(m: GgArtifactManifest, page: string | null | undefined) {
+  if (!page) return m.screens
+  if (m.screens.some((s) => s.id === page)) return m.screens.filter((s) => s.id === page)
+  return m.screens.filter((s) => rootOf(m, s.id)?.group === page)
+}
+
+/** The page can go under `parent` (top level: undefined) without a cycle or going deeper than allowed. */
+export function canNestScreen(m: GgArtifactManifest, id: string, parent: string | undefined) {
+  if (!parent) return true
+  if (lineage(m, parent).includes(id)) return false
+  const height = (x: string): number => 1 + Math.max(0, ...subpages(m, x).map((s) => height(s.id)))
+  return lineage(m, parent).length + height(id) <= ARTIFACT_PAGE_GROUP_DEPTH
 }
 
 /** A page list change, as the `pages` op the server applies in one version. */
@@ -35,11 +72,24 @@ export type PagesOp = Extract<ArtifactEditOp, { kind: 'pages' }>
 const op = (groups: GgArtifactPageGroup[], screens: GgArtifactScreen[]): PagesOp => ({
   kind: 'pages',
   groups,
-  screens: screens.map((s) => (s.group ? { id: s.id, group: s.group } : { id: s.id })),
+  screens: screens.map((s) => ({
+    id: s.id,
+    ...(s.group && { group: s.group }),
+    ...(s.parent && { parent: s.parent }),
+  })),
 })
 const withGroup = (s: GgArtifactScreen, group: string | undefined): GgArtifactScreen => {
   const { group: _, ...rest } = s
   return group ? { ...rest, group } : rest
+}
+/** In `group`, or under the page `parent` (then in no group of its own). */
+const placed = (
+  s: GgArtifactScreen,
+  group: string | undefined,
+  parent: string | undefined,
+): GgArtifactScreen => {
+  const { group: _, parent: __, ...rest } = s
+  return parent ? { ...rest, parent } : group ? { ...rest, group } : rest
 }
 
 /** `g-1`, `g-2`…: the first free group id. */
@@ -145,36 +195,59 @@ export function shiftGroup(m: GgArtifactManifest, id: string, dir: -1 | 1): Page
   return before === null ? null : moveGroup(m, id, parent, before)
 }
 
-/** 上移 / 下移 among the screens of its page. */
+/** 上移 / 下移 among its sibling pages (same folder, same parent page). */
 export function shiftScreen(m: GgArtifactManifest, id: string, dir: -1 | 1): PagesOp | null {
-  const group = m.screens.find((s) => s.id === id)?.group
-  const siblings = m.screens.filter((s) => s.group === group).map((s) => s.id)
+  const me = m.screens.find((s) => s.id === id)
+  const siblings = m.screens.filter((s) => s.group === me?.group && s.parent === me?.parent).map((s) => s.id)
   const before = stepBefore(siblings, id, dir)
-  return before === null ? null : moveScreen(m, id, group, before)
+  return before === null ? null : moveScreen(m, id, me?.group, before, me?.parent)
 }
 
 /**
- * Moves the page into `group` (top level: undefined), before `before` (a page) or after the group's last page; null
- * when nothing changes.
+ * Moves the page into `group` (top level: undefined) or under the page `parent`, before `before` (a sibling) or after
+ * the last sibling; null when it cannot go there or nothing changes. Its subpages go with it.
  */
 export function moveScreen(
   m: GgArtifactManifest,
   id: string,
   group: string | undefined,
   before?: string,
+  parent?: string,
 ): PagesOp | null {
   const screen = m.screens.find((s) => s.id === id)
-  if (!screen || before === id) return null
+  if (!screen || before === id || !canNestScreen(m, id, parent)) return null
   const rest = m.screens.filter((s) => s.id !== id)
-  const moved = withGroup(screen, group)
+  const moved = placed(screen, group, parent)
   let at = before ? rest.findIndex((s) => s.id === before) : -1
   if (at < 0) {
-    const last = rest.findLastIndex((s) => (s.group ?? undefined) === group)
+    const last = rest.findLastIndex((s) =>
+      parent ? s.parent === parent || s.id === parent : !s.parent && (s.group ?? undefined) === group,
+    )
     at = last < 0 ? rest.length : last + 1
   }
   const screens = [...rest.slice(0, at), moved, ...rest.slice(at)]
-  const same = screens.every((s, i) => s.id === m.screens[i]?.id && s.group === m.screens[i]?.group)
+  const same = screens.every(
+    (s, i) =>
+      s.id === m.screens[i]?.id && s.group === m.screens[i]?.group && s.parent === m.screens[i]?.parent,
+  )
   return same ? null : op(m.groups ?? [], screens)
+}
+
+/** 设为子页面: under the sibling page just above it, as its last subpage. */
+export function indentScreen(m: GgArtifactManifest, id: string): PagesOp | null {
+  const me = m.screens.find((s) => s.id === id)
+  const siblings = m.screens.filter((s) => s.group === me?.group && s.parent === me?.parent)
+  const above = siblings[siblings.findIndex((s) => s.id === id) - 1]
+  return above ? moveScreen(m, id, undefined, undefined, above.id) : null
+}
+
+/** 移出子页面: out of its parent page, right after it. */
+export function outdentScreen(m: GgArtifactManifest, id: string): PagesOp | null {
+  const up = m.screens.find((s) => s.id === m.screens.find((x) => x.id === id)?.parent)
+  if (!up) return null
+  const siblings = m.screens.filter((s) => s.group === up.group && s.parent === up.parent && s.id !== id)
+  const next = siblings[siblings.findIndex((s) => s.id === up.id) + 1]
+  return moveScreen(m, id, up.group, next?.id, up.parent)
 }
 
 /** Every group as a flat list in tree order, for 移到分类 menus. */

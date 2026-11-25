@@ -34,4 +34,8 @@ export default {
   对话加载失败: "Couldn't load the chat",
   '在下方输入框描述要怎么改，AI 的回复显示在这里':
     'Describe the change in the box below; AI replies show here',
+  收起子页面: 'Collapse subpages',
+  展开子页面: 'Expand subpages',
+  设为上一页的子页面: 'Make a subpage of the page above',
+  移出子页面: 'Move out of its parent page',
 }

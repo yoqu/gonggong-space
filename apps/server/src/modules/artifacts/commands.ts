@@ -114,11 +114,17 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
   const source = sources(a, v)
   const m = await manifestOf(a, v)
   const lines = [`产物「${a.title}」，目录 ${a.dir}/，当前版本 v${v.n}。`]
-  if (sel.page) {
-    const page =
-      m?.groups?.find((g) => g.id === sel.page) ?? fail('invalid', '文件夹不存在：{id}', { id: sel.page })
+  const folder = sel.page ? m?.groups?.find((g) => g.id === sel.page) : undefined
+  const solo = sel.page && !folder ? m?.screens.find((x) => x.id === sel.page) : undefined
+  if (sel.page && !folder && !solo) fail('invalid', '文件夹不存在：{id}', { id: sel.page })
+  if (folder)
     lines.push(
-      `当前文件夹：${page.title}（${page.id}）。新建的屏幕放进这个文件夹：在 gg-artifact.json 的屏幕上写 "group": "${page.id}"。`,
+      `当前文件夹：${folder.title}（${folder.id}）。新建的屏幕放进这个文件夹：在 gg-artifact.json 的屏幕上写 "group": "${folder.id}"。`,
+    )
+  if (solo) {
+    const place = solo.parent ? `"parent": "${solo.parent}"` : solo.group ? `"group": "${solo.group}"` : ''
+    lines.push(
+      `当前只看页面：${solo.title}（${solo.id}）。${place ? `新建的屏幕放在它旁边：在 gg-artifact.json 的屏幕上写 ${place}。` : ''}`,
     )
   }
   if (sel.screenIds.length) lines.push('选中的屏幕：', ...sel.screenIds.map((id) => `- ${screenLine(m, id)}`))
