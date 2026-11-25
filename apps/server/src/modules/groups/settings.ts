@@ -28,7 +28,7 @@ async function members(ctx: Ctx, groupId: string) {
 }
 
 /** Replaces the current notice: the old one is marked removed, a non-empty one starts a new history entry. */
-async function setNotice(ctx: Ctx, groupId: string, notice: string, by: string) {
+export async function setNotice(ctx: Ctx, groupId: string, notice: string, by: string) {
   await ctx.db.transaction(async (tx) => {
     await tx
       .update(groupNotices)
@@ -221,7 +221,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
           : []
       const body = {
         ...prefs,
-        ...(sectionId !== undefined && { sectionId }),
+        ...(sectionId !== undefined && { sectionId, sectionMoved: true }),
         ...(noticeHidden !== undefined && { hiddenNoticeId: noticeHidden ? group.noticeId : null }),
         ...(done !== undefined && { doneSeq: done ? (last?.seq ?? 0) : null }),
       }

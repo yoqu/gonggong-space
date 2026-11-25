@@ -116,6 +116,8 @@ export interface FeishuChat {
   chatId: string
   name: string
   avatar: string | null
+  /** Union id of the chat's owner; absent when a bot owns it or Feishu does not say. */
+  ownerUnionId?: string
 }
 
 export interface FeishuHistoryItem {
@@ -464,10 +466,16 @@ export function larkApi(): FeishuApi {
       const out: FeishuChat[] = []
       try {
         for await (const page of await client(app).im.v1.chat.listWithIterator({
-          params: { page_size: 100 },
+          params: { page_size: 100, user_id_type: 'union_id' },
         }))
           for (const c of page?.items ?? [])
-            if (c.chat_id) out.push({ chatId: c.chat_id, name: c.name ?? '', avatar: c.avatar ?? null })
+            if (c.chat_id)
+              out.push({
+                chatId: c.chat_id,
+                name: c.name ?? '',
+                avatar: c.avatar ?? null,
+                ...(c.owner_id_type === 'union_id' && c.owner_id && { ownerUnionId: c.owner_id }),
+              })
       } catch (err) {
         if (err instanceof FeishuError) throw err
         throw new FeishuError(0, (err as Error).message)

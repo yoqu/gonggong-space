@@ -137,6 +137,23 @@ export const CreateGroupFromFeishuReq = z.object({
 export const GroupFromFeishuDto = FeishuMemberSyncDto.extend({ group: GroupDto })
 export type GroupFromFeishuDto = z.infer<typeof GroupFromFeishuDto>
 
+/**
+ * POST /api/integrations/feishu-project/chats (Bearer integration token bound to one team): the 共工 group of a
+ * Feishu chat the main app was pulled into for a 飞书项目 work item; idempotent per chat.
+ */
+export const FeishuProjectChatReq = z.object({
+  feishuChatId: z.string().trim().min(1),
+  /** Name of the sidebar section members get the group filed under. */
+  section: z.string().trim().min(1).max(60).optional(),
+  workItem: z.object({
+    id: z.union([z.number(), z.string()]),
+    name: z.string().trim().max(200),
+    url: z.string().trim().url().max(2000),
+  }),
+})
+export const FeishuProjectChatDto = z.object({ groupId: z.string(), created: z.boolean() })
+export type FeishuProjectChatDto = z.infer<typeof FeishuProjectChatDto>
+
 /** PUT /api/groups/:id/feishu: bind the group to one of the main app's chats (one to one). */
 export const BindFeishuChatReq = z.object({ chatId: z.string().trim().min(1) })
 /** PATCH /api/groups/:id/feishu */

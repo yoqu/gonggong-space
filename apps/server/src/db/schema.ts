@@ -452,6 +452,8 @@ export const groups = pgTable('groups', {
   visibility: text('visibility').notNull().default('private'),
   /** The 团队分区 it is filed under; private ones there can be asked to join. */
   teamSectionId: uuid('team_section_id').references(() => teamSections.id, { onDelete: 'set null' }),
+  /** Name of the sidebar section members get it filed under until they move it themselves (飞书项目需求群). */
+  defaultSection: text('default_section'),
   /** `avatars/<uuid>` under the data dir; null = tiled from the members. */
   avatar: text('avatar'),
   /** A DM renamed by its owner shows `name`; otherwise it follows its Bot's name. */
@@ -598,6 +600,8 @@ export const groupMembers = pgTable(
     flagged: boolean('flagged').notNull().default(false),
     /** The member's own sidebar section holding the group; null = its kind's default section. */
     sectionId: uuid('section_id').references(() => sidebarSections.id, { onDelete: 'set null' }),
+    /** The member filed the group themselves (or deleted its section): the group's default section no longer applies. */
+    sectionMoved: boolean('section_moved').notNull().default(false),
     /** The notice this member closed for themselves; a newer notice shows again. */
     hiddenNoticeId: uuid('hidden_notice_id'),
     lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull().default(0),

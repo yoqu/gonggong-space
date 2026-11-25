@@ -59,6 +59,8 @@ export type RepoCandidatesDto = z.infer<typeof RepoCandidatesDto>
 export const WebEvent = z.discriminatedUnion('t', [
   /** 团队分区 or what is filed under them changed: refetch them and the directory. */
   z.object({ t: z.literal('directory.changed') }),
+  /** A sidebar section of mine was created for me (a group's default section). */
+  z.object({ t: z.literal('sections.changed') }),
   z.object({ t: z.literal('group.botState'), groupId: z.string(), state: GroupBotStateDto }),
   /** The group's pinned messages changed; replaces the list. */
   GroupPinsDto.extend({ t: z.literal('group.pins'), groupId: z.string() }),

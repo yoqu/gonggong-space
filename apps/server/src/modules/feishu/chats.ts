@@ -106,7 +106,7 @@ async function checkBindable(ctx: Ctx, userId: string, chatId: string) {
 }
 
 /** The team's bots whose own app is in the chat (Feishu leaves bots out of chat members, so each app is asked). */
-async function botsInChat(ctx: Ctx, teamId: string, chatId: string) {
+export async function botsInChat(ctx: Ctx, teamId: string, chatId: string) {
   const apps = await ctx.db
     .select({ app: feishuApps, botId: bots.id })
     .from(feishuApps)

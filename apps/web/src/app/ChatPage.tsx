@@ -90,6 +90,8 @@ function useChatData() {
     // Leaving a group puts it back in the directory if it is filed under a 团队分区.
     const off = realtime.subscribe((e) => {
       if (e.t === 'directory.changed' || e.t === 'group.removed') void loadTeam()
+      if (e.t === 'sections.changed')
+        loadSections().catch((err: Error) => console.warn('sidebar sections failed to load:', err))
     })
     const offReconnect = realtime.onReconnect(() => {
       loadGroups(setState)

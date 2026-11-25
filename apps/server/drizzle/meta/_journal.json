@@ -862,6 +862,13 @@
       "when": 1795480747483,
       "tag": "0122_machine_member_connect",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1795576960708,
+      "tag": "0123_nice_rockslide",
+      "breakpoints": true
     }
   ]
 }

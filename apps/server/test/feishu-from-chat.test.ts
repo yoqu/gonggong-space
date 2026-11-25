@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, feishuChats, feishuIdentities, systemParams } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
+import { settleInvites } from '../src/modules/feishu/invite.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -100,6 +101,7 @@ describe('主应用进群卡片', () => {
     await t.db.insert(systemParams).values({ key: 'publicUrl', value: 'https://gg.example.com' })
     forgetSysParams(t.db)
     await t.feishu.botAdded(MAIN, 'oc_new', '新群')
+    await settleInvites()
     const [card] = t.feishu.sent.filter((m) => m.chatId === 'oc_new')
     expect(card).toMatchObject({ appId: MAIN, msgType: 'interactive' })
     expect(JSON.stringify(card?.content)).toContain('点下方按钮新建或关联已有的共工群')
@@ -108,14 +110,17 @@ describe('主应用进群卡片', () => {
 
     await s.http.post('/api/groups/from-feishu', { chatId: CHAT, name: '研发' })
     await t.feishu.botAdded(MAIN, CHAT, '研发群')
+    await settleInvites()
     expect(t.feishu.sent.filter((m) => m.chatId === CHAT)).toEqual([])
     await t.feishu.botAdded(BOT_APP, 'oc_bot', 'x')
+    await settleInvites()
     expect(t.feishu.sent.filter((m) => m.chatId === 'oc_bot')).toEqual([])
   })
 
   it('without a public URL still tells the chat how to link it, with no button', async () => {
     await setup()
     await t.feishu.botAdded(MAIN, 'oc_new', '新群')
+    await settleInvites()
     const [card] = t.feishu.sent.filter((m) => m.chatId === 'oc_new')
     const text = JSON.stringify(card?.content)
     expect(text).toContain('请在共工的群设置 › 飞书里关联本群')

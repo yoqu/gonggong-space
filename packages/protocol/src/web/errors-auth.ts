@@ -17,6 +17,8 @@ export const ErrorCode = z.enum([
   'edit_expired',
   'payload_too_large',
   'rate_limited',
+  /** A dependency (e.g. Feishu) failed; the same request may succeed later. */
+  'unavailable',
 ])
 export const ApiError = z.object({ error: ErrorCode, message: z.string() })
 

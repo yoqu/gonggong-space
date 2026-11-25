@@ -887,6 +887,10 @@ export const en = {
     'The Feishu main app cannot create chats: a system admin must enable im:chat:create for it on the Feishu Open Platform and publish a version',
   '你不在该飞书群中，不能关联': "You aren't in that Feishu chat, so you can't link it",
   该飞书群已关联其他群: 'That Feishu chat is already linked to another group',
+  该飞书群已关联其他团队的群: "That Feishu chat is already linked to another team's group",
+  集成令牌无效: 'Invalid integration token',
+  团队没有可用的管理员: 'The team has no available admin',
+  '飞书调用失败：{reason}': 'Feishu call failed: {reason}',
   该群尚未关联飞书群: "This group isn't linked to a Feishu chat yet",
   '该 Bot 还没有接入飞书应用': "This Bot hasn't connected a Feishu app yet",
   '这个飞书群还没有关联共工群，请群管理员在共工的群设置 › 飞书里关联。':

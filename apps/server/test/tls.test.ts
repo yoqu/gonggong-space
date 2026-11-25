@@ -54,6 +54,7 @@ describe('server over TLS', () => {
         heartbeatSec: 15,
         secureCookies: true,
         preview: { domain: null, ports: [0, 0] as [number, number], publicUrl: null },
+        feishuProjectTokens: [],
       },
     }
     const app = await buildApp(ctx, { https: tlsOptions(env) })

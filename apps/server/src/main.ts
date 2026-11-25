@@ -8,6 +8,7 @@ import { dataDir } from './modules/attachments/service.js'
 import { ensureBootstrapAdmin } from './modules/auth/bootstrap.js'
 import { larkApi } from './modules/feishu/client.js'
 import { larkConnector } from './modules/feishu/gateway.js'
+import { integrationTokens } from './modules/integrations/tokens.js'
 import { liveKitFromEnv } from './modules/live/livekit.js'
 import { INTERNAL_PLUGINS, syncBuiltinPlugins } from './modules/plugins/builtin.js'
 import { previewConfig } from './modules/previews/config.js'
@@ -31,6 +32,7 @@ const ctx: Ctx = {
     heartbeatSec: Number(process.env.GONGGONG_HEARTBEAT_SEC ?? heartbeatSec),
     secureCookies: !!https || process.env.GONGGONG_SECURE_COOKIES === '1',
     preview: previewConfig(),
+    feishuProjectTokens: integrationTokens(process.env.GONGGONG_FEISHU_PROJECT_TOKENS),
   },
 }
 await ensureBootstrapAdmin(ctx, process.env.GONGGONG_ADMIN_PASSWORD)

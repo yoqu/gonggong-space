@@ -49,6 +49,7 @@ import { groupTabRoutes } from './modules/group-tabs/routes.js'
 import { extraRepoRoutes } from './modules/groups/extra-repos.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
+import { feishuProjectRoutes } from './modules/integrations/feishu-project.js'
 import { knowledgeRoutes } from './modules/knowledge/routes.js'
 import { liveRoutes, routeLiveKitUpgrades } from './modules/live/routes.js'
 import { startLiveEngine } from './modules/live/service.js'
@@ -248,6 +249,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(feishuRoutes(ctx))
   await app.register(feishuCardRoutes(ctx))
   await app.register(feishuChatRoutes(ctx))
+  await app.register(feishuProjectRoutes(ctx))
   startFeishuInbound(ctx)
   startFeishuMembers(ctx)
   startFeishuInvite(ctx)

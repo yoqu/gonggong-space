@@ -5,11 +5,12 @@ import {
   SidebarSectionOrderReq,
   SidebarSectionReq,
   sectionDepth,
+  sectionSubtree,
 } from '@gonggong/protocol'
-import { and, asc, eq, max } from 'drizzle-orm'
+import { and, asc, eq, inArray, max } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { sidebarSections } from '../../db/schema.js'
+import { groupMembers, sidebarSections } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
@@ -97,8 +98,21 @@ export function sidebarRoutes(ctx: Ctx) {
 
     app.delete<Params>('/api/sidebar-sections/:id', async (req, reply) => {
       const me = await requireUser(ctx, req)
-      const sec = await requireSection(ctx, me.id, await currentTeam(ctx, req, me.id), req.params.id)
-      await ctx.db.delete(sidebarSections).where(eq(sidebarSections.id, sec.id))
+      const teamId = await currentTeam(ctx, req, me.id)
+      const sec = await requireSection(ctx, me.id, teamId, req.params.id)
+      await ctx.db.transaction(async (tx) => {
+        // Their groups go back to the default sections of their kind, not to a group's default section.
+        await tx
+          .update(groupMembers)
+          .set({ sectionMoved: true })
+          .where(
+            and(
+              eq(groupMembers.userId, me.id),
+              inArray(groupMembers.sectionId, sectionSubtree(await mySections(ctx, me.id, teamId), sec.id)),
+            ),
+          )
+        await tx.delete(sidebarSections).where(eq(sidebarSections.id, sec.id))
+      })
       return reply.status(204).send()
     })
   }

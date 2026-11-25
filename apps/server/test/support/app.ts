@@ -8,6 +8,7 @@ import { DaemonHub } from '../../src/daemon/hub.js'
 import { bots, groupBots, groupMembers, groups, machines, teamMembers, users } from '../../src/db/schema.js'
 import { newToken, sha256 } from '../../src/lib/crypto.js'
 import { createSession, SESSION_COOKIE } from '../../src/modules/auth/session.js'
+import { inviteDelay } from '../../src/modules/feishu/invite.js'
 import type { LiveKit } from '../../src/modules/live/livekit.js'
 import { TunnelHub } from '../../src/modules/previews/tunnel.js'
 import { createTeam } from '../../src/modules/teams/service.js'
@@ -45,6 +46,7 @@ export async function createTestApp(
   opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit; logStream?: Writable } = {},
 ) {
   const t = await createTestDb()
+  inviteDelay.ms = 0
   const feishu = new FakeFeishu()
   const ctx: Ctx = {
     db: t.db,
@@ -58,6 +60,7 @@ export async function createTestApp(
       heartbeatSec: opts.heartbeatSec ?? 15,
       secureCookies: false,
       preview: { domain: null, ports: [0, 0], publicUrl: null },
+      feishuProjectTokens: [],
     },
   }
   const app: FastifyInstance = await buildApp(ctx, { logStream: opts.logStream })

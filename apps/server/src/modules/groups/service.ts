@@ -33,6 +33,7 @@ import { summarizeBlocks } from '../../lib/text.js'
 import { forgetMembers, type MessageMeta, memberIds, postEvent, userAuthorName } from '../messages/service.js'
 import { LIVE } from '../runs/dto.js'
 import { stopRuns } from '../runs/stop.js'
+import { fileDefaultSection } from '../sidebar/default-section.js'
 import { avatarUrl } from '../users/dto.js'
 import { botRepliesInThreadOf, replyStyleOf } from './params.js'
 import { groupTitle, translateGroupTitle } from './title.js'
@@ -449,6 +450,7 @@ export async function removeMember(ctx: Ctx, groupId: string, userId: string, by
 
 /** Pushes each member their own view of the group. */
 export async function publishGroup(ctx: Ctx, groupId: string) {
+  await fileDefaultSection(ctx, groupId)
   for (const { userId, group } of await groupViews(
     ctx,
     await memberIds(ctx, groupId),

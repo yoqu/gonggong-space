@@ -15,6 +15,7 @@ const STATUS: Record<z.infer<typeof ErrorCode>, number> = {
   edit_expired: 409,
   payload_too_large: 413,
   rate_limited: 429,
+  unavailable: 503,
 }
 
 export class HttpError extends Error {
