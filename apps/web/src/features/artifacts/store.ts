@@ -184,9 +184,22 @@ export const moveArtifact = (artifactId: string, groupId: string) =>
 export const archiveArtifact = (artifactId: string) =>
   api.post<ArtifactDto>(`/artifacts/${artifactId}/archive`)
 
+/** Artifacts shown on their own page (作品 `/works/:id`): their canvas is already open, outside any workbench. */
+const hosted = new Map<string, number>()
+
+/** While mounted, the page shows `artifactId` itself: focusing it opens no workbench tab. Returns the cleanup. */
+export function hostArtifact(artifactId: string) {
+  hosted.set(artifactId, (hosted.get(artifactId) ?? 0) + 1)
+  return () => {
+    const n = (hosted.get(artifactId) ?? 1) - 1
+    if (n) hosted.set(artifactId, n)
+    else hosted.delete(artifactId)
+  }
+}
+
 /** Opens the artifact's canvas in the workbench; false (and a toast) when the workbench is full. */
 export const openArtifact = (artifactId: string, title = '') =>
-  openTab({ kind: 'artifact', artifactId, title })
+  hosted.has(artifactId) || openTab({ kind: 'artifact', artifactId, title })
 
 /** Where the canvas goes once it shows: these screens selected and in view, on `versionId` (null: the head). */
 export interface ArtifactFocus {

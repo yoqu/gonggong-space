@@ -1,5 +1,5 @@
 import type { ArtifactDto, WorkDto } from '@gonggong/protocol'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -8,7 +8,7 @@ import { Alert, Button, Dialog, Presence, Select, toast } from '../../ui'
 import { ArtifactTab } from '../artifacts/ArtifactTab'
 import { ArtifactPage } from '../artifacts/host'
 import { useArtifactManager } from '../artifacts/share'
-import { setArtifactVisibility, useArtifact } from '../artifacts/store'
+import { hostArtifact, setArtifactVisibility, useArtifact } from '../artifacts/store'
 
 /**
  * A work I may change, on its own page: the editor straight away, no group chat beside it. Discussion happens where it
@@ -18,6 +18,7 @@ export function WorkEditor({ work, onBack }: { work: WorkDto; onBack: () => void
   const [sharing, setSharing] = useState(false)
   const a = useArtifact(work.id)?.artifact
   const page = useMemo(() => ({ leave: onBack }), [onBack])
+  useEffect(() => hostArtifact(work.id), [work.id])
   return (
     <section className="works works--editor" aria-label={work.title}>
       <header className="works__head">

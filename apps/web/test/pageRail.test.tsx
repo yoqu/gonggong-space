@@ -253,6 +253,19 @@ describe('subpages (页面下挂子页面)', () => {
   })
 })
 
+describe('an artifact on its own page (作品)', () => {
+  it('focuses screens on that page instead of opening a workbench tab', async () => {
+    const store = await import('../src/features/artifacts/store')
+    const { useWorkbench } = await import('../src/app/workbench')
+    const before = useWorkbench.getState().benches
+    const unhost = store.hostArtifact('a1')
+    expect(store.focusArtifact('a1', { screenIds: ['me'] })).toBe(true)
+    expect(useWorkbench.getState().benches).toBe(before)
+    unhost()
+    store.takeArtifactFocus('a1')
+  })
+})
+
 describe('page rail', () => {
   it('lists groups and pages, and shows each command with its run result', async () => {
     mockApi({ 'GET /artifacts/a1/history': history, ...chatRoutes([]) })
