@@ -154,7 +154,37 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('TeamSettingsDialog › InvitesTab UX', () => {})
+describe('TeamSettingsDialog › InvitesTab UX', () => {
+  it('shows a spinner while loading and an error Alert with retry on failure', async () => {
+    let fail = true
+    let finish = () => {}
+    mockApi({
+      'GET /teams/t1/invites': async () => {
+        await new Promise<void>((r) => {
+          finish = r
+        })
+        if (fail) {
+          fail = false
+          return apiError(500, 'internal', '邀请加载失败')
+        }
+        return [invite()]
+      },
+    })
+
+    const { container } = render(<TeamSettingsDialog team={team()} tab="invites" onClose={() => {}} />)
+    await waitFor(() => expect(container.ownerDocument.querySelector('.team-invites__loading')).toBeTruthy())
+
+    finish()
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('邀请加载失败')).toBeTruthy()
+
+    fireEvent.click(within(alert).getByRole('button', { name: '重试' }))
+    await waitFor(() => finish())
+    await waitFor(() =>
+      expect(container.ownerDocument.querySelector('.team-invites__count')?.textContent).toBe('1'),
+    )
+  })
+})
 
 describe('TeamSettingsDialog › OverviewTab, MembersTab & unsaved changes', () => {
   it('switches tab after confirming discard', async () => {
