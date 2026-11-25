@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.32 — 2026-11-25
+
+- Claude 供应商可以使用默认配置目录 `~/.claude`，复用登录、MCP 和 Skill；同目录的供应商仍可使用各自的设置 / Claude providers can use the default `~/.claude` directory to share sign-in, MCP, and skills while keeping provider-specific settings
+- 飞书和飞书项目连接器由 Bot 所在电脑的主人授权；群成员可查看连接状态，不用在别人的电脑上登录 / The bot computer's owner authorizes Feishu and Feishu Project. Group members can check connection status without signing in on someone else's computer
+- 私聊可把 Bot 回复收进话题；Bot 异常结束且没有发出消息时，话题入口仍会保留；@ 候选列表显示成员和 Bot 头像 / Direct chats can put bot replies in threads. Threads stay accessible when a bot ends with an error before sending a message, and mentions show member and bot avatars
+- 网页和桌面端简化常用操作，保护未保存草稿，为高风险操作增加确认；发送失败的消息可重发或放回输入框 / Web and desktop simplify common actions, protect unsaved drafts, and confirm high-risk actions. Failed messages can be retried or returned to the composer
+- 从「作品」直接打开编辑器或交给自己的 Bot 创作，无需先建群；可分享到群、授权团队成员查看或协作，协作者可在作品内和 AI 对话 / Open the editor or create with your own bot from Works without making a group first. Share to a chat, grant teammates view or edit access, and let collaborators chat with AI in the work
+- 原型画布支持多级子页面、拖拽调整层级和单页查看，滚轮和触控板缩放更快；在作品页点页面或批注不再误报标签页已满 / The prototype canvas supports nested screens, drag-to-reparent, and single-screen view, with faster wheel and trackpad zoom. Opening screens or comments from Works no longer shows a false tab-limit warning
+- 接入飞书项目插件后，需求关联的飞书群可自动创建对应的共工群，并归入默认分区 / With the Feishu Project integration enabled, a work item's Feishu chat can automatically get a matching Gonggong group in the default sidebar section
+- 自动审批只直接拒绝命中高危规则的操作；其他不能自动放行的请求交给 Bot 主人审批 / Automatic approval rejects only actions that hit high-risk rules. Other requests that cannot be auto-approved go to the bot owner for review
+
 ## v0.4.31 — 2026-11-24
 
 - 更新 24 个角色的骨骼动画，运行卡片加入角色走步交互 / Refined animations for 24 characters and added walking interactions to run cards
