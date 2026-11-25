@@ -22,7 +22,17 @@ import {
 import { and, count, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { artifacts, artifactVersions, bots, groups, messages, plugins, runs, users } from '../../db/schema.js'
+import {
+  artifactMembers,
+  artifacts,
+  artifactVersions,
+  bots,
+  groups,
+  messages,
+  plugins,
+  runs,
+  users,
+} from '../../db/schema.js'
 import { t, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
@@ -322,20 +332,41 @@ export async function isArtifactManager(ctx: Ctx, a: Artifact, userId: string, i
   return bot?.ownerId === userId
 }
 
-/** The caller's access to `a` (ArtifactDto.visibility); `private`: a member it is hidden from. */
-async function artifactAccess(
-  ctx: Ctx,
-  a: Artifact,
-  userId: string,
-): Promise<{ access: ArtifactAccess; teamId: string } | 'private' | null> {
+/** What `userId` was given on `a` beyond its group (作品权限). */
+async function grantOf(db: Read, artifactId: string, userId: string) {
+  const [g] = await db
+    .select({ role: artifactMembers.role })
+    .from(artifactMembers)
+    .where(and(eq(artifactMembers.artifactId, artifactId), eq(artifactMembers.userId, userId)))
+  return g?.role as ArtifactAccess | undefined
+}
+
+/** The people `a` reaches beyond its group: its creator and those given access, for realtime. */
+export async function artifactGrantees(db: Read, a: Artifact): Promise<string[]> {
+  const rows = await db
+    .select({ userId: artifactMembers.userId })
+    .from(artifactMembers)
+    .where(eq(artifactMembers.artifactId, a.id))
+  return [...(a.createdBy ? [a.createdBy] : []), ...rows.map((r) => r.userId)]
+}
+
+type Access = { access: ArtifactAccess; teamId: string; manager: boolean }
+
+/**
+ * The caller's access to `a` (ArtifactDto.visibility); `private`: a member it is hidden from. Its creator may always
+ * change it while still in its team, and those given access (作品权限) get theirs whether in its group or not.
+ */
+async function artifactAccess(ctx: Ctx, a: Artifact, userId: string): Promise<Access | 'private' | null> {
   const m = await findMember(ctx, a.groupId, userId)
-  if (m)
-    return a.visibility !== 'private' || (await isArtifactManager(ctx, a, userId, m.member.isAdmin))
-      ? { access: 'edit', teamId: m.group.teamId }
-      : 'private'
-  if (a.visibility !== 'team') return null
-  const teamId = await inTeamOfGroup(ctx, a.groupId, userId)
-  return teamId ? { access: 'view', teamId } : null
+  const manager = await isArtifactManager(ctx, a, userId, !!m?.member.isAdmin)
+  if (m && (a.visibility !== 'private' || manager)) return { access: 'edit', teamId: m.group.teamId, manager }
+  const teamId = m?.group.teamId ?? (await inTeamOfGroup(ctx, a.groupId, userId))
+  if (!teamId) return null
+  if (a.createdBy === userId) return { access: 'edit', teamId, manager }
+  const grant = await grantOf(ctx.db, a.id, userId)
+  if (grant) return { access: grant, teamId, manager }
+  if (m) return 'private'
+  return a.visibility === 'team' ? { access: 'view', teamId, manager } : null
 }
 
 /**
@@ -355,7 +386,7 @@ export async function viewArtifact(ctx: Ctx, id: string, userId: string) {
   const res = await artifactAccess(ctx, a, userId)
   if (res === 'private') return fail('forbidden', '仅创建人可见')
   if (!res) return fail('not_found', '群不存在或你已不在群内')
-  return { a, access: res.access, teamId: res.teamId }
+  return { a, access: res.access, teamId: res.teamId, manager: res.manager }
 }
 
 /** An artifact `userId` may change (and annotate, export, hand to a bot): a member of its group it is not hidden from. */

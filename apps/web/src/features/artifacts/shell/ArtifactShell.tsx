@@ -95,7 +95,7 @@ export function ArtifactShell({
   active: boolean
 }) {
   const me = useSession((s) => s.user)
-  const manager = useArtifactManager(a.groupId, a.botId, a.createdBy)
+  const manager = useArtifactManager(a.groupId, a.botId, a.createdBy, a.canManage)
   const leave = useLeaveArtifact(tabKey)
   const groupBots = useGroupBots(a.groupId)
   const [viewing, setViewing] = useState<string | null>(null)

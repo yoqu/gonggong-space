@@ -869,6 +869,13 @@
       "when": 1795576960708,
       "tag": "0123_nice_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1795587076924,
+      "tag": "0124_curious_proudstar",
+      "breakpoints": true
     }
   ]
 }

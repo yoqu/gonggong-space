@@ -20,6 +20,8 @@ const LOAD_OLDER_PX = 40
 export function CanvasChat({ artifactId, groupId }: { artifactId: string; groupId: string }) {
   const rootId = useArtifactChatRoot(artifactId)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
+  // Given 可协作 on the work without being in its group: the conversation lives in that group.
+  if (rootId && !group) return <p className="art-log__empty">{t('加入作品所在群后才能和 AI 对话')}</p>
   if (!rootId || !group)
     return (
       <p className="art-log__empty">

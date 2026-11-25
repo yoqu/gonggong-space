@@ -210,6 +210,8 @@ export const ArtifactDto = z.object({
   editorVersion: z.string().nullable().optional(),
   /** The caller's access; sent by GET /api/artifacts/:id. */
   access: ArtifactAccess.optional(),
+  /** The caller may set who may open it (visibility, members): its creator, its bot's owner or a group admin. */
+  canManage: z.boolean().optional(),
   /** The team of the artifact's group; sent by GET /api/artifacts/:id so deep links can switch teams. */
   teamId: z.string().optional(),
 })

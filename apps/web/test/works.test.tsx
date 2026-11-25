@@ -158,7 +158,12 @@ describe('作品 page', () => {
       expect.stringContaining('品牌官网'),
       expect.stringContaining('双十一活动汇报'),
     ])
-    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('私聊 · 王芳')
+    expect(within(grid).getAllByRole('listitem')[1]!.querySelector('.works__source')?.textContent).toBe(
+      '私聊',
+    )
+    expect(
+      within(grid).getAllByRole('listitem')[1]!.querySelector('.works__badge--creator')?.textContent,
+    ).toBe('王芳')
     expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('团队可见')
     expect(within(grid).getAllByRole('listitem')[2]!.textContent).toContain('团队可见')
     expect(within(grid).getAllByRole('listitem')[2]!.textContent).toContain('只读')
@@ -231,7 +236,7 @@ describe('作品 page', () => {
     expect(within(grid).getByRole('listitem').textContent).toContain('托管网页')
   })
 
-  it('places relative time inside .works__meta so bottom tag row stays aligned', async () => {
+  it('shows the creator over the cover and the relative time inside .works__meta', async () => {
     mockApi({
       'GET /works/groups': GROUPS,
       'GET /works': [
@@ -243,7 +248,9 @@ describe('作品 page', () => {
     const grid = await screen.findByRole('list', { name: '作品' })
     const items = within(grid).getAllByRole('listitem')
     const meta0 = items[0]!.querySelector('.works__meta')!
-    expect(meta0.querySelector('.works__source')?.textContent).toBe('麓客产品群 · 姜维川')
+    expect(meta0.querySelector('.works__source')?.textContent).toBe('麓客产品群')
+    expect(items[0]!.querySelector('.works__shot .works__badge--creator')?.textContent).toBe('姜维川')
+    expect(items[1]!.querySelector('.works__badge--creator')).toBeNull()
     expect(meta0.querySelector('.works__sep')?.textContent).toBe('·')
     expect(meta0.querySelector('time.works__time')?.getAttribute('datetime')).toBe('2026-10-31T05:28:00.000Z')
     expect(items[0]!.querySelector('.works__tags time')).toBeNull()

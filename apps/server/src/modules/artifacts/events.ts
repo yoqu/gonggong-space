@@ -4,11 +4,18 @@ import type { Ctx } from '../../context.js'
 import { artifactThreads, groups, teamMembers } from '../../db/schema.js'
 import { findMember } from '../groups/service.js'
 import { memberIds } from '../messages/service.js'
-import { type Artifact, isArtifactManager } from './service.js'
+import { type Artifact, artifactGrantees, isArtifactManager } from './service.js'
 import { loadThreads } from './threads.js'
 
-/** Every user who may view `a`: managers for private, group members for group, plus team members for team. */
+/**
+ * Every user who may view `a`: managers for private, group members for group, plus team members for team; and its
+ * creator and those given access wherever they are.
+ */
 export async function artifactAudience(ctx: Ctx, a: Artifact): Promise<string[]> {
+  return [...new Set([...(await byVisibility(ctx, a)), ...(await artifactGrantees(ctx.db, a))])]
+}
+
+async function byVisibility(ctx: Ctx, a: Artifact): Promise<string[]> {
   const ids = await memberIds(ctx, a.groupId)
   if (a.visibility === 'private') {
     const ok = await Promise.all(

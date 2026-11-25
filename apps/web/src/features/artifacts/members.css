@@ -1,0 +1,27 @@
+.art-members {
+  align-items: stretch;
+}
+.art-members__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.art-members__row,
+.art-members__add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.art-members__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-members__role {
+  color: var(--label-secondary);
+}

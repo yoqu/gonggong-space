@@ -2010,6 +2010,24 @@ export const artifacts = pgTable(
   (t) => [unique().on(t.groupId, t.dir), index('artifacts_bot').on(t.botId)],
 )
 
+/** People given access to a work beyond its group (作品权限). */
+export const artifactMembers = pgTable(
+  'artifact_members',
+  {
+    artifactId: uuid('artifact_id')
+      .notNull()
+      .references(() => artifacts.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** ArtifactAccess: 'view' | 'edit'. */
+    role: text('role').notNull(),
+    grantedBy: uuid('granted_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.artifactId, t.userId] }), index('artifact_members_user').on(t.userId)],
+)
+
 /** Immutable. */
 export const artifactVersions = pgTable(
   'artifact_versions',

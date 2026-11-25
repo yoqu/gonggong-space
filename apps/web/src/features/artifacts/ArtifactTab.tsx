@@ -130,7 +130,7 @@ function PrototypeArtifactTab({
   const [renaming, setRenaming] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [moving, setMoving] = useState(false)
-  const manager = useArtifactManager(a?.groupId ?? '', a?.botId, a?.createdBy ?? null)
+  const manager = useArtifactManager(a?.groupId ?? '', a?.botId, a?.createdBy ?? null, a?.canManage)
   const leave = useLeaveArtifact(tabKey)
   const groupBots = useGroupBots(a?.groupId ?? '')
   const head = a?.headVersionId ?? null

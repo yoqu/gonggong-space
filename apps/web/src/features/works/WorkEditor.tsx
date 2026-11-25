@@ -52,7 +52,7 @@ export function WorkEditor({ work, onBack }: { work: WorkDto; onBack: () => void
 function ShareToChatDialog({ artifact: a, onClose }: { artifact: ArtifactDto; onClose: () => void }) {
   const navigate = useNavigate()
   const groups = useWorkspace((s) => s.groups)
-  const manager = useArtifactManager(a.groupId, a.botId, a.createdBy)
+  const manager = useArtifactManager(a.groupId, a.botId, a.createdBy, a.canManage)
   const options = groups
     .filter((g) => g.id === a.groupId || g.kind === 'group')
     .sort((x, y) => Number(y.id === a.groupId) - Number(x.id === a.groupId))

@@ -27,4 +27,13 @@ export default {
   选择群: 'Choose a group',
   你没有其他可移入的群: 'You are in no other group to move it to',
   '已移到群「{group}」': 'Moved to "{group}"',
+  可看: 'Can view',
+  可协作: 'Can edit',
+  成员权限: 'People with access',
+  '单独授权团队里的人，不用进群：可看只能查看，可协作能和群成员一样修改':
+    'Give people of the team access without joining the group: viewers only look, editors change it like group members',
+  '{name} 的权限': "{name}'s access",
+  还没有单独授权的人: 'No one has been given access yet',
+  选择成员: 'Choose someone',
+  '加入作品所在群后才能和 AI 对话': 'Join the group it belongs to to talk to AI about it',
 }

@@ -463,6 +463,10 @@ export const en = {
   '仅 Bot 主人或群管理员可操作': "Only the Bot's owner or a group admin can do this",
   仅创建人可见: 'Only its creator can open this',
   '只能查看，进群后才能修改': 'View only: join the group to change it',
+  '只有创建人、Bot 主人或群管理员能设置权限':
+    'Only the creator, the bot owner or a group admin can set access',
+  成员不在本团队: 'This person is not in the team',
+  创建人始终可以编辑: 'The creator can always edit',
   '只有创建人、Bot 主人或群管理员能修改可见范围':
     "Only its creator, the Bot's owner or a group admin can change who sees it",
   没有这个控制请求: 'No such control request',

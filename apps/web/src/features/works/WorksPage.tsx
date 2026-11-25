@@ -282,7 +282,7 @@ export function WorksPage() {
         <ul className="works__grid" aria-label={t('作品')}>
           {shown.map((w, i) => {
             const vis = cardVisibility(w)
-            const source = [sourceTitle(w), w.creatorName].filter(Boolean).join(' · ')
+            const source = sourceTitle(w)
             return (
               <li key={w.id} className="works__card" style={{ '--i': i } as CSSProperties}>
                 <button
@@ -299,6 +299,12 @@ export function WorksPage() {
                         {[...w.title][0]}
                       </span>
                     )}
+                    {w.creatorName ? (
+                      <span className="works__badge works__badge--creator" title={t('创建者')}>
+                        <Icon name="person" size={12} />
+                        <span className="works__creator">{w.creatorName}</span>
+                      </span>
+                    ) : null}
                     {w.access === 'view' ? (
                       <span className="works__badge">
                         <Icon name="eye" size={12} />

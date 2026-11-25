@@ -5,7 +5,7 @@ import { artifactVersions, bots, runs } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
 import { findMember } from '../groups/service.js'
 import { memberIds } from '../messages/service.js'
-import { type Artifact, findArtifact, isArtifactManager, manifestOf } from './service.js'
+import { type Artifact, artifactGrantees, findArtifact, isArtifactManager, manifestOf } from './service.js'
 
 /** A run that has written nothing for this long is shown idle again (its daemon may have died mid-turn). */
 export const ACTIVITY_IDLE_MS = 60_000
@@ -29,12 +29,14 @@ const dtoOf = ({ runId, botId, title, screens, global }: Entry): ArtifactActivit
 /** ArtifactDto.activity. */
 export const artifactActivity = (artifactId: string) => [...(live.get(artifactId)?.values() ?? [])].map(dtoOf)
 
-/** The members who may open `a`: a private one's managers only. */
+/** The members who may open `a` (a private one's managers only), its creator and those given access. */
 async function audience(ctx: Ctx, a: Artifact) {
-  const ids = await memberIds(ctx, a.groupId)
+  const grantees = new Set(await artifactGrantees(ctx.db, a))
+  const ids = [...new Set([...(await memberIds(ctx, a.groupId)), ...grantees])]
   if (a.visibility !== 'private') return ids
   const ok = await Promise.all(
     ids.map(async (id) => {
+      if (grantees.has(id)) return true
       const m = await findMember(ctx, a.groupId, id)
       return !!m && (await isArtifactManager(ctx, a, id, m.member.isAdmin))
     }),

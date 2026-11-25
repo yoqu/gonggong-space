@@ -17,6 +17,8 @@ import {
   ArtifactLinkMetaReq,
   type ArtifactLinkMetaRes,
   type ArtifactManifestRes,
+  type ArtifactMemberDto,
+  ArtifactMemberReq,
   ArtifactMoveReq,
   ArtifactPatchReq,
   type ArtifactPluginCommandDto,
@@ -117,7 +119,14 @@ import {
   replyThread,
   updateThread,
 } from './threads.js'
-import { listWorks, postWork, setVisibility, workGroups } from './works.js'
+import {
+  listArtifactMembers,
+  listWorks,
+  postWork,
+  setArtifactMember,
+  setVisibility,
+  workGroups,
+} from './works.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
 
@@ -393,17 +402,56 @@ export function artifactRoutes(ctx: Ctx) {
 
     app.get<{ Params: { id: string } }>('/api/artifacts/:id', async (req): Promise<ArtifactDto> => {
       const me = await requireUser(ctx, req)
-      const { a, access, teamId } = await viewArtifact(ctx, req.params.id, me.id)
-      return { ...(await artifactDetail(ctx, a)), access, teamId }
+      const { a, access, teamId, manager } = await viewArtifact(ctx, req.params.id, me.id)
+      return { ...(await artifactDetail(ctx, a)), access, canManage: manager, teamId }
     })
+
+    app.get<{ Params: { id: string } }>(
+      '/api/artifacts/:id/members',
+      async (req): Promise<ArtifactMemberDto[]> => {
+        const me = await requireUser(ctx, req)
+        return listArtifactMembers(ctx, (await viewArtifact(ctx, req.params.id, me.id)).a)
+      },
+    )
+
+    app.put<{ Params: { id: string; userId: string } }>(
+      '/api/artifacts/:id/members/:userId',
+      async (req): Promise<ArtifactMemberDto[]> => {
+        const me = await requireUser(ctx, req)
+        const { role } = ArtifactMemberReq.parse(req.body)
+        return setArtifactMember(
+          ctx,
+          me.id,
+          await viewArtifact(ctx, req.params.id, me.id),
+          req.params.userId,
+          role,
+        )
+      },
+    )
+
+    app.delete<{ Params: { id: string; userId: string } }>(
+      '/api/artifacts/:id/members/:userId',
+      async (req): Promise<ArtifactMemberDto[]> => {
+        const me = await requireUser(ctx, req)
+        return setArtifactMember(
+          ctx,
+          me.id,
+          await viewArtifact(ctx, req.params.id, me.id),
+          req.params.userId,
+          null,
+        )
+      },
+    )
 
     app.put<{ Params: { id: string } }>(
       '/api/artifacts/:id/visibility',
       async (req): Promise<ArtifactDto> => {
         const me = await requireUser(ctx, req)
-        const a = await requireArtifact(ctx, req.params.id, me.id)
         const { visibility } = ArtifactVisibilityReq.parse(req.body)
-        return artifactDetail(ctx, await setVisibility(ctx, me, a, visibility))
+        return artifactDetail(
+          ctx,
+          await setVisibility(ctx, me, await viewArtifact(ctx, req.params.id, me.id), visibility),
+        )
       },
     )
 

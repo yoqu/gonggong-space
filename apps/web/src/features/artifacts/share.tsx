@@ -11,7 +11,8 @@ import { toastError } from '../../lib/errors'
 import { localDate } from '../../lib/time'
 import { Button, Dialog, Icon, SegmentedControl, Switch } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
-import { setArtifactVisibility } from './store'
+import { ArtifactMembers } from './ArtifactMembers'
+import { setArtifactVisibility, useArtifactEntry } from './store'
 
 // Stitch's Share (capability list §9) on 共工's preview shares: one public link to the artifact's head, read-only.
 
@@ -84,11 +85,12 @@ export function useArtifactManager(
   groupId: string,
   botId: string | null | undefined,
   createdBy: string | null,
+  canManage?: boolean,
 ) {
   const me = useSession((s) => s.user?.id)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const owner = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.ownerId)
-  return !!me && (createdBy === me || owner === me || (!!group && isGroupAdmin(group, me)))
+  return !!canManage || (!!me && (createdBy === me || owner === me || (!!group && isGroupAdmin(group, me))))
 }
 
 const VISIBILITY_NOTE: Record<ArtifactVisibility, string> = {
@@ -143,7 +145,8 @@ export function ShareDialog({
 }) {
   const { share, busy, set } = useArtifactShare(artifactId)
   const denied = useShareAccess(groupId, botId)
-  const canScope = useArtifactManager(groupId, botId, createdBy)
+  const detail = useArtifactEntry(artifactId)?.artifact
+  const canScope = useArtifactManager(groupId, botId, createdBy, detail?.canManage)
   const dm = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.kind === 'dm')
   const [scope, setScope] = useState(visibility)
   const [saving, setSaving] = useState(false)
@@ -196,6 +199,12 @@ export function ShareDialog({
           />
           <small>{canScope ? scopeNote : t('只有创建人、Bot 主人或群管理员能修改可见范围')}</small>
         </div>
+        <ArtifactMembers
+          artifactId={artifactId}
+          teamId={detail?.teamId}
+          createdBy={createdBy}
+          canManage={canScope}
+        />
         <div className="art-share__row">
           <div>
             <strong>{t('开启分享')}</strong>

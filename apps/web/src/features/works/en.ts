@@ -53,4 +53,5 @@ export default {
   新建作品: 'New work',
   '选一个 Bot 直接创作，作品做好后在作品页编辑；也可以到群里和大家一起创作':
     'Pick a bot to create with directly and edit the work on its page, or create together in a group.',
+  创建者: 'Creator',
 }
