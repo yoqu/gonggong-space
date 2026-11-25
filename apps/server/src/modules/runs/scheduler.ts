@@ -477,7 +477,9 @@ export async function buildRunStart(
           )
         : null,
       // Only daemons that check artifacts out and upload them get any (old ones keep publishing with preview_static).
-      features.includes('artifacts') && !command ? runArtifacts(tx, run.groupId, bot.id, meta) : null,
+      features.includes('artifacts') && !command
+        ? runArtifacts(tx, run.groupId, bot.id, meta, run.originUserId)
+        : null,
     ])
   const plugins = granted?.refs ?? []
   const creations = granted?.creations ?? []

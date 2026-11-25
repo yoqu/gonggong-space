@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
   ARTIFACT_REF_EXT,
@@ -19,8 +18,10 @@ import {
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { artifacts } from '../../db/schema.js'
+import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { artifactBlobs, readBlob } from './blobs.js'
+import { screenIdOf } from './files.js'
 import { type ElementEdit, editHtml, editToken } from './html.js'
 import { readableImage } from './images.js'
 import { designSystemFiles } from './kit.js'
@@ -31,8 +32,6 @@ const TOKENS = 'tokens.css'
 /** `<sha256>.<ext>`: the upload's blob in the group's artifact store; an image's name under `assets/`. */
 const UPLOAD_ID = /^[0-9a-f]{64}\.(png|jpg|webp|gif|pdf|txt|md)$/
 const IMAGE_ID = /\.(png|jpg|webp|gif)$/
-
-const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex')
 
 /** Magic bytes, so a renamed SVG or HTML page cannot pass as an image. */
 const SIGNATURES: Record<string, (b: Buffer) => boolean> = {
@@ -259,10 +258,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
       else if (op.op === 'rename') screen.title = op.title ?? screen.title
       else if (op.op === 'duplicate') {
         const paths = [...files.keys(), ...changed.keys()]
-        const taken = new Set([
-          ...m.screens.map((s) => s.id),
-          ...paths.flatMap((p) => /^screens\/(.+)\.html$/.exec(p)?.[1] ?? []),
-        ])
+        const taken = new Set([...m.screens.map((s) => s.id), ...paths.flatMap((p) => screenIdOf(p) ?? [])])
         const id = copyId(screen.id, taken)
         const file = `screens/${id}.html`
         changed.set(file, await read(screen.file))

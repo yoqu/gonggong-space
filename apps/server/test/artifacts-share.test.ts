@@ -211,6 +211,21 @@ describe('artifact sharing', () => {
     expect(again.url).not.toBe(share.url)
   })
 
+  it('stops serving a deleted artifact and lets only its managers revoke the link once it has no bot', async () => {
+    const s = await setup()
+    const url = `/api/artifacts/${s.a.id}/share`
+    const share = (await s.req('POST', url, s.wangCookie, { enabled: true })).json() as ArtifactShareDto
+    const link = new URL(share.url!)
+    const cookie = cookieOf(await get(link.host, link.pathname))
+    expect((await get(link.host, '/screens/home.html', { cookie })).status).toBe(200)
+
+    await t.db.update(artifacts).set({ botId: null }).where(eq(artifacts.id, s.a.id))
+    expect((await s.req('POST', url, s.liCookie, { enabled: false })).statusCode).toBe(403)
+
+    await t.db.update(artifacts).set({ archivedAt: new Date() }).where(eq(artifacts.id, s.a.id))
+    expect((await get(link.host, '/screens/home.html', { cookie })).status).toBe(404)
+  })
+
   it('pins the link to the version it was shared at, follows the latest on request and re-pins in place', async () => {
     const s = await setup()
     const url = `/api/artifacts/${s.a.id}/share`

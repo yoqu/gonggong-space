@@ -26,6 +26,7 @@ import { publishThread } from '../threads/service.js'
 import { readBlob } from './blobs.js'
 import { artifactChatRoot } from './chat.js'
 import { publishArtifactThreads } from './events.js'
+import { screenIdOf } from './files.js'
 import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
 import { pluginCommands } from './kit.js'
 import { rulesContext } from './rules.js'
@@ -416,7 +417,7 @@ export async function sendThreads(
       )
     lines.push(`   意见：${first?.text ?? ''}`, ...replies.map((x) => `   ${x.authorName} 补充：${x.text}`))
   }
-  const screenIds = [...new Set(files.map((f) => /^screens\/(.+)\.html$/.exec(f)?.[1]).filter((x) => !!x))]
+  const screenIds = [...new Set(files.flatMap((f) => screenIdOf(f) ?? []))]
   const canvas: MessageCanvas = {
     artifactId: a.id,
     title: a.title,

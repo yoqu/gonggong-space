@@ -265,7 +265,7 @@ describe('run start', () => {
     const s = await setup()
     const a = await s.artifact({ kind: 'slides' })
     const { refs } = await t.db.transaction((tx) =>
-      runArtifacts(tx, s.g.id, s.bot.id, { mentions: [s.bot.id], artifactRefs: [a.id] }),
+      runArtifacts(tx, s.g.id, s.bot.id, { mentions: [s.bot.id], artifactRefs: [a.id] }, s.wang.id),
     )
     expect(refs.map((r: DaemonArtifactRef) => [r.id, r.kind])).toEqual([[a.id, 'slides']])
   })

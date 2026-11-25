@@ -147,7 +147,7 @@ describe('hosted sites', () => {
     await w.host(artifactId, SITE)
     const design = await w.artifact()
     const picked = await t.db.transaction((tx) =>
-      runArtifacts(tx, w.g.id, w.bot.id, { artifactRefs: [artifactId] }),
+      runArtifacts(tx, w.g.id, w.bot.id, { artifactRefs: [artifactId] }, w.wang.id),
     )
     expect(JSON.stringify(picked)).not.toContain(artifactId)
     expect(JSON.stringify(picked)).toContain(design.id)

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import {
   ARTIFACT_CONTEXT_ISSUES_MAX,
   type ArtifactAccess,
@@ -19,7 +19,7 @@ import {
   type RunStatus,
   TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, count, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNull, ne, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import {
@@ -27,6 +27,7 @@ import {
   artifacts,
   artifactVersions,
   bots,
+  groupMembers,
   groups,
   messages,
   plugins,
@@ -48,6 +49,7 @@ import {
 import { artifactActivity, endRunActivity } from './activity.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { diffFileLists, publishArtifactFiles } from './events.js'
+import { digestOf, screenIdOf } from './files.js'
 import { linksOf } from './html.js'
 import { pluginKit } from './kit.js'
 import { lintVersion, parseManifest } from './lint.js'
@@ -73,13 +75,8 @@ type Thumb = Pick<Version, 'id' | 'artifactId' | 'thumbnailHash'>
 export const thumbnailUrl = (v: Thumb) =>
   v.thumbnailHash ? `/api/artifacts/${v.artifactId}/versions/${v.id}/thumbnail` : null
 
-const SCREEN_FILE = /^screens\/([a-z0-9]+(?:-[a-z0-9]+)*)\.html$/
 /** The screens a version's files hold (`screens/<id>.html`), without reading its manifest. */
-const screenIdsOf = (v: Pick<Version, 'files'>) =>
-  v.files.flatMap((f) => {
-    const id = SCREEN_FILE.exec(f.path)?.[1]
-    return id ? [id] : []
-  })
+const screenIdsOf = (v: Pick<Version, 'files'>) => v.files.flatMap((f) => screenIdOf(f.path) ?? [])
 
 /** An ancestor's thumbnail, and the ancestor whose PNG each screen without its own shows. */
 type Fallback = { thumb?: Thumb; screens: Map<string, string> }
@@ -125,9 +122,6 @@ async function fallbacks(db: Read, vs: Version[]) {
   }
   return out
 }
-
-const digestOf = (files: ArtifactFile[]) =>
-  createHash('sha256').update(artifactDigestText(files)).digest('hex')
 
 const versionRows = (db: Read, where: SQL | undefined) =>
   db
@@ -744,10 +738,31 @@ export async function runTargets(ctx: Ctx, run: { triggerMessageId: string | nul
 export const checkoutable = and(isNull(artifacts.archivedAt), isNull(artifacts.siteDir))
 
 /**
+ * The artifacts a run started by `userId` may check out, as artifactAccess gives that member edit: all but private
+ * ones, which only their creator, their bot's owner, a group admin or those given edit reach.
+ */
+export const changeableBy = (userId: string) =>
+  or(
+    ne(artifacts.visibility, 'private'),
+    eq(artifacts.createdBy, userId),
+    sql`exists (select 1 from ${bots} where ${bots.id} = ${artifacts.botId} and ${bots.ownerId} = ${userId})`,
+    sql`exists (select 1 from ${groupMembers} where ${groupMembers.groupId} = ${artifacts.groupId}
+      and ${groupMembers.userId} = ${userId} and ${groupMembers.isAdmin})`,
+    sql`exists (select 1 from ${artifactMembers} where ${artifactMembers.artifactId} = ${artifacts.id}
+      and ${artifactMembers.userId} = ${userId} and ${artifactMembers.role} = 'edit')`,
+  )
+
+/**
  * RunStart.artifacts (§3.2): the ones the trigger points at or the bot asked for (artifact_checkout) always, then the bot's own (made for it or changed by
  * its runs), most recently updated first, up to RUN_ARTIFACTS_MAX; `exclude` is every artifact directory of the group.
  */
-export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta: MessageMeta) {
+export async function runArtifacts(
+  tx: Tx,
+  groupId: string,
+  botId: string,
+  meta: MessageMeta,
+  userId: string,
+) {
   const wanted = sql`${artifacts.checkoutBotIds} @> ${JSON.stringify([botId])}::jsonb`
   const asked = await tx
     .update(artifacts)
@@ -765,7 +780,14 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
       .leftJoin(artifactVersions, eq(artifactVersions.id, artifacts.headVersionId))
   const [first, all] = await Promise.all([
     targets.length
-      ? base().where(and(eq(artifacts.groupId, groupId), inArray(artifacts.id, targets), checkoutable))
+      ? base().where(
+          and(
+            eq(artifacts.groupId, groupId),
+            inArray(artifacts.id, targets),
+            checkoutable,
+            changeableBy(userId),
+          ),
+        )
       : Promise.resolve([]),
     tx.select({ dir: artifacts.dir }).from(artifacts).where(eq(artifacts.groupId, groupId)),
   ])
@@ -778,6 +800,7 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
             and(
               eq(artifacts.groupId, groupId),
               checkoutable,
+              changeableBy(userId),
               first.length
                 ? notInArray(
                     artifacts.id,

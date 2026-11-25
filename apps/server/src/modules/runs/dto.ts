@@ -21,6 +21,7 @@ import {
   users,
 } from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
+import { screenIdOf } from '../artifacts/files.js'
 import { manifestOf, refreshRunArtifacts } from '../artifacts/service.js'
 import { mirrorRun } from '../feishu/mirror.js'
 import { cachedGroupParams } from '../groups/params.js'
@@ -175,14 +176,15 @@ async function runArtifactsOf(ctx: Ctx, runIds: string[]) {
   const byRun = new Map<string, Map<string, RunArtifact>>()
   for (const { v, a } of rows) {
     const before = v.parentVersionId ? parentFiles.get(v.parentVersionId) : undefined
-    const changed = v.files.filter(
-      (f) => /^screens\/[^/]+\.html$/.test(f.path) && before?.get(f.path) !== f.hash,
-    )
-    const manifest = changed.length ? await manifestOf(a, v) : null
-    const changedScreens = changed.map((f) => {
-      const id = f.path.slice('screens/'.length, -'.html'.length)
-      return { id, title: manifest?.screens.find((s) => s.id === id)?.title ?? id }
+    const changed = v.files.flatMap((f) => {
+      const id = screenIdOf(f.path)
+      return id && before?.get(f.path) !== f.hash ? [id] : []
     })
+    const manifest = changed.length ? await manifestOf(a, v) : null
+    const changedScreens = changed.map((id) => ({
+      id,
+      title: manifest?.screens.find((s) => s.id === id)?.title ?? id,
+    }))
     const made = byRun.get(v.runId as string) ?? new Map<string, RunArtifact>()
     made.set(a.id, {
       artifactId: a.id,

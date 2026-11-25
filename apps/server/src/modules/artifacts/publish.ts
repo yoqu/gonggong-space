@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -16,7 +15,6 @@ import {
   type ArtifactPublishReq,
   type ArtifactPublishRes,
   type ArtifactRestoreFilesRes,
-  artifactDigestText,
 } from '@gonggong/protocol'
 import { and, desc, eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -30,17 +28,17 @@ import {
   runs,
   users,
 } from '../../db/schema.js'
+import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { dataDir } from '../attachments/service.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { diffFileLists, publishArtifactFiles } from './events.js'
+import { digestOf } from './files.js'
 import { readableImage } from './images.js'
 import { pluginKit } from './kit.js'
 import { lintVersion } from './lint.js'
 import { type Artifact, findArtifact, refreshCard, requireVersion, runners, type Version } from './service.js'
 import { snapshotPending } from './snapshots.js'
-
-const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex')
 
 /** Maximum bytes for a single file diff returned by `history.diff`. */
 const DIFF_MAX_BYTES = 512 * 1024
@@ -157,9 +155,6 @@ export async function uploadArtifactAsset(
 }
 
 // ── Atomic per-file ifMatch publish + burst coalescing ─────────────────────────────────────────────────────────
-
-const digestOf = (files: ArtifactFile[]) =>
-  createHash('sha256').update(artifactDigestText(files)).digest('hex')
 
 /** POST /api/artifacts/:id/publish — open-artifact `artifact.publish(batch)`. */
 export async function publishFiles(

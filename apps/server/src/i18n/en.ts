@@ -466,6 +466,8 @@ export const en = {
   创建人始终可以编辑: 'The creator can always edit',
   '只有创建人、Bot 主人或群管理员能修改可见范围':
     "Only its creator, the Bot's owner or a group admin can change who sees it",
+  '只有创建人、Bot 主人或群管理员能关闭公开链接':
+    "Only its creator, the Bot's owner or a group admin can turn the public link off",
 
   // Computers, tools and providers
   电脑不存在: 'Computer not found',

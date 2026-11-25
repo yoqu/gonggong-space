@@ -5,6 +5,7 @@ import {
   parseStateWhen,
   screenDims,
 } from '@gonggong/protocol'
+import { screenIdOf } from './files.js'
 
 const WHEN = /\bdata-gg-when\s*=\s*["']([^"']*)["']/gi
 const SET_TAG = /<[a-z][^>]*\bdata-gg-set\s*=\s*["']([^"']*)["'][^>]*>/gi
@@ -19,7 +20,7 @@ const warn = (code: string, message: string, file: string): LintIssue => ({
 
 /** Screen-state findings of a screen (artifact-states.ts): conditions and switches naming what it has not, dims unused. */
 export function lintStates(m: GgArtifactManifest, path: string, html: string): LintIssue[] {
-  const id = /^screens\/(.+)\.html$/.exec(path)?.[1]
+  const id = screenIdOf(path)
   if (!id || !m.screens.some((s) => s.id === id)) return []
   const issues: LintIssue[] = []
   const used = new Set<string>()

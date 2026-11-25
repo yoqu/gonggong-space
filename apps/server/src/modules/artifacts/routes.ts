@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
   type AnnotationDto,
@@ -62,6 +61,7 @@ import { requireMachine } from '../../daemon/auth.js'
 import { artifacts, artifactVersions, bots, runs } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
+import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
 import { findMember, readerGroupDto, requireMember } from '../groups/service.js'
@@ -211,7 +211,7 @@ async function storePng(a: Artifact, body: Readable) {
   const png = await readAll(body, THUMBNAIL_MAX_BYTES, () =>
     fail('invalid', '缩略图不能超过 {mb} MB', { mb: THUMBNAIL_MAX_BYTES / 1024 / 1024 }),
   )
-  const hash = createHash('sha256').update(png).digest('hex')
+  const hash = sha256(png)
   if ((await artifactBlobs.touch(a.groupId, hash)) === null)
     await artifactBlobs.write(a.groupId, hash, Readable.from([png]), false)
   return hash

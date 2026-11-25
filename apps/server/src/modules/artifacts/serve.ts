@@ -71,15 +71,15 @@ export async function serveArtifact(
     return null
   }
   const a = preview.artifactId ? await findArtifact(ctx.db, preview.artifactId) : undefined
-  const versionId = pinned ?? preview.artifactVersionId ?? a?.headVersionId
-  const [v] =
-    a && versionId
-      ? await ctx.db
-          .select()
-          .from(artifactVersions)
-          .where(and(eq(artifactVersions.id, versionId), eq(artifactVersions.artifactId, a.id)))
-      : []
-  if (!a || !v) return { status: 404, key: '产物还没有可预览的版本。' }
+  if (!a || a.archivedAt) return { status: 404, key: '产物不存在' }
+  const versionId = pinned ?? preview.artifactVersionId ?? a.headVersionId
+  const [v] = versionId
+    ? await ctx.db
+        .select()
+        .from(artifactVersions)
+        .where(and(eq(artifactVersions.id, versionId), eq(artifactVersions.artifactId, a.id)))
+    : []
+  if (!v) return { status: 404, key: '产物还没有可预览的版本。' }
   let path: string
   try {
     path = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname).replace(/^\/+/, '')

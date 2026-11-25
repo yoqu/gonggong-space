@@ -81,7 +81,7 @@ describe('foreground artifact (plan 原型协作 P1)', () => {
   it('checks the foreground artifact out first and names it to the agent', async () => {
     const s = await setup()
     const out = await t.db.transaction((tx) =>
-      runArtifacts(tx, s.g.id, s.bot.id, { mentions: [s.bot.id], artifactForeground: s.b.id }),
+      runArtifacts(tx, s.g.id, s.bot.id, { mentions: [s.bot.id], artifactForeground: s.b.id }, s.wang.id),
     )
     expect(out.refs[0]?.id).toBe(s.b.id)
     expect(out.note).toContain(`用户正在工作台看着产物「会员卡」（${s.b.dir}/）`)
@@ -97,7 +97,7 @@ describe('run targets', () => {
     await s.submit(prev.id, s.a.id, bad)
     await s.submit(prev.id, s.b.id, bad)
     const out = await t.db.transaction((tx) =>
-      runArtifacts(tx, s.g.id, s.bot.id, { mentions: [s.bot.id], artifactRefs: [s.b.id] }),
+      runArtifacts(tx, s.g.id, s.bot.id, { mentions: [s.bot.id], artifactRefs: [s.b.id] }, s.wang.id),
     )
     expect(out.refs.map((r) => r.id)).toEqual([s.b.id, s.a.id])
     expect(out.note).toContain(`本轮只改产物「会员卡」（${s.b.dir}/）`)

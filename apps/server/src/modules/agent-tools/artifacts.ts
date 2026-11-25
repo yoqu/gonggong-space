@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { artifacts } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
-import { checkoutable, manifestOf, requireVersion } from '../artifacts/service.js'
+import { changeableBy, checkoutable, manifestOf, requireVersion } from '../artifacts/service.js'
 import type { Run } from './layers.js'
 import { refuse, type ToolOutput } from './service.js'
 
@@ -23,6 +23,7 @@ export async function artifactCheckout(ctx: Ctx, run: Run, a: Args): Promise<Too
       and(
         eq(artifacts.groupId, run.groupId),
         checkoutable,
+        changeableBy(run.originUserId),
         isUuid(key) ? eq(artifacts.id, key) : eq(artifacts.title, key),
       ),
     )

@@ -310,7 +310,7 @@ describe('artifact menu (G18)', () => {
     const list = (await s.req('GET', `/api/groups/${s.g.id}/artifacts`)).json() as ArtifactDto[]
     expect(list.map((x) => x.id)).not.toContain(s.a.id)
     const picked = await t.db.transaction((tx) =>
-      runArtifacts(tx, s.g.id, s.bot.id, { artifactRefs: [s.a.id] }),
+      runArtifacts(tx, s.g.id, s.bot.id, { artifactRefs: [s.a.id] }, s.wang.id),
     )
     expect(picked.refs).toEqual([])
     expect(picked.exclude).toContain(s.a.dir)

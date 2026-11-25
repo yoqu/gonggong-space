@@ -9,10 +9,11 @@ import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { open, seal } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
+import { findMember } from '../groups/service.js'
 import { openPortListener } from '../previews/gateway.js'
 import { previewOrigin } from '../previews/routes.js'
 import { newSlug, requireManager } from '../previews/service.js'
-import { type Artifact, findArtifact, requireVersion } from './service.js'
+import { type Artifact, findArtifact, isArtifactManager, requireVersion } from './service.js'
 
 const DAY = 86400_000
 const OFF: ArtifactShareDto = {
@@ -113,6 +114,11 @@ export async function setShare(
 ): Promise<ArtifactShareDto> {
   if (!enabled) {
     if (a.botId) await requireManager(ctx, a.groupId, a.botId, me.id)
+    else {
+      const m = await findMember(ctx, a.groupId, me.id)
+      if (!(await isArtifactManager(ctx, a, me.id, !!m?.member.isAdmin)))
+        fail('forbidden', '只有创建人、Bot 主人或群管理员能关闭公开链接')
+    }
     const live = await liveShare(ctx, a)
     if (live) {
       await ctx.db.update(previewShares).set({ revokedAt: ctx.now() }).where(eq(previewShares.id, live.s.id))

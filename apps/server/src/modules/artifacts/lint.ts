@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto'
 import {
   type ArtifactFile,
   GG_ARTIFACT_MANIFEST,
   GgArtifactManifest,
   type LintIssue,
 } from '@gonggong/protocol'
+import { sha256 } from '../../lib/crypto.js'
 import { type Kit, kitName } from './kit.js'
 import { lintRules } from './rules.js'
 import { lintStates } from './states.js'
@@ -27,8 +27,6 @@ const EXTERNAL = [
   /<(?:img|source|video|audio)\b[^>]*\b(?:src|srcset)\s*=\s*["']?((?:https?:)?\/\/[^"'\s>]+)/gi,
   /url\(\s*["']?((?:https?:)?\/\/[^"')\s]+)/gi,
 ]
-
-const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex')
 
 /**
  * Design-rule findings of a version (§3.3): they never block it, the next run's context lists them. `read` gives a

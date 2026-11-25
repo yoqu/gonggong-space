@@ -38,6 +38,7 @@ describe('RunStart.artifacts', () => {
     w: Awaited<ReturnType<typeof artifactWorld>>,
     meta: object,
     features = ['artifacts'],
+    who = w.wang.id,
   ) {
     const sent: ServerToDaemon[] = []
     vi.spyOn(t.ctx.hub, 'isOnline').mockImplementation((id) => id === w.A.machine.id)
@@ -49,7 +50,7 @@ describe('RunStart.artifacts', () => {
     })
     const [m] = await t.db
       .insert(messages)
-      .values({ groupId: w.g.id, kind: 'user', authorUserId: w.wang.id, body: '@小王的 Claude 改一下', meta })
+      .values({ groupId: w.g.id, kind: 'user', authorUserId: who, body: '@小王的 Claude 改一下', meta })
       .returning()
     const [run] = await t.db
       .insert(runs)
@@ -57,8 +58,8 @@ describe('RunStart.artifacts', () => {
         groupId: w.g.id,
         botId: w.bot.id,
         triggerMessageId: m!.id,
-        triggerUserId: w.wang.id,
-        originUserId: w.wang.id,
+        triggerUserId: who,
+        originUserId: who,
         status: 'queued',
       })
       .returning()
@@ -202,6 +203,39 @@ describe('RunStart.artifacts', () => {
     const res = await call('同名')
     expect(res).toMatchObject({ isError: false })
     expect(res.text).toContain(`目录 ${kept.dir}/`)
+  })
+
+  it("never checks out a private artifact hidden from the run's origin user", async () => {
+    const w = await artifactWorld(t)
+    const hidden = await w.artifact({
+      botId: null,
+      title: '私密稿',
+      visibility: 'private',
+      createdBy: w.wang.id,
+    })
+    const own = await w.artifact({ title: '私有自建', visibility: 'private', createdBy: w.wang.id })
+    const live = await w.run([])
+    await t.db.update(runs).set({ originUserId: w.li.id, triggerUserId: w.li.id }).where(eq(runs.id, live.id))
+    const call = async (artifact: string) =>
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: `/api/daemon/runs/${live.id}/tools/artifact_checkout`,
+          headers: w.auth(),
+          payload: { arguments: { artifact } },
+        })
+      ).json() as { text: string; isError: boolean }
+    expect(await call('私密稿')).toMatchObject({ isError: true, text: '本群没有产物「私密稿」' })
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.id, live.id))
+
+    const { start } = await dispatch(
+      w,
+      { mentions: [w.bot.id], artifactRefs: [hidden.id] },
+      ['artifacts'],
+      w.li.id,
+    )
+    expect(start.artifacts.map((a) => a.id)).not.toContain(hidden.id)
+    expect(start.artifacts.map((a) => a.id)).not.toContain(own.id)
   })
 
   it('hides artifact_checkout from a daemon without the artifacts feature', async () => {
