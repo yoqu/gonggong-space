@@ -38,8 +38,10 @@ import {
 } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { requireArtifact } from '../artifacts/service.js'
 import { requireUser } from '../auth/session.js'
-import { requireReader } from '../groups/service.js'
+import { findMember, requireReader } from '../groups/service.js'
+import { chatArtifactOf } from '../messages/guests.js'
 import { notHiddenBy } from '../messages/recall.js'
 import { messageDto, userAuthorName } from '../messages/service.js'
 import { readThreadMentions } from '../notifications/notify.js'
@@ -112,7 +114,11 @@ async function requireRoot(ctx: Ctx, rootId: string, userId: string) {
     .from(messages)
     .where(eq(messages.id, idParam(rootId, '消息不存在')))
   if (!root) return fail('not_found', '消息不存在')
-  await requireReader(ctx, root.groupId, userId)
+  // A canvas AI conversation also opens to those who may change its artifact from outside the group (作品权限).
+  const artifactId = chatArtifactOf(root)
+  if (artifactId && !(await findMember(ctx, root.groupId, userId)))
+    await requireArtifact(ctx, artifactId, userId)
+  else await requireReader(ctx, root.groupId, userId)
   if (root.threadRootId && !isArtifactChat(root)) return fail('invalid', '该消息是话题回复')
   return root
 }

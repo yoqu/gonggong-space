@@ -25,6 +25,7 @@ import { zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireMember } from '../groups/service.js'
+import { forgetGuests, messageAudience } from './guests.js'
 
 export type MessageRow = typeof messages.$inferSelect
 
@@ -203,10 +204,11 @@ export function memberIds(ctx: Ctx, groupId: string) {
 
 export function forgetMembers(groupId: string) {
   members.delete(groupId)
+  forgetGuests()
 }
 
 export async function publishMessage(ctx: Ctx, dto: MessageDto) {
-  ctx.bus.publish(await memberIds(ctx, dto.groupId), { t: 'message.new', message: dto })
+  ctx.bus.publish(await messageAudience(ctx, dto), { t: 'message.new', message: dto })
 }
 
 /** Stores a message and pushes it to every member. Used for events and bot replies. */

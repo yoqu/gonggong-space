@@ -10,15 +10,9 @@ import { dropMachineActivity, onArtifactActivity } from '../artifacts/activity.j
 import { publishBots } from '../bots/dto.js'
 import { mirrorDelta, mirrorRun } from '../feishu/mirror.js'
 import { requeueAppends } from '../messages/append.js'
+import { runAudience } from '../messages/guests.js'
 import { memberMentions, notifyMentions } from '../messages/mentions.js'
-import {
-  authorName,
-  type MessageMeta,
-  memberIds,
-  messageDto,
-  postEvent,
-  publishMessage,
-} from '../messages/service.js'
+import { authorName, type MessageMeta, messageDto, postEvent, publishMessage } from '../messages/service.js'
 import { pushToAll } from '../notifications/message-push.js'
 import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
 import { settleSchedule } from '../schedules/engine.js'
@@ -192,7 +186,7 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
     // Not the group meter's: that shows only what the agent reported.
     setLiveContext(runId, { context: raw.context, breakdown: raw.breakdown })
     ctx.bus.publish(
-      await memberIds(ctx, run.groupId),
+      await runAudience(ctx, run),
       {
         t: 'run.progress',
         runId,
@@ -263,7 +257,7 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   }
   if (!card)
     ctx.bus.publish(
-      await memberIds(ctx, run.groupId),
+      await runAudience(ctx, run),
       {
         t: 'run.progress',
         runId,
@@ -315,7 +309,7 @@ async function onCompaction(ctx: Ctx, run: Owner, e: Extract<RunEvent, { kind: '
 async function pushDelta(ctx: Ctx, run: { id: string; groupId: string }, text: string) {
   if (!text) return
   ctx.bus.publish(
-    await memberIds(ctx, run.groupId),
+    await runAudience(ctx, run),
     { t: 'run.delta', runId: run.id, text, lastActivityAt: ctx.now().toISOString() },
     run.groupId,
   )

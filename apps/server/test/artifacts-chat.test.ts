@@ -8,9 +8,10 @@ import type {
   MessageDto,
   ThreadDto,
   TimelineDto,
+  WebEvent,
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runs, threadFollows } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
@@ -42,7 +43,8 @@ describe('canvas AI chat (画布 AI 对话)', () => {
     const s = await setup()
     const first = await s.req('POST', `/api/artifacts/${s.a.id}/chat`)
     expect(first.statusCode).toBe(200)
-    const { rootId } = first.json() as ArtifactChatDto
+    const { rootId, group } = first.json() as ArtifactChatDto
+    expect(group).toBeUndefined()
     expect(((await s.req('POST', `/api/artifacts/${s.a.id}/chat`)).json() as ArtifactChatDto).rootId).toBe(
       rootId,
     )
@@ -92,5 +94,57 @@ describe('canvas AI chat (画布 AI 对话)', () => {
     expect(await s.timeline()).not.toContain(sent.id)
     const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.id))
     expect(run?.threadRootId).toBe(rootId)
+  })
+
+  it('lets someone given 可协作 from outside the group talk in it, and only there', async () => {
+    const s = await setup()
+    const zhang = await t.seed.user({ name: '张三' })
+    const viewer = await t.seed.user({ name: '赵六' })
+    const zc = await t.seed.cookie(zhang.id)
+    const vc = await t.seed.cookie(viewer.id)
+    const wc = await t.seed.cookie(s.wang.id)
+    for (const [u, role] of [
+      [zhang, 'edit'],
+      [viewer, 'view'],
+    ] as const)
+      await t.app.inject({
+        method: 'PUT',
+        url: `/api/artifacts/${s.a.id}/members/${u.id}`,
+        headers: { cookie: wc },
+        payload: { role },
+      })
+    const sent: { to: string[]; e: WebEvent }[] = []
+    vi.spyOn(t.ctx.bus, 'publish').mockImplementation((to, e) => {
+      sent.push({ to: [...to], e: e as WebEvent })
+    })
+
+    const opened = (
+      await s.req('POST', `/api/artifacts/${s.a.id}/chat`, undefined, zc)
+    ).json() as ArtifactChatDto
+    const { rootId } = opened
+    expect(opened.group).toMatchObject({ id: s.g.id, unread: 0, last: '' })
+    const say = (c: string, body: object) =>
+      s.req('POST', `/api/groups/${s.g.id}/messages`, { body: '标题改大', clientId: `c-${c}`, ...body }, c)
+    const m = (await say(zc, { threadRootId: rootId })).json() as MessageDto
+    expect(m.threadRootId).toBe(rootId)
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, m.id))
+    expect(run).toMatchObject({ botId: s.bot.id, threadRootId: rootId })
+    const chat = (await s.req('GET', `/api/messages/${rootId}/thread`, undefined, zc)).json() as ThreadDto
+    expect(chat.replies.map((r) => r.id)).toEqual([m.id])
+    // The message and its run reach the guest; the group's other news does not.
+    const heard = (t: WebEvent['t']) => sent.filter((x) => x.e.t === t && x.to.includes(zhang.id))
+    expect(heard('message.new')).toHaveLength(1)
+    expect(heard('run.updated').length).toBeGreaterThan(0)
+    expect(sent.filter((x) => x.to.includes(viewer.id))).toEqual([])
+
+    expect((await say(zc, {})).statusCode).toBe(404)
+    expect((await say(vc, { threadRootId: rootId })).statusCode).toBe(403)
+    expect((await s.req('GET', `/api/messages/${rootId}/thread`, undefined, vc)).statusCode).toBe(403)
+    const main = await s.req('POST', `/api/groups/${s.g.id}/messages`, { body: '群里聊', clientId: 'g1' })
+    expect(
+      sent.some(
+        (x) => x.e.t === 'message.new' && x.to.includes(zhang.id) && x.e.message.id === main.json().id,
+      ),
+    ).toBe(false)
   })
 })

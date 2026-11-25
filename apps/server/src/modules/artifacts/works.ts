@@ -26,6 +26,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { findMember, inTeamOfGroup } from '../groups/service.js'
 import { groupTitle, translateGroupTitle } from '../groups/title.js'
+import { forgetGuests } from '../messages/guests.js'
 import { postEvent } from '../messages/service.js'
 import { groupPluginLists, pluginsOn } from '../plugins/service.js'
 import { avatarUrl } from '../users/dto.js'
@@ -91,6 +92,7 @@ export async function setArtifactMember(
     await ctx.db
       .delete(artifactMembers)
       .where(and(eq(artifactMembers.artifactId, a.id), eq(artifactMembers.userId, userId)))
+  forgetGuests()
   return listArtifactMembers(ctx, a)
 }
 

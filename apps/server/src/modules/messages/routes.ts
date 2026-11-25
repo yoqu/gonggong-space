@@ -22,7 +22,7 @@ import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
 import { agentCommand, commands, parseCommand, runCommand } from '../commands/index.js'
 import { mirrorEdit, mirrorUserMessage } from '../feishu/outbound.js'
-import { activeBots, groupDtos, requireMember, requireReader } from '../groups/service.js'
+import { activeBots, findMember, groupDtos, requireMember, requireReader } from '../groups/service.js'
 import { pushToAll } from '../notifications/message-push.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
@@ -39,10 +39,30 @@ import { answerActions } from './actions.js'
 import { appendTarget, sendAppend } from './append.js'
 import { branchMessage } from './branch.js'
 import { editMessage } from './edit.js'
+import { chatArtifactOf } from './guests.js'
 import { everyoneBut, memberMentions, mentionsAll, notifyMentions } from './mentions.js'
 import { resolveQuote } from './quote.js'
 import { hideMessage, recallMessage } from './recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from './service.js'
+
+/**
+ * A member of the group, or someone outside it who may change the artifact whose 画布 AI 对话 `threadRootId` is
+ * (作品权限): they talk there and nowhere else in the group.
+ */
+async function requireSender(
+  ctx: Ctx,
+  groupId: string,
+  userId: string,
+  threadRootId: string | null | undefined,
+) {
+  const m = await findMember(ctx, groupId, userId)
+  if (m) return m
+  const artifactId = threadRootId ? chatArtifactOf(await threadRoot(ctx, groupId, threadRootId)) : undefined
+  if (!artifactId) return requireMember(ctx, groupId, userId)
+  await requireArtifact(ctx, artifactId, userId)
+  const [group] = await ctx.db.select().from(groups).where(eq(groups.id, groupId))
+  return { group: group ?? fail('not_found', '群不存在'), member: null }
+}
 
 /** The artifact a composer message is about, in this group, with the selection as the agent reads it. */
 async function canvasContext(ctx: Ctx, groupId: string, userId: string, c: ArtifactContext) {
@@ -135,7 +155,8 @@ export function messageRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/groups/:id/messages', async (req) => {
       const me = await requireUser(ctx, req)
-      const { group, member } = await requireMember(ctx, req.params.id, me.id)
+      const input = SendMessageReq.parse(req.body)
+      const { group, member } = await requireSender(ctx, req.params.id, me.id, input.threadRootId)
       const {
         body,
         clientId,
@@ -147,11 +168,11 @@ export function messageRoutes(ctx: Ctx) {
         foregroundArtifactId,
         threadRootId,
         alsoSent,
-      } = SendMessageReq.parse(req.body)
+      } = input
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const bots = activeBots(ctx, group.id).execute()
       // @所有人: group owner or admins, in the main timeline only.
-      const everyone = !threadRootId && (group.createdBy === me.id || member.isAdmin) && mentionsAll(body)
+      const everyone = !threadRootId && (group.createdBy === me.id || !!member?.isAdmin) && mentionsAll(body)
       const root = threadRootId ? await threadRoot(ctx, group.id, threadRootId) : null
       const chat = root && isArtifactChat(root) ? (root.meta as MessageMeta).artifactChat : undefined
       // In an artifact's 画布 AI 对话 every message is about the artifact and goes to its bot.

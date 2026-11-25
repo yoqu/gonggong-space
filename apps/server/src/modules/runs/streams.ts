@@ -3,7 +3,7 @@ import { desc, eq, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { runEvents } from '../../db/schema.js'
 import { open, seal } from '../../lib/seal.js'
-import { memberIds } from '../messages/service.js'
+import { runAudience } from '../messages/guests.js'
 import { runRedactors } from '../secrets/resolve.js'
 import { LIVE } from './dto.js'
 
@@ -138,7 +138,7 @@ function save(st: Open, seg: Segment) {
     const owner = seg.agentId && owners.get(st.runId)
     if (owner)
       st.ctx.bus.publish(
-        await memberIds(st.ctx, owner.groupId),
+        await runAudience(st.ctx, owner),
         {
           t: 'run.progress',
           runId: owner.id,

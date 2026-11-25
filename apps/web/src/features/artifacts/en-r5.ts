@@ -35,5 +35,4 @@ export default {
   '{name} 的权限': "{name}'s access",
   还没有单独授权的人: 'No one has been given access yet',
   选择成员: 'Choose someone',
-  '加入作品所在群后才能和 AI 对话': 'Join the group it belongs to to talk to AI about it',
 }

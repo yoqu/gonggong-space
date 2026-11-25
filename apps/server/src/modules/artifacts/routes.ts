@@ -64,7 +64,7 @@ import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
-import { requireMember } from '../groups/service.js'
+import { findMember, readerGroupDto, requireMember } from '../groups/service.js'
 import { previewOrigin } from '../previews/routes.js'
 import { publishRun } from '../runs/dto.js'
 import { machineRun } from '../runs/machine-run.js'
@@ -562,8 +562,12 @@ export function artifactRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/artifacts/:id/chat', async (req): Promise<ArtifactChatDto> => {
       const me = await requireUser(ctx, req)
-      const root = await artifactChatRoot(ctx, await requireArtifact(ctx, req.params.id, me.id))
-      return { rootId: root.id }
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const root = await artifactChatRoot(ctx, a)
+      const member = await findMember(ctx, a.groupId, me.id)
+      return member
+        ? { rootId: root.id }
+        : { rootId: root.id, group: await readerGroupDto(ctx, me.id, a.groupId) }
     })
 
     app.get<{ Params: { id: string } }>('/api/artifacts/:id/history', async (req) => {

@@ -1,5 +1,5 @@
+import type { GroupDto } from '@gonggong/protocol'
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, Spinner } from '../../ui'
 import { ActiveRunsContext } from '../chat/MessageActions'
@@ -8,7 +8,7 @@ import { PendingMessages } from '../chat/PendingMessages'
 import { useThreadItem } from '../chat/ThreadView'
 import { ThreadScope } from '../chat/threadSummary'
 import { useTimeline } from '../chat/useTimeline'
-import { useArtifactChatRoot } from './chatRoot'
+import { useArtifactChatRoot, useChatGroup } from './chatRoot'
 
 const STICK_PX = 80
 const LOAD_OLDER_PX = 40
@@ -19,9 +19,7 @@ const LOAD_OLDER_PX = 40
  */
 export function CanvasChat({ artifactId, groupId }: { artifactId: string; groupId: string }) {
   const rootId = useArtifactChatRoot(artifactId)
-  const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
-  // Given 可协作 on the work without being in its group: the conversation lives in that group.
-  if (rootId && !group) return <p className="art-log__empty">{t('加入作品所在群后才能和 AI 对话')}</p>
+  const group = useChatGroup(groupId, artifactId)
   if (!rootId || !group)
     return (
       <p className="art-log__empty">
@@ -31,13 +29,7 @@ export function CanvasChat({ artifactId, groupId }: { artifactId: string; groupI
   return <ChatList group={group} rootId={rootId} />
 }
 
-function ChatList({
-  group,
-  rootId,
-}: {
-  group: NonNullable<ReturnType<typeof useWorkspace.getState>['groups'][number]>
-  rootId: string
-}) {
+function ChatList({ group, rootId }: { group: GroupDto; rootId: string }) {
   const tl = useTimeline(group.id, rootId)
   const runList = useMemo(() => Object.values(tl.runs), [tl.runs])
   const liveRuns = useRef(runList)
@@ -116,7 +108,7 @@ export function CanvasComposer({
   groupId: string
   chat: { rootId: string; artifactId: string; botId: string | null }
 }) {
-  const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
+  const group = useChatGroup(groupId, chat.artifactId)
   if (!group) return null
   return (
     <div className="art-composer" data-testid="art-composer">

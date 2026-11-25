@@ -24,7 +24,7 @@ import { PARAM_DEFAULTS } from '../admin/params.js'
 import { manifestOf, refreshRunArtifacts } from '../artifacts/service.js'
 import { mirrorRun } from '../feishu/mirror.js'
 import { cachedGroupParams } from '../groups/params.js'
-import { memberIds } from '../messages/service.js'
+import { runAudience } from '../messages/guests.js'
 import { attachmentDto, leaningsOf, questionSetDto } from '../questions/dto.js'
 import { stepI18nOf } from './step.js'
 
@@ -300,7 +300,7 @@ export async function listRuns(
 
 /** Pushes a change of the card's step or usage alone, without loading what the rest of the card needs. */
 export async function publishStep(ctx: Ctx, r: CardRow, lastActivityAt = ctx.now()) {
-  ctx.bus.publish(await memberIds(ctx, r.groupId), {
+  ctx.bus.publish(await runAudience(ctx, r), {
     t: 'run.step',
     runId: r.id,
     groupId: r.groupId,
@@ -319,7 +319,7 @@ export async function publishRuns(ctx: Ctx, rows: CardRow[]) {
   if (!rows.length) return
   const toDto = await runDtoLoader(ctx, rows)
   for (const run of rows) {
-    ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })
+    ctx.bus.publish(await runAudience(ctx, run), { t: 'run.updated', run: toDto(run) })
     await mirrorRun(ctx, run)
   }
   await refreshRunArtifacts(ctx, rows)

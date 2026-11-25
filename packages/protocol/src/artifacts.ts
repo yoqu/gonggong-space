@@ -845,14 +845,6 @@ export const ArtifactHistoryItem = z.object({
 })
 export type ArtifactHistoryItem = z.infer<typeof ArtifactHistoryItem>
 
-/**
- * POST /api/artifacts/:id/chat — the artifact's 画布 AI 对话: a thread whose root is its own reply, so neither it nor
- * its replies show in the group's messages, Feishu or 话题. The canvas reads it as a thread and posts to it with
- * `threadRootId`; its runs answer in it, in a session of their own.
- */
-export const ArtifactChatDto = z.object({ rootId: z.string() })
-export type ArtifactChatDto = z.infer<typeof ArtifactChatDto>
-
 /** GET /api/works — every artifact the caller may open in the current team (作品), latest first. */
 export const WorkDto = z.object({
   id: z.string(),
