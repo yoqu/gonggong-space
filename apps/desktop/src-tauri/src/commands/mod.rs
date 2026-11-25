@@ -2,12 +2,10 @@
 //! list its commands in `handler()`; mirror each one in `src/ipc.ts`.
 mod agents;
 mod bots;
-mod live;
 mod logs;
 mod market;
 mod onboarding;
 mod overview;
-mod permissions;
 mod providers;
 mod settings;
 mod shell;
@@ -71,13 +69,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         tunnels::tunnels,
         tunnels::close_tunnel,
         tunnels::start_preview,
-        tunnels::retry_cast,
         tunnels::stop_service,
         tunnels::open_local,
-        live::cast_component,
-        permissions::permissions,
-        permissions::request_permission,
-        permissions::restart_app,
     ]
 }
 

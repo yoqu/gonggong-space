@@ -9,7 +9,6 @@ export const GONGGONG_TOOL_TITLES = {
   list_feishu_messages: '读取飞书群消息',
   feishu_send_card: '发送飞书卡片',
   preview_expose: '发布预览',
-  preview_gui: '发布桌面应用预览',
   preview_close: '关闭预览',
   progress_card: '进度卡片',
   hand_off: '交给其他 Bot',
@@ -63,7 +62,6 @@ export const GONGGONG_TOOL_TITLES = {
   creation_propose: '发起创作确认',
   artifact_checkout: '检出产物',
   service_start: '启动托管服务',
-  preview_miniprogram: '发布小程序预览',
   client_release_publish: '发布客户端到当前空间',
 } as const
 
@@ -73,10 +71,6 @@ export const GONGGONG_TOOL_NOTES = {
   service_start: {
     description: '在 Bot 所在的电脑上运行参数里的命令，并让它在后台一直运行（如开发服务器）',
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-  },
-  preview_miniprogram: {
-    description: '在 Bot 所在的电脑上用微信开发者工具打开工作区里的小程序，截图发到群里',
-    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },
   client_release_publish: {
     description: '把编译好的客户端上传到当前空间，所有成员会收到更新',

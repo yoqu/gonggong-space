@@ -48,7 +48,7 @@ compose 里 PostgreSQL 的账号密码固定为 `gonggong`，数据库端口不�
 
 ### 预览
 
-使用端口模式，开放 `41000–41019` 共 20 个预览端口，由 server 用同一张证书提供 HTTPS。防火墙需放行这些端口。实时画面（LiveKit）未在 compose 中开放端口。
+使用端口模式，开放 `41000–41019` 共 20 个预览端口，由 server 用同一张证书提供 HTTPS。防火墙需放行这些端口。
 
 ### 升级
 
@@ -62,9 +62,9 @@ git pull && docker compose up -d --build
 
 `docker/daemon/` 里的镜像把一台服务器变成常驻在线的成员机器：daemon 只向共工空间服务器发起连接，预览也走这条连接，不需要开放任何入站端口。
 
-镜像内置：`gg`、Claude Code、Codex、Node.js 24、git（含 `gh`）、ripgrep、jq、编译工具、python3 与 `uv`（供 npx / uvx 启动的 MCP）、Chromium 与中文字体（截图、网页预览）、Xvfb（桌面应用预览）。`gg-cast` 不打进镜像，首次使用时从服务器下载。daemon 以普通用户 `gg` 运行，数据都在 `/home/gg` 一个卷里。
+镜像内置：`gg`、Claude Code、Codex、Node.js 24、git（含 `gh`）、ripgrep、jq、编译工具、python3 与 `uv`（供 npx / uvx 启动的 MCP）、Chromium 与中文字体（截图、网页预览）。daemon 以普通用户 `gg` 运行，数据都在 `/home/gg` 一个卷里。
 
-微信开发者工具、小程序实时画面和「用本机应用打开」只支持 macOS / Windows，容器里不可用。
+「用本机应用打开」只支持 macOS / Windows，容器里不可用。
 
 ### 启动
 

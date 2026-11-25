@@ -10,7 +10,6 @@
 | `apps/server` | 服务器（Fastify + Drizzle + PostgreSQL）。`src/modules/<领域>/` 按领域组织路由与服务；`src/db/schema.ts` 是唯一的表定义，迁移文件在 `drizzle/`；`src/daemon/` 是 daemon 的 WebSocket 网关，`src/realtime/` 是推给浏览器的实时通道；`plugins/official/` 是内置插件；`install/` 是成员机器的安装脚本与「发给你的 Agent」接入说明 |
 | `apps/desktop` | 桌面端「共工空间」（Tauri）。`src/` 是 React 界面（直接引用 Web 的源码与组件），`src-tauri/` 是 Rust 壳，依赖 `crates/gonggong` 在进程内运行 daemon |
 | `crates/gonggong` | 成员机器上的 daemon 与 `gg` 命令行（二进制名 `gg`）。`presets/` 是内置的模型供应商预设，`skills/` 是内置 Skill，集成测试在 `tests/` |
-| `crates/gg-cast` | 实时画面的推流组件 gg-cast，不在 Cargo 工作区里，单独构建 |
 | `packages/protocol` | 全部线上契约（zod）：Web ⇄ 服务器接口、daemon ⇄ 服务器消息、预览隧道帧、内置 MCP 工具、插件清单、多语言核心。`fixtures/*.json` 是 daemon 协议的共享样例，TS 与 Rust 两边都要能往返；`cases/` 是其他跨语言共享用例 |
 | `tools/mock-agent` | 可脚本化的 ACP Agent，daemon 测试与部分端到端测试用它代替真实 Agent，按提示词决定行为（如 `mock:echo`、`mock:slow`、`mock:crash`） |
 | `tools/mcp-echo` | 最小的 stdio MCP 服务（只有一个 `echo` 工具），测试用来验证 MCP 注入 |
@@ -46,7 +45,6 @@
 | `group-tabs` | 群顶部的自定义标签页 |
 | `groups` | 群与私聊：成员、Bot、设置、仓库 |
 | `knowledge` | 群知识库条目与版本 |
-| `live` | 实时画面（LiveKit）：观看、控制与 gg-cast 状态 |
 | `machines` | 机器的绑定、接入确认、详情、升级、Git 访问、网络测量，以及经 daemon 实时读写的 Agent 工具 |
 | `market` | Skill 市场：上架、审核、引入与封禁 |
 | `mcp` | 平台、团队、群三层的 MCP 服务配置，建会话时注入（名称 `gonggong` 保留给内置服务） |
@@ -102,7 +100,7 @@
 | `notifications` | 通知中心与浏览器推送 |
 | `onboarding` | 新用户上手引导 |
 | `plugins` | 插件管理与创作面板 |
-| `previews` | 预览卡片、实时画面、分享链接、后台公开链接页 |
+| `previews` | 预览卡片、分享链接、后台公开链接页 |
 | `reactions` | 表情回应 |
 | `repos` | 仓库选择与仓库访问检查 |
 | `rich` | Bot 回复里的富内容（HTML 页面、Mermaid 图、操作按钮） |
@@ -117,7 +115,7 @@
 | `terminal` | 终端 |
 | `usage` | 用量页 |
 | `users` | 用户卡片（悬停资料） |
-| `workbench` | 右侧工作台的标签页（运行、diff、文件、网页、小程序、实时画面等） |
+| `workbench` | 右侧工作台的标签页（运行、diff、文件、网页等） |
 | `works` | 作品库 |
 | `workspaces` | 工作区与目录选择 |
 
@@ -125,7 +123,7 @@
 
 | 位置 | 内容 |
 | --- | --- |
-| `apps/desktop/src/pages/` | 各页面：概览、Agent、Bot、工作区、在线预览、实时画面、市场、日志与诊断、设置，以及运行详情 |
+| `apps/desktop/src/pages/` | 各页面：概览、Agent、Bot、工作区、在线预览、市场、日志与诊断、设置，以及运行详情 |
 | `apps/desktop/src/onboarding/` | 首次引导（绑定） |
 | `apps/desktop/src/shell/`、`providers/` | 窗口外壳、供应商编辑 |
 | `apps/desktop/src-tauri/src/commands/` | 每个页面对应的 Tauri 命令，调用 `crates/gonggong` |
@@ -176,7 +174,6 @@
 | `tunnel.rs` | 预览隧道二进制帧与转发 |
 | `previews.rs`、`hosted.rs`、`static_site.rs` | 本机预览与托管服务（由 daemon 持有进程，活得比单轮更久）、静态站点 |
 | `html_render.rs`、`snapshot.rs` | 用本机 Chrome 系浏览器渲染 HTML 页面与预览首屏截图 |
-| `cast.rs`、`wechatide.rs` | 实时画面（按需启动 gg-cast 推流）、微信开发者工具 |
 | `open_apps.rs` | 用本地应用打开工作区 |
 | `tls.rs` | 连接服务器的 HTTP(S)/WS(S)：默认接受任意证书，显式 `--ca-file` 或 `--fingerprint` 时校验；`http://` 只允许本机地址 |
 | `net.rs` | 测量到服务器的延迟与带宽 |

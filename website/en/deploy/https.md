@@ -100,7 +100,7 @@ A proper internal deployment still needs Nginx to host the web app, and it can r
 ssl_certificate     /etc/gonggong/tls/cert.pem;
 ssl_certificate_key /etc/gonggong/tls/key.pem;
 
-location ~ ^/(api|ws|livekit|downloads)(/|$) {
+location ~ ^/(api|ws|downloads)(/|$) {
     proxy_pass https://127.0.0.1:8787;   # the server has TLS enabled, so the upstream uses https
     proxy_ssl_verify off;
     # other proxy_set_header lines are the same as on the reverse proxy page

@@ -26,7 +26,7 @@ The console's left navigation has three groups. 「返回消息」 (Back to mess
 | 配置 (Configuration) | [配置中心 (Configuration)](/en/admin/config) | Platform-layer MCP, Skills, plugins, and secrets, plus the market's 「待审核」 (Pending review) |
 | 配置 (Configuration) | [系统参数 (System parameters)](/en/admin/params) | Switches for sign-up, teams, plugins, demo mode, and platform defaults |
 | 配置 (Configuration) | [飞书 (Feishu)](/en/admin/feishu) | Feishu main app, public URL, Feishu auto sign-up |
-| 配置 (Configuration) | [客户端发布 (Client releases)](/en/admin/releases) | Upload daemon, gg-cast, and desktop installers/update packages |
+| 配置 (Configuration) | [客户端发布 (Client releases)](/en/admin/releases) | Upload daemon and desktop installers/update packages |
 | 观测 (Observability) | [机器 (Machines)](/en/admin/machines) | OS, hardware, daemon version, online status, and network quality of every machine; revoke machines |
 | 观测 (Observability) | [会话统计 (Conversation stats)](/en/admin/usage#conversation-stats) | Overview of conversations, messages, and runs across the site, with details by conversation, member, Bot, and team |
 | 观测 (Observability) | [用量 (Usage)](/en/admin/usage) | Token usage summarized by Bot, requester, and group |

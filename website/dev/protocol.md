@@ -36,7 +36,7 @@
 daemon 用机器令牌连接 `WS /ws/daemon`，每条消息是一个带 `t` 字段的 JSON 对象。
 
 - **握手**：daemon 发 `hello`（协议版本、令牌、daemon 版本、机器信息、Agent 列表、仍在执行的运行与托管服务、终端会话、`features` 能力列表）；服务器回 `welcome`（机器 id、心跳间隔、可用的新版本、是否开启预览隧道、服务器是否发布了本平台的 daemon 构建），或回 `reject`（原因为 `protocol` / `revoked` / `unauthorized`，协议过旧时附带最低协议版本与升级信息）。
-- **服务器 → daemon**（`s2d`）：运行（`run.start`、`run.cancel`、`run.append`、`run.tier`…）、审批与提问回复、工作区（`workspace.*`）、文件（`files.*`、`dir.*`）、Git（`git.*`、`gitaccess.cmd`）、预览与实时画面（`previews.sync`、`cast.*`）、Agent 工具与供应商（`tools.cmd`、`providers.cmd`、`ccswitch.*`）、托管服务、日志、诊断、升级（`upgrade.start`）等。
+- **服务器 → daemon**（`s2d`）：运行（`run.start`、`run.cancel`、`run.append`、`run.tier`…）、审批与提问回复、工作区（`workspace.*`）、文件（`files.*`、`dir.*`）、Git（`git.*`、`gitaccess.cmd`）、预览（`previews.sync`）、Agent 工具与供应商（`tools.cmd`、`providers.cmd`、`ccswitch.*`）、托管服务、日志、诊断、升级（`upgrade.start`）等。
 - **daemon → 服务器**（`d2s`）：`heartbeat`、`run.event`（文本、思考、工具调用、用量等流式事件）、`run.done`、`approval.request`、`question.ask`、`workspace.state`、`session.config`、`commands.update`、`agents.update`、各类 `*.result` 等。
 
 另有一批请求走 REST（`/api/daemon/*`，机器令牌鉴权），如登录绑定与网页确认接入、内置 MCP 工具调用、附件与产物上传下载、Skill 与插件版本下载、强制同步的文件块、网络测量、升级包下载。
@@ -76,13 +76,13 @@ daemon 为每个会话在本机回环地址上开一个名为 `gonggong` 的 MCP
 | --- | --- | --- |
 | 向群成员提问 | `ask_group_members` | daemon 转成提问卡片，等群成员回答或超时 |
 | 服务器工具（`gonggong-tools.json`） | 聊天记录（`list_messages`、`search_messages`）、群与运行（`get_group_info`、`get_run`）、预览（`preview_expose`）、协作（`hand_off`、`thread_create`、`progress_card`）、定时任务（`schedule_*`）、Skill（`skill_*`）、市场（`market_*`）、知识库（`kb_*`）、群标签页（`tab_*`）、MCP 配置（`mcp_*`）、密钥（`secret_*`）、插件与创作（`plugin_catalog`、`creation_propose`）、产物（`artifact_checkout`）等 | daemon 带机器令牌转发到 `POST /api/daemon/runs/:runId/tools/:name`，由服务器查询、鉴权并返回文本 |
-| daemon 工具（`gonggong-daemon-tools.json`） | `send_attachments`、`service_*`、`preview_static`、`preview_miniprogram`、`html_preview`、`html_render`、`feishu_send_card`、`client_release_publish`、`client_release_notes` | daemon 自己应答（附件、托管服务、静态站点、小程序、HTML 渲染等） |
+| daemon 工具（`gonggong-daemon-tools.json`） | `send_attachments`、`service_*`、`preview_static`、`html_preview`、`html_render`、`feishu_send_card`、`client_release_publish`、`client_release_notes` | daemon 自己应答（附件、托管服务、静态站点、HTML 渲染等） |
 
 要点：
 
 - 工具的唯一来源是 `packages/protocol/src/tools.ts`（zod），两个 JSON 文件由它生成；daemon 用 `include_str!` 编译进二进制，服务器用 zod 校验入参。`packages/protocol/test/tools.test.ts` 断言 JSON 与 zod 定义一致，改了工具定义必须同步更新 JSON。
 - 服务器工具以**正在进行的运行**为凭据：群和 Bot 都从运行推出，不信任参数；两轮之间调用会直接报错。写操作以本轮发起人的身份鉴权，管理类工具按发起人的角色裁剪；未绑定飞书或未启用插件的群不会列出相应工具。
-- `service_start`、`preview_miniprogram`、`client_release_publish` 会执行代码或往成员机器分发程序，需要走 Bot 的命令审批，其余内置工具自动放行。
+- `service_start`、`client_release_publish` 会执行代码或往成员机器分发程序，需要走 Bot 的命令审批，其余内置工具自动放行。
 - 平台、团队、群配置的 MCP 服务也会在建会话时注入，名称 `gonggong` 保留给内置服务。
 
 ## 预览隧道

@@ -15,7 +15,7 @@ export const DaemonRelease = z.object({
   releaseNotes: z.string().trim().min(1).optional(),
   /** Keyed by `<os>-<arch>` as the daemon reports them, e.g. `macos-aarch64`, `linux-x86_64`. */
   builds: z.record(z.string(), DaemonBuild),
-  /** gg-cast (desktop preview publisher) per platform, downloaded by the daemon on its first live preview. */
+  /** Retired gg-cast builds of older releases; read only so publishing a new release deletes their files. */
   cast: z.record(z.string(), DaemonBuild).optional(),
   /** Desktop app installers (Tauri dmg / setup.exe) offered on the 绑定新机器 page. */
   desktop: z.record(z.string(), DaemonBuild).optional(),
@@ -41,15 +41,14 @@ export const RELEASE_PLATFORMS = [
   'linux-aarch64',
   'windows-x86_64',
 ] as const
-export const ReleaseKind = z.enum(['builds', 'cast', 'desktop', 'update', 'signature'])
+export const ReleaseKind = z.enum(['builds', 'desktop', 'update', 'signature'])
 export type ReleaseKind = z.infer<typeof ReleaseKind>
 export interface ReleaseFile {
   kind: ReleaseKind
   version: string
   platform: string
 }
-const RELEASE_FILE =
-  /^(gonggong|gg-cast)-(\d+\.\d+\.\d+)-((?:macos|linux)-(?:x86_64|aarch64)|windows-x86_64)(\.exe)?$/
+const RELEASE_FILE = /^gonggong-(\d+\.\d+\.\d+)-((?:macos|linux)-(?:x86_64|aarch64)|windows-x86_64)(\.exe)?$/
 const DESKTOP_FILE =
   /^Gonggong_(\d+\.\d+\.\d+)_(aarch64\.dmg|x86_64\.dmg|x64-setup\.exe(?:\.sig)?|(?:aarch64|x86_64)\.app\.tar\.gz(?:\.sig)?)$/
 const DESKTOP_PLATFORM: Record<string, [ReleaseKind, string]> = {
@@ -64,7 +63,7 @@ const DESKTOP_PLATFORM: Record<string, [ReleaseKind, string]> = {
 }
 /**
  * POST /api/admin/daemon-release/files takes scripts/release.sh artifacts as named (`gonggong-0.2.0-macos-aarch64`,
- * `gg-cast-0.2.0-windows-x86_64.exe`, `Gonggong_0.2.0_aarch64.dmg`, `Gonggong_0.2.0_aarch64.app.tar.gz(.sig)`): the name
+ * `gonggong-0.2.0-windows-x86_64.exe`, `Gonggong_0.2.0_aarch64.dmg`, `Gonggong_0.2.0_aarch64.app.tar.gz(.sig)`): the name
  * alone says what the file is, so admins just drop dist/<version>/.
  */
 export function parseReleaseFile(name: string): ReleaseFile | null {
@@ -72,16 +71,13 @@ export function parseReleaseFile(name: string): ReleaseFile | null {
   const [desktopKind, desktopPlatform] = (bundle && DESKTOP_PLATFORM[bundle]) || []
   if (desktopVersion && desktopKind && desktopPlatform)
     return { kind: desktopKind, version: desktopVersion, platform: desktopPlatform }
-  const [, prefix, version, platform, exe] = RELEASE_FILE.exec(name) ?? []
+  const [, version, platform, exe] = RELEASE_FILE.exec(name) ?? []
   if (!version || !platform || platform.startsWith('windows') !== Boolean(exe)) return null
-  return { kind: prefix === 'gonggong' ? 'builds' : 'cast', version, platform }
+  return { kind: 'builds', version, platform }
 }
 /** GET /api/client-downloads → installers a member can download, or null before any is published. */
 export const ClientDownloads = DaemonRelease.pick({ version: true, builds: true, desktop: true })
 export type ClientDownloads = z.infer<typeof ClientDownloads>
-/** GET /api/daemon/cast-build (machine token) → gg-cast for its platform; 404 when none is published. */
-export const CastBuildDto = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
-export type CastBuildDto = z.infer<typeof CastBuildDto>
 
 // ── Audit (spec §9, §13) ────────────────────────────────────────────────────
 export const AuditCategory = z.enum([

@@ -2,7 +2,7 @@
 
 This page walks through each page in the desktop app's left sidebar and what it's for.
 
-The left sidebar has three groups: 「概览」 (Overview); the 「执行」 (Execution) group, with 「Agent」, 「Bot」, 「工作区」 (Workspaces), 「在线预览」 (Online previews), 「实时画面」 (Live views), and 「市场」 (Market); and the 「本机」 (This machine) group, with 「日志与诊断」 (Logs & diagnostics) and 「设置」 (Settings). The bottom of the sidebar shows the machine owner, the machine name, and the operating system.
+The left sidebar has three groups: 「概览」 (Overview); the 「执行」 (Execution) group, with 「Agent」, 「Bot」, 「工作区」 (Workspaces), 「在线预览」 (Online previews), and 「市场」 (Market); and the 「本机」 (This machine) group, with 「日志与诊断」 (Logs & diagnostics) and 「设置」 (Settings). The bottom of the sidebar shows the machine owner, the machine name, and the operating system.
 
 The desktop app focuses on "what this machine is doing." Creating Bots, changing Bot settings, managing providers, installing Skills, and similar tasks happen on the web; 「在 Web 中管理」 (Manage on Web) and 「在网页中打开」 (Open on the Web) on these pages open the corresponding place in your browser. For managing machines on the web, see [My machines and Bots](/en/user/machines).
 
@@ -28,7 +28,7 @@ Status of this machine's runner and runs in progress.
 - **Four stat cards**: Connection (online or not, and whether the connection is encrypted), Bots (number bound, number of available Agents), Concurrency (running / sum of the concurrency limits of this machine's Bots, plus the local queue length), and Workspaces (count, how many are managed vs. local folders, and disk usage).
 - **Running**: each row is a run in progress, showing the Bot, group, requester, current step, and status (运行中 / 等待审批 / 等待回答, Running / Awaiting approval / Awaiting answer). Click a row to open that run's 「运行过程」 (Process), which matches the run details on the web; click 「返回」 (Back) to return to Overview.
 - **Local queue**: tasks waiting in this machine's queue because the concurrency limit is reached, and their positions.
-- **Banners**: when there's a connection problem, the daemon isn't running, system permissions aren't granted, or live view streaming fails, a banner appears at the top of the page with a matching button (such as 「重试」 (Retry), 「去授权」 (Grant), 「查看」 (View), or 「重新绑定」 (Bind again)).
+- **Banners**: when there's a connection problem or the daemon isn't running, a banner appears at the top of the page with a matching button (such as 「重试」 (Retry) or 「重新绑定」 (Bind again)).
 
 ## Agent
 
@@ -117,18 +117,6 @@ Web pages and background services opened by Bots, which can be viewed or stopped
 
 Actions here have the same effect as in the group on the web; group members see the change immediately. For the preview feature, see [Previews](/en/user/previews).
 
-## Live views
-
-Desktop app and mini program views pushed by Bots: streaming component, system permissions, and stream status.
-
-![Live views](/screenshots/desktop/live.webp)
-
-- **Streaming component**: the status of gg-cast. Official macOS installers show 「已内置」 (Bundled), installed and upgraded together with Gonggong Space. When it isn't bundled, it shows 「未内置」 (Not bundled) and is downloaded from the server on the first stream (the server must upload gg-cast under 「客户端发布」 (Client releases)).
-- **System permissions** (macOS only): whether Screen Recording and Accessibility are granted. If not, click 「去授权」 (Grant); see [Permissions and system settings](/en/desktop/permissions).
-- **Live views opened by Bots**: each view shows its type (桌面应用 / 小程序, Desktop app / Mini program), stream status (无人观看 / 启动中 / 推流中 / 推流失败 / 等待操作, No viewers / Starting / Streaming / Streaming failed / Waiting for action), and who is controlling it remotely. A failed stream shows the reason and retries automatically. You can 「关闭」 (Close) it — shown as 「关闭并停止应用」 (Close and stop app) when there's a hosted app.
-
-This machine streams a window only while a group member is watching the live view on the web; it stops automatically when nobody is watching.
-
 ## Market
 
 My Skills and market listings, read-only; install, publish, and review on the web.
@@ -155,7 +143,6 @@ If the server can't be reached, you'll see 「连不上服务器，请检查网�
 | git credentials | Whether this machine's managed repositories can reach their remotes |
 | Disk | Workspace usage and free space |
 | Line endings | Whether `core.autocrlf` is turned off in managed repositories |
-| Screen Recording, Accessibility | macOS only; whether they're granted |
 
 Two buttons below:
 
@@ -190,7 +177,7 @@ Appearance, upgrades, mirror, startup, and storage locations.
 ## Related pages
 
 - [Desktop app overview and installation](/en/desktop/)
-- [Permissions and system settings](/en/desktop/permissions)
+- [Local config and system settings](/en/desktop/permissions)
 - [My machines and Bots](/en/user/machines)
 - [Agent tools and providers](/en/user/agents-providers)
 - [Market and plugins](/en/user/market-plugins)

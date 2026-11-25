@@ -2,9 +2,7 @@
 //! instead of the agent so they outlive its turn. Each runs in its own process group; output goes to a ring buffer and
 //! `<workspace>/.gonggong/services/<name>.log`. Services never outlive the daemon: their process groups are recorded in
 //! `<home>/services.pids` and whatever a previous daemon left behind is ended on start. Static sites
-//! (`preview_static`) are hosted the same way but run as a task inside the daemon. A desktop app may run on its own
-//! virtual display (Linux, Xvfb; plan P15), started before it and ended with it, so it never takes over the owner's
-//! screen.
+//! (`preview_static`) are hosted the same way but run as a task inside the daemon.
 use crate::protocol::{DaemonToServer, ServiceInfo, ServiceStatus};
 use crate::service::Outbox;
 use serde::Deserialize;
@@ -47,21 +45,6 @@ pub struct StartArgs {
     pub port: Option<u16>,
     #[serde(default)]
     pub env: HashMap<String, String>,
-    #[serde(default)]
-    pub display: Option<Display>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Display {
-    Virtual,
-}
-
-/// An Xvfb server of one service: its process (group leader) and display name (`:N`).
-#[derive(Clone)]
-struct Screen {
-    pid: u32,
-    name: String,
 }
 
 #[derive(Clone)]
@@ -69,8 +52,6 @@ pub struct Services(Arc<Inner>);
 
 struct Inner {
     pids: PathBuf,
-    /// The Xvfb program (tests use a stand-in).
-    xvfb: PathBuf,
     list: Mutex<Vec<Hosted>>,
     /// Ended ones (stopped or exited), until their (group, bot, name) starts again: the server may still restart them.
     ended: Mutex<VecDeque<Hosted>>,
@@ -102,7 +83,6 @@ struct Hosted {
     logs: Arc<Mutex<VecDeque<String>>>,
     started: Instant,
     exited: watch::Receiver<bool>,
-    screen: Option<Screen>,
 }
 
 impl Hosted {
@@ -129,14 +109,8 @@ impl Services {
             }
             let _ = std::fs::remove_file(&pids);
         }
-        let inner = Inner { pids, xvfb: "Xvfb".into(), list: Mutex::default(), ended: Mutex::default() };
+        let inner = Inner { pids, list: Mutex::default(), ended: Mutex::default() };
         Services(Arc::new(inner))
-    }
-
-    /// Replaces the Xvfb program (tests), before the first start.
-    pub fn xvfb(mut self, program: PathBuf) -> Self {
-        Arc::get_mut(&mut self.0).expect("not shared yet").xvfb = program;
-        self
     }
 
     /// A name taken by this (group, bot) is restarted: the old one is ended first; then the per-bot limit applies.
@@ -183,7 +157,7 @@ impl Services {
         let stop = Stop::Task(task.abort_handle());
         let logs = Arc::new(Mutex::new(VecDeque::new()));
         let origin = Arc::new(Origin { run_id: scope.run_id, root: scope.root, how: How::Static(dir.into()) });
-        let hosted = Hosted { info: info.clone(), origin, stop, logs, started: Instant::now(), exited, screen: None };
+        let hosted = Hosted { info: info.clone(), origin, stop, logs, started: Instant::now(), exited };
         self.0.list.lock().unwrap().push(hosted);
         let (out, inner) = (scope.out, self.0.clone());
         tokio::spawn(async move {
@@ -213,28 +187,11 @@ impl Services {
         tokio::fs::create_dir_all(&log_dir).await.map_err(|e| format!("无法创建日志目录：{e}"))?;
         let log_path = log_dir.join(format!("{}.log", args.name));
         let log_file = tokio::fs::File::create(&log_path).await.map_err(|e| format!("无法写入日志：{e}"))?;
-        let screen = match args.display {
-            Some(Display::Virtual) => Some(virtual_display(&self.0.xvfb).await?),
-            None => None,
-        };
 
         let mut cmd = shell(&args.command);
         cmd.current_dir(&dir).envs(&args.env).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-        if let Some(screen) = &screen {
-            // Toolkits (GTK, Electron) prefer Wayland when they see it; the app must open on the virtual display.
-            cmd.env("DISPLAY", &screen.name).env("XDG_SESSION_TYPE", "x11").env_remove("WAYLAND_DISPLAY");
-        }
         let spawned = cmd.spawn().map_err(|e| format!("启动失败：{e}"));
-        let (mut child, pid) =
-            match spawned.and_then(|c| c.id().map(|pid| (c, pid)).ok_or("启动失败：进程已退出".into())) {
-                Ok(started) => started,
-                Err(e) => {
-                    if let Some(screen) = &screen {
-                        kill_group(screen.pid, true);
-                    }
-                    return Err(e);
-                }
-            };
+        let (mut child, pid) = spawned.and_then(|c| c.id().map(|pid| (c, pid)).ok_or("启动失败：进程已退出".into()))?;
         let info = ServiceInfo {
             id: uuid::Uuid::new_v4().to_string(),
             group_id: scope.group_id.clone(),
@@ -264,17 +221,14 @@ impl Services {
             how: How::Command(args.clone()),
         });
         let started = Instant::now();
-        let hosted = Hosted { info: info.clone(), origin, stop, logs, started, exited: exited.clone(), screen };
+        let hosted = Hosted { info: info.clone(), origin, stop, logs, started, exited: exited.clone() };
         // Listed before its exit is watched: the watcher retires it from the list.
         self.0.list.lock().unwrap().push(hosted.clone());
         self.0.save_pids();
         {
-            let (info, out, inner, display) = (info.clone(), scope.out.clone(), self.0.clone(), hosted.screen.clone());
+            let (info, out, inner) = (info.clone(), scope.out.clone(), self.0.clone());
             tokio::spawn(async move {
                 let code = child.wait().await.ok().and_then(|s| s.code());
-                if let Some(display) = display {
-                    kill_group(display.pid, true);
-                }
                 // Let the last lines land before anyone reads the tail.
                 for p in pumps {
                     let _ = tokio::time::timeout(Duration::from_secs(1), p).await;
@@ -413,9 +367,6 @@ impl Services {
                 Stop::Group(pid) => kill_group(*pid, true),
                 Stop::Task(task) => task.abort(),
             }
-            if let Some(screen) = &h.screen {
-                kill_group(screen.pid, true);
-            }
         }
     }
 
@@ -458,20 +409,6 @@ impl Services {
         self.find_id(id)
             .or_else(|| self.0.ended.lock().unwrap().iter().find(|h| h.info.lock().unwrap().id == id).cloned())
             .ok_or_else(|| crate::t!("这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动").into())
-    }
-
-    /// The virtual display (`:N`) a live service runs on.
-    pub fn display(&self, id: &str) -> Option<String> {
-        self.find_id(id).filter(Hosted::live)?.screen.map(|s| s.name)
-    }
-
-    /// The process (group leader) of a live command service; static sites have none.
-    pub fn pid(&self, id: &str) -> Option<u32> {
-        let h = self.find_id(id).filter(Hosted::live)?;
-        match h.stop {
-            Stop::Group(pid) => Some(pid),
-            Stop::Task(_) => None,
-        }
     }
 
     fn find(&self, group: &str, bot: &str, name: &str) -> Option<Hosted> {
@@ -532,12 +469,9 @@ impl Inner {
         let pids: String = list
             .iter()
             .filter(|h| h.live())
-            .flat_map(|h| {
-                let group = match h.stop {
-                    Stop::Group(pid) => Some(pid),
-                    Stop::Task(_) => None,
-                };
-                group.into_iter().chain(h.screen.as_ref().map(|s| s.pid))
+            .filter_map(|h| match h.stop {
+                Stop::Group(pid) => Some(pid),
+                Stop::Task(_) => None,
             })
             .map(|pid| format!("{pid}\n"))
             .collect();
@@ -642,37 +576,6 @@ async fn write_log(mut lines: mpsc::Receiver<String>, path: PathBuf, file: tokio
         }
     }
     let _ = out.flush().await;
-}
-
-const DISPLAY_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Starts an Xvfb server on a free display it picks itself (`-displayfd`), in its own process group.
-async fn virtual_display(program: &Path) -> Result<Screen, String> {
-    if !cfg!(target_os = "linux") {
-        return Err("虚拟显示（display: virtual）只支持 Linux".into());
-    }
-    let mut cmd = crate::proc::async_command(program);
-    cmd.args(["-displayfd", "1", "-screen", "0", "1280x800x24", "-nolisten", "tcp"]);
-    #[cfg(unix)]
-    cmd.process_group(0);
-    let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            "这台电脑没有 Xvfb，无法使用虚拟显示：请电脑主人先安装（Debian/Ubuntu：sudo apt install xvfb）".to_string()
-        } else {
-            format!("无法启动虚拟显示：{e}")
-        }
-    })?;
-    let pid = child.id().ok_or("虚拟显示启动后立即退出")?;
-    let mut lines = BufReader::new(child.stdout.take().expect("piped")).lines();
-    let number = tokio::time::timeout(DISPLAY_TIMEOUT, lines.next_line()).await;
-    tokio::spawn(async move { child.wait().await });
-    match number {
-        Ok(Ok(Some(n))) if n.trim().parse::<u32>().is_ok() => Ok(Screen { pid, name: format!(":{}", n.trim()) }),
-        _ => {
-            kill_group_async(pid, true).await;
-            Err("虚拟显示没有启动成功（Xvfb 未报告显示编号）".into())
-        }
-    }
 }
 
 enum Ready {

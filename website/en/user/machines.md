@@ -103,7 +103,7 @@ Older Linux daemons need one manual upgrade before 「立即升级」 (Upgrade n
 
 ### Self-check
 
-「自检」 (Self-check) checks on the machine: server connection, Agents, git credentials, disk, and line endings (on macOS also Screen Recording and Accessibility permissions; items that don't apply aren't shown). Each item is marked 「正常」 (Active), 「注意」 (Warning), or 「异常」 (Problem). If git credentials have a problem, the 「去配置」 (Set up) button next to it jumps straight to 「Git 访问」 (Git access). Click 「重新检查」 (Recheck) to run it again. The command-line equivalent is `gg doctor`.
+「自检」 (Self-check) checks on the machine: server connection, Agents, git credentials, disk, and line endings (items that don't apply aren't shown). Each item is marked 「正常」 (Active), 「注意」 (Warning), or 「异常」 (Problem). If git credentials have a problem, the 「去配置」 (Set up) button next to it jumps straight to 「Git 访问」 (Git access). Click 「重新检查」 (Recheck) to run it again. The command-line equivalent is `gg doctor`.
 
 ### Mirror and logs
 

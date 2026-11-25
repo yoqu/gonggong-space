@@ -19,8 +19,6 @@ export const SERVICE_STATE: Record<ServiceDto['status'], { text: string; tone: T
 
 export function previewKindLabel(p: Pick<PreviewDto, 'kind' | 'serviceId' | 'port'>) {
   if (p.kind === 'static') return t('静态页面')
-  if (p.kind === 'gui') return t('桌面应用')
-  if (p.kind === 'miniprogram') return t('小程序')
   return p.serviceId ? t('网页应用') : p.port ? t('外部端口 {port}', { port: p.port }) : t('外部端口')
 }
 

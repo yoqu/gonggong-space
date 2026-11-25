@@ -29,7 +29,7 @@ import { LIVE } from '../runs/dto.js'
 
 const KEY = 'daemonRelease'
 const FILE = /^\w[\w.-]*$/
-/** A gg-cast build is ~30 MB (libwebrtc); leave room for debug-ish builds without accepting anything. */
+/** Desktop installers are tens of MB; leave room for debug-ish builds without accepting anything. */
 const MAX_FILE_MB = 300
 const MAX_NOTES_MB = 1
 const downloads = () => join(dataDir(), 'downloads')
@@ -125,7 +125,7 @@ async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) 
         })
       : fail(
           'invalid',
-          '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 gg-cast-0.2.0-windows-x86_64.exe',
+          '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg',
           { file: part.filename },
         )
   }
@@ -157,9 +157,7 @@ async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) 
       if (current && current.version !== file.version)
         await Promise.all(hostedUrls(current).map(removeHosted))
       const base: DaemonRelease =
-        current?.version === file.version && current
-          ? current
-          : { version: file.version, builds: {}, cast: {} }
+        current?.version === file.version && current ? current : { version: file.version, builds: {} }
       return { ...base, [file.kind]: { ...base[file.kind], [file.platform]: { url, sha256 } } }
     })
     await audit(ctx, {
@@ -175,6 +173,7 @@ async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) 
   }
 }
 
+/** `cast` is retired but still listed, so a new version deletes an older release's gg-cast files. */
 const hostedUrls = (r: DaemonRelease) =>
   [r.builds, r.cast, r.desktop, r.update, r.signature].flatMap((kind) =>
     Object.values(kind ?? {}).map((b) => b.url),

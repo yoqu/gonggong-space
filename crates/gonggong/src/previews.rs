@@ -1,6 +1,5 @@
 //! This machine's preview tunnels and hosted services as the server lists them, for the desktop app to manage.
 use crate::bots::{Client, ok};
-use crate::protocol::{DevtoolsBlocker, Permission};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct Preview {
     pub id: String,
-    /// http / static tunnel; gui / miniprogram are watched live through gg-cast.
+    /// http / static tunnel.
     pub kind: String,
     pub title: String,
     pub group_name: String,
@@ -19,35 +18,6 @@ pub struct Preview {
     pub service_id: Option<String>,
     pub service_name: Option<String>,
     pub status: String,
-    /// This machine's gg-cast while someone watches.
-    #[serde(default)]
-    pub live: Option<Live>,
-    #[serde(default)]
-    pub control: Option<Control>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Live {
-    pub state: String,
-    pub error: Option<String>,
-    pub missing: Vec<Permission>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub devtools: Option<DevtoolsBlocker>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_at: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Control {
-    pub controller: Option<Member>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Member {
-    pub name: String,
 }
 
 /// Subset of the server's `ServiceDto`.
@@ -86,12 +56,6 @@ impl Client {
     /// Restarts a paused/stopped preview's service as it was started.
     pub async fn start_preview(&self, id: &str) -> Result<()> {
         let url = format!("{}/api/daemon/previews/{id}/start", self.base);
-        ok(self.http.post(url).bearer_auth(&self.token).send().await?).await.map(drop)
-    }
-
-    /// 立即重试 of a live preview this machine publishes.
-    pub async fn retry_cast(&self, id: &str) -> Result<()> {
-        let url = format!("{}/api/daemon/previews/{id}/live/retry", self.base);
         ok(self.http.post(url).bearer_auth(&self.token).send().await?).await.map(drop)
     }
 

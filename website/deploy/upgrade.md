@@ -1,6 +1,6 @@
 # 升级与发布客户端
 
-本页说明如何升级服务端，以及如何构建并发布成员机器上的客户端（daemon 与 gg-cast），让它们自动升级。
+本页说明如何升级服务端，以及如何构建并发布成员机器上的客户端（daemon 与桌面端），让它们自动升级。
 
 ## 升级服务端
 
@@ -46,7 +46,7 @@ bash scripts/release.sh --daemon-only                  # 只打五个平台的 g
 
 | 值 | 产物 |
 | --- | --- |
-| `macos-aarch64`、`macos-x86_64`、`linux-x86_64`、`linux-aarch64`、`windows-x86_64` | 对应平台的 daemon（`gg`）与 gg-cast |
+| `macos-aarch64`、`macos-x86_64`、`linux-x86_64`、`linux-aarch64`、`windows-x86_64` | 对应平台的 daemon（`gg`） |
 | `desktop` | macOS 桌面端，Apple 芯片与 Intel 各一个安装包 |
 | `desktop-windows` | Windows 桌面端安装包（在 Docker 里交叉编译），只在 `--only` 里写明时才打 |
 
@@ -57,12 +57,11 @@ bash scripts/release.sh --daemon-only                  # 只打五个平台的 g
 | 文件 | 说明 |
 | --- | --- |
 | `gonggong-<版本>-<平台>[.exe]` | daemon（命令行 `gg`），各平台一个 |
-| `gg-cast-<版本>-<平台>[.exe]` | 实时画面推送程序，各平台一个 |
-| `Gonggong_<版本>_aarch64.dmg` / `Gonggong_<版本>_x86_64.dmg` | macOS 桌面端安装包（Apple 芯片 / Intel），内置 gg-cast |
+| `Gonggong_<版本>_aarch64.dmg` / `Gonggong_<版本>_x86_64.dmg` | macOS 桌面端安装包（Apple 芯片 / Intel） |
 | `Gonggong_<版本>_<架构>.app.tar.gz` 与 `.sig` | macOS 桌面端自动更新包及其签名 |
 | `Gonggong_<版本>_x64-setup.exe` 与 `.sig` | Windows 桌面端安装包（也是它的更新包）及其签名 |
-| `SHA256SUMS` | daemon 与 gg-cast 的 sha256 |
-| `manifest.json` | 发布清单：版本、版本说明及各平台 daemon 与 gg-cast 的下载地址和 sha256 |
+| `SHA256SUMS` | daemon 的 sha256 |
+| `manifest.json` | 发布清单：版本、版本说明及各平台 daemon 的下载地址和 sha256 |
 
 版本说明取自 `docs/release-notes/v<版本>.md`（或 `--notes <文件>`），会写进清单，客户端提示更新时显示。
 
@@ -76,14 +75,14 @@ bash scripts/release.sh --daemon-only                  # 只打五个平台的 g
 | Windows 桌面端 | 本机装有 Docker，同样需要自动更新签名私钥 |
 
 ::: tip macOS 签名与公证
-钥匙串里有 Developer ID Application 证书时，脚本会自动用它签名桌面端（也可用 `APPLE_SIGNING_IDENTITY` 指定）；没有则使用临时（ad hoc）签名并给出警告：这样每次升级后，macOS 授予的屏幕录制、辅助功能等权限都会失效，见 [权限与系统设置](/desktop/permissions)。配置了 Apple 公证所需的环境变量（`APPLE_API_KEY` / `APPLE_API_ISSUER` / `APPLE_API_KEY_PATH`，或 `APPLE_NOTARY_PROFILE` 钥匙串配置）时，还会公证 `.dmg`。
+钥匙串里有 Developer ID Application 证书时，脚本会自动用它签名桌面端（也可用 `APPLE_SIGNING_IDENTITY` 指定）；没有则使用临时（ad hoc）签名并给出警告。配置了 Apple 公证所需的环境变量（`APPLE_API_KEY` / `APPLE_API_ISSUER` / `APPLE_API_KEY_PATH`，或 `APPLE_NOTARY_PROFILE` 钥匙串配置）时，还会公证 `.dmg`。
 :::
 
 ## 发布客户端
 
 ### 后台上传
 
-构建机和服务器分开时最方便：把 `dist/<版本>/` 里的文件拖进「管理后台 → 客户端发布」即可。daemon 与 gg-cast 用于安装和自动升级；桌面端的 `.dmg`、`setup.exe` 会出现在「绑定新机器」的下载里；桌面端更新包与签名都上传后，桌面端会优先从本服务器更新。文件名规则、版本规则见 [客户端发布](/admin/releases)。
+构建机和服务器分开时最方便：把 `dist/<版本>/` 里的文件拖进「管理后台 → 客户端发布」即可。daemon 用于安装和自动升级；桌面端的 `.dmg`、`setup.exe` 会出现在「绑定新机器」的下载里；桌面端更新包与签名都上传后，桌面端会优先从本服务器更新。文件名规则、版本规则见 [客户端发布](/admin/releases)。
 
 ### 脚本发布
 
@@ -94,7 +93,7 @@ GONGGONG_ADMIN_PASSWORD=<管理员密码> \
 bash scripts/release/publish.sh server <版本> https://gg.example.com
 ```
 
-它把 `dist/<版本>/` 里的 daemon、gg-cast 和桌面端文件逐个经后台上传接口传给服务器，最后上传版本说明；可以重复执行，已上传的文件会被替换。
+它把 `dist/<版本>/` 里的 daemon 和桌面端文件逐个经后台上传接口传给服务器，最后上传版本说明；可以重复执行，已上传的文件会被替换。
 
 在服务器上（或能访问服务器数据目录的机器上）也可以构建后直接发布 daemon：
 
@@ -104,7 +103,7 @@ GONGGONG_ADMIN_PASSWORD=<管理员密码> \
 bash scripts/release.sh --publish https://gg.example.com
 ```
 
-它把 `gonggong-*`、`gg-cast-*` 复制到 `$GONGGONG_DATA_DIR/downloads/`（设置了该变量时），再以管理员身份把 `manifest.json` 提交给 server。桌面端文件不在其中，需要另行上传。
+它把 `gonggong-*` 复制到 `$GONGGONG_DATA_DIR/downloads/`（设置了该变量时），再以管理员身份把 `manifest.json` 提交给 server。桌面端文件不在其中，需要另行上传。
 
 相关变量：
 
@@ -130,7 +129,6 @@ bash scripts/release.sh --publish https://gg.example.com
 - 从不降级；校验失败的版本本次运行期间不再尝试。协议版本过旧被 server 拒绝时，立即下载升级。
 - Linux 命令行 daemon（含 [Docker 成员机器](/deploy/docker)）可以在网页机器页点「立即升级」，下载后在空闲时重启。
 - 成员可以用 `GONGGONG_NO_AUTO_UPGRADE=1` 或桌面端「设置 → 自动升级」关闭。
-- gg-cast 不随 daemon 自动下载，而是在第一次推送实时画面时从服务器按需下载。
 
 **桌面端**
 

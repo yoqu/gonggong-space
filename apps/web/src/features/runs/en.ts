@@ -54,12 +54,9 @@ export default {
   访问外部系统: 'Reaches external systems',
   '来自 MCP「{server}」': 'From MCP "{server}"',
   启动托管服务: 'Start a managed service',
-  发布小程序预览: 'Publish a mini program preview',
   发布客户端到当前空间: 'Publish a client to this space',
   '在 Bot 所在的电脑上运行参数里的命令，并让它在后台一直运行（如开发服务器）':
     "Runs the command in the arguments on the Bot's computer and keeps it running in the background (e.g. a dev server)",
-  '在 Bot 所在的电脑上用微信开发者工具打开工作区里的小程序，截图发到群里':
-    "Opens the workspace mini program in WeChat DevTools on the Bot's computer and posts a screenshot to the group",
   '把编译好的客户端上传到当前空间，所有成员会收到更新':
     'Uploads built clients to this space; every member gets the update',
   本次运行免审批: 'No approvals this run',
@@ -244,7 +241,6 @@ export default {
   提问卡片历史: 'Question card history',
   下载历史附件: 'Download past attachments',
   发布预览: 'Publish preview',
-  发布桌面应用预览: 'Publish desktop app preview',
   关闭预览: 'Close preview',
   进度卡片: 'Progress card',
   '交给其他 Bot': 'Hand off to another Bot',

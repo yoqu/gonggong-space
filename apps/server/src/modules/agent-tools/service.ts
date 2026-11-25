@@ -29,7 +29,7 @@ import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, postMessage, userAuthorName } from '../messages/service.js'
 import { connectorStatusTool } from '../plugins/connectors.js'
-import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
+import { closeOwnPreview, exposePreview } from '../previews/service.js'
 import { answerText } from '../questions/dto.js'
 import { redactDeep } from '../runs/redact.js'
 import { runRedactors } from '../secrets/resolve.js'
@@ -496,7 +496,6 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   fetch_attachments: fetchAttachments,
   list_feishu_messages: (ctx, s, a) => listFeishuMessages(ctx, s.run, a),
   preview_expose: async (ctx, s, a) => ({ text: await exposePreview(ctx, s.run, a), groups: [] }),
-  preview_gui: async (ctx, s, a) => ({ text: await exposeGui(ctx, s.run, a), groups: [] }),
   preview_close: async (ctx, s, a) => ({ text: await closeOwnPreview(ctx, s.run, a.preview), groups: [] }),
   hand_off: handOff,
   thread_create: threadCreate,

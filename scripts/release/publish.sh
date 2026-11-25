@@ -14,7 +14,7 @@ out="$ROOT/dist/$v"
 cd "$out"
 [ -f SHA256SUMS ] || { echo "error: $out is not assembled (scripts/release.sh --assemble)" >&2; exit 1; }
 shopt -s nullglob
-files=(gonggong-"$v"-* gg-cast-"$v"-* Gonggong_"$v"_*)
+files=(gonggong-"$v"-* Gonggong_"$v"_*)
 
 case "$where" in
   github)

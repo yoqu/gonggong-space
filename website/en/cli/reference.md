@@ -324,7 +324,7 @@ gg agents settings --inherit-cli false   # don't load the user-level config in t
 
 ## gg doctor
 
-Checks the server connection, Agents, git credentials, disk, and line endings; on macOS it also checks Screen Recording and Accessibility permissions.
+Checks the server connection, Agents, git credentials, disk, and line endings.
 
 ```text
 ✓ 服务器连接	HTTPS 正常
@@ -332,11 +332,9 @@ Checks the server connection, Agents, git credentials, disk, and line endings; o
 - git 凭据	本机暂无托管仓库
 ✓ 磁盘	工作区 0 B · 剩余 880 GB
 - 换行符	本机暂无托管仓库
-✓ 屏幕录制	已授权
-✓ 辅助功能	已授权
 ```
 
-In English, the items are Server connection (HTTPS OK), Agent (… available), git credentials, Disk (Workspaces 0 B · 880 GB free), Line endings, Screen Recording, and Accessibility (Granted); 本机暂无托管仓库 is "No managed repositories on this machine yet".
+In English, the items are Server connection (HTTPS OK), Agent (… available), git credentials, Disk (Workspaces 0 B · 880 GB free), and Line endings; 本机暂无托管仓库 is "No managed repositories on this machine yet".
 
 Markers: `✓` OK, `!` warning, `✗` error, `-` skipped. If any item is an error, the exit code is 1. When not bound, 「服务器连接」 (Server connection) shows 「未绑定，请先执行 gg login」 ("Not bound; run gg login first"). 「自检」 (Self-check) in the machine details on the web runs the same checks.
 

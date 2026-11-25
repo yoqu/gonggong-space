@@ -36,7 +36,6 @@ The product UI defaults to Chinese (an English UI also exists), so readers must 
 | 提问 | question (a Bot asking group members) |
 | 打断并追加 | interrupt and append |
 | 预览 / 公开链接 | preview / public link |
-| 实时画面 | live view |
 | 在线预览 | online previews |
 | 接入码 / 接入链接 | connect code / connect link |
 | 接入 / 移除（飞书应用） | connect / remove (a Feishu app) |

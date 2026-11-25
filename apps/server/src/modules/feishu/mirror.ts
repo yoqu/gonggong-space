@@ -770,6 +770,7 @@ async function syncPreviewCards(ctx: Ctx, groupId: string) {
     .where(
       and(
         eq(previews.groupId, groupId),
+        inArray(previews.kind, ['http', 'static']),
         mirrored.length
           ? or(isNull(previews.closedAt), inArray(previews.id, mirrored))
           : isNull(previews.closedAt),
@@ -788,20 +789,14 @@ async function syncPreviewCards(ctx: Ctx, groupId: string) {
           .innerJoin(runs, eq(runs.triggerMessageId, feishuMessageLinks.messageId))
           .where(and(eq(runs.id, p.createdByRunId), eq(feishuMessageLinks.kind, 'message')))
       : []
-    const state: PreviewState = p.closedAt
-      ? 'closed'
-      : p.awaiting === 'login'
-        ? 'login'
-        : ctx.tunnels.get(p.machineId)
-          ? 'online'
-          : 'offline'
+    const state: PreviewState = p.closedAt ? 'closed' : ctx.tunnels.get(p.machineId) ? 'online' : 'offline'
     const url = base && !p.closedAt ? `${base}/g/${groupId}?preview=${p.id}` : null
     const card = previewCard({
       bot,
       title: p.title,
       kind: p.kind,
       state,
-      image: state === 'login' ? null : await snapshotKey(ctx, app, p),
+      image: await snapshotKey(ctx, app, p),
       url,
     })
     await putCard(ctx, app, trigger ?? { chatId: chat.chatId }, existing, card, {

@@ -35,15 +35,6 @@ export const en = {
   '请确认这是你们团队的服务器，再点「绑定」。': 'Make sure this is your team\'s server, then click "Bind".',
   '绑定中…': 'Binding…',
   绑定: 'Bind',
-  授予系统权限: 'Grant system permissions',
-  'Bot 推送本机桌面应用和小程序的实时画面、成员远程操作时，需要 macOS 授予「共工空间」以下权限。未授权不影响其他功能。':
-    'For Bots to stream live views of desktop apps and mini programs on this computer, and for members to control them remotely, macOS must grant "Gonggong Space" the permissions below. Everything else works without them.',
-  已授权: 'Granted',
-  未授权: 'Not granted',
-  去授权: 'Grant',
-  '在系统设置中打开「共工空间」的开关后回到这里，状态会自动刷新。屏幕录制需重启共工空间后才生效。':
-    'Turn on "Gonggong Space" in System Settings and come back; the status refreshes automatically. Screen Recording takes effect after Gonggong Space restarts.',
-  重启共工空间: 'Restart Gonggong Space',
   完成: 'Done',
   稍后: 'Later',
   'Agent 是本机安装的 CLI 运行时，决定能用哪些模型；Bot 是团队里的身份，认领后调用这里的某个 agent 执行。':
@@ -77,35 +68,9 @@ export const en = {
   '本机未安装 {name}，该 Bot 暂不能执行':
     '{name} is not installed on this computer, so this Bot cannot run yet',
   '前往 Agent': 'Go to Agent',
-  无人观看: 'No viewers',
   启动中: 'Starting',
-  推流中: 'Streaming',
-  推流失败: 'Streaming failed',
-  等待操作: 'Waiting for action',
-  已内置: 'Bundled',
-  '随共工空间一起安装与升级，无需单独下载':
-    'Installed and upgraded with Gonggong Space; no separate download needed',
-  本地构建: 'Local build',
-  '使用 GG_CAST_BIN 指定的开发构建': 'Uses the development build set by GG_CAST_BIN',
-  未内置: 'Not bundled',
-  '当前是开发版共工空间：首次推流时从服务器下载，请先在管理后台「客户端发布」上传实时画面组件':
-    'This is a development build of Gonggong Space: the live view component is downloaded from the server on the first stream, so upload it under "Client releases" in Admin first',
-  推流组件: 'Streaming component',
-  实时画面组件: 'Live view component',
-  系统权限: 'System permissions',
-  'Bot 开放的实时画面': 'Live views opened by Bots',
-  本机没有实时画面: 'No live views on this computer',
-  正在启动推流: 'Starting stream',
   小程序: 'Mini program',
-  桌面应用: 'Desktop app',
-  '{name} 正在远程操作': '{name} is controlling remotely',
-  关闭并停止应用: 'Close and stop app',
-  '要关闭「{title}」并停止应用吗？': 'Close "{title}" and stop the app?',
-  '关闭后群成员将看不到这个实时画面，Bot 启动的应用也会一并停止。':
-    'Group members will no longer see this live view, and the app the Bot started will be stopped too.',
   关闭: 'Close',
-  '群成员在网页端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。':
-    'This computer streams a window only while a group member watches it on the Web, and stops when nobody does. Failed streams retry automatically, with the reason shown here.',
   正常: 'OK',
   注意: 'Warning',
   异常: 'Error',
@@ -125,7 +90,6 @@ export const en = {
   暂无日志: 'No logs yet',
   加密连接: 'Encrypted connection',
   未加密连接: 'Unencrypted connection',
-  '实时画面推流失败：{list}': 'Live view streaming failed: {list}',
   查看: 'View',
   连接: 'Connection',
   '{n} 已绑定': '{n} bound',
@@ -157,9 +121,6 @@ export const en = {
   '已清理这台电脑上的团队密钥和 {n} 个托管工作区；你手动选择的本机目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。':
     'Cleared the team secrets and {n} managed {n:workspace|workspaces} on this computer; local folders you chose and local backups are untouched. If this is a mistake, contact your system admin and bind again.',
   '绑定已失效 · 服务器拒绝连接': 'Binding invalid · server refused the connection',
-  '未授权：{list}': 'Not granted: {list}',
-  'Bot 推送的桌面应用、小程序实时画面或远程操作在本机不可用，授权后即可使用。':
-    'Live views and remote control of desktop apps and mini programs pushed by Bots are unavailable on this computer until permission is granted.',
   共工客户端未运行: 'Gonggong client is not running',
   重试: 'Retry',
   已完成: 'Completed',
@@ -280,9 +241,6 @@ export const en = {
   在线预览: 'Online previews',
   'Bot 对外开放的网页与后台运行的服务，可在本机查看或停止':
     'Web pages and background services opened by Bots, which can be viewed or stopped here',
-  实时画面: 'Live views',
-  'Bot 推送的桌面应用与小程序画面：推流组件、系统权限与推流状态':
-    'Desktop app and mini program views pushed by Bots: streaming component, system permissions and stream status',
   本机: 'This computer',
   日志与诊断: 'Logs & diagnostics',
   '连接、ACP、git 与同步日志；运行过程入库前已脱敏':
@@ -290,11 +248,7 @@ export const en = {
   设置: 'Settings',
   '外观、升级、镜像源、启动项与存储位置': 'Appearance, upgrades, mirror, startup and storage locations',
   屏幕录制: 'Screen Recording',
-  '推送桌面应用和小程序的实时画面；未授权时成员看不到画面':
-    'Streams live views of desktop apps and mini programs; without it members see nothing',
   辅助功能: 'Accessibility',
-  '远程操作桌面应用和小程序、自动信任小程序项目；未授权时远程点击和输入不生效':
-    'Remote control of desktop apps and mini programs, and auto-trusting mini program projects; without it remote clicks and typing do nothing',
   '环境变量每行一个 KEY=VALUE：{line}': 'Environment variables take one KEY=VALUE per line: {line}',
   '{key} 的值为空': '{key} has no value',
   导航: 'Navigation',

@@ -79,8 +79,8 @@ export default {
   '平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。':
     'Platform defaults; team admins override some of them in team settings, and group admins adjust group-level params in group settings.',
   客户端发布: 'Client releases',
-  '成员电脑上的共工客户端连上后会自动升级到这里的版本，实时画面组件会在首次使用时按需下载；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。':
-    "Gonggong clients on members' computers upgrade to this version when they connect; the live view component downloads on demand when first used; members download the desktop installers and CLI client from Bind new computer; desktop apps check for updates here first, and on GitHub when no signed update package is published.",
+  '成员电脑上的共工客户端连上后会自动升级到这里的版本；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。':
+    "Gonggong clients on members' computers upgrade to this version when they connect; members download the desktop installers and CLI client from Bind new computer; desktop apps check for updates here first, and on GitHub when no signed update package is published.",
   观测: 'Observability',
   用量: 'Usage',
   '公开链接#nav': 'Public links',
@@ -121,13 +121,12 @@ export default {
   '未填写版本说明。桌面端和命令行客户端升级时不会显示具体更新内容。':
     'No release notes yet. Desktop and CLI client upgrades will not show specific changes.',
   拖入发布产物: 'Drop release artifacts',
-  '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-*、gg-cast-* 与 Gonggong_*（安装包、更新包与 .sig 签名）拖到这里；RELEASE_NOTES.md 可作为本版本更新说明上传。文件名决定平台与版本；更高的版本会替换整个发布。':
-    "After running scripts/release.sh, drop the gonggong-*, gg-cast-* and Gonggong_* files (installers, update packages and .sig signatures) from dist/<version>/ here; RELEASE_NOTES.md can be uploaded as this release's notes. File names determine platform and version; a higher version replaces the whole release.",
+  '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-* 与 Gonggong_*（安装包、更新包与 .sig 签名）拖到这里；RELEASE_NOTES.md 可作为本版本更新说明上传。文件名决定平台与版本；更高的版本会替换整个发布。':
+    "After running scripts/release.sh, drop the gonggong-* and Gonggong_* files (installers, update packages and .sig signatures) from dist/<version>/ here; RELEASE_NOTES.md can be uploaded as this release's notes. File names determine platform and version; a higher version replaces the whole release.",
   各平台发布文件: 'Release files by platform',
   平台: 'Platform',
   标识: 'ID',
   共工客户端: 'Gonggong client',
-  实时画面组件: 'Live view component',
   桌面端: 'Desktop app',
   桌面端安装包: 'Desktop installer',
   桌面端更新包: 'desktop update package',
@@ -143,8 +142,6 @@ export default {
   '要移除 {platform} 的 {kind} 吗？': 'Remove {kind} for {platform}?',
   '该平台的电脑将不再自动升级，直到重新上传。':
     'Computers on this platform stop auto-upgrading until it is uploaded again.',
-  '该平台的电脑将无法推送实时画面，直到重新上传。':
-    'Computers on this platform cannot stream a live view until it is uploaded again.',
   取消: 'Cancel',
   移除: 'Remove',
   已停用: 'Disabled',
@@ -220,8 +217,8 @@ export default {
   已开启单团队模式: 'Single-team mode turned on',
   演示: 'Demo',
   演示模式: 'Demo mode',
-  '对外公开演示时开启，限制访客破坏环境：禁止创建公开链接、禁止远程操控实时画面、禁止「完全允许」审批方式；除系统管理员外不可改密码/昵称，不可解散群、移人、删 Bot、解绑电脑或归档团队。':
-    'Turn on for public demos so visitors cannot disrupt the environment: disables public links, live view remote control, and "Allow everything" approvals; restricts password/nickname changes, dissolving groups, removing members, deleting Bots, unbinding computers, and archiving teams to system admins.',
+  '对外公开演示时开启，限制访客破坏环境：禁止创建公开链接、禁止「完全允许」审批方式；除系统管理员外不可改密码/昵称，不可解散群、移人、删 Bot、解绑电脑或归档团队。':
+    'Turn on for public demos so visitors cannot disrupt the environment: disables public links and "Allow everything" approvals; restricts password/nickname changes, dissolving groups, removing members, deleting Bots, unbinding computers, and archiving teams to system admins.',
   已开启演示模式: 'Demo mode turned on',
   已关闭演示模式: 'Demo mode turned off',
   已关闭单团队模式: 'Single-team mode turned off',

@@ -37,37 +37,6 @@ beforeEach(() => {
 })
 
 describe('overview', () => {
-  it('points to 实时画面 when a live preview fails to publish', async () => {
-    const go = vi.fn()
-    m.tunnels.mockResolvedValue({
-      services: [],
-      previews: [
-        {
-          id: 'p1',
-          kind: 'gui',
-          title: '桌面客户端',
-          groupName: '支付重构',
-          botName: '小王的 Claude',
-          port: null,
-          path: '/',
-          serviceId: null,
-          serviceName: null,
-          status: 'online',
-          live: { state: 'failed', error: '找不到服务的窗口', missing: [] },
-          control: null,
-        },
-      ],
-    })
-    useDaemon.setState({ info: INFO, snapshot: { phase: 'running', status: status() } })
-    render(<OverviewPage go={go} />)
-    const alert = (await screen.findByText('实时画面推流失败：桌面客户端')).closest(
-      '[role="alert"]',
-    ) as HTMLElement
-    expect(within(alert).getByText('找不到服务的窗口')).toBeTruthy()
-    fireEvent.click(within(alert).getByRole('button', { name: '查看' }))
-    expect(go).toHaveBeenCalledWith('live')
-  })
-
   it('shows stats, running runs with their state and step, and the local queue', async () => {
     show(
       status({

@@ -53,7 +53,7 @@ Only the Bot owner can handle permission requests; see [Approvals and questions]
 | Configuration | Adding, removing, and changing MCP servers, Skills, plugins, and secrets at the platform / team / group layer; enabling plugins in a group; changing system parameters (each item's old and new value is recorded) |
 | Market | Publishing, reviewing, banning, and other market operations |
 | Feishu | Saving or removing Feishu apps; binding, unbinding, and creating Feishu chats; syncing chat members |
-| Client releases | Uploading or removing daemon, gg-cast, and desktop files; editing release notes; script publishing |
+| Client releases | Uploading or removing daemon and desktop files; editing release notes; script publishing |
 
 ### Previews
 

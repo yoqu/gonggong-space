@@ -767,9 +767,7 @@ describe('系统参数 · 演示', () => {
       'PUT /admin/params': (body: unknown) => ({ ...PARAMS, ...(body as object) }),
     })
     renderAt('/admin/params')
-    expect(
-      await screen.findByText(/禁止创建公开链接、禁止远程操控实时画面、禁止「完全允许」审批方式/),
-    ).toBeTruthy()
+    expect(await screen.findByText(/禁止创建公开链接、禁止「完全允许」审批方式/)).toBeTruthy()
     fireEvent.click(screen.getByRole('switch', { name: '演示模式' }))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ demoMode: true }))
     await waitFor(() =>

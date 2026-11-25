@@ -102,7 +102,7 @@ Common tabs:
 | Git | Commits, log, stashes, comparison, and conflict resolution. See [Git management](/en/user/git) |
 | Terminal | An interactive shell in the Bot's workspace (machine owner only) |
 | Knowledge base / prototype | Knowledge base entries and the prototype canvas. See [Knowledge base and secrets](/en/user/knowledge-secrets) and [Prototypes, canvas, and works](/en/user/artifacts) |
-| Preview / mini program / desktop app | Web pages, mini programs, or live views published by the Bot. See [Previews](/en/user/previews) |
+| Preview | Web pages published by the Bot. See [Previews](/en/user/previews) |
 
 The 「+」 (New tab) on the workbench tab bar can open a web page, add a group tab, browse a Bot's files, open its Git panel, or create a new terminal.
 
@@ -111,16 +111,6 @@ The 「+」 (New tab) on the workbench tab bar can open a web page, add a group 
 The toolbar lets you refresh, enter a path, switch the viewport width (fit / 1440 / 1024 / 768 / 390), open in a new window, and create a 「公开链接…」 (Public link…).
 
 ![Web preview tab](/screenshots/web/workbench-web.webp)
-
-### Mini programs and desktop apps
-
-Mini programs and desktop apps are shown as a live view. The default is 「仅观看」 (View only); click 「开始控制」 (Take control) to operate remotely. Frame rate and quality are adjustable, and stream stats can be shown in the top-right corner.
-
-![Mini program tab](/screenshots/web/workbench-miniprogram.webp)
-
-When several people are watching, others can request control, and the current controller chooses 「同意」 (Approve) or 「拒绝」 (Deny); they can also 「交还控制」 (Release control) at any time.
-
-![Desktop app tab (live view and remote control)](/screenshots/web/workbench-live.webp)
 
 ### Layouts
 

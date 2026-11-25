@@ -21,7 +21,6 @@ const sha = (c: string) => c.repeat(64)
 const release: DaemonRelease = {
   version: '0.2.0',
   builds: { 'macos-aarch64': { url: '/downloads/gonggong-0.2.0-macos-aarch64', sha256: sha('a') } },
-  cast: {},
 }
 const machine = (o: Partial<AdminMachineDto>) =>
   ({ id: 'm1', os: 'macos', arch: 'aarch64', ...o }) as AdminMachineDto
@@ -79,10 +78,10 @@ const cells = (text: string) =>
   within(rowOf(text))
     .getAllByRole('gridcell')
     .map((c) => c.textContent)
-    .slice(0, 7)
+    .slice(0, 6)
 
 describe('管理后台 · 客户端发布', () => {
-  it('shows every platform with its daemon and gg-cast builds and the machines that need them', async () => {
+  it('shows every platform with its daemon builds and the machines that need them', async () => {
     mockApi({
       'GET /admin/daemon-release': release,
       'GET /admin/machines': [
@@ -100,7 +99,6 @@ describe('管理后台 · 客户端发布', () => {
       `已发布 ${'a'.repeat(12)}`,
       '未发布',
       '未发布',
-      '未发布',
       '2',
     ])
     expect(cells('windows-x86_64')).toEqual([
@@ -109,10 +107,9 @@ describe('管理后台 · 客户端发布', () => {
       '未发布',
       '未发布',
       '未发布',
-      '未发布',
       '1',
     ])
-    expect(cells('linux-aarch64')[6]).toBe('0')
+    expect(cells('linux-aarch64')[5]).toBe('0')
   })
 
   it('shows whether each platform has a signed desktop update', async () => {
@@ -134,9 +131,9 @@ describe('管理后台 · 客户端发布', () => {
     })
     renderPage()
     await screen.findByRole('gridcell', { name: 'macos-aarch64' })
-    expect(cells('macos-aarch64')[5]).toBe('已发布')
-    expect(cells('windows-x86_64')[5]).toBe('已发布')
-    expect(cells('macos-x86_64')[5]).toBe('缺少签名')
+    expect(cells('macos-aarch64')[4]).toBe('已发布')
+    expect(cells('windows-x86_64')[4]).toBe('已发布')
+    expect(cells('macos-x86_64')[4]).toBe('缺少签名')
     fireEvent.click(within(rowOf('macos-aarch64')).getByRole('button', { name: '操作' }))
     expect(screen.getByRole('menuitem', { name: '移除 桌面端更新包…' })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: '移除 桌面端更新签名…' })).toBeTruthy()
@@ -145,11 +142,11 @@ describe('管理后台 · 客户端发布', () => {
   it('uploads dropped release artifacts one by one and rejects other files without sending them', async () => {
     const next: DaemonRelease = {
       ...release,
-      cast: { 'macos-aarch64': { url: '/downloads/gg-cast-0.2.0-macos-aarch64', sha256: sha('b') } },
+      desktop: { 'macos-aarch64': { url: '/downloads/Gonggong_0.2.0_aarch64.dmg', sha256: sha('b') } },
     }
     mockApi({ 'GET /admin/daemon-release': null, 'GET /admin/machines': [] })
     const sent = fakeXhr((name) =>
-      name.startsWith('gg-cast') ? { status: 200, body: next } : { status: 200, body: release },
+      name.startsWith('Gonggong_') ? { status: 200, body: next } : { status: 200, body: release },
     )
     const { container } = renderPage()
     expect(await screen.findByText('尚未发布')).toBeTruthy()
@@ -161,16 +158,17 @@ describe('管理后台 · 客户端发布', () => {
           file('gonggong-0.2.0-macos-aarch64'),
           file('SHA256SUMS'),
           file('gg-cast-0.2.0-macos-aarch64'),
+          file('Gonggong_0.2.0_aarch64.dmg'),
         ],
       },
     })
     await waitFor(() => expect(cells('macos-aarch64')[3]).toBe(`已发布 ${'b'.repeat(12)}`))
     expect(sent).toEqual([
       '/api/admin/daemon-release/files gonggong-0.2.0-macos-aarch64',
-      '/api/admin/daemon-release/files gg-cast-0.2.0-macos-aarch64',
+      '/api/admin/daemon-release/files Gonggong_0.2.0_aarch64.dmg',
     ])
     expect(screen.getByText('当前版本 0.2.0')).toBeTruthy()
-    expect(screen.getByText(/不是发布产物/)).toBeTruthy()
+    expect(screen.getAllByText(/不是发布产物/)).toHaveLength(2)
   })
 
   it('removes one platform build after confirming', async () => {
@@ -182,7 +180,6 @@ describe('管理后台 · 客户端发布', () => {
     renderPage()
     await screen.findByRole('gridcell', { name: 'macos-aarch64' })
     fireEvent.click(within(rowOf('macos-aarch64')).getByRole('button', { name: '操作' }))
-    expect(screen.queryByRole('menuitem', { name: '移除 实时画面组件…' })).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: '移除 共工客户端…' }))
     const dialog = screen.getByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: '移除' }))

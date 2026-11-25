@@ -2,7 +2,6 @@
 use crate::agents;
 use crate::ask::{AskServer, Asker};
 use crate::attachments;
-use crate::cast::Casts;
 use crate::coalesce::Coalesce;
 use crate::config::{Config, Settings};
 use crate::explorer;
@@ -98,7 +97,6 @@ pub(crate) struct Inner {
     /// Runs received but still preparing (workspace, attachments): already active for hello reconciliation.
     preparing: Mutex<HashSet<String>>,
     pub(crate) services: Services,
-    casts: Casts,
     previews: tunnel::Allow,
     /// The server offered the preview tunnel (welcome).
     tunnel: tokio::sync::watch::Sender<bool>,
@@ -140,9 +138,6 @@ impl Engine {
         crate::providers::load_overlay(&config.home);
         let workspaces = Workspaces::new(config.home.clone());
         let services = Services::new(&config.home);
-        let bin = crate::cast::local_bin();
-        let casts =
-            Casts::new(config.api.clone(), config.home.clone(), services.clone(), bin, crate::wechatide::devtools());
         let home = config.home.clone();
         let replicas = Replicas::new(home.clone(), config.api.as_ref());
         let connectors = crate::connectors::Connectors::new(home.clone());
@@ -158,7 +153,6 @@ impl Engine {
             ask: tokio::sync::OnceCell::new(),
             preparing: Mutex::default(),
             services,
-            casts,
             previews: tunnel::Allow::default(),
             tunnel: tokio::sync::watch::Sender::new(false),
             diffs: Coalesce::with_ttl(DIFF_TTL),
@@ -836,8 +830,6 @@ impl Handler for Engine {
             ServerToDaemon::PreviewsSync { previews } => {
                 tunnel::set_allowed(&self.0.previews, previews.into_iter().map(|p| (p.id, p.port)).collect());
             }
-            ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
-            ServerToDaemon::CastRetry { preview_id } => self.0.casts.retry(&preview_id),
             ServerToDaemon::SiteHost(r) => crate::artifacts::site_host(&self.0.config, &self.0.services, r, out),
             ServerToDaemon::ArtifactSnapshot { artifact_id, version_id, plugin } => {
                 let (Some(api), home) = (self.0.config.api.clone(), self.0.config.home.clone()) else { return };

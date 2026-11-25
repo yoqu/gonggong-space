@@ -335,18 +335,6 @@ pub enum DaemonToServer {
     ServiceRestartResult { request_id: String, error: Option<String> },
     #[serde(rename = "site.host.result", rename_all = "camelCase")]
     SiteHostResult { request_id: String, error: Option<String> },
-    #[serde(rename = "cast.state", rename_all = "camelCase")]
-    CastState {
-        preview_id: String,
-        state: CastPhase,
-        error: Option<String>,
-        #[serde(default)]
-        missing: Vec<Permission>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        devtools: Option<DevtoolsBlocker>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        retry_in: Option<u64>,
-    },
     #[serde(rename = "connectors.progress", rename_all = "camelCase")]
     ConnectorsProgress { request_id: String, stage: ConnectorsStage, line: String },
     #[serde(rename = "connectors.auth")]

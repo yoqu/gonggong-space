@@ -108,7 +108,7 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
           ['/desktop/', '概览与安装', 'Overview & Installation'],
           ['/desktop/onboarding', '首次引导', 'First-run Setup'],
           ['/desktop/pages', '功能页面', 'Pages'],
-          ['/desktop/permissions', '权限与系统设置', 'Permissions & System Settings'],
+          ['/desktop/permissions', '本机配置与系统设置', 'Local Config & System Settings'],
         ],
       },
     ],

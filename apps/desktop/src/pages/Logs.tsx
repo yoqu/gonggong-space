@@ -14,7 +14,6 @@ import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type Check, type CheckStatus, ipc, type LogLevel, type LogLine, type NetResult } from '../ipc'
 import { fail, Section } from '../lib/ui'
-import { openGuide } from '../permissions'
 import type { PageProps } from '.'
 
 const ICONS: Record<Check['kind'], IconName> = {
@@ -23,8 +22,6 @@ const ICONS: Record<Check['kind'], IconName> = {
   git: 'git-branch',
   disk: 'hard-drive',
   eol: 'doc-warning',
-  screen_recording: 'record',
-  accessibility: 'hand',
 }
 
 const STATUS: Record<CheckStatus, { color: string; tone: TagTone; text: string }> = {
@@ -121,11 +118,6 @@ export function LogsPage(_: PageProps) {
                 </span>
               </div>
               <Tag tone={STATUS[c.status].tone}>{STATUS[c.status].text}</Tag>
-              {c.status === 'warn' && (c.kind === 'screen_recording' || c.kind === 'accessibility') ? (
-                <Button size="small" onClick={openGuide}>
-                  {t('去授权')}
-                </Button>
-              ) : null}
             </div>
           ))}
           {checks?.length === 0 ? <EmptyState compact icon="warning" title={t('诊断未完成')} /> : null}

@@ -84,8 +84,7 @@ The server doesn't host the web app. Only the following paths need to be forward
 | `/ws/terminals/…` | Machine terminal sessions (WebSocket) |
 | `/ws/daemon` | Daemon main connection (WebSocket) |
 | `/ws/daemon/tunnel` | Daemon preview tunnel (WebSocket) |
-| `/livekit` | Live view signaling (WebSocket) |
-| `/downloads/` | Daemon and gg-cast installers; daemon auto-upgrade downloads from here |
+| `/downloads/` | Daemon installers; daemon auto-upgrade downloads from here |
 
 ### Full example
 
@@ -124,7 +123,7 @@ server {
         add_header Cache-Control "no-cache";
     }
 
-    location ~ ^/(api|ws|livekit|downloads)(/|$) {
+    location ~ ^/(api|ws|downloads)(/|$) {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -173,7 +172,7 @@ server {
 | Setting | Reason |
 | --- | --- |
 | `proxy_set_header Host $host` | **The Host header must be passed through unchanged.** The server uses Host to decide which preview a request belongs to; it also compares the browser's Origin with Host and rejects mismatched write requests and WebSockets (「拒绝跨站请求」, "Cross-site request refused"). If Nginx doesn't listen on the standard port 443, use `$http_host` instead to keep the port number |
-| `Upgrade` / `Connection` + `map` | Forwards the WebSocket handshake. Browser real-time pushes, daemon connections, preview tunnels, and live view all rely on WebSockets; pages inside a preview may use WebSockets too (such as a dev server's hot reload) |
+| `Upgrade` / `Connection` + `map` | Forwards the WebSocket handshake. Browser real-time pushes, daemon connections, and preview tunnels all rely on WebSockets; pages inside a preview may use WebSockets too (such as a dev server's hot reload) |
 | `proxy_http_version 1.1` | Required for WebSockets and keep-alive connections |
 | `X-Forwarded-Proto` / `X-Forwarded-For` | Pass the original scheme and client address for local services inside previews |
 | `proxy_buffering off` | Keeps streaming responses (run details, SSE inside previews, etc.) from being buffered by Nginx |

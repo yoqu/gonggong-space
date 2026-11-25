@@ -8,8 +8,8 @@
 # a draft release in parallel; once Windows is done its installer is fetched into dist/<version>, the full latest.json
 # uploaded and the release published. dist/<version> is then complete for `client_release_publish` (dir), which puts
 # it on the space in one go. Every step checks what is already done, so a failed run can simply be started again.
-# scripts/release.sh reads its usual environment (TAURI_SIGNING_PRIVATE_KEY, APPLE_NOTARY_PROFILE,
-# GONGGONG_SKIP_DOCKER_CAST…) and needs Docker running.
+# scripts/release.sh reads its usual environment (TAURI_SIGNING_PRIVATE_KEY, APPLE_NOTARY_PROFILE…)
+# and needs Docker running.
 # With a Jenkins API token in the keychain (`security add-generic-password -s gonggong-jenkins -a <user> -w <token>`),
 # a full release instead starts the Jenkins job gonggong-client-release on the pushed tag: it builds on the Mac agent
 # and on Linux, publishes the GitHub release, uploads to GONGGONG_RELEASE_SERVER and verifies it.
@@ -30,32 +30,28 @@ valid() { [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "error: not a version: 
 
 verify_daemon() {
   local v="$1" server="${2%/}" sums="$ROOT/dist/$1/SHA256SUMS"
-  local ok=1 prefix platform suffix name label expected actual
+  local ok=1 platform suffix name expected actual
   [ -f "$sums" ] || { echo "FAIL daemon checksums: $sums not found"; return 1; }
-  for prefix in gonggong gg-cast; do
-    label=gg
-    [ "$prefix" = gonggong ] || label=gg-cast
-    for platform in macos-aarch64 macos-x86_64 linux-x86_64 linux-aarch64 windows-x86_64; do
-      suffix=""
-      [[ $platform == windows-* ]] && suffix=.exe
-      name="$prefix-$v-$platform$suffix"
-      expected="$(awk -v file="$name" '$2 == file { print $1 }' "$sums")"
-      if [ -z "$expected" ]; then
-        echo "FAIL $label $name: missing from SHA256SUMS"
-        ok=0
-        continue
-      fi
-      if ! actual="$(curl -sSfL --connect-timeout 10 --max-time 300 "$server/downloads/$name" |
-        shasum -a 256 | cut -d' ' -f1)"; then
-        echo "FAIL $label $name: download failed"
-        ok=0
-      elif [ "$actual" != "$expected" ]; then
-        echo "FAIL $label $name: SHA-256 mismatch"
-        ok=0
-      else
-        echo "ok   $label $platform"
-      fi
-    done
+  for platform in macos-aarch64 macos-x86_64 linux-x86_64 linux-aarch64 windows-x86_64; do
+    suffix=""
+    [[ $platform == windows-* ]] && suffix=.exe
+    name="gonggong-$v-$platform$suffix"
+    expected="$(awk -v file="$name" '$2 == file { print $1 }' "$sums")"
+    if [ -z "$expected" ]; then
+      echo "FAIL gg $name: missing from SHA256SUMS"
+      ok=0
+      continue
+    fi
+    if ! actual="$(curl -sSfL --connect-timeout 10 --max-time 300 "$server/downloads/$name" |
+      shasum -a 256 | cut -d' ' -f1)"; then
+      echo "FAIL gg $name: download failed"
+      ok=0
+    elif [ "$actual" != "$expected" ]; then
+      echo "FAIL gg $name: SHA-256 mismatch"
+      ok=0
+    else
+      echo "ok   gg $platform"
+    fi
   done
   [ "$ok" = 1 ]
 }
@@ -163,7 +159,7 @@ bash scripts/release.sh --allow-dirty
 step "upload to the draft release"
 cd "$out"
 shopt -s nullglob
-files=(gonggong-"$v"-* gg-cast-"$v"-* Gonggong_"$v"_*.dmg Gonggong_"$v"_*.app.tar.gz Gonggong_"$v"_*.app.tar.gz.sig
+files=(gonggong-"$v"-* Gonggong_"$v"_*.dmg Gonggong_"$v"_*.app.tar.gz Gonggong_"$v"_*.app.tar.gz.sig
   SHA256SUMS github/manifest.json)
 printf '%s\0' "${files[@]}" |
   direct xargs -0 -P 4 -I{} gh release upload "$tag" {} --repo "$repo" --clobber

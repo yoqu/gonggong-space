@@ -84,8 +84,7 @@ server 不托管网页，只有以下路径需要转发，其余都是网页静�
 | `/ws/terminals/…` | 机器终端会话（WebSocket） |
 | `/ws/daemon` | daemon 主连接（WebSocket） |
 | `/ws/daemon/tunnel` | daemon 预览隧道（WebSocket） |
-| `/livekit` | 实时画面信令（WebSocket） |
-| `/downloads/` | daemon 与 gg-cast 安装包，daemon 自动升级从这里下载 |
+| `/downloads/` | daemon 安装包，daemon 自动升级从这里下载 |
 
 ### 完整示例
 
@@ -124,7 +123,7 @@ server {
         add_header Cache-Control "no-cache";
     }
 
-    location ~ ^/(api|ws|livekit|downloads)(/|$) {
+    location ~ ^/(api|ws|downloads)(/|$) {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -173,7 +172,7 @@ server {
 | 配置 | 原因 |
 | --- | --- |
 | `proxy_set_header Host $host` | **必须原样透传 Host。** server 靠 Host 判断请求属于哪个预览；还会比对浏览器的 Origin 与 Host，不一致的写请求和 WebSocket 会被拒绝（「拒绝跨站请求」）。Nginx 不监听标准 443 端口时改用 `$http_host`，保留端口号 |
-| `Upgrade` / `Connection` + `map` | 转发 WebSocket 握手。浏览器实时推送、daemon 连接、预览隧道、实时画面都依赖 WebSocket；预览里的网页也可能用 WebSocket（如开发服务器热更新） |
+| `Upgrade` / `Connection` + `map` | 转发 WebSocket 握手。浏览器实时推送、daemon 连接、预览隧道都依赖 WebSocket；预览里的网页也可能用 WebSocket（如开发服务器热更新） |
 | `proxy_http_version 1.1` | WebSocket 与长连接需要 |
 | `X-Forwarded-Proto` / `X-Forwarded-For` | 传递原始协议和客户端地址，供预览里的本地服务使用 |
 | `proxy_buffering off` | 流式响应（运行过程、预览里的 SSE 等）不被 Nginx 攒起来 |

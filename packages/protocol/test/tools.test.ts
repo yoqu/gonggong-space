@@ -10,7 +10,6 @@ import {
   HtmlRenderArgs,
   ListMessagesArgs,
   PreviewExposeArgs,
-  PreviewMiniprogramArgs,
   SendAttachmentsArgs,
   ServiceStartArgs,
 } from '../src/index.js'
@@ -46,19 +45,6 @@ describe('gonggong tools', () => {
     expect(PreviewExposeArgs.safeParse({ title: 'a', port: 5173 }).success).toBe(true)
     expect(PreviewExposeArgs.safeParse({ title: 'a', service: 'web', path: 'x' }).success).toBe(false)
     expect(PreviewExposeArgs.safeParse({ title: 'a', service: 'web', path: '/x?y=1' }).success).toBe(true)
-    expect(PreviewExposeArgs.safeParse({ title: 'a', miniprogram: '/w/shop' }).success).toBe(true)
-    expect(PreviewExposeArgs.safeParse({ title: 'a', miniprogram: '/w/shop', port: 1 }).success).toBe(false)
-  })
-
-  it('mini program previews name a page relative to the project', () => {
-    expect(PreviewMiniprogramArgs.safeParse({ title: 'a' }).success).toBe(true)
-    expect(
-      PreviewMiniprogramArgs.safeParse({ title: 'a', page: 'pages/index/index', query: 'id=1' }).success,
-    ).toBe(true)
-    expect(PreviewMiniprogramArgs.safeParse({ title: 'a', page: '/pages/index/index' }).success).toBe(false)
-    expect(PreviewMiniprogramArgs.safeParse({ title: 'a', page: 'pages/a', query: '?id=1' }).success).toBe(
-      false,
-    )
   })
 
   it('service names are short slugs', () => {

@@ -1098,7 +1098,7 @@ export const previews = pgTable(
     id: id(),
     /** Subdomain label in domain mode; random, unguessable. */
     slug: text('slug').notNull().unique(),
-    /** 'http' | 'static' | 'gui' | 'miniprogram' | 'artifact' */
+    /** 'http' | 'static' | 'artifact'; older rows may hold the retired 'gui' / 'miniprogram' (never listed). */
     kind: text('kind').notNull(),
     machineId: uuid('machine_id')
       .notNull()
@@ -1111,9 +1111,9 @@ export const previews = pgTable(
       .references(() => bots.id),
     serviceId: uuid('service_id').references(() => services.id),
     attachmentId: uuid('attachment_id').references(() => attachments.id),
-    /** Daemon loopback port (http / gui). */
+    /** Daemon loopback port (http). */
     port: integer('port'),
-    /** Mini program: the project's absolute directory on the machine; `path` is then `/<page>?<query>`. */
+    /** Deprecated: the retired mini program previews' project dir; unused, to be dropped by a later migration. */
     project: text('project'),
     path: text('path').notNull().default('/'),
     title: text('title').notNull(),
@@ -1125,7 +1125,7 @@ export const previews = pgTable(
     lastAccessAt: ts('last_access_at'),
     /** Its first-screen PNG (data dir `previews/<id>.png`) was last taken then. */
     snapshotAt: ts('snapshot_at'),
-    /** 'login': a mini program whose devtools nobody is logged in to; the snapshot is their login QR code. */
+    /** Deprecated: the retired mini program previews' login wait; unused, to be dropped by a later migration. */
     awaiting: text('awaiting'),
     /** Why the machine could not take the last snapshot (shown on the card until one works). */
     snapshotError: text('snapshot_error'),

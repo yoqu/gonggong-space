@@ -49,7 +49,6 @@ The 「管理插件」 (Manage plugins) button in the 「平台插件」 (Platfo
 Demo mode prevents content from leaking to the internet through tunnel domains and keeps visitors from damaging the demo environment. When on:
 
 - Previews can be viewed only in the group after signing in; public links can't be created, existing public links stop working immediately, and preview cards aren't synced to Feishu.
-- Live views are watch-only; they can't be controlled.
 - Bots can't use the 「完全访问」 (Full access) tier; Bots set to Full access run as 「工作区写入」 (Workspace write).
 - Except for sysadmins, nobody can change passwords or nicknames, dissolve groups, remove members, delete Bots, revoke machines, or archive teams.
 

@@ -274,10 +274,6 @@ pub enum ServerToDaemon {
     ServiceRestart { request_id: String, service_id: String },
     #[serde(rename = "previews.sync")]
     PreviewsSync { previews: Vec<PreviewPort> },
-    #[serde(rename = "cast.sync")]
-    CastSync { casts: Vec<CastTarget> },
-    #[serde(rename = "cast.retry", rename_all = "camelCase")]
-    CastRetry { preview_id: String },
     /// Screenshot a version this machine did not make (needs [`FEATURE_ARTIFACT_SNAPSHOT`]).
     #[serde(rename = "artifact.snapshot", rename_all = "camelCase")]
     ArtifactSnapshot {

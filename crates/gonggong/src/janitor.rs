@@ -1,6 +1,6 @@
 //! Background cleanup (plan 空间管理): state left by groups and bots gone from this machine, plugin versions no turn
-//! took for a month, and superseded Node / gg-cast builds no process runs from. Workspaces and backups are never
-//! touched: the 空间 page only offers them.
+//! took for a month, superseded Node builds and retired gg-cast builds (live previews are gone) no process runs from.
+//! Workspaces and backups are never touched: the 空间 page only offers them.
 use crate::config::Config;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -91,13 +91,7 @@ pub fn sweep(home: &Path, active: &HashSet<(String, String)>, now: SystemTime, r
             }
         }
     }
-    let mut casts: Vec<(SystemTime, PathBuf)> = entries(&home.join("bin"))
-        .filter(|(n, _)| n.starts_with("gg-cast-"))
-        .filter_map(|(_, p)| Some((std::fs::metadata(&p).ok()?.modified().ok()?, p)))
-        .collect();
-    casts.sort();
-    casts.pop();
-    gone.extend(casts.into_iter().map(|(_, p)| p).filter(|p| !in_use(p)));
+    gone.extend(entries(&home.join("bin")).filter(|(n, p)| n.starts_with("gg-cast-") && !in_use(p)).map(|(_, p)| p));
 
     gone.retain(|p| remove(p).is_ok());
     for g in entries(&home.join("sync")).map(|(_, g)| g) {
@@ -202,25 +196,22 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn removes_superseded_node_and_gg_cast_builds_nothing_runs_from() {
+    fn removes_superseded_node_and_every_retired_gg_cast_build_nothing_runs_from() {
         let home = tempfile::tempdir().unwrap();
         let h = home.path().canonicalize().unwrap();
         for v in ["20.1.0", "22.0.0", "24.0.0"] {
             file(&h.join(format!("runtime/node-v{v}/bin/node")));
         }
         std::os::unix::fs::symlink("node-v24.0.0", h.join("runtime/current")).unwrap();
-        let old = SystemTime::now() - DAY;
-        for (i, name) in ["gg-cast-1.0-a", "gg-cast-1.1-b", "gg-cast-1.2-c"].into_iter().enumerate() {
+        for name in ["gg-cast-1.0-a", "gg-cast-1.1-b", "gg-cast-1.2-c"] {
             file(&h.join("bin").join(name));
-            let f = std::fs::File::options().write(true).open(h.join("bin").join(name)).unwrap();
-            f.set_modified(old + Duration::from_secs(i as u64)).unwrap();
         }
         let running = [h.join("runtime/node-v20.1.0/bin/node"), h.join("bin/gg-cast-1.0-a")];
         assert_eq!(
             rel(&h, sweep(&h, &HashSet::new(), SystemTime::now(), &running)),
-            ["bin/gg-cast-1.1-b", "runtime/node-v22.0.0"]
+            ["bin/gg-cast-1.1-b", "bin/gg-cast-1.2-c", "runtime/node-v22.0.0"]
         );
-        assert!(h.join("runtime/node-v24.0.0/bin/node").exists() && h.join("bin/gg-cast-1.2-c").exists());
+        assert!(h.join("runtime/node-v24.0.0/bin/node").exists() && h.join("bin/gg-cast-1.0-a").exists());
     }
 
     #[test]

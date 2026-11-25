@@ -127,4 +127,15 @@ describe('daemon gateway', () => {
       msg: { t: 'run.event', runId: 'r1', event: { kind: 'text', delta: 'hi' } },
     })
   })
+  it('ignores messages of retired features from older daemons and keeps the connection', async () => {
+    const u = await t.seed.user()
+    const { machine, token } = await t.seed.machine(u.id)
+    const { ws, box } = await connect(hello(token))
+    await box.next()
+    const got = new Promise((r) => t.ctx.hub.once('message', (_id, msg) => r(msg)))
+    ws.send(JSON.stringify({ t: 'cast.state', previewId: 'p1', state: 'live', error: null, missing: [] }))
+    ws.send(JSON.stringify({ t: 'run.event', runId: 'r1', event: { kind: 'text', delta: 'hi' } }))
+    expect(await got).toMatchObject({ t: 'run.event', runId: 'r1' })
+    expect(t.ctx.hub.isOnline(machine.id)).toBe(true)
+  })
 })

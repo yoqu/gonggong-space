@@ -1458,7 +1458,7 @@ async function sceneAdmin(A) {
     ['todo-app-v0.1.zip', 1],
     ['gonggong-0.1.0-linux-x86_64', 12],
     ['gonggong-0.1.0-windows-x86_64.exe', 9],
-    ['gg-cast-0.1.0-macos-aarch64', 6],
+    ['gonggong-0.1.0-macos-aarch64', 6],
   ].map(([name, mb]) => {
     writeFileSync(join(dir, name), Buffer.alloc(mb * 1024 * 1024))
     return join(dir, name)

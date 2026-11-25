@@ -3,29 +3,26 @@ import { useNow } from '@web/lib/now'
 import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { t } from '../i18n'
-import { type DaemonStatus, ipc, type MachineBot, type Tunnels } from '../ipc'
+import { type DaemonStatus, ipc, type MachineBot } from '../ipc'
 import { ContextBadge } from '../lib/ContextBadge'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
 import { fail, Section } from '../lib/ui'
 import { useUnbind } from '../lib/unbind'
-import { openGuide, PERMISSIONS, useMissing } from '../permissions'
 import { UpdateAction } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
-import { isLive } from './Live'
 
 // The run process renders markdown and code: loaded only when a run is opened.
 const RunDetail = lazy(() => import('./RunDetail').then((m) => ({ default: m.RunDetail })))
 
 const REFRESH_MS = 15_000
 
-export function OverviewPage({ go }: PageProps) {
+export function OverviewPage(_: PageProps) {
   const snapshot = useDaemon((s) => s.snapshot)
   const info = useDaemon((s) => s.info)
   const status = snapshot.phase === 'running' ? snapshot.status : null
   const runs = status?.runs ?? []
   const [bots, setBots] = useState<MachineBot[] | null>(null)
-  const [failedLive, setFailedLive] = useState<Tunnels['previews']>([])
   const overview = useDaemon((s) => s.overview)
   const botGuideDismissed = useDaemon((s) => s.botGuideDismissed)
   const [detail, setDetail] = useState<string | null>(null)
@@ -37,10 +34,6 @@ export function OverviewPage({ go }: PageProps) {
     if (kind !== 'ok') return
     const load = () => {
       ipc.bots().then(setBots, () => {})
-      ipc.tunnels().then(
-        (all) => setFailedLive(all.previews.filter((p) => isLive(p) && p.live?.state === 'failed')),
-        () => {},
-      )
       ipc.overview().then(
         (overview) => useDaemon.setState({ overview }),
         () => {},
@@ -71,18 +64,6 @@ export function OverviewPage({ go }: PageProps) {
     <>
       {status ? <ConnAlert status={status} version={info?.version} protocol={info?.protocol} /> : null}
       {snapshot.phase === 'blocked' ? <BlockedAlert message={snapshot.message} /> : null}
-      <PermissionsAlert />
-      {failedLive.length ? (
-        <Alert
-          variant="warning"
-          title={t('实时画面推流失败：{list}', { list: failedLive.map((p) => p.title).join(t('、')) })}
-          description={failedLive[0]?.live?.error ?? undefined}
-        >
-          <Button size="small" onClick={() => go('live')}>
-            {t('查看')}
-          </Button>
-        </Alert>
-      ) : null}
       {showBotGuide ? (
         <GroupBox>
           <div className="dk-guide" data-testid="create-bot-guide">
@@ -259,22 +240,6 @@ function ConnAlert({
   return (
     <Alert variant="error" title={t('绑定已失效 · 服务器拒绝连接')} description={c.message}>
       <Rebind confirm />
-    </Alert>
-  )
-}
-
-function PermissionsAlert() {
-  const missing = useMissing()
-  if (!missing.length) return null
-  return (
-    <Alert
-      variant="warning"
-      title={t('未授权：{list}', { list: missing.map((p) => PERMISSIONS[p.kind].label).join(t('、')) })}
-      description={t('Bot 推送的桌面应用、小程序实时画面或远程操作在本机不可用，授权后即可使用。')}
-    >
-      <Button size="small" onClick={openGuide}>
-        {t('去授权')}
-      </Button>
     </Alert>
   )
 }

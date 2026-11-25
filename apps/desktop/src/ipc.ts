@@ -11,14 +11,12 @@ import type {
   CcSwitchImportedDto,
   ContextUsage,
   ProvidersCmd as DaemonProvidersCmd,
-  DevtoolsBlocker,
   InstallDto,
   Locale,
   MachineAgentsDto,
   MarketListingDto,
   Mirror,
   OfficialInput,
-  Permission,
   ProviderInput,
   ProviderPreset,
   ProviderStoreView,
@@ -180,8 +178,7 @@ export interface Workspaces {
 export interface Tunnels {
   previews: {
     id: string
-    /** gui / miniprogram are watched live (实时画面) through gg-cast; the others are tunnels. */
-    kind: 'http' | 'static' | 'gui' | 'miniprogram'
+    kind: 'http' | 'static'
     title: string
     groupName: string
     botName: string
@@ -190,17 +187,6 @@ export interface Tunnels {
     serviceId: string | null
     serviceName: string | null
     status: 'online' | 'offline' | 'stopped'
-    /** This machine's gg-cast while someone watches; null otherwise. */
-    live: {
-      state: 'starting' | 'live' | 'failed'
-      error: string | null
-      missing: Permission[]
-      /** A mini program waiting on this machine's owner in the WeChat devtools. */
-      devtools?: DevtoolsBlocker
-      /** When a failed one is tried again. */
-      retryAt?: string
-    } | null
-    control: { controller: { name: string } | null } | null
   }[]
   services: {
     id: string
@@ -214,16 +200,10 @@ export interface Tunnels {
   }[]
 }
 
-/** Where this app's gg-cast (实时画面 publisher) comes from. */
-export type CastComponent =
-  | { source: 'bundled' | 'local'; path: string }
-  /** A dev build without it: downloaded from the server on first use. */
-  | { source: 'download' }
-
 export type CheckStatus = 'ok' | 'warn' | 'error' | 'skipped'
 
 export interface Check {
-  kind: 'server' | 'agent' | 'git' | 'disk' | 'eol' | 'screen_recording' | 'accessibility'
+  kind: 'server' | 'agent' | 'git' | 'disk' | 'eol'
   label: string
   status: CheckStatus
   detail: string
@@ -270,12 +250,6 @@ export interface ProvidersAnswer {
   view?: ProviderStoreView
   presets?: ProviderPreset[]
   id?: string
-}
-
-/** A macOS permission of this app; none are listed where none is needed (Windows, Linux). */
-export interface PermissionState {
-  kind: Permission
-  granted: boolean
 }
 
 export const ipc = {
@@ -352,15 +326,9 @@ export const ipc = {
   /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
   closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),
   startPreview: (id: string) => invoke<void>('start_preview', { id }),
-  retryCast: (id: string) => invoke<void>('retry_cast', { id }),
   stopService: (id: string) => invoke<void>('stop_service', { id }),
   /** The forwarded port in the default browser: `http://localhost:<port><path>`. */
   openLocal: (port: number, path: string) => invoke<void>('open_local', { port, path }),
-  castComponent: () => invoke<CastComponent>('cast_component'),
-  permissions: () => invoke<PermissionState[]>('permissions'),
-  /** Shows the system prompt where macOS still does and opens the permission's pane in System Settings. */
-  requestPermission: (kind: Permission) => invoke<void>('request_permission', { kind }),
-  restartApp: () => invoke<void>('restart_app'),
   /** The bound server's update, else the latest GitHub release, when newer than this app; else null. */
   checkUpdate: () =>
     invoke<ConstructorParameters<typeof Update>[0] | null>('check_update').then((m) => m && new Update(m)),

@@ -59,7 +59,6 @@ use crate::protocol::{TerminalClientControl, TerminalDaemonControl};
 use crate::t;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 use crate::terminal::{TerminalEvent, TerminalManager};
-use crate::wechatide::Shot;
 use anyhow::Context;
 use futures_util::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
@@ -374,22 +373,6 @@ where
                                         answer(&out, 404, "text/plain; charset=utf-8", msg.into()).await
                                     }
                                     Err(e) => out.reset(format!("{e:#}")).await,
-                                }
-                            });
-                            continue;
-                        }
-                        TunnelTarget::Snapshot {
-                            snapshot: SnapshotTarget::Miniprogram { miniprogram, launch, .. },
-                        } => {
-                            let (project, path, launch) =
-                                (PathBuf::from(miniprogram), open.path.clone(), launch.unwrap_or(true));
-                            tokio::spawn(async move {
-                                let devtools = crate::wechatide::devtools();
-                                match crate::wechatide::screenshot(devtools, &project, &path, launch).await {
-                                    Ok(Shot::Simulator(jpeg)) => answer(&out, 200, "image/jpeg", jpeg).await,
-                                    // Not the page yet: the devtools' login code for the bot's owner.
-                                    Ok(Shot::Login(qr)) => answer(&out, 202, "image/jpeg", qr).await,
-                                    Err(e) => out.reset(e).await,
                                 }
                             });
                             continue;

@@ -310,23 +310,6 @@ export const PreviewsSync = z.object({
 })
 
 /**
- * A window to publish: a hosted service's (its process tree's largest window), or a mini program project's simulator
- * in the machine's WeChat devtools (absolute project dir; macOS only for now); at `fps`, which may change while it runs.
- */
-export const CastTarget = z.union([
-  z.object({ previewId: z.string(), service: z.string(), fps: z.number().int().positive() }),
-  z.object({ previewId: z.string(), miniprogram: z.string(), fps: z.number().int().positive() }),
-])
-export type CastTarget = z.infer<typeof CastTarget>
-/**
- * The live previews someone is watching on this machine, replaced wholesale: the daemon runs one gg-cast per entry
- * and stops the others (plan B2).
- */
-export const CastSync = z.object({ t: z.literal('cast.sync'), casts: z.array(CastTarget) })
-/** A viewer asks to try a failed live preview again now, e.g. once its window shows. */
-export const CastRetry = z.object({ t: z.literal('cast.retry'), previewId: z.string() })
-
-/**
  * Screenshot a version of an artifact whose bot runs here but which this machine did not make (a canvas edit, a
  * restore): the daemon fetches its files from the server into a temporary folder and uploads the thumbnail and the
  * screen PNGs (PUT /api/daemon/artifacts/:id/versions/:vid/…), as after a run. Feature `artifactSnapshot`.
@@ -502,8 +485,6 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   ServiceStop,
   ServiceRestart,
   PreviewsSync,
-  CastSync,
-  CastRetry,
   ArtifactSnapshot,
   SiteHost,
   PresetsSync,

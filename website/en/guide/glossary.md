@@ -106,10 +106,9 @@ This page lists common Gonggong Space terms by topic, with the English name used
 | 压缩上下文 | compact context | compact | Summarize the conversation so far and keep the summary |
 | 开新对话 | new conversation | new session | Stop carrying the earlier conversation; same as `/new` |
 | diff | diff | diff | Code changes, viewable for this turn, uncommitted, or against the base branch |
-| 预览 | preview | preview | A web service, static page, desktop app, or mini program a Bot publishes, openable in the browser |
+| 预览 | preview | preview | A web service or static page a Bot publishes, openable in the browser |
 | 托管服务 | hosted service | managed service | A background service a Bot starts on the machine and the daemon manages |
 | 隧道 / 穿透 | tunnel | tunnel | The connection between the daemon and the server that forwards preview traffic |
-| 实时画面 | live view | live view | The live stream of a desktop app or mini program preview |
 | 公开链接 | public link | share link | A time-limited link that lets people outside the team view a preview or prototype |
 | 作品 | work | artifact / work | A prototype or similar output hosted on the server, with versions; can be annotated on the canvas and handed to a Bot to revise |
 | 画布 | canvas | canvas | A multi-screen view that lays out a prototype's screens |

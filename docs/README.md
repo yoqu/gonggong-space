@@ -23,7 +23,7 @@
 - `docs/domains/工作区与Git.md` — 工作区与 Git
 - `docs/domains/插件与Skill市场.md` — 插件与 Skill 市场
 - `docs/domains/飞书联动.md` — 飞书联动
-- 未写：审批与权限、群与团队（分区、话题、未读）、定时任务、密钥、远程控制、设计系统与主题
+- 未写：审批与权限、群与团队（分区、话题、未读）、定时任务、密钥、设计系统与主题
 
 ## docs/plan
 
@@ -45,7 +45,6 @@
 - `docs/plan/插件体系-contributes-方案.md` — 插件扩展点（contributes）方案 — 进行中
 - `docs/plan/群内多工作区-开发计划.md` — 群内多工作区开发计划 — 进行中
 - `docs/plan/群Webhook-方案.md` — 群 Webhook（入站开放接口）方案 — 代码已完成，待部署后配置 Jenkins
-- `docs/plan/远程控制-低延迟改造-设计.md` — 远程控制低延迟改造 · 设计 — 进行中
 - `docs/plan/连接器-方案.md` — 连接器 M1（对标 WorkBuddy）调研与基础方案 — 已上线基础闭环
 - `docs/plan/连接器-体验升级方案.md` — 连接器体验升级终稿（gemini大师 + 共字君综合：自动检测、弹窗一站式连接、按人隔离、多机状态；二期不打断） — 已定待开工
 - `docs/plan/预览工作台-待办.md` — 预览工作台 · 待办 — 进行中

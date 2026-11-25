@@ -36,7 +36,7 @@ pnpm dev:web                                      # http://127.0.0.1:5173
 - 服务器启动时自动执行迁移，无需手动建表。
 - 首次启动用 `GONGGONG_ADMIN_PASSWORD` 创建 `admin` 账号，首次登录需修改密码。
 - 服务器监听地址可用 `HOST`、`PORT` 调整。
-- Web 开发服务器把 `/api`、`/ws`、`/livekit` 转发到服务器；上游地址可用 `GONGGONG_SERVER` 指定，端口和监听地址可用 `WEB_PORT`、`WEB_HOST` 调整。
+- Web 开发服务器把 `/api`、`/ws` 转发到服务器；上游地址可用 `GONGGONG_SERVER` 指定，端口和监听地址可用 `WEB_PORT`、`WEB_HOST` 调整。
 
 其余服务器环境变量见 [环境变量](/deploy/env)。
 

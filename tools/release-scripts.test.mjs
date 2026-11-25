@@ -11,8 +11,8 @@ import { promisify } from 'node:util'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const platforms = ['macos-aarch64', 'macos-x86_64', 'linux-x86_64', 'linux-aarch64', 'windows-x86_64']
-const artifact = (prefix, version, platform) =>
-  `${prefix}-${version}-${platform}${platform.startsWith('windows') ? '.exe' : ''}`
+const artifact = (version, platform) =>
+  `gonggong-${version}-${platform}${platform.startsWith('windows') ? '.exe' : ''}`
 const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 const run = (command, args, options = {}) => spawnSync(command, args, { encoding: 'utf8', ...options })
 const runAsync = promisify(execFile)
@@ -90,25 +90,6 @@ test('daemon-only ship builds and pushes without GitHub or Windows steps', () =>
   assert.equal(git(work, 'ls-remote', 'origin', 'refs/tags/v0.4.3').split(/\s/)[0], head)
 })
 
-test('daemon-only release refuses a missing cast cache before compiling', () => {
-  const root = releaseFixture()
-  git(root, 'init')
-  git(root, 'config', 'user.email', 'release-test@example.com')
-  git(root, 'config', 'user.name', 'Release Test')
-  git(root, 'add', '.')
-  git(root, 'commit', '-m', 'test fixture')
-  const cache = join(root, 'empty-cache')
-
-  const result = run('bash', ['scripts/release.sh', '--daemon-only', '--allow-dirty'], {
-    cwd: root,
-    env: { ...process.env, GONGGONG_CAST_CACHE: cache },
-  })
-
-  assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /完整发布/)
-  assert.equal(existsSync(join(root, 'target')), false)
-})
-
 test('daemon verification downloads every artifact and checks its SHA-256', async (t) => {
   const root = releaseFixture()
   const out = join(root, 'dist/0.4.3')
@@ -116,14 +97,12 @@ test('daemon verification downloads every artifact and checks its SHA-256', asyn
   const remote = new Map()
   const sums = []
   const requested = []
-  for (const prefix of ['gonggong', 'gg-cast']) {
-    for (const platform of platforms) {
-      const name = artifact(prefix, '0.4.3', platform)
-      const data = `bytes of ${name}`
-      writeFileSync(join(out, name), data)
-      sums.push(`${sha256(data)}  ${name}`)
-      remote.set(`/downloads/${name}`, data)
-    }
+  for (const platform of platforms) {
+    const name = artifact('0.4.3', platform)
+    const data = `bytes of ${name}`
+    writeFileSync(join(out, name), data)
+    sums.push(`${sha256(data)}  ${name}`)
+    remote.set(`/downloads/${name}`, data)
   }
   writeFileSync(join(out, 'SHA256SUMS'), `${sums.join('\n')}\n`)
   const server = createServer((req, res) => {
@@ -140,11 +119,11 @@ test('daemon verification downloads every artifact and checks its SHA-256', asyn
   const args = ['scripts/release/ship.sh', 'verify', '0.4.3', url, '--daemon-only']
 
   const ok = await runAsync('bash', args, { cwd: root, encoding: 'utf8' })
-  assert.equal(requested.length, 10)
-  assert.equal(new Set(requested).size, 10)
-  assert.match(ok.stdout, /gg-cast windows-x86_64/)
+  assert.equal(requested.length, 5)
+  assert.equal(new Set(requested).size, 5)
+  assert.match(ok.stdout, /gg windows-x86_64/)
 
-  const damaged = artifact('gonggong', '0.4.3', 'linux-x86_64')
+  const damaged = artifact('0.4.3', 'linux-x86_64')
   remote.set(`/downloads/${damaged}`, 'corrupted')
   const failed = await runAsync('bash', args, { cwd: root, encoding: 'utf8' }).then(
     () => assert.fail('corrupted download unexpectedly passed'),

@@ -25,7 +25,6 @@ export default defineConfig({
     proxy: {
       '/api': { target: server, secure: false },
       '/ws': { target: server, ws: true, secure: false },
-      '/livekit': { target: server, ws: true, secure: false },
     },
   },
   test: {

@@ -365,6 +365,7 @@ export const DiagCheckKind = z.enum([
   'git',
   'disk',
   'eol',
+  // Only reported by daemons from before live previews were removed; kept so their diag results still parse.
   'screen_recording',
   'accessibility',
 ])

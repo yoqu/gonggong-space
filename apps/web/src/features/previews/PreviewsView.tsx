@@ -98,7 +98,6 @@ function Lists({
               const badge = PREVIEW_BADGE[p.status]
               const tech = previewTechInfo(p, service)
               const showTech = Boolean(expanded[p.id] && tech)
-              const web = p.kind === 'http' || p.kind === 'static'
               const menuItems = [
                 ...(p.canManage && canPausePreview(p, service)
                   ? [{ label: t('仅暂停后台进程（保留卡片）'), value: 'pause' }]
@@ -110,18 +109,14 @@ function Lists({
                   <div className="pv-row">
                     <span className="pv-row__main">
                       <span className="pv-row__title-line">
-                        {web ? (
-                          <a
-                            href={openUrl(p.id, p.path)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="pv-row__title"
-                          >
-                            {p.title}
-                          </a>
-                        ) : (
-                          <span className="pv-row__title">{p.title}</span>
-                        )}
+                        <a
+                          href={openUrl(p.id, p.path)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="pv-row__title"
+                        >
+                          {p.title}
+                        </a>
                         <Tag tone={badge.tone}>{badge.text}</Tag>
                       </span>
                       <span className="pv-muted">
@@ -179,9 +174,7 @@ function Lists({
                                 ? t('关闭#close')
                                 : p.serviceId
                                   ? t('停止')
-                                  : web
-                                    ? t('停止穿透')
-                                    : t('关闭#close')}
+                                  : t('停止穿透')}
                             </Button>
                           ) : null}
                         </>

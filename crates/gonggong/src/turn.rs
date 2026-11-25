@@ -91,8 +91,8 @@ pub fn system_prompt(bot: &RunBot) -> String {
         - A decision for the requester (a trade-off, scope, missing facts): ask_group_members and wait; do not just list \
         questions in your reply.\n\
         - Work for another bot: hand_off; writing \"@Bot\" in a reply only mentions it.\n\
-        - A running web app or service: service_start + preview_expose; a static site: preview_static; a WeChat mini \
-        program: preview_miniprogram. Never start background processes yourself or point people at localhost.",
+        - A running web app or service: service_start + preview_expose; a static site: preview_static. Never start \
+        background processes yourself or point people at localhost.",
         bot.name
     );
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }

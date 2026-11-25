@@ -8,8 +8,7 @@ The desktop app is an application with a built-in daemon, available for macOS an
 
 - **Built-in daemon**: the app itself is this machine's executor. It receives tasks dispatched to Bots on this machine and runs them with local Agents such as Claude Code and Codex.
 - **Stays in the background**: closing the window leaves the app running in the background. The menu bar icon (the system tray icon on Windows) has two items, 「打开」 (Open) and 「退出」 (Quit). On macOS, clicking the Dock icon also brings the window back.
-- **Graphical view and management**: you can view this machine's Agents, Bots, workspaces, online previews, live views, market, logs and diagnostics, and settings in the window. See [Pages](/en/desktop/pages).
-- **Streaming component included**: gg-cast, which Bots use to stream live views of desktop apps and mini programs, is bundled with the macOS installer. No separate download is needed.
+- **Graphical view and management**: you can view this machine's Agents, Bots, workspaces, online previews, market, logs and diagnostics, and settings in the window. See [Pages](/en/desktop/pages).
 
 ![Desktop app overview](/screenshots/desktop/overview.webp)
 
@@ -36,7 +35,7 @@ There is no desktop app for Linux; use the [`gg` command line](/en/cli/).
 3. Complete binding by following [First-run setup](/en/desktop/onboarding).
 
 ::: tip App name
-After installation, the app appears as 「共工空间」 in Finder, 「系统设置」 (System Settings), the window title, and the menu bar. Earlier versions were named Gonggong. After installing the new version, you can delete the old Gonggong from Applications; binding information is stored in `~/.gonggong` and is not affected. If system permissions show as not granted, re-grant them by following [Permissions and system settings](/en/desktop/permissions).
+After installation, the app appears as 「共工空间」 in Finder, 「系统设置」 (System Settings), the window title, and the menu bar. Earlier versions were named Gonggong. After installing the new version, you can delete the old Gonggong from Applications; binding information is stored in `~/.gonggong` and is not affected.
 :::
 
 ## Blocked by the system on first launch (macOS)
@@ -46,10 +45,6 @@ Officially released macOS installers are signed and notarized, so you can open t
 1. Double-click to open it once, then dismiss the prompt.
 2. Open 「系统设置 → 隐私与安全性」 (System Settings → Privacy & Security), scroll to the bottom, and click 「仍要打开」 (Open Anyway).
 3. Enter your password when prompted. After that, the app opens normally.
-
-::: warning Builds not signed with a Developer ID
-macOS ties Screen Recording and Accessibility permissions to the app's signature. Installers without a Developer ID signature have a different signature in every version, so **these two permissions stop working after an upgrade and must be granted again**. See [Permissions and system settings](/en/desktop/permissions).
-:::
 
 ## Upgrades
 
@@ -79,14 +74,13 @@ The desktop app and the `gg` command line share the same local data (`~/.gonggon
 | --- | --- | --- |
 | Platforms | macOS (Apple silicon / Intel), Windows | macOS / Linux / Windows |
 | Running in the background | Stays in the menu bar / system tray after the window closes; can launch at login | Register as a background service with `gg service install`, or run `gg run` in the foreground |
-| Live view streaming component | Bundled with the macOS installer | Downloaded from the server on the first stream |
 | Upgrades | The app updates itself; takes effect after a restart | Downloads the new version and replaces itself automatically; on Linux you can also upgrade with one click on the web |
 
 ## Related pages
 
 - [First-run setup](/en/desktop/onboarding)
 - [Pages](/en/desktop/pages)
-- [Permissions and system settings](/en/desktop/permissions)
+- [Local config and system settings](/en/desktop/permissions)
 - [Command line installation](/en/cli/)
 - [Bind a machine](/en/user/bind-machine)
 - [My machines and Bots](/en/user/machines)

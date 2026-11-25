@@ -147,7 +147,7 @@ After that the variable has no effect (it won't create the account again or rese
 
 1. Open the main site in a browser, sign in with `admin` and the initial password, and change the password when prompted.
 2. Go to 「管理后台 → 账号与角色」 (Admin console → Accounts & roles) and create accounts for members. See [Accounts and roles](/en/admin/users).
-3. Upload the daemon (`gonggong-*`, `gg-cast-*`) and desktop installers in [Client releases](/en/admin/releases). See [Upgrades and client releases](/en/deploy/upgrade). The one-sentence setup via 「发给你的 Agent」 (Send to your agent) in the web 「绑定新机器」 (Bind new machine) dialog downloads the matching `gg` for the platform from this server, so it fails until a release is published; until then, daemon auto-upgrade checks GitHub Releases instead.
+3. Upload the daemon (`gonggong-*`) and desktop installers in [Client releases](/en/admin/releases). See [Upgrades and client releases](/en/deploy/upgrade). The one-sentence setup via 「发给你的 Agent」 (Send to your agent) in the web 「绑定新机器」 (Bind new machine) dialog downloads the matching `gg` for the platform from this server, so it fails until a release is published; until then, daemon auto-upgrade checks GitHub Releases instead.
 4. We recommend filling in 「对外地址」 (Public URL, the main site address such as `https://gg.example.com`) under 「管理后台 → 飞书」 (Admin console → Feishu): the one-sentence setup's install script and links in Feishu use it, and Feishu login requires it.
 5. Members can now [bind machines](/en/user/bind-machine).
 

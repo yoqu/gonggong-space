@@ -48,7 +48,6 @@ Make sure this is your team's server, then click 「绑定」 (Bind). **The desk
 After you click 「绑定」 (Bind), the desktop app exchanges the connect code for this machine's long-term credentials and starts the daemon. When it succeeds:
 
 - The main window opens, with 「已连接 服务器地址」 ("Connected to `<server address>`") in the top-right corner.
-- On macOS, if Screen Recording and Accessibility haven't been granted yet, the 「授予系统权限」 (Grant system permissions) page appears next. These two only affect live views and remote control, so you can click 「稍后」 (Later) for now. See [Permissions and system settings](/en/desktop/permissions).
 - Back on the web, the 「绑定新机器」 (Bind new machine) dialog shows 「绑定成功」 (Bound) and lists the Agents detected on this machine. Click 「新建 Bot」 (New Bot) to [create a Bot](/en/user/create-bot) on this machine.
 
 ## FAQ

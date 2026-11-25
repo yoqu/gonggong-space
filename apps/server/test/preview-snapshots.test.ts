@@ -104,4 +104,17 @@ describe('preview snapshots', () => {
     const res = await w.wang.post(`/api/previews/${w.preview.id}/snapshot`)
     expect(res).toMatchObject({ status: 409, body: { message: '本机没有可用于截图的 Chrome / Edge' } })
   })
+
+  it('treats previews of the retired gui and miniprogram kinds as closed, snapshot included', async () => {
+    const w = await world()
+    await vi.waitFor(async () => {
+      const [p] = await t.db.select().from(previews)
+      expect(p?.snapshotAt).toBeTruthy()
+    })
+    await t.db.update(previews).set({ kind: 'miniprogram' })
+    expect((await w.li.get(`/api/previews/${w.preview.id}/snapshot`)).status).toBe(404)
+    expect((await w.wang.post(`/api/previews/${w.preview.id}/snapshot`)).status).toBe(404)
+    const { body } = await w.li.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)
+    expect(body.previews).toEqual([])
+  })
 })

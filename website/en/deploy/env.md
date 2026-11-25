@@ -13,7 +13,7 @@ This page lists every environment variable read by the server, the web dev serve
 | `GONGGONG_DATABASE_URL` | none | PostgreSQL connection string, such as `postgres://gonggong:密码@127.0.0.1:5432/gonggong` (`密码` = password). When set, the next two are ignored |
 | `GONGGONG_DB` | `gonggong` | Database name used when no connection string is set (connects to `postgres://gonggong@127.0.0.1:<端口>/<库名>`, i.e. port and database name) |
 | `GONGGONG_PG_PORT` | `54329` | Port used when no connection string is set; matches the development `pnpm db:up` |
-| `GONGGONG_DATA_DIR` | `.gonggong-dev/data` | Data directory for encrypted attachments (`attachments/`), base-branch mirrors (`mirrors/`), client installers (`downloads/`), the LiveKit binary, and so on. The default is relative to the server's working directory; use an absolute path in production |
+| `GONGGONG_DATA_DIR` | `.gonggong-dev/data` | Data directory for encrypted attachments (`attachments/`), base-branch mirrors (`mirrors/`), client installers (`downloads/`), and so on. The default is relative to the server's working directory; use an absolute path in production |
 | `GONGGONG_ADMIN_PASSWORD` | none | When the database has no accounts, creates the sysadmin `admin` with this password (must be changed at first login). No effect once accounts exist |
 | `GONGGONG_LOG` | off | Set to `1` to log every request |
 
@@ -39,20 +39,6 @@ This page lists every environment variable read by the server, the web dev serve
 
 For the difference between the two modes and how to configure them, see [Reverse proxy and preview domains](/en/deploy/reverse-proxy).
 
-### Live view (LiveKit)
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `LIVEKIT_URL` | none | External LiveKit URL. Must be set together with the next two; when set, the local livekit-server is no longer started automatically |
-| `LIVEKIT_API_KEY` | none | External LiveKit API key |
-| `LIVEKIT_API_SECRET` | none | External LiveKit API secret |
-| `GONGGONG_LIVEKIT_BIN` | auto-detected | Path to the local livekit-server binary. If unset, the server looks for one previously downloaded into the data directory, then one on `PATH`, and finally downloads the official release from GitHub (Linux / Windows only) |
-| `GONGGONG_LIVEKIT_TCP_PORT` | `7881` | TCP media port of the local livekit-server |
-| `GONGGONG_LIVEKIT_UDP_PORT` | `7882` | UDP media port of the local livekit-server |
-| `GONGGONG_LIVEKIT_NODE_IP` | none | The IP clients should use for the media ports. Set it to the public IP when the server is behind NAT and its local interface address isn't reachable by clients |
-
-The local livekit-server's signaling listens only on loopback and is forwarded through the server's `/livekit` path; the two media ports must be open to browsers and members' machines.
-
 ### Other
 
 | Variable | Default | Description |
@@ -73,7 +59,7 @@ Read only when running the web dev server with `pnpm dev:web`. Production uses t
 | --- | --- | --- |
 | `WEB_HOST` | `127.0.0.1` | Listen address; set to `0.0.0.0` for LAN access |
 | `WEB_PORT` | `5173` | Listen port |
-| `GONGGONG_SERVER` | `http(s)://127.0.0.1:8787` | Target server for proxying `/api`, `/ws`, and `/livekit` |
+| `GONGGONG_SERVER` | `http(s)://127.0.0.1:8787` | Target server for proxying `/api` and `/ws` |
 | `GONGGONG_TLS_CERT` / `GONGGONG_TLS_KEY` | none | Share the same certificate as the server; when set, the web app is served over HTTPS |
 
 ## Ops scripts

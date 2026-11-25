@@ -5,7 +5,6 @@ import type {
   GroupDto,
   GroupFeishuView,
   GroupPreviewsDto,
-  PreviewDto,
   PreviewShareDto,
   ScheduleDto,
   UserDto,
@@ -17,7 +16,6 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { FeishuGroupDialog } from '../src/features/feishu/FeishuGroupDialog'
 import { PreviewsView } from '../src/features/previews/PreviewsView'
-import { PreviewTags } from '../src/features/previews/PreviewTags'
 import { SharesPage } from '../src/features/previews/SharesPage'
 import { resetPreviews } from '../src/features/previews/store'
 import { ScheduleCard } from '../src/features/schedules/ScheduleCard'
@@ -86,56 +84,6 @@ afterEach(() => {
 })
 
 describe('Round 2 Consolidation — Slice 3 (Feishu, Previews, Schedules)', () => {
-  it('R1-P0-2: PreviewTags uses DevtoolsLogin + loginNote when awaiting === login (no 403 img for non-managers)', async () => {
-    const mini = (canManage: boolean): PreviewDto => ({
-      id: 'p1',
-      groupId: 'g1',
-      groupName: '前端群',
-      botId: 'b1',
-      botName: '代码助手',
-      kind: 'miniprogram',
-      title: '商城小程序',
-      port: null,
-      path: 'pages/index',
-      serviceId: null,
-      serviceName: null,
-      status: 'online',
-      awaiting: 'login',
-      snapshotAt: '2026-11-21T10:00:00Z',
-      snapshotError: null,
-      live: null,
-      canManage,
-      control: null,
-      createdAt: '2026-11-21T09:00:00Z',
-    })
-
-    // Non-manager: no snapshot <img>, shows waiting-for-owner message.
-    mockApi({
-      'GET /groups/g1/previews': () =>
-        ({ previews: [mini(false)], services: [], manageableBotIds: [] }) satisfies GroupPreviewsDto,
-    })
-    const v1 = render(<PreviewTags groupId="g1" />)
-    const trigger1 = await screen.findByRole('button', { name: /商城小程序/ })
-    fireEvent.click(trigger1)
-    expect(await screen.findByText('等待 Bot 主人登录微信开发者工具')).toBeTruthy()
-    expect(document.querySelector('img.pv-pop__shot')).toBeNull()
-    expect(document.querySelector('img.pv-login')).toBeNull()
-    v1.unmount()
-
-    // Manager: renders uncropped .pv-login QR and scan prompt.
-    resetPreviews()
-    mockApi({
-      'GET /groups/g1/previews': () =>
-        ({ previews: [mini(true)], services: [], manageableBotIds: ['b1'] }) satisfies GroupPreviewsDto,
-    })
-    render(<PreviewTags groupId="g1" />)
-    const trigger2 = await screen.findByRole('button', { name: /商城小程序/ })
-    fireEvent.click(trigger2)
-    expect(await screen.findByAltText('微信开发者工具登录二维码')).toBeTruthy()
-    expect(screen.getByText('微信开发者工具未登录，请用微信扫码登录')).toBeTruthy()
-    expect(document.querySelector('img.pv-pop__shot')).toBeNull()
-  })
-
   it('R1-P0-3: SharesPage matches pinyin initials and avoids cross-field false positives', async () => {
     const share: PreviewShareDto = {
       id: 'sh1',

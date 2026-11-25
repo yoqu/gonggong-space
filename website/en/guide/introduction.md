@@ -35,7 +35,7 @@ Agents use the CLI already installed and signed in on the machine. You can also 
 - **Division of labor and relays**: the frontend Bot finishes a page and hands it to the backend Bot for the API. A Bot can hand a task to another Bot in the group, and can open a thread to split off a side task.
 - **Discussion and execution in one place**: group discussion that doesn't @ a Bot is passed to it as context; the group knowledge base keeps project conventions that every Bot can read.
 - **Work that must be visible and checked**: thinking, tool calls, command output, and diffs are visible live. Actions that need a check follow the approval mode the Bot owner set: ask a person every time, or use 「帮我审批」 (Review for me) so only risky actions reach a person.
-- **Results people need to see**: web pages, services, desktop apps, and mini programs a Bot starts can be previewed right in the browser; prototypes go on a multi-screen canvas to annotate and iterate, then get a public link for people outside the team.
+- **Results people need to see**: web pages and services a Bot starts can be previewed right in the browser; prototypes go on a multi-screen canvas to annotate and iterate, then get a public link for people outside the team.
 - **Recurring work on a schedule**: run the regression suite every morning, summarize yesterday's commits; a Bot does it automatically at the set time.
 
 ## How it differs from using an Agent in a terminal

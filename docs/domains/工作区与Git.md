@@ -67,7 +67,7 @@
 ## 空间管理
 - 机器弹窗「空间」：工作区列表带大小、`lastUsedAt`、未提交/未推送 `changes`、磁盘剩余；标「可释放」只提醒不自动删（`features/machines/AdminPanels.tsx`）。
 - 删除/瘦身需能力：`machineAdmin`（`workspace.delete`），`storageAdmin`（`workspace.gc` 即 `git gc --prune=now`，`POST /api/machines/:id/workspaces/gc`）；删除前持目录占用，有运行即拒（`machines/admin.ts`、`workspace.rs`）。
-- daemon janitor 启动时与每 24 小时：拉活跃 pair 失败则跳过；清超过 1 天的孤儿（skill-sets、plugin-links、sync）与 30 天未用的旧 plugin-sets、旧 Node/gg-cast；不碰工作区、备份、本机目录（`janitor.rs`）。
+- daemon janitor 启动时与每 24 小时：拉活跃 pair 失败则跳过；清超过 1 天的孤儿（skill-sets、plugin-links、sync）与 30 天未用的旧 plugin-sets、旧 Node，以及旧版本留下的全部未占用 gg-cast；不碰工作区、备份、本机目录（`janitor.rs`）。
 
 ## 仍未做
 - 主工作区设成任意一项（群有仓库时仍固定为主仓库）、`group_bot_workspaces` 表（`docs/plan/群内多工作区-开发计划.md` D1/D4）。

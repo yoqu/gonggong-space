@@ -5,8 +5,8 @@
   "apps/web/src/features/artifacts/artifacts.css": 1888,
   "apps/web/src/features/chat/ChatView.tsx": 1046,
   "apps/web/src/features/files/FileViewer.tsx": 1188,
-  "crates/gonggong/src/ask.rs": 1847,
-  "crates/gonggong/src/engine.rs": 1371,
+  "crates/gonggong/src/ask.rs": 1713,
+  "crates/gonggong/src/engine.rs": 1363,
   "crates/gonggong/src/git.rs": 1632,
   "crates/gonggong/src/git_write.rs": 1408,
   "crates/gonggong/src/html_render.rs": 1155,
@@ -14,6 +14,5 @@
   "crates/gonggong/src/providers.rs": 1020,
   "crates/gonggong/src/replicas.rs": 1102,
   "crates/gonggong/src/session.rs": 2349,
-  "crates/gonggong/src/wechatide.rs": 1285,
   "crates/gonggong/src/workspace.rs": 1744
 }

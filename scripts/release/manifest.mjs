@@ -7,12 +7,11 @@ export function releaseNotes(path) {
   return body || undefined
 }
 
-export function releaseManifest(version, builds, cast, notes) {
+export function releaseManifest(version, builds, notes) {
   return {
     version,
     ...(notes ? { releaseNotes: notes } : {}),
     builds: JSON.parse(builds),
-    cast: JSON.parse(cast),
   }
 }
 
@@ -30,7 +29,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const notes = releaseNotes(notesFile)
   const output =
     kind === 'release'
-      ? releaseManifest(version, args[0], args[1], notes)
+      ? releaseManifest(version, args[0], notes)
       : kind === 'updater'
         ? updaterManifest(version, notes, args[0], args[1])
         : undefined

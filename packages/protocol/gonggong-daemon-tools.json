@@ -65,11 +65,6 @@
             "type": "string"
           },
           "description": "Extra env vars"
-        },
-        "display": {
-          "type": "string",
-          "enum": ["virtual"],
-          "description": "Desktop apps: virtual runs on a new virtual display (Xvfb), not the owner's screen, and preview_gui streams all of it; Linux only"
         }
       },
       "required": ["name", "command"]
@@ -238,7 +233,7 @@
   {
     "name": "client_release_publish",
     "title": "发布客户端到当前空间",
-    "description": "Upload client builds from scripts/release.sh (gg, gg-cast, desktop installers and updates) to this space; members update from here. Prefer dir for a whole dist/<version> (one approval), file for one more file, dir with kind=\"daemon\" for gg only. Sysadmin turns only.",
+    "description": "Upload client builds from scripts/release.sh (gg, desktop installers and updates) to this space; members update from here. Prefer dir for a whole dist/<version> (one approval), file for one more file, dir with kind=\"daemon\" for gg only. Sysadmin turns only.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -257,7 +252,7 @@
         "kind": {
           "type": "string",
           "const": "daemon",
-          "description": "Only gg and gg-cast (no desktop app); dir needs every platform"
+          "description": "Only gg (no desktop app); dir needs every platform"
         }
       }
     }
@@ -314,40 +309,6 @@
         }
       },
       "required": ["card"]
-    }
-  },
-  {
-    "name": "preview_miniprogram",
-    "title": "发布小程序预览",
-    "description": "Open the workspace mini program in WeChat DevTools on this machine at a page and post a card with a simulator screenshot; call again to switch pages. It handles launch, login (QR code on the card) and trust: never drive DevTools yourself or send QR codes.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "dir": {
-          "type": "string",
-          "maxLength": 500,
-          "description": "Workspace dir of the mini program (with project.config.json), default the root"
-        },
-        "page": {
-          "type": "string",
-          "maxLength": 300,
-          "pattern": "^[^/?]",
-          "description": "Page to open, e.g. pages/goods/detail, default the home page"
-        },
-        "query": {
-          "type": "string",
-          "maxLength": 500,
-          "pattern": "^[^?]",
-          "description": "Page query, e.g. id=42&from=share"
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 60,
-          "description": "Card title: what this is"
-        }
-      },
-      "required": ["title"]
     }
   }
 ]

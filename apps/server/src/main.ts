@@ -4,12 +4,10 @@ import type { Ctx } from './context.js'
 import { DaemonHub } from './daemon/hub.js'
 import { migrateDb, openDb } from './db/client.js'
 import { sysParams } from './modules/admin/params.js'
-import { dataDir } from './modules/attachments/service.js'
 import { ensureBootstrapAdmin } from './modules/auth/bootstrap.js'
 import { larkApi } from './modules/feishu/client.js'
 import { larkConnector } from './modules/feishu/gateway.js'
 import { integrationTokens } from './modules/integrations/tokens.js'
-import { liveKitFromEnv } from './modules/live/livekit.js'
 import { INTERNAL_PLUGINS, syncBuiltinPlugins } from './modules/plugins/builtin.js'
 import { previewConfig } from './modules/previews/config.js'
 import { TunnelHub } from './modules/previews/tunnel.js'
@@ -25,7 +23,6 @@ const ctx: Ctx = {
   bus: new Bus(),
   hub: new DaemonHub(),
   tunnels: new TunnelHub(),
-  livekit: liveKitFromEnv(process.env, dataDir()),
   feishu: { api: larkApi(), connector: larkConnector() },
   now: () => new Date(),
   config: {

@@ -3,8 +3,8 @@ import { Icon, Popover } from '../../ui'
 import './previews.css'
 import { t } from '../../i18n'
 import { PreviewActions } from './PreviewActions'
-import { DevtoolsLogin, loginNote, PREVIEW_STATE } from './PreviewCard'
-import { previewIcon, snapshotUrl, usePreviews } from './store'
+import { PREVIEW_STATE } from './PreviewCard'
+import { snapshotUrl, usePreviews } from './store'
 
 /** Pinned above the composer: every open preview tunnel of the group, for all members. */
 export function PreviewTags({ groupId }: { groupId: string }) {
@@ -28,7 +28,7 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
       trigger={
         <button type="button" className="pv-tag">
           <span className={`pv-dot pv-dot--${p.status}`} />
-          <Icon name={previewIcon(p.kind)} size={13} className="pv-tag__icon" />
+          <Icon name="globe" size={13} className="pv-tag__icon" />
           <span className="pv-tag__title">{p.title}</span>
           {p.port ? <span className="pv-tag__port">:{p.port}</span> : null}
         </button>
@@ -36,32 +36,16 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
     >
       {(close) => (
         <div className="pv-pop">
-          {p.awaiting === 'login' ? (
-            <DevtoolsLogin preview={p} />
-          ) : p.snapshotAt ? (
-            <img
-              className="pv-pop__shot"
-              src={snapshotUrl(p)}
-              alt={
-                p.kind === 'miniprogram'
-                  ? t('{title} 模拟器', { title: p.title })
-                  : t('{title} 首屏', { title: p.title })
-              }
-            />
+          {p.snapshotAt ? (
+            <img className="pv-pop__shot" src={snapshotUrl(p)} alt={t('{title} 首屏', { title: p.title })} />
           ) : null}
           <div className="pv-card__head">
             <span className="pv-card__title">{p.title}</span>
             <PreviewActions preview={p} share={false} onDone={close} />
           </div>
           <div className="pv-card__meta">
-            {p.awaiting === 'login' ? (
-              loginNote(p)
-            ) : (
-              <>
-                {p.botName} · {PREVIEW_STATE[p.status].label}
-                {p.port ? ` · :${p.port}` : ''}
-              </>
-            )}
+            {p.botName} · {PREVIEW_STATE[p.status].label}
+            {p.port ? ` · :${p.port}` : ''}
           </div>
           {service ? (
             <div className="pv-card__meta pv-mono" title={service.command}>

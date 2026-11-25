@@ -98,7 +98,7 @@ WEB_HOST=0.0.0.0 pnpm dev:web          # 成员访问 https://<本机局域网 I
 ssl_certificate     /etc/gonggong/tls/cert.pem;
 ssl_certificate_key /etc/gonggong/tls/key.pem;
 
-location ~ ^/(api|ws|livekit|downloads)(/|$) {
+location ~ ^/(api|ws|downloads)(/|$) {
     proxy_pass https://127.0.0.1:8787;   # server 已启用 TLS，上游用 https
     proxy_ssl_verify off;
     # 其余 proxy_set_header 等同「反向代理」页

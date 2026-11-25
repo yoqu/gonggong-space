@@ -456,11 +456,7 @@ export const en = {
   '群里只剩你一人，请直接解散群': "You're the last one here, dissolve the group instead",
 
   // Live view
-  这个预览没有实时画面: 'This preview has no live view',
   预览不存在或已关闭: "The preview doesn't exist or was closed",
-  '服务器还没有发布 {platform} 的 gg-cast': 'The server has not released screen sharing for {platform} yet',
-  实时画面服务未启动: 'The live view service is not running',
-  没有人在看这个实时画面: 'Nobody is watching this live view',
   '仅 Bot 主人或群管理员可操作': "Only the Bot's owner or a group admin can do this",
   仅创建人可见: 'Only its creator can open this',
   '只能查看，进群后才能修改': 'View only: join the group to change it',
@@ -470,7 +466,6 @@ export const en = {
   创建人始终可以编辑: 'The creator can always edit',
   '只有创建人、Bot 主人或群管理员能修改可见范围':
     "Only its creator, the Bot's owner or a group admin can change who sees it",
-  没有这个控制请求: 'No such control request',
 
   // Computers, tools and providers
   电脑不存在: 'Computer not found',
@@ -759,14 +754,11 @@ export const en = {
   '预览繁忙：{error}': 'Preview busy: {error}',
   '预览所在的电脑离线，稍后再试。（{error}）':
     "The preview's computer is offline; try again later. ({error})",
-  小程序预览没有网页地址: 'A mini program preview has no web address',
   还没有截图: 'No screenshot yet',
-  只有小程序预览可以切换页面: 'Only mini program previews can switch pages',
   预览不存在: 'Preview not found',
   服务不存在: 'Service not found',
   预览所在的电脑离线: "The preview's computer is offline",
   服务所在的电脑离线: "The service's computer is offline",
-  '这个小程序已有新的预览「{title}」': 'This mini program already has a newer preview "{title}"',
   '端口 {port} 已有新的预览「{title}」': 'Port {port} already has a newer preview "{title}"',
   服务所在的电脑离线或没有响应: "The service's computer is offline or not responding",
   公开链接不存在: 'Public link not found',
@@ -774,8 +766,8 @@ export const en = {
 
   // Releases
   '{file} 的版本低于当前发布的 {version}': '{file} is older than the current release {version}',
-  '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 gg-cast-0.2.0-windows-x86_64.exe':
-    '{file} is not a release artifact: names look like gonggong-0.2.0-macos-aarch64 or gg-cast-0.2.0-windows-x86_64.exe',
+  '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg':
+    '{file} is not a release artifact: names look like gonggong-0.2.0-macos-aarch64 or Gonggong_0.2.0_aarch64.dmg',
   '单个文件不能超过 {mb} MB': 'A file cannot exceed {mb} MB',
   未知的产物类型: 'Unknown artifact type',
   该平台没有已发布的文件: 'Nothing is released for this platform',
@@ -832,10 +824,7 @@ export const en = {
   已失效: 'Expired',
   查看过程: 'View process',
   网页: 'Web page',
-  桌面应用: 'Desktop app',
-  小程序: 'Mini program',
   可打开: 'Ready to open',
-  等待开发者工具登录: 'Waiting for the devtools login',
   已关闭: 'Closed',
   打开预览: 'Open preview',
   填写密钥: 'Fill in secrets',
@@ -938,7 +927,6 @@ export const en = {
   演示模式下不可执行此操作: 'Not allowed in demo mode',
   演示模式下不能创建公开链接: 'Public links cannot be created in demo mode',
   '演示模式下不能使用「完全允许」审批方式': 'The "Allow everything" mode is not available in demo mode',
-  演示模式下实时画面只能观看: 'The live view is watch-only in demo mode',
   知识库条目不存在: 'Knowledge entry not found',
   '每个群最多 {n} 条知识库条目': 'A group can have at most {n} knowledge entries',
   '条目已被他人修改，请刷新后再改': 'Someone else changed this entry. Refresh and edit again',

@@ -1,7 +1,7 @@
 //! 日志与诊断 (spec §14): machine self-checks for `gg doctor` / the desktop app, and the redacted diagnostics bundle.
 use crate::config::Config;
 use crate::logs::{self, redact};
-use crate::protocol::{AgentKind, AgentState, PROTOCOL_VERSION, Permission};
+use crate::protocol::{AgentKind, AgentState, PROTOCOL_VERSION};
 use crate::t;
 use crate::workspace::{self, Entry, EntryKind, human_size};
 use anyhow::Context;
@@ -26,8 +26,6 @@ pub enum CheckKind {
     Git,
     Disk,
     Eol,
-    ScreenRecording,
-    Accessibility,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,8 +53,6 @@ fn check(kind: CheckKind, status: Status, detail: impl Into<String>) -> Check {
         CheckKind::Git => t!("git 凭据"),
         CheckKind::Disk => t!("磁盘"),
         CheckKind::Eol => t!("换行符"),
-        CheckKind::ScreenRecording => t!("屏幕录制"),
-        CheckKind::Accessibility => t!("辅助功能"),
     };
     Check { kind, label, status, detail: detail.into() }
 }
@@ -76,8 +72,6 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
         git_credentials(&entries).await,
         disk(home, &entries),
         eol(&entries).await,
-        permission(CheckKind::ScreenRecording, crate::permission::granted(Permission::ScreenRecording)),
-        permission(CheckKind::Accessibility, crate::permission::granted(Permission::Accessibility)),
     ]
 }
 
@@ -245,28 +239,6 @@ pub async fn eol(entries: &[Entry]) -> Check {
     }
 }
 
-/// Desktop previews: screen recording to publish app windows, accessibility to control them (and to answer the WeChat
-/// devtools' trust prompt). Not granted is a warning: everything else works without them.
-pub fn permission(kind: CheckKind, granted: Option<bool>) -> Check {
-    let (pane, needs) = match kind {
-        CheckKind::ScreenRecording => (t!("屏幕录制"), t!("桌面应用和小程序的实时画面")),
-        _ => (t!("辅助功能"), t!("远程操作桌面应用和小程序、自动信任小程序项目")),
-    };
-    match granted {
-        None => check(kind, Status::Skipped, t!("仅 macOS 需要")),
-        Some(true) => check(kind, Status::Ok, t!("已授权")),
-        Some(false) => check(
-            kind,
-            Status::Warn,
-            t!(
-                "未授权，{needs}不可用：请在 系统设置 → 隐私与安全性 → {pane} 中允许运行 gg 的程序（终端或共工空间桌面端）",
-                needs = needs,
-                pane = pane
-            ),
-        ),
-    }
-}
-
 /// Writes `dest` (.zip): redacted recent logs, the checks, versions, and config.json / local.json without
 /// credentials. Returns the entry names written.
 pub fn bundle(home: &Path, config: Option<&Config>, checks: &[Check], dest: &Path) -> anyhow::Result<Vec<String>> {
@@ -359,21 +331,6 @@ mod tests {
             last_used_at: None,
             changes: None,
         }
-    }
-
-    #[test]
-    fn permission_checks_say_what_is_missing_and_where_to_grant_it() {
-        let denied = permission(CheckKind::ScreenRecording, Some(false));
-        assert_eq!((denied.label, denied.status), ("屏幕录制", Status::Warn));
-        assert!(
-            denied.detail.contains("隐私与安全性 → 屏幕录制") && denied.detail.contains("实时画面"),
-            "{}",
-            denied.detail
-        );
-        let ax = permission(CheckKind::Accessibility, Some(false));
-        assert!(ax.detail.contains("隐私与安全性 → 辅助功能") && ax.detail.contains("远程操作"), "{}", ax.detail);
-        assert_eq!(permission(CheckKind::Accessibility, Some(true)).status, Status::Ok);
-        assert_eq!(permission(CheckKind::ScreenRecording, None).status, Status::Skipped);
     }
 
     #[tokio::test]

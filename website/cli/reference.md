@@ -314,7 +314,7 @@ gg agents settings --inherit-cli false   # 不加载本机 ~/.claude 里的用�
 
 ## gg doctor
 
-检查服务器连接、Agent、git 凭据、磁盘和换行符；macOS 上还检查屏幕录制、辅助功能权限。
+检查服务器连接、Agent、git 凭据、磁盘和换行符。
 
 ```text
 ✓ 服务器连接	HTTPS 正常
@@ -322,8 +322,6 @@ gg agents settings --inherit-cli false   # 不加载本机 ~/.claude 里的用�
 - git 凭据	本机暂无托管仓库
 ✓ 磁盘	工作区 0 B · 剩余 880 GB
 - 换行符	本机暂无托管仓库
-✓ 屏幕录制	已授权
-✓ 辅助功能	已授权
 ```
 
 标记含义：`✓` 正常，`!` 注意，`✗` 异常，`-` 跳过。有任一项异常时退出码为 1。未绑定时「服务器连接」显示「未绑定，请先执行 gg login」。网页机器详情里的「自检」运行的是同一套检查。

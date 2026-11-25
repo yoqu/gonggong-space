@@ -176,32 +176,27 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
     const first = await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'daemon')
     expect(first.body.releaseNotes).toBeUndefined()
     expect(first.status).toBe(200)
-    const cast = await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'cast')
-    expect(cast.body).toMatchObject({
+    expect(first.body).toMatchObject({
       version: '0.2.0',
       builds: {
         'macos-aarch64': { url: '/downloads/gonggong-0.2.0-macos-aarch64', sha256: digest('daemon') },
       },
-      cast: { 'macos-aarch64': { url: '/downloads/gg-cast-0.2.0-macos-aarch64', sha256: digest('cast') } },
     })
-    expect(readFileSync(downloaded('gg-cast-0.2.0-macos-aarch64'), 'utf8')).toBe('cast')
-    expect((await t.app.inject('/downloads/gg-cast-0.2.0-macos-aarch64')).body).toBe('cast')
-
+    expect(readFileSync(downloaded('gonggong-0.2.0-macos-aarch64'), 'utf8')).toBe('daemon')
+    expect((await t.app.inject('/downloads/gonggong-0.2.0-macos-aarch64')).body).toBe('daemon')
+    // gg-cast is retired: neither uploaded nor served to daemons any more.
+    expect((await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'cast')).status).toBe(400)
     const { token } = await t.seed.machine((await t.seed.user()).id, { os: 'macos', arch: 'aarch64' })
     const build = await t.app.inject({
       url: '/api/daemon/cast-build',
       headers: { authorization: `Bearer ${token}` },
     })
-    expect(build.json()).toEqual({
-      version: '0.2.0',
-      url: '/downloads/gg-cast-0.2.0-macos-aarch64',
-      sha256: digest('cast'),
-    })
+    expect(build.statusCode).toBe(404)
 
     const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'daemon.release.upload'))
     expect(log?.detail).toMatchObject({ kind: 'builds', version: '0.2.0', platform: 'macos-aarch64' })
     const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
-    expect(audit.json()[0].summary).toBe('上传 gg-cast 0.2.0（macos-aarch64）')
+    expect(audit.json()[0].summary).toBe('上传 共工客户端 0.2.0（macos-aarch64）')
   })
 
   it('merges concurrent same-version uploads without losing platforms or notes', async () => {
@@ -297,18 +292,28 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
 
   it('replaces the whole release on a newer version and refuses older versions and unknown names', async () => {
     const cookie = await admin()
-    await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'old')
-    await upload(cookie, 'gg-cast-0.2.0-linux-x86_64', 'old-cast')
+    const old = await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'old')
+    // An older release still lists the retired gg-cast; the next version deletes its file too.
+    mkdirSync(join(dir, 'downloads'), { recursive: true })
+    writeFileSync(downloaded('gg-cast-0.2.0-linux-x86_64'), 'old-cast')
+    const legacy = { url: '/downloads/gg-cast-0.2.0-linux-x86_64', sha256: digest('old-cast') }
+    const put = await t.app.inject({
+      method: 'PUT',
+      url: '/api/admin/daemon-release',
+      headers: { cookie },
+      payload: { ...old.body, cast: { 'linux-x86_64': legacy } },
+    })
+    expect(put.statusCode).toBe(200)
     const next = await upload(cookie, 'gonggong-0.3.0-linux-x86_64', 'new')
-    expect(next.body).toMatchObject({
+    expect(next.body).toEqual({
       version: '0.3.0',
       builds: { 'linux-x86_64': { url: '/downloads/gonggong-0.3.0-linux-x86_64', sha256: digest('new') } },
-      cast: {},
+      warning: expect.any(String),
     })
     expect(existsSync(downloaded('gonggong-0.2.0-macos-aarch64'))).toBe(false)
     expect(existsSync(downloaded('gg-cast-0.2.0-linux-x86_64'))).toBe(false)
 
-    const older = await upload(cookie, 'gg-cast-0.2.0-linux-x86_64', 'x')
+    const older = await upload(cookie, 'gonggong-0.2.0-linux-x86_64', 'x')
     expect(older.status).toBe(400)
     expect(older.body.message).toContain('0.3.0')
     expect((await upload(cookie, 'gonggong.exe', 'x')).status).toBe(400)
@@ -322,7 +327,7 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
     expect(initial.status).toBe(200)
     expect(initial.body.warning).toContain('RELEASE_NOTES.md')
     expect((await upload(cookie, 'RELEASE_NOTES.md', notes)).body.releaseNotes).toBe(notes)
-    expect((await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'cast')).body.releaseNotes).toBe(notes)
+    expect((await upload(cookie, 'gonggong-0.2.0-linux-x86_64', 'cli')).body.releaseNotes).toBe(notes)
 
     const next = await upload(cookie, 'RELEASE_NOTES.md', notes + '\n- 发布后还能修改')
     expect(next.status).toBe(200)
@@ -355,7 +360,6 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
     expect(await list()).toBeNull()
     await upload(cookie, 'Gonggong_0.2.0_aarch64.dmg', 'dmg')
     await upload(cookie, 'gonggong-0.2.0-linux-x86_64', 'cli')
-    await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'cast')
     expect(await list()).toEqual({
       version: '0.2.0',
       builds: { 'linux-x86_64': { url: '/downloads/gonggong-0.2.0-linux-x86_64', sha256: digest('cli') } },
@@ -408,17 +412,17 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
   it('removes one platform build and its file', async () => {
     const cookie = await admin()
     await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'a')
-    await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'b')
+    await upload(cookie, 'Gonggong_0.2.0_aarch64.dmg', 'b')
     const del = (path: string) => t.app.inject({ method: 'DELETE', url: path, headers: { cookie } })
-    const res = await del('/api/admin/daemon-release/cast/macos-aarch64')
+    const res = await del('/api/admin/daemon-release/desktop/macos-aarch64')
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toMatchObject({ version: '0.2.0', cast: {} })
+    expect(res.json()).toMatchObject({ version: '0.2.0', desktop: {} })
     expect(Object.keys(res.json().builds)).toEqual(['macos-aarch64'])
-    expect(existsSync(downloaded('gg-cast-0.2.0-macos-aarch64'))).toBe(false)
-    expect((await del('/api/admin/daemon-release/cast/macos-aarch64')).statusCode).toBe(404)
-    expect((await del('/api/admin/daemon-release/docs/macos-aarch64')).statusCode).toBe(400)
+    expect(existsSync(downloaded('Gonggong_0.2.0_aarch64.dmg'))).toBe(false)
+    expect((await del('/api/admin/daemon-release/desktop/macos-aarch64')).statusCode).toBe(404)
+    expect((await del('/api/admin/daemon-release/cast/macos-aarch64')).statusCode).toBe(400)
     const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
-    expect(audit.json()[0].summary).toBe('移除 gg-cast 0.2.0（macos-aarch64）')
+    expect(audit.json()[0].summary).toBe('移除 桌面端 0.2.0（macos-aarch64）')
   })
 
   it('takes a file from the machine of a live run a sysadmin started (gonggong MCP client_release_publish)', async () => {

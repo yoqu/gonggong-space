@@ -45,7 +45,6 @@ You can view workspace usage, slim down, and clean up in 「机器与 Bot」 (Ma
 ├── backups/             local backups: overwritten local changes, half-finished work from interrupted runs
 ├── logs/                daemon logs: daemon.<date>.log; service.log for the background service (macOS)
 ├── updates/             new versions downloaded by auto-upgrade (replaced only after verification)
-├── bin/                 gg-cast downloaded from the server when using live view from the command line
 ├── run/                 temporary config generated at run time (including provider settings)
 ├── probe/               temporary directory used when probing selectable models
 ├── services.pids        records of managed service processes started by Bots
@@ -66,7 +65,7 @@ While the daemon is running, it cleans up once a day, removing only content that
 
 - State left by groups or Bots no longer on this machine (Skills, plugin enablement records, sync state, etc.) that is more than a day old;
 - Plugin versions not used by any run for 30 days;
-- Managed Node.js and gg-cast versions that have been superseded and aren't used by any process.
+- Managed Node.js versions that have been superseded and aren't used by any process, and gg-cast files left by older versions.
 
 **Workspaces and local backups are never deleted automatically**; clean them up manually on the machine's 「工作区」 (Workspaces) tab on the web or with `gg workspaces --delete`. If the list of groups and Bots can't be fetched from the server, that day's cleanup is skipped.
 

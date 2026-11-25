@@ -21,8 +21,6 @@ const LIST: Tunnels = {
       serviceId: 'sv1',
       serviceName: 'web',
       status: 'online',
-      live: null,
-      control: null,
     },
     {
       id: 'p2',
@@ -35,22 +33,6 @@ const LIST: Tunnels = {
       serviceId: 'sv2',
       serviceName: 'static-site',
       status: 'online',
-      live: null,
-      control: null,
-    },
-    {
-      id: 'p3',
-      kind: 'gui',
-      title: '桌面客户端',
-      groupName: '支付重构',
-      botName: '小王的 Claude',
-      port: null,
-      path: '/',
-      serviceId: 'sv1',
-      serviceName: 'web',
-      status: 'online',
-      live: null,
-      control: null,
     },
   ],
   services: [
@@ -98,7 +80,6 @@ it('merges bound previews and services and hides background section when none ar
   expect(screen.queryByText(/pnpm dev/)).toBeNull()
   expect(screen.queryByText(/静态站点 site/)).toBeNull()
   expect(screen.queryByText(/仅后台运行/)).toBeNull()
-  expect(screen.queryByText('桌面客户端')).toBeNull()
 
   const report = await row('静态报告')
   expect(report.getByText('数据看板 · 小王的 Claude · 静态页面')).toBeTruthy()

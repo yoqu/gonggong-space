@@ -30,11 +30,11 @@ const PINS_KEPT: usize = 5;
 const PIN_TTL_MS: i64 = 30 * 24 * 3600 * 1000;
 
 mod presets;
-#[cfg(test)]
-use presets::{OVERLAY, OVERLAY_FILE, merged};
 pub use presets::{
     ModelMap, Preset, PresetEndpoint, PresetGroup, load_overlay, preset, presets, presets_source, set_overlay,
 };
+#[cfg(test)]
+use presets::{OVERLAY, OVERLAY_FILE, merged};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

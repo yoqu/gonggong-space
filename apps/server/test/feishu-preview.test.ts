@@ -125,20 +125,6 @@ describe('preview cards in Feishu', () => {
     expect(previewCards()).toEqual([])
   })
 
-  it('a devtools login code is not sent to Feishu', async () => {
-    const { group, preview } = await setup()
-    const file = snapshotFile(preview.id)
-    await mkdir(dirname(file), { recursive: true })
-    await writeFile(file, Buffer.from('qr'))
-    await t.db
-      .update(previews)
-      .set({ snapshotAt: new Date(), awaiting: 'login' })
-      .where(eq(previews.id, preview.id))
-    await publish(group.id)
-    expect(t.feishu.images).toEqual([])
-    expect(JSON.stringify(previewCards()[0]?.content)).toContain('等待开发者工具登录')
-  })
-
   it('a closed preview updates its card once and drops the links', async () => {
     const { group, preview } = await setup()
     await publish(group.id)

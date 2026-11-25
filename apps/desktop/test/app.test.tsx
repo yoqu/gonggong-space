@@ -17,7 +17,6 @@ beforeEach(() => {
   m.parseLink.mockResolvedValue({ server: 'https://evil.example', code: 'K7QM-4X2P' })
   m.bots.mockResolvedValue([])
   m.overview.mockResolvedValue({ workspaces: { count: 0, detail: '' } })
-  m.permissions.mockResolvedValue([])
   m.openWeb.mockResolvedValue()
   vi.mocked(onOpenLinks).mockImplementation(async (cb) => {
     cb([LINK])

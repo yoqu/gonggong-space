@@ -36,8 +36,12 @@ pub struct Config {
 pub enum Trust {
     /// No explicit trust: any server certificate is accepted. The name is kept for configs already saved.
     System,
-    Fingerprint { sha256: String },
-    CaFile { path: PathBuf },
+    Fingerprint {
+        sha256: String,
+    },
+    CaFile {
+        path: PathBuf,
+    },
 }
 
 impl Trust {

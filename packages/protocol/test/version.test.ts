@@ -55,8 +55,8 @@ describe('parseReleaseFile', () => {
       version: '0.2.0',
       platform: 'macos-aarch64',
     })
-    expect(parseReleaseFile('gg-cast-1.10.3-windows-x86_64.exe')).toEqual({
-      kind: 'cast',
+    expect(parseReleaseFile('gonggong-1.10.3-windows-x86_64.exe')).toEqual({
+      kind: 'builds',
       version: '1.10.3',
       platform: 'windows-x86_64',
     })
@@ -86,6 +86,7 @@ describe('parseReleaseFile', () => {
       'Gonggong_0.3.0_aarch64.dmg.sig',
       'Gonggong_0.3.0_x64-setup.exe.tar.gz',
       'gg-cast',
+      'gg-cast-1.10.3-windows-x86_64.exe',
       'gonggong-0.2.0-macos-aarch64.exe',
       'gonggong-0.2.0-windows-x86_64',
       'gonggong-0.2-linux-x86_64',

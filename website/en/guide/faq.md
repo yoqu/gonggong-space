@@ -5,7 +5,7 @@ This page collects the most common problems and how to fix them. For anything no
 ## General troubleshooting steps
 
 1. **Check status**: `gg status` shows the server this machine is bound to, the owner, and whether the background service is running (`service: running`).
-2. **Self-check**: `gg doctor` checks the server connection, Agents, git credentials, disk, line endings, and on macOS the Screen Recording and Accessibility permissions. The mark before each line means: `✓` OK, `!` warning, `✗` error, `-` skipped; if there are errors, the command exits with a non-zero status.
+2. **Self-check**: `gg doctor` checks the server connection, Agents, git credentials, disk, and line endings. The mark before each line means: `✓` OK, `!` warning, `✗` error, `-` skipped; if there are errors, the command exits with a non-zero status.
 
    ```text
    ✓ 服务器连接	HTTPS 正常
@@ -145,7 +145,6 @@ To bypass it temporarily, use `command gg …`.
 
   A `gg` built from source on the machine isn't blocked.
 - **The desktop app says it "can't be opened"**: at the bottom of System Settings → Privacy & Security, click "Open Anyway", or right-click the icon in Applications and choose "Open".
-- **Live views and remote control don't work**: in System Settings → Privacy & Security, allow the program running `gg` (the terminal or the desktop app) under Screen Recording and Accessibility. `gg doctor` tells you which one is missing. See [Permissions and system settings](/en/desktop/permissions).
 
 ### Downloading Agent tools or adapters is slow or fails
 

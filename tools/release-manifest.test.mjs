@@ -11,11 +11,10 @@ test('release notes are optional but carried into both manifests when present', 
   writeFileSync(file, '\n## 0.3.5\n\n- 桌面端显示说明\n')
   const notes = releaseNotes(file)
   assert.equal(notes, '## 0.3.5\n\n- 桌面端显示说明')
-  assert.deepEqual(releaseManifest('0.3.5', '{"macos-aarch64":{}}', '{}', notes), {
+  assert.deepEqual(releaseManifest('0.3.5', '{"macos-aarch64":{}}', notes), {
     version: '0.3.5',
     releaseNotes: notes,
     builds: { 'macos-aarch64': {} },
-    cast: {},
   })
   assert.deepEqual(updaterManifest('0.3.5', notes, '2026-10-21T00:00:00Z', '{"darwin-aarch64":{}}'), {
     version: '0.3.5',
@@ -27,7 +26,7 @@ test('release notes are optional but carried into both manifests when present', 
 
 test('missing notes do not block manifests', () => {
   assert.equal(releaseNotes(), undefined)
-  assert.deepEqual(releaseManifest('0.3.5', '{}', '{}'), { version: '0.3.5', builds: {}, cast: {} })
+  assert.deepEqual(releaseManifest('0.3.5', '{}'), { version: '0.3.5', builds: {} })
   assert.deepEqual(updaterManifest('0.3.5', undefined, '2026-10-21T00:00:00Z', '{}'), {
     version: '0.3.5',
     pub_date: '2026-10-21T00:00:00Z',

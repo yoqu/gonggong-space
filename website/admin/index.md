@@ -26,7 +26,7 @@
 | 配置 | [配置中心](/admin/config) | 平台层的 MCP、Skill、插件、密钥，以及市场「待审核」 |
 | 配置 | [系统参数](/admin/params) | 注册、团队、插件、演示模式等开关与各项平台默认值 |
 | 配置 | [飞书](/admin/feishu) | 飞书主应用、对外地址、飞书自动开户 |
-| 配置 | [客户端发布](/admin/releases) | 上传 daemon、gg-cast 与桌面端安装包/更新包 |
+| 配置 | [客户端发布](/admin/releases) | 上传 daemon 与桌面端安装包/更新包 |
 | 观测 | [机器](/admin/machines) | 所有机器的系统、硬件、daemon 版本、在线状态与网络质量；可吊销 |
 | 观测 | [会话统计](/admin/usage#会话统计) | 全站会话、消息与运行概览，按会话、成员、Bot、团队看明细 |
 | 观测 | [用量](/admin/usage) | 按 Bot、触发人、群汇总 token 用量 |

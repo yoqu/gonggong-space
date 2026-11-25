@@ -76,14 +76,6 @@ describe('demo mode', () => {
     expect(await status(path)).toBe(410)
   })
 
-  it('keeps the live view watch-only', async () => {
-    const w = await world()
-    await t.db.update(previews).set({ kind: 'gui', port: null }).where(eq(previews.id, w.preview.id))
-    await w.demo(true)
-    for (const c of [w.http.owner, w.http.guest])
-      expect((await c.post(`/api/previews/${w.preview.id}/control`, { action: 'request' })).status).toBe(403)
-  })
-
   it('keeps accounts as they are, apart from a forced first password change', async () => {
     const w = await world()
     await w.demo(true)

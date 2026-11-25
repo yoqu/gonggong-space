@@ -35,23 +35,16 @@ export function previewOrigin(ctx: Ctx, preview: Preview, req: FastifyRequest) {
   return `${proto}://${preview.slug}.${domain}${publicUrl ? '' : port}`
 }
 
+/** Rows of the retired `gui` / `miniprogram` kinds count as closed (their snapshot may be a devtools login code). */
 export async function requireOpenPreview(ctx: Ctx, id: string) {
   if (!isUuid(id)) return fail('not_found', '预览不存在或已关闭')
   const [row] = await ctx.db
     .select()
     .from(previews)
     .where(and(eq(previews.id, id), isNull(previews.closedAt)))
-  return row ?? fail('not_found', '预览不存在或已关闭')
+  if (!row || row.kind === 'gui' || row.kind === 'miniprogram') return fail('not_found', '预览不存在或已关闭')
+  return row
 }
-
-/** An open preview with a web address (not a mini program's simulator). */
-export async function requireWebPreview(ctx: Ctx, id: string) {
-  const preview = await requireOpenPreview(ctx, id)
-  if (preview.kind === 'miniprogram') fail('invalid', '小程序预览没有网页地址')
-  return preview
-}
-
-const SnapshotReq = z.object({ path: z.string().regex(/^\//).max(500).optional() })
 
 export function previewRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -73,14 +66,12 @@ export function previewRoutes(ctx: Ctx) {
     app.get('/api/previews/:id/snapshot', async (req, reply) => {
       const user = await requireUser(ctx, req)
       const preview = await requireOpenPreview(ctx, (req.params as { id: string }).id)
-      // A login code logs its scanner in to the machine's devtools: the bot owner or a group admin decides.
-      if (preview.awaiting === 'login') await requireManager(ctx, preview.groupId, preview.botId, user.id)
-      else await requireMember(ctx, preview.groupId, user.id)
+      await requireMember(ctx, preview.groupId, user.id)
       if (!preview.snapshotAt) return fail('not_found', '还没有截图')
       const image = await readFile(snapshotFile(preview.id))
-      // Versioned by ?v=snapshotAt in the card. Mini program simulators come as JPEG.
+      // Versioned by ?v=snapshotAt in the card.
       reply.headers({
-        'content-type': image[0] === 0xff ? 'image/jpeg' : 'image/png',
+        'content-type': 'image/png',
         'cache-control': 'private, max-age=31536000, immutable',
       })
       return reply.send(image)
@@ -90,12 +81,10 @@ export function previewRoutes(ctx: Ctx) {
       const user = await requireUser(ctx, req)
       const preview = await requireOpenPreview(ctx, (req.params as { id: string }).id)
       await requireManager(ctx, preview.groupId, preview.botId, user.id)
-      const { path } = SnapshotReq.parse(req.body ?? {})
-      if (path && preview.kind !== 'miniprogram') fail('invalid', '只有小程序预览可以切换页面')
-      // A member refreshing or switching the page is a visit (plan P11).
+      // A member refreshing it is a visit (plan P11).
       const [fresh] = await ctx.db
         .update(previews)
-        .set({ lastAccessAt: ctx.now(), ...(path ? { path } : {}) })
+        .set({ lastAccessAt: ctx.now() })
         .where(eq(previews.id, preview.id))
         .returning()
       await takeSnapshot(ctx, fresh ?? preview)
@@ -165,7 +154,7 @@ export function previewRoutes(ctx: Ctx) {
       const user = await requireUser(ctx, req)
       const { id } = req.params as { id: string }
       const { path = '/' } = z.object({ path: z.string().startsWith('/').optional() }).parse(req.query)
-      const preview = await requireWebPreview(ctx, id)
+      const preview = await requireOpenPreview(ctx, id)
       if (preview.artifactId) await viewArtifact(ctx, preview.artifactId, user.id)
       else await requireMember(ctx, preview.groupId, user.id)
       const { publicUrl } = ctx.config.preview

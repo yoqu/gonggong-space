@@ -7,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import WebSocket from 'ws'
 import { buildApp } from '../src/app.js'
 import { DaemonHub } from '../src/daemon/hub.js'
-import { liveKitFromEnv } from '../src/modules/live/livekit.js'
 import { TunnelHub } from '../src/modules/previews/tunnel.js'
 import { Bus } from '../src/realtime/bus.js'
 import { tlsOptions } from '../src/tls.js'
@@ -44,10 +43,6 @@ describe('server over TLS', () => {
       bus: new Bus(),
       hub: new DaemonHub(),
       tunnels: new TunnelHub(),
-      livekit: liveKitFromEnv(
-        { LIVEKIT_URL: 'ws://127.0.0.1:9', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 's' },
-        dir,
-      ),
       feishu: (({ api, connector }) => ({ api, connector }))(new FakeFeishu()),
       now: () => new Date(),
       config: {

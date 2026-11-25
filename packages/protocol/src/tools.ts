@@ -13,7 +13,7 @@ import {
 } from './html-render.js'
 import { KbCreateArgs, KbDeleteArgs, KbGetArgs, KbListArgs, KbSearchArgs, KbUpdateArgs } from './kb-tools.js'
 import { ListingType, ListingVisibility, MarketSource } from './market.js'
-import { PREVIEW_HOST_TOOL, PreviewMiniprogramArgs, PreviewStaticArgs } from './preview-tools.js'
+import { PREVIEW_HOST_TOOL, PreviewStaticArgs } from './preview-tools.js'
 import { SCHEDULE_TOOLS } from './schedule-tools.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 import {
@@ -109,7 +109,6 @@ export const PreviewExposeArgs = z
   .object({
     port: port.describe('Local port').optional(),
     service: serviceName.describe('A service_start service; uses its port').optional(),
-    miniprogram: z.string().min(1).max(1000).describe('Set by preview_miniprogram; do not use').optional(),
     title: z.string().min(1).max(60).describe('Card title: what this is'),
     path: z
       .string()
@@ -118,14 +117,9 @@ export const PreviewExposeArgs = z
       .describe('Path to open (starts with /, may have a query), default /')
       .optional(),
   })
-  .refine((a) => [a.port, a.service, a.miniprogram].filter((x) => x !== undefined).length === 1, {
-    message: 'port、service 与 miniprogram 需要且只能给一个',
+  .refine((a) => (a.port === undefined) !== (a.service === undefined), {
+    message: 'port 与 service 需要且只能给一个',
   })
-
-export const PreviewGuiArgs = z.object({
-  service: serviceName.describe('A desktop app started with service_start; its windows are streamed'),
-  title: z.string().min(1).max(60).describe('Card title: what this is'),
-})
 
 export const PreviewCloseArgs = z.object({
   preview: z.string().describe('Preview id returned by preview_expose'),
@@ -516,13 +510,6 @@ export const GONGGONG_TOOLS = {
       'Publish a web page or service on a local port to members: returns a preview link and posts a preview card. Start the service with service_start first.',
     input: PreviewExposeArgs,
   },
-  preview_gui: {
-    title: GONGGONG_TOOL_TITLES.preview_gui,
-    description:
-      'Stream the windows of a desktop app started with service_start (e.g. Electron, Tauri) to members through a preview card; ' +
-      "with the bot owner's consent they can control it. Only that process's windows, never the whole screen.",
-    input: PreviewGuiArgs,
-  },
   preview_close: {
     title: GONGGONG_TOOL_TITLES.preview_close,
     description: 'Close a preview link (the service keeps running).',
@@ -810,12 +797,6 @@ export const ServiceStartArgs = z.object({
   cwd: z.string().max(500).describe('Workspace-relative dir, default the root').optional(),
   port: port.describe('Port it listens on; waits until ready (up to 60 s)').optional(),
   env: z.record(z.string(), z.string()).describe('Extra env vars').optional(),
-  display: z
-    .enum(['virtual'])
-    .describe(
-      "Desktop apps: virtual runs on a new virtual display (Xvfb), not the owner's screen, and preview_gui streams all of it; Linux only",
-    )
-    .optional(),
 })
 export const ServiceListArgs = z.object({})
 export const ServiceLogsArgs = z.object({
@@ -872,10 +853,7 @@ export const ClientReleasePublishArgs = z
         'A whole dir, workspace-relative (e.g. dist/0.3.1): uploads every release file and RELEASE_NOTES.md, skipping SHA256SUMS, manifest.json and subdirs',
       )
       .optional(),
-    kind: z
-      .literal('daemon')
-      .describe('Only gg and gg-cast (no desktop app); dir needs every platform')
-      .optional(),
+    kind: z.literal('daemon').describe('Only gg (no desktop app); dir needs every platform').optional(),
   })
   .refine((a) => (a.file === undefined) !== (a.dir === undefined), {
     message: 'file 与 dir 需要且只能给一个',
@@ -965,7 +943,7 @@ export const DAEMON_TOOLS = {
   client_release_publish: {
     title: GONGGONG_TOOL_TITLES.client_release_publish,
     description:
-      'Upload client builds from scripts/release.sh (gg, gg-cast, desktop installers and updates) to this space; members update from here. ' +
+      'Upload client builds from scripts/release.sh (gg, desktop installers and updates) to this space; members update from here. ' +
       'Prefer dir for a whole dist/<version> (one approval), file for one more file, dir with kind="daemon" for gg only. Sysadmin turns only.',
     input: ClientReleasePublishArgs,
   },
@@ -981,13 +959,6 @@ export const DAEMON_TOOLS = {
       "Send a custom card to the bound Feishu chat as this bot's Feishu app, replying to the message that started the turn. " +
       'Read the feishu-card skill first. Ordinary replies sync to Feishu by themselves.',
     input: FeishuSendCardArgs,
-  },
-  preview_miniprogram: {
-    title: GONGGONG_TOOL_TITLES.preview_miniprogram,
-    description:
-      'Open the workspace mini program in WeChat DevTools on this machine at a page and post a card with a simulator screenshot; call again to switch pages. ' +
-      'It handles launch, login (QR code on the card) and trust: never drive DevTools yourself or send QR codes.',
-    input: PreviewMiniprogramArgs,
   },
 } as const
 

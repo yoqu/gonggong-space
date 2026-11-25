@@ -24,7 +24,7 @@ Every connection is opened by the daemon toward the server, so members' machines
 | Web | React + Vite | Login, group messages, @Bot, run process / diff / Git / files, approvals, previews and works, the market, machines and Bots, the admin console; works in mobile browsers |
 | Server | Fastify + PostgreSQL | Accounts and permissions, groups and messages, scheduling runs and scheduled tasks, relaying daemon events, storing attachments and works, preview entry points, auditing |
 | daemon | Rust, the `gg` CLI | Does the work on members' machines: prepares workspaces, starts Agents, streams the process back, applies approval decisions, keeps preview tunnels open, runs Git operations and terminal sessions |
-| Desktop app | Tauri (macOS, Windows) | Bundles the same daemon plus a GUI (Overview, Agents, Bots, Workspaces, Online previews, Live views, Market, Logs & diagnostics, Settings) |
+| Desktop app | Tauri (macOS, Windows) | Bundles the same daemon plus a GUI (Overview, Agents, Bots, Workspaces, Online previews, Market, Logs & diagnostics, Settings) |
 | Agent integration | ACP | The daemon drives each Agent through [ACP](https://agentclientprotocol.com) (Agent Client Protocol), receiving structured thinking, tool calls, and permission requests |
 | Preview tunnel | WebSocket between daemon and server | Forwards browser requests for a preview to a local port on the member's machine |
 
@@ -49,7 +49,7 @@ For each session the daemon serves an MCP server named `gonggong` on the local l
 
 - read and search this group's chat history; view group info, run records, past questions, and attachments; send attachments;
 - ask group members a question (and wait for an answer), or ask a member to fill in a secret;
-- publish previews (web services, static pages, desktop apps, mini programs), manage hosted services, and render web pages into the chat;
+- publish previews (web services, static pages), manage hosted services, and render web pages into the chat;
 - hand a task to another Bot (relay), open a thread and assign a Bot to take over, and create scheduled tasks;
 - maintain the group knowledge base, and manage Skills, MCP servers, and market listings.
 

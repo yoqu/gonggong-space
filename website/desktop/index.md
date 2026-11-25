@@ -8,8 +8,7 @@
 
 - **内置 daemon**：应用本身就是这台机器的执行端，接收派给本机 Bot 的任务，调用本机的 Claude Code、Codex 等 Agent 干活。
 - **常驻后台**：关掉窗口后程序仍在后台运行，菜单栏（Windows 为托盘）图标里有「打开」和「退出」两项。macOS 上点 Dock 图标也能把窗口叫回来。
-- **图形化查看与管理**：本机的 Agent、Bot、工作区、在线预览、实时画面、市场、日志诊断和设置都能在窗口里查看，见 [功能页面](/desktop/pages)。
-- **自带推流组件**：Bot 推送桌面应用、小程序实时画面用的 gg-cast 已内置在 macOS 安装包里，不用另外下载。
+- **图形化查看与管理**：本机的 Agent、Bot、工作区、在线预览、市场、日志诊断和设置都能在窗口里查看，见 [功能页面](/desktop/pages)。
 
 ![桌面端概览](/screenshots/desktop/overview.webp)
 
@@ -36,7 +35,7 @@ Linux 没有桌面端，请使用 [命令行 gg](/cli/)。
 3. 按 [首次引导](/desktop/onboarding) 完成绑定。
 
 ::: tip 应用名称
-安装后在 Finder、「系统设置」、窗口标题和菜单栏里显示的名称都是「共工空间」。早期版本的应用名是 Gonggong，装好新版后可把「应用程序」里旧的 Gonggong 删掉，绑定信息保存在 `~/.gonggong`，不受影响；若系统权限显示未授权，按 [权限与系统设置](/desktop/permissions) 重新授权即可。
+安装后在 Finder、「系统设置」、窗口标题和菜单栏里显示的名称都是「共工空间」。早期版本的应用名是 Gonggong，装好新版后可把「应用程序」里旧的 Gonggong 删掉，绑定信息保存在 `~/.gonggong`，不受影响。
 :::
 
 ## 首次打开被系统拦截（macOS）
@@ -46,10 +45,6 @@ Linux 没有桌面端，请使用 [命令行 gg](/cli/)。
 1. 先双击打开一次，看到提示后关闭提示框。
 2. 打开「系统设置 → 隐私与安全性」，滚动到底部，点「仍要打开」。
 3. 按提示输入密码确认，之后就能正常打开。
-
-::: warning 未使用 Developer ID 签名的版本
-macOS 的屏幕录制、辅助功能授权是跟应用签名绑定的。没有 Developer ID 签名的安装包每个版本的签名都不同，**升级后这两项权限会失效，需要重新授权**。详见 [权限与系统设置](/desktop/permissions)。
-:::
 
 ## 升级
 
@@ -79,14 +74,13 @@ macOS 的屏幕录制、辅助功能授权是跟应用签名绑定的。没有 D
 | --- | --- | --- |
 | 平台 | macOS（Apple 芯片 / Intel）、Windows | macOS / Linux / Windows |
 | 后台运行 | 关窗后菜单栏 / 托盘常驻，可开机启动 | `gg service install` 注册为后台服务，或前台 `gg run` |
-| 实时画面推流组件 | macOS 安装包内置 | 首次推流时从服务器下载 |
 | 升级 | 应用自动更新，重启生效 | 自动下载新版本并替换自身；Linux 可在网页一键升级 |
 
 ## 相关页面
 
 - [首次引导](/desktop/onboarding)
 - [功能页面](/desktop/pages)
-- [权限与系统设置](/desktop/permissions)
+- [本机配置与系统设置](/desktop/permissions)
 - [命令行安装](/cli/)
 - [绑定机器](/user/bind-machine)
 - [我的机器与 Bot](/user/machines)

@@ -1,7 +1,0 @@
-{
-  "snapshot": { "previewId": "p2", "miniprogram": "/Users/dev/work/shop" },
-  "method": "GET",
-  "path": "/pages/goods/detail?id=42",
-  "headers": [],
-  "upgrade": false
-}

@@ -118,7 +118,7 @@ See [Approvals and questions](/en/user/approvals).
 
 ## Previews and works
 
-A Bot can publish a web service it started, a static page, a desktop app window, or a mini program as a **preview**. A preview card appears in the group, and members open it right in the browser; when people outside need to see it, you can create a public link with an expiry. Traffic goes through the tunnel between the daemon and the server, and only published ports on the machine are reachable.
+A Bot can publish a web service it started or a static page as a **preview**. A preview card appears in the group, and members open it right in the browser; when people outside need to see it, you can create a public link with an expiry. Traffic goes through the tunnel between the daemon and the server, and only published ports on the machine are reachable.
 
 With the creative plugin on, prototypes a Bot makes become hosted **works**: lay them out on a multi-screen canvas, annotate them, view versions, and have the Bot rework a whole screen or a single element. All works are collected on the 「作品」 (Works) page. See [Previews](/en/user/previews), [Public sharing](/en/user/shares), and [Prototypes, canvas, and works](/en/user/artifacts).
 

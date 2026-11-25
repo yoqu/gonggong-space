@@ -31,17 +31,15 @@ type Build = DaemonRelease['builds'][string]
 interface Row {
   id: string
   builds?: Build
-  cast?: Build
   desktop?: Build
   update?: Build
   signature?: Build
   machines: number
 }
 
-const KINDS = ['builds', 'cast', 'desktop', 'update', 'signature'] as const
+const KINDS = ['builds', 'desktop', 'update', 'signature'] as const
 const KIND_LABEL: Record<ReleaseKind, string> = {
   builds: t('共工客户端'),
-  cast: t('实时画面组件'),
   desktop: t('桌面端'),
   update: t('桌面端更新包'),
   signature: t('桌面端更新签名'),
@@ -72,7 +70,7 @@ function UpdateCell({ row }: { row: Row }) {
 
 type UploadItem = DropFile & { id: number }
 
-/** 管理后台 · 客户端发布: the daemon and gg-cast builds online daemons download (plan D17), uploaded from dist/<version>/. */
+/** 管理后台 · 客户端发布: the daemon builds online daemons download (plan D17), uploaded from dist/<version>/. */
 export function ReleasesPage() {
   const [release, setRelease] = useState<DaemonRelease | null | undefined>(undefined)
   const machines = useGet<AdminMachineDto[]>('/admin/machines').data ?? []
@@ -192,7 +190,7 @@ export function ReleasesPage() {
     <AdminPage
       title={t('客户端发布')}
       desc={t(
-        '成员电脑上的共工客户端连上后会自动升级到这里的版本，实时画面组件会在首次使用时按需下载；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。',
+        '成员电脑上的共工客户端连上后会自动升级到这里的版本；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。',
       )}
       subtitle={
         release === undefined
@@ -260,7 +258,7 @@ export function ReleasesPage() {
         onFiles={(files) => void upload(files)}
         title={t('拖入发布产物')}
         description={t(
-          '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-*、gg-cast-* 与 Gonggong_*（安装包、更新包与 .sig 签名）拖到这里；RELEASE_NOTES.md 可作为本版本更新说明上传。文件名决定平台与版本；更高的版本会替换整个发布。',
+          '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-* 与 Gonggong_*（安装包、更新包与 .sig 签名）拖到这里；RELEASE_NOTES.md 可作为本版本更新说明上传。文件名决定平台与版本；更高的版本会替换整个发布。',
         )}
         files={uploads}
         onRemove={(i) => setUploads((list) => list.filter((_, j) => j !== i))}
@@ -279,11 +277,6 @@ export function ReleasesPage() {
               key: 'builds',
               title: t('共工客户端'),
               render: (r) => <BuildCell build={r.builds} needed={r.machines > 0} />,
-            },
-            {
-              key: 'cast',
-              title: t('实时画面组件'),
-              render: (r) => <BuildCell build={r.cast} needed={false} />,
             },
             {
               key: 'desktop',
@@ -313,7 +306,6 @@ export function ReleasesPage() {
             message={
               {
                 builds: t('该平台的电脑将不再自动升级，直到重新上传。'),
-                cast: t('该平台的电脑将无法推送实时画面，直到重新上传。'),
                 desktop: t('成员将无法在「绑定新电脑」中下载该平台的安装包，直到重新上传。'),
                 update: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
                 signature: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),

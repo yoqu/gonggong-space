@@ -36,7 +36,7 @@ pnpm dev:web                                      # http://127.0.0.1:5173
 - The server runs migrations automatically at startup; you don't need to create tables by hand.
 - On first startup, `GONGGONG_ADMIN_PASSWORD` creates the `admin` account, which must change its password on first sign-in.
 - Adjust the server's listen address with `HOST` and `PORT`.
-- The web dev server proxies `/api`, `/ws`, and `/livekit` to the server. Set the upstream address with `GONGGONG_SERVER`, and the port and listen address with `WEB_PORT` and `WEB_HOST`.
+- The web dev server proxies `/api` and `/ws` to the server. Set the upstream address with `GONGGONG_SERVER`, and the port and listen address with `WEB_PORT` and `WEB_HOST`.
 
 For the other server environment variables, see [Environment variables](/en/deploy/env).
 

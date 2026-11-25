@@ -1,15 +1,6 @@
 import { z } from 'zod'
 import { RunSettingsSnapshot } from '../agent-settings.js'
-import {
-  AiReview,
-  ApprovalMcp,
-  DevtoolsBlocker,
-  DiffRepo,
-  GitStatus,
-  Permission,
-  Question,
-  Usage,
-} from '../common.js'
+import { AiReview, ApprovalMcp, DiffRepo, GitStatus, Question, Usage } from '../common.js'
 import { RunSyncDone, SyncApplied, SyncState, SyncSubmit } from '../sync.js'
 import { AgentState, RuntimeState } from './agent-state.js'
 import {
@@ -517,23 +508,6 @@ export const SiteHostResult = z.object({
   error: z.string().nullable(),
 })
 
-/**
- * gg-cast for a live preview (plan B2), as asked by cast.sync: starting (fetching gg-cast, finding the window,
- * joining the room), live (publishing), failed (`error` in the daemon's words; retried while still asked for).
- * `missing`: permissions the machine lacks — no screen recording fails, no accessibility leaves control inert.
- * `devtools`: a mini program waits on its owner in the WeChat devtools; retried every few seconds meanwhile.
- * `retryIn`: seconds until a failed one is tried again (cast.retry tries at once).
- */
-export const CastState = z.object({
-  t: z.literal('cast.state'),
-  previewId: z.string(),
-  state: z.enum(['starting', 'live', 'failed']),
-  error: z.string().nullable(),
-  missing: z.array(Permission).default([]),
-  devtools: DevtoolsBlocker.optional(),
-  retryIn: z.number().int().nonnegative().optional(),
-})
-
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   AppsListResult,
@@ -582,7 +556,6 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   ServiceState,
   ServiceRestartResult,
   SiteHostResult,
-  CastState,
   ToolsProgress,
   ToolsResult,
   ConnectorsProgress,

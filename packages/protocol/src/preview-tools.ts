@@ -11,22 +11,6 @@ export const PreviewStaticArgs = z.object({
   path: z.string().regex(/^\//).max(500).describe('Path to open, default / (index.html)').optional(),
 })
 
-export const PreviewMiniprogramArgs = z.object({
-  dir: z
-    .string()
-    .max(500)
-    .describe('Workspace dir of the mini program (with project.config.json), default the root')
-    .optional(),
-  page: z
-    .string()
-    .regex(/^[^/?]/)
-    .max(300)
-    .describe('Page to open, e.g. pages/goods/detail, default the home page')
-    .optional(),
-  query: z.string().regex(/^[^?]/).max(500).describe('Page query, e.g. id=42&from=share').optional(),
-  title: z.string().min(1).max(60).describe('Card title: what this is'),
-})
-
 export const PreviewHostArgs = z.object({
   dir: z
     .string()

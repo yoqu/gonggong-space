@@ -1,6 +1,6 @@
 # 客户端发布
 
-本页说明如何在「客户端发布」页上传新版 daemon、gg-cast 和桌面端，文件名怎样决定平台与版本，以及成员机器和桌面端如何从这里升级。
+本页说明如何在「客户端发布」页上传新版 daemon 和桌面端，文件名怎样决定平台与版本，以及成员机器和桌面端如何从这里升级。
 
 ![管理后台 · 客户端发布](/screenshots/web/admin-releases.webp)
 
@@ -9,7 +9,6 @@
 | 产物 | 文件名示例 | 用途 |
 | --- | --- | --- |
 | daemon | `gonggong-0.4.20-linux-x86_64` | 成员机器上的 `gg` 命令行程序。在线的 daemon 连上服务器后自动升级到这里的版本；Linux 版也供成员在「绑定新机器」中下载 |
-| gg-cast | `gg-cast-0.4.20-windows-x86_64.exe` | 推送「实时画面」用的辅助程序。daemon 第一次推送实时画面时按需下载 |
 | 桌面端安装包 | `Gonggong_0.4.20_aarch64.dmg`、`Gonggong_0.4.20_x86_64.dmg`、`Gonggong_0.4.20_x64-setup.exe` | 供成员在「绑定新机器」中下载 |
 | 桌面端更新包 | `Gonggong_0.4.20_aarch64.app.tar.gz`、`Gonggong_0.4.20_x86_64.app.tar.gz` | macOS 桌面端自动更新用（Windows 直接用安装包更新） |
 | 桌面端更新签名 | 上面更新包或 Windows 安装包加 `.sig` | 桌面端校验更新包用 |
@@ -20,7 +19,7 @@ macOS 桌面端分 Apple 芯片（`aarch64`）和 Intel（`x86_64`）两个包�
 ## 上传
 
 1. 在构建机上运行 `bash scripts/release.sh`。
-2. 打开「客户端发布」页，把 `dist/<版本>/` 里的 `gonggong-*`、`gg-cast-*`、`Gonggong_*`（安装包、更新包与 `.sig` 签名）和 `RELEASE_NOTES.md` 拖进「拖入发布产物」区域（可一次拖多个）。
+2. 打开「客户端发布」页，把 `dist/<版本>/` 里的 `gonggong-*`、`Gonggong_*`（安装包、更新包与 `.sig` 签名）和 `RELEASE_NOTES.md` 拖进「拖入发布产物」区域（可一次拖多个）。
 3. 每个文件显示上传进度，完成后下方表格对应平台变为「已发布」。
 
 ![上传发布产物](/screenshots/web/admin-releases-upload.webp)
@@ -33,13 +32,12 @@ macOS 桌面端分 Apple 芯片（`aarch64`）和 Intel（`x86_64`）两个包�
 
 ```text
 gonggong-<版本>-<平台>[.exe]
-gg-cast-<版本>-<平台>[.exe]
 Gonggong_<版本>_aarch64.dmg | x86_64.dmg | x64-setup.exe[.sig]
 Gonggong_<版本>_aarch64.app.tar.gz[.sig] | x86_64.app.tar.gz[.sig]
 ```
 
 - 版本：三段数字，如 `0.4.20`。
-- daemon / gg-cast 的平台：`macos-aarch64`、`macos-x86_64`、`linux-x86_64`、`linux-aarch64`、`windows-x86_64`；只有 Windows 带 `.exe`。
+- daemon 的平台：`macos-aarch64`、`macos-x86_64`、`linux-x86_64`、`linux-aarch64`、`windows-x86_64`；只有 Windows 带 `.exe`。
 
 不符合规则的文件（如 `SHA256SUMS`、`manifest.json`）在浏览器里就会被拒绝，提示「不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg」。**不要改名**，直接拖 `release.sh` 的原始产物。
 
@@ -73,17 +71,15 @@ Gonggong_<版本>_aarch64.app.tar.gz[.sig] | x86_64.app.tar.gz[.sig]
 | --- | --- |
 | 平台 / 标识 | 如「macOS aarch64」/ `macos-aarch64` |
 | daemon | 「已发布」及 sha256 前 12 位；没有则为「未发布」。该平台有机器但未发布时标为警示色 |
-| gg-cast（实时画面） | 同上 |
 | 桌面端安装包 | 同上 |
 | 桌面端自动更新 | 更新包与签名都齐时为「已发布」；只缺一样时提示「缺少签名」或「缺少更新包」 |
 | 机器 | 该平台的机器数量 |
 
-每行菜单可移除该平台已发布的各类文件（「移除 daemon…」「移除 gg-cast…」「移除 桌面端…」等）：
+每行菜单可移除该平台已发布的各类文件（「移除 daemon…」「移除 桌面端…」等）：
 
 | 移除 | 影响 |
 | --- | --- |
 | daemon | 该平台的机器不再自动升级，直到重新上传 |
-| gg-cast | 该平台的机器无法推送实时画面，直到重新上传 |
 | 桌面端安装包 | 成员无法在「绑定新机器」中下载该平台的安装包，直到重新上传 |
 | 桌面端更新包 / 签名 | 该平台的桌面端改从 GitHub 检查更新，直到重新上传 |
 
@@ -109,7 +105,7 @@ daemon 要替换自己的可执行文件，所以 `gg` 应放在成员自己有�
 
 ### 桌面端自动更新
 
-桌面端内置 daemon 和 gg-cast，作为应用整体更新：
+桌面端内置 daemon，作为应用整体更新：
 
 - 桌面端**优先向已绑定的服务器**检查更新：本平台的更新包（Windows 为安装包）和签名都已发布，就从服务器下载。
 - 服务器没有发布本平台的签名更新包时，改查 GitHub。

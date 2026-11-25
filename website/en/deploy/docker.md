@@ -50,7 +50,7 @@ Keeping `data.key` in the same volume as the data is only acceptable for trials.
 
 ### Previews
 
-Port mode is used, opening 20 preview ports `41000–41019`, served over HTTPS by the server with the same certificate. Your firewall must allow these ports. Live view (LiveKit) ports aren't published in the compose file.
+Port mode is used, opening 20 preview ports `41000–41019`, served over HTTPS by the server with the same certificate. Your firewall must allow these ports.
 
 ### Upgrade
 
@@ -64,9 +64,9 @@ Database migrations run automatically when the server starts. We recommend [back
 
 The image in `docker/daemon/` turns a server into an always-online member machine: the daemon only makes outbound connections to the Gonggong Space server, and previews travel over that connection too, so no inbound ports need to be opened.
 
-The image includes: `gg`, Claude Code, Codex, Node.js 24, git (with `gh`), ripgrep, jq, build tools, python3 and `uv` (for MCP servers launched via npx / uvx), Chromium and CJK fonts (screenshots, web previews), and Xvfb (desktop app previews). `gg-cast` isn't baked into the image; it's downloaded from the server on first use. The daemon runs as the regular user `gg`, and all of its data lives in a single `/home/gg` volume.
+The image includes: `gg`, Claude Code, Codex, Node.js 24, git (with `gh`), ripgrep, jq, build tools, python3 and `uv` (for MCP servers launched via npx / uvx), and Chromium and CJK fonts (screenshots, web previews). The daemon runs as the regular user `gg`, and all of its data lives in a single `/home/gg` volume.
 
-WeChat DevTools, mini program live view, and 「用本机应用打开」 (open with a local app) are supported only on macOS / Windows and aren't available in the container.
+「用本机应用打开」 (open with a local app) is supported only on macOS / Windows and isn't available in the container.
 
 ### Start
 

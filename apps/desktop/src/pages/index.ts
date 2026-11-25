@@ -3,7 +3,6 @@ import type { ComponentType } from 'react'
 import { t } from '../i18n'
 import { AgentsPage } from './Agents'
 import { BotsPage } from './Bots'
-import { LivePage } from './Live'
 import { LogsPage } from './Logs'
 import { MarketPage } from './Market'
 import { OverviewPage } from './Overview'
@@ -17,7 +16,6 @@ export type PageKey =
   | 'bots'
   | 'workspaces'
   | 'tunnels'
-  | 'live'
   | 'market'
   | 'logs'
   | 'settings'
@@ -84,14 +82,6 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         color: 'var(--system-teal)',
         desc: t('Bot 对外开放的网页与后台运行的服务，可在本机查看或停止'),
         Component: TunnelsPage,
-      },
-      {
-        key: 'live',
-        label: t('实时画面'),
-        icon: 'video',
-        color: 'var(--system-red)',
-        desc: t('Bot 推送的桌面应用与小程序画面：推流组件、系统权限与推流状态'),
-        Component: LivePage,
       },
       {
         key: 'market',

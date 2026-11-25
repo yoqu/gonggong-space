@@ -86,7 +86,6 @@
 | desktop/bots.webp | Bot 列表 |
 | desktop/workspaces.webp | 工作区 |
 | desktop/tunnels.webp | 隧道/预览 |
-| desktop/live.webp | 实时画面 |
 | desktop/logs.webp | 日志 |
 | desktop/settings.webp | 设置 |
 
@@ -97,7 +96,7 @@
 
 未拍：
 - web/context-meter：群头部的上下文占用环只在占用偏高（warning 及以上）时出现，演示运行用量很低，不显示；文件保留旧版。
-- 需真实桌面环境：web/live-view（gg-cast 录屏需签名与屏幕录制授权）、web/devtools-guide（会启动微信开发者工具）、desktop/permissions、desktop/tray-menu（系统原生菜单）。
+- 需真实桌面环境：desktop/tray-menu（系统原生菜单）。
 
 说明：演示服务器地址统一显示为 `https://gg.example.com`，仓库 `https://git.example.com/xinghe/todo-app.git`；机器 wanglei-mbp 实际在 Linux 上拍，系统显示为 Linux。原型画布与作品库里的「待办清单小程序」由 陈晨 的「设计助手」（脚本化的 mock agent，`website/scripts/shots-artifact.sh` 写出原型文件）生成；桌面端截图是 apps/desktop 的真实界面，数据由脚本内的模拟 IPC 提供。
 

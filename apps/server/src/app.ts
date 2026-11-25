@@ -51,8 +51,6 @@ import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
 import { feishuProjectRoutes } from './modules/integrations/feishu-project.js'
 import { knowledgeRoutes } from './modules/knowledge/routes.js'
-import { liveRoutes, routeLiveKitUpgrades } from './modules/live/routes.js'
-import { startLiveEngine } from './modules/live/service.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { marketRoutes } from './modules/market/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
@@ -64,7 +62,7 @@ import { pluginRoutes } from './modules/plugins/routes.js'
 import { startPreviewEngine } from './modules/previews/engine.js'
 import { previewServerFactory, routeUpgrades, startPortListeners } from './modules/previews/gateway.js'
 import { previewRoutes } from './modules/previews/routes.js'
-import { startLoginWatch, startPreviewReaper } from './modules/previews/service.js'
+import { startPreviewReaper } from './modules/previews/service.js'
 import { shareRoutes } from './modules/previews/shares.js'
 import { tunnelGateway } from './modules/previews/tunnel.js'
 import { providerRoutes } from './modules/providers/routes.js'
@@ -122,9 +120,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   originCheck(app)
   app.addHook('onReady', async () => {
     routeUpgrades(ctx, app.server)
-    routeLiveKitUpgrades(ctx, app.server)
   })
-  app.addHook('onClose', () => ctx.livekit.close())
   app.addHook('onClose', startPortListeners(ctx, opts.https ?? null))
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HttpError)
@@ -154,12 +150,9 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(tunnelGateway(ctx))
   await app.register(previewRoutes(ctx))
   await app.register(shareRoutes(ctx))
-  await app.register(liveRoutes(ctx))
   await app.register(runRoutes(ctx))
   app.addHook('onClose', startPreviewEngine(ctx))
-  app.addHook('onClose', startLiveEngine(ctx))
   app.addHook('onClose', startPreviewReaper(ctx))
-  app.addHook('onClose', startLoginWatch(ctx))
   const stopRunEngine = startRunEngine(ctx)
   app.addHook('onClose', stopRunEngine)
   await app.register(stopRoutes(ctx))

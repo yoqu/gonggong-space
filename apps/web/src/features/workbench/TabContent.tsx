@@ -10,8 +10,6 @@ import { GitMergeTab, useGitMergeTabMeta } from './tabs/GitMergeTab'
 import { GitTab, useGitTabMeta } from './tabs/GitTab'
 import { KnowledgeTab, useKnowledgeTabMeta } from './tabs/KnowledgeTab'
 import { LinkTab, useLinkTabMeta } from './tabs/LinkTab'
-import { LiveTab, useLiveTabMeta } from './tabs/LiveTab'
-import { MiniprogramTab, useMiniprogramTabMeta } from './tabs/MiniprogramTab'
 import { PageTab, usePageTabMeta } from './tabs/PageTab'
 import { RunTab, useRunTabMeta } from './tabs/RunTab'
 import { TerminalTab, useTerminalTabMeta } from './tabs/TerminalTab'
@@ -24,10 +22,6 @@ export const TabContent = memo(function TabContent({ tab, active }: { tab: Workb
   switch (tab.kind) {
     case 'web':
       return <WebTab tab={tab} tabKey={key} active={active} />
-    case 'miniprogram':
-      return <MiniprogramTab tab={tab} tabKey={key} active={active} />
-    case 'live':
-      return <LiveTab tab={tab} tabKey={key} active={active} />
     case 'run':
       return <RunTab tab={tab} tabKey={key} active={active} />
     case 'diff':
@@ -64,10 +58,6 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
   switch (tab.kind) {
     case 'web':
       return <WebMeta tab={tab}>{children}</WebMeta>
-    case 'miniprogram':
-      return <MiniprogramMeta tab={tab}>{children}</MiniprogramMeta>
-    case 'live':
-      return <LiveMeta tab={tab}>{children}</LiveMeta>
     case 'run':
       return <RunMeta tab={tab}>{children}</RunMeta>
     case 'diff':
@@ -99,8 +89,6 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
 
 type MetaProps<K extends WorkbenchTab['kind']> = { tab: Extract<WorkbenchTab, { kind: K }>; children: Render }
 const WebMeta = ({ tab, children }: MetaProps<'web'>) => children(useWebTabMeta(tab))
-const MiniprogramMeta = ({ tab, children }: MetaProps<'miniprogram'>) => children(useMiniprogramTabMeta(tab))
-const LiveMeta = ({ tab, children }: MetaProps<'live'>) => children(useLiveTabMeta(tab))
 const RunMeta = ({ tab, children }: MetaProps<'run'>) => children(useRunTabMeta(tab))
 const DiffMeta = ({ tab, children }: MetaProps<'diff'>) => children(useDiffTabMeta(tab))
 const FilesMeta = ({ tab, children }: MetaProps<'files'>) => children(useFilesTabMeta(tab))

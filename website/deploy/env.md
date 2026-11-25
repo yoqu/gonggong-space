@@ -13,7 +13,7 @@
 | `GONGGONG_DATABASE_URL` | 无 | PostgreSQL 连接串，如 `postgres://gonggong:密码@127.0.0.1:5432/gonggong`。设置后忽略下面两项 |
 | `GONGGONG_DB` | `gonggong` | 未设置连接串时使用的库名（连 `postgres://gonggong@127.0.0.1:<端口>/<库名>`） |
 | `GONGGONG_PG_PORT` | `54329` | 未设置连接串时使用的端口，对应开发用的 `pnpm db:up` |
-| `GONGGONG_DATA_DIR` | `.gonggong-dev/data` | 数据目录，存加密附件（`attachments/`）、基准分支镜像（`mirrors/`）、客户端安装包（`downloads/`）、LiveKit 程序等。默认值相对 server 工作目录，生产环境请设为绝对路径 |
+| `GONGGONG_DATA_DIR` | `.gonggong-dev/data` | 数据目录，存加密附件（`attachments/`）、基准分支镜像（`mirrors/`）、客户端安装包（`downloads/`）等。默认值相对 server 工作目录，生产环境请设为绝对路径 |
 | `GONGGONG_ADMIN_PASSWORD` | 无 | 数据库里没有任何账号时，用它创建系统管理员 `admin`（首次登录须改密）。已有账号后不起作用 |
 | `GONGGONG_LOG` | 未开启 | 设为 `1` 输出逐条请求日志 |
 
@@ -39,20 +39,6 @@
 
 两种模式的区别与配置见 [反向代理与预览域名](/deploy/reverse-proxy)。
 
-### 实时画面（LiveKit）
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `LIVEKIT_URL` | 无 | 外部 LiveKit 地址。与下面两项必须同时设置；设置后不再自动启动本机 livekit-server |
-| `LIVEKIT_API_KEY` | 无 | 外部 LiveKit 的 API Key |
-| `LIVEKIT_API_SECRET` | 无 | 外部 LiveKit 的 API Secret |
-| `GONGGONG_LIVEKIT_BIN` | 自动查找 | 本机 livekit-server 程序路径。未设置时依次找数据目录里下载过的、`PATH` 上的，最后从 GitHub 下载官方发布包（仅 Linux / Windows） |
-| `GONGGONG_LIVEKIT_TCP_PORT` | `7881` | 本机 livekit-server 的 TCP 媒体端口 |
-| `GONGGONG_LIVEKIT_UDP_PORT` | `7882` | 本机 livekit-server 的 UDP 媒体端口 |
-| `GONGGONG_LIVEKIT_NODE_IP` | 无 | 告诉客户端连接媒体端口用的 IP。服务器在 NAT 后、本机网卡地址不是客户端能访问的地址时设置为公网 IP |
-
-本机 livekit-server 的信令只监听回环地址，由 server 的 `/livekit` 路径转发；两个媒体端口需要对浏览器和成员机器开放。
-
 ### 其他
 
 | 变量 | 默认值 | 说明 |
@@ -73,7 +59,7 @@
 | --- | --- | --- |
 | `WEB_HOST` | `127.0.0.1` | 监听地址，局域网访问设为 `0.0.0.0` |
 | `WEB_PORT` | `5173` | 监听端口 |
-| `GONGGONG_SERVER` | `http(s)://127.0.0.1:8787` | 代理 `/api`、`/ws`、`/livekit` 的目标 server |
+| `GONGGONG_SERVER` | `http(s)://127.0.0.1:8787` | 代理 `/api`、`/ws` 的目标 server |
 | `GONGGONG_TLS_CERT` / `GONGGONG_TLS_KEY` | 无 | 与 server 共用同一份证书，设置后以 HTTPS 提供网页 |
 
 ## 运维脚本

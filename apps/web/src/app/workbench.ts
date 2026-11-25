@@ -10,8 +10,6 @@ export interface LineRange {
 
 export type WorkbenchTab =
   | { kind: 'web'; previewId: string; path: string }
-  | { kind: 'miniprogram'; previewId: string }
-  | { kind: 'live'; previewId: string }
   | { kind: 'run'; runId: string; view: 'process' | 'diff' | 'context' | 'audit'; file: string | null }
   | { kind: 'diff'; botId: string; scope: DiffScope; file: string | null; repo?: string | null }
   | {
@@ -153,10 +151,6 @@ export function tabKey(t: WorkbenchTab): string {
   switch (t.kind) {
     case 'web':
       return `web:${t.previewId}`
-    case 'miniprogram':
-      return `mp:${t.previewId}`
-    case 'live':
-      return `live:${t.previewId}`
     case 'run':
       return `run:${t.runId}`
     case 'diff':
@@ -224,8 +218,6 @@ export function liveFrames(bench: Bench): Set<string> {
  */
 const REOPENABLE = new Set<WorkbenchTab['kind']>([
   'web',
-  'miniprogram',
-  'live',
   'run',
   'diff',
   'files',
@@ -251,6 +243,18 @@ export function staleTab(bench: Bench): WorkbenchTab | undefined {
   return pick
 }
 
+/** Tab kinds of retired features (mini program and live desktop previews) that older saves may still hold. */
+const RETIRED = new Set(['miniprogram', 'live'])
+
+const dropRetired = (benches: Record<string, Bench>): Record<string, Bench> =>
+  Object.fromEntries(
+    Object.entries(benches).map(([groupId, b]) => {
+      const tabs = b.tabs.filter((t) => !RETIRED.has(t.kind))
+      const active = tabs.some((t) => tabKey(t) === b.active) ? b.active : null
+      return [groupId, { ...b, tabs, active }]
+    }),
+  )
+
 const saved = load()
 
 export const useWorkbench = create<WorkbenchState>()((set, get) => {
@@ -267,7 +271,7 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     open: saved.open === true,
     mode: saved.mode === 'focus' || saved.mode === 'split' ? saved.mode : 'split',
     previous: 'split',
-    benches: saved.benches ?? {},
+    benches: dropRetired(saved.benches ?? {}),
     setGroup: (groupId) => {
       const bench = groupId ? get().benches[groupId] : undefined
       set({ groupId, open: groupId ? !!bench?.tabs.length && get().open : get().open })

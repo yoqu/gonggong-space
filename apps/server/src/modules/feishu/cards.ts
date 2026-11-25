@@ -521,19 +521,16 @@ export function approvalCard(o: {
   return card(zt('{bot} 请求审批', { bot: o.bot }), 'orange', [...head, ...scope, ...buttons])
 }
 
-export type PreviewState = 'online' | 'offline' | 'login' | 'closed'
+export type PreviewState = 'online' | 'offline' | 'closed'
 
 const PREVIEW_KIND: Record<string, string> = {
   http: zt('网页'),
   static: zt('网页'),
-  gui: zt('桌面应用'),
-  miniprogram: zt('小程序'),
 }
 
 const PREVIEW_STATE: Record<PreviewState, { label: string; template: string }> = {
   online: { label: zt('可打开'), template: 'green' },
   offline: { label: zt('电脑离线'), template: 'grey' },
-  login: { label: zt('等待开发者工具登录'), template: 'orange' },
   closed: { label: zt('已关闭'), template: 'grey' },
 }
 

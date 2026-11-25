@@ -21,7 +21,6 @@ const SHOTS = [
   { name: 'bots', nav: 'Bot' },
   { name: 'workspaces', nav: '工作区' },
   { name: 'tunnels', nav: '在线预览' },
-  { name: 'live', nav: '实时画面' },
   { name: 'logs', nav: '日志与诊断' },
   { name: 'settings', nav: '设置' },
 ]
@@ -29,7 +28,6 @@ const SHOTS = [
 /** Runs in the page before the app: a fake `window.__TAURI_INTERNALS__` answering every command of src/ipc.ts. */
 function fakeTauri({ unbound }) {
   localStorage.setItem('gonggong.theme', 'light')
-  localStorage.setItem('gg.permissionsGuide', 'seen')
   const now = Date.now()
   const HOME = '/Users/wanglei'
   const WS = `${HOME}/.gonggong/workspaces`
@@ -283,8 +281,6 @@ function fakeTauri({ unbound }) {
       },
       { kind: 'disk', label: '磁盘', status: 'ok', detail: '工作区 1.6 GB · 剩余 212 GB' },
       { kind: 'eol', label: '换行符', status: 'ok', detail: 'core.autocrlf 已关闭' },
-      { kind: 'screen_recording', label: '屏幕录制', status: 'ok', detail: '已授权' },
-      { kind: 'accessibility', label: '辅助功能', status: 'ok', detail: '已授权' },
     ],
     measure_net: () => ({ latencyMs: 32, bandwidthMbps: 86 }),
     recent_logs: ({ level }) => logs.filter((l) => rank[l.level] <= rank[level]),
@@ -354,8 +350,6 @@ function fakeTauri({ unbound }) {
           serviceId: 'svc-1',
           serviceName: 'todo-app dev',
           status: 'online',
-          live: null,
-          control: null,
         },
         {
           id: 'pv-2',
@@ -368,36 +362,6 @@ function fakeTauri({ unbound }) {
           serviceId: null,
           serviceName: null,
           status: 'online',
-          live: null,
-          control: null,
-        },
-        {
-          id: 'pv-3',
-          kind: 'gui',
-          title: 'todo-app 桌面版',
-          groupName: 'todo-app 开发群',
-          botName: '前端小助手',
-          port: null,
-          path: '',
-          serviceId: 'svc-2',
-          serviceName: 'todo-app electron',
-          status: 'online',
-          live: { state: 'live', error: null, missing: [] },
-          control: { controller: { name: '李娜' } },
-        },
-        {
-          id: 'pv-4',
-          kind: 'miniprogram',
-          title: 'todo 小程序',
-          groupName: 'todo-app 开发群',
-          botName: '前端小助手',
-          port: null,
-          path: '',
-          serviceId: null,
-          serviceName: null,
-          status: 'online',
-          live: null,
-          control: null,
         },
       ],
       services: [
@@ -411,23 +375,8 @@ function fakeTauri({ unbound }) {
           port: 5173,
           status: 'running',
         },
-        {
-          id: 'svc-2',
-          name: 'todo-app electron',
-          groupName: 'todo-app 开发群',
-          botName: '前端小助手',
-          command: 'pnpm electron:dev',
-          cwd: `${WS}/todo-app/前端小助手`,
-          port: null,
-          status: 'running',
-        },
       ],
     }),
-    cast_component: () => ({ source: 'bundled', path: '/Applications/共工空间.app/Contents/MacOS/gg-cast' }),
-    permissions: () => [
-      { kind: 'screen_recording', granted: true },
-      { kind: 'accessibility', granted: true },
-    ],
     run_process: () => null,
   }
 

@@ -10,7 +10,6 @@ This page explains what each directory in the repository is responsible for, and
 | `apps/server` | Server (Fastify + Drizzle + PostgreSQL). `src/modules/<domain>/` organizes routes and services by domain; `src/db/schema.ts` is the single table definition, with migration files in `drizzle/`; `src/daemon/` is the daemon WebSocket gateway, and `src/realtime/` is the real-time channel to browsers; `plugins/official/` holds the built-in plugins; `install/` holds the install scripts for member machines and the 「发给你的 Agent」 (Send to your agent) connection instructions |
 | `apps/desktop` | Desktop app 「共工空间」 (Tauri). `src/` is the React UI (which imports the web source and components directly), and `src-tauri/` is the Rust shell, which depends on `crates/gonggong` to run the daemon in-process |
 | `crates/gonggong` | The daemon and `gg` command line on member machines (binary name `gg`). `presets/` holds built-in model provider presets, `skills/` holds built-in Skills, and integration tests are in `tests/` |
-| `crates/gg-cast` | The live view streaming component gg-cast; not part of the Cargo workspace and built separately |
 | `packages/protocol` | All wire contracts (zod): web ⇄ server APIs, daemon ⇄ server messages, preview tunnel frames, built-in MCP tools, the plugin manifest, and the i18n core. `fixtures/*.json` are shared samples of the daemon protocol that both TS and Rust must round-trip; `cases/` holds other cross-language shared cases |
 | `tools/mock-agent` | A scriptable ACP Agent used instead of real Agents in daemon tests and some end-to-end tests; it decides what to do from the prompt (such as `mock:echo`, `mock:slow`, `mock:crash`) |
 | `tools/mcp-echo` | A minimal stdio MCP server (with a single `echo` tool) that tests use to verify MCP injection |
@@ -46,7 +45,6 @@ Located in `apps/server/src/modules/`. Each directory usually contains `routes.t
 | `group-tabs` | Custom tabs at the top of a group |
 | `groups` | Groups and direct chats: members, Bots, settings, repositories |
 | `knowledge` | Group knowledge base entries and versions |
-| `live` | Live views (LiveKit): watching, control, and gg-cast status |
 | `machines` | Machine binding, connection confirmation, details, upgrades, Git access, network measurement, and Agent tools read and written live through the daemon |
 | `market` | Skill market: listing, review, installs, and bans |
 | `mcp` | MCP server configuration at three levels (platform, team, group), injected when a session is created (the name `gonggong` is reserved for the built-in server) |
@@ -102,7 +100,7 @@ Located in `apps/web/src/features/`. Each directory has its own English dictiona
 | `notifications` | Notification center and browser push |
 | `onboarding` | New-user onboarding |
 | `plugins` | Plugin management and the creation panel |
-| `previews` | Preview cards, live views, share links, the admin public links page |
+| `previews` | Preview cards, share links, the admin public links page |
 | `reactions` | Emoji reactions |
 | `repos` | Repository picker and repository access checks |
 | `rich` | Rich content in Bot replies (HTML pages, Mermaid diagrams, action buttons) |
@@ -117,7 +115,7 @@ Located in `apps/web/src/features/`. Each directory has its own English dictiona
 | `terminal` | Terminal |
 | `usage` | Usage page |
 | `users` | User cards (hover profiles) |
-| `workbench` | Tabs of the right-hand workbench (runs, diff, files, web, mini program, live view, and more) |
+| `workbench` | Tabs of the right-hand workbench (runs, diff, files, web, and more) |
 | `works` | Works library |
 | `workspaces` | Workspace and directory picker |
 
@@ -125,7 +123,7 @@ Located in `apps/web/src/features/`. Each directory has its own English dictiona
 
 | Location | Contents |
 | --- | --- |
-| `apps/desktop/src/pages/` | Pages: Overview, Agent, Bot, Workspaces, Online previews, Live views, Market, Logs & diagnostics, Settings, and run details |
+| `apps/desktop/src/pages/` | Pages: Overview, Agent, Bot, Workspaces, Online previews, Market, Logs & diagnostics, Settings, and run details |
 | `apps/desktop/src/onboarding/` | First-run setup (binding) |
 | `apps/desktop/src/shell/`, `providers/` | Window shell, provider editing |
 | `apps/desktop/src-tauri/src/commands/` | Tauri commands for each page, calling into `crates/gonggong` |
@@ -176,7 +174,6 @@ Located in `crates/gonggong/src/`. `main.rs` is the `gg` command-line entry poin
 | `tunnel.rs` | Preview tunnel binary frames and forwarding |
 | `previews.rs`, `hosted.rs`, `static_site.rs` | Local previews and hosted services (processes owned by the daemon that outlive a single turn), static sites |
 | `html_render.rs`, `snapshot.rs` | Renders HTML pages and preview first-screen screenshots with a local Chrome-family browser |
-| `cast.rs`, `wechatide.rs` | Live views (starting gg-cast streaming on demand), WeChat DevTools |
 | `open_apps.rs` | Opens the workspace with local apps |
 | `tls.rs` | HTTP(S)/WS(S) connections to the server: accepts any certificate by default and verifies it only with an explicit `--ca-file` or `--fingerprint`; `http://` is allowed only for local addresses |
 | `net.rs` | Measures latency and bandwidth to the server |

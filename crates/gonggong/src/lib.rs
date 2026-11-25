@@ -8,7 +8,6 @@ pub mod attachments;
 pub mod autostart;
 pub mod bind;
 pub mod bots;
-pub mod cast;
 pub mod ccswitch;
 pub mod claude_args;
 pub mod coalesce;
@@ -40,7 +39,6 @@ pub mod mcp_call;
 pub mod mcp_tools;
 pub mod net;
 pub mod open_apps;
-pub mod permission;
 pub mod plugins;
 pub mod previews;
 pub mod proc;
@@ -66,7 +64,6 @@ pub mod tunnel;
 pub mod turn;
 pub mod upgrade;
 pub mod web_call;
-pub mod wechatide;
 pub mod workspace;
 
 fn display_width(s: &str) -> usize {

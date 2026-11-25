@@ -400,11 +400,7 @@ async fn request_link(
 }
 
 /// `None`: the server no longer knows this request (or its secret), e.g. one saved by an earlier run.
-async fn poll_link(
-    http: &reqwest::Client,
-    server: &str,
-    request: &LinkRequestRes,
-) -> Result<Option<LinkPollRes>> {
+async fn poll_link(http: &reqwest::Client, server: &str, request: &LinkRequestRes) -> Result<Option<LinkPollRes>> {
     let res = http
         .post(format!("{server}/api/daemon/link-requests/{}/poll", request.id))
         .json(&LinkPollReq { secret: request.secret.clone() })

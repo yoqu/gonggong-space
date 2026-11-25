@@ -9,7 +9,6 @@ import { bots, groupBots, groupMembers, groups, machines, teamMembers, users } f
 import { newToken, sha256 } from '../../src/lib/crypto.js'
 import { createSession, SESSION_COOKIE } from '../../src/modules/auth/session.js'
 import { inviteDelay } from '../../src/modules/feishu/invite.js'
-import type { LiveKit } from '../../src/modules/live/livekit.js'
 import { TunnelHub } from '../../src/modules/previews/tunnel.js'
 import { createTeam } from '../../src/modules/teams/service.js'
 import { Bus } from '../../src/realtime/bus.js'
@@ -29,21 +28,9 @@ function hashOnce(password: string) {
   return h
 }
 
-/** Signs tokens; nothing listens (tests that need a server pass a HostedLiveKit). */
-const unreachableLiveKit: LiveKit = {
-  endpoint: async () => ({
-    url: null,
-    api: 'http://127.0.0.1:9',
-    key: 'test',
-    secret: 'test-secret-'.repeat(3),
-  }),
-  signalPort: null,
-  close: async () => {},
-}
-
 /** Real app on an ephemeral port + fresh DB + direct-to-DB seed helpers. */
 export async function createTestApp(
-  opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit; logStream?: Writable } = {},
+  opts: { heartbeatSec?: number; now?: () => Date; logStream?: Writable } = {},
 ) {
   const t = await createTestDb()
   inviteDelay.wait = async () => {}
@@ -53,7 +40,6 @@ export async function createTestApp(
     bus: new Bus(),
     hub: new DaemonHub(),
     tunnels: new TunnelHub(),
-    livekit: opts.livekit ?? unreachableLiveKit,
     feishu: { api: feishu.api, connector: feishu.connector },
     now: opts.now ?? (() => new Date()),
     config: {

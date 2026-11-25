@@ -207,12 +207,6 @@
           "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
           "description": "A service_start service; uses its port"
         },
-        "miniprogram": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1000,
-          "description": "Set by preview_miniprogram; do not use"
-        },
         "title": {
           "type": "string",
           "minLength": 1,
@@ -227,28 +221,6 @@
         }
       },
       "required": ["title"]
-    }
-  },
-  {
-    "name": "preview_gui",
-    "title": "发布桌面应用预览",
-    "description": "Stream the windows of a desktop app started with service_start (e.g. Electron, Tauri) to members through a preview card; with the bot owner's consent they can control it. Only that process's windows, never the whole screen.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "service": {
-          "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
-          "description": "A desktop app started with service_start; its windows are streamed"
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 60,
-          "description": "Card title: what this is"
-        }
-      },
-      "required": ["service", "title"]
     }
   },
   {

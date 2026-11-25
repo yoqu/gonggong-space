@@ -30,7 +30,6 @@ import { ipc, type Tunnels } from '../ipc'
 import { fail, Section } from '../lib/ui'
 import { useIpc } from '../lib/useIpc'
 import type { PageProps } from '.'
-import { isLive } from './Live'
 
 /** The Web may change them at any time; this page follows without a push channel. */
 const REFRESH_MS = 5000
@@ -46,7 +45,6 @@ const confirmStillValid = (kind: ConfirmTarget['kind'], preview: PreviewItem | n
 
 /** 在线预览: what this machine exposes and hosts; actions match the Web's 在线预览 view. */
 export function TunnelsPage(_: PageProps) {
-  // Live previews (gui / miniprogram) have their own page, 实时画面.
   const { data, error, loading, reload } = useIpc(ipc.tunnels, { pollMs: REFRESH_MS })
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -121,11 +119,7 @@ export function TunnelsPage(_: PageProps) {
       return <Alert variant="error" description={error} retrying={loading} onRetry={() => void reload()} />
     return <Skeleton count={3} />
   }
-  const { items, backgroundServices } = mergePreviewsAndServices(
-    data.previews,
-    data.services,
-    (p) => !isLive(p),
-  )
+  const { items, backgroundServices } = mergePreviewsAndServices(data.previews, data.services)
   const empty = items.length === 0 && backgroundServices.length === 0
 
   return (

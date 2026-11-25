@@ -36,7 +36,7 @@ const zh = {
       },
       {
         title: '结果一键预览',
-        body: 'Bot 起的网页、小程序、桌面应用经隧道直达浏览器，多尺寸对照；原型在画布上批注迭代，还能生成限时公开链接。',
+        body: 'Bot 起的网页、服务经隧道直达浏览器，多尺寸对照；原型在画布上批注迭代，还能生成限时公开链接。',
       },
     ],
   },
@@ -74,7 +74,7 @@ const zh = {
         '思考、工具调用、命令输出实时回传；diff、提交、日志、冲突处理都在 Git 面板里完成。',
       ],
       ['审批不打断', '每次问我、帮我审批、完全允许三种方式；AI 预审先过一遍，只把风险操作交给 Bot 主人。'],
-      ['从预览到原型', '网页、小程序、桌面应用画面直达浏览器；原型放上多屏画布批注、迭代，再一键分享。'],
+      ['从预览到原型', '网页、服务直达浏览器；原型放上多屏画布批注、迭代，再一键分享。'],
       ['团队的经验沉淀下来', 'Skill 市场、插件、群知识库与分层密钥，让每个 Bot 都带着团队的约定干活。'],
     ],
   },
@@ -147,7 +147,7 @@ const en: Copy = {
       },
       {
         title: 'One-click previews',
-        body: 'Web pages, mini programs and desktop apps the Bot starts reach your browser through a tunnel, side by side at several sizes; prototypes get annotated on a canvas, and expiring public links share them.',
+        body: 'Web pages and services the Bot starts reach your browser through a tunnel, side by side at several sizes; prototypes get annotated on a canvas, and expiring public links share them.',
       },
     ],
   },
@@ -201,7 +201,7 @@ const en: Copy = {
       ],
       [
         'From preview to prototype',
-        'Web pages, mini programs and desktop app windows reach your browser; prototypes go on a multi-screen canvas to annotate, iterate and share.',
+        'Web pages and services reach your browser; prototypes go on a multi-screen canvas to annotate, iterate and share.',
       ],
       [
         'Your team’s know-how, kept',
