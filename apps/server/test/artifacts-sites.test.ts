@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import type { ArtifactSubmitRes, PreviewHostRes, SiteOpenRes, WorkDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifacts, artifactVersions, messages, previews, services } from '../src/db/schema.js'
+import { artifacts, artifactVersions, messages, previews, runs, services } from '../src/db/schema.js'
 import { runArtifacts } from '../src/modules/artifacts/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, fileList } from './support/artifacts.js'
@@ -115,6 +115,19 @@ describe('hosted sites', () => {
     expect(getRes.json()).toMatchObject({ id: artifactId, site: true })
     const works = (await t.app.inject({ url: '/api/works', headers: { cookie } })).json() as WorkDto[]
     expect(works.map((x) => x.id)).toContain(artifactId)
+  })
+
+  it("posts the card of a thread run's site in that thread", async () => {
+    const w = await world()
+    const [root] = await t.db
+      .insert(messages)
+      .values({ groupId: w.g.id, kind: 'user', authorUserId: w.wang.id, body: '话题根', meta: {} })
+      .returning()
+    await t.db.update(runs).set({ threadRootId: root!.id }).where(eq(runs.id, w.run.id))
+    const { artifactId } = (await w.open('dist')).json() as SiteOpenRes
+    const [a] = await t.db.select().from(artifacts).where(eq(artifacts.id, artifactId))
+    const [card] = await t.db.select().from(messages).where(eq(messages.id, a!.messageId!))
+    expect(card!.threadRootId).toBe(root!.id)
   })
 
   it('takes uploads only from the machine of the bot, for sites, as host versions', async () => {
@@ -243,6 +256,70 @@ describe('托管到服务器 on a preview card', () => {
     })) as typeof t.ctx.hub.request
     const failed = await s.host(s.wang.id)
     expect([failed.statusCode, failed.json().message]).toEqual([400, '目录里没有 index.html'])
+  })
+
+  it('answers a preview card of a thread in that thread', async () => {
+    const w = await world()
+    const [root] = await t.db
+      .insert(messages)
+      .values({ groupId: w.g.id, kind: 'user', authorUserId: w.wang.id, body: '话题根', meta: {} })
+      .returning()
+    const inThread = async (command: string) => {
+      const [m] = await t.db
+        .insert(messages)
+        .values({ groupId: w.g.id, kind: 'event', body: '预览', meta: {}, threadRootId: root!.id })
+        .returning()
+      const [svc] = await t.db
+        .insert(services)
+        .values({
+          id: randomUUID(),
+          machineId: w.A.machine.id,
+          groupId: w.g.id,
+          botId: w.bot.id,
+          name: randomUUID(),
+          command,
+          cwd: command === 'npm run dev' ? 'app' : 'site',
+          port: 4321,
+          status: 'running',
+        })
+        .returning()
+      const [p] = await t.db
+        .insert(previews)
+        .values({
+          slug: randomUUID().slice(0, 12),
+          kind: 'http',
+          machineId: w.A.machine.id,
+          groupId: w.g.id,
+          botId: w.bot.id,
+          serviceId: svc!.id,
+          port: 4321,
+          title: '活动官网',
+          messageId: m!.id,
+        })
+        .returning()
+      const cookie = await t.seed.cookie(w.wang.id)
+      return t.app.inject({ method: 'POST', url: `/api/previews/${p!.id}/host`, headers: { cookie } })
+    }
+    t.ctx.hub.features = () => ['siteHost']
+    t.ctx.hub.request = (async (_m: string, msg: { requestId: string }) => ({
+      t: 'site.host.result',
+      requestId: msg.requestId,
+      error: null,
+    })) as typeof t.ctx.hub.request
+    const { artifactId } = (await inThread('静态站点 site')).json() as { artifactId: string }
+    const [a] = await t.db.select().from(artifacts).where(eq(artifacts.id, artifactId))
+    const [siteCard] = await t.db.select().from(messages).where(eq(messages.id, a!.messageId!))
+    expect(siteCard!.threadRootId).toBe(root!.id)
+
+    expect((await inThread('npm run dev')).json()).toEqual({ asked: true })
+    const [ask] = await t.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.groupId, w.g.id), eq(messages.kind, 'user')))
+      .orderBy(messages.createdAt)
+      .then((rows) => rows.slice(-1))
+    expect(ask!.body).toContain('preview_host')
+    expect(ask!.threadRootId).toBe(root!.id)
   })
 
   it('asks the bot to build and host a dynamic preview', async () => {

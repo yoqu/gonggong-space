@@ -1,5 +1,6 @@
 import type { RunDto, RunStatus } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useInspector } from '../../app/inspector'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -8,6 +9,8 @@ import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
 import { countdown } from '../../lib/time'
 import { AlertDialog, Button, Presence } from '../../ui'
+import { useCanvasChat } from '../artifacts/chatRoot'
+import { openThread } from '../chat/thread'
 import { useAppend } from './append'
 
 const STOPPABLE: RunStatus[] = ['queued', 'running', 'awaiting_approval', 'awaiting_answer']
@@ -18,6 +21,14 @@ export const useMemberName = (groupId: string, userId: string | null) =>
   useWorkspace(
     (s) => s.groups.find((g) => g.id === groupId)?.members.find((m) => m.userId === userId)?.name ?? '—',
   )
+
+/** Brings up the composer of the run's thread: its 话题, unless already open or it is the canvas's AI 对话 in front. */
+function showComposer(groupId: string, rootId: string) {
+  const open = useInspector.getState()
+  if (open.view === 'thread' && open.payload === rootId) return
+  if (useCanvasChat.getState().byGroup[groupId]?.rootId === rootId) return
+  openThread(rootId)
+}
 
 /** Spec §8.9: the trigger user (chain initiator) or the bot owner may send the next message into a live run. */
 function AppendAction({ run }: { run: RunDto }) {
@@ -36,7 +47,11 @@ function AppendAction({ run }: { run: RunDto }) {
     <Button
       size="small"
       icon="arrow-turn-down-right"
-      onClick={() => start({ runId: run.id, groupId: run.groupId, botName: bot.name })}
+      onClick={() => {
+        const threadRootId = run.threadRootId ?? undefined
+        start({ runId: run.id, groupId: run.groupId, botName: bot.name, threadRootId })
+        if (threadRootId) showComposer(run.groupId, threadRootId)
+      }}
     >
       {t('打断并追加')}
     </Button>

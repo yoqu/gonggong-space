@@ -120,7 +120,7 @@ async function world() {
   const d = await daemon(token)
   const viewerWeb = watch(viewer.id)
   /** Triggers a run by 赵敏; resolves once it is running. */
-  const start = async () => {
+  const start = async (threadRootId?: string) => {
     const [m] = await t.db
       .insert(messages)
       .values({
@@ -129,6 +129,7 @@ async function world() {
         authorUserId: trigger.id,
         body: '@小王的 Claude 写个脚本',
         meta: { mentions: [bot.id] },
+        threadRootId,
       })
       .returning()
     await triggerRuns(t.ctx, m!)
@@ -482,6 +483,34 @@ describe('interrupt and append', () => {
     expect(all).toHaveLength(2)
     const next = all.find((r) => r.id !== runId)!
     expect(next).toMatchObject({ botId: all[0]!.botId, triggerUserId: all[0]!.triggerUserId })
+  })
+
+  it('keeps an append to a thread run in that thread, its fallback run too', async () => {
+    const w = await world()
+    const [root] = await t.db
+      .insert(messages)
+      .values({ groupId: w.group.id, kind: 'user', authorUserId: w.trigger.id, body: '话题根', meta: {} })
+      .returning()
+    const runId = await w.start(root!.id)
+    await t.db.update(runs).set({ status: 'running' }).where(eq(runs.id, runId))
+    const other = crypto.randomUUID()
+    const wrong = await w.triggers.post<{ error?: string }>(`/api/groups/${w.group.id}/messages`, {
+      body: '发错地方',
+      clientId: crypto.randomUUID(),
+      appendTo: runId,
+      threadRootId: other,
+    })
+    expect(wrong.status).toBe(400)
+
+    const res = await send(w.triggers, w.group.id, '顺便补个单测', runId)
+    expect(res.status).toBe(200)
+    expect(res.body.threadRootId).toBe(root!.id)
+    const thread = w.viewerWeb.seen.find((e) => e.t === 'thread.updated' && e.rootId === root!.id)
+    expect(thread).toMatchObject({ thread: { replyCount: 2 } })
+    await w.d.next()
+    w.d.send({ ...DONE, runId, appendsApplied: 0 })
+    const next = await w.viewerWeb.run((r) => r.id !== runId)
+    expect((await w.run(next.id)).threadRootId).toBe(root!.id)
   })
 
   it('does not requeue appends of a stopped run', async () => {

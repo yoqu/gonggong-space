@@ -97,7 +97,7 @@ export function stopRoutes(ctx: Ctx) {
       if (run.status !== 'interrupted' && run.status !== 'expired')
         return fail('conflict', '只有失败或已失效的运行可以重新运行')
       if (message.recalledAt) return fail('conflict', '原消息已撤回，无法重新运行')
-      await rerunFor(ctx, message, [run.botId])
+      await rerunFor(ctx, message, [run.botId], run.threadRootId)
       await audit(ctx, {
         category: 'run',
         actorUserId: user.id,

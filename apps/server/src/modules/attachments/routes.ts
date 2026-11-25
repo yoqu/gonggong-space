@@ -24,6 +24,7 @@ import {
 import { LIVE } from '../runs/dto.js'
 import { machineRun } from '../runs/machine-run.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
+import { followOnReply, isArtifactChat, touchThread } from '../threads/service.js'
 import { publishHtmlRender, serveHtmlRender } from './html-render.js'
 import {
   type AttachmentRow,
@@ -145,12 +146,18 @@ async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { ru
           body: redact(text),
           meta,
           runId: run.id,
+          threadRootId: run.threadRootId,
         })
         .returning()) as [MessageRow]
+      const [root] = run.threadRootId
+        ? await tx.select().from(messages).where(eq(messages.id, run.threadRootId))
+        : []
+      if (root && !isArtifactChat(root)) await followOnReply(tx, root, message, [])
       return message
     })
     const dto = messageDto(message, await authorName(ctx, message))
     await publishMessage(ctx, dto)
+    await touchThread(ctx, run.threadRootId)
     await mirrorBotAttachments(ctx, message)
     return dto satisfies MessageDto
   } catch (e) {

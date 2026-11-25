@@ -6,6 +6,7 @@ import { bots, messages } from '../../db/schema.js'
 import { zh } from '../../i18n/index.js'
 import { mirrorProgress } from '../feishu/mirror.js'
 import { authorName, type MessageMeta, memberIds, messageDto, postMessage } from '../messages/service.js'
+import { touchThread } from '../threads/service.js'
 import type { Run } from './layers.js'
 import { refuse, type ToolOutput } from './service.js'
 
@@ -45,7 +46,9 @@ export async function progressCard(ctx: Ctx, run: Run, a: Args): Promise<ToolOut
       kind: 'event',
       body: zh(i18n.key, i18n.params),
       meta: { progress, i18n } satisfies MessageMeta,
+      threadRootId: run.threadRootId,
     })
+    await touchThread(ctx, run.threadRootId)
     await mirrorProgress(ctx, run.groupId, id)
     return { text: `已发出进度卡片，id：${id}。之后用 progress_card 传这个 id 更新它。`, groups: [] }
   }

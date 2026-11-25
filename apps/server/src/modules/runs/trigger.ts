@@ -164,8 +164,16 @@ async function replyThread(ctx: Ctx, message: typeof messages.$inferSelect) {
   return group && botRepliesInThreadOf(group.params) ? message.id : null
 }
 
-/** A fresh hop-1 run of `botIds` for the (edited) user message `message` (plan F8). */
-export async function rerunFor(ctx: Ctx, message: typeof messages.$inferSelect, botIds: string[]) {
+/**
+ * A fresh hop-1 run of `botIds` for the (edited) user message `message` (plan F8). `threadRootId`: where the run it
+ * redoes answered, kept even if the chat's 回复进话题 setting changed since.
+ */
+export async function rerunFor(
+  ctx: Ctx,
+  message: typeof messages.$inferSelect,
+  botIds: string[],
+  threadRootId?: string | null,
+) {
   const author = message.authorUserId
   if (!author) return
   await createRuns(ctx, {
@@ -176,7 +184,7 @@ export async function rerunFor(ctx: Ctx, message: typeof messages.$inferSelect, 
     triggerUserId: author,
     hop: 1,
     parentRunId: null,
-    threadRootId: await replyThread(ctx, message),
+    threadRootId: threadRootId === undefined ? await replyThread(ctx, message) : threadRootId,
   })
 }
 
@@ -336,8 +344,10 @@ async function settleReport(ctx: Ctx, parent: RunRow) {
     return { message: message!, from, fresh: true }
   })
   if (!settled || (await hasRun(ctx, parent.groupId, settled.message.id))) return
-  if (settled.fresh)
+  if (settled.fresh) {
     await publishMessage(ctx, messageDto(settled.message, await authorName(ctx, settled.message)))
+    await touchThread(ctx, parent.threadRootId)
+  }
   await createRuns(ctx, {
     groupId: parent.groupId,
     messageId: settled.message.id,

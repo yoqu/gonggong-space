@@ -13,6 +13,7 @@ import { mirrorPreviews } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
 import { castState, clearPreviewLive, controlOf, syncCasts } from '../live/service.js'
 import { memberIds, postMessage } from '../messages/service.js'
+import { touchThread } from '../threads/service.js'
 import { closePortListener, openPortListener } from './gateway.js'
 import { restartService, syncPreviews } from './services.js'
 
@@ -285,8 +286,10 @@ async function announce(ctx: Ctx, run: Run, preview: Preview) {
     authorBotId: run.botId,
     body: `预览：${preview.title}`,
     meta: { preview: preview.id },
+    threadRootId: run.threadRootId,
   })
   await ctx.db.update(previews).set({ messageId: card.id }).where(eq(previews.id, preview.id))
+  await touchThread(ctx, run.threadRootId)
 }
 
 /** A mini program in the machine's devtools (plan §13): one open card per (group, bot, project), moved by republishing. */

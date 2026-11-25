@@ -9,7 +9,7 @@ import { voidQuestions } from '../questions/service.js'
 import { controlsRun, LIVE } from '../runs/dto.js'
 import { hasRun, triggerRuns } from '../runs/trigger.js'
 
-export type AppendTarget = { runId: string; machineId: string }
+export type AppendTarget = { runId: string; machineId: string; threadRootId: string | null }
 
 /** 打断并追加 (spec §8.9): a live run of this group whose trigger user (chain initiator) or bot owner is sending. */
 export async function appendTarget(
@@ -28,7 +28,7 @@ export async function appendTarget(
     return fail('forbidden', '仅触发人或 Bot 主人可以打断并追加')
   if (!LIVE.includes(row.run.status) || !row.machineId || !ctx.hub.isOnline(row.machineId))
     return fail('conflict', '该运行已结束，请直接发送')
-  return { runId: row.run.id, machineId: row.machineId }
+  return { runId: row.run.id, machineId: row.machineId, threadRootId: row.run.threadRootId }
 }
 
 /**

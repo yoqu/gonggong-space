@@ -274,6 +274,7 @@ export const en = {
   该提问已处理: 'This question was already handled',
   回答与问题不匹配: "The answers don't match the questions",
   '仅触发人或 Bot 主人可以打断并追加': "Only the requester or the Bot's owner can interrupt & append",
+  只能在该运行所在的会话里打断并追加: 'Interrupt & append only where the run is: its thread or the main chat',
   '该运行已结束，请直接发送': 'This run has ended, send it as a new message',
   '仅发起人或 Bot 主人可选择': "Only the requester or the Bot's owner can choose",
   已处理过本轮改动: 'The changes of this turn were already handled',

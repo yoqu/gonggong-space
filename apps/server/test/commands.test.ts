@@ -149,6 +149,45 @@ describe('system commands', () => {
   })
 })
 
+describe('commands in a thread', () => {
+  it('answer in the thread; /stop there stops only its runs', async () => {
+    const w = await world()
+    const root = (await w.say(w.asWang, '话题根')).body
+    const inThread = (body: string) =>
+      w.asWang.post<MessageDto>(`/api/groups/${w.g.id}/messages`, {
+        body,
+        clientId: crypto.randomUUID(),
+        threadRootId: root.id,
+      })
+    await w.say(w.asWang, '@小王的 Claude 主会话这轮')
+    await inThread('@小王的 Claude 话题这轮')
+    const runsNow = await w.allRuns()
+    const main = runsNow.find((r) => !r.threadRootId)!
+    const thread = runsNow.find((r) => r.threadRootId === root.id)!
+    await inThread('/new')
+    await inThread('/cd /tmp/x')
+    await inThread('/cd @小王的 Claude /tmp/x')
+    await inThread('/stop')
+    const events = await t.db
+      .select({ body: messages.body, threadRootId: messages.threadRootId })
+      .from(messages)
+      .where(and(eq(messages.groupId, w.g.id), eq(messages.kind, 'event')))
+      .orderBy(asc(messages.seq))
+    expect(events).toEqual([
+      { body: '/new 需要同时 @ 一个 Bot，如 /new @小王的 Claude', threadRootId: root.id },
+      {
+        body: '/cd 需要 @ 一个 Bot，如 /cd @小王的 Claude /本机/绝对路径，或 /cd @小王的 Claude --reset 回到托管',
+        threadRootId: root.id,
+      },
+      { body: '已请求 小王的 Claude 绑定到 /tmp/x，等待本机校验…', threadRootId: root.id },
+      { body: '王磊 /stop · 停止 小王的 Claude 的 1 个轮次', threadRootId: root.id },
+    ])
+    const after = await w.allRuns()
+    expect(after.find((r) => r.id === thread.id)?.stoppedBy).toBe(w.wang.id)
+    expect(after.find((r) => r.id === main.id)?.stoppedBy).toBeNull()
+  })
+})
+
 describe('agent commands', () => {
   const reported = (w: Awaited<ReturnType<typeof world>>, botId: string, names: string[]) =>
     t.db

@@ -1091,6 +1091,36 @@ describe('creation from the chat', () => {
     w.conn.ws.close()
   })
 
+  it("keeps a thread run's 创作确认卡 and the creation it starts in that thread", async () => {
+    const w = await chatWorld()
+    const root = await userMessage(w, w.bot.id, '话题根')
+    await t.db.update(runs).set({ threadRootId: root.id }).where(eq(runs.botId, w.bot.id))
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(w.mia.id, (e) => seen.push(e))
+    const d = await w.draftOf(
+      await w.call('creation_propose', {
+        plugin: 'web-prototype',
+        template: 'saas',
+        inputs: { title: '共工' },
+      }),
+    )
+    expect(d.m.threadRootId).toBe(root.id)
+    expect(seen).toContainEqual(expect.objectContaining({ t: 'thread.updated', rootId: root.id }))
+    const started = await (await w.as(w.mia)).post<MessageDto>(`/api/groups/${w.group.id}/creations`, {
+      pluginId: w.p.id,
+      templateId: 'saas',
+      designSystemId: 'neutral-modern',
+      inputs: { title: '共工' },
+      botId: w.bot.id,
+      fromDraft: d.id,
+    })
+    expect(started.status).toBe(200)
+    expect(started.body.threadRootId).toBe(root.id)
+    const later = await t.db.select().from(messages).where(eq(messages.groupId, w.group.id))
+    expect(later.filter((m) => m.seq > started.body.seq).map((m) => m.threadRootId)).not.toContain(null)
+    w.conn.ws.close()
+  })
+
   it('creation_propose refuses what a creation would: unknown template, bad values, a bot that cannot use it', async () => {
     const w = await chatWorld()
     const refused = async (args: Record<string, unknown>) =>

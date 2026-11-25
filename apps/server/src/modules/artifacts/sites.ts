@@ -32,6 +32,7 @@ import { requireOpenPreview } from '../previews/routes.js'
 import { requireManager } from '../previews/service.js'
 import { machineRun } from '../runs/machine-run.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { followOnReply, isArtifactChat, touchThread } from '../threads/service.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { type Artifact, cardOf, findArtifact, newArtifactDir, submitVersion } from './service.js'
 
@@ -46,7 +47,15 @@ const STATIC_COMMAND = '静态站点 '
 /** The site artifact of `botId`'s `siteDir` in the group, made (with its card) on first use. */
 export async function openSite(
   ctx: Ctx,
-  s: { groupId: string; botId: string; siteDir: string; title: string; userId: string | null },
+  s: {
+    groupId: string
+    botId: string
+    siteDir: string
+    title: string
+    userId: string | null
+    /** Where its card goes when made: the run's or the preview card's thread. */
+    threadRootId: string | null
+  },
 ) {
   // A static service keeps its dir as given (`./dist/`); preview_host sends it resolved (`dist`).
   const siteDir = s.siteDir
@@ -86,7 +95,9 @@ export async function openSite(
     '托管网页「{title}」',
     { title: made.title },
     { card: await cardOf(ctx.db, made) },
+    s.threadRootId,
   )
+  await touchThread(ctx, s.threadRootId)
   await ctx.db.update(artifacts).set({ messageId: posted.id }).where(eq(artifacts.id, made.id))
   return { ...made, messageId: posted.id }
 }
@@ -110,16 +121,33 @@ async function askBot(
   groupId: string,
   botId: string,
   title: string,
+  threadRootId: string | null,
 ) {
   const bot = (await activeBots(ctx, groupId)).find((b) => b.id === botId) ?? fail('invalid', 'Bot 不在本群')
   const meta: MessageMeta = { mentions: [bot.id], clientId: randomUUID() }
   const body = `@${bot.name} ${t('请把「{title}」构建成静态网页，并用 preview_host 托管到服务器', { title })}`
-  const [row] = (await ctx.db
-    .insert(messages)
-    .values({ groupId, kind: 'user', authorUserId: me.id, body, meta })
-    .returning()) as [MessageRow]
+  const [root] = threadRootId ? await ctx.db.select().from(messages).where(eq(messages.id, threadRootId)) : []
+  const row = await ctx.db.transaction(async (tx) => {
+    const [row] = (await tx
+      .insert(messages)
+      .values({ groupId, kind: 'user', authorUserId: me.id, body, meta, threadRootId: root?.id })
+      .returning()) as [MessageRow]
+    if (root && !isArtifactChat(root)) await followOnReply(tx, root, row, [])
+    return row
+  })
   await publishMessage(ctx, messageDto(row, me.name))
+  await touchThread(ctx, root?.id)
   await triggerRuns(ctx, row)
+}
+
+/** The thread the card of `messageId` sits in; null in the main timeline. */
+async function threadOf(ctx: Ctx, messageId: string | null) {
+  if (!messageId) return null
+  const [m] = await ctx.db
+    .select({ threadRootId: messages.threadRootId })
+    .from(messages)
+    .where(eq(messages.id, messageId))
+  return m?.threadRootId ?? null
 }
 
 export function siteRoutes(ctx: Ctx) {
@@ -137,6 +165,7 @@ export function siteRoutes(ctx: Ctx) {
           siteDir: dir,
           title,
           userId: run.triggerUserId,
+          threadRootId: run.threadRootId,
         })
         return { artifactId: a.id }
       },
@@ -202,8 +231,9 @@ export function siteRoutes(ctx: Ctx) {
       const [service] = p.serviceId
         ? await ctx.db.select().from(services).where(eq(services.id, p.serviceId))
         : []
+      const thread = await threadOf(ctx, p.messageId)
       if (!service?.command.startsWith(STATIC_COMMAND)) {
-        await askBot(ctx, me, p.groupId, p.botId, p.title)
+        await askBot(ctx, me, p.groupId, p.botId, p.title, thread)
         return { asked: true }
       }
       if (!ctx.hub.features(p.machineId).includes('siteHost'))
@@ -214,6 +244,7 @@ export function siteRoutes(ctx: Ctx) {
         siteDir: service.cwd,
         title: p.title,
         userId: me.id,
+        threadRootId: thread,
       })
       const ask = {
         t: 'site.host',

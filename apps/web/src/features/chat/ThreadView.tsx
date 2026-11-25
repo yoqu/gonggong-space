@@ -22,6 +22,7 @@ import {
   toast,
   useEscape,
 } from '../../ui'
+import { eventCard, progressOfRuns, runReplies } from './EventCard'
 import { lastEditable } from './editing'
 import { ActiveRunsContext, startedRunIds } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
@@ -236,18 +237,15 @@ export function useThreadItem(
   const liveRuns = useRef<RunDto[]>([])
   liveRuns.current = Object.values(runs)
   const startedRuns = useCallback((messageId: string) => startedRunIds(liveRuns.current, messageId), [])
-  const { runsByTrigger, replyRuns } = useMemo(() => {
+  const { runsByTrigger, replyRuns, progressByRun } = useMemo(() => {
+    const replies = runReplies(messages, runs)
     const replyRuns = new Map<string, RunDto>()
-    for (const m of messages) {
-      const run = m.kind === 'bot' && m.runId ? runs[m.runId] : undefined
-      if (run) replyRuns.set(m.id, run)
-    }
-    const answered = new Set([...replyRuns.values()].map((r) => r.id))
+    for (const [runId, m] of replies) replyRuns.set(m.id, runs[runId] as RunDto)
     const runsByTrigger = new Map<string, RunDto[]>()
     for (const r of Object.values(runs).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt)))
-      if (!answered.has(r.id))
+      if (!replies.has(r.id))
         runsByTrigger.set(r.triggerMessageId, [...(runsByTrigger.get(r.triggerMessageId) ?? []), r])
-    return { runsByTrigger, replyRuns }
+    return { runsByTrigger, replyRuns, progressByRun: progressOfRuns(messages, runs) }
   }, [messages, runs])
   const targets = useMemo(
     () => [
@@ -269,13 +267,19 @@ export function useThreadItem(
         agent={bot ? AGENT_META[bot.agentKind].name : ''}
         trigger={r.triggerUserId ? userName(r.triggerUserId) : '—'}
         foldable={group.foldRuns}
+        progress={progressByRun.get(r.id)}
       />
     )
   }
   const item = (m: MessageDto) => {
     const run = replyRuns.get(m.id)
+    // A run's progress card shows inside its card.
+    if (m.progress?.runId && progressByRun.has(m.progress.runId)) return null
+    const special = run ? null : eventCard(m)
     const body = run ? (
       card(run, m)
+    ) : special ? (
+      special
     ) : m.kind === 'event' ? (
       <EventRow m={m} />
     ) : m.recalled || m.hidden ? (

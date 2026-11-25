@@ -75,7 +75,8 @@ const stopStep = (name: string, run: Pick<RunRow, 'hop'>) =>
   runStep(run.hop > 1 ? '整条链已被 {user} /stop 终止' : '{user} 执行了 /stop', { user: name })
 
 export type StopTarget =
-  | { groupId: string; botIds?: string[] }
+  /** `threadRootId`: that thread's runs only. */
+  | { groupId: string; botIds?: string[]; threadRootId?: string }
   | { groupId: string; runId: string; chain?: boolean; edited?: boolean }
 
 /** A run stopped because its author edited the triggering message (plan F8); a fresh run follows. */
@@ -120,9 +121,10 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
   const scope =
     'runId' in target
       ? inArray(runs.id, chain ? await chainIds(ctx.db, target.runId) : [target.runId])
-      : target.botIds?.length
-        ? inArray(runs.botId, target.botIds)
-        : undefined
+      : and(
+          target.botIds?.length ? inArray(runs.botId, target.botIds) : undefined,
+          target.threadRootId ? eq(runs.threadRootId, target.threadRootId) : undefined,
+        )
   const targets = await ctx.db
     .select({ run: runs, machineId: bots.machineId })
     .from(runs)
@@ -357,7 +359,7 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     await record({ ok: !error, files: res?.files ?? 0, error })
     if (error) {
       const reason = res ? (res.error ?? { key: '未知错误' }) : { key: 'Bot 离线' }
-      await postEvent(ctx, run.groupId, '丢弃本轮改动失败：{error}', { error: reason })
+      await postEvent(ctx, run.groupId, '丢弃本轮改动失败：{error}', { error: reason }, {}, run.threadRootId)
       return fail('conflict', '丢弃本轮改动失败：{error}', { error: reason })
     }
   } else await record({})

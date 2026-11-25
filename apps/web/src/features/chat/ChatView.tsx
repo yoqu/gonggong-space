@@ -1,11 +1,4 @@
-import type {
-  GroupDto,
-  MessageDto,
-  PinnedMessageDto,
-  ProgressCard as ProgressCardDto,
-  RunDto,
-  RunStatus,
-} from '@gonggong/protocol'
+import type { GroupDto, MessageDto, PinnedMessageDto, RunDto, RunStatus } from '@gonggong/protocol'
 import { AGENT_META } from '@gonggong/protocol'
 import {
   type DragEvent,
@@ -49,29 +42,25 @@ import {
   TypingIndicator,
   toast,
 } from '../../ui'
-import { ArtifactCardView } from '../artifacts/ArtifactCard'
 import { useBotCostume } from '../bots/avatars'
 import { dmLead } from '../bots/model'
 import { FeishuChatLink } from '../feishu/FeishuChatLink'
-import { FeishuIssueEventRow } from '../feishu/FeishuIssueEvent'
 import { LinkedGitOperation } from '../git/GitOperations'
 import { GroupTabBar } from '../group-tabs/GroupTabBar'
 import { channelKind } from '../groups/channel'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupNotice } from '../groups/GroupNotice'
-import { CreationDraftView } from '../plugins/CreationCard'
 import { CreationHost } from '../plugins/CreationHost'
 import { useEnabledPlugins, useGroupPlugins } from '../plugins/store'
 import { PreviewTags } from '../previews/PreviewTags'
-import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ScheduleTag } from '../schedules/ScheduleTag'
 import { SecretBanner } from '../secrets/SecretBanner'
-import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { openTab } from '../workbench/open'
 import { ComposerDock } from './ComposerDock'
 import { useRunDeltas } from './deltas'
+import { eventCard, progressOfRuns, runReplies } from './EventCard'
 import { lastEditable } from './editing'
 import { FirstDmIntro } from './FirstDmIntro'
 import { GitBar } from './GitBar'
@@ -83,10 +72,8 @@ import { ActiveRunsContext, branchableRuns } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
 import { PendingMessages } from './PendingMessages'
 import { PinnedMessages } from './PinnedMessages'
-import { ProgressCard } from './ProgressCard'
 import { ProviderBanner } from './ProviderBanner'
 import { useOnQueued } from './pending'
-import { isRequestCard, RequestCard } from './RequestCard'
 import { repoName } from './repo'
 import { BottomScrollPill, TopUnreadPill } from './ScrollPills'
 import { TaskDock } from './TaskDock'
@@ -96,7 +83,6 @@ import {
   dayLabel,
   EventFold,
   EventRow,
-  eventText,
   type MentionTarget,
   messageKey,
   RecallRow,
@@ -445,11 +431,10 @@ export function ChatView({
   }, [flash])
 
   const botsById = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
-  /** Runs by trigger message, and each run's final reply (the card moves to the reply once it exists). */
+  /** Runs by trigger message, and each run's final reply (the card moves to it, see runReplies). */
   const { runsByTrigger, replies, byId } = useMemo(() => {
     const byId = new Map(tl.messages.map((m) => [m.id, m]))
-    const replies = new Map<string, MessageDto>()
-    for (const m of tl.messages) if (m.kind === 'bot' && m.runId && tl.runs[m.runId]) replies.set(m.runId, m)
+    const replies = runReplies(tl.messages, tl.runs)
     const runsByTrigger = new Map<string, RunDto[]>()
     // A thread's runs show in the thread; its root says a bot is at work (ThreadLive).
     for (const r of Object.values(tl.runs).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt)))
@@ -579,12 +564,7 @@ export function ChatView({
    * unread divider moves on to the next message left). Cards of runs not on this page stay in the timeline.
    */
   const { progressByRun, shown, dividerShown } = useMemo(() => {
-    const progressByRun = new Map<string, ProgressCardDto[]>()
-    for (const m of tl.messages) {
-      const runId = m.progress?.runId
-      if (m.progress && runId && tl.runs[runId])
-        progressByRun.set(runId, [...(progressByRun.get(runId) ?? []), m.progress])
-    }
+    const progressByRun = progressOfRuns(tl.messages, tl.runs)
     const absorbed = (_m: MessageDto, i: number) => isAbsorbedMessage(tl.messages, i, progressByRun)
     const shown = tl.messages.filter((m, i) => !absorbed(m, i))
     const at = tl.messages.findIndex((m) => m.id === dividerAt)
@@ -619,14 +599,8 @@ export function ChatView({
   const renderMessage = (m: MessageDto, compact: boolean) => {
     const run = replyRun(m)
     if (run) return card(run, m)
-    if (m.scheduleId)
-      return <ScheduleCard scheduleId={m.scheduleId} groupId={m.groupId} fallback={eventText(m)} />
-    if (m.syncConflict) return <ConflictEvent m={m} conflict={m.syncConflict} />
-    if (isRequestCard(m)) return <RequestCard m={m} />
-    if (m.progress) return <ProgressCard card={m.progress} />
-    if (m.card?.type === 'creation-draft') return <CreationDraftView m={m} card={m.card} />
-    if (m.card?.type === 'artifact') return <ArtifactCardView card={m.card} groupId={m.groupId} />
-    if (m.feishuIssue) return <FeishuIssueEventRow m={m} issue={m.feishuIssue} />
+    const special = eventCard(m)
+    if (special) return special
     if (m.kind === 'event') return <EventRow m={m} />
     if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />
     if (m.kind === 'bot') return <BotReply m={m} compact={compact} />

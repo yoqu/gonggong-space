@@ -1,7 +1,7 @@
 import type { MessageDto, PluginDto, ToolCallRes } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { feishuIdentities, feishuMessageLinks, runs, systemParams } from '../src/db/schema.js'
+import { feishuIdentities, feishuMessageLinks, messages, runs, systemParams } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { forgetSysParams, saveSysParams } from '../src/modules/admin/params.js'
 import { feishuIdle } from '../src/modules/feishu/mirror.js'
@@ -78,7 +78,8 @@ describe('connect cards in Feishu', () => {
     await feishuIdle(t.ctx)
     const [run] = await t.db
       .update(runs)
-      .set({ status: 'running' })
+      // Bot 回复进话题: the run answers in a thread under the asking message.
+      .set({ status: 'running', threadRootId: sent.body.id })
       .where(eq(runs.triggerMessageId, sent.body.id))
       .returning()
     const res = await t.app.inject({
@@ -95,7 +96,8 @@ describe('connect cards in Feishu', () => {
     const json = JSON.stringify(card!.content)
     expect(json).toContain('<at id=u_wang></at>')
     expect(json).toContain('去连接')
-    expect(json).toContain(`${BASE}/g/${group.id}`)
+    const asked = (await t.db.select().from(messages)).find((m) => 'connectorCard' in (m.meta as object))
+    expect(json).toContain(`${BASE}/g/${group.id}?thread=${sent.body.id}&msg=${asked!.id}`)
     const [link] = await t.db
       .select()
       .from(feishuMessageLinks)

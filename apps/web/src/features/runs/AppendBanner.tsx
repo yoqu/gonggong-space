@@ -1,11 +1,11 @@
 import { Button, Icon } from '../../ui'
-import { useAppend } from './append'
+import { appendsHere, useAppend } from './append'
 import './question.css'
 import { t } from '../../i18n'
 
 /** Composer strip while the next message will be 打断并追加 into a running run. */
-export function AppendBanner({ groupId }: { groupId: string }) {
-  const target = useAppend((s) => (s.target?.groupId === groupId ? s.target : null))
+export function AppendBanner({ groupId, scope }: { groupId: string; scope?: string }) {
+  const target = useAppend((s) => (appendsHere(s.target, groupId, scope) ? s.target : null))
   const clear = useAppend((s) => s.clear)
   if (!target) return null
   return (

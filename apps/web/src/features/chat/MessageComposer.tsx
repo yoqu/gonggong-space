@@ -33,7 +33,7 @@ import { useConnectors } from '../connectors/store'
 import { tryDraft } from '../connectors/tryDraft'
 import { openCreation, useCreationPlugins } from '../plugins/store'
 import { AppendBanner } from '../runs/AppendBanner'
-import { useAppend } from '../runs/append'
+import { appendsHere, useAppend } from '../runs/append'
 import { BotPresenceHint } from './BotPresenceHint'
 import {
   type Candidate,
@@ -118,8 +118,8 @@ export const MessageComposer = memo(function MessageComposer({
   /** Filled with the upload entry point, so files dropped anywhere on the chat attach here. */
   dropFiles?: RefObject<((files: File[]) => void) | null>
   /**
-   * Replies in the thread of this root (plan 话题). Cited text, the canvas and 打断并追加 belong to the main
-   * composer, so this one leaves them alone.
+   * Replies in the thread of this root (plan 话题). Cited text and the canvas belong to the main composer, so this
+   * one leaves them alone; 打断并追加 goes to the composer of the run's own conversation.
    */
   thread?: string
   /**
@@ -137,7 +137,7 @@ export const MessageComposer = memo(function MessageComposer({
   const key = draftKey(group.id, scope)
   const [draft, setDraft] = useState(() => loadDraft(key))
   const [alsoSent, setAlsoSent] = useState(false)
-  /** The group's composer-wide stores (cite, 正在编辑, 打断并追加) speak to the main composer only. */
+  /** The group's composer-wide stores (cite, 正在编辑) speak to the main composer only. */
   const main = scope ? '' : group.id
   /** The canvas selection goes to the canvas's own composer while one is in front, else to the main composer. */
   const canvasInFront = useCanvasChat((s) => !!s.byGroup[group.id])
@@ -162,7 +162,7 @@ export const MessageComposer = memo(function MessageComposer({
   const [connectorMenu, setConnectorMenu] = useState(false)
   const [connectorId, setConnectorId] = useState<string | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
-  const appending = useAppend((s) => s.target?.groupId === main)
+  const appending = useAppend((s) => appendsHere(s.target, group.id, scope))
   const mentioned = mentionedBots(draft, groupBots)
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
   const soleDm = group.kind === 'dm' && groupBots.length === 1 && !appending
@@ -491,7 +491,7 @@ export const MessageComposer = memo(function MessageComposer({
     if (sending.current || uploads.uploading || (!body.trim() && !attachmentIds.length)) return
     const q = quote && { kind: quote.kind, id: quote.id }
     const target = useAppend.getState().target
-    const appendTo = main && target?.groupId === main ? target.runId : null
+    const appendTo = appendsHere(target, group.id, scope) ? (target?.runId ?? null) : null
     const runOptions: Picks = {}
     for (const b of targets) {
       const pick = picks[b.id]
@@ -675,7 +675,7 @@ export const MessageComposer = memo(function MessageComposer({
         above={
           chips ? (
             <div className="composer__chips" data-testid="composer-chips">
-              <AppendBanner groupId={group.id} />
+              <AppendBanner groupId={group.id} scope={scope} />
               {canvas ? (
                 <ContextChips
                   context={canvas}

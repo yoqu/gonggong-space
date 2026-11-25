@@ -35,6 +35,7 @@ import {
   publishMessage,
 } from '../messages/service.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { followOnReply, isArtifactChat, touchThread } from '../threads/service.js'
 import { designSystemDto, findDesignSystem } from './designSystems.js'
 import { botStates, groupPluginList, pluginBlocker, requirePluginsOn, skillLine } from './service.js'
 
@@ -255,6 +256,9 @@ export async function createCreation(
   // A daemon that checks artifacts out and uploads them gets one made up front (§2); older ones publish themselves.
   const hosted = features.includes('artifacts')
   const l1 = !!(await pluginKit(ctx.db, versionId))
+  // Started from a card in a thread, the creation goes on there.
+  const thread = draft?.row.threadRootId
+  const [root] = thread ? await ctx.db.select().from(messages).where(eq(messages.id, thread)) : []
   const { row, artifact } = await ctx.db.transaction(async (tx) => {
     const id = randomUUID()
     const files = await claimAttachments(tx, req.attachmentIds, {
@@ -289,8 +293,17 @@ export async function createCreation(
     const body = instructions(m, card, design, artifact ? { dir: artifact.dir } : null, l1)
     const [inserted] = await tx
       .insert(messages)
-      .values({ id, groupId: group.id, kind: 'user', authorUserId: me.id, body, meta })
+      .values({
+        id,
+        groupId: group.id,
+        kind: 'user',
+        authorUserId: me.id,
+        body,
+        meta,
+        threadRootId: root?.id,
+      })
       .returning()
+    if (root && !isArtifactChat(root)) await followOnReply(tx, root, inserted as MessageRow, [])
     return { row: inserted as MessageRow, artifact: artifact as Artifact | undefined }
   })
   const dto = messageDto(row, me.name)
@@ -304,12 +317,14 @@ export async function createCreation(
       {
         card: await cardOf(ctx.db, artifact),
       },
+      root?.id,
     )
     await ctx.db.update(artifacts).set({ messageId: posted.id }).where(eq(artifacts.id, artifact.id))
   }
+  await touchThread(ctx, root?.id)
   if (draft)
     await settleDraft(ctx, draft.row, draft.card, { status: 'started', by: me.name, creationId: row.id })
-  await mirrorUserMessage(ctx, row, me)
+  if (!root || !isArtifactChat(root)) await mirrorUserMessage(ctx, row, me)
   await triggerRuns(ctx, row)
   return { ...dto, ...(artifact && { artifactId: artifact.id }) } satisfies CreationRes
 }
@@ -329,7 +344,7 @@ export async function dismissDraft(
 /** creation_propose: the run's bot posts a 创作确认卡 for a member to start; blank required inputs are listed. */
 export async function proposeCreation(
   ctx: Ctx,
-  run: { groupId: string; botId: string; originUserId: string },
+  run: { groupId: string; botId: string; originUserId: string; threadRootId: string | null },
   req: Omit<Draft, 'botId'>,
   note: string | null,
 ) {
@@ -363,6 +378,8 @@ export async function proposeCreation(
     kind: 'event',
     body: [zh(i18n.key, i18n.params), summary.filter(Boolean).join(' · ')].filter(Boolean).join('\n'),
     meta: { card: draft, i18n } satisfies MessageMeta,
+    threadRootId: run.threadRootId,
   })
+  await touchThread(ctx, run.threadRootId)
   return { id: dto.id, missing }
 }

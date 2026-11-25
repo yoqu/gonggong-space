@@ -1,5 +1,5 @@
 import { TERMINAL_RUN_STATUS, type ThreadStateDto, type ThreadSummary } from '@gonggong/protocol'
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { messages, runs, statusIn, threadFollows } from '../../db/schema.js'
@@ -54,7 +54,11 @@ export async function threadSummaries(
   const inThreads = and(
     inArray(messages.threadRootId, rootIds),
     isNull(messages.recalledAt),
-    ne(messages.kind, 'event'),
+    // A card someone has to act on counts: a thread whose run only asked for one still needs its entry.
+    or(
+      ne(messages.kind, 'event'),
+      sql`${messages.meta} ?| array['secretCard','connectorCard','card','progress']`,
+    ),
   )
   const inThreadRuns = and(inArray(runs.threadRootId, rootIds), standaloneThreadRun)
   const runAt = sql<Date>`coalesce(${runs.endedAt}, ${runs.queuedAt})`

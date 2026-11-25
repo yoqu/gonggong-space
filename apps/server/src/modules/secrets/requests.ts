@@ -28,13 +28,20 @@ import { authorName, type MessageMeta, memberIds, messageDto, postEvent } from '
 import { connectorSecretNames } from '../plugins/connectors.js'
 import { rerunFor } from '../runs/trigger.js'
 import { enabledSkills } from '../skills/service.js'
+import { touchThread } from '../threads/service.js'
 import { specDescription } from './needs.js'
 import { resolveSecrets, type SecretRow, type SecretState, visibleSecrets } from './resolve.js'
 import { createSecret, layerOfRow, setPersonal, setSharedValue } from './service.js'
 
 type RequestRow = typeof secretRequests.$inferSelect
 export type Audience = 'origin' | 'admins'
-type RunRef = { id: string; groupId: string; botId: string; originUserId: string }
+type RunRef = {
+  id: string
+  groupId: string
+  botId: string
+  originUserId: string
+  threadRootId: string | null
+}
 
 const card = (r: RequestRow, foreign?: boolean): SecretCard => ({
   id: r.id,
@@ -112,8 +119,10 @@ export async function postSecretCard(
     audience === 'origin' ? '{bot} 请 {user} 填写自己的密钥：{names}' : '{bot} 请管理员填写密钥：{names}',
     params,
     { secretCard: posted },
+    run.threadRootId,
   )
   await ctx.db.update(secretRequests).set({ messageId: msg.id }).where(eq(secretRequests.id, req.id))
+  await touchThread(ctx, run.threadRootId)
   await mirrorSecretCard(ctx, run.groupId, req.id)
   return posted
 }
@@ -217,8 +226,10 @@ export async function postDefineCard(
     '{bot} 请管理员按 Skill「{skill}」的声明创建密钥：{names}',
     { bot: bot?.name ?? '', skill: skill.name, names: names.join('、') },
     { secretCard: posted },
+    run.threadRootId,
   )
   await ctx.db.update(secretRequests).set({ messageId: msg.id }).where(eq(secretRequests.id, req.id))
+  await touchThread(ctx, run.threadRootId)
   await mirrorSecretCard(ctx, run.groupId, req.id)
   return posted
 }
@@ -384,9 +395,17 @@ async function carryOn(ctx: Ctx, runId: string | null) {
   if (!row) return
   const { run, message } = row
   if (run.hop === 1 && message.authorUserId && !message.recalledAt) {
-    await postEvent(ctx, run.groupId, '已填写密钥，{bot} 继续处理', { bot: row.bot })
-    await rerunFor(ctx, message, [run.botId])
-  } else await postEvent(ctx, run.groupId, '已填写密钥，重新 @{bot} 即可继续', { bot: row.bot })
+    await postEvent(ctx, run.groupId, '已填写密钥，{bot} 继续处理', { bot: row.bot }, {}, run.threadRootId)
+    await rerunFor(ctx, message, [run.botId], run.threadRootId)
+  } else
+    await postEvent(
+      ctx,
+      run.groupId,
+      '已填写密钥，重新 @{bot} 即可继续',
+      { bot: row.bot },
+      {},
+      run.threadRootId,
+    )
 }
 
 async function refreshCard(ctx: Ctx, messageId: string) {

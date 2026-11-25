@@ -311,6 +311,7 @@ describe('works', () => {
       siteDir: 'dist',
       title: '我的小工具',
       userId: s.wang.id,
+      threadRootId: null,
     })
     expect(dmSite.visibility).toBe('private')
 

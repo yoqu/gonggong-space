@@ -13,14 +13,19 @@ export const targets = ({ command, bots }: CommandInput) =>
 export const newSession: CommandHandler = async (ctx, input) => {
   const { group, user, bots } = input
   const picked = targets(input)
-  if (!picked.length) {
-    await postEvent(ctx, group.id, '/new 需要同时 @ 一个 Bot，如 /new @{bot}', {
-      bot: bots[0]?.name ?? 'bot',
-    })
-    return
-  }
   // Asked in a thread, /new starts over the thread's session only (plan 话题).
   const thread = input.message.threadRootId
+  if (!picked.length) {
+    await postEvent(
+      ctx,
+      group.id,
+      '/new 需要同时 @ 一个 Bot，如 /new @{bot}',
+      { bot: bots[0]?.name ?? 'bot' },
+      {},
+      thread,
+    )
+    return
+  }
   for (const bot of picked) {
     if (thread)
       await ctx.db

@@ -318,7 +318,7 @@ async fn a_failed_download_fails_the_run() {
 async fn sends_workspace_images_and_video_to_the_chat_without_asking_the_owner() {
     let (url, hits) = file_server(HashMap::from([(
         "/api/daemon/runs/r1/attachments".to_string(),
-        br#"{"id":"m9","kind":"bot"}"#.to_vec(),
+        br#"{"id":"m9","kind":"bot","seq":9,"threadRootId":"t1"}"#.to_vec(),
     )]))
     .await;
     let mut r = rig(&url);
@@ -331,7 +331,7 @@ async fn sends_workspace_images_and_video_to_the_chat_without_asking_the_owner()
     r.engine.handle(ServerToDaemon::RunStart(Box::new(s)), &r.out);
     let done = r.done("r1").await;
     assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
-    assert_eq!(done.reply, "已发送 2 个附件到群聊");
+    assert_eq!(done.reply, "已发送 2 个附件到当前话题（#9）");
     let hits = hits.lock().unwrap();
     let req = &hits[0].request;
     assert_eq!(hits[0].path, "/api/daemon/runs/r1/attachments");

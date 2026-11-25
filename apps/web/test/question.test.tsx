@@ -1,6 +1,7 @@
 import type { BotDto, GroupDto, MessageDto, QuestionSetDto, RunDto, UserDto } from '@gonggong/protocol'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { uploadFile } from '../src/features/attachments/api'
@@ -305,6 +306,33 @@ describe('interrupt and append', () => {
     // Another group's target is not shown here.
     act(() => useAppend.getState().start({ runId: 'r9', groupId: 'g9', botName: 'x' }))
     expect(screen.queryByText(/打断并追加到/)).toBeNull()
+  })
+
+  it('appends to a thread run from its thread, opening the thread when started elsewhere', async () => {
+    useInspector.setState({ view: null, payload: null, back: null })
+    render(<RunActions run={run({ status: 'running', threadRootId: 'm1' })} />)
+    fireEvent.click(button('打断并追加'))
+    expect(useAppend.getState().target).toMatchObject({ runId: 'r1', threadRootId: 'm1' })
+    expect(useInspector.getState()).toMatchObject({ view: 'thread', payload: 'm1' })
+    cleanup()
+
+    const sent = { id: 'm2', body: '话题里追加' } as MessageDto
+    const calls = mockApi({ 'POST /groups/g1/messages': sent })
+    const { unmount } = render(<MessageComposer group={group} onSent={() => {}} />)
+    // The main composer leaves a thread run's 追加 to the thread's composer.
+    expect(screen.queryByText(/打断并追加到/)).toBeNull()
+    unmount()
+    render(<MessageComposer group={group} thread="m1" onSent={() => {}} />)
+    expect(screen.getByText('打断并追加到 小王的 Claude · 已改内容保留，仍算同一轮')).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '话题里追加' } })
+    fireEvent.click(button('发送'))
+    await waitFor(() => expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1))
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+      body: '话题里追加',
+      appendTo: 'r1',
+      threadRootId: 'm1',
+    })
+    expect(useAppend.getState().target).toBeNull()
   })
 })
 

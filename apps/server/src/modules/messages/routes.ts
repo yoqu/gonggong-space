@@ -166,11 +166,16 @@ export function messageRoutes(ctx: Ctx) {
         runOptions,
         artifactContext,
         foregroundArtifactId,
-        threadRootId,
+        threadRootId: asked,
         alsoSent,
       } = input
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const bots = activeBots(ctx, group.id).execute()
+      const target = appendTo ? await appendTarget(ctx, group.id, me.id, appendTo) : null
+      // An append joins the run where it runs: its thread, or the main timeline.
+      if (target && asked && asked !== target.threadRootId)
+        return fail('invalid', '只能在该运行所在的会话里打断并追加')
+      const threadRootId = target ? target.threadRootId : asked
       // @所有人: group owner or admins, in the main timeline only.
       const everyone = !threadRootId && (group.createdBy === me.id || !!member?.isAdmin) && mentionsAll(body)
       const root = threadRootId ? await threadRoot(ctx, group.id, threadRootId) : null
@@ -178,8 +183,7 @@ export function messageRoutes(ctx: Ctx) {
       // In an artifact's 画布 AI 对话 every message is about the artifact and goes to its bot.
       const context = artifactContext ?? (chat ? { artifactId: chat } : undefined)
       const canvas = context ? await canvasContext(ctx, group.id, me.id, context) : null
-      const [target, inGroup, quoted, userMentions] = await Promise.all([
-        appendTo ? appendTarget(ctx, group.id, me.id, appendTo) : null,
+      const [inGroup, quoted, userMentions] = await Promise.all([
         bots,
         quote ? resolveQuote(ctx, group.id, quote) : null,
         everyone ? everyoneBut(ctx, group.id, me.id) : memberMentions(ctx, group.id, body, { bots }),

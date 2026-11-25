@@ -281,10 +281,14 @@ async function onCompaction(ctx: Ctx, run: Owner, e: Extract<RunEvent, { kind: '
   const [bot] = await ctx.db.select({ name: bots.name }).from(bots).where(eq(bots.id, run.botId))
   const name = bot?.name ?? ''
   if (e.status === 'failed') {
-    await postEvent(ctx, run.groupId, '{bot} 压缩上下文失败：{error}', {
-      bot: name,
-      error: e.error ?? { key: '未知错误' },
-    })
+    await postEvent(
+      ctx,
+      run.groupId,
+      '{bot} 压缩上下文失败：{error}',
+      { bot: name, error: e.error ?? { key: '未知错误' } },
+      {},
+      run.threadRootId,
+    )
     return
   }
   const auto = e.trigger === 'auto'
@@ -294,9 +298,18 @@ async function onCompaction(ctx: Ctx, run: Owner, e: Extract<RunEvent, { kind: '
       run.groupId,
       auto ? '{bot} 已自动压缩上下文：{pre} → {post}' : '{bot} 已压缩上下文：{pre} → {post}',
       { bot: name, pre: fmtTokens(e.preTokens), post: fmtTokens(e.postTokens) },
+      {},
+      run.threadRootId,
     )
   else
-    await postEvent(ctx, run.groupId, auto ? '{bot} 已自动压缩上下文' : '{bot} 已压缩上下文', { bot: name })
+    await postEvent(
+      ctx,
+      run.groupId,
+      auto ? '{bot} 已自动压缩上下文' : '{bot} 已压缩上下文',
+      { bot: name },
+      {},
+      run.threadRootId,
+    )
   if (e.postTokens !== undefined)
     await updateContextUsage(
       ctx,

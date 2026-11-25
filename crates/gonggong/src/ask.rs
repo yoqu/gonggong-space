@@ -411,11 +411,11 @@ async fn send_attachments(api: Option<&Config>, asker: &dyn Asker, args: &Value)
         let part = reqwest::multipart::Part::file(&path).await.map_err(|e| format!("读取 {file} 失败：{e}"))?;
         form = form.part("files", part);
     }
-    post_form(api, &format!("/api/daemon/runs/{run_id}/attachments"), form)
-        .await
-        .and_then(|r| r)
-        .map_err(|e| format!("附件未发送：{e}"))?;
-    Ok(format!("已发送 {count} 个附件到群聊"))
+    let path = format!("/api/daemon/runs/{run_id}/attachments");
+    let message = post_form(api, &path, form).await.and_then(|r| r).map_err(|e| format!("附件未发送：{e}"))?;
+    let place = if message["threadRootId"].is_string() { "当前话题" } else { "群聊" };
+    let seq = message["seq"].as_i64().map(|n| format!("（#{n}）")).unwrap_or_default();
+    Ok(format!("已发送 {count} 个附件到{place}{seq}"))
 }
 
 /// `HtmlPreviewArgs` / `HtmlRenderArgs` of `packages/protocol/src/tools.ts`.
@@ -1260,7 +1260,7 @@ mod tests {
 
     #[tokio::test]
     async fn uploads_workspace_media_as_chat_attachments() {
-        let (base, seen) = fake_server(r#"{"id":"m1","kind":"bot","attachments":[]}"#).await;
+        let (base, seen) = fake_server(r#"{"id":"m1","kind":"bot","seq":7,"attachments":[]}"#).await;
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("out")).unwrap();
         std::fs::write(dir.path().join("out/shot.png"), "PNG").unwrap();
@@ -1269,7 +1269,7 @@ mod tests {
         let args = json!({ "paths": ["out/shot.png"], "text": "预览" });
 
         let text = send_attachments(Some(&config(base)), &live, &args).await.unwrap();
-        assert_eq!(text, "已发送 1 个附件到群聊");
+        assert_eq!(text, "已发送 1 个附件到群聊（#7）");
         let req = seen.lock().unwrap()[0].clone();
         assert!(req.starts_with("POST /api/daemon/runs/r1/attachments HTTP/1.1"), "{req}");
         assert!(req.to_ascii_lowercase().contains("authorization: bearer mt_1"));

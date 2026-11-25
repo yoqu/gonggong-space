@@ -23,6 +23,7 @@ import { sysParams } from '../admin/params.js'
 import { htmlRenderSnapshotFile } from '../attachments/html-render.js'
 import { type MessageMeta, postEvent } from '../messages/service.js'
 import { snapshotFile } from '../previews/service.js'
+import { isArtifactChat } from '../threads/service.js'
 import { botApp, mainApp } from './apps.js'
 import {
   approvalCard,
@@ -387,6 +388,7 @@ async function syncRun(ctx: Ctx, runId: string) {
       '{bot} 的回复没有同步到飞书群：{what}{todo}',
       { bot: row.bot, ...hintParams(issue) },
       { feishuIssue: { botId: app.botId === run.botId ? run.botId : null, ...issue } },
+      run.threadRootId,
     )
   }
 }
@@ -734,6 +736,16 @@ async function syncLegacyCards(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: 
   }
 }
 
+/** Output of a run in an artifact's 画布 AI 对话 stays out of Feishu, as the chat itself does. */
+async function inArtifactChat(ctx: Ctx, threadRootId: string | null) {
+  if (!threadRootId) return false
+  const [root] = await ctx.db
+    .select({ id: messages.id, threadRootId: messages.threadRootId })
+    .from(messages)
+    .where(eq(messages.id, threadRootId))
+  return !!root && isArtifactChat(root)
+}
+
 /** Called on every preview change (publishPreviews): mirrors the group's preview cards to the bound chat. */
 export async function mirrorPreviews(ctx: Ctx, groupId: string) {
   if ((await sysParams(ctx.db)).demoMode || !(await boundChat(ctx.db, groupId))?.syncOutbound) return
@@ -751,9 +763,10 @@ async function syncPreviewCards(ctx: Ctx, groupId: string) {
   ).flatMap((l) => (l.id ? [l.id] : []))
   // Open ones, plus closed ones whose card still has to say so.
   const rows = await ctx.db
-    .select({ p: previews, bot: bots.name })
+    .select({ p: previews, bot: bots.name, threadRootId: runs.threadRootId })
     .from(previews)
     .innerJoin(bots, eq(bots.id, previews.botId))
+    .leftJoin(runs, eq(runs.id, previews.createdByRunId))
     .where(
       and(
         eq(previews.groupId, groupId),
@@ -763,7 +776,8 @@ async function syncPreviewCards(ctx: Ctx, groupId: string) {
       ),
     )
   const base = await publicUrl(ctx)
-  for (const { p, bot } of rows) {
+  for (const { p, bot, threadRootId } of rows) {
+    if (await inArtifactChat(ctx, threadRootId)) continue
     const existing = await cardLink(ctx, 'preview', { refId: p.id })
     const app = await appOfBot(ctx, p.botId)
     if (!app) continue
@@ -810,7 +824,7 @@ async function syncProgressCard(ctx: Ctx, groupId: string, messageId: string) {
   const chat = await boundChat(ctx.db, groupId)
   const [m] = await ctx.db.select().from(messages).where(eq(messages.id, messageId))
   const p = (m?.meta as MessageMeta | undefined)?.progress
-  if (!chat?.syncOutbound || !p) return
+  if (!chat?.syncOutbound || !p || (await inArtifactChat(ctx, m!.threadRootId))) return
   const app = await appOfBot(ctx, p.botId)
   if (!app) return
   const existing = await cardLink(ctx, 'progress', { refId: messageId })
@@ -851,7 +865,7 @@ async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
     .innerJoin(bots, eq(bots.id, runs.botId))
     .innerJoin(messages, eq(messages.id, secretRequests.messageId))
     .where(eq(secretRequests.id, requestId))
-  if (!chat?.syncOutbound || !row) return
+  if (!chat?.syncOutbound || !row || (await inArtifactChat(ctx, row.run.threadRootId))) return
   const app = await appOfBot(ctx, row.run.botId)
   if (!app) return
   const [trigger] = await ctx.db
@@ -891,6 +905,7 @@ async function syncConnectorCard(ctx: Ctx, groupId: string, messageId: string) {
   const runId = meta?.connectorAsk?.runId
   const card = meta?.connectorCard
   if (!chat?.syncOutbound || !m || !runId || !card) return
+  if (await inArtifactChat(ctx, m.threadRootId)) return
   const [run] = await ctx.db.select().from(runs).where(eq(runs.id, runId))
   const app = run && (await appOfBot(ctx, run.botId))
   if (!run || !app) return
@@ -911,7 +926,7 @@ async function syncConnectorCard(ctx: Ctx, groupId: string, messageId: string) {
     connectorCard({
       text: at ? `${at} ${m.body}` : m.body,
       resolved: card.resolved,
-      url: base && `${base}/g/${groupId}`,
+      url: base && `${base}/g/${groupId}${m.threadRootId ? `?thread=${m.threadRootId}&msg=${m.id}` : ''}`,
     }),
     { kind: 'connector', refId: card.id },
   )

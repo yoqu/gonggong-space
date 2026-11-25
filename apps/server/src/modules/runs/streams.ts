@@ -7,8 +7,14 @@ import { runAudience } from '../messages/guests.js'
 import { runRedactors } from '../secrets/resolve.js'
 import { LIVE } from './dto.js'
 
-/** Who a run was found live for: its machine, group and bot. */
-export type Owner = { id: string; machineId: string; groupId: string; botId: string }
+/** Who a run was found live for: its machine, group, bot and the thread it answers in. */
+export type Owner = {
+  id: string
+  machineId: string
+  groupId: string
+  botId: string
+  threadRootId: string | null
+}
 
 /**
  * Runs found live, so their further reports skip the row. Dropped wherever a run ends without its machine's
@@ -44,14 +50,22 @@ export function dropMachineOwners(machineId: string) {
 export async function resolveOwner(
   machineId: string,
   runId: string,
-  load: () => Promise<{ groupId: string; botId: string; status: string } | undefined>,
+  load: () => Promise<
+    { groupId: string; botId: string; status: string; threadRootId: string | null } | undefined
+  >,
 ) {
   const known = owners.get(runId)
   if (known?.machineId === machineId) return known
   const seen = drops
   const run = await load()
   if (!run) return
-  const owner: Owner = { id: runId, machineId, groupId: run.groupId, botId: run.botId }
+  const owner: Owner = {
+    id: runId,
+    machineId,
+    groupId: run.groupId,
+    botId: run.botId,
+    threadRootId: run.threadRootId,
+  }
   if (LIVE.includes(run.status) && seen === drops) owners.set(runId, owner)
   return owner
 }

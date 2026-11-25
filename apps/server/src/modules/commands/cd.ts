@@ -15,7 +15,8 @@ import { targets } from './system.js'
  */
 export const cd: CommandHandler = async (ctx, input) => {
   const { group, user, command, bots: inGroup } = input
-  const say = (key: ProtocolKey, params?: I18nParams) => postEvent(ctx, group.id, key, params)
+  const thread = input.message.threadRootId
+  const say = (key: ProtocolKey, params?: I18nParams) => postEvent(ctx, group.id, key, params, {}, thread)
   if (group.mode !== 'partition')
     return void (await say('/cd 仅分区模式可用；强制同步群里非托管工作区的 Bot 为「不参与」'))
   const picked = targets(input)
@@ -37,7 +38,7 @@ export const cd: CommandHandler = async (ctx, input) => {
   if (path && (await toExtraRepo(ctx, { groupId: group.id, user, bot, path }))) return
   if (!(await requestCd(ctx, { groupId: group.id, botId: bot.id, path })))
     return void (await say('{bot} 离线，无法执行 /cd', { bot: bot.name }))
-  await announceCd(ctx, { groupId: group.id, userId: user.id, bot, path })
+  await announceCd(ctx, { groupId: group.id, userId: user.id, bot, path, threadRootId: thread })
 }
 
 /** A clone of one of the group's extra repos is used for that repo; false when `path` is not one (or can't be told). */

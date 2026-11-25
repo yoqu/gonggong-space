@@ -50,7 +50,6 @@ import { BotCardTrigger, UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
 import { splitBasis } from './basis'
 import { Clamp } from './Clamp'
-import { citeInChat } from './cite'
 import { useRunDeltas } from './deltas'
 import { startEditing, stopEditing, useEditing } from './editing'
 import { replyFiles } from './grouping'
@@ -111,7 +110,7 @@ const NEW_SESSION: Record<string, string | null> = {
 export const newSessionNote = (reason: string | null) =>
   reason === null ? null : reason in NEW_SESSION ? NEW_SESSION[reason] : reason
 
-const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
+export const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
 const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
 
 function fmtTime(iso: string) {
@@ -590,6 +589,7 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
  * composer. Hand-off messages carry their target in `mentions` and it is already running.
  */
 function HandOffChips({ m }: { m: MessageDto }) {
+  const scope = useContext(ThreadScope)
   const botIds = useWorkspace((s) => s.groups.find((g) => g.id === m.groupId)?.botIds)
   const all = useWorkspace((s) => s.bots)
   const bots = useMemo(() => {
@@ -606,7 +606,7 @@ function HandOffChips({ m }: { m: MessageDto }) {
           key={b.id}
           type="button"
           className="tl-handoff"
-          onClick={() => citeInChat(m.groupId, `@${b.name}`)}
+          onClick={() => mentionInChat(m.groupId, b.name, scope)}
         >
           <Icon name="at" size={12} />
           {t('让 {name} 处理', { name: b.name })}

@@ -916,7 +916,8 @@ export const DAEMON_TOOLS = {
     title: '发送文件到群聊',
     description:
       'Send workspace images, videos or other files as your group message, previewable in the chat. ' +
-      'Use it whenever members should see media you produced.',
+      'Use it whenever members should see media you produced. Sent in a thread, it lands in that thread; ' +
+      'the result gives the message #seq for fetch_attachments.',
     input: SendAttachmentsArgs,
   },
   service_start: {

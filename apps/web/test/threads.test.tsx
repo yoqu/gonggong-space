@@ -489,6 +489,70 @@ describe('thread runs', () => {
     expect(await within(rail).findByText(/我来看看/)).toBeTruthy()
   })
 
+  const files = (seq: number, o: Partial<MessageDto> = {}) =>
+    msg({
+      seq,
+      kind: 'bot',
+      authorId: 'b1',
+      authorName: '小王的 Claude',
+      body: '附件 v3',
+      attachments: [{ id: `a${seq}`, name: 'v3.png', size: 1, mime: 'image/png', messageId: `m${seq}` }],
+      runId: 'r1',
+      threadRootId: 'm1',
+      ...o,
+    })
+  const withThread = (r: RunDto, list: MessageDto[]) => ({
+    'GET /groups/g1/timeline?limit=50': { messages: [root], runs: [r] },
+    'GET /messages/m1/thread?limit=50': threadDto({ replies: list, runs: [r] }),
+  })
+
+  it('puts an ended run with files and a reply in one card on its last reply', async () => {
+    const done = run({ threadRootId: 'm1', status: 'completed', endedAt: min(6) })
+    renderAt('/g/g1?thread=m1', withThread(done, [files(4), files(5, { body: '全部完成' })]))
+    const rail = await panel()
+    expect(await within(rail).findByText('全部完成')).toBeTruthy()
+    expect(within(rail).getByText('附件 v3')).toBeTruthy()
+    expect(within(rail).getAllByTestId('run-card')).toHaveLength(1)
+    expect(within(within(rail).getByTestId('run-card')).getByText('全部完成')).toBeTruthy()
+  })
+
+  it('keeps a live run its card and 停止 while the files it sent show as replies', async () => {
+    renderAt('/g/g1?thread=m1', withThread(threadRun, [files(4)]))
+    const rail = await panel()
+    expect(await within(rail).findByText('附件 v3')).toBeTruthy()
+    const card = within(rail).getByTestId('run-card')
+    expect(within(card).queryByText('附件 v3')).toBeNull()
+    expect(within(card).getByRole('button', { name: '停止' })).toBeTruthy()
+  })
+
+  it('shows event cards in the thread, a run’s progress inside its card', async () => {
+    const progress = (id: string, runId: string, title: string) => ({
+      id,
+      botId: 'b1',
+      runId,
+      title,
+      stages: [{ name: '构建', status: 'running' as const }],
+      percent: null,
+      detail: null,
+      link: null,
+      status: 'running' as const,
+      updatedAt: min(4),
+    })
+    renderAt(
+      '/g/g1?thread=m1',
+      withThread(threadRun, [
+        msg({ seq: 4, kind: 'event', threadRootId: 'm1', progress: progress('m4', 'r1', '部署进度') }),
+        msg({ seq: 5, kind: 'event', threadRootId: 'm1', progress: progress('m5', 'r9', '别轮的进度') }),
+      ]),
+    )
+    const rail = await panel()
+    const card = await within(rail).findByTestId('run-card')
+    expect(within(card).getByText('部署进度')).toBeTruthy()
+    expect(within(rail).getByText('别轮的进度').closest('[data-testid="run-card"]')).toBeNull()
+    expect(within(card).getByTestId('run-progress')).toBeTruthy()
+    expect(within(rail).getAllByTestId('progress-card')).toHaveLength(1)
+  })
+
   it('marks a thread run in the task dock and opens its thread from the row', async () => {
     renderAt('/g/g1', withRuns())
     const row = await screen.findByTestId('task-dock-row')

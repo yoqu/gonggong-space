@@ -4,8 +4,9 @@ import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useWorkspace } from '../src/app/workspace'
-import { useCite } from '../src/features/chat/cite'
+import { useMention } from '../src/features/chat/mention'
 import { BotReply } from '../src/features/chat/TimelineItems'
+import { ThreadScope } from '../src/features/chat/threadSummary'
 
 /** Message rows open the chat's router (branch navigation), so every render gets one. */
 const render = (ui: ReactElement) => renderBare(<MemoryRouter>{ui}</MemoryRouter>)
@@ -30,7 +31,7 @@ const reply = (o: Partial<MessageDto>): MessageDto => ({
 })
 
 beforeEach(() => {
-  useCite.setState({ pending: null })
+  useMention.setState({ pending: null })
   useWorkspace.setState({
     groups: [{ id: 'g1', botIds: ['b1', 'b2', 'b3'], members: [] as GroupDto['members'] } as GroupDto],
     bots: [bot('b1', 'MBP 的 CC'), bot('b2', 'CC专家'), bot('b3', '测试员'), bot('b4', '别群的 Bot')],
@@ -48,7 +49,17 @@ describe('让它处理', () => {
       '让 CC专家 处理',
     ])
     fireEvent.click(screen.getByRole('button', { name: '让 CC专家 处理' }))
-    expect(useCite.getState().pending).toEqual({ groupId: 'g1', text: '@CC专家' })
+    expect(useMention.getState().pending).toEqual({ groupId: 'g1', name: 'CC专家' })
+  })
+
+  it('puts the @ into the composer of the thread the reply is in', () => {
+    render(
+      <ThreadScope.Provider value="root1">
+        <BotReply m={reply({ body: '交给 @CC专家', threadRootId: 'root1' })} />
+      </ThreadScope.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '让 CC专家 处理' }))
+    expect(useMention.getState().pending).toEqual({ groupId: 'g1', name: 'CC专家', threadRootId: 'root1' })
   })
 
   it('offers nothing for a hand-off message, whose bot is already running', () => {

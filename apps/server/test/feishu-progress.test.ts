@@ -1,7 +1,7 @@
 import type { MessageDto, ToolCallRes } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { feishuIdentities, runs } from '../src/db/schema.js'
+import { feishuIdentities, messages, runs } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { feishuIdle } from '../src/modules/feishu/mirror.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -60,7 +60,7 @@ async function setup() {
     await feishuIdle(t.ctx)
     return res.json<ToolCallRes>()
   }
-  return { call }
+  return { call, group, run: run! }
 }
 
 const STAGES = [
@@ -94,5 +94,18 @@ describe('progress cards in Feishu', () => {
     const update = JSON.stringify(t.feishu.cardUpdates.at(-1))
     expect(update).toContain('"template":"green"')
     expect(update).toContain('https://example.com/qr.png')
+  })
+
+  it('keeps a card of a run in an artifact chat out of Feishu', async () => {
+    const { call, group, run } = await setup()
+    const [chat] = await t.db
+      .insert(messages)
+      .values({ groupId: group.id, kind: 'event', body: '画布 AI 对话' })
+      .returning()
+    await t.db.update(messages).set({ threadRootId: chat!.id }).where(eq(messages.id, chat!.id))
+    await t.db.update(runs).set({ threadRootId: chat!.id }).where(eq(runs.id, run.id))
+    const res = await call({ title: '部署 luke-server', stages: STAGES })
+    expect(res.isError).toBeFalsy()
+    expect(progressCards()).toEqual([])
   })
 })

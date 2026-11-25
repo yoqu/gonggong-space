@@ -18,6 +18,7 @@ import {
 import { notify } from '../notifications/notify.js'
 import { groupPluginList } from '../plugins/service.js'
 import { rerunFor } from '../runs/trigger.js'
+import { touchThread } from '../threads/service.js'
 import { ownerProbe, probesOf } from './state.js'
 import { cliSpec, machineConnectors } from './sync.js'
 
@@ -61,7 +62,9 @@ export async function connectorRequestTool(ctx: Ctx, run: Run, a: Args): Promise
     '{bot} 请 {user} 连接{title}',
     { bot: row.bot, user: row.owner, title },
     { connectorCard, connectorAsk: { runId: run.id } },
+    run.threadRootId,
   )
+  await touchThread(ctx, run.threadRootId)
   await mirrorConnectorCard(ctx, run.groupId, msg.id)
   return {
     text: `已给这台电脑的主人 ${row.owner} 发了「连接${title}」卡片（只有电脑主人本人能连接，授权链接只在其本人的弹窗里显示）。请结束本轮；连接好后本轮会自动重新运行。`,
@@ -128,10 +131,12 @@ async function carryOn(ctx: Ctx, runId: string | undefined, title: string) {
     .where(eq(runs.id, runId))
   if (!row) return
   const { run, message } = row
+  const params = { title, bot: row.bot }
   if (run.hop === 1 && message.authorUserId && !message.recalledAt) {
-    await postEvent(ctx, run.groupId, '已连接{title}，{bot} 继续处理', { title, bot: row.bot })
-    await rerunFor(ctx, message, [run.botId])
-  } else await postEvent(ctx, run.groupId, '已连接{title}，重新 @{bot} 即可继续', { title, bot: row.bot })
+    await postEvent(ctx, run.groupId, '已连接{title}，{bot} 继续处理', params, {}, run.threadRootId)
+    await rerunFor(ctx, message, [run.botId], run.threadRootId)
+  } else
+    await postEvent(ctx, run.groupId, '已连接{title}，重新 @{bot} 即可继续', params, {}, run.threadRootId)
 }
 
 const reminded = new WeakMap<Ctx['hub'], Set<string>>()

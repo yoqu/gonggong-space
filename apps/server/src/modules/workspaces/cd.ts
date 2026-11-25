@@ -9,7 +9,13 @@ export { requestCd } from './provision.js'
 /** Audit + timeline note once an owner's binding request (/cd or the chat banner) was sent. */
 export async function announceCd(
   ctx: Ctx,
-  o: { groupId: string; userId: string; bot: { id: string; name: string }; path: string | null },
+  o: {
+    groupId: string
+    userId: string
+    bot: { id: string; name: string }
+    path: string | null
+    threadRootId?: string | null
+  },
 ) {
   await audit(ctx, {
     category: 'run',
@@ -25,5 +31,7 @@ export async function announceCd(
       ? '已请求 {bot} 使用托管工作区，等待本机确认…'
       : '已请求 {bot} 绑定到 {path}，等待本机校验…',
     { bot: o.bot.name, path: o.path ?? '' },
+    {},
+    o.threadRootId,
   )
 }
