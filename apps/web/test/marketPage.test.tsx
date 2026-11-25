@@ -1666,8 +1666,16 @@ describe('Round 6 市场加固与去重', () => {
     })
     mockApi({
       'GET /market/mine': [
-        mine({ id: 'l9', title: 'first-skill', ghSource: { url: 'https://github.com/a/1', ref: null, path: '', commit: 'c1' } }),
-        mine({ id: 'l10', title: 'second-skill', ghSource: { url: 'https://github.com/a/2', ref: null, path: '', commit: 'c2' } }),
+        mine({
+          id: 'l9',
+          title: 'first-skill',
+          ghSource: { url: 'https://github.com/a/1', ref: null, path: '', commit: 'c1' },
+        }),
+        mine({
+          id: 'l10',
+          title: 'second-skill',
+          ghSource: { url: 'https://github.com/a/2', ref: null, path: '', commit: 'c2' },
+        }),
       ],
       'POST /market/l9/check-upstream': async () => {
         await firstGate
@@ -1704,7 +1712,10 @@ describe('Round 6 市场加固与去重', () => {
       releaseQ2 = r
     })
     mockApi({
-      'GET /install-requests?view=todo': [request({ id: 'q1', requester: '陈晨' }), request({ id: 'q2', requester: '王磊' })],
+      'GET /install-requests?view=todo': [
+        request({ id: 'q1', requester: '陈晨' }),
+        request({ id: 'q2', requester: '王磊' }),
+      ],
       'GET /install-requests?view=mine': [],
       'POST /install-requests/q1/decide': async () => {
         await q1Gate
@@ -1717,10 +1728,9 @@ describe('Round 6 市场加固与去重', () => {
     })
     renderPage('/market?tab=requests')
     const todoSec = await screen.findByRole('region', { name: '待我处理' })
-    const q1Btn = within((await within(todoSec).findByText(/陈晨/)).closest('.cfg__item') as HTMLElement).getByRole(
-      'button',
-      { name: '通过' },
-    ) as HTMLButtonElement
+    const q1Btn = within(
+      (await within(todoSec).findByText(/陈晨/)).closest('.cfg__item') as HTMLElement,
+    ).getByRole('button', { name: '通过' }) as HTMLButtonElement
     const q2Btn = within(within(todoSec).getByText(/王磊/).closest('.cfg__item') as HTMLElement).getByRole(
       'button',
       { name: '通过' },

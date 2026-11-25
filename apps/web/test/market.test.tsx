@@ -299,7 +299,9 @@ describe('InstallList', () => {
     const lintRow = row('lint')
     const upgradeBtn = within(lintRow).getByRole('button', { name: '升级到 r5' }) as HTMLButtonElement
     const lintSwitch = within(lintRow).getByRole('switch', { name: '启用 lint' }) as HTMLInputElement
-    const slidesSwitch = within(row('幻灯片')).getByRole('switch', { name: '启用 幻灯片' }) as HTMLInputElement
+    const slidesSwitch = within(row('幻灯片')).getByRole('switch', {
+      name: '启用 幻灯片',
+    }) as HTMLInputElement
     fireEvent.click(upgradeBtn)
     expect(upgradeBtn.disabled).toBe(true)
     expect(upgradeBtn.getAttribute('aria-busy')).toBe('true')
@@ -324,7 +326,8 @@ describe('InstallList', () => {
     })
     const calls = mockApi({
       'GET /groups/g1/installs': [],
-      'GET /groups/g1/installable': () => (failLoad ? apiError(500, 'internal', '列表加载失败') : installable),
+      'GET /groups/g1/installable': () =>
+        failLoad ? apiError(500, 'internal', '列表加载失败') : installable,
       'PUT /groups/g1/installs/l4': apiError(409, 'conflict', '同名冲突错误'),
       'PUT /groups/g1/installs/l5': async () => {
         await submitGate

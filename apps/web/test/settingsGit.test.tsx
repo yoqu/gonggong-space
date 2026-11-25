@@ -205,7 +205,8 @@ describe('Settings sheets submit locking and feedback', () => {
     render(<SettingsDialog page="git" onClose={onClose} />)
     fireEvent.click(await screen.findByRole('button', { name: '添加账号…' }))
 
-    const outerScrim = () => document.querySelector('.ui-overlay > [data-testid="dialog-overlay"]') as HTMLElement
+    const outerScrim = () =>
+      document.querySelector('.ui-overlay > [data-testid="dialog-overlay"]') as HTMLElement
     fireEvent.click(outerScrim())
     expect(onClose).not.toHaveBeenCalled()
 
@@ -249,7 +250,8 @@ describe('Settings sheets submit locking and feedback', () => {
     fireEvent.click(screen.getByRole('button', { name: '修改邮箱…' }))
     expect(screen.getByRole('heading', { name: '修改邮箱' })).toBeTruthy()
 
-    const outerScrim = () => document.querySelector('.ui-overlay > [data-testid="dialog-overlay"]') as HTMLElement
+    const outerScrim = () =>
+      document.querySelector('.ui-overlay > [data-testid="dialog-overlay"]') as HTMLElement
     fireEvent.click(outerScrim())
     expect(onClose).not.toHaveBeenCalled()
 
