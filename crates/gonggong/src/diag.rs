@@ -338,7 +338,9 @@ mod tests {
         let r = Remote::new();
         let a = r.clone_to("a");
         let b = r.clone_to("b");
+        // Both set locally: a machine's global core.autocrlf (input, say) would otherwise decide the first check.
         git(&a, &["config", "core.autocrlf", "false"]);
+        git(&b, &["config", "core.autocrlf", "false"]);
         let entries = vec![managed(a, EntryState::Idle), managed(b.clone(), EntryState::Idle)];
         assert_eq!(eol(&entries).await.status, Status::Ok);
         git(&b, &["config", "core.autocrlf", "true"]);

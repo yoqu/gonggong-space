@@ -129,25 +129,74 @@ docker_done() {
   rm -f "$docker_log"
   [ "$rc" = 0 ] || { echo "error: the Docker builds failed" >&2; exit "$rc"; }
 }
-trap '[ -z "$docker_pid" ] || kill "$docker_pid" 2>/dev/null' EXIT
 
-if [ ${#mac_targets[@]} -gt 0 ]; then
-  target_args=()
-  for p in "${mac_targets[@]}"; do target_args+=(--target "${p#*:}"); done
-  echo "== ${mac_targets[*]%%:*}"
+mac_desktop=""
+[ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop && mac_desktop=1
+# tauri build would run beforeBuildCommand once per arch: the frontend is built once and both arches embed it.
+no_frontend='{"build":{"beforeBuildCommand":""}}'
+if [ -n "$mac_desktop" ]; then
+  echo "== desktop frontend"
+  (cd "$ROOT" && pnpm --filter @gonggong/desktop build)
+fi
+
+# With a peer Mac (scripts/peer.sh, docs/domains/双机构建.md) the x86_64 half compiles there at the same time: it holds
+# no keys and only sends the binaries back, while bundling, signing and notarizing stay here.
+peer_x86="" peer_gg="" peer_pid="" peer_log=""
+if [ "$(uname -s)" = Darwin ] && { wanted macos-x86_64 || [ -n "$mac_desktop" ]; } &&
+  "$ROOT/scripts/peer.sh" --ping 2>/dev/null; then
+  peer_x86=1
+  script="true"
+  ! wanted macos-x86_64 || peer_gg=1 script+=" && cargo build -q --release --locked -p gonggong --target x86_64-apple-darwin"
+  [ -z "$mac_desktop" ] || script+=" && pnpm --filter @gonggong/desktop tauri build --target x86_64-apple-darwin \
+    --no-bundle --config '$no_frontend'"
+  echo "== x86_64 on gg-peer"
+  peer_log="$(mktemp)"
+  (cd "$ROOT" && GG_PEER_SEND=apps/desktop/dist scripts/peer.sh bash -c "$script") >"$peer_log" 2>&1 &
+  peer_pid=$!
+fi
+trap '[ -z "$docker_pid" ] || kill "$docker_pid" 2>/dev/null; [ -z "$peer_pid" ] || kill "$peer_pid" 2>/dev/null' EXIT
+# Waits for the peer and fetches its x86_64 binaries; unreachable after all, the x86_64 half is built here.
+peer_done() {
+  [ -n "$peer_pid" ] || return 0
+  local rc=0 rel=target/x86_64-apple-darwin/release dir
+  wait "$peer_pid" || rc=$?
+  peer_pid=""
+  sed 's/^/[gg-peer] /' "$peer_log"
+  rm -f "$peer_log"
+  if [ "$rc" = 75 ]; then
+    echo "gg-peer unavailable: building x86_64 here"
+    peer_x86=""
+    return 0
+  fi
+  [ "$rc" = 0 ] || { echo "error: the x86_64 build on gg-peer failed" >&2; exit "$rc"; }
+  dir="$(cd "$ROOT" && scripts/peer.sh --dir)"
+  mkdir -p "$ROOT/$rel"
+  ssh -o BatchMode=yes "${GG_PEER:-gg-peer}" "cd $dir/$rel && find . -maxdepth 1 -type f ! -name '*.d' ! -name '*.rlib' \
+    -print0 | tar --null -T - -cf -" | tar -xf - -C "$ROOT/$rel"
+}
+
+mac_build() { # Rust targets
+  [ $# -gt 0 ] || return 0
+  local t args=()
+  for t in "$@"; do args+=(--target "$t"); done
+  echo "== gg $*"
   # The rustup toolchain has the cross targets; a Homebrew rustc earlier on PATH would not. `rustup run` (not the
   # bare toolchain binaries) also sets the library path rust-objcopy needs to find libLLVM when stripping.
   # `rustup run` leaves PATH alone, so cargo would still spawn a Homebrew rustc that lacks the cross target.
   # One cargo for every target shares its job queue, so the CPU stays busy across both.
-  export RUSTC="$("$rustup" which --toolchain stable rustc)"
-  (cd "$ROOT" && "$rustup" run stable cargo build -q --release --locked -p gonggong "${target_args[@]}")
-  for p in "${mac_targets[@]}"; do
-    cp "$ROOT/target/${p#*:}/release/gg" "$out/$(artifact "${p%%:*}")"
-  done
-fi
+  RUSTC="$("$rustup" which --toolchain stable rustc)" \
+    bash -c 'cd "$1" && shift && exec "$@"' _ "$ROOT" "$rustup" run stable cargo build -q --release --locked -p gonggong \
+    "${args[@]}"
+}
+local_mac=()
+for p in "${mac_targets[@]}"; do
+  [ -n "$peer_x86" ] && [ "${p%%:*}" = macos-x86_64 ] || local_mac+=("${p#*:}")
+done
+mac_build ${local_mac[@]+"${local_mac[@]}"}
 
 # Desktop app (Tauri, both macOS arches): `--only desktop` or a full release.
-if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; then
+notarize_pids=()
+if [ -n "$mac_desktop" ]; then
   echo "== desktop (.app/.dmg)"
   # The updater feed is signed: the app must carry the public key and the build the private one.
   conf="$ROOT/apps/desktop/src-tauri/tauri.conf.json"
@@ -173,34 +222,48 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
     echo "warning: no Developer ID Application certificate, the app is signed ad hoc" >&2
   fi
   # Apple silicon and Intel get one app each (not universal): every download and update stays half the size.
+  # tauri build compiles and bundles; tauri bundle only bundles the binaries the peer compiled.
   for arch in aarch64 x86_64; do
-    echo "== desktop $arch"
+    cmd=build
+    if [ "$arch" = x86_64 ]; then
+      peer_done
+      [ -z "$peer_x86" ] || cmd=bundle
+    fi
+    echo "== desktop $arch ($cmd)"
     bundle="$ROOT/target/$arch-apple-darwin/release/bundle"
     rm -rf "$bundle"
     # Drop the macOS builds' RUSTC, whose rust-objcopy loses its library path through pnpm (SIP strips DYLD_* on the
     # way) and so could not strip the binary. The pinned toolchain's bin goes first on PATH instead: a Homebrew cargo
     # there lacks the Intel target.
     (cd "$ROOT" && env -u RUSTC PATH="$(dirname "$("$rustup" which cargo)"):$PATH" \
-      pnpm --filter @gonggong/desktop tauri build --target "$arch-apple-darwin" \
-      --bundles app,dmg)
+      pnpm --filter @gonggong/desktop tauri "$cmd" --target "$arch-apple-darwin" --bundles app,dmg --config "$no_frontend")
     # ASCII names: GitHub release assets do not keep the Chinese product name.
     dmg="$out/Gonggong_${version}_$arch.dmg"
     cp "$bundle"/dmg/*.dmg "$dmg"
-    # Tauri notarizes the .app only; a downloaded .dmg is checked by Gatekeeper too, so notarize and staple it as well.
-    # APPLE_NOTARY_PROFILE: a `xcrun notarytool store-credentials` keychain profile instead of the API key variables;
-    # the .app inside the .dmg is notarized with it.
-    if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
-      xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
-        --issuer "$APPLE_API_ISSUER" --wait
-      xcrun stapler staple "$dmg"
-    elif [ -n "${APPLE_NOTARY_PROFILE:-}" ]; then
-      xcrun notarytool submit "$dmg" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait
-      xcrun stapler staple "$dmg"
-    fi
     cp "$bundle"/macos/*.app.tar.gz "$out/Gonggong_${version}_$arch.app.tar.gz"
     cp "$bundle"/macos/*.app.tar.gz.sig "$out/Gonggong_${version}_$arch.app.tar.gz.sig"
+    # Tauri notarizes the .app only; a downloaded .dmg is checked by Gatekeeper too, so notarize and staple it as well.
+    # APPLE_NOTARY_PROFILE: a `xcrun notarytool store-credentials` keychain profile instead of the API key variables;
+    # the .app inside the .dmg is notarized with it. Both arches wait on Apple at the same time.
+    if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
+      (xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
+        --issuer "$APPLE_API_ISSUER" --wait && xcrun stapler staple "$dmg") &
+      notarize_pids+=($!)
+    elif [ -n "${APPLE_NOTARY_PROFILE:-}" ]; then
+      (xcrun notarytool submit "$dmg" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait && xcrun stapler staple "$dmg") &
+      notarize_pids+=($!)
+    fi
   done
 fi
+
+peer_done
+[ -n "$peer_x86" ] || [ -z "$peer_gg" ] || mac_build x86_64-apple-darwin
+for p in "${mac_targets[@]}"; do
+  cp "$ROOT/target/${p#*:}/release/gg" "$out/$(artifact "${p%%:*}")"
+done
+for pid in ${notarize_pids[@]+"${notarize_pids[@]}"}; do
+  wait "$pid" || { echo "error: notarizing a .dmg failed" >&2; exit 1; }
+done
 
 # Windows installer (NSIS), cross-compiled with cargo-xwin; signed for the updater like the macOS one, not Authenticode.
 if wanted desktop-windows && [ "$only" != "" ]; then

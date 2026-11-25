@@ -1,15 +1,29 @@
 #!/usr/bin/env bash
 # Pre-push self-check: typecheck + lint, then only the tests named after the change (Jenkins still runs everything).
-# Usage: scripts/check.sh [--all] [base]   base defaults to origin/main; uncommitted and untracked files count too.
+# Usage: scripts/check.sh [--all] [--local] [base]   base defaults to origin/main; uncommitted and untracked files count.
+# With a peer machine set up (scripts/peer-setup.sh), part of the suites runs there at the same time (--local: none);
+# `--jobs <a,b>` is that half, run on the peer with the list of changed files in GG_CHECK_CHANGED.
 # web/server run the changed test files and those whose name contains a changed file's name or its feature/module
 # directory; the daemon filters by module. A change with no namesake test, or outside src, runs the whole suite.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-all=false
-[ "${1:-}" = "--all" ] && { all=true; shift; }
-base="$(git merge-base HEAD "${1:-origin/main}")"
-changed="$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)"
+all=false local=false jobs=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --all) all=true ;;
+    --local) local=true ;;
+    --jobs) jobs="$2" && shift ;;
+    *) break ;;
+  esac
+  shift
+done
+if [ -n "$jobs" ]; then
+  changed="${GG_CHECK_CHANGED:-}"
+else
+  base="$(git merge-base HEAD "${1:-origin/main}")"
+  changed="$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)"
+fi
 
 web=false desktop=false server=false protocol=false cargo=false tools=false vendor=false
 for f in $changed; do
@@ -33,9 +47,18 @@ run() { echo "▶ $*"; "$@"; }
 
 # Heavy steps (cargo, a whole vitest suite) queue across sessions and worktrees: run side by side on one machine they
 # only push each other into swap. /tmp rather than $TMPDIR, which a bot's shell may point elsewhere.
+# A larger machine allows more at once: GG_CHECK_SLOTS in its ~/.config/gonggong/peer.env.
 lock="${GG_CHECK_LOCK:-/tmp/gonggong-check.lock}"
+slots="$(sed -n 's/^GG_CHECK_SLOTS=//p' "$HOME/.config/gonggong/peer.env" 2>/dev/null)"
 serial() {
+  local i rc
   if command -v lockf >/dev/null; then
+    for ((i = 2; i <= ${slots:-1}; i++)); do
+      echo "▶ $*"
+      rc=0
+      lockf -k -t 0 "$lock.$i" "$@" || rc=$?
+      [ "$rc" = 75 ] || return "$rc" # EX_TEMPFAIL: the slot is taken
+    done
     lockf -s -t 0 "$lock" true || echo "⏳ another check holds $lock, waiting…"
     run lockf -k "$lock" "$@"
   elif command -v flock >/dev/null; then
@@ -138,22 +161,71 @@ if [ -f .internal-patterns ]; then
     exit 1
   fi
 fi
+run_job() {
+  case "$1" in
+    tools) run node --test tools/*.test.mjs ;;
+    vendor)
+      [ -d vendor/open-artifact/node_modules ] || (cd vendor/open-artifact && run npm ci --no-audit --no-fund)
+      (cd vendor/open-artifact && run npm run typecheck)
+      (cd vendor/open-artifact && run npm test)
+      ;;
+    protocol) run pnpm --filter @gonggong/protocol test ;;
+    desktop) run pnpm --filter @gonggong/desktop test ;;
+    web) vitest_suite apps/web @gonggong/web ;;
+    server) vitest_suite apps/server @gonggong/server ;;
+    # Bot shells export provider config, git identity and proxies, which the daemon's tests must not see.
+    cargo)
+      serial env -u CODEX_CONFIG -u MODEL_PROVIDER -u GG_PROVIDER_KEY \
+        -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL \
+        -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy cargo test $(cargo_targets) \
+        -- $($all || rust_filters)
+      ;;
+  esac
+}
+wanted_jobs() { local j; for j in "$@"; do [ "${!j}" = true ] && echo "$j"; done; }
+
+if [ -n "$jobs" ]; then
+  for job in $(wanted_jobs ${jobs//,/ }); do run_job "$job"; done
+  echo "✓ peer jobs passed"
+  exit 0
+fi
+
+# The smaller machine hands over the suites heavy on memory, the larger one the light ones it would wait on.
+offload="" peer_pid=""
+if ! $local; then
+  case "$(sed -n 's/^GG_ROLE=//p' "$HOME/.config/gonggong/peer.env" 2>/dev/null)" in
+    light) offload="$(wanted_jobs server cargo)" ;;
+    heavy) offload="$(wanted_jobs protocol desktop web)" ;;
+  esac
+fi
+if [ -n "$offload" ]; then
+  peer_log="$(mktemp)"
+  echo "⇄ gg-peer runs: $(echo $offload)"
+  # shellcheck disable=SC2046
+  scripts/peer.sh env GG_CHECK_CHANGED="$changed" bash scripts/check.sh \
+    $($all && echo --all) --jobs "$(echo $offload | tr ' ' ,)" >"$peer_log" 2>&1 &
+  peer_pid=$!
+  trap '[ -z "$peer_pid" ] || kill "$peer_pid" 2>/dev/null' EXIT
+fi
+
 run node scripts/check-size.mjs
 run pnpm typecheck
 run pnpm lint
-$tools && run node --test tools/*.test.mjs
-if $vendor; then
-  [ -d vendor/open-artifact/node_modules ] || (cd vendor/open-artifact && run npm ci --no-audit --no-fund)
-  (cd vendor/open-artifact && run npm run typecheck)
-  (cd vendor/open-artifact && run npm test)
+for job in $(wanted_jobs tools vendor protocol desktop web server cargo); do
+  grep -qx "$job" <<<"$offload" || run_job "$job"
+done
+if [ -n "$peer_pid" ]; then
+  rc=0
+  wait "$peer_pid" || rc=$?
+  peer_pid=""
+  sed 's/^/[gg-peer] /' "$peer_log"
+  rm -f "$peer_log"
+  if [ "$rc" = 75 ]; then
+    echo "gg-peer unavailable: running its part here"
+    for job in $offload; do run_job "$job"; done
+  elif [ "$rc" != 0 ]; then
+    echo "✗ gg-peer: $(echo $offload) failed" >&2
+    exit "$rc"
+  fi
 fi
-$protocol && run pnpm --filter @gonggong/protocol test
-$desktop && run pnpm --filter @gonggong/desktop test
-$web && vitest_suite apps/web @gonggong/web
-$server && vitest_suite apps/server @gonggong/server
-# Bot shells export provider config, git identity and proxies, which the daemon's tests must not see.
-$cargo && serial env -u CODEX_CONFIG -u MODEL_PROVIDER -u GG_PROVIDER_KEY \
-  -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL \
-  -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy cargo test $(cargo_targets) \
-  -- $($all || rust_filters)
 echo "✓ check passed"

@@ -20,6 +20,7 @@
 - `docs/domains/ACP与daemon协议.md` — ACP 与 daemon 协议
 - `docs/domains/产物与原型编辑器.md` — 产物与原型编辑器
 - `docs/domains/供应商与Agent设置.md` — 供应商与 Agent 设置
+- `docs/domains/双机构建.md` — 双机构建与测试（peer.sh、check 分流、发版 x86_64 交给对端）
 - `docs/domains/工作区与Git.md` — 工作区与 Git
 - `docs/domains/插件与Skill市场.md` — 插件与 Skill 市场
 - `docs/domains/飞书联动.md` — 飞书联动

@@ -16,6 +16,7 @@
 - Rust 用 rustup 装：`rust-toolchain.toml` 固定的版本只对 rustup 的 `cargo` 生效，它的 `cargo` 要排在 Homebrew `rust` 前面（brew 装的 rustup 在 `$(brew --prefix rustup)/bin`，官方脚本装在 `~/.cargo/bin`；`cargo --version` 应是固定版本），否则用的是 Homebrew 版、与 Jenkins 不一致
 - `pnpm check`（推送前自检：文件体积（`scripts/check-size.mjs`：新文件 ≤1000 行，超限旧文件记在 `scripts/size-baseline.json` 只许变小，变小后 `--update`）+ typecheck（增量）+ lint + 按改动文件名/所在模块选的测试文件，`--all` 跑全量）；`pnpm -r test`、`cargo test --workspace`、`pnpm typecheck`、`pnpm lint`（biome）
 - HTTPS 开发：`bash scripts/dev-cert.sh` 生成自签证书并打印 `GONGGONG_TLS_CERT/GONGGONG_TLS_KEY`，daemon 默认接受任意服务器证书（绑定即用），要校验时 `gg login` 加 `--fingerprint <sha256>` 或 `--ca-file <pem>`（见 `docs/plan/安全说明.md`）
+- 双机：`scripts/peer-setup.sh` 设置后，`pnpm check` 自动把一半测试交给对端 Mac 同时跑；TDD 时重的单测用 `scripts/peer.sh <命令>` 在对端跑（对端不可用退出码 75，改在本机跑）。见 `docs/domains/双机构建.md`
 - `pnpm e2e`；迁移：改 `schema.ts` 后 `pnpm --filter @gonggong/server db:generate`
 
 ## 多语言（zh 默认 + en）

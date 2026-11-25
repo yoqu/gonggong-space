@@ -21,4 +21,5 @@ debug = false
 [profile.release]
 strip = "symbols"
 lto = "thin"
-codegen-units = 1
+# 16 (the default) keeps every core busy; one unit made release builds single-threaded for a few percent of size.
+codegen-units = 16

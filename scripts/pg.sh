@@ -32,6 +32,11 @@ case "${1:-start}" in
       psql -h /tmp -p "$PORT" -U gonggong -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1 \
         || createdb -h /tmp -p "$PORT" -U gonggong "$db"
     done
+    # Dev/test only: every test file creates and drops a database, and with fsync each drop forced a checkpoint that
+    # stalled parallel runs for up to a minute. A crash may cost the local dev data, which is acceptable here.
+    psql -h /tmp -p "$PORT" -U gonggong -d postgres -qc "ALTER SYSTEM SET fsync = off" \
+      -c "ALTER SYSTEM SET synchronous_commit = off" -c "ALTER SYSTEM SET full_page_writes = off" \
+      -c "SELECT pg_reload_conf()" >/dev/null
     echo "postgres ready on :$PORT"
     ;;
   reset)
