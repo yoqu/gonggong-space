@@ -7,7 +7,7 @@
 #   GG_NGINX_LOG     nginx access log of the public site (optional; skipped when missing)
 #   GG_PSQL          psql binary (default: psql on PATH)
 #   GG_SINCE         log window (default "7 days ago")
-#   GG_STATE_DIR     where last week's numbers are kept for growth deltas (default /var/lib/gonggong-inspect)
+#   GG_STATE_DIR     where the previous snapshot is kept (default /var/lib/gonggong-inspect)
 set -uo pipefail
 ENV_FILE="${GG_ENV_FILE:-/etc/gonggong/server.env}"
 UNIT="${GG_UNIT:-gonggong}"
@@ -23,9 +23,13 @@ PREV="$STATE_DIR/last.env"
 [ -f "$PREV" ] && . "$PREV" 2>/dev/null
 NOW_STATE=""
 keep() { NOW_STATE+="$1=$2"$'\n'; }
-delta() { local prev="${!1:-}"; [ -n "$prev" ] && echo " (上周 $prev)"; }
+delta() {
+  local prev="${!1:-}"
+  [ -n "$prev" ] && echo " (上次 ${INSPECTED_AT:-时间未知}：$prev)"
+}
 sql() { "$PSQL" "$GONGGONG_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -P pager=off "$@"; }
 
+keep INSPECTED_AT "$(date '+%FT%T%z')"
 echo "# 共工线上巡检 $(date '+%F %T %Z')"
 
 echo; echo "## 服务"
