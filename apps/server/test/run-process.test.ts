@@ -291,10 +291,14 @@ describe('run process', () => {
     // Still streaming: the row catches up on its own, and a reader flushes it at once.
     w.send(runId, { kind: 'thought', delta: '想一想' })
     await expect
-      .poll(async () => {
-        const rows = await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))
-        return rows.map((r) => openEvent(r.payload as RunEvent)).at(-1)
-      })
+      .poll(
+        async () => {
+          const rows = await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))
+          return rows.map((r) => openEvent(r.payload as RunEvent)).at(-1)
+        },
+        // The 500ms save timer alone can eat most of the default 1s under a loaded CI machine.
+        { timeout: 5000 },
+      )
       .toEqual({ kind: 'thought', delta: '想一想' })
     expect((await w.detail(runId)).run.lastActivityAt).toBe(now.toISOString())
     w.send(runId, { kind: 'thought', delta: '再想' })
