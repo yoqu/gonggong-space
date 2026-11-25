@@ -59,6 +59,8 @@ export interface AgentsSource {
   }
   /** Hidden Claude directories in the machine's home (`~/.claude-work`), offered as profiles. */
   claudeDirs?(): Promise<string[]>
+  /** Claude Code's default config directory on the machine (使用默认目录); it may not exist yet. */
+  claudeDefaultDir?(): Promise<{ path: string; exists: boolean }>
   /** A directory picker on the machine; absent = the path is typed. */
   renderDirPicker?(p: {
     start: string | null

@@ -172,6 +172,47 @@ fn a_local_profile_serves_claude_code_only_and_alone() {
 }
 
 #[test]
+fn profiles_sharing_a_directory_are_told_apart_by_their_settings() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = |settings: &str| {
+        let mut p = Provider::custom(Anthropic, "Local".into(), String::new(), String::new());
+        p.endpoints[0].config_dir = Some(dir.path().display().to_string());
+        p.endpoints[0].args = vec![format!("--settings {settings}")];
+        p
+    };
+    let mut store = Store::default();
+    let a = store.upsert(profile(r#"{"model":"opus"}"#)).unwrap();
+    let b = store.upsert(profile(r#"{"model":"sonnet"}"#)).unwrap();
+    assert_ne!(a, b, "a second profile of the same directory is not the first one overwritten");
+    assert_eq!(store.upsert(profile(r#"{"model":"opus"}"#)).unwrap(), a, "the same import again is");
+    let (ea, eb) = (&store.get(&a).unwrap().endpoints[0], &store.get(&b).unwrap().endpoints[0]);
+    assert_ne!(
+        crate::agents::profile_catalog_key(Some("2.1"), ea),
+        crate::agents::profile_catalog_key(Some("2.1"), eb)
+    );
+}
+
+#[test]
+fn the_default_directory_is_recognised_however_written_and_named_when_missing() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join(".claude");
+    std::fs::create_dir(&dir).unwrap();
+    let trailing = PathBuf::from(format!("{}/", dir.display()));
+    assert!(same_dir(&trailing, &dir));
+    #[cfg(unix)]
+    {
+        let link = root.path().join("link");
+        std::os::unix::fs::symlink(&dir, &link).unwrap();
+        assert!(same_dir(&link, &dir));
+    }
+    assert!(!same_dir(&root.path().join(".claude-work"), &dir));
+
+    let missing = root.path().join("home/.claude");
+    assert!(profile_missing(&missing, &missing).contains("运行一次 Claude Code"));
+    assert!(profile_missing(&missing, &dir).contains("不可用"));
+}
+
+#[test]
 fn store_round_trips_privately_and_atomically() {
     let home = tempfile::tempdir().unwrap();
     assert_eq!(Store::load(home.path()).unwrap(), Store::default());

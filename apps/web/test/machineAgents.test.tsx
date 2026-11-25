@@ -42,7 +42,15 @@ const mbp: MachineDto = {
   online: true,
   agents: [],
   daemonVersion: '0.9.0',
-  features: ['tools', 'providers', 'ccSwitch', 'agentSettings', 'claudeProfile', 'protocolProviders'],
+  features: [
+    'tools',
+    'providers',
+    'ccSwitch',
+    'agentSettings',
+    'claudeProfile',
+    'protocolProviders',
+    'claudeDefaultDir',
+  ],
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,
@@ -917,6 +925,38 @@ describe('供应商', () => {
         endpoints: [{ configDir: '/Users/test/.qorz-claude', executablePath: '/Users/test/bin/claude-qorz' }],
       }),
     )
+  })
+
+  it("fills in the machine's default directory and says what it shares", async () => {
+    const { calls, form } = await openProfile({ 'POST /machines/m1/providers': { id: 'p2', view: VIEW } })
+    fireEvent.click(await within(form).findByRole('button', { name: '使用默认目录' }))
+    const dir = within(form).getByRole('combobox', { name: '配置目录' }) as HTMLInputElement
+    expect(dir.value).toBe('/Users/test/.claude')
+    expect(within(form).getByText(/这是 Claude Code 的默认目录/)).toBeTruthy()
+    expect(within(form).queryByRole('button', { name: '使用默认目录' })).toBeNull()
+    fireEvent.change(within(form).getByRole('textbox', { name: '名称' }), { target: { value: 'Opus' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(sent(calls, 'POST')).toMatchObject({ endpoints: [{ configDir: '/Users/test/.claude' }] }),
+    )
+  })
+
+  it('warns when the default directory does not exist yet', async () => {
+    const { form } = await openProfile({ 'GET /machines/m1/dirs?hidden=1': listing('/Users/test', ['code']) })
+    fireEvent.click(await within(form).findByRole('button', { name: '使用默认目录' }))
+    expect(within(form).getByText(/默认目录还不存在/)).toBeTruthy()
+  })
+
+  it('offers the default directory only when the daemon runs it with the home config', async () => {
+    const opened = await openProviders(HOME_DIRS, VIEW, {
+      ...mbp,
+      features: mbp.features.filter((f) => f !== 'claudeDefaultDir'),
+    })
+    fireEvent.click(within(opened.list).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /这台电脑的 Claude 配置目录/ }))
+    const form = await screen.findByRole('form', { name: '新增供应商' })
+    await within(form).findByRole('combobox', { name: '配置目录' })
+    expect(within(form).queryByRole('button', { name: '使用默认目录' })).toBeNull()
   })
 
   it("browses the machine's directories, hidden ones included, for the config directory", async () => {

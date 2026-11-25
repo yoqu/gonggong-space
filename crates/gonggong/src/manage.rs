@@ -7,7 +7,7 @@ use crate::protocol::{
     AgentCatalog, AgentState, Choice, DaemonToServer, DiagCheck, EndpointInput, FEATURE_AGENT_SETTINGS,
     FEATURE_AGENT_STATE, FEATURE_ANTIGRAVITY, FEATURE_APPROVAL_GATES, FEATURE_ARTIFACT_ACTIVITY,
     FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS,
-    FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONNECTORS, FEATURE_CONTAINER, FEATURE_COPILOT,
+    FEATURE_CLAUDE_DEFAULT_DIR, FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONNECTORS, FEATURE_CONTAINER, FEATURE_COPILOT,
     FEATURE_DEEPSEEK, FEATURE_DIAG, FEATURE_GEMINI, FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2,
     FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_GOOSE, FEATURE_KIMI, FEATURE_MACHINE_ADMIN,
     FEATURE_NO_AUTO_UPGRADE, FEATURE_OPENCODE, FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS, FEATURE_PRESET_SYNC,
@@ -90,6 +90,7 @@ impl Manage {
             FEATURE_CLAUDE_ARGS.to_string(),
             FEATURE_CLAUDE_PROFILE.to_string(),
             FEATURE_PROVIDER_ARGS.to_string(),
+            FEATURE_CLAUDE_DEFAULT_DIR.to_string(),
             FEATURE_GIT_ACCESS.to_string(),
             FEATURE_DIAG.to_string(),
             FEATURE_GEMINI.to_string(),
@@ -367,9 +368,10 @@ fn providers_op(home: &Path, user_home: &Path, cmd: ProvidersCmd, agents: &[Agen
                     let ep = Endpoint {
                         config_dir: e.config_dir.clone(),
                         executable_path: e.executable_path.clone(),
+                        args: e.args.clone(),
                         ..Endpoint::new(e.protocol, String::new())
                     };
-                    if let Some(c) = profile_endpoint_catalog(home, &ep, agents) {
+                    if let Some(c) = profile_endpoint_catalog(home, &p.id, &ep, agents) {
                         e.model_options = c.models.into_iter().map(|m| m.choice.value).collect();
                     }
                 }
@@ -601,12 +603,12 @@ fn endpoint_catalog(home: &Path, p: &Provider, e: &Endpoint, agents: &[AgentStat
     if e.claude_profile().is_none() {
         return Some(catalog(p, e));
     }
-    profile_endpoint_catalog(home, e, agents)
+    profile_endpoint_catalog(home, &p.id, e, agents)
 }
 
-fn profile_endpoint_catalog(home: &Path, e: &Endpoint, agents: &[AgentState]) -> Option<AgentCatalog> {
+fn profile_endpoint_catalog(home: &Path, id: &str, e: &Endpoint, agents: &[AgentState]) -> Option<AgentCatalog> {
     let claude = agents.iter().find(|a| a.kind == crate::protocol::AgentKind::Claude && a.available);
-    crate::agents::profile_catalog(home, e, claude)
+    crate::agents::profile_catalog(home, id, e, claude)
         .or_else(|| claude?.catalog.clone())
         .or_else(|| crate::local::load_catalogs(home).remove(&crate::protocol::AgentKind::Claude).map(|c| c.catalog))
 }

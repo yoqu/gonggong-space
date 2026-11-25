@@ -58,6 +58,8 @@ export const DaemonFeature = z.enum([
   'claudeProfile',
   /** A provider's `args` (Claude Code command-line arguments): a daemon without it would drop them. */
   'providerArgs',
+  /** A local Claude profile in Claude Code's default directory shares the home's MCP servers and login (使用默认目录). */
+  'claudeDefaultDir',
   /** gitaccess.cmd: ssh keys, HTTPS tokens, access tests and host keys from the web. */
   'gitAccess',
   /** diag.run: `gg doctor` from the web. */

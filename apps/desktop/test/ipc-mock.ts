@@ -68,6 +68,7 @@ vi.mock('../src/ipc', () => ({
     ccSwitchPreview: vi.fn(async () => []),
     ccSwitchApply: vi.fn(),
     claudeDirs: vi.fn(async () => []),
+    claudeDefaultDir: vi.fn(async () => ({ path: '/Users/me/.claude', exists: true })),
     pickDir: vi.fn(async () => null),
     agentLocal: vi.fn(async () => ({ customPath: false, login: null, adapterVersion: null })),
     pickAgentPath: vi.fn(async () => false),

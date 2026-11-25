@@ -101,6 +101,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("Claude 可执行文件必须是存在的绝对路径", "Claude executable must be an existing absolute path"),
     ("Claude 配置目录不可用：{dir}", "Claude configuration directory is unavailable: {dir}"),
     (
+        "默认 Claude 配置目录 {dir} 还不存在，请先在这台电脑上运行一次 Claude Code 完成登录或初始化",
+        "The default Claude configuration directory {dir} doesn't exist yet. Run Claude Code once on this computer to sign in or initialize it",
+    ),
+    (
         "本机 Claude 配置目录不能与 Base URL、API Key 或预设同时使用",
         "A local Claude configuration directory cannot be combined with a Base URL, API key or preset",
     ),

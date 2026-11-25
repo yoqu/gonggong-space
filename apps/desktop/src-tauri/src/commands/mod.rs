@@ -61,6 +61,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         providers::ccswitch_preview,
         providers::ccswitch_apply,
         providers::claude_dirs,
+        providers::claude_default_dir,
         providers::pick_dir,
         bots::bots,
         bots::open_bot_in_web,

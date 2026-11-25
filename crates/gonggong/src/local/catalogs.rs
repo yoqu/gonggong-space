@@ -17,7 +17,8 @@ fn catalogs_path(home: &Path) -> PathBuf {
     home.join("models.json")
 }
 
-/// Catalogs of local Claude profiles (a provider's own `CLAUDE_CONFIG_DIR`), by that directory.
+/// Catalogs of local Claude profiles (a provider's own `CLAUDE_CONFIG_DIR`), by provider id; older files were by
+/// directory, which no id matches.
 fn profile_catalogs_path(home: &Path) -> PathBuf {
     home.join("profile-models.json")
 }
@@ -42,8 +43,8 @@ pub fn save_catalog(home: &Path, kind: AgentKind, cached: CachedCatalog) -> Resu
     save_entry(home, &catalogs_path(home), kind, cached)
 }
 
-pub fn save_profile_catalog(home: &Path, dir: &str, cached: CachedCatalog) -> Result<()> {
-    save_entry(home, &profile_catalogs_path(home), dir.to_string(), cached)
+pub fn save_profile_catalog(home: &Path, provider: &str, cached: CachedCatalog) -> Result<()> {
+    save_entry(home, &profile_catalogs_path(home), provider.to_string(), cached)
 }
 
 fn save_entry<K: Ord + Serialize + serde::de::DeserializeOwned>(

@@ -38,10 +38,10 @@ impl Engine {
                 tokio::task::spawn_blocking(move || agents::claude_profiles(&home, version.as_deref())).await??
             };
             for (selection, key) in profiles {
-                let Some(dir) = selection.claude_profile().map(|d| d.to_string_lossy().into_owned()) else { continue };
+                let Some(id) = selection.provider().map(|(p, _)| p.id.clone()) else { continue };
                 if let Ok(catalog) = self.probe_with(AgentKind::Claude, &selection).await {
                     let cached = crate::local::CachedCatalog { key, catalog };
-                    crate::local::save_profile_catalog(&home, &dir, cached)?;
+                    crate::local::save_profile_catalog(&home, &id, cached)?;
                     any_profile = true;
                 }
             }

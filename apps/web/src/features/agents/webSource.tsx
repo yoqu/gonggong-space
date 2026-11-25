@@ -92,6 +92,14 @@ export function machineSource(machine: MachineDto, openBot?: (id: string) => voi
             .filter((e) => /^\..*claude/i.test(e.name) && e.name !== '.claude')
             .map((e) => join(d.path, e.name)),
         ),
+    // An older daemon would still give it a CLAUDE_CONFIG_DIR of its own, losing the home's MCP servers.
+    claudeDefaultDir: machine.features.includes('claudeDefaultDir')
+      ? () =>
+          api.get<DirListingDto>(`/machines/${id}/dirs?hidden=1`).then((d) => ({
+            path: join(d.path, '.claude'),
+            exists: d.entries.some((e) => e.name === '.claude'),
+          }))
+      : undefined,
     renderDirPicker: ({ start, onPick, onClose }) => (
       <DirPicker
         machineId={id}

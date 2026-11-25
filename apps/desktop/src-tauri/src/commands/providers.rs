@@ -101,6 +101,19 @@ fn claude_dirs_in(home: &Path) -> Vec<String> {
     dirs
 }
 
+/// The CLI's own default config directory, filled in by 使用默认目录; it may not exist before Claude Code first ran.
+#[derive(Debug, Serialize, PartialEq)]
+pub struct ClaudeDefaultDir {
+    path: String,
+    exists: bool,
+}
+
+#[tauri::command]
+pub fn claude_default_dir() -> ClaudeDefaultDir {
+    let dir = gonggong::config::default_claude_dir();
+    ClaudeDefaultDir { exists: dir.is_dir(), path: dir.to_string_lossy().into_owned() }
+}
+
 /// 选择配置目录 of a local Claude profile, with the system folder dialog; None when cancelled.
 #[tauri::command]
 pub async fn pick_dir(start: Option<String>, app: AppHandle) -> Result<Option<String>> {

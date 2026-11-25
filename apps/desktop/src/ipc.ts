@@ -326,6 +326,8 @@ export const ipc = {
   ccSwitchApply: (keys: string[]) => invoke<CcSwitchImportedDto>('ccswitch_apply', { keys }),
   /** Hidden Claude directories in the home (`~/.claude-work`). */
   claudeDirs: () => invoke<string[]>('claude_dirs'),
+  /** Claude Code's default config directory on this machine; it may not exist yet. */
+  claudeDefaultDir: () => invoke<{ path: string; exists: boolean }>('claude_default_dir'),
   /** The system folder dialog; null when cancelled. */
   pickDir: (start: string | null) => invoke<string | null>('pick_dir', { start }),
   /** The agent's path picked by hand, its CLI's login and the bundled adapter's version. */

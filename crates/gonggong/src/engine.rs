@@ -19,7 +19,7 @@ use crate::protocol::{
     AgentKind, Attachment, ConversationKey, DaemonToServer, DiffScope, RepoKind, RunBot, RunDone, RunOutcome, RunStart,
     RunSyncDone, SecretEnv, ServerToDaemon, ServiceInfo, SyncWaitIssue, WorkspaceSpec,
 };
-use crate::providers::Selection;
+use crate::providers::{self, Selection};
 use crate::replicas::{Init, Refusal, Replicas, sync_error};
 use crate::repo;
 use crate::service::{Handler, Outbox};
@@ -1060,13 +1060,17 @@ impl Inner {
                 let base = match selection.claude_profile() {
                     Some(dir) => {
                         if !dir.is_dir() {
-                            anyhow::bail!(t!("Claude 配置目录不可用：{dir}", dir = dir.display()));
+                            anyhow::bail!(providers::profile_missing(dir, &crate::config::default_claude_dir()));
                         }
-                        base.env("ANTHROPIC_API_KEY", "")
+                        let base = base
+                            .env("ANTHROPIC_API_KEY", "")
                             .env("ANTHROPIC_AUTH_TOKEN", "")
                             .env("ANTHROPIC_BASE_URL", "")
-                            .env("CLAUDE_CODE_OAUTH_TOKEN", "")
-                            .env("CLAUDE_CONFIG_DIR", dir.to_string_lossy())
+                            .env("CLAUDE_CODE_OAUTH_TOKEN", "");
+                        match selection.provider().is_some_and(|(_, e)| e.uses_default_dir()) {
+                            true => base,
+                            false => base.env("CLAUDE_CONFIG_DIR", dir.to_string_lossy()),
+                        }
                     }
                     None => base,
                 };

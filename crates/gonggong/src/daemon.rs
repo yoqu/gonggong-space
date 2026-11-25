@@ -302,20 +302,20 @@ async fn probe_profiles(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
             }
             None => vec![],
         };
-        let pending: Vec<_> = pending.into_iter().filter(|(_, k)| !failed.contains(k)).collect();
-        for (selection, key) in pending {
-            let Some(dir) = selection.claude_profile().map(|d| d.to_string_lossy().into_owned()) else { continue };
+        let pending = pending.into_iter().filter_map(|(s, key)| Some((s.provider()?.0.id.clone(), key, s)));
+        let pending: Vec<_> = pending.filter(|(id, k, _)| !failed.contains(&(id.clone(), k.clone()))).collect();
+        for (id, key, selection) in pending {
             match engine.probe_with(AgentKind::Claude, &selection).await {
                 Ok(catalog) => {
-                    if let Err(e) = crate::local::save_profile_catalog(&home, &dir, CachedCatalog { key, catalog }) {
-                        tracing::warn!("saving the catalog of Claude profile {dir} failed: {e:#}");
+                    if let Err(e) = crate::local::save_profile_catalog(&home, &id, CachedCatalog { key, catalog }) {
+                        tracing::warn!("saving the catalog of Claude profile {id} failed: {e:#}");
                     }
                     republish(&home, &tx).await;
                 }
                 Err(e) => {
-                    failed.insert(key);
+                    failed.insert((id.clone(), key));
                     retry_at.get_or_insert_with(|| tokio::time::Instant::now() + PROBE_RETRY);
-                    tracing::warn!("probing Claude profile {dir} failed: {e:#}");
+                    tracing::warn!("probing Claude profile {id} failed: {e:#}");
                 }
             }
         }

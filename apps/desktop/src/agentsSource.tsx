@@ -81,6 +81,7 @@ export function desktopSource(features: string[]): AgentsSource {
         }
       : undefined,
     claudeDirs: () => wrap(ipc.claudeDirs()),
+    claudeDefaultDir: () => wrap(ipc.claudeDefaultDir()),
     renderDirPicker: (p) => <DirPicker {...p} />,
     renderLogin: (p) => <AgentLoginDialog {...p} />,
     openBot: (id) => void ipc.openBotInWeb(id).catch(fail),

@@ -59,11 +59,11 @@ pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentState> {
 fn fallback_profile_catalog(home: &Path, claude: &AgentState) -> Option<AgentCatalog> {
     let store = Store::load(home).ok()?;
     let default = store.machine_default(AgentKind::Claude).ok();
-    let default_ep = default.as_ref().and_then(|s| s.provider()).map(|(_, e)| e);
+    let default_ep = default.as_ref().and_then(|s| s.provider());
     default_ep
         .into_iter()
-        .chain(store.providers.iter().flat_map(|p| p.endpoint_for(AgentKind::Claude)))
-        .find_map(|e| profile_catalog(home, e, Some(claude)))
+        .chain(store.providers.iter().flat_map(|p| Some((p, p.endpoint_for(AgentKind::Claude)?))))
+        .find_map(|(p, e)| profile_catalog(home, &p.id, e, Some(claude)))
 }
 
 /// A probed catalog worth caching: an agent logged out or offline (agy) offers no models, and caching that would hide
@@ -93,22 +93,26 @@ fn adapter_version(kind: AgentKind) -> &'static str {
 }
 
 /// [`catalog_key`] of a local Claude profile: the Claude build it runs (`version` of the detected one, unless the
-/// profile pins its own executable) and the profile's `settings.json`, where its gateway and models are configured.
+/// profile pins its own executable), the profile's `settings.json` and its own `--settings`, where its gateway and
+/// models are configured.
 pub fn profile_catalog_key(version: Option<&str>, e: &Endpoint) -> Option<String> {
     let dir = e.claude_profile()?;
     let cli = e.executable_path.as_deref().or(version).unwrap_or("?");
     let adapter = adapter_version(AgentKind::Claude);
-    Some(format!("{cli}+{adapter}+{}", file_digest(&dir.join("settings.json"))))
+    let own = e.claude_args().ok().and_then(|a| a.settings().ok().flatten());
+    let own = own.map_or_else(String::new, |s| digest(serde_json::Value::Object(s).to_string().as_bytes()));
+    Some(format!("{cli}+{adapter}+{}+{own}", file_digest(&dir.join("settings.json"))))
 }
 
-/// The catalog probed for the local Claude profile `e` with the Claude build `claude` (the detected one).
-pub fn profile_catalog(home: &Path, e: &Endpoint, claude: Option<&AgentState>) -> Option<AgentCatalog> {
+/// The catalog probed for the local Claude profile `e` of provider `id` with the Claude build `claude` (the detected
+/// one). Cached per provider: profiles sharing a directory differ by their `--settings`.
+pub fn profile_catalog(home: &Path, id: &str, e: &Endpoint, claude: Option<&AgentState>) -> Option<AgentCatalog> {
     let version = claude
         .and_then(|c| c.version.as_deref())
         .map(String::from)
         .or_else(|| crate::agent_settings::claude_version(home));
-    let dir = e.config_dir.as_deref()?;
-    let entry = load_profile_catalogs(home).remove(dir)?;
+    e.claude_profile()?;
+    let entry = load_profile_catalogs(home).remove(id)?;
     match version {
         Some(v) => (Some(entry.key) == profile_catalog_key(Some(&v), e)).then_some(entry.catalog),
         None => {
@@ -122,38 +126,36 @@ pub fn profile_catalog(home: &Path, e: &Endpoint, claude: Option<&AgentState>) -
     }
 }
 
-/// All local Claude profiles (one per directory) and the key to cache each probed catalog under.
+/// Every local Claude profile and the key to cache its probed catalog under.
 pub fn claude_profiles(home: &Path, version: Option<&str>) -> anyhow::Result<Vec<(Selection, String)>> {
-    let mut seen = std::collections::HashSet::new();
     let mut out = vec![];
     for p in Store::load(home)?.providers {
         let Some(selection) = Selection::of(&p, AgentKind::Claude) else { continue };
         let Some((_, e)) = selection.provider() else { continue };
-        let (Some(dir), Some(key)) = (e.config_dir.clone(), profile_catalog_key(version, e)) else { continue };
-        if seen.insert(dir) {
+        if let Some(key) = profile_catalog_key(version, e) {
             out.push((selection, key));
         }
     }
     Ok(out)
 }
 
-/// The local Claude profiles (one per directory) without a catalog for the Claude build `version`, with the key to
-/// cache the probed one under.
+/// The local Claude profiles without a catalog for the Claude build `version`, with the key to cache the probed one
+/// under.
 pub fn unprobed_profiles(home: &Path, version: Option<&str>) -> anyhow::Result<Vec<(Selection, String)>> {
     let cached = load_profile_catalogs(home);
     Ok(claude_profiles(home, version)?
         .into_iter()
-        .filter(|(s, key)| {
-            s.claude_profile().and_then(|d| d.to_str()).is_some_and(|dir| cached.get(dir).is_none_or(|c| &c.key != key))
-        })
+        .filter(|(s, key)| s.provider().is_some_and(|(p, _)| cached.get(&p.id).is_none_or(|c| &c.key != key)))
         .collect())
 }
 
 /// A short digest of the file's content, empty when it cannot be read.
 fn file_digest(path: &Path) -> String {
-    std::fs::read(path)
-        .map(|b| Sha256::digest(b).iter().take(6).map(|b| format!("{b:02x}")).collect())
-        .unwrap_or_default()
+    std::fs::read(path).map(|b| digest(&b)).unwrap_or_default()
+}
+
+fn digest(bytes: &[u8]) -> String {
+    Sha256::digest(bytes).iter().take(6).map(|b| format!("{b:02x}")).collect()
 }
 
 fn custom_endpoint(kind: AgentKind, k: &str, v: &str) -> bool {
@@ -267,10 +269,7 @@ pub fn official_service_here(
 /// The user-level config file the CLI reads its providers and models from.
 fn cli_config(kind: AgentKind) -> PathBuf {
     match kind {
-        AgentKind::Claude => std::env::var_os("CLAUDE_CONFIG_DIR")
-            .filter(|v| !v.is_empty())
-            .map_or_else(|| crate::config::user_home().join(".claude"), PathBuf::from)
-            .join("settings.json"),
+        AgentKind::Claude => crate::config::default_claude_dir().join("settings.json"),
         AgentKind::Codex => std::env::var_os("CODEX_HOME")
             .map_or_else(|| crate::config::user_home().join(".codex"), PathBuf::from)
             .join("config.toml"),
@@ -754,6 +753,52 @@ mod tests {
         let fresh = CachedCatalog { key: catalog_key(AgentKind::Claude, Some("2.1.4")), catalog: catalog.clone() };
         save_catalog(home.path(), AgentKind::Claude, fresh).unwrap();
         assert_eq!(claude(home.path()).catalog, Some(catalog));
+    }
+
+    #[test]
+    fn profiles_of_one_directory_keep_their_own_catalogs() {
+        use super::{profile_catalog, unprobed_profiles};
+        use crate::local::{CachedCatalog, save_profile_catalog};
+        use crate::protocol::{AgentCatalog, ApiProtocol};
+        use crate::providers::{Provider, Store};
+        let (home, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let ids: Vec<String> = ["opus", "sonnet"]
+            .iter()
+            .map(|m| {
+                Store::update(home.path(), |s| {
+                    let mut p = Provider::custom(ApiProtocol::Anthropic, (*m).into(), String::new(), String::new());
+                    p.endpoints[0].config_dir = Some(dir.path().display().to_string());
+                    p.endpoints[0].args = vec![format!(r#"--settings {{"model":"{m}"}}"#)];
+                    s.add(p)
+                })
+                .unwrap()
+            })
+            .collect();
+        let unprobed = unprobed_profiles(home.path(), Some("2.1")).unwrap();
+        assert_eq!(unprobed.len(), 2, "one probe per provider, not per directory");
+        for (selection, key) in unprobed {
+            let (p, _) = selection.provider().unwrap();
+            let catalog = AgentCatalog { current: Some(p.name.clone()), ..Default::default() };
+            save_profile_catalog(home.path(), &p.id, CachedCatalog { key, catalog }).unwrap();
+        }
+        let store = Store::load(home.path()).unwrap();
+        let claude = crate::protocol::AgentState {
+            kind: crate::protocol::AgentKind::Claude,
+            available: true,
+            version: Some("2.1".into()),
+            path: None,
+            min_version: None,
+            catalog: None,
+            latest: None,
+            managed: false,
+            upgrade_command: None,
+            install_command: None,
+        };
+        for (id, model) in ids.iter().zip(["opus", "sonnet"]) {
+            let e = &store.get(id).unwrap().endpoints[0];
+            let current = profile_catalog(home.path(), id, e, Some(&claude)).and_then(|c| c.current);
+            assert_eq!(current.as_deref(), Some(model));
+        }
     }
 
     #[test]

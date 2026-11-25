@@ -150,6 +150,8 @@ Claude Code 供应商可以复用这台机器上另一个已经配好的 Claude 
 
 例如已有一套单独的配置在 `/Users/wanglei/.claude-work`，就填这个路径。共工空间只保存路径，不复制里面的密钥；Claude 运行时仍会在该目录写入会话等数据。模型映射由目录自己的设置决定，「高级」里只有代理、命令行参数与环境变量。
 
+**使用默认目录**：点「配置目录」旁的「使用默认目录」，填入这台电脑上 Claude Code 实际的默认目录（macOS/Linux 一般是 `~/.claude`，Windows 是 `%USERPROFILE%\.claude`）。指向默认目录的供应商与你平时在终端里用 Claude Code 完全一样：共用主目录的登录、MCP、Skill、`CLAUDE.md` 与 hooks。同一个默认目录可以建多个供应商，各自在「高级 → 命令行参数」里写不同的 `--settings`（如 `--settings ~/.claude/opus.json`），模型列表、默认模型与推理强度按各自的 `--settings` 分开，再把不同的 Bot 绑到不同供应商即可。默认目录还不存在时，先在这台电脑上运行一次 Claude Code 完成登录或初始化。
+
 ### 导入
 
 - **从 CC Switch 导入…**：这台机器上用 CC Switch 管理过供应商时出现。列出可用的供应商（Key 打码），已存在的标「将更新已有项」，CC Switch 正在用的标「CC Switch 当前」。勾选要导入的项，可勾选「将 CC Switch 当前使用的设为该机器默认」，点「导入」。只读取 CC Switch 的配置，不会修改它。

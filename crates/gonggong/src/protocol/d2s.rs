@@ -37,6 +37,10 @@ pub const FEATURE_CLAUDE_PROFILE: &str = "claudeProfile";
 /// A provider's `args`: Claude Code command-line arguments.
 pub const FEATURE_PROVIDER_ARGS: &str = "providerArgs";
 
+/// A local Claude profile in Claude Code's default directory runs without `CLAUDE_CONFIG_DIR` (its user MCP servers
+/// and login), and profiles sharing a directory keep their own catalogs.
+pub const FEATURE_CLAUDE_DEFAULT_DIR: &str = "claudeDefaultDir";
+
 /// gitaccess.cmd: ssh keys, HTTPS tokens, access tests and host keys from the web.
 pub const FEATURE_GIT_ACCESS: &str = "gitAccess";
 

@@ -35,6 +35,8 @@
 - Bot 的「供应商/模型」是一个选择（`features/agents/ProviderModelPicker.tsx`、`features/bots/BotProvider.tsx`）：默认「继承机器默认（当前：X）」，可覆盖，一次请求保存供应商与模型；换模型后原推理强度不可用就清空。新建 Bot 用同一个选择器。
 - `providers.json` v1→v2 迁移（`crates/gonggong/src/providers_migrate/`）：daemon 启动、桌面启动、`gg provider` 时执行；原文件逐字节备份为 `providers.v1.json`（已有则 `providers.v1.<unix_ms>.json`），幂等。`(apiKey, 域名, proxy)` 相同的合并为一个厂商多个协议端点，同协议不同地址的拆开保留原 id，本机 Claude 配置目录不合并；pi、antigravity 名下的供应商（从未生效）丢弃，引用它们的默认与 Bot 改回官方登录或继承。
 - 「该机器 Claude 配置目录」：`configDir`/`executablePath` 用独立 `CLAUDE_CONFIG_DIR` 和自己的登录，不填 Key（能力位 `claudeProfile`）。
+  - 指向 Claude Code 默认目录（daemon 环境的 `CLAUDE_CONFIG_DIR`，否则 `~/.claude`；canonicalize 后比较）时不设 `CLAUDE_CONFIG_DIR`：设了它 CLI 会改读 `<dir>/.claude.json`，主目录 `~/.claude.json` 里的用户级 MCP 与登录状态就丢了。不加显式字段，路径等值即默认（钟治国 2026-11-24 定）；表单「使用默认目录」只负责填路径，目录不存在时提示先运行一次 Claude Code。
+  - 同目录可建多个供应商，靠各自 `--settings` 区分：导入判重比较 `args`；探测目录缓存 `profile-models.json` 按供应商 id 存，校验值含 `--settings` 内容摘要。
 - 官方登录也可设代理、环境变量、命令行参数（`Store.official`，`PUT /api/machines/:id/providers/official`）。
 - 环境变量放开为任意变量，只校验变量名；代理密码打码 `user:****@`，传回打码值视为不变，`''` 为直连。
 - 预设：`crates/gonggong/presets/providers.json` 由 `scripts/sync-provider-presets.mjs` 从 CC Switch 生成（只收直连、只填 Key 的主流厂商），按厂商合并（40 个厂商、60 个端点）；平台插件 `provider-presets` 经 `presets.sync` 叠加（`presets-overlay.json`），新旧两种格式都收。

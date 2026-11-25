@@ -516,7 +516,7 @@ async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one(
         }],
         ..Default::default()
     };
-    crate::local::save_profile_catalog(home.path(), &dir, CachedCatalog { key: key.clone(), catalog: probed.clone() })
+    crate::local::save_profile_catalog(home.path(), &id, CachedCatalog { key: key.clone(), catalog: probed.clone() })
         .unwrap();
     assert!(crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().is_empty());
     assert_eq!(ask(ProvidersAction::BotCatalog).await, Some(probed.clone()));
@@ -561,6 +561,7 @@ fn features_include_cc_switch_only_when_present() {
             "claudeArgs",
             "claudeProfile",
             "providerArgs",
+            "claudeDefaultDir",
             "gitAccess",
             "diag",
             "gemini",
@@ -608,6 +609,7 @@ fn features_include_cc_switch_only_when_present() {
             "claudeArgs",
             "claudeProfile",
             "providerArgs",
+            "claudeDefaultDir",
             "gitAccess",
             "diag",
             "gemini",

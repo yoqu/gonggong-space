@@ -224,13 +224,18 @@ export function ProviderEditor({
   const [advanced, setAdvanced] = useState(false)
   const [browsing, setBrowsing] = useState(false)
   const [suggested, setSuggested] = useState<string[]>([])
+  const [defaultDir, setDefaultDir] = useState<DefaultDir | null>(null)
 
   useEffect(() => {
-    if (!localProfile || !source.claudeDirs) return
+    if (!localProfile) return
     let live = true
     // Suggestions only: 浏览… shows why the machine cannot be read.
-    source.claudeDirs().then(
+    source.claudeDirs?.().then(
       (dirs) => live && setSuggested(dirs),
+      () => {},
+    )
+    source.claudeDefaultDir?.().then(
+      (dir) => live && setDefaultDir(dir),
       () => {},
     )
     return () => {
@@ -421,6 +426,7 @@ export function ProviderEditor({
             configDir={f.configDir}
             executablePath={f.executablePath}
             suggested={suggested}
+            defaultDir={defaultDir}
             browsing={browsing}
             onBrowse={setBrowsing}
             onConfigDir={setConfigDir}
@@ -532,12 +538,20 @@ export function ProviderEditor({
   )
 }
 
+type DefaultDir = { path: string; exists: boolean }
+
+const samePath = (a: string, b: string) => {
+  const norm = (p: string) => p.trim().replace(/[\\/]+$/, '')
+  return /^[a-z]:|\\/i.test(b) ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b)
+}
+
 /** A local Claude profile: its directory (suggested, typed or browsed) and an optional executable. */
 function ProfileRows({
   source,
   configDir,
   executablePath,
   suggested,
+  defaultDir,
   browsing,
   onBrowse,
   onConfigDir,
@@ -547,16 +561,26 @@ function ProfileRows({
   configDir: string
   executablePath: string
   suggested: string[]
+  /** Claude Code's default directory on the machine; null until known (or when the machine cannot tell). */
+  defaultDir: DefaultDir | null
   browsing: boolean
   onBrowse: (on: boolean) => void
   onConfigDir: (dir: string) => void
   onExecutable: (path: string) => void
 }) {
+  const isDefault = !!defaultDir && samePath(configDir, defaultDir.path)
+  const hint = !isDefault
+    ? t('Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」')
+    : defaultDir?.exists
+      ? t(
+          '这是 Claude Code 的默认目录：会话使用主目录的登录、MCP、Skill 与 CLAUDE.md，模型由本供应商的 --settings 决定',
+        )
+      : t('默认目录还不存在，请先在这台电脑上运行一次 Claude Code 完成登录或初始化')
   return (
     <>
       <FormRow
         label={t('配置目录')}
-        hint={t('Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」')}
+        hint={<span className={isDefault && !defaultDir?.exists ? 'mx-warn' : undefined}>{hint}</span>}
       >
         <span className="mx-inline mx-field-row">
           <ComboBox
@@ -567,6 +591,11 @@ function ProfileRows({
             onInput={onConfigDir}
             onChange={onConfigDir}
           />
+          {defaultDir && !isDefault ? (
+            <Button size="small" onClick={() => onConfigDir(defaultDir.path)}>
+              {t('使用默认目录')}
+            </Button>
+          ) : null}
           {source.renderDirPicker ? (
             <Button size="small" onClick={() => onBrowse(true)}>
               {t('浏览…')}

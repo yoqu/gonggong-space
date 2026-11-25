@@ -12,6 +12,13 @@ pub fn user_home() -> PathBuf {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).expect("HOME is not set")
 }
 
+/// Where Claude Code keeps its user config when started plainly: `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+pub fn default_claude_dir() -> PathBuf {
+    std::env::var_os("CLAUDE_CONFIG_DIR")
+        .filter(|v| !v.is_empty())
+        .map_or_else(|| user_home().join(".claude"), PathBuf::from)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
