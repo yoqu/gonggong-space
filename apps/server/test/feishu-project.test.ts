@@ -192,14 +192,12 @@ describe('主应用进群卡片等待集成建群', () => {
     await setup()
     await t.db.insert(systemParams).values({ key: 'publicUrl', value: 'https://gg.example.com' })
     forgetSysParams(t.db)
-    inviteDelay.ms = 50
-    try {
-      await t.feishu.botAdded(MAIN, CHAT, '登录改版需求群')
-      expect((await call(body())).status).toBe(200)
-      await settleInvites()
-      expect(t.feishu.sent.filter((m) => m.chatId === CHAT)).toEqual([])
-    } finally {
-      inviteDelay.ms = 0
-    }
+    let open = () => {}
+    inviteDelay.wait = () => new Promise<void>((r) => (open = r))
+    await t.feishu.botAdded(MAIN, CHAT, '登录改版需求群')
+    expect((await call(body())).status).toBe(200)
+    open()
+    await settleInvites()
+    expect(t.feishu.sent.filter((m) => m.chatId === CHAT)).toEqual([])
   })
 })

@@ -46,7 +46,7 @@ export async function createTestApp(
   opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit; logStream?: Writable } = {},
 ) {
   const t = await createTestDb()
-  inviteDelay.ms = 0
+  inviteDelay.wait = async () => {}
   const feishu = new FakeFeishu()
   const ctx: Ctx = {
     db: t.db,

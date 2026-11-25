@@ -12,7 +12,7 @@ const zt = translator('zh')
  * How long the main app waits after joining a chat before offering to create its group: an integration (飞书项目)
  * that pulled it in creates and binds the group itself meanwhile.
  */
-export const inviteDelay = { ms: 30_000 }
+export const inviteDelay = { wait: () => new Promise<void>((r) => setTimeout(r, 30_000).unref()) }
 const pending = new Set<Promise<unknown>>()
 /** Waits for the 进群 cards still waiting out `inviteDelay` (tests). */
 export const settleInvites = () => Promise.allSettled([...pending])
@@ -27,7 +27,8 @@ export function startFeishuInvite(ctx: Ctx) {
     const chatId = ev.chat_id
     if (app.kind !== 'main' || !chatId) return
     // The event is answered right away; Feishu redelivers events whose handler runs long.
-    const run = new Promise((r) => setTimeout(r, inviteDelay.ms).unref())
+    const run = inviteDelay
+      .wait()
       .then(() => invite(ctx, app, chatId))
       .catch((err) => console.error('feishu invite card:', err))
       .finally(() => pending.delete(run))
