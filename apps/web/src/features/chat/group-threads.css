@@ -22,10 +22,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  flex-shrink: 0;
   padding: var(--space-12) var(--space-12) var(--space-12) var(--space-16);
-  border: 1px solid color-mix(in srgb, var(--thread-hue) 16%, var(--separator));
+  border: 1px solid var(--separator);
   border-radius: var(--radius-menu);
-  background: color-mix(in srgb, var(--thread-hue) 5%, var(--content-bg));
+  background: var(--content-bg);
   color: var(--label);
   font: inherit;
   text-align: left;
@@ -35,23 +36,20 @@
 }
 @media (hover: hover) {
   .group-threads__row:hover {
-    background: color-mix(in srgb, var(--thread-hue) 10%, var(--content-bg));
+    background: var(--quote-fill);
   }
 }
 .group-threads__row:active {
-  background: color-mix(in srgb, var(--thread-hue) 10%, var(--content-bg));
+  background: var(--quote-fill);
 }
-/* Each thread's own color as a soft edge; unread makes it solid. */
+/* Each thread's own color as a solid edge; the card itself stays neutral so text reads clearly. */
 .group-threads__row::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  width: 3px;
-  background: color-mix(in srgb, var(--thread-hue) 45%, transparent);
-}
-.group-threads__row[data-unread]::before {
+  width: 4px;
   background: var(--thread-hue);
 }
 .group-threads__row[data-unread] .group-threads__text,
