@@ -7,7 +7,17 @@ import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
 import { countdown, hm } from '../../lib/time'
-import { Button, Icon, MenuButton, type MenuItem, Spinner, Tag, type TagTone, toast } from '../../ui'
+import {
+  Button,
+  Icon,
+  MenuButton,
+  type MenuItem,
+  Spinner,
+  Tag,
+  type TagTone,
+  toast,
+  usePresence,
+} from '../../ui'
 import { effectiveApprovalScope } from '../bots/accessScope'
 import { useBotDialog } from '../bots/dialogStore'
 import { CountdownRing } from '../chat/RunGraphics'
@@ -229,6 +239,11 @@ export function ApprovalCard({
     pending && mine && bot ? effectiveApprovalScope({ bot, run, group, groupTier, demo: !!demo }) : null
   const guideActive = useApprovalGuideActive(pending && mine ? me?.id : undefined)
   const guideVisible = pending && mine && !!scope && guideActive
+  // Deciding drops `scope`: the leaving hint keeps the words it had.
+  const guide = usePresence(guideVisible)
+  const lastScope = useRef(scope)
+  if (scope) lastScope.current = scope
+  const guideScope = scope ?? lastScope.current
   const allow = pick(a.options, ['allow_once', 'allow_always'])
   // Without rules to remember, 批准，不再询问 would silently behave like 批准 (plan A7).
   const always = a.remember.length
@@ -466,12 +481,18 @@ export function ApprovalCard({
           <span>{outcome(a)}</span>
         </div>
       )}
-      {guideVisible && scope ? (
-        <div className="approval__guide">
+      {guide.mounted && guideScope ? (
+        <div
+          className="approval__guide"
+          data-state={guide.state}
+          onAnimationEnd={guide.onAnimationEnd}
+          aria-hidden={!guideVisible || undefined}
+          inert={!guideVisible}
+        >
           <span className="approval__guide-text">
             <Icon name="sparkle" size={12} className="approval__guide-icon" />
             <span>
-              {scope.focus === 'owner'
+              {guideScope.focus === 'owner'
                 ? demo
                   ? t('不想每次手动确认？可在设置中改为「帮我审批」，或配置常用命令白名单。')
                   : t('不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或配置常用命令白名单。')

@@ -184,6 +184,7 @@ button.act-row:active {
   background: var(--tint-orange);
 }
 .act-approval__state {
+  animation: ui-fade-in var(--fade-in);
   margin-left: 20px;
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);

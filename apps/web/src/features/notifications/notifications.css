@@ -126,8 +126,8 @@
   text-align: left;
   cursor: default;
 }
-/* Unread: accent dot in the leading gutter, as in Mail. */
-.notif__item--unread::before {
+/* Unread: accent dot in the leading gutter, as in Mail; reading it shrinks the dot away. */
+.notif__item::before {
   content: "";
   position: absolute;
   top: 14px;
@@ -136,6 +136,15 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
+  opacity: 0;
+  scale: 0.5;
+  transition:
+    opacity var(--fade-out),
+    scale var(--spring-snappy);
+}
+.notif__item--unread::before {
+  opacity: 1;
+  scale: 1;
 }
 .notif__item--resolved {
   opacity: 0.55;
@@ -177,6 +186,11 @@
   top: var(--space-4);
   right: var(--space-4);
   opacity: 0;
+  transition:
+    background var(--fade-fast),
+    filter var(--fade-fast),
+    scale var(--spring-interactive),
+    opacity var(--fade-fast);
 }
 .notif__row:hover .notif__delete,
 .notif__delete:focus-visible {

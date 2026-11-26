@@ -60,14 +60,14 @@
   border-color: var(--accent);
   background: var(--tint-blue);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
-  animation: approval-gear-pulse 1.2s ease-out 2;
+  animation: approval-gear-pulse var(--flash);
 }
 @keyframes approval-gear-pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 5px transparent;
+    box-shadow: 0 0 0 4px transparent;
   }
   100% {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
@@ -111,6 +111,7 @@
   gap: var(--space-8);
 }
 .approval__done {
+  animation: ui-fade-in var(--fade-in);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -199,6 +200,11 @@
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
   color: var(--label-secondary);
+}
+/* Dismissed, graduated or decided: the hint just fades, the card keeps the eye. */
+.approval__guide[data-state="closed"] {
+  pointer-events: none;
+  animation: ui-fade-out var(--fade-out) forwards;
 }
 .approval__guide-text {
   display: inline-flex;

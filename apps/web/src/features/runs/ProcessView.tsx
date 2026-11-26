@@ -444,7 +444,9 @@ function ActionRow({
           <span className="act-row__target act-row__target--mono">{s.mono}</span>
           <When steps={[s]} day={day} />
         </div>
-        <div className="act-approval__state">{s.body}</div>
+        <div key={s.body} className="act-approval__state">
+          {s.body}
+        </div>
         {s.out ? <div className="act-approval__answers">{s.out}</div> : null}
       </li>
     )
