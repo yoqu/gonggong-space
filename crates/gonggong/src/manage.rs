@@ -598,7 +598,7 @@ fn set_proxy(stored: &mut Option<String>, input: String) {
 }
 
 /// What a new session on the endpoint may pick: a local Claude profile's probed catalog (until probed, the official
-/// login's: the same CLI), else what the endpoint declares.
+/// login's: the same CLI; none with its own `--settings`), else what the endpoint declares.
 fn endpoint_catalog(home: &Path, p: &Provider, e: &Endpoint, agents: &[AgentState]) -> Option<AgentCatalog> {
     if e.claude_profile().is_none() {
         return Some(catalog(p, e));
@@ -608,7 +608,11 @@ fn endpoint_catalog(home: &Path, p: &Provider, e: &Endpoint, agents: &[AgentStat
 
 fn profile_endpoint_catalog(home: &Path, id: &str, e: &Endpoint, agents: &[AgentState]) -> Option<AgentCatalog> {
     let claude = agents.iter().find(|a| a.kind == crate::protocol::AgentKind::Claude && a.available);
-    crate::agents::profile_catalog(home, id, e, claude)
+    let probed = crate::agents::profile_catalog(home, id, e, claude);
+    if !crate::agents::shares_official_catalog(e) {
+        return probed;
+    }
+    probed
         .or_else(|| claude?.catalog.clone())
         .or_else(|| crate::local::load_catalogs(home).remove(&crate::protocol::AgentKind::Claude).map(|c| c.catalog))
 }

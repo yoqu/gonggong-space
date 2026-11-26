@@ -65,6 +65,38 @@ async fn a_local_profile_is_probed_with_its_own_config_dir() {
 }
 
 #[tokio::test]
+async fn profiles_sharing_a_directory_are_probed_with_their_own_settings() {
+    let r = rig(Duration::from_secs(60));
+    let dir = r.home().join("profile");
+    std::fs::create_dir(&dir).unwrap();
+    let ids = Store::update(r.home(), |s| {
+        let mut add = |name: &str, settings: &str| {
+            let mut p = Provider::custom(ApiProtocol::Anthropic, name.into(), String::new(), String::new());
+            p.endpoints[0].config_dir = Some(dir.to_string_lossy().into());
+            p.endpoints[0].args = vec![format!("--settings {settings}")];
+            s.add(p)
+        };
+        Ok([add("GLM", r#"{"model":"glm-5","effortLevel":"high"}"#)?, add("Kimi", r#"{"model":"kimi-k2"}"#)?])
+    })
+    .unwrap();
+    let store = Store::load(r.home()).unwrap();
+    let probe = async |id: &str| {
+        let profile = Selection::of(store.get(id).unwrap(), AgentKind::Claude).unwrap();
+        r.engine.probe_with(AgentKind::Claude, &profile).await.unwrap()
+    };
+    let values = |c: &AgentCatalog| c.models.iter().map(|m| m.choice.value.clone()).collect::<Vec<_>>();
+    let glm = probe(&ids[0]).await;
+    assert_eq!(glm.current.as_deref(), Some("glm-5"));
+    assert_eq!(glm.effort.as_deref(), Some("high"));
+    assert!(values(&glm).contains(&"glm-5".into()) && !values(&glm).contains(&"kimi-k2".into()));
+    let kimi = probe(&ids[1]).await;
+    assert_eq!(kimi.current.as_deref(), Some("kimi-k2"));
+    assert!(values(&kimi).contains(&"kimi-k2".into()) && !values(&kimi).contains(&"glm-5".into()));
+    let official = r.engine.probe(AgentKind::Claude).await.unwrap();
+    assert_eq!(official.current, None, "the official login keeps its own");
+}
+
+#[tokio::test]
 async fn claude_gets_a_private_settings_file_named_in_meta_on_new_and_resume() {
     let mut r = rig(Duration::from_millis(200));
     let id = r.add(AgentKind::Claude, "kimi-coding", true);

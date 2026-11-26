@@ -2,6 +2,7 @@
 use super::{Engine, PROBE_TIMEOUT};
 use crate::agents;
 use crate::engine::Process;
+use crate::inject::ClaudeLaunch;
 use crate::local::LocalSettings;
 use crate::protocol::{AgentCatalog, AgentKind, Approval, RunBot, SecretEnv, Tier};
 use crate::providers::{RunPlan, Selection, Store};
@@ -64,7 +65,14 @@ impl Engine {
         let agent = self.throwaway_agent(kind, selection).await?;
         let dir = self.0.config.home.join("probe");
         tokio::fs::create_dir_all(&dir).await?;
-        let probe = session::probe(agent, &dir);
+        let launch = match selection.claude_profile() {
+            Some(_) => {
+                let (home, selection) = (self.0.config.home.clone(), selection.clone());
+                Some(tokio::task::spawn_blocking(move || profile_launch(&home, &selection)).await??)
+            }
+            None => None,
+        };
+        let probe = session::probe(agent, &dir, launch.as_ref());
         match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
             Ok(result) => result.map_err(anyhow::Error::msg).and_then(|c| agents::offered(kind, c)),
             Err(_) => bail!(t!("探测 {kind} 可选模型超时", kind = crate::bots::agent_label(kind))),
@@ -85,26 +93,38 @@ impl Engine {
     /// The adapter of `kind` for a session no bot runs in (probe, fork): no bot settings.
     async fn throwaway_agent(&self, kind: AgentKind, selection: &Selection) -> anyhow::Result<AcpAgent> {
         let local = LocalSettings::load(&self.0.config.home)?;
-        let bot = RunBot {
-            id: String::new(),
-            name: String::new(),
-            agent_kind: kind,
-            system_prompt: String::new(),
-            tier: Tier::ReadOnly,
-            model: None,
-            effort: None,
-            approval: Approval::Ask,
-            allowlist: vec![],
-            always_allow: vec![],
-            ai_review: false,
-            git: None,
-            agent_settings: Default::default(),
-        };
+        let bot = throwaway_bot(kind);
         let process = Process { key: crate::adapters::PROBE, ..Default::default() };
         let config = self.0.adapter(&bot, &local, selection, &SecretEnv::default(), &process).await?;
         let extra = (kind == AgentKind::Claude
             && (selection.provider().is_none() || selection.claude_profile().is_some()))
         .then(|| selection.process_env());
         Ok(AcpAgent::new(config.envs(extra.into_iter().flatten())))
+    }
+}
+
+/// A Claude profile's settings as a new session of a bot without overrides gets them: its own `--settings` among them.
+fn profile_launch(home: &Path, selection: &Selection) -> anyhow::Result<ClaudeLaunch> {
+    let defaults = Store::load(home)?.agent_settings(AgentKind::Claude);
+    let launch = ClaudeLaunch::new(home, selection, &defaults, &throwaway_bot(AgentKind::Claude), None)?;
+    launch.write()?;
+    Ok(launch)
+}
+
+fn throwaway_bot(kind: AgentKind) -> RunBot {
+    RunBot {
+        id: String::new(),
+        name: String::new(),
+        agent_kind: kind,
+        system_prompt: String::new(),
+        tier: Tier::ReadOnly,
+        model: None,
+        effort: None,
+        approval: Approval::Ask,
+        allowlist: vec![],
+        always_allow: vec![],
+        ai_review: false,
+        git: None,
+        agent_settings: Default::default(),
     }
 }

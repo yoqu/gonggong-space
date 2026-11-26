@@ -531,6 +531,68 @@ async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one(
     assert_eq!(listed.view.unwrap().providers[0].endpoints[0].model_options, vec!["opus"]);
 }
 
+#[tokio::test]
+async fn a_profile_with_its_own_settings_offers_only_its_own_probed_catalog() {
+    let (home, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let one = |value: &str| AgentCatalog {
+        current: Some(value.into()),
+        models: vec![ModelChoice {
+            choice: Choice { name: value.into(), value: value.into(), description: None },
+            efforts: vec![],
+            effort: None,
+        }],
+        ..Default::default()
+    };
+    let claude = AgentState {
+        kind: AgentKind::Claude,
+        available: true,
+        version: Some("2.1.0".into()),
+        path: None,
+        min_version: None,
+        catalog: None,
+        latest: None,
+        managed: false,
+        upgrade_command: None,
+        install_command: None,
+    };
+    crate::local::save_catalog(
+        home.path(),
+        AgentKind::Claude,
+        CachedCatalog { key: crate::agents::catalog_key(AgentKind::Claude, Some("2.1.0")), catalog: one("opus") },
+    )
+    .unwrap();
+    let id = Store::update(home.path(), |s| {
+        let mut p = Provider::custom(Anthropic, "GLM".into(), String::new(), String::new());
+        p.endpoints[0].config_dir = Some(dir.path().display().to_string());
+        p.endpoints[0].args = vec![r#"--settings {"model":"glm-5"}"#.into()];
+        let id = s.add(p)?;
+        s.use_bot("b1", AgentKind::Claude, &id)?;
+        Ok(id)
+    })
+    .unwrap();
+    let manage = Manage::new(home.path().into(), home.path().into());
+    manage.watch_agents(watch::channel(vec![claude]).0);
+    let (out, mut rx) = Outbox::channel();
+    let mut ask = async || {
+        let mut c = cmd(ProvidersAction::BotCatalog);
+        (c.agent, c.bot_id) = (Some(AgentKind::Claude), Some("b1".into()));
+        manage.providers(c, &out);
+        let DaemonToServer::ProvidersResult(r) = rx.recv().await.unwrap() else { panic!() };
+        assert!(r.ok, "{:?}", r.error);
+        r.catalog
+    };
+    assert_eq!(ask().await, None, "not probed yet: not the official login's");
+
+    let (_, key) = crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().remove(0);
+    let before = key.strip_suffix(crate::agents::PROFILE_PROBE).unwrap().to_string();
+    crate::local::save_profile_catalog(home.path(), &id, CachedCatalog { key: before, catalog: one("opus") }).unwrap();
+    assert_eq!(ask().await, None, "probed before its settings reached the probe: probed again");
+    assert_eq!(crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().len(), 1);
+
+    crate::local::save_profile_catalog(home.path(), &id, CachedCatalog { key, catalog: one("glm-5") }).unwrap();
+    assert_eq!(ask().await, Some(one("glm-5")));
+}
+
 #[test]
 fn features_include_cc_switch_only_when_present() {
     let home = tempfile::tempdir().unwrap();

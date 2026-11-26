@@ -1415,14 +1415,25 @@ fn efforts(options: &[SessionConfigOption]) -> (Vec<Choice>, Option<String>) {
 }
 
 /// What an adapter offers: a throwaway session in `cwd`, switched through every model to read its thought levels.
-/// Nothing is prompted.
-pub(crate) async fn probe(agent: AcpAgent, cwd: &std::path::Path) -> Result<AgentCatalog, String> {
+/// Nothing is prompted. `launch`: a Claude profile's settings, named in `_meta` as on a real session.
+pub(crate) async fn probe(
+    agent: AcpAgent,
+    cwd: &std::path::Path,
+    launch: Option<&inject::ClaudeLaunch>,
+) -> Result<AgentCatalog, String> {
+    let options = claude_options(launch, &Default::default(), &Default::default());
+    let mut new = NewSessionRequest::new(cwd);
+    if !options.is_empty() {
+        let mut meta = Meta::new();
+        meta.insert("claudeCode".into(), serde_json::json!({ "options": options }));
+        new = new.meta(meta);
+    }
     Client
         .builder()
         .connect_with(agent, async |cx: ConnectionTo<Agent>| {
             let init = InitializeRequest::new(ProtocolVersion::V1).client_capabilities(client_capabilities());
             cx.send_request(init).block_task().await?;
-            let (res, raw) = send_raw(&cx, NewSessionRequest::new(cwd)).await?;
+            let (res, raw) = send_raw(&cx, new).await?;
             let options = res.config_options.unwrap_or_default();
             let (start_efforts, start_effort) = efforts(&options);
             let Some((id, current, models)) = select(&options, &SessionConfigOptionCategory::Model) else {

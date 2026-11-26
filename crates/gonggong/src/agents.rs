@@ -55,7 +55,7 @@ pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentState> {
 }
 
 /// When `~/.claude` has no probed catalog (e.g. only a local Claude profile directory is logged in), fall back to the
-/// machine default profile's probed catalog, else the first probed profile's.
+/// machine default profile's probed catalog, else the first probed profile's; never one of a profile's own `--settings`.
 fn fallback_profile_catalog(home: &Path, claude: &AgentState) -> Option<AgentCatalog> {
     let store = Store::load(home).ok()?;
     let default = store.machine_default(AgentKind::Claude).ok();
@@ -63,6 +63,7 @@ fn fallback_profile_catalog(home: &Path, claude: &AgentState) -> Option<AgentCat
     default_ep
         .into_iter()
         .chain(store.providers.iter().flat_map(|p| Some((p, p.endpoint_for(AgentKind::Claude)?))))
+        .filter(|(_, e)| shares_official_catalog(e))
         .find_map(|(p, e)| profile_catalog(home, &p.id, e, Some(claude)))
 }
 
@@ -94,14 +95,27 @@ fn adapter_version(kind: AgentKind) -> &'static str {
 
 /// [`catalog_key`] of a local Claude profile: the Claude build it runs (`version` of the detected one, unless the
 /// profile pins its own executable), the profile's `settings.json` and its own `--settings`, where its gateway and
-/// models are configured.
+/// models are configured, then [`PROFILE_PROBE`].
 pub fn profile_catalog_key(version: Option<&str>, e: &Endpoint) -> Option<String> {
     let dir = e.claude_profile()?;
     let cli = e.executable_path.as_deref().or(version).unwrap_or("?");
     let adapter = adapter_version(AgentKind::Claude);
-    let own = e.claude_args().ok().and_then(|a| a.settings().ok().flatten());
-    let own = own.map_or_else(String::new, |s| digest(serde_json::Value::Object(s).to_string().as_bytes()));
-    Some(format!("{cli}+{adapter}+{}+{own}", file_digest(&dir.join("settings.json"))))
+    let own = own_settings(e).map_or_else(String::new, |s| digest(serde_json::Value::Object(s).to_string().as_bytes()));
+    Some(format!("{cli}+{adapter}+{}+{own}{PROFILE_PROBE}", file_digest(&dir.join("settings.json"))))
+}
+
+/// How profiles are probed: catalogs probed before their own `--settings` reached the probe are probed again.
+pub const PROFILE_PROBE: &str = "+p2";
+
+/// A profile's own `--settings`: its models are its own, not the official login's.
+fn own_settings(e: &Endpoint) -> Option<serde_json::Map<String, serde_json::Value>> {
+    e.claude_args().ok().and_then(|a| a.settings().ok().flatten())
+}
+
+/// Whether the official login's catalog stands for the profile `e`'s until it is probed: not with its own
+/// `--settings`.
+pub fn shares_official_catalog(e: &Endpoint) -> bool {
+    own_settings(e).is_none()
 }
 
 /// The catalog probed for the local Claude profile `e` of provider `id` with the Claude build `claude` (the detected
@@ -799,6 +813,7 @@ mod tests {
             let current = profile_catalog(home.path(), id, e, Some(&claude)).and_then(|c| c.current);
             assert_eq!(current.as_deref(), Some(model));
         }
+        assert_eq!(super::fallback_profile_catalog(home.path(), &claude), None, "the official login is neither");
     }
 
     #[test]

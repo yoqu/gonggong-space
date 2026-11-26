@@ -143,12 +143,14 @@ const MODELS = [
 ]
 // Like both real adapters, thought levels depend on the model; one model has none.
 const EFFORTS = { default: ['low', 'medium', 'high'], haiku: [], opus: ['low', 'medium', 'high', 'max'] }
+// A model from the settings file has the default model's thought levels.
+const effortsOf = (model) => EFFORTS[model] ?? EFFORTS.default
 const efforts = (model) =>
-  EFFORTS[model].map((value) => ({ value, name: value[0].toUpperCase() + value.slice(1) }))
+  effortsOf(model).map((value) => ({ value, name: value[0].toUpperCase() + value.slice(1) }))
 
 const configOptions = (s) => [
-  { id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: s.model, options: MODELS },
-  ...(EFFORTS[s.model].length
+  { id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: s.model, options: s.models },
+  ...(effortsOf(s.model).length
     ? [
         {
           id: 'effort',
@@ -174,7 +176,13 @@ async function mcp(url, method, params, signal) {
   return body.result
 }
 
+// Like Claude, the `model` and `effortLevel` of the settings file named in `_meta` are offered and current.
+function ownSettings(path) {
+  return path && existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}
+}
+
 function open(sessionId, params) {
+  const own = ownSettings(params._meta?.claudeCode?.options?.settings)
   sessions.set(sessionId, {
     cwd: params.cwd,
     additionalDirectories: params.additionalDirectories ?? [],
@@ -184,8 +192,9 @@ function open(sessionId, params) {
     meta: params._meta ?? null,
     mcpServers: params.mcpServers,
     mode: PI ? 'medium' : 'default',
-    model: GEMINI ? (process.env.GEMINI_MODEL ?? 'gemini-2.5-pro') : 'default',
-    effort: 'medium',
+    model: GEMINI ? (process.env.GEMINI_MODEL ?? 'gemini-2.5-pro') : (own.model ?? 'default'),
+    models: own.model ? [{ value: own.model, name: own.model }, ...MODELS] : MODELS,
+    effort: own.effortLevel ?? 'medium',
     configSets: [],
     abort: null,
   })
@@ -806,8 +815,8 @@ acp
       throw acp.RequestError.invalidParams(undefined, `Invalid value for config option ${configId}: ${value}`)
     s[configId] = value
     s.configSets.push(`${configId}=${value}`)
-    if (configId === 'model' && !EFFORTS[value].includes(s.effort))
-      s.effort = EFFORTS[value].includes('medium') ? 'medium' : null
+    if (configId === 'model' && !effortsOf(value).includes(s.effort))
+      s.effort = effortsOf(value).includes('medium') ? 'medium' : null
     return { configOptions: configOptions(s) }
   })
   .onRequest('session/prompt', (ctx) => prompt(ctx.params, ctx.client))
