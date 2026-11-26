@@ -857,7 +857,7 @@ export const WorkDto = z.object({
   groupId: z.string(),
   /** Empty for another member's DM shared with the team (shown as 私聊). */
   groupTitle: z.string(),
-  groupKind: z.enum(['group', 'dm']),
+  groupKind: z.enum(['group', 'dm', 'works']),
   groupVisibility: z.enum(['public', 'private']),
   title: z.string(),
   /** The plugin's title (产品原型, 幻灯片…). */
@@ -872,6 +872,11 @@ export const WorkDto = z.object({
   access: ArtifactAccess,
 })
 export type WorkDto = z.infer<typeof WorkDto>
+/** POST /api/works — 作品 新建 with one of ARTIFACT_BOT_NAMES, no group: answers the empty work to open on its canvas. */
+export const NewWorkReq = z.object({ botId: z.string() })
+export type NewWorkReq = z.infer<typeof NewWorkReq>
+export const NewWorkRes = z.object({ artifactId: z.string() })
+export type NewWorkRes = z.infer<typeof NewWorkRes>
 /**
  * GET /api/works/groups — where the caller can create (作品 shows when there is one): their groups with a creation
  * plugin on, then their private chats with bots (`dm`, creation plugins on there by default), which need no group.

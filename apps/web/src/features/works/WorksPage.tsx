@@ -22,12 +22,12 @@ import {
   Spinner,
   Tag,
 } from '../../ui'
+import { useArtifactBots } from '../artifacts/CanvasBotPicker'
 import { useArtifactPreview } from '../artifacts/store'
 import { channelsApi } from '../groups/sections'
-import { openCreation } from '../plugins/store'
 import { otherTeam, switchTeam } from '../teams/store'
 import { TeamSwitcher } from '../teams/TeamSwitcher'
-import { NewWorkDialog, WorkCreationHost } from './NewWork'
+import { NewWorkDialog } from './NewWork'
 import { WorkEditor } from './WorkEditor'
 import './works.css'
 
@@ -58,15 +58,16 @@ async function loadWorks() {
   }
 }
 
-/** 作品 shows in the app rail once one of my groups has a creation plugin on, or a work is shared with me. */
+/** 作品 shows in the app rail once I can create (an AI open for works, a group with a creation plugin on) or see one. */
 export function useWorksShown() {
+  const bots = useArtifactBots()
   const groups = useWorks((s) => s.groups)
   const list = useWorks((s) => s.list)
   useEffect(() => {
     if (useWorks.getState().groups === null) void loadWorkGroups()
     if (useWorks.getState().list === null) void loadWorks()
   }, [])
-  return !!groups?.length || !!list?.length
+  return !!bots.length || !!groups?.length || !!list?.length
 }
 
 const VISIBILITY_LABEL: Record<ArtifactVisibility, string> = {
@@ -130,7 +131,6 @@ export function WorksPage() {
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
-  const [noCreation, setNoCreation] = useState(false)
   const [creating, setCreating] = useState(false)
   useEffect(() => {
     void loadWorks()
@@ -191,10 +191,6 @@ export function WorksPage() {
     setQuery('')
   }
   const open = (w: WorkDto) => navigate(`/works/${w.id}`)
-  const create = (groupId: string) => {
-    navigate(`/g/${groupId}`)
-    openCreation({ groupId })
-  }
 
   return (
     <section className="works" aria-label={t('作品')}>
@@ -203,19 +199,7 @@ export function WorksPage() {
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
-        <Button
-          size="small"
-          variant="primary"
-          icon="plus"
-          disabled={!groups}
-          onClick={() =>
-            !groups?.length
-              ? setNoCreation(true)
-              : groups.length === 1 && groups[0]?.kind === 'group'
-                ? create(groups[0].id)
-                : setCreating(true)
-          }
-        >
+        <Button size="small" variant="primary" icon="plus" onClick={() => setCreating(true)}>
           {t('新建')}
         </Button>
       </header>
@@ -379,27 +363,8 @@ export function WorksPage() {
         </div>
       )}
       <Presence>
-        {creating && groups ? <NewWorkDialog groups={groups} onClose={() => setCreating(false)} /> : null}
-      </Presence>
-      <WorkCreationHost onCreated={() => void loadWorks()} />
-      <Presence>
-        {noCreation ? (
-          <Dialog
-            open
-            title={t('还没有开启创作插件的群')}
-            width={440}
-            onClose={() => setNoCreation(false)}
-            actions={[
-              { label: t('知道了'), onClick: () => setNoCreation(false) },
-              { label: t('去市场找插件'), variant: 'primary', onClick: () => navigate('/market') },
-            ]}
-          >
-            <div className="gs-note">
-              {t(
-                '创作要在开启了创作插件（如产品原型、幻灯片）的群里进行：请群管理员在「群设置 · 插件」里开启；还没有合适的插件，可以去市场挑选并引入到群。',
-              )}
-            </div>
-          </Dialog>
+        {creating ? (
+          <NewWorkDialog onClose={() => setCreating(false)} onCreated={() => void loadWorks()} />
         ) : null}
       </Presence>
     </section>

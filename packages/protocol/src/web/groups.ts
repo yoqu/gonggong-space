@@ -4,7 +4,8 @@ import { LiveRun } from '../live-run.js'
 import { NotifyLevel } from './errors-auth.js'
 
 // ── Groups ──────────────────────────────────────────────────────────────────
-export const GroupKind = z.enum(['group', 'dm'])
+/** `works`: someone's hidden 作品空间, where 作品 新建 creates with an AI that is a guest there; it has no members. */
+export const GroupKind = z.enum(['group', 'dm', 'works'])
 /** 技术 or 业务 (conclusion first, plain words, evidence last); stored in `groups.params`, absent = tech. */
 export const ReplyStyle = z.enum(['tech', 'business'])
 export type ReplyStyle = z.infer<typeof ReplyStyle>
@@ -85,7 +86,7 @@ export type GroupNoticeDto = z.infer<typeof GroupNoticeDto>
 
 export const CreateGroupReq = z.object({
   name: z.string().min(1).max(60),
-  kind: GroupKind,
+  kind: z.enum(['group', 'dm']),
   memberIds: z.array(z.string()).default([]),
   botIds: z.array(z.string()).default([]),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable().default(null),

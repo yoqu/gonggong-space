@@ -502,6 +502,12 @@ export async function sendAgentMessage(
 
 /** SendMessageReq.artifactContext: what the agent reads after the member's text (meta.artifactNote) and the bubble shows. */
 export async function artifactContextNote(ctx: Ctx, a: Artifact, c: ArtifactContext) {
+  // An empty work from 作品 新建: the message says what its first version is.
+  if (!a.headVersionId)
+    return {
+      note: `[画布上下文：产物「${a.title}」，目录 ${a.dir}/，还没有版本，按这条消息做出第一版]`,
+      canvas: { artifactId: a.id, title: a.title, screens: [], elements: [] } satisfies MessageCanvas,
+    }
   const { lines, canvas } = await contextLines(ctx, a, {
     screenIds: c.screenIds ?? [],
     elements: c.elements ?? [],

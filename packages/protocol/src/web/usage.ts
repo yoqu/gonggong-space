@@ -153,7 +153,7 @@ export const ConversationStatsRowDto = z.object({
   key: z.string(),
   name: z.string(),
   /** Conversations only. */
-  kind: z.enum(['group', 'dm']).nullable(),
+  kind: GroupKind.nullable(),
   /** Conversations and bots. */
   teamName: z.string().nullable(),
   /** A conversation's creator, a bot's owner. */

@@ -237,4 +237,7 @@ export default {
   '要删除这条批注吗？': 'Delete this annotation?',
   '删除后所有人都看不到这条批注，无法恢复。': 'It will be gone for everyone and cannot be restored.',
   已删除批注: 'Annotation deleted',
+  还没有内容: 'Nothing here yet',
+  '在左侧 AI 对话里说要做什么，AI 会做出第一版':
+    'Tell the AI what to make in the AI chat on the left; it makes the first version',
 }

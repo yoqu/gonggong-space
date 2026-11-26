@@ -4,7 +4,6 @@ export default {
   我创建的: 'Created by me',
   团队共享: 'Team shared',
   搜索作品: 'Search works',
-  还没有开启创作插件的群: 'None of your groups has a creation plugin on',
   '打开 {title}': 'Open {title}',
   仅自己可见: 'Only me',
   本群可见: 'This group',
@@ -32,9 +31,6 @@ export default {
   清除筛选: 'Clear filters',
   全屏演示: 'Present full screen',
   在新窗口打开: 'Open in new window',
-  去市场找插件: 'Find plugins in the market',
-  '创作要在开启了创作插件（如产品原型、幻灯片）的群里进行：请群管理员在「群设置 · 插件」里开启；还没有合适的插件，可以去市场挑选并引入到群。':
-    'Creating happens in a group with a creation plugin (such as prototypes or slides) on: ask a group admin to turn one on under Group settings · Plugins, or pick a plugin in the market and install it into the group.',
   托管网页: 'Hosted site',
   分享到群聊: 'Share to chat',
   '{group}（作品所在群）': '{group} (where the work lives)',
@@ -48,10 +44,9 @@ export default {
     "Sharing to another group makes the work visible to the team: that group's members can view it, and can change it after joining the group it lives in.",
   '作品还不是团队可见，只有创建人、Bot 主人或群管理员能分享到其他群':
     "The work is not visible to the team yet: only its creator, its bot's owner or a group admin can share it to other groups.",
-  '{bot}（私聊，不用建群）': '{bot} (private chat, no group needed)',
-  '群「{group}」': 'Group "{group}"',
   新建作品: 'New work',
-  '选一个 Bot 直接创作，作品做好后在作品页编辑；也可以到群里和大家一起创作':
-    'Pick a bot to create with directly and edit the work on its page, or create together in a group.',
+  '选一个 AI，在画布左侧的 AI 对话里说要做什么，它做出第一版后继续对话修改':
+    'Pick an AI, then tell it what to make in the AI chat on the left of the canvas; it makes a first version and you refine it in the chat.',
+  '团队里还没有共字君或姜维川的 Claude Code': 'Neither AI open for works is in the team yet',
   创建者: 'Creator',
 }

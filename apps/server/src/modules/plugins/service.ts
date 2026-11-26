@@ -318,10 +318,10 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
       ).map((r) => {
         const install = top.get(r.plugin.id)
         // Connectors are on in every group unless its admin turned one off, and creation plugins in a private chat
-        // (作品 新建 creates there, no group needed); other plugins wait to be turned on.
+        // or 作品空间 (作品 新建 creates there, no group needed); other plugins wait to be turned on.
         const byDefault =
           r.version.manifest.category === 'connector' ||
-          (g.kind === 'dm' && createsArtifacts(r.version.manifest))
+          ((g.kind === 'dm' || g.kind === 'works') && createsArtifacts(r.version.manifest))
         return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? byDefault }
       })
       return [g.id, list] as const

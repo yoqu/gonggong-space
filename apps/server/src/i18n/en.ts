@@ -653,6 +653,8 @@ export const en = {
   只有平台层插件可以带供应商预设: 'Only platform-layer plugins can bring provider presets',
   '插件命令 {name} 与系统命令重名': 'Plugin command {name} has the name of a system command',
   这个插件不能用来创作: 'This plugin cannot be used for creations',
+  '只能选共字君或姜维川的 Claude Code': 'Only the AIs open for works can be picked',
+  没有可用的产品原型插件: 'No product prototype plugin is available',
   只有电脑主人能授权插件在这台电脑上运行: "Only the computer's owner can allow plugins to run on it",
   授权不存在: 'Authorization not found',
   会运行代码的插件必须固定版本引入: 'A plugin that runs code must be installed at a pinned version',

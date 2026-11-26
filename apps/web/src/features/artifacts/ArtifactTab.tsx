@@ -433,7 +433,15 @@ function PrototypeArtifactTab({
         </div>
       ) : null}
       {!head ? (
-        <Generating />
+        a.running || a.queued ? (
+          <Generating />
+        ) : (
+          <EmptyState
+            icon="grid"
+            title={t('还没有内容')}
+            description={t('在左侧 AI 对话里说要做什么，AI 会做出第一版')}
+          />
+        )
       ) : previewError ? (
         <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
       ) : isSite ? (
@@ -614,6 +622,6 @@ export function useArtifactTabMeta(tab: TabProps<'artifact'>['tab']): TabMeta {
   return {
     icon: 'grid',
     title: a?.title || tab.title || t('产物'),
-    ...(a?.running || (a && !a.headVersionId) ? { status: 'running' as const } : {}),
+    ...(a?.running ? { status: 'running' as const } : {}),
   }
 }

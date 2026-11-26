@@ -1,4 +1,12 @@
-import type { ArtifactCard, GroupDto, TeamDto, UserDto, WorkDto, WorkGroupDto } from '@gonggong/protocol'
+import type {
+  ArtifactCard,
+  BotDto,
+  GroupDto,
+  TeamDto,
+  UserDto,
+  WorkDto,
+  WorkGroupDto,
+} from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,7 +15,6 @@ import { AppShell } from '../src/app/AppShell'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { ArtifactCardView } from '../src/features/artifacts/ArtifactCard'
-import { useCreation } from '../src/features/plugins/store'
 import { resetWorks, WorksPage } from '../src/features/works/WorksPage'
 import { mockApi } from './mockApi'
 
@@ -450,46 +457,39 @@ describe('作品 page', () => {
     expect(localStorage.getItem('gg.team')).toBe('t2')
   })
 
-  it('starts a new creation in a group I pick: creation stays in the chat', async () => {
-    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
-    renderAt('/works')
-    const empty = (await screen.findByText('还没有作品')).closest('.ui-empty') as HTMLElement
-    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '新建' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
-    fireEvent.click(within(dialog).getByRole('button', { name: '交给谁' }))
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '群「设计群」' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
-    await waitFor(() => expect(where()).toContain('/g/g3'))
-    expect(useCreation.getState().open).toEqual({ groupId: 'g3' })
-  })
-
-  it('creates with a bot in our private chat right on 作品, no group needed, defaulting to the last pick', async () => {
-    mockApi({
-      'GET /works/groups': [...GROUPS, { id: 'd1', title: '小王的 Claude', kind: 'dm' }],
-      'GET /works': WORKS,
+  it('creates with one of the two AIs, no group: an empty work opens in its editor with that AI picked', async () => {
+    const bot = (id: string, name: string) => ({ id, name }) as BotDto
+    useWorkspace.setState({
+      bots: [bot('b1', '蒋庆的 Codex'), bot('b2', '姜维川的 Claude Code'), bot('b3', '共字君')],
+    })
+    const calls = mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [],
+      'POST /works': { artifactId: 'a9' },
     })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
     const dialog = await screen.findByRole('dialog', { name: '新建作品' })
-    expect(within(dialog).getByRole('button', { name: '交给谁' }).textContent).toContain(
-      '小王的 Claude（私聊，不用建群）',
-    )
+    fireEvent.click(within(dialog).getByRole('button', { name: '交给谁' }))
+    expect(screen.getAllByRole('menuitemcheckbox').map((x) => x.textContent)).toEqual([
+      '共字君',
+      '姜维川的 Claude Code',
+    ])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '姜维川的 Claude Code' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
-    await waitFor(() => expect(useCreation.getState().open).toEqual({ groupId: 'd1' }))
-    expect(where()).toContain('/works')
-    expect(localStorage.getItem('gg.works.newIn')).toBe('d1')
+    await waitFor(() => expect(where()).toContain('/works/a9'))
+    expect(calls.find((c) => c.method === 'POST')).toMatchObject({ path: '/works', body: { botId: 'b2' } })
+    expect(localStorage.getItem('gg.canvasBot.a9')).toBe('b2')
   })
 
-  it('explains how to turn creation on when no group has a creation plugin, with a way to the market', async () => {
-    mockApi({ 'GET /works/groups': [], 'GET /works': WORKS })
+  it('says so when neither AI is in the team', async () => {
+    useWorkspace.setState({ bots: [] })
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
     renderAt('/works')
-    await screen.findByText('湖畔露营地预约')
-    fireEvent.click(screen.getByRole('button', { name: '新建' }))
-    const dialog = await screen.findByRole('dialog', { name: '还没有开启创作插件的群' })
-    expect(within(dialog).getByText(/群管理员在「群设置 · 插件」里开启/)).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: '去市场找插件' }))
-    await waitFor(() => expect(where()).toContain('/market'))
+    fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    expect(within(dialog).getByText('团队里还没有共字君或姜维川的 Claude Code')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '下一步' })).toHaveProperty('disabled', true)
   })
 })
 

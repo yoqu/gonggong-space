@@ -423,7 +423,7 @@ export async function readerGroupDto(ctx: Ctx, userId: string, groupId: string):
   const [own] = await groupDtos(ctx, userId, eq(groups.id, groupId))
   if (own) return own
   const [view] = await groupViews(ctx, (await memberIds(ctx, groupId)).slice(0, 1), eq(groups.id, groupId))
-  if (!view) return fail('not_found', '群不存在或你已不在群内')
+  if (!view) return worksSpaceDto(ctx, groupId)
   const { lastI18n: _, ...group } = view.group
   return {
     ...group,
@@ -437,6 +437,44 @@ export async function readerGroupDto(ctx: Ctx, userId: string, groupId: string):
     flagged: false,
     notifyLevel: 'mentions',
     foldRuns: false,
+  }
+}
+
+/** A 作品空间 has no members to take a view from: its creator talks there only in its works' 画布 AI 对话. */
+async function worksSpaceDto(ctx: Ctx, groupId: string): Promise<GroupDto> {
+  const [g] = await ctx.db
+    .select()
+    .from(groups)
+    .where(and(eq(groups.id, groupId), eq(groups.kind, 'works'), isNull(groups.archivedAt)))
+  if (!g) return fail('not_found', '群不存在或你已不在群内')
+  return {
+    id: g.id,
+    teamId: g.teamId,
+    name: g.name,
+    kind: 'works',
+    visibility: 'private',
+    avatar: null,
+    mode: g.mode as GroupDto['mode'],
+    adminOnlyInvite: g.adminOnlyInvite,
+    protectBase: g.protectBase,
+    notice: '',
+    noticeHidden: false,
+    repo: null,
+    members: [],
+    botIds: [],
+    unread: 0,
+    mentionCount: 0,
+    lastSeq: 0,
+    last: '',
+    lastAt: g.createdAt.toISOString(),
+    pinned: false,
+    sectionId: null,
+    doneSeq: null,
+    flagged: false,
+    notifyLevel: 'mentions',
+    foldRuns: false,
+    liveRunIds: [],
+    liveRuns: [],
   }
 }
 

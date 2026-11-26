@@ -41,6 +41,8 @@ import {
   CreateArtifactThreadReq,
   EditArtifactThreadMessageReq,
   type MessageDto,
+  NewWorkReq,
+  type NewWorkRes,
   ReactArtifactThreadMessageReq,
   SendAnnotationsReq,
   SendArtifactThreadsReq,
@@ -79,6 +81,7 @@ import { artifactHistory } from './history.js'
 import { pluginCommands, pluginDesignSystems } from './kit.js'
 import { artifactLinkMeta } from './link-meta.js'
 import { moveArtifact } from './move.js'
+import { newWork } from './new-work.js'
 import {
   ASSET_UPLOAD_MAX_BYTES,
   diffVersionFile,
@@ -394,6 +397,10 @@ export function artifactRoutes(ctx: Ctx) {
     app.get('/api/works', async (req): Promise<WorkDto[]> => {
       const me = await requireUser(ctx, req)
       return listWorks(ctx, me.id, await currentTeam(ctx, req, me.id))
+    })
+    app.post('/api/works', async (req): Promise<NewWorkRes> => {
+      const me = await requireUser(ctx, req)
+      return newWork(ctx, me, await currentTeam(ctx, req, me.id), NewWorkReq.parse(req.body).botId)
     })
     app.get('/api/works/groups', async (req): Promise<WorkGroupDto[]> => {
       const me = await requireUser(ctx, req)

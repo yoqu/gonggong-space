@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS, MAX_QUESTIONS } from '../common.js'
-import { GroupParams } from './groups.js'
+import { GroupKind, GroupParams } from './groups.js'
 import { MachineDto } from './machines-bots.js'
 
 // ── Daemon release (plan D17): PUT /api/admin/daemon-release ─────────────────
@@ -116,7 +116,7 @@ export const AdminGroupDto = z.object({
   id: z.string(),
   name: z.string(),
   ownerName: z.string().nullable(),
-  kind: z.enum(['group', 'dm']),
+  kind: GroupKind,
   mode: z.enum(['partition', 'force']),
   repo: z.string().nullable(),
   members: z.number().int(),

@@ -94,7 +94,7 @@ type Draft = Pick<
 >
 
 /** A creation checked against the group's plugins and the bot as `originUserId` would start it now. */
-async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Draft, lenient: boolean) {
+export async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Draft, lenient: boolean) {
   await requirePluginsOn(ctx.db)
   const found =
     (await groupPluginList(ctx.db, groupId)).find((r) => r.plugin.id === req.pluginId && r.enabledInGroup) ??
@@ -184,7 +184,7 @@ function designLines(m: PluginManifest, card: CreationCard, design: Design) {
 }
 
 /** What the agent is asked to do (agent-facing: not translated). */
-function instructions(
+export function instructions(
   m: PluginManifest,
   card: CreationCard,
   design: Design,

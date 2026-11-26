@@ -15,20 +15,29 @@ function stored(artifactId: string) {
   }
 }
 
+/** The AIs open for works (ARTIFACT_BOT_NAMES) in the team, whatever the group. */
+export function useArtifactBots() {
+  const all = useWorkspace((s) => s.bots)
+  return ARTIFACT_BOT_NAMES.flatMap((name) => all.filter((b) => b.name === name))
+}
+
+export function rememberCanvasBot(artifactId: string, botId: string) {
+  try {
+    localStorage.setItem(storeKey(artifactId), botId)
+  } catch {}
+}
+
 /**
  * The AI the canvas's composer sends to: the member's last pick on this artifact, else the first of the AIs open for
  * works (ARTIFACT_BOT_NAMES), which run there whatever the artifact's group.
  */
 export function useCanvasBot(artifactId: string) {
-  const all = useWorkspace((s) => s.bots)
-  const options = ARTIFACT_BOT_NAMES.flatMap((name) => all.filter((b) => b.name === name))
+  const options = useArtifactBots()
   const [picked, setPicked] = useState(() => stored(artifactId))
   const bot = options.find((b) => b.id === picked) ?? options[0] ?? null
   const pick = (id: string) => {
     setPicked(id)
-    try {
-      localStorage.setItem(storeKey(artifactId), id)
-    } catch {}
+    rememberCanvasBot(artifactId, id)
   }
   return { bot, options, pick }
 }
