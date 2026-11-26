@@ -35,9 +35,12 @@ import type { PageProps } from '.'
 const REFRESH_MS = 5000
 
 type PreviewItem = Tunnels['previews'][number]
-type ConfirmTarget = { kind: 'stop' | 'close_stopped'; id: string; fallback: PreviewItem }
+type ServiceItem = Tunnels['services'][number]
+type ConfirmTarget =
+  | { kind: 'stop' | 'close_stopped'; id: string; fallback: PreviewItem }
+  | { kind: 'stop_service'; id: string; fallback: ServiceItem }
 
-const confirmStillValid = (kind: ConfirmTarget['kind'], preview: PreviewItem | null) =>
+const previewConfirmStillValid = (kind: 'stop' | 'close_stopped', preview: PreviewItem | null) =>
   !!preview &&
   (kind === 'stop'
     ? preview.status !== 'stopped' && preview.status !== 'offline'
@@ -52,16 +55,31 @@ export function TunnelsPage(_: PageProps) {
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmBusy, setConfirmBusy] = useState(false)
+  const [confirmError, setConfirmError] = useState('')
 
-  const liveConfirmPreview = confirmTarget
-    ? (data?.previews.find((p) => p.id === confirmTarget.id) ?? null)
-    : null
-  const confirmPreview = liveConfirmPreview ?? confirmTarget?.fallback ?? null
+  const liveConfirmPreview =
+    confirmTarget && confirmTarget.kind !== 'stop_service'
+      ? (data?.previews.find((p) => p.id === confirmTarget.id) ?? null)
+      : null
+  const confirmPreview =
+    confirmTarget && confirmTarget.kind !== 'stop_service'
+      ? (liveConfirmPreview ?? confirmTarget.fallback)
+      : null
+  const liveConfirmService =
+    confirmTarget?.kind === 'stop_service'
+      ? (data?.services.find((s) => s.id === confirmTarget.id) ?? null)
+      : null
+  const confirmService =
+    confirmTarget?.kind === 'stop_service' ? (liveConfirmService ?? confirmTarget.fallback) : null
 
   useEffect(() => {
     if (!confirmOpen || confirmBusy || !confirmTarget || !data) return
-    if (!confirmStillValid(confirmTarget.kind, liveConfirmPreview)) setConfirmOpen(false)
-  }, [confirmOpen, confirmBusy, confirmTarget, data, liveConfirmPreview])
+    if (confirmTarget.kind === 'stop_service') {
+      if (!liveConfirmService || !canStopService(liveConfirmService)) setConfirmOpen(false)
+    } else if (!previewConfirmStillValid(confirmTarget.kind, liveConfirmPreview)) {
+      setConfirmOpen(false)
+    }
+  }, [confirmOpen, confirmBusy, confirmTarget, data, liveConfirmPreview, liveConfirmService])
 
   const act = async (key: string, op: () => Promise<void>, done?: string) => {
     if (busyKey === key) return
@@ -76,37 +94,51 @@ export function TunnelsPage(_: PageProps) {
     setBusyKey((cur) => (cur === key ? null : cur))
   }
 
-  const askConfirm = (kind: ConfirmTarget['kind'], preview: PreviewItem) => {
+  const askPreviewConfirm = (kind: 'stop' | 'close_stopped', preview: PreviewItem) => {
     setConfirmTarget({ kind, id: preview.id, fallback: preview })
+    setConfirmError('')
+    setConfirmOpen(true)
+  }
+
+  const askServiceConfirm = (service: ServiceItem) => {
+    setConfirmTarget({ kind: 'stop_service', id: service.id, fallback: service })
+    setConfirmError('')
     setConfirmOpen(true)
   }
 
   const closeConfirm = () => {
-    if (!confirmBusy) setConfirmOpen(false)
+    if (!confirmBusy) {
+      setConfirmOpen(false)
+      setConfirmError('')
+    }
   }
 
   const runConfirm = async () => {
     if (!confirmTarget || confirmBusy) return
-    const latest = liveConfirmPreview
-    if (!confirmStillValid(confirmTarget.kind, latest) || !latest) {
-      setConfirmOpen(false)
-      return
-    }
-    const { kind } = confirmTarget
     setConfirmBusy(true)
+    setConfirmError('')
     try {
-      await ipc.closeTunnel(latest.id, kind === 'stop' ? shouldStopServiceOnClose(latest) : false)
-      toast({
-        type: 'success',
-        message:
-          kind === 'stop'
-            ? t('已停止「{title}」的在线预览', { title: latest.title })
-            : t('已彻底关闭「{title}」', { title: latest.title }),
-      })
-      await reload()
+      if (confirmTarget.kind === 'stop_service') {
+        if (!confirmService) return
+        await ipc.stopService(confirmService.id)
+        toast({ type: 'success', message: t('已停止「{name}」', { name: confirmService.name }) })
+      } else {
+        if (!confirmPreview) return
+        if (confirmTarget.kind === 'stop') {
+          await ipc.closeTunnel(confirmPreview.id, shouldStopServiceOnClose(confirmPreview))
+          toast({
+            type: 'success',
+            message: t('已停止「{title}」的在线预览', { title: confirmPreview.title }),
+          })
+        } else {
+          await ipc.closeTunnel(confirmPreview.id, false)
+          toast({ type: 'success', message: t('已彻底关闭「{title}」', { title: confirmPreview.title }) })
+        }
+      }
       setConfirmOpen(false)
+      await reload()
     } catch (e) {
-      fail(e)
+      setConfirmError(e instanceof Error ? e.message : String(e))
     } finally {
       setConfirmBusy(false)
     }
@@ -119,15 +151,30 @@ export function TunnelsPage(_: PageProps) {
       return <Alert variant="error" description={error} retrying={loading} onRetry={() => void reload()} />
     return <Skeleton count={3} />
   }
+
   const { items, backgroundServices } = mergePreviewsAndServices(data.previews, data.services)
   const empty = items.length === 0 && backgroundServices.length === 0
+  const stopWithService =
+    confirmTarget?.kind === 'stop' && !!confirmPreview && shouldStopServiceOnClose(confirmPreview)
 
   return (
     <>
-      {empty || items.length > 0 ? (
+      {error ? (
+        <Alert variant="error" description={error} retrying={loading} onRetry={() => void reload()} />
+      ) : null}
+      {empty ? (
+        <GroupBox>
+          <EmptyState
+            compact
+            icon="globe"
+            title={t('本机没有在线预览')}
+            description={t('让 Bot 把网页或服务跑起来（比如「起个预览给我看看」），就会出现在这里。')}
+          />
+        </GroupBox>
+      ) : null}
+      {items.length > 0 ? (
         <Section title={t('在线预览')}>
           <GroupBox>
-            {empty ? <EmptyState compact icon="globe" title={t('本机没有在线预览')} /> : null}
             {items.map(({ preview: p, service }) => {
               const badge = PREVIEW_BADGE[p.status]
               const tech = previewTechInfo(p, service)
@@ -135,8 +182,7 @@ export function TunnelsPage(_: PageProps) {
               const rowBusy =
                 busyKey === `start:${p.id}` ||
                 busyKey === `close:${p.id}` ||
-                (service ? busyKey === `stop-svc:${service.id}` : false) ||
-                (confirmBusy && confirmTarget?.id === p.id)
+                (service != null && busyKey === `stop-svc:${service.id}`)
               const menuItems = [
                 ...(canPausePreview(p, service)
                   ? [{ label: t('仅暂停后台进程（保留卡片）'), value: 'pause', disabled: rowBusy }]
@@ -146,13 +192,8 @@ export function TunnelsPage(_: PageProps) {
               return (
                 <div key={p.id} className="dk-row-item">
                   <div className="dk-row">
-                    <span
-                      className="dk-tile"
-                      style={{
-                        background: p.status === 'stopped' ? 'var(--system-orange)' : 'var(--system-blue)',
-                      }}
-                    >
-                      <Icon name={p.kind === 'static' ? 'doc' : p.serviceId ? 'globe' : 'link'} size={16} />
+                    <span className="dk-tile" style={{ background: 'var(--system-teal)' }}>
+                      <Icon name="globe" size={16} />
                     </span>
                     <div className="dk-row__main">
                       <span className="dk-row__title">
@@ -173,38 +214,36 @@ export function TunnelsPage(_: PageProps) {
                     {p.status === 'stopped' ? (
                       <>
                         <Button
-                          variant="primary"
                           size="small"
                           disabled={rowBusy}
                           loading={busyKey === `start:${p.id}`}
-                          onClick={() => {
-                            if (rowBusy) return
+                          onClick={() =>
                             void act(
                               `start:${p.id}`,
                               () => ipc.startPreview(p.id),
                               t('已重新启动「{title}」', { title: p.title }),
                             )
-                          }}
+                          }
                         >
                           {t('重新启动')}
                         </Button>
                         <Button
                           size="small"
                           disabled={rowBusy}
-                          loading={busyKey === `close:${p.id}`}
-                          onClick={() => {
-                            if (!rowBusy) askConfirm('close_stopped', p)
-                          }}
+                          onClick={() => askPreviewConfirm('close_stopped', p)}
                         >
                           {t('彻底关闭')}
                         </Button>
                       </>
                     ) : (
                       <>
-                        {p.port && p.status === 'online' ? (
+                        {p.status === 'online' && p.port ? (
                           <Button
                             size="small"
-                            onClick={() => ipc.openLocal(p.port as number, p.path).catch(fail)}
+                            disabled={rowBusy}
+                            onClick={() => {
+                              if (p.port != null) void ipc.openLocal(p.port, p.path).catch(fail)
+                            }}
                           >
                             {t('本机打开')}
                           </Button>
@@ -222,17 +261,17 @@ export function TunnelsPage(_: PageProps) {
                                 t('已关闭「{title}」', { title: p.title }),
                               )
                             } else {
-                              askConfirm('stop', p)
+                              askPreviewConfirm('stop', p)
                             }
                           }}
                         >
-                          {p.status === 'offline' ? t('关闭') : p.serviceId ? t('停止') : t('停止穿透')}
+                          {p.status === 'offline' ? t('关闭') : p.serviceId ? t('停止') : t('停止预览')}
                         </Button>
                       </>
                     )}
                     {menuItems.length ? (
                       <PullDownButton
-                        variant="plain"
+                        variant="ghost"
                         size="small"
                         icon="more"
                         indicator={false}
@@ -278,21 +317,18 @@ export function TunnelsPage(_: PageProps) {
                         .filter(Boolean)
                         .join(' · ')}
                     </span>
-                    <span className="dk-mono dk-sub dk-ellipsis" title={s.cwd}>
+                    <span
+                      className="dk-mono dk-sub dk-ellipsis"
+                      title={`${s.cwd ? `${s.cwd}$ ` : '$ '}${s.command}`}
+                    >
                       $ {s.command}
                     </span>
                   </div>
                   {canStopService(s) ? (
                     <Button
                       size="small"
-                      loading={busyKey === `stop-svc:${s.id}`}
-                      onClick={() =>
-                        void act(
-                          `stop-svc:${s.id}`,
-                          () => ipc.stopService(s.id),
-                          t('已停止「{name}」', { name: s.name }),
-                        )
-                      }
+                      disabled={busyKey === `stop-svc:${s.id}`}
+                      onClick={() => askServiceConfirm(s)}
                     >
                       {t('停止')}
                     </Button>
@@ -313,25 +349,37 @@ export function TunnelsPage(_: PageProps) {
         onClose={closeConfirm}
         icon={<img src={logo} alt="" width={48} height={48} />}
         title={
-          confirmTarget && confirmPreview
-            ? confirmTarget.kind === 'stop'
-              ? t('要停止「{title}」的在线预览吗？', { title: confirmPreview.title })
-              : t('要彻底关闭「{title}」吗？', { title: confirmPreview.title })
-            : ''
+          confirmTarget?.kind === 'stop_service' && confirmService
+            ? t('要停止后台服务「{name}」吗？', { name: confirmService.name })
+            : confirmTarget && confirmPreview
+              ? confirmTarget.kind === 'stop'
+                ? t('要停止「{title}」的在线预览吗？', { title: confirmPreview.title })
+                : t('要彻底关闭「{title}」吗？', { title: confirmPreview.title })
+              : ''
         }
         message={
-          confirmTarget && confirmPreview
-            ? confirmTarget.kind === 'stop'
-              ? shouldStopServiceOnClose(confirmPreview)
-                ? t('停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。')
-                : t('停止后，群成员将无法继续打开这个预览链接。')
-              : t('关闭后该预览卡片会移除，之后无法再从这里重新启动。')
-            : null
+          confirmTarget?.kind === 'stop_service'
+            ? t('停止后该服务进程会立即结束，如需恢复请让 Bot 重新启动。')
+            : confirmTarget && confirmPreview
+              ? confirmTarget.kind === 'stop'
+                ? stopWithService
+                  ? t('停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。')
+                  : t('停止后，群成员将无法继续打开这个预览链接。')
+                : t('关闭后该预览卡片会移除，之后无法再从这里重新启动。')
+              : null
         }
+        detail={confirmError ? <Alert variant="error" description={confirmError} /> : null}
         actions={[
           { label: t('取消'), disabled: confirmBusy, onClick: closeConfirm },
           {
-            label: confirmTarget?.kind === 'close_stopped' ? t('彻底关闭') : t('停止预览'),
+            label:
+              confirmTarget?.kind === 'stop_service'
+                ? t('停止服务')
+                : confirmTarget?.kind === 'close_stopped'
+                  ? t('彻底关闭')
+                  : stopWithService
+                    ? t('停止预览和服务')
+                    : t('停止预览'),
             variant: 'destructive',
             disabled: confirmBusy,
             loading: confirmBusy,

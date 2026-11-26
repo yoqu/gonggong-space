@@ -46,6 +46,7 @@ async function fetchNewer(than?: Update | null) {
 
 function ready(update: Update) {
   downloaded = update
+  idleSince = null
   useUpdate.setState({
     state: { phase: 'ready', version: update.version, notes: update.body?.trim() || undefined },
     dismissed: false,
@@ -103,28 +104,49 @@ export function startUpdater() {
   }
 }
 
-/** Since when the daemon has been online with no task, as seen by `autoRestart`. */
+/** Since when the daemon has been online with no task while an update is ready and UI is unoccupied. */
 let idleSince: number | null = null
 
+/** True while the user is actively viewing the window or has a dialog / dirty form open that a restart would wipe. */
+function uiOccupied() {
+  if (typeof document === 'undefined') return false
+  if (!document.hidden && typeof document.hasFocus === 'function' && document.hasFocus()) return true
+  if (
+    document.querySelector(
+      '[role="dialog"]:not([aria-hidden="true"]), [role="alertdialog"]:not([aria-hidden="true"]), [data-dirty="true"]',
+    )
+  )
+    return true
+  return false
+}
+
 /**
- * Restarts into the downloaded update once the daemon has been online with no run for `IDLE_MS` and 自动升级 is on.
- * Online, so finished runs have been reported before the daemon stops.
+ * Restarts into the downloaded update once the update is ready, not dismissed, the user is not editing/focused,
+ * and the daemon has been online with no run for `IDLE_MS` while 自动升级 is on.
  */
 export async function autoRestart(now = Date.now()) {
+  const { state, dismissed } = useUpdate.getState()
+  if (state.phase !== 'ready' || dismissed) {
+    idleSince = null
+    return
+  }
   const { snapshot } = useDaemon.getState()
   const idle = snapshot.phase === 'running' && snapshot.status.conn.state === 'online' && activeRuns() === 0
-  if (!idle) {
+  if (!idle || uiOccupied()) {
     idleSince = null
     return
   }
   idleSince ??= now
-  if (useUpdate.getState().state.phase !== 'ready' || now - idleSince < IDLE_MS) return
+  if (now - idleSince < IDLE_MS) return
   const auto = await ipc.settings().then(
     (s) => s.autoUpgrade,
     () => false,
   )
   useUpdate.setState({ auto })
-  if (auto) await restartToUpdate()
+  if (auto) {
+    idleSince = null
+    await restartToUpdate()
+  }
 }
 
 /** Runs on this machine that a restart would interrupt. */

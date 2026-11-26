@@ -119,6 +119,10 @@ code,
   border-radius: var(--radius-capsule);
   background: currentColor;
 }
+.dk-conn--offline::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--system-gray);
+}
 .dk-conn__text {
   color: var(--label);
 }

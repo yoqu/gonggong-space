@@ -11,7 +11,7 @@ const EN: &[(&str, &str)] = &[
     ("工作区不存在或已变化，请刷新", "The workspace is gone or has changed. Refresh and try again"),
     ("无法确认工作区是否有未保存的改动", "Couldn't tell whether the workspace has unsaved changes"),
     ("工作区有新的改动，请重新确认", "The workspace has new changes. Review and confirm again"),
-    ("托管 {managed} · 本机目录 {cd} · {size}", "Managed {managed} · local directories {cd} · {size}"),
+    ("托管 {managed} · 本机目录 {cd} · {size}", "Managed {managed} · local folders {cd} · {size}"),
     ("共工客户端没有响应，请稍后重试", "The Gonggong client didn't answer. Try again later"),
     ("选择配置目录", "Choose the configuration directory"),
     ("找不到 {path}", "Not found: {path}"),

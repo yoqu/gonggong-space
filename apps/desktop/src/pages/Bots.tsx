@@ -21,9 +21,14 @@ import { fail } from '../lib/ui'
 import { useIpc } from '../lib/useIpc'
 import type { PageProps } from '.'
 
-function status(b: MachineBot, agent: AgentState | undefined): { text: string; tone: TagTone } {
+function status(
+  b: MachineBot,
+  agent: AgentState | undefined,
+  agentsLoaded: boolean,
+): { text: string; tone: TagTone } {
   if (b.binding === 'pending_confirm') return { text: t('待确认'), tone: 'orange' }
-  if (!agent?.available || b.presence === 'agent_missing') return { text: t('Agent 未就绪'), tone: 'red' }
+  if ((agentsLoaded && !agent?.available) || b.presence === 'agent_missing')
+    return { text: t('Agent 未就绪'), tone: 'red' }
   if (b.presence === 'running') return { text: t('运行中'), tone: 'blue' }
   if (b.presence === 'online') return { text: t('在线'), tone: 'green' }
   return { text: t('离线'), tone: 'gray' }
@@ -35,15 +40,19 @@ function status(b: MachineBot, agent: AgentState | undefined): { text: string; t
  */
 export function BotsPage({ go }: PageProps) {
   const botsQ = useIpc(ipc.bots)
+  const toolsQ = useIpc(ipc.tools)
   const bots = botsQ.data
-  const [agents, setAgents] = useState<AgentState[]>([])
+  const agents = toolsQ.data?.agents ?? null
   const [providers, setProviders] = useState<ProviderStoreView | null>(null)
 
   useEffect(() => {
-    ipc.tools().then((s) => setAgents(s.agents), fail)
+    let live = true
     ipc
       .providers({ action: 'list' })
-      .then((r) => setProviders(r.view ? ProviderStoreView.parse(r.view) : null), fail)
+      .then((r) => live && setProviders(r.view ? ProviderStoreView.parse(r.view) : null), fail)
+    return () => {
+      live = false
+    }
   }, [])
 
   return (
@@ -70,11 +79,20 @@ export function BotsPage({ go }: PageProps) {
           }
         />
       ) : null}
+      {toolsQ.error ? (
+        <Alert
+          variant="warning"
+          description={toolsQ.error}
+          retrying={toolsQ.loading}
+          onRetry={() => void toolsQ.reload()}
+        />
+      ) : null}
       {bots?.map((b) => {
-        const agent = agents.find((a) => a.kind === b.agentKind)
-        const badge = status(b, agent)
+        const agent = agents?.find((a) => a.kind === b.agentKind)
+        const agentsLoaded = agents !== null
+        const badge = status(b, agent, agentsLoaded)
         const pending = b.binding === 'pending_confirm'
-        const missing = !agent?.available
+        const missing = agentsLoaded && !agent?.available
         const name = AGENT_META[b.agentKind].name
         return (
           <div key={b.id} className="dk-bot">

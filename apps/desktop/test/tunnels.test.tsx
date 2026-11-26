@@ -144,8 +144,10 @@ it('stops both by default, pauses via menu, restarts paused previews, and shows 
   expect(stopDialog.textContent).toContain(
     '停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。',
   )
-  fireEvent.click(within(stopDialog).getByRole('button', { name: '停止预览' }))
-  expect(within(stopDialog).getByRole('button', { name: '停止预览' }).getAttribute('aria-busy')).toBe('true')
+  fireEvent.click(within(stopDialog).getByRole('button', { name: '停止预览和服务' }))
+  expect(within(stopDialog).getByRole('button', { name: '停止预览和服务' }).getAttribute('aria-busy')).toBe(
+    'true',
+  )
   expect((within(stopDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement).disabled).toBe(true)
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(screen.getByRole('alertdialog')).toBeTruthy()
@@ -154,7 +156,7 @@ it('stops both by default, pauses via menu, restarts paused previews, and shows 
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
 
   // Stopping an external tunnel also confirms, without claiming a managed background service will stop.
-  fireEvent.click((await row('外部服务')).getByRole('button', { name: '停止穿透' }))
+  fireEvent.click((await row('外部服务')).getByRole('button', { name: '停止预览' }))
   const extDialog = screen.getByRole('alertdialog')
   expect(extDialog.textContent).toContain('要停止「外部服务」的在线预览吗？')
   expect(extDialog.textContent).toContain('停止后，群成员将无法继续打开这个预览链接。')
@@ -191,6 +193,9 @@ it('stops both by default, pauses via menu, restarts paused previews, and shows 
 
   expect(screen.getByText('仅后台运行（未开放预览）')).toBeTruthy()
   fireEvent.click((await row(/python worker\.py/)).getByRole('button', { name: '停止' }))
+  const bgDialog = screen.getByRole('alertdialog')
+  expect(bgDialog.textContent).toContain('要停止后台服务「data-worker」吗？')
+  fireEvent.click(within(bgDialog).getByRole('button', { name: '停止服务' }))
   await waitFor(() => expect(m.stopService).toHaveBeenCalledWith('sv_bg'))
 })
 

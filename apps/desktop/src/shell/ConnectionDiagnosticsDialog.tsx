@@ -61,7 +61,7 @@ export function ConnectionDiagnosticsDialog({ open, onClose }: { open: boolean; 
       `${t('心跳间隔')}: ${heartbeatInterval}`,
       `${t('上次心跳')}: ${lastHeartbeat}`,
       `${t('延迟')}: ${latency}`,
-      `${t('ACP 适配器')}: ${adaptersText}`,
+      `${t('适配器')}: ${adaptersText}`,
     ]
     try {
       await copyText(lines.join('\n'))
@@ -90,7 +90,7 @@ export function ConnectionDiagnosticsDialog({ open, onClose }: { open: boolean; 
         <GroupRow label={t('延迟')} value={latency} />
         <GroupRow label={t('协议版本')} value={protocolVersion} />
         <GroupRow label={t('客户端版本')} value={clientVersion} />
-        <GroupRow label={t('ACP 适配器')} wideValue value={adaptersText} />
+        <GroupRow label={t('适配器')} wideValue value={adaptersText} />
       </GroupBox>
     </Dialog>
   )

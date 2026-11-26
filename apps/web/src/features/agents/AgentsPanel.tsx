@@ -13,7 +13,7 @@ import { copyWithToast } from '../../lib/clipboard'
 import { AgentIcon, Alert, Button, GroupBox, Icon, Skeleton, Tag } from '../../ui'
 import { type EditorState, ProvidersPanel } from '../machines/ProvidersPanel'
 import { AgentDetail } from './AgentDetail'
-import { type AgentStatus, agentStatus, missingAgent, runnableAgents } from './model'
+import { type AgentStatus, agentStatus, missingAgent, nodeStatus, runnableAgents } from './model'
 import { NodeBar } from './NodeBar'
 import type { AgentBotRef, AgentsSource, ToolOpKind } from './source'
 import { ToolLog } from './ToolLog'
@@ -32,6 +32,8 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
   const tools = useAgentTools(source)
   const [view, setView] = useState<ProviderStoreView | null>(null)
   const [error, setError] = useState('')
+  const [providersLoading, setProvidersLoading] = useState(live)
+  const [providersTick, setProvidersTick] = useState(0)
   const [open, setOpen] = useState<AgentKind | null>(null)
   const [editor, setEditorState] = useState<EditorState>(null)
   // Each opening of the editor starts fresh, though a closing one may still be on screen.
@@ -41,20 +43,47 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
     setEditorState(e && { ...e, seq: seq.current })
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `providersTick` triggers a reload
   useEffect(() => {
-    if (!live) return
+    if (!live) {
+      setProvidersLoading(false)
+      return
+    }
     let on = true
+    setProvidersLoading(true)
     source.loadProviders().then(
-      (v) => on && setView(v),
-      (e) => on && setError(errorText(e)),
+      (v) => {
+        if (!on) return
+        setView(v)
+        setError('')
+        setProvidersLoading(false)
+      },
+      (e) => {
+        if (!on) return
+        setError(errorText(e))
+        setProvidersLoading(false)
+      },
     )
     return () => {
       on = false
     }
-  }, [source, live])
+  }, [source, live, providersTick])
+
+  const retryAll = () => {
+    tools.retry()
+    if (live) setProvidersTick((n) => n + 1)
+  }
 
   const failed = [tools.error, error].filter(Boolean).join('\n')
-  if (failed) return <Alert variant="error" description={failed} />
+  if (failed)
+    return (
+      <Alert
+        variant="error"
+        description={failed}
+        retrying={tools.loading || providersLoading}
+        onRetry={retryAll}
+      />
+    )
   if (!tools.state || (live && !view)) return <Skeleton count={4} />
 
   const state = tools.state
@@ -65,6 +94,8 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
   const installable = agents.filter((a) => !a.available)
   const upgradable = installed.filter((a) => agentStatus(a) === 'update').map((a) => a.kind)
   const canRun = has('tools')
+  const nodeNeedsInstall = canRun && !!state.node && nodeStatus(state.node) !== 'ok'
+  const showUpgradeAll = canRun && upgradable.length > 0
   const row = (a: AgentState) => (
     <AgentRow
       key={a.kind}
@@ -98,11 +129,12 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
       <section className="mx-section" aria-label="Agent">
         <div className="mx-section__head">
           <span className="mx-row__main mx-strong">Agent</span>
-          {canRun && upgradable.length ? (
+          {showUpgradeAll ? (
             <Button
               size="small"
-              variant="primary"
+              variant={nodeNeedsInstall ? 'default' : 'primary'}
               disabled={tools.busy}
+              loading={!!tools.batch}
               onClick={() => void tools.upgradeAll(upgradable)}
             >
               {tools.batch
@@ -118,7 +150,14 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
         )}
       </section>
       {view && has('providers') ? (
-        <ProvidersPanel source={source} view={view} onView={setView} editor={editor} onEditor={setEditor} />
+        <ProvidersPanel
+          source={source}
+          view={view}
+          onView={setView}
+          editor={editor}
+          onEditor={setEditor}
+          primaryAdd={!showUpgradeAll && !nodeNeedsInstall}
+        />
       ) : null}
       {installable.length ? (
         <section className="mx-section" aria-label={t('可安装')}>
@@ -206,7 +245,14 @@ function AgentRow({
             </span>
           </span>
         </button>
-        <MainAction agent={a} status={status} busy={busy} canRun={canRun} onRun={onRun} />
+        <MainAction
+          agent={a}
+          status={status}
+          busy={busy}
+          loading={Boolean(mine?.running)}
+          canRun={canRun}
+          onRun={onRun}
+        />
       </div>
       {mine ? <ToolLog op={mine} /> : null}
       {mine?.failed && mine.which === 'upgrade' && !a.managed && canRun ? (
@@ -226,12 +272,14 @@ function MainAction({
   agent: a,
   status,
   busy,
+  loading,
   canRun,
   onRun,
 }: {
   agent: AgentState
   status: AgentStatus
   busy: boolean
+  loading: boolean
   canRun: boolean
   onRun: (kind: ToolKind, which: ToolOpKind) => void
 }) {
@@ -246,13 +294,13 @@ function MainAction({
   if (!canRun) return null
   if (status === 'missing')
     return (
-      <Button size="small" disabled={busy} onClick={() => onRun(a.kind, 'install')}>
+      <Button size="small" disabled={busy} loading={loading} onClick={() => onRun(a.kind, 'install')}>
         {t('安装')}
       </Button>
     )
   if (status === 'update')
     return (
-      <Button size="small" variant="primary" disabled={busy} onClick={() => onRun(a.kind, 'upgrade')}>
+      <Button size="small" disabled={busy} loading={loading} onClick={() => onRun(a.kind, 'upgrade')}>
         {t('升级到 {version}', { version: a.latest ?? '' })}
       </Button>
     )

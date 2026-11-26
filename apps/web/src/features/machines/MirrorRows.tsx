@@ -21,25 +21,38 @@ export function MirrorRows({
 }: {
   mirror: Mirror
   status: ReactNode
-  onSave: (m: Mirror) => void
+  onSave: (m: Mirror) => Promise<unknown> | undefined
 }) {
   const [kind, setKind] = useState(mirror.kind)
   const [registry, setRegistry] = useState(mirror.kind === 'custom' ? mirror.registry : '')
   const [node, setNode] = useState(mirror.kind === 'custom' ? mirror.node : '')
   const sent = useRef(mirror.kind === 'custom' ? JSON.stringify(mirror) : '')
+  const inflight = useRef<string | null>(null)
   const missing =
     registry.trim() && !node.trim()
       ? t('还需要填写 Node.js 下载地址')
       : node.trim() && !registry.trim()
         ? t('还需要填写 npm registry')
         : null
-  // A custom mirror needs both addresses; it is saved once they are in and differ from what was last sent.
+  const customDraft =
+    kind === 'custom' ? JSON.stringify({ kind: 'custom', registry: registry.trim(), node: node.trim() }) : ''
+  const dirty =
+    kind === 'custom' && (registry.trim() !== '' || node.trim() !== '') && customDraft !== sent.current
+  // A custom mirror needs both addresses; commit `sent` only after save succeeds so a failure can retry on re-blur.
   const commit = {
     onBlur: () => {
       const m: Mirror = { kind: 'custom', registry: registry.trim(), node: node.trim() }
-      if (!m.registry || !m.node || JSON.stringify(m) === sent.current) return
-      sent.current = JSON.stringify(m)
-      onSave(m)
+      const key = JSON.stringify(m)
+      if (!m.registry || !m.node || key === sent.current || key === inflight.current) return
+      inflight.current = key
+      void Promise.resolve(onSave(m))
+        .then((ok) => {
+          if (ok !== false) sent.current = key
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (inflight.current === key) inflight.current = null
+        })
     },
     onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && !e.nativeEvent.isComposing) commit.onBlur()
@@ -48,7 +61,7 @@ export function MirrorRows({
   return (
     <>
       <GroupRow label={t('镜像源')} description={t('安装、升级 Node.js 与 Agent 工具时从这里下载')}>
-        <span className="mx-inline">
+        <span className="mx-inline" data-dirty={dirty ? 'true' : undefined}>
           {status}
           <PopUpButton
             aria-label={t('镜像源')}
@@ -56,7 +69,7 @@ export function MirrorRows({
             value={kind}
             onChange={(k) => {
               setKind(k)
-              if (k !== 'custom') onSave({ kind: k })
+              if (k !== 'custom') void onSave({ kind: k })
             }}
           />
         </span>

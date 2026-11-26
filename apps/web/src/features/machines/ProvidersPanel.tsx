@@ -8,8 +8,9 @@ import {
 } from '@gonggong/protocol'
 import { useState } from 'react'
 import { locale, t } from '../../i18n'
+import { errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { AlertDialog, Button, GroupBox, Presence, Tag, toast } from '../../ui'
+import { Alert, AlertDialog, Button, GroupBox, Presence, Tag, toast } from '../../ui'
 import { PROTOCOL_AGENT, PROTOCOL_LABEL } from '../agents/model'
 import type { AgentsSource } from '../agents/source'
 import { providerSummary } from './agentSettings'
@@ -44,31 +45,46 @@ export function ProvidersPanel({
   onView,
   editor,
   onEditor,
+  primaryAdd = true,
 }: {
   source: AgentsSource
   view: ProviderStoreView
   onView: (view: ProviderStoreView) => void
   editor: EditorState
   onEditor: (e: EditorState) => void
+  /** False when a higher-priority primary CTA (e.g. 全部升级) is already shown in the view. */
+  primaryAdd?: boolean
 }) {
   const [open, setOpenState] = useState<Open>(null)
   // Presence keeps a closed dialog mounted: a new key makes each opening start fresh.
   const [seq, setSeq] = useState(0)
+  const [removeBusy, setRemoveBusy] = useState(false)
+  const [removeError, setRemoveError] = useState('')
   const setOpen = (o: Open) => {
-    if (o) setSeq((n) => n + 1)
+    if (o) {
+      setSeq((n) => n + 1)
+      setRemoveError('')
+    }
     setOpenState(o)
   }
-  const close = () => setOpen(null)
+  const close = () => {
+    if (!removeBusy) setOpen(null)
+  }
   const removing = open?.kind === 'remove' ? open.provider : null
   const defaultsOf = (id: string) => AGENT_KINDS.filter((a) => view.machine[a]?.provider === id)
 
   const remove = async (p: ProviderView) => {
-    close()
+    if (removeBusy) return
+    setRemoveBusy(true)
+    setRemoveError('')
     try {
       onView(await source.removeProvider(p.id))
       toast({ type: 'success', message: t('已删除供应商 {name}', { name: p.name }) })
+      setOpenState(null)
     } catch (e) {
-      toastError(e)
+      setRemoveError(errorText(e))
+    } finally {
+      setRemoveBusy(false)
     }
   }
   /** Makes `id` the default of each agent, one after another (the machine saves one change at a time). */
@@ -100,7 +116,7 @@ export function ProvidersPanel({
           <span className="mx-strong">{t('供应商#nav')}</span>
           <span className="mx-sub">
             {source.features.includes('protocolProviders')
-              ? t('一个供应商可提供多种协议，每个 Agent 在详情里选用协议对得上的')
+              ? t('一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商')
               : t('这台电脑的客户端版本较旧，一个供应商只能登记一种协议；升级客户端后可登记多种')}
           </span>
         </span>
@@ -147,7 +163,11 @@ export function ProvidersPanel({
           <Button size="small" onClick={() => setOpen({ kind: 'link' })}>
             {t('粘贴链接导入…')}
           </Button>
-          <Button size="small" variant="primary" onClick={() => onEditor({ editing: null })}>
+          <Button
+            size="small"
+            variant={primaryAdd ? 'primary' : 'default'}
+            onClick={() => onEditor({ editing: null })}
+          >
             {t('新增…')}
           </Button>
         </div>
@@ -208,12 +228,21 @@ export function ProvidersPanel({
         onClose={close}
         title={t('要删除供应商 {name} 吗？', { name: removing?.name ?? '' })}
         message={removeNote || undefined}
-        detail={removeLines.length ? <SessionLines lines={removeLines} /> : undefined}
+        detail={
+          removeLines.length || removeError ? (
+            <>
+              {removeLines.length ? <SessionLines lines={removeLines} /> : null}
+              {removeError ? <Alert variant="error" description={removeError} /> : null}
+            </>
+          ) : undefined
+        }
         actions={[
-          { label: t('取消'), onClick: close },
+          { label: t('取消'), disabled: removeBusy, onClick: close },
           {
             label: t('删除'),
             variant: 'destructive',
+            disabled: removeBusy,
+            loading: removeBusy,
             onClick: () => {
               if (removing) void remove(removing)
             },

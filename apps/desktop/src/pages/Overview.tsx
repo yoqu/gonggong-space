@@ -1,6 +1,6 @@
 import { toolTitle } from '@web/features/runs/mcp'
 import { useNow } from '@web/lib/now'
-import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
+import { Alert, Badge, Button, EmptyState, GroupBox, Icon, Skeleton } from '@web/ui'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type DaemonStatus, ipc, type MachineBot } from '../ipc'
@@ -56,7 +56,7 @@ export function OverviewPage(_: PageProps) {
 
   if (detail)
     return (
-      <Suspense>
+      <Suspense fallback={<Skeleton count={4} />}>
         <RunDetail runId={detail} onBack={() => setDetail(null)} />
       </Suspense>
     )
@@ -89,7 +89,7 @@ export function OverviewPage(_: PageProps) {
         <Stat k={t('连接')} v={CONN_STAT[kind]} s={secure} />
         <Stat
           k="Bot"
-          v={t('{n} 已绑定', { n: bound.length })}
+          v={bots === null ? '—' : t('{n} 已绑定', { n: bound.length })}
           s={t('Agent 可用 {ok} / {all}', {
             ok: agents.filter((a) => a.available).length,
             all: agents.length,
@@ -97,7 +97,7 @@ export function OverviewPage(_: PageProps) {
         />
         <Stat
           k={t('并发')}
-          v={`${running.length} / ${capacity}`}
+          v={bots === null ? '—' : `${running.length} / ${capacity}`}
           s={t('本机队列 {n}', { n: queued.length })}
         />
         <Stat
@@ -245,12 +245,25 @@ function ConnAlert({
 }
 
 function BlockedAlert({ message }: { message: string }) {
+  const [retrying, setRetrying] = useState(false)
+  const retry = async () => {
+    if (retrying) return
+    setRetrying(true)
+    try {
+      await ipc.startDaemon()
+    } catch (e) {
+      fail(e)
+    } finally {
+      setRetrying(false)
+    }
+  }
   return (
     <Alert
       variant="error"
       title={t('共工客户端未运行')}
       description={message}
-      onRetry={() => void ipc.startDaemon().catch(() => {})}
+      retrying={retrying}
+      onRetry={() => void retry()}
     />
   )
 }

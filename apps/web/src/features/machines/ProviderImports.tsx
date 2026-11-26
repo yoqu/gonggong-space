@@ -5,10 +5,10 @@ import {
   type CcSwitchImportedDto,
   type ProviderSavedDto,
 } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
-import { Checkbox, Dialog, GroupBox, Skeleton, Tag, TextField } from '../../ui'
+import { Alert, Checkbox, Dialog, GroupBox, Skeleton, Tag, TextField } from '../../ui'
 import { PROTOCOL_LABEL } from '../agents/model'
 import type { AgentsSource } from '../agents/source'
 
@@ -26,23 +26,46 @@ export function CcSwitchImport({
   const [list, setList] = useState<CcSwitchCandidate[] | null>(null)
   const [chosen, setChosen] = useState<string[]>([])
   const [setDefault, setSetDefault] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
   const [busy, setBusy] = useState(false)
 
+  const reload = useCallback(() => setTick((n) => n + 1), [])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` triggers a reload
   useEffect(() => {
+    let live = true
+    setLoading(true)
     source.ccSwitch?.preview().then(
       (candidates) => {
+        if (!live) return
         setList(candidates)
         setChosen(candidates.map((c) => c.key))
+        setLoadError(null)
+        setLoading(false)
       },
-      (e) => setError(errorText(e)),
+      (e) => {
+        if (!live) return
+        setLoadError(errorText(e))
+        setLoading(false)
+      },
     )
-  }, [source])
+    return () => {
+      live = false
+    }
+  }, [source, tick])
+
+  const close = () => {
+    if (!busy) onClose()
+  }
 
   const current = list?.filter((c) => c.current && chosen.includes(c.key)) ?? []
   const submit = async () => {
-    if (!source.ccSwitch) return
+    if (!source.ccSwitch || busy) return
     setBusy(true)
+    setSubmitError(null)
     try {
       const res = await source.ccSwitch.apply(chosen)
       const defaults = setDefault
@@ -53,7 +76,7 @@ export function CcSwitchImport({
         : []
       onImported(res, defaults)
     } catch (e) {
-      setError(errorText(e))
+      setSubmitError(errorText(e))
       setBusy(false)
     }
   }
@@ -61,23 +84,27 @@ export function CcSwitchImport({
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={close}
       closeOnBackdrop={false}
       title={t('从 CC Switch 导入供应商')}
       message={t('只读取这台电脑上的 CC Switch，Key 只保存在这台电脑上')}
       width={560}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: t('导入'),
           variant: 'primary',
           disabled: busy || !chosen.length,
+          loading: busy,
           onClick: () => void submit(),
         },
       ]}
     >
-      {error ? <p className="mx-danger">{error}</p> : null}
-      {!list && !error ? <Skeleton count={3} /> : null}
+      {loadError ? (
+        <Alert variant="error" description={loadError} retrying={loading} onRetry={reload} />
+      ) : null}
+      {submitError ? <Alert variant="error" description={submitError} /> : null}
+      {!list && !loadError ? <Skeleton count={3} /> : null}
       {list?.length === 0 ? <p className="mx-sub">{t('CC Switch 里没有可直接使用的供应商')}</p> : null}
       {list?.length ? (
         <div className="mx-vendors">
@@ -134,8 +161,14 @@ export function LinkImport({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const close = () => {
+    if (!busy) onClose()
+  }
+
   const submit = async () => {
+    if (busy) return
     setBusy(true)
+    setError(null)
     try {
       onImported(await source.importLink(link.trim()), setDefault)
     } catch (e) {
@@ -147,17 +180,18 @@ export function LinkImport({
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={close}
       closeOnBackdrop={false}
       title={t('粘贴链接导入')}
       message={t('CC Switch 的供应商分享链接，Key 只保存在这台电脑上')}
       width={520}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: close },
         {
           label: t('导入'),
           variant: 'primary',
           disabled: busy || !link.trim(),
+          loading: busy,
           onClick: () => void submit(),
         },
       ]}

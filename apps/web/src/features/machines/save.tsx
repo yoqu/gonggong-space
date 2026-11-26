@@ -19,9 +19,9 @@ export function useSaves() {
   const [states, setStates] = useState<Record<string, SaveState>>({})
   const queue = useRef(Promise.resolve())
   const set = (key: string, s: SaveState) => setStates((x) => ({ ...x, [key]: s }))
-  const save = (key: string, task: () => Promise<ReactNode>) => {
+  const save = (key: string, task: () => Promise<ReactNode>): Promise<boolean> => {
     set(key, { phase: 'saving' })
-    queue.current = queue.current.then(async () => {
+    const result = queue.current.then(async () => {
       try {
         const done: SaveState = { phase: 'saved', note: (await task()) ?? undefined }
         set(key, done)
@@ -35,10 +35,14 @@ export function useSaves() {
               }),
             SAVED_MS,
           )
+        return true
       } catch (e) {
-        set(key, { phase: 'failed', error: errorText(e), retry: () => save(key, task) })
+        set(key, { phase: 'failed', error: errorText(e), retry: () => void save(key, task) })
+        return false
       }
     })
+    queue.current = result.then(() => undefined)
+    return result
   }
   /** A value refused before it is sent (nothing to retry until it is changed). */
   const refuse = (key: string, error: string) => set(key, { phase: 'failed', error })

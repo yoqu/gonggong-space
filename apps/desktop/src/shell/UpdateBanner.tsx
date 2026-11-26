@@ -83,7 +83,7 @@ export function UpdateBanner() {
               <>
                 <div>
                   {auto
-                    ? t('新版本 v{v} 已下载，本机任务结束后自动重启更新', { v: shown.version })
+                    ? t('v{v} 已就绪，任务结束且空闲 1 分钟后自动更新', { v: shown.version })
                     : t('新版本 v{v} 已下载，重启以更新', { v: shown.version })}
                 </div>
                 {shown.notes ? <pre className="dk-update__notes">{shown.notes}</pre> : null}

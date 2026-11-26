@@ -4,7 +4,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Alert, Button, GroupBox, Skeleton, Tag } from '../../ui'
+import { Alert, Button, ConfirmActionDialog, GroupBox, Presence, Skeleton, Tag, toast } from '../../ui'
 import { mcpTarget, permissionsText } from '../plugins/model'
 
 const STATUS: Record<PluginTrustStatus, { label: string; tone: 'orange' | 'green' | 'gray' }> = {
@@ -16,12 +16,16 @@ const STATUS: Record<PluginTrustStatus, { label: string; tone: 'orange' | 'green
 /** 插件授权: plugin versions that asked to run code on this machine, for its owner to allow, deny or revoke. */
 export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
   const base = `/machines/${machine.id}/plugin-trusts`
-  const { data, error, reload } = useGet<PluginTrustDto[]>(base)
-  const [busy, setBusy] = useState<string | null>(null)
-  const act = async (id: string, run: () => Promise<unknown>) => {
-    setBusy(id)
+  const { data, error, loading, reload } = useGet<PluginTrustDto[]>(base)
+  const [busy, setBusy] = useState<{ id: string; op: 'allow' | 'deny' } | null>(null)
+  const [revoking, setRevoking] = useState<PluginTrustDto | null>(null)
+
+  const decide = async (id: string, allow: boolean) => {
+    if (busy) return
+    setBusy({ id, op: allow ? 'allow' : 'deny' })
     try {
-      await run()
+      await api.put(`${base}/${id}`, { allow })
+      toast({ type: 'success', message: allow ? t('已允许插件授权') : t('已拒绝插件授权') })
       reload()
     } catch (e) {
       toastError(e)
@@ -29,6 +33,7 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
       setBusy(null)
     }
   }
+
   return (
     <div className="mx">
       <section aria-label={t('插件授权')} className="mx-section">
@@ -41,7 +46,7 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
           </span>
         </div>
         {error ? (
-          <Alert variant="error" description={error} />
+          <Alert variant="error" description={error} retrying={loading} onRetry={reload} />
         ) : !data ? (
           <Skeleton />
         ) : data.length ? (
@@ -68,15 +73,16 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
                       size="small"
                       variant="primary"
                       disabled={!!busy}
-                      loading={busy === r.id}
-                      onClick={() => void act(r.id, () => api.put(`${base}/${r.id}`, { allow: true }))}
+                      loading={busy?.id === r.id && busy.op === 'allow'}
+                      onClick={() => void decide(r.id, true)}
                     >
                       {t('允许')}
                     </Button>
                     <Button
                       size="small"
                       disabled={!!busy}
-                      onClick={() => void act(r.id, () => api.put(`${base}/${r.id}`, { allow: false }))}
+                      loading={busy?.id === r.id && busy.op === 'deny'}
+                      onClick={() => void decide(r.id, false)}
                     >
                       {t('拒绝#reject')}
                     </Button>
@@ -85,9 +91,8 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
                   <Button
                     size="small"
                     disabled={!!busy}
-                    loading={busy === r.id}
                     title={t('撤销后，下次用到时会重新请你确认')}
-                    onClick={() => void act(r.id, () => api.del(`${base}/${r.id}`))}
+                    onClick={() => setRevoking(r)}
                   >
                     {t('撤销')}
                   </Button>
@@ -99,6 +104,22 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
           <p className="mx-sub">{t('还没有插件请求在这台电脑上运行代码')}</p>
         )}
       </section>
+      <Presence>
+        {revoking ? (
+          <ConfirmActionDialog
+            title={t('要撤销 {name} 的授权吗？', { name: revoking.pluginTitle })}
+            message={t('撤销后，下次用到时会重新请你确认')}
+            consequences={[t('该插件需要再次授权后才能在这台电脑上运行代码')]}
+            label={t('撤销')}
+            done={t('已撤销插件授权')}
+            run={async () => {
+              await api.del(`${base}/${revoking.id}`)
+              reload()
+            }}
+            onClose={() => setRevoking(null)}
+          />
+        ) : null}
+      </Presence>
     </div>
   )
 }

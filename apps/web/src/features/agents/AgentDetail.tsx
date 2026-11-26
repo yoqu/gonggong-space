@@ -63,10 +63,19 @@ export function AgentDetail({
     }
   }, [source, a.kind, a.path, a.available])
   const { pickPath, resetPath } = source
-  const changePath = (task: () => Promise<unknown>) => () =>
-    void task()
-      .then((changed) => (changed === false ? undefined : onAgents()))
-      .catch(fail)
+  const [pathBusy, setPathBusy] = useState<'pick' | 'reset' | null>(null)
+  const changePath = (op: 'pick' | 'reset', task: () => Promise<unknown>) => async () => {
+    if (pathBusy) return
+    setPathBusy(op)
+    try {
+      const changed = await task()
+      if (changed !== false) await onAgents()
+    } catch (e) {
+      fail(e)
+    } finally {
+      setPathBusy(null)
+    }
+  }
   return (
     <div className="ag-detail">
       <GroupBox>
@@ -80,12 +89,22 @@ export function AgentDetail({
                 <span className="ag-value ag-value--wrap">
                   {a.path ? <span className="mx-mono">{a.path}</span> : '--'}
                   {local?.customPath && resetPath ? (
-                    <Button size="small" onClick={changePath(() => resetPath(a.kind))}>
+                    <Button
+                      size="small"
+                      disabled={pathBusy !== null}
+                      loading={pathBusy === 'reset'}
+                      onClick={() => void changePath('reset', () => resetPath(a.kind))()}
+                    >
                       {t('恢复自动检测')}
                     </Button>
                   ) : null}
                   {pickPath ? (
-                    <Button size="small" onClick={changePath(() => pickPath(a.kind))}>
+                    <Button
+                      size="small"
+                      disabled={pathBusy !== null}
+                      loading={pathBusy === 'pick'}
+                      onClick={() => void changePath('pick', () => pickPath(a.kind))()}
+                    >
                       {t('更换路径…')}
                     </Button>
                   ) : null}
@@ -118,11 +137,11 @@ export function AgentDetail({
             ) : null}
             {local ? <GroupRow label={t('登录#status')} wideValue value={local.login ?? t('未知')} /> : null}
             <GroupRow
-              label={t('ACP 适配器')}
+              label={t('适配器')}
               wideValue
               value={
                 meta.adapter !== 'bundled'
-                  ? t('CLI 自带 ACP')
+                  ? t('CLI 内置适配器')
                   : local?.adapterVersion
                     ? t('共工内置适配器 {version}', { version: local.adapterVersion })
                     : t('共工内置适配器')
@@ -144,7 +163,12 @@ export function AgentDetail({
                 <span className="ag-value ag-value--wrap">
                   {a.installCommand ? t('自行安装') : t('共工空间托管')}
                   {pickPath ? (
-                    <Button size="small" onClick={changePath(() => pickPath(a.kind))}>
+                    <Button
+                      size="small"
+                      disabled={pathBusy !== null}
+                      loading={pathBusy === 'pick'}
+                      onClick={() => void changePath('pick', () => pickPath(a.kind))()}
+                    >
                       {t('手动指定路径…')}
                     </Button>
                   ) : null}
@@ -231,12 +255,12 @@ function DefaultBox({
   const current = machineDefault(view, agent)
   const official = view.official[agent]
 
-  const switcher = useProviderSwitch(async ({ choice, model }) =>
-    saves.save('default', async () => {
+  const switcher = useProviderSwitch(async ({ choice, model }) => {
+    await saves.save('default', async () => {
       onView(await source.setDefault(agent, choice, model ?? null))
       return undefined
-    }),
-  )
+    })
+  })
 
   const pick = (value: string) => {
     const next = parseChoice(value)

@@ -4,7 +4,17 @@ import { Link, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
-import { Button, ChatHeader, DeniedArt, EmptyState, FailedArt, Icon, Presence } from '../../ui'
+import {
+  Button,
+  ChatHeader,
+  DeniedArt,
+  EmptyState,
+  FailedArt,
+  Icon,
+  Presence,
+  PullDownButton,
+  Spinner,
+} from '../../ui'
 import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
 import { machineSupportsTerminal } from '../terminal/spaces'
 import { MachineDetails, MachineName, OS_ICON, osText } from './MachineDetails'
@@ -53,8 +63,8 @@ export function MachinePage({
         title={<MachineName machine={machine} onChanged={onChanged} />}
         subtitle={[machine.online ? t('在线') : t('离线'), osText(machine), machine.arch].join(' · ')}
         onBack={onBack}
-        actions={[
-          ...(terminals
+        actions={
+          terminals
             ? [
                 {
                   icon: 'terminal' as const,
@@ -63,9 +73,23 @@ export function MachinePage({
                   onClick: () => setTerminal(true),
                 },
               ]
-            : []),
-          { icon: 'trash', label: t('解绑电脑'), text: t('解绑'), onClick: () => setRevoking(true) },
-        ]}
+            : undefined
+        }
+        trailing={
+          <PullDownButton
+            variant="ghost"
+            size="small"
+            icon="more"
+            indicator={false}
+            aria-label={t('更多操作')}
+            align="end"
+            portal
+            items={[{ value: 'revoke', label: t('解绑电脑…'), icon: 'trash', destructive: true }]}
+            onSelect={(v) => {
+              if (v === 'revoke') setRevoking(true)
+            }}
+          />
+        }
       />
       <div className="machine-page__body">
         <MachineDetails machine={machine} bots={bots} ownerName={owner ? undefined : ownerName} />
@@ -88,16 +112,30 @@ export function MachinePage({
 
 /** A member's machine opened from 管理后台 by a sysadmin: read from the admin list, which polls like that page. */
 export function AdminMachinePage({ id, onBack }: { id: string; onBack?: () => void }) {
-  const { data, error, reload } = useAdminMachines()
+  const { data, error, loading, reload } = useAdminMachines()
   const machine = data?.find((m) => m.id === id)
   const navigate = useNavigate()
   if (error)
     return (
       <div className="chat__placeholder">
-        <EmptyState illustration={<FailedArt />} title={t('加载失败')} description={error} />
+        <EmptyState
+          illustration={<FailedArt />}
+          title={t('加载失败')}
+          description={error}
+          action={
+            <Button size="small" loading={loading} onClick={reload}>
+              {t('重试')}
+            </Button>
+          }
+        />
       </div>
     )
-  if (!data) return null
+  if (!data)
+    return (
+      <div className="chat__placeholder">
+        <Spinner />
+      </div>
+    )
   if (!machine)
     return (
       <div className="chat__placeholder">

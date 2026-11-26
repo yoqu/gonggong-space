@@ -89,7 +89,7 @@ export function Onboarding({ link, onDone }: { link: { url: string } | null; onD
               '在网页端头像菜单选择「绑定新电脑」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后这台电脑只归你使用，连接都会从你的电脑主动发起。',
             )}
           </p>
-          <Form aria-label={t('绑定到团队服务器')}>
+          <Form id="onboarding-bind" aria-label={t('绑定到团队服务器')} onSubmit={() => void bind()}>
             <FormRow label={t('接入链接')} hint={invalid || undefined}>
               <Input
                 aria-label={t('接入链接')}
@@ -109,7 +109,15 @@ export function Onboarding({ link, onDone }: { link: { url: string } | null; onD
           ) : null}
           {parsed ? <p className="dk-footnote">{t('请确认这是你们团队的服务器，再点「绑定」。')}</p> : null}
           {error ? <Alert variant="error" description={error} /> : null}
-          <Button variant="primary" size="xlarge" fullWidth disabled={!parsed || busy} onClick={bind}>
+          <Button
+            type="submit"
+            form="onboarding-bind"
+            variant="primary"
+            size="xlarge"
+            fullWidth
+            disabled={!parsed || busy}
+            loading={busy}
+          >
             {busy ? t('绑定中…') : t('绑定')}
           </Button>
         </div>

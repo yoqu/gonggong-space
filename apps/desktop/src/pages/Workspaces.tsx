@@ -65,6 +65,7 @@ export function WorkspacesPage(_: PageProps) {
   const [confirming, setConfirming] = useState(false)
   const [checkingPath, setCheckingPath] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [resettingKey, setResettingKey] = useState<string | null>(null)
 
   const resetCd = async (w: WorkspaceRow) => {
@@ -91,6 +92,7 @@ export function WorkspacesPage(_: PageProps) {
       const changes = await ipc.workspaceChanges(w.path)
       setDoomed(w)
       setSeen(changes)
+      setDeleteError('')
       setConfirming(true)
     } catch (e) {
       fail(e)
@@ -102,19 +104,23 @@ export function WorkspacesPage(_: PageProps) {
   const loss = lossWarning(seen)
 
   const closeConfirm = () => {
-    if (!deleting) setConfirming(false)
+    if (!deleting) {
+      setConfirming(false)
+      setDeleteError('')
+    }
   }
 
   const remove = async (w: WorkspaceRow, shown: WorkspaceChanges) => {
     if (deleting) return
     setDeleting(true)
+    setDeleteError('')
     try {
       await ipc.deleteWorkspace(w.groupId, w.botId, w.path, shown)
       toast({ type: 'success', message: t('已删除 {path}', { path: tildify(w.path) }) })
       await load()
       setConfirming(false)
     } catch (e) {
-      fail(e)
+      setDeleteError(e instanceof Error ? e.message : String(e))
       // Work may have landed while it was open: show the fresh count before another try.
       await ipc.workspaceChanges(w.path).then(setSeen, () => {})
     } finally {
@@ -172,9 +178,14 @@ export function WorkspacesPage(_: PageProps) {
             </Button>
           </span>
         ) : w.deletable ? (
-          <Button size="small" loading={checkingPath === w.path} onClick={() => void requestDelete(w)}>
-            {t('删除…')}
-          </Button>
+          <span className="dk-inline">
+            <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
+              {t('打开')}
+            </Button>
+            <Button size="small" loading={checkingPath === w.path} onClick={() => void requestDelete(w)}>
+              {t('删除…')}
+            </Button>
+          </span>
         ) : (
           <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
             {t('打开')}
@@ -249,7 +260,14 @@ export function WorkspacesPage(_: PageProps) {
             onClick: () => doomed && seen && void remove(doomed, seen),
           },
         ]}
-        detail={loss ? <Alert variant="warning" title={loss} /> : null}
+        detail={
+          loss || deleteError ? (
+            <>
+              {loss ? <Alert variant="warning" title={loss} /> : null}
+              {deleteError ? <Alert variant="error" description={deleteError} /> : null}
+            </>
+          ) : null
+        }
       />
     </>
   )

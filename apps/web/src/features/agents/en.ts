@@ -15,7 +15,7 @@ export default {
   '这台电脑上 Bot 默认使用它，新建会话生效；已有会话需要开新会话后切换':
     'Bots on this computer use it unless they set their own. New sessions pick it up; ongoing ones switch once a new session starts',
   升级这台电脑的共工客户端后可同时选择模型: "Update this computer's client to pick a model as well",
-  'ACP 适配器': 'ACP adapter',
+  适配器: 'Adapter',
   共工内置适配器: 'Built into Gonggong',
   '共工内置适配器 {version}': 'Built into Gonggong, {version}',
   '登录#status': 'Login',
@@ -23,7 +23,7 @@ export default {
   '更换路径…': 'Change path…',
   '手动指定路径…': 'Set path…',
   恢复自动检测: 'Detect automatically',
-  'CLI 自带 ACP': 'Built into the CLI',
+  'CLI 内置适配器': 'Built into CLI',
   可用模型: 'Models',
   电脑上报后可见: 'Shown once the computer reports them',
   '最低要求 {version}': 'Requires {version} or later',

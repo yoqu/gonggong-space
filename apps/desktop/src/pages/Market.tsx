@@ -28,16 +28,30 @@ const errorText = (e: unknown) =>
     ? t('连不上服务器，请检查网络后刷新')
     : t('市场暂时加载不出来，请稍后重试')
 
-function useLoad<T>(load: () => Promise<T[]>, version: number): Load<T> {
+function useLoad<T>(load: () => Promise<T[]>, version: number): { state: Load<T>; loading: boolean } {
   const [state, setState] = useState<Load<T>>(null)
+  const [loading, setLoading] = useState(true)
   // biome-ignore lint/correctness/useExhaustiveDependencies: `version` asks for a reload
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
     load().then(
-      (data) => setState({ data }),
-      (e) => setState({ error: errorText(e), raw: String(e) }),
+      (data) => {
+        if (cancelled) return
+        setState({ data })
+        setLoading(false)
+      },
+      (e) => {
+        if (cancelled) return
+        setState({ error: errorText(e), raw: String(e) })
+        setLoading(false)
+      },
     )
+    return () => {
+      cancelled = true
+    }
   }, [load, version])
-  return state
+  return { state, loading }
 }
 
 const OpenButton = () => (
@@ -50,19 +64,23 @@ const matches = (l: ListingSummary, q: string) => matchAny(q, l.title, l.name, l
 
 function List<T>({
   state,
+  loading,
   query,
   listing,
   empty,
   noMatch,
+  onClearSearch,
   className,
   row,
   onRetry,
 }: {
   state: Load<T>
+  loading: boolean
   query: string
   listing: (item: T) => ListingSummary
   empty: string
   noMatch: string
+  onClearSearch?: () => void
   className: string
   row: (item: T) => ReactNode
   onRetry: () => void
@@ -74,16 +92,28 @@ function List<T>({
         variant="error"
         title={t('加载失败')}
         description={<span title={state.raw}>{state.error}</span>}
+        retrying={loading}
         onRetry={onRetry}
       />
     )
   const shown = state.data.filter((x) => matches(listing(x), query))
   return (
     <GroupBox className={className}>
-      {state.data.length === 0 ? (
+      {query && shown.length === 0 ? (
+        <EmptyState
+          compact
+          icon="search"
+          title={noMatch}
+          action={
+            onClearSearch ? (
+              <Button size="small" onClick={onClearSearch}>
+                {t('清除搜索')}
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : state.data.length === 0 ? (
         <EmptyState compact icon="tag" title={empty} action={<OpenButton />} />
-      ) : shown.length === 0 ? (
-        <EmptyState compact icon="search" title={noMatch} />
       ) : (
         shown.map(row)
       )}
@@ -141,10 +171,13 @@ export function MarketPage(_: PageProps) {
   const listings = useLoad(ipc.marketListings, version)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState<Open | null>(null)
-  const q = query.trim().toLowerCase()
+  const rawQuery = query.trim()
+  const q = rawQuery.toLowerCase()
   const reload = useCallback(() => setVersion((v) => v + 1), [])
+  const clearSearch = useCallback(() => setQuery(''), [])
   const marketOf = (id: string) =>
-    (listings && 'data' in listings ? listings.data : []).find((l) => l.id === id)
+    (listings.state && 'data' in listings.state ? listings.state.data : []).find((l) => l.id === id)
+  const refreshing = installs.loading || listings.loading
   return (
     <>
       <div className="dk-search">
@@ -154,14 +187,15 @@ export function MarketPage(_: PageProps) {
           value={query}
           onChange={setQuery}
         />
-        <Button size="small" onClick={reload}>
+        <Button size="small" loading={refreshing} onClick={reload}>
           {t('刷新')}
         </Button>
         <OpenButton />
       </div>
       <Section title={t('我的 Skill')}>
         <List<InstallDto>
-          state={installs}
+          state={installs.state}
+          loading={installs.loading}
           query={q}
           listing={(i) => i.listing}
           className="dk-mine"
@@ -194,13 +228,15 @@ export function MarketPage(_: PageProps) {
       </Section>
       <Section title={t('市场')}>
         <List<MarketListingDto>
-          state={listings}
+          state={listings.state}
+          loading={listings.loading}
           query={q}
           listing={(l) => l}
           className="dk-market"
           onRetry={reload}
+          onClearSearch={clearSearch}
           empty={t('市场里还没有条目')}
-          noMatch={t('没有匹配的条目')}
+          noMatch={t('没有找到与「{q}」匹配的条目', { q: rawQuery })}
           row={(l) => (
             <button
               type="button"

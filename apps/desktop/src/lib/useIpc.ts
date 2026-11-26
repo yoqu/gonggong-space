@@ -27,7 +27,7 @@ export function useIpc<T>(load: () => Promise<T>, options?: { pollMs?: number })
         setError(null)
       } catch (e) {
         if (req !== reqRef.current) return
-        if (!silent || !hasDataRef.current) setError(String(e))
+        setError(e instanceof Error ? e.message : String(e))
       } finally {
         if (req === reqRef.current) setLoading(false)
       }

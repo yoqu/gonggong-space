@@ -3,6 +3,7 @@ import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
 import { MirrorRows } from '@web/features/machines/MirrorRows'
 import { SaveStatus, useSaves } from '@web/features/machines/save'
 import {
+  Alert,
   Button,
   GroupBox,
   GroupRow,
@@ -19,11 +20,12 @@ import { formatEnv, parseEnv } from '../lib/env'
 import { host } from '../lib/labels'
 import { fail, PathValue } from '../lib/ui'
 import { useUnbind } from '../lib/unbind'
+import { useIpc } from '../lib/useIpc'
 import { ConnectionDiagnosticsDialog } from '../shell/ConnectionDiagnosticsDialog'
 import { UpdateAction } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
-import { type UpdatePhase, useUpdate } from '../updater'
+import { checkForUpdate, type UpdatePhase, useUpdate } from '../updater'
 import type { PageProps } from '.'
 
 const LANGUAGES: { value: Locale; label: string }[] = [
@@ -57,18 +59,31 @@ function EnvRows({
 }: {
   env: Record<string, string>
   status: ReactNode
-  onSave: (e: Record<string, string>) => void
+  onSave: (e: Record<string, string>) => Promise<boolean>
   onRefuse: (error: string) => void
   onAccept: () => void
 }) {
   const [text, setText] = useState(() => formatEnv(env))
   const [confirmEmpty, setConfirmEmpty] = useState(false)
+  const saved = useRef<Record<string, string>>(env)
   const sent = useRef(JSON.stringify(env))
+  const inflight = useRef<string | null>(null)
   const latest = useRef(text)
   const send = (parsed: Record<string, string>) => {
-    if (JSON.stringify(parsed) === sent.current) return
-    sent.current = JSON.stringify(parsed)
-    onSave(parsed)
+    const key = JSON.stringify(parsed)
+    if (key === sent.current || key === inflight.current) return
+    inflight.current = key
+    void onSave(parsed)
+      .then((ok) => {
+        if (ok) {
+          saved.current = parsed
+          sent.current = key
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (inflight.current === key) inflight.current = null
+      })
   }
   const commit = (value: string, leaving: boolean) => {
     let parsed: Record<string, string>
@@ -88,15 +103,28 @@ function EnvRows({
   const commitRef = useRef(commit)
   commitRef.current = commit
   useEffect(() => () => commitRef.current(latest.current, true), [])
+  const dirty = confirmEmpty || text !== formatEnv(saved.current)
   return (
     <GroupRow
       label={t('环境变量')}
       description={t('启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效')}
     >
-      <span className="dk-inline">
+      <span className="dk-inline" data-dirty={dirty ? 'true' : undefined}>
         {confirmEmpty ? (
           <>
             <span className="dk-sub">{t('环境变量已清空，确认保存？')}</span>
+            <Button
+              size="small"
+              onClick={() => {
+                const restored = formatEnv(saved.current)
+                latest.current = restored
+                setText(restored)
+                setConfirmEmpty(false)
+                onAccept()
+              }}
+            >
+              {t('取消')}
+            </Button>
             <Button
               size="small"
               onClick={() => {
@@ -163,15 +191,13 @@ function VersionRow({ version }: { version: string | undefined }) {
 
 export function SettingsPage(_: PageProps) {
   const info = useDaemon((s) => s.info)
-  const [settings, setSettings] = useState<Settings | null>(null)
+  const settingsQ = useIpc(ipc.settings)
+  const [patch, setPatch] = useState<Partial<Settings>>({})
+  const settings: Settings | null = settingsQ.data ? { ...settingsQ.data, ...patch } : null
   const [theme, setThemeState] = useState<ThemePreference>(() => getTheme())
   const [glass, setGlassState] = useState<GlassPreference>(() => getGlass())
   const [diagOpen, setDiagOpen] = useState(false)
   const [savingToggles, setSavingToggles] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    ipc.settings().then(setSettings, fail)
-  }, [])
 
   const toggle =
     (key: 'autoUpgrade' | 'launchAtLogin' | 'hideDockOnClose', save: (on: boolean) => Promise<void>) =>
@@ -180,7 +206,11 @@ export function SettingsPage(_: PageProps) {
       setSavingToggles((s) => ({ ...s, [key]: true }))
       try {
         await save(on)
-        setSettings((s) => s && { ...s, [key]: on })
+        setPatch((p) => ({ ...p, [key]: on }))
+        if (key === 'autoUpgrade') {
+          useUpdate.setState({ auto: on })
+          if (on) void checkForUpdate()
+        }
       } catch (e) {
         fail(e)
       } finally {
@@ -196,7 +226,7 @@ export function SettingsPage(_: PageProps) {
       await ipc.setMirror(mirror).catch((e) => {
         throw new Error(String(e))
       })
-      setSettings((s) => s && { ...s, mirror })
+      setPatch((p) => ({ ...p, mirror }))
       return undefined
     })
 
@@ -205,7 +235,7 @@ export function SettingsPage(_: PageProps) {
       await ipc.setEnv(env).catch((e) => {
         throw new Error(String(e))
       })
-      setSettings((s) => s && { ...s, env })
+      setPatch((p) => ({ ...p, env }))
       return undefined
     })
 
@@ -245,6 +275,14 @@ export function SettingsPage(_: PageProps) {
           />
         </GroupRow>
       </GroupBox>
+      {!settings && settingsQ.error ? (
+        <Alert
+          variant="error"
+          description={settingsQ.error}
+          retrying={settingsQ.loading}
+          onRetry={() => void settingsQ.reload()}
+        />
+      ) : null}
       <GroupBox>
         <VersionRow version={info?.version} />
         <GroupRow label={t('自动升级')} description={t('自动下载新版本，本机任务结束后自动重启生效')}>
@@ -283,20 +321,22 @@ export function SettingsPage(_: PageProps) {
           </GroupRow>
         ) : null}
       </GroupBox>
-      <GroupBox>
-        {settings ? (
-          <MirrorRows
-            key={JSON.stringify(settings.mirror)}
-            mirror={settings.mirror}
-            status={<SaveStatus state={saves.status('mirror')} />}
-            onSave={saveMirror}
-          />
-        ) : (
-          <GroupRow label={t('镜像源')}>
-            <Skeleton count={1} width={160} />
-          </GroupRow>
-        )}
-      </GroupBox>
+      {settings || !settingsQ.error ? (
+        <GroupBox>
+          {settings ? (
+            <MirrorRows
+              key={JSON.stringify(settings.mirror)}
+              mirror={settings.mirror}
+              status={<SaveStatus state={saves.status('mirror')} />}
+              onSave={saveMirror}
+            />
+          ) : (
+            <GroupRow label={t('镜像源')}>
+              <Skeleton count={1} width={160} />
+            </GroupRow>
+          )}
+        </GroupBox>
+      ) : null}
       {settings ? (
         <GroupBox>
           <EnvRows
@@ -315,7 +355,14 @@ export function SettingsPage(_: PageProps) {
         <GroupRow label={t('备份目录')} description={t('被覆盖的本地修改、中断的半成品')}>
           {info ? <PathValue path={info.backupsDir} /> : <Skeleton count={1} width={160} />}
         </GroupRow>
-        <GroupRow label={t('服务器')} description={t('由本机主动加密连接服务器')}>
+        <GroupRow
+          label={t('服务器')}
+          description={
+            !info?.server || info.server.startsWith('https://')
+              ? t('由本机主动加密连接服务器')
+              : t('由本机主动连接服务器（当前为未加密 HTTP）')
+          }
+        >
           <span className="dk-value">{host(info?.server)}</span>
         </GroupRow>
         <GroupRow label={t('连接诊断')} onClick={() => setDiagOpen(true)} />

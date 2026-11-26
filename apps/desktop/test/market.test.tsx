@@ -139,7 +139,7 @@ it('filters both lists by the search text', async () => {
   expect(screen.queryByText('review')).toBeNull()
 
   fireEvent.change(screen.getByRole('searchbox', { name: '搜索 Skill 和插件' }), { target: { value: 'qqq' } })
-  expect(screen.getByText('没有匹配的条目')).toBeTruthy()
+  expect(screen.getByText('没有找到与「qqq」匹配的条目')).toBeTruthy()
 })
 
 it('opens a read-only detail of a listing that links to it on the web', async () => {

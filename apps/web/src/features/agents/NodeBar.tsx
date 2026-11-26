@@ -30,12 +30,19 @@ export function NodeBar({
         : [`Node.js ${node.version ?? ''}`.trim(), node.managed ? t('共工空间托管') : t('自行安装')].join(
             ' · ',
           )
+  const running = op?.kind === 'node' && op.running
   const action = !canRun ? null : status !== 'ok' ? (
-    <Button size="small" variant="primary" disabled={busy} onClick={() => onRun('node', 'install')}>
+    <Button
+      size="small"
+      variant="primary"
+      disabled={busy}
+      loading={running}
+      onClick={() => onRun('node', 'install')}
+    >
       {t('安装 Node.js')}
     </Button>
   ) : canUpgrade(node) ? (
-    <Button size="small" disabled={busy} onClick={() => onRun('node', 'upgrade')}>
+    <Button size="small" disabled={busy} loading={running} onClick={() => onRun('node', 'upgrade')}>
       {t('升级到 {version}', { version: node.latest ?? '' })}
     </Button>
   ) : null

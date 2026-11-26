@@ -1,6 +1,6 @@
 export default {
   'Agent 只能用协议对得上的供应商：Claude Code 需要 Anthropic 兼容，Codex 需要 OpenAI 兼容':
-    'An agent can only use a provider that speaks its protocol: Claude Code needs Anthropic-compatible, Codex needs OpenAI-compatible',
+    'An Agent can only use a provider that speaks its protocol: Claude Code needs Anthropic-compatible, Codex needs OpenAI-compatible',
   '{protocol} Base URL': '{protocol} base URL',
   '{protocol} 模型': '{protocol} model',
   '{protocol} 端点': '{protocol} endpoint',
@@ -13,8 +13,8 @@ export default {
   '从 CC Switch 导入供应商': 'Import providers from CC Switch',
   'CC Switch 里没有可直接使用的供应商': 'CC Switch has no usable providers',
   '{agents} 的默认': 'Default for {agents}',
-  '一个供应商可提供多种协议，每个 Agent 在详情里选用协议对得上的':
-    "A provider can serve several protocols. Each agent picks one that speaks its protocol, in the agent's details",
+  '一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商':
+    'A provider can serve several protocols. Each Agent picks a compatible provider in its details',
   '它是 {agents} 的默认，删除后改为官方登录。':
     "It is the default for {agents}; they'll switch to the official login.",
   '这台电脑的客户端版本较旧，一个供应商只能登记一种协议；升级客户端后可登记多种':
@@ -33,8 +33,8 @@ export default {
   '默认目录还不存在，请先在这台电脑上运行一次 Claude Code 完成登录或初始化':
     "The default directory doesn't exist yet. Run Claude Code once on this computer to sign in or initialize it",
   进入配置目录后选择: 'Open the configuration directory, then choose it',
-  '使用这台电脑上另一个 Claude 配置目录里的登录与设置，无需 API Key':
-    'Use the login and settings of another Claude configuration directory on this computer; no API key needed',
+  '使用本机 Claude 配置目录（含默认 ~/.claude）里的登录与设置，无需 API Key':
+    'Use the login and settings from a Claude config folder on this computer (including ~/.claude); no API key needed',
   选择配置目录: 'Choose the configuration directory',
   'Claude 可执行文件': 'Claude executable',
   '可选；留空使用这台电脑的 Agent 路径': "Optional; leave empty to use this computer's Agent path",
@@ -450,8 +450,6 @@ export default {
   'git 凭据': 'Git credentials',
   服务器连接: 'Server connection',
   换行符: 'Line endings',
-  屏幕录制: 'Screen recording',
-  辅助功能: 'Accessibility',
   异常: 'Problem',
   注意: 'Warning',
   '跳过#check': 'Skipped',
@@ -478,6 +476,13 @@ export default {
     'Plugins that run code ask you the first time they are used on this computer, and again for each new version.',
   已允许: 'Allowed',
   '撤销后，下次用到时会重新请你确认': 'After revoking, you will be asked again the next time it is needed',
+  已允许插件授权: 'Plugin permission allowed',
+  已拒绝插件授权: 'Plugin permission denied',
+  '要撤销 {name} 的授权吗？': 'Revoke permission for {name}?',
+  该插件需要再次授权后才能在这台电脑上运行代码:
+    'This plugin will need permission again before running code on this computer',
+  已撤销插件授权: 'Plugin permission revoked',
+  更多操作: 'More actions',
   还没有插件请求在这台电脑上运行代码: 'No plugin has asked to run code on this computer yet',
   稍后: 'Later',
   '在 {machine} 上新建 Bot': 'New Bot on {machine}',

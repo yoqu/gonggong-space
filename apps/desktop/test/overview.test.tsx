@@ -136,7 +136,7 @@ describe('overview', () => {
     // The lane and its chip in the dock.
     expect(await screen.findAllByText('Explore')).toHaveLength(2)
     expect(m.runProcess).toHaveBeenCalledWith('r1', null, null)
-    expect(within(screen.getByTestId('activity-dock')).getByText('子 agent 1 个运行中')).toBeTruthy()
+    expect(within(screen.getByTestId('activity-dock')).getByText('子 Agent 1 个运行中')).toBeTruthy()
     expect(screen.getByText('找调用方')).toBeTruthy()
     expect(screen.getByText('子报告')).toBeTruthy()
     expect(screen.getByText('主进度')).toBeTruthy()

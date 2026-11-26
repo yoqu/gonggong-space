@@ -101,7 +101,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: t('日志与诊断'),
         icon: 'activity',
         color: 'var(--system-green)',
-        desc: t('连接、ACP、git 与同步日志；运行过程入库前已脱敏'),
+        desc: t('连接、Agent、Git 与同步日志；运行过程入库前已脱敏'),
         Component: LogsPage,
       },
       {

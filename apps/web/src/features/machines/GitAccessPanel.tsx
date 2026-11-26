@@ -45,7 +45,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
   const [url, setUrl] = useState(repo ?? '')
   const [test, setTest] = useState<GitAccessTest | null>(null)
   const [testing, setTesting] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'keygen' | 'save-token' | 'trust' | null>(null)
   const [token, setToken] = useState({
     host: repo && isHttps(repo) ? hostOf(repo) : '',
     username: '',
@@ -72,8 +72,12 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
     }
   })
 
-  const change = async (run: () => Promise<GitAccessView>, done: string) => {
-    setBusy(true)
+  const change = async (
+    op: 'keygen' | 'save-token' | 'trust',
+    run: () => Promise<GitAccessView>,
+    done: string,
+  ) => {
+    setBusy(op)
     try {
       setChanged(await run())
       toast({ type: 'success', message: done })
@@ -82,18 +86,29 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
       toastError(e)
       return false
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
-  const genKey = () => change(() => api.post<GitAccessView>(`${base}/ssh-key`, {}), t('已生成 SSH 密钥'))
+  const genKey = () =>
+    change('keygen', () => api.post<GitAccessView>(`${base}/ssh-key`, {}), t('已生成 SSH 密钥'))
+  const canSaveToken = !busy && !!token.host.trim() && !!token.username.trim() && !!token.secret.trim()
   const saveToken = async () => {
-    const ok = await change(() => api.put<GitAccessView>(`${base}/tokens`, token), t('令牌已保存'))
+    if (!canSaveToken) return
+    const ok = await change(
+      'save-token',
+      () => api.put<GitAccessView>(`${base}/tokens`, token),
+      t('令牌已保存'),
+    )
     if (ok) setToken({ host: '', username: '', secret: '' })
+  }
+  const onTokenKeyDown = (e: { key: string; nativeEvent: { isComposing: boolean } }) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing && canSaveToken) void saveToken()
   }
   const [removing, setRemoving] = useState<string | null>(null)
   const trust = async (host: string) => {
     if (
       await change(
+        'trust',
         () => api.post<GitAccessView>(`${base}/known-hosts`, { host }),
         t('已信任 {host}', { host }),
       )
@@ -101,7 +116,8 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
       await runTest()
   }
 
-  if (loaded.error) return <Alert variant="error" title={loaded.error} />
+  if (loaded.error)
+    return <Alert variant="error" title={loaded.error} retrying={loaded.loading} onRetry={loaded.reload} />
   if (!data) return <Skeleton count={5} />
   return (
     <div className="mx">
@@ -128,7 +144,9 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
             {t('测试')}
           </Button>
         </div>
-        {test ? <TestResult test={test} busy={busy} onTrust={trust} /> : null}
+        {test ? (
+          <TestResult test={test} busy={busy !== null} trusting={busy === 'trust'} onTrust={trust} />
+        ) : null}
       </section>
 
       <section aria-label={t('SSH 密钥')} className="mx-section">
@@ -142,7 +160,12 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
             </span>
           </span>
           {data.sshKeys.length ? null : (
-            <Button size="small" variant="primary" onClick={() => void genKey()} disabled={busy}>
+            <Button
+              size="small"
+              onClick={() => void genKey()}
+              disabled={busy !== null}
+              loading={busy === 'keygen'}
+            >
               {t('生成密钥')}
             </Button>
           )}
@@ -211,7 +234,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
                 </span>
                 <IconButton
                   title={t('删除 {host} 的令牌', { host: tk.host })}
-                  disabled={busy}
+                  disabled={busy !== null}
                   onClick={() => setRemoving(tk.host)}
                 >
                   <Icon name="trash" />
@@ -227,12 +250,14 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
               placeholder="gitlab.example.com"
               value={token.host}
               onChange={(e) => setToken({ ...token, host: e.target.value })}
+              onKeyDown={onTokenKeyDown}
             />
             <TextField
               aria-label={t('用户名')}
               placeholder={t('用户名')}
               value={token.username}
               onChange={(e) => setToken({ ...token, username: e.target.value })}
+              onKeyDown={onTokenKeyDown}
             />
             <SecureField
               aria-label={t('令牌')}
@@ -240,10 +265,12 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
               autoComplete="off"
               value={token.secret}
               onChange={(e) => setToken({ ...token, secret: e.target.value })}
+              onKeyDown={onTokenKeyDown}
             />
             <Button
               variant="primary"
-              disabled={busy || !token.host.trim() || !token.username.trim() || !token.secret.trim()}
+              disabled={!canSaveToken}
+              loading={busy === 'save-token'}
               onClick={() => void saveToken()}
             >
               {t('保存令牌')}
@@ -273,10 +300,12 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
 function TestResult({
   test,
   busy,
+  trusting,
   onTrust,
 }: {
   test: GitAccessTest
   busy: boolean
+  trusting: boolean
   onTrust: (host: string) => void
 }) {
   if (test.ok) return <Alert variant="success" title={t('可以访问 {url}', { url: test.url })} />
@@ -303,7 +332,7 @@ function TestResult({
           ))}
           {hostKey ? (
             <span>
-              <Button size="small" disabled={busy} onClick={() => onTrust(hostKey.host)}>
+              <Button size="small" disabled={busy} loading={trusting} onClick={() => onTrust(hostKey.host)}>
                 {t('信任 {host}', { host: hostKey.host })}
               </Button>
             </span>

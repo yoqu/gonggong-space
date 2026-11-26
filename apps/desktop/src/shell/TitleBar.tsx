@@ -21,7 +21,8 @@ export function TitleBar({
   scrolled?: boolean
 }) {
   const info = useDaemon((s) => s.info)
-  const pill = PILL[connKind(useDaemon((s) => s.snapshot))]
+  const kind = connKind(useDaemon((s) => s.snapshot))
+  const pill = PILL[kind]
   const text = pill === PILL.ok ? t('已连接 {host}', { host: host(info?.server) }) : pill.text
   return (
     <Toolbar
@@ -47,7 +48,11 @@ export function TitleBar({
             <Icon name="external" size={12} className="dk-conn__icon" />
           </button>
         ) : (
-          <span className="dk-conn" data-testid="conn-pill" style={{ color: pill.color }}>
+          <span
+            className={kind === 'unbound' ? 'dk-conn dk-conn--offline' : 'dk-conn'}
+            data-testid="conn-pill"
+            style={{ color: pill.color }}
+          >
             <span className="dk-conn__text">{text}</span>
           </span>
         )}

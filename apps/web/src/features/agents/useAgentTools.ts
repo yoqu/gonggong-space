@@ -1,5 +1,5 @@
 import type { AgentKind, MachineAgentsDto, ToolKind } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { errorText } from '../../lib/api'
 import type { AgentsSource, ToolOpKind } from './source'
 
@@ -22,19 +22,32 @@ export interface UpgradeBatch {
 export function useAgentTools(source: AgentsSource) {
   const [state, setState] = useState<MachineAgentsDto | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
   const [op, setOp] = useState<ToolOp | null>(null)
   const [batch, setBatch] = useState<UpgradeBatch | null>(null)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` triggers a fresh load
   useEffect(() => {
     let live = true
+    setLoading(true)
     source.loadAgents().then(
-      (s) => live && setState(s),
-      (e) => live && setError(errorText(e)),
+      (s) => {
+        if (!live) return
+        setState(s)
+        setError('')
+        setLoading(false)
+      },
+      (e) => {
+        if (!live) return
+        setError(errorText(e))
+        setLoading(false)
+      },
     )
     return () => {
       live = false
     }
-  }, [source])
+  }, [source, tick])
 
   const run = async (kind: ToolKind, which: ToolOpKind) => {
     setOp({ kind, which, lines: [], running: true, failed: false })
@@ -51,8 +64,22 @@ export function useAgentTools(source: AgentsSource) {
     }
   }
 
-  /** Detects again, e.g. after a path was picked by hand. */
-  const reload = async () => setState(await source.loadAgents())
+  /** Detects again, e.g. after a path was picked by hand or after a load error. */
+  const reload = useCallback(async () => {
+    setLoading(true)
+    try {
+      const next = await source.loadAgents()
+      setState(next)
+      setError('')
+    } catch (e) {
+      setError(errorText(e))
+      throw e
+    } finally {
+      setLoading(false)
+    }
+  }, [source])
+
+  const retry = useCallback(() => setTick((n) => n + 1), [])
 
   /** Upgrades `kinds` one after another; stops at the first that fails, leaving its log open. */
   const upgradeAll = async (kinds: AgentKind[]) => {
@@ -63,5 +90,5 @@ export function useAgentTools(source: AgentsSource) {
     setBatch(null)
   }
 
-  return { state, error, op, batch, busy: !!op?.running || !!batch, run, upgradeAll, reload }
+  return { state, error, loading, op, batch, busy: !!op?.running || !!batch, run, upgradeAll, reload, retry }
 }

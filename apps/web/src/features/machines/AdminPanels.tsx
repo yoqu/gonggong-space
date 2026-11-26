@@ -16,9 +16,9 @@ import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  AlertDialog,
   Button,
   Checkbox,
-  Dialog,
   EmptyState,
   GroupBox,
   GroupRow,
@@ -135,14 +135,12 @@ function UpgradeNow({ machine, latest }: { machine: MachineDto; latest: string }
   )
 }
 
-const CHECK_LABEL: Record<DiagCheck['kind'], string> = {
+const CHECK_LABEL: Partial<Record<DiagCheck['kind'], string>> = {
   server: t('服务器连接'),
   agent: 'Agent',
   git: t('git 凭据'),
   disk: t('磁盘'),
   eol: t('换行符'),
-  screen_recording: t('屏幕录制'),
-  accessibility: t('辅助功能'),
 }
 const CHECK_TONE: Record<DiagCheck['status'], TagTone> = {
   ok: 'green',
@@ -159,17 +157,17 @@ const CHECK_STATUS: Record<DiagCheck['status'], string> = {
 
 /** `gg doctor` run on the machine; a git problem links to Git 访问. */
 function SelfChecks({ machine, onOpenGit }: { machine: MachineDto; onOpenGit?: () => void }) {
-  const { data, error, reload } = useGet<DiagCheck[]>(`/machines/${machine.id}/diag`)
+  const { data, error, loading, reload } = useGet<DiagCheck[]>(`/machines/${machine.id}/diag`)
   return (
     <section className="mx-section" aria-label={t('自检')}>
       <div className="mx-section__head">
         <span className="mx-row__main mx-strong">{t('自检')}</span>
-        <Button size="small" icon="arrow-clockwise" onClick={reload}>
+        <Button size="small" icon="arrow-clockwise" loading={loading} onClick={reload}>
           {t('重新检查')}
         </Button>
       </div>
       {error ? (
-        <Alert variant="error" title={error} />
+        <Alert variant="error" title={error} retrying={loading} onRetry={reload} />
       ) : !data ? (
         <Skeleton count={4} />
       ) : (
@@ -181,7 +179,7 @@ function SelfChecks({ machine, onOpenGit }: { machine: MachineDto; onOpenGit?: (
                 key={c.kind}
                 label={
                   <span className="mx-inline">
-                    {CHECK_LABEL[c.kind]}
+                    {CHECK_LABEL[c.kind] ?? c.kind}
                     <Tag tone={CHECK_TONE[c.status]}>{CHECK_STATUS[c.status]}</Tag>
                   </span>
                 }
@@ -240,11 +238,31 @@ export function DiagnosticsPanel({
 function MirrorPanel({ machine }: { machine: MachineDto }) {
   const [state, setState] = useState<MachineAgentsDto | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
   const base = `/machines/${machine.id}/tools`
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` triggers a reload
   useEffect(() => {
-    api.get<MachineAgentsDto>(base).then(setState, (e) => setError(errorText(e)))
-  }, [base])
+    let cancelled = false
+    setLoading(true)
+    api.get<MachineAgentsDto>(base).then(
+      (s) => {
+        if (cancelled) return
+        setState(s)
+        setError('')
+        setLoading(false)
+      },
+      (e) => {
+        if (cancelled) return
+        setError(errorText(e))
+        setLoading(false)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [base, tick])
 
   const saves = useSaves()
   const save = (mirror: Mirror) =>
@@ -253,7 +271,10 @@ function MirrorPanel({ machine }: { machine: MachineDto }) {
       return undefined
     })
 
-  if (error) return <Alert variant="error" description={error} />
+  if (error)
+    return (
+      <Alert variant="error" description={error} retrying={loading} onRetry={() => setTick((n) => n + 1)} />
+    )
   if (!state) return <Skeleton count={1} />
   return (
     <GroupBox>
@@ -279,14 +300,14 @@ const LOG_LINES = 300
 /** The machine's daemon log, newest last; credentials are masked on the machine before they are sent. */
 function LogsPanel({ machine }: { machine: MachineDto }) {
   const [level, setLevel] = useState<Level>('info')
-  const { data, error, reload } = useGet<{ lines: { level: Level; text: string }[] }>(
+  const { data, error, loading, reload } = useGet<{ lines: { level: Level; text: string }[] }>(
     `/machines/${machine.id}/logs?level=${level}&limit=${LOG_LINES}`,
   )
   return (
     <section className="machine-admin" aria-label={t('日志')}>
       <div className="machine-admin__bar">
         <Select label={t('级别')} options={LEVELS} value={level} onChange={setLevel} />
-        <Button size="small" icon="arrow-clockwise" onClick={reload}>
+        <Button size="small" icon="arrow-clockwise" loading={loading} onClick={reload}>
           {t('刷新')}
         </Button>
         <span className="machine-admin__hint">
@@ -294,7 +315,7 @@ function LogsPanel({ machine }: { machine: MachineDto }) {
         </span>
       </div>
       {error ? (
-        <Alert variant="error" title={error} />
+        <Alert variant="error" title={error} retrying={loading} onRetry={reload} />
       ) : !data ? (
         <Skeleton count={6} />
       ) : data.lines.length ? (
@@ -350,13 +371,14 @@ type Listing = { entries: MachineWorkspace[]; disk: { free: number; total: numbe
 
 /** 工作区: every workspace on the machine by group and bot; removed or unused hosted ones can be deleted, idle ones slimmed. */
 export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
-  const { data, error, reload } = useGet<Listing>(`/machines/${machine.id}/workspaces`)
+  const { data, error, loading, reload } = useGet<Listing>(`/machines/${machine.id}/workspaces`)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [slimming, setSlimming] = useState<string | null>(null)
   const canGc = machine.features.includes('storageAdmin')
   const entries = data?.entries ?? []
+  const hasDeletable = entries.some(deletable)
   const selected = entries.filter((w) => deletable(w) && picked.has(keyOf(w)))
   const target = (w: MachineWorkspace) => ({ groupId: w.groupId, botId: w.botId, path: w.path })
 
@@ -418,17 +440,19 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
   return (
     <section className="machine-admin" aria-label={t('工作区#tab')}>
       <div className="machine-admin__bar">
-        <Button size="small" icon="arrow-clockwise" onClick={reload}>
+        <Button size="small" icon="arrow-clockwise" loading={loading} onClick={reload}>
           {t('刷新')}
         </Button>
-        <Button
-          size="small"
-          variant="destructive"
-          disabled={!selected.length}
-          onClick={() => setConfirm(true)}
-        >
-          {t('删除所选')}
-        </Button>
+        {hasDeletable ? (
+          <Button
+            size="small"
+            variant="destructive"
+            disabled={!selected.length}
+            onClick={() => setConfirm(true)}
+          >
+            {t('删除所选')}
+          </Button>
+        ) : null}
         {data ? (
           <span className="machine-admin__hint">{t('合计占用 {size}', { size: sizeText(used) })}</span>
         ) : null}
@@ -445,7 +469,7 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
         ) : null}
       </div>
       {error ? (
-        <Alert variant="error" title={error} />
+        <Alert variant="error" title={error} retrying={loading} onRetry={reload} />
       ) : !data ? (
         <Skeleton count={4} />
       ) : entries.length ? (
@@ -520,39 +544,50 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
       )}
       <Presence>
         {confirm ? (
-          <Dialog
+          <AlertDialog
             open
-            role="alertdialog"
             title={t('删除所选的 {n} 个工作区？', { n: selected.length })}
             message={t('会删除电脑上的这些目录，不可恢复。')}
-            onClose={() => setConfirm(false)}
+            onClose={() => {
+              if (!deleting) setConfirm(false)
+            }}
+            detail={
+              <>
+                <ul className="ui-consequences">
+                  {selected.map((w) => (
+                    <li key={keyOf(w)}>{w.path}</li>
+                  ))}
+                </ul>
+                {risky.length ? (
+                  <Alert variant="warning" title={t('这些工作区还有没推送的改动，删除后会丢失')}>
+                    <ul className="ui-consequences">
+                      {risky.map((w) => (
+                        <li key={keyOf(w)}>
+                          {`${w.path}（${t('{a} 个未提交 · {b} 个未推送', { a: w.changes?.uncommitted ?? 0, b: w.changes?.unpushed ?? 0 })}）`}
+                        </li>
+                      ))}
+                    </ul>
+                  </Alert>
+                ) : null}
+              </>
+            }
             actions={[
-              { label: t('取消'), onClick: () => setConfirm(false), autoFocus: true },
+              {
+                label: t('取消'),
+                disabled: deleting,
+                onClick: () => {
+                  if (!deleting) setConfirm(false)
+                },
+              },
               {
                 label: deleting ? t('正在删除…') : t('删除'),
                 variant: 'destructive',
                 disabled: deleting,
+                loading: deleting,
                 onClick: () => void removeSelected(),
               },
             ]}
-          >
-            <ul className="ui-consequences">
-              {selected.map((w) => (
-                <li key={keyOf(w)}>{w.path}</li>
-              ))}
-            </ul>
-            {risky.length ? (
-              <Alert variant="warning" title={t('这些工作区还有没推送的改动，删除后会丢失')}>
-                <ul className="ui-consequences">
-                  {risky.map((w) => (
-                    <li key={keyOf(w)}>
-                      {`${w.path}（${t('{a} 个未提交 · {b} 个未推送', { a: w.changes?.uncommitted ?? 0, b: w.changes?.unpushed ?? 0 })}）`}
-                    </li>
-                  ))}
-                </ul>
-              </Alert>
-            ) : null}
-          </Dialog>
+          />
         ) : null}
       </Presence>
     </section>
