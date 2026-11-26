@@ -566,13 +566,13 @@ function Dock({ children, groupId, runs, messages, onLocate, hud: customHud }: D
             }}
           >
             {hud.tone === 'running' || hud.tone === 'sending' ? (
-              <span className="cdock__hud-wave" data-testid="cdock-hud-anim" aria-hidden="true">
+              <span key="wave" className="cdock__hud-wave" data-testid="cdock-hud-anim" aria-hidden="true">
                 <i />
                 <i />
                 <i />
               </span>
             ) : (
-              <span className="cdock__hud-dot" aria-hidden="true" />
+              <span key="dot" className="cdock__hud-dot" aria-hidden="true" />
             )}
             <span className="cdock__hud-text">{hud.text}</span>
             <span className="cdock__hud-action" aria-hidden="true">

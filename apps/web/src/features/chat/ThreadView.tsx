@@ -10,6 +10,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import {
   Button,
@@ -145,7 +146,7 @@ export function ThreadView({
     if (el.scrollTop < LOAD_OLDER_PX && tl.hasMore && tl.older === 'idle') loadOlder()
   }
 
-  const item = useThreadItem(group, tl.messages, tl.runs, readOnly)
+  const item = useThreadItem(group, tl.messages, tl.runs, readOnly, tl.arrived)
   const runList = useMemo(() => Object.values(tl.runs), [tl.runs])
   const liveRuns = useRef(runList)
   liveRuns.current = runList
@@ -243,6 +244,7 @@ export function useThreadItem(
   messages: MessageDto[],
   runs: Record<string, RunDto>,
   readOnly = false,
+  arrived?: ReadonlySet<string>,
 ) {
   const me = useSession((s) => s.user)
   const bots = useWorkspace((s) => s.bots)
@@ -309,7 +311,12 @@ export function useThreadItem(
       />
     )
     return (
-      <div key={messageKey(m)} data-msg-id={m.id} className="tl-item" inert={readOnly}>
+      <div
+        key={messageKey(m)}
+        data-msg-id={m.id}
+        className={cx('tl-item', arrived?.has(m.id) && 'tl-item--enter')}
+        inert={readOnly}
+      >
         {body}
         {runsByTrigger.get(m.id)?.map((r) => card(r))}
       </div>

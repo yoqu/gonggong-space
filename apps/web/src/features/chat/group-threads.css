@@ -32,7 +32,13 @@
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition: background-color var(--fade-fast);
+  --enter-y: 6px;
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-smooth);
+  transition:
+    background-color var(--fade-fast),
+    scale var(--spring-interactive);
 }
 @media (hover: hover) {
   .group-threads__row:hover {
@@ -41,6 +47,7 @@
 }
 .group-threads__row:active {
   background: var(--quote-fill);
+  scale: var(--press-card);
 }
 /* Each thread's own color as a solid edge; the card itself stays neutral so text reads clearly. */
 .group-threads__row::before {

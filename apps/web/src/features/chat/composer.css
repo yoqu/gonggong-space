@@ -8,13 +8,10 @@
   gap: var(--space-6);
 }
 .composer__chips > * {
-  animation: composer-chip-in var(--spring-snappy);
-}
-@keyframes composer-chip-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
+  --enter-y: 4px;
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
 }
 
 /* A failed send: a short head-shake (Apple HIG), the toast says why and the draft stays. */

@@ -75,7 +75,7 @@ function Card({
           <Icon name="thread" size={12} />
           {item.groupName}
           {state.mentioned ? <span className="thread-inbox__at">{t('[有人@我] ')}</span> : null}
-          {state.unread ? <Badge count={state.unread} /> : null}
+          <Badge count={state.unread} />
         </span>
         <Line m={item.root} />
         {item.root.thread && item.root.thread.replyCount > item.latest.length ? (

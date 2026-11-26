@@ -342,6 +342,13 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
   border-radius: var(--radius-capsule);
   cursor: pointer;
   font-size: var(--text-callout-size);
+  transition:
+    background-color var(--fade-fast),
+    box-shadow var(--fade-in),
+    scale var(--spring-interactive);
+}
+.pn-thread:active {
+  scale: var(--press-card);
 }
 .pn-thread:hover {
   background: var(--quote-fill);
@@ -371,7 +378,7 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
   color: var(--thread-text, var(--thread-hue, var(--label-secondary)));
   opacity: 0.7;
   transition:
-    transform var(--fade-fast),
+    transform var(--spring-interactive),
     opacity var(--fade-fast);
 }
 .pn-thread:hover .pn-thread__go {

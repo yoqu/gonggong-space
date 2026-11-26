@@ -53,7 +53,7 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
             {t('Bot 回复中')}
           </Tag>
         ) : null}
-        {state.unread ? <Badge count={state.unread} /> : null}
+        <Badge count={state.unread} />
       </span>
     </button>
   )

@@ -539,6 +539,8 @@
   gap: var(--space-6);
   font-size: var(--text-callout-size);
   color: var(--label-secondary);
+  /* Takes the place of 停止 once the run ends (stopped, failed, offline): fade in so the swap reads as one change. */
+  animation: ui-fade-in var(--fade-in);
 }
 .run-card__note > svg {
   flex: none;

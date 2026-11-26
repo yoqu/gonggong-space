@@ -71,7 +71,7 @@
   translate: -50% 0;
   transition:
     scale var(--spring-interactive),
-    background-color var(--fade-in);
+    background-color var(--fade-fast);
 }
 .cdock__grip:hover::before {
   scale: calc(44 / 36) 1;
@@ -98,13 +98,17 @@
   line-height: 1;
   cursor: pointer;
   transition:
-    background-color var(--fade-in),
-    color var(--fade-in);
+    background-color var(--fade-fast),
+    color var(--fade-fast),
+    scale var(--spring-interactive);
 }
 .cdock__hide:hover,
 .cdock__hide:focus-visible {
   background: var(--selection-fill);
   color: var(--label-primary);
+}
+.cdock__hide:active {
+  scale: var(--press-button);
 }
 .cdock__kbd {
   margin-left: 1px;
@@ -149,6 +153,12 @@
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
+  transition:
+    box-shadow var(--fade-fast),
+    scale var(--spring-interactive);
+}
+.cdock__hud:active {
+  scale: var(--press-button);
 }
 .cdock__hud:hover {
   box-shadow:
@@ -177,6 +187,11 @@
   gap: 2px;
   height: 12px;
 }
+/* running <-> attention/done swaps the wave for a dot: the newcomer fades in instead of blinking over. */
+.cdock__hud-wave,
+.cdock__hud-dot {
+  animation: ui-fade-in var(--fade-in);
+}
 .cdock__hud-wave > i {
   display: block;
   width: 2.5px;
@@ -199,6 +214,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
+  transition: background-color var(--fade-in);
 }
 .cdock__hud[data-tone="attention"] .cdock__hud-dot {
   background: var(--system-orange);
@@ -228,7 +244,7 @@
   align-items: center;
   color: var(--label-secondary);
   transition:
-    color var(--fade-in),
+    color var(--fade-fast),
     transform var(--spring-interactive);
 }
 .cdock__hud:hover .cdock__hud-action {
@@ -285,6 +301,7 @@
   cursor: grab;
   touch-action: none;
   user-select: none;
+  transition: background-color var(--fade-fast);
 }
 .cdock__shell--orb[data-dragging] .cdock__orb {
   cursor: grabbing;
@@ -301,6 +318,8 @@
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 2px var(--content-bg);
+  animation: ui-fade-in var(--fade-in);
+  transition: background-color var(--fade-in);
 }
 .cdock__orb-badge[data-tone="running"],
 .cdock__orb-badge[data-tone="sending"] {
