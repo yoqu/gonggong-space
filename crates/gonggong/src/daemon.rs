@@ -21,7 +21,7 @@ use tokio::task::JoinHandle;
 const IDLE_REAP: Duration = Duration::from_secs(10 * 60);
 const CONVERSATION_REAP: Duration = Duration::from_secs(30 * 60);
 /// A stopped turn whose agent ignores the cancel this long has its adapter killed, so the run ends.
-const CANCEL_GRACE: Duration = Duration::from_secs(30);
+const CANCEL_GRACE: Duration = Duration::from_secs(5);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 /// Picks up agents installed or paths changed by the CLI while running.
 const REDETECT: Duration = Duration::from_secs(60);

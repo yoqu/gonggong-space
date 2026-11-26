@@ -119,7 +119,7 @@ mod tests {
         assert!(codex.custom_path);
         assert_eq!(codex.login, None, "no login asked of a CLI that is not there");
         let json = serde_json::to_value(&codex).unwrap();
-        assert_eq!(json["adapterVersion"], "2.2.2");
+        assert_eq!(json["adapterVersion"], "2.12.0");
     }
 
     #[test]

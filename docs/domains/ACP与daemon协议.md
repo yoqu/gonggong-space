@@ -46,7 +46,7 @@
 - Agent 在上一轮结束后自行继续（后台任务完成）时 daemon 发 `run.continue`，服务端以 `run.continued` 回新 runId 或拒绝。
 
 ## ACP 驱动 Agent
-- 用 Rust crate `agent-client-protocol`，只实现 ACP v1（`ProtocolVersion::V1`）；Claude、Codex 适配器固定版本装在 `<home>/adapters/`（`engine.rs` `ADAPTERS`：claude-agent-acp 0.81.0、codex-acp 2.2.2）。
+- 用 Rust crate `agent-client-protocol`，只实现 ACP v1（`ProtocolVersion::V1`）；Claude、Codex 适配器固定版本装在 `<home>/adapters/`（`engine.rs` `ADAPTERS`：claude-agent-acp 0.81.0、codex-acp 2.12.0）。
 - 声明式 Agent（gemini、codebuddy、pi、deepseek、antigravity）由内置插件清单描述，`include_str!` 编入二进制（`adapters.rs`）。
 - 客户端能力只声明 `session.compaction` 与 `_meta`，不声明 `fs`、`terminal`：文件与命令由 Agent 自己的工具执行（`turn.rs` `client_capabilities`）。
 - 会话：有 `resumeSessionId` 先 `session/resume`，不支持则 `session/load`，都失败才 `session/new`，原因记 `resume_failed`；每次 new/resume/load 都带 cwd、`additionalDirectories`（附加目录/仓库）、MCP 列表、`_meta`（`session.rs`）。

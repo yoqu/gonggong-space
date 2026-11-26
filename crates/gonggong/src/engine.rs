@@ -42,7 +42,7 @@ use tokio::sync::mpsc;
 /// `bin: dist/index.js`. The manifest agents name theirs (`acp.kind: adapter`), if any.
 pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
-    (AgentKind::Codex, "@agentclientprotocol/codex-acp", "2.2.2"),
+    (AgentKind::Codex, "@agentclientprotocol/codex-acp", "2.12.0"),
 ];
 const PROBE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Claude Code aborts an HTTP MCP call after a minute, or five silent minutes, while 「向群成员提问」 waits for a person
@@ -1358,6 +1358,6 @@ mod tests {
     #[test]
     fn pins_codex_adapter_with_workspace_write_mode() {
         let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
-        assert_eq!(*version, "2.2.2");
+        assert_eq!(*version, "2.12.0");
     }
 }
