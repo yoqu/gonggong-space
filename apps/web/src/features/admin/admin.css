@@ -118,13 +118,14 @@ a.ui-sidebar__item:hover:not([aria-current]) {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  /* The tab row scrolls sideways: keep the way out first and pinned so it never scrolls off. */
+  /* The tab row scrolls sideways: keep the way out first and pinned so it never scrolls off or leaks behind padding. */
   .admin__back {
     order: -1;
     position: sticky;
-    left: 0;
+    left: calc(-1 * var(--space-8));
     z-index: 1;
-    margin: 0;
+    margin: 0 0 0 calc(-1 * var(--space-8));
+    padding-left: var(--space-8);
     background: var(--sidebar-bg);
   }
   .admin__toolbar,

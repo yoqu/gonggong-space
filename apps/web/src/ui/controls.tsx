@@ -13,7 +13,7 @@ import {
 } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
-import { motionTiming } from '../lib/motion'
+import { motionTiming, prefersReducedMotion } from '../lib/motion'
 import { useControlled } from './controlled'
 import { ProgressIndicator } from './display'
 import { Icon, type IconName } from './icon'
@@ -115,9 +115,6 @@ export function Button({
   )
 }
 
-const reducedMotion = () =>
-  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
 /** A button turning busy or done changes its label: glide to the new width instead of jumping (other renders don't). */
 function useWidthMorph(ref: { current: HTMLElement | null }, phase: string) {
   const last = useRef<{ phase: string; width: number } | null>(null)
@@ -127,7 +124,7 @@ function useWidthMorph(ref: { current: HTMLElement | null }, phase: string) {
     const width = el.offsetWidth
     const prev = last.current
     last.current = { phase, width }
-    if (!prev || prev.phase === phase || prev.width === width || !el.animate || reducedMotion()) return
+    if (!prev || prev.phase === phase || prev.width === width || !el.animate || prefersReducedMotion()) return
     const timing = motionTiming('--spring-interactive') ?? { duration: 213, easing: 'ease-out' }
     el.animate([{ width: `${prev.width}px` }, { width: `${width}px` }], timing)
   })

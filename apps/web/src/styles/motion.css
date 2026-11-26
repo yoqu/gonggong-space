@@ -12,6 +12,11 @@
   --fade-fast: 90ms ease-out;
   --fade-in: 150ms ease-out;
   --fade-out: 110ms ease-out;
+  /* Crisp zero-overshoot deceleration for high-frequency data-viz morphs (bars, meters, charts). */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-data: 240ms cubic-bezier(0.2, 0, 0, 1);
+  /* Capped reveal stagger (max 6 items -> <=120ms). */
+  --stagger-step: 20ms;
   /* Fixed-length loops and one-shots (duration + curve, like the springs): `animation: name var(--flash)`. */
   --flash: 1.4s ease-out;
   --shake: 360ms ease-in-out;

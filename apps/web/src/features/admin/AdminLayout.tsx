@@ -12,12 +12,25 @@ export function AdminLayout() {
   const user = useSession((s) => s.user)
   const { pathname } = useLocation()
   const navRef = useRef<HTMLElement>(null)
-  // On phones the sidebar is a horizontal scroll strip: bring the active route pill into view.
+  // On phones the sidebar is a horizontal scroll strip: center the active route pill into view after layout.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll active nav item on route changes
   useEffect(() => {
-    navRef.current
-      ?.querySelector<HTMLElement>('[aria-current="page"]')
-      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    const scrollActive = () => {
+      const nav = navRef.current
+      const active = nav?.querySelector<HTMLElement>('[aria-current="page"]')
+      if (!nav || !active) return
+      if (nav.scrollWidth > nav.clientWidth && typeof nav.scrollTo === 'function') {
+        const left = Math.max(0, active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2)
+        nav.scrollTo({ left, behavior: 'instant' })
+      } else {
+        active.scrollIntoView?.({ block: 'nearest', inline: 'center' })
+      }
+    }
+    scrollActive()
+    const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(scrollActive) : 0
+    return () => {
+      if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf)
+    }
   }, [pathname])
   if (user?.role !== 'sysadmin') return <Navigate to="/" replace />
   return (

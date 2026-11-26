@@ -370,35 +370,176 @@ describe('admin console', () => {
     for (const name of ['按会话', '按成员', '按 Bot']) expect(screen.getByRole('tab', { name })).toBeTruthy()
   })
 
-  it('shows usage by bot, trigger user and group', async () => {
+  it('shows layered AI usage analytics workspace on /admin/usage', async () => {
     useSession.setState({ user: admin, status: 'ready' })
+    const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    const caps = {
+      hasInputOutput: true,
+      hasCost: false,
+      hasCache: false,
+      hasProvider: false,
+      hasModels: true,
+      hasTools: false,
+      hasPlugins: false,
+      retentionDays: 30,
+    }
+    const row = (key: string, name: string, runs: number, totalTokens: number) => ({
+      key,
+      name,
+      sublabel: null,
+      runs,
+      completedRuns: runs,
+      failedRuns: 0,
+      cancelledRuns: 0,
+      unreportedRuns: totalTokens ? 0 : runs,
+      successRate: 1,
+      totalTokens,
+      inputTokens: Math.round(totalTokens * 0.7),
+      outputTokens: Math.round(totalTokens * 0.3),
+      costUsd: 0,
+      costReportedRuns: 0,
+      avgDurationMs: 12_000,
+      p95DurationMs: 24_000,
+      avgOutputTps: 42,
+      tokenShare: 1,
+      runShare: 0.5,
+      costShare: 0,
+    })
     mockApi({
-      'GET /admin/usage?by=bot&days=30': [
-        { key: 'b1', name: '小王的 Claude', runs: 58, totalTokens: 412_000, unreported: 0 },
-        { key: 'b2', name: '老李的 Codex', runs: 41, totalTokens: 0, unreported: 41 },
-      ],
-      'GET /admin/usage?by=user&days=30': [
-        { key: 'u1', name: '王磊', runs: 61, totalTokens: 356_000, unreported: 0 },
-      ],
-      [`GET /admin/usage/daily?days=60&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`]:
-        [{ day: '2026-09-25', runs: 99, totalTokens: 412_000, unreported: 41 }],
+      'GET /admin/teams': [],
+      [`GET /admin/usage/facets?preset=30d&tz=${tz}`]: {
+        models: [{ value: 'claude-opus-4-6', label: 'claude-opus-4-6', count: 58 }],
+        providers: [],
+        agentKinds: [
+          { value: 'claude', label: 'claude', count: 58 },
+          { value: 'codex', label: 'codex', count: 41 },
+        ],
+        bots: [
+          { value: 'b1', label: '小王的 Claude', count: 58 },
+          { value: 'b2', label: '老李的 Codex', count: 41 },
+        ],
+        users: [{ value: 'u1', label: '王磊', count: 61 }],
+        groups: [{ value: 'g1', label: '研发群', count: 99 }],
+        capabilities: caps,
+      },
+      [`GET /admin/usage/overview?preset=30d&tz=${tz}`]: {
+        range: {
+          from: '2026-08-26T00:00:00Z',
+          to: '2026-09-25T00:00:00Z',
+          previousFrom: null,
+          previousTo: null,
+          granularity: 'day',
+        },
+        kpi: {
+          totalTokens: 412_000,
+          inputTokens: 290_000,
+          outputTokens: 122_000,
+          tokenReportedRuns: 58,
+          unreportedRuns: 41,
+          totalRuns: 99,
+          endedRuns: 99,
+          completedRuns: 99,
+          failedRuns: 0,
+          cancelledRuns: 0,
+          liveRuns: 0,
+          successRate: 1,
+          totalCostUsd: 0,
+          costReportedRuns: 0,
+          cacheReadTokens: 0,
+          cacheInputTokens: 0,
+          cacheHitRate: null,
+          cacheReportedRuns: 0,
+          avgDurationMs: 12_000,
+          p50DurationMs: 10_000,
+          p95DurationMs: 24_000,
+          avgOutputTps: 42,
+          activeUsers: 1,
+          activeBots: 2,
+          activeGroups: 1,
+        },
+        previous: null,
+        capabilities: caps,
+      },
+      [`GET /admin/usage/timeseries?preset=30d&tz=${tz}&metric=tokens&breakdown=model&topN=5&granularity=auto`]:
+        {
+          granularity: 'day',
+          metric: 'tokens',
+          breakdown: 'model',
+          buckets: [
+            {
+              ts: '2026-09-25',
+              label: '9/25',
+              total: 412_000,
+              totalTokens: 412_000,
+              inputTokens: 290_000,
+              outputTokens: 122_000,
+              costUsd: 0,
+              runs: 99,
+              completedRuns: 99,
+              failedRuns: 0,
+              unreportedRuns: 41,
+              avgDurationMs: 12_000,
+              avgOutputTps: 42,
+              bySeries: { 'claude-opus-4-6': 412_000 },
+            },
+          ],
+          series: [
+            {
+              key: 'claude-opus-4-6',
+              name: 'claude-opus-4-6',
+              total: 412_000,
+              share: 1,
+              runs: 58,
+              failedRuns: 0,
+              totalTokens: 412_000,
+              costUsd: 0,
+              avgDurationMs: 12_000,
+              avgOutputTps: 42,
+            },
+          ],
+        },
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=agentKind&limit=20`]: {
+        by: 'agentKind',
+        totalItems: 2,
+        items: [row('claude', 'claude', 58, 412_000), row('codex', 'codex', 41, 0)],
+      },
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=model&limit=20`]: {
+        by: 'model',
+        totalItems: 1,
+        items: [row('claude-opus-4-6', 'claude-opus-4-6', 58, 412_000)],
+      },
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=bot&limit=20`]: {
+        by: 'bot',
+        totalItems: 2,
+        items: [row('b1', '小王的 Claude', 58, 412_000), row('b2', '老李的 Codex', 41, 0)],
+      },
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=user&limit=20`]: {
+        by: 'user',
+        totalItems: 1,
+        items: [row('u1', '王磊', 61, 356_000)],
+      },
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=group&limit=20`]: {
+        by: 'group',
+        totalItems: 1,
+        items: [row('g1', '研发群', 99, 412_000)],
+      },
+      [`GET /admin/usage/heatmap?preset=30d&tz=${tz}&mode=calendar&metric=tokens`]: {
+        mode: 'calendar',
+        metric: 'tokens',
+        maxValue: 412_000,
+        calendar: [{ day: '2026-09-25', runs: 99, totalTokens: 412_000, costUsd: 0, value: 412_000 }],
+      },
     })
     renderAt('/admin/usage')
     expect(await screen.findByRole('heading', { name: '用量' })).toBeTruthy()
-    const table = await screen.findByRole('grid', { name: '用量明细' })
-    expect(
-      within(table)
-        .getAllByRole('row')
-        .slice(1)
-        .map((r) => r.textContent),
-    ).toEqual(['小王的 Claude412k580', '老李的 Codex未上报4141'])
-    expect(screen.getByRole('img', { name: 'token 分布：小王的 Claude 100%' })).toBeTruthy()
-    expect(screen.getByRole('group', { name: /^近 30 天每日 token：合计 412k tokens/ })).toBeTruthy()
-    expect(screen.getByText(/不做配额限制/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('tab', { name: '按触发人' }))
-    await waitFor(() =>
-      expect(within(screen.getByRole('grid', { name: '用量明细' })).getByText('王磊')).toBeTruthy(),
-    )
-    expect(screen.getByRole('tab', { name: '按群' })).toBeTruthy()
+    const kpi = await screen.findByTestId('usage-kpi-strip')
+    expect(within(kpi).getByTestId('usage-kpi-tokens').textContent).toContain('41.2 万')
+    expect(within(kpi).getByTestId('usage-kpi-runs').textContent).toContain('99')
+    expect(screen.getByText('小王的 Claude')).toBeTruthy()
+    expect(screen.getByText('老李的 Codex')).toBeTruthy()
+    expect(screen.getByText('王磊')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '概览' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '运行明细' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '会话洞察' })).toBeTruthy()
   })
 })

@@ -347,15 +347,108 @@ describe('Round 5 UX Audit — Admin Config & Observability Pages', () => {
 
     let fail = true
     const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    const emptyCaps = {
+      hasInputOutput: false,
+      hasCost: false,
+      hasCache: false,
+      hasProvider: false,
+      hasModels: false,
+      hasTools: false,
+      hasPlugins: false,
+      retentionDays: 30,
+    }
+    const emptyKpi = {
+      totalTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      tokenReportedRuns: 0,
+      unreportedRuns: 0,
+      totalRuns: 0,
+      endedRuns: 0,
+      completedRuns: 0,
+      failedRuns: 0,
+      cancelledRuns: 0,
+      liveRuns: 0,
+      successRate: null,
+      totalCostUsd: 0,
+      costReportedRuns: 0,
+      cacheReadTokens: 0,
+      cacheInputTokens: 0,
+      cacheHitRate: null,
+      cacheReportedRuns: 0,
+      avgDurationMs: null,
+      p50DurationMs: null,
+      p95DurationMs: null,
+      avgOutputTps: null,
+      activeUsers: 0,
+      activeBots: 0,
+      activeGroups: 0,
+    }
     mockApi({
       'GET /admin/teams': () => [],
-      'GET /admin/usage?by=bot&days=30': () => (fail ? apiError(500, 'err', '用量服务错误') : []),
-      [`GET /admin/usage/daily?days=60&tz=${tz}`]: () => [],
+      [`GET /admin/usage/facets?preset=30d&tz=${tz}`]: () => ({
+        models: [],
+        providers: [],
+        agentKinds: [],
+        bots: [],
+        users: [],
+        groups: [],
+        capabilities: emptyCaps,
+      }),
+      [`GET /admin/usage/overview?preset=30d&tz=${tz}`]: () =>
+        fail
+          ? apiError(500, 'err', '用量服务错误')
+          : {
+              range: {
+                from: null,
+                to: '2026-11-26T00:00:00Z',
+                previousFrom: null,
+                previousTo: null,
+                granularity: 'day',
+              },
+              kpi: emptyKpi,
+              previous: null,
+              capabilities: emptyCaps,
+            },
+      [`GET /admin/usage/timeseries?preset=30d&tz=${tz}&metric=tokens&breakdown=agentKind&topN=5&granularity=auto`]:
+        () => ({
+          granularity: 'day',
+          metric: 'tokens',
+          breakdown: 'agentKind',
+          buckets: [],
+          series: [],
+        }),
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=agentKind&limit=20`]: () => ({
+        by: 'agentKind',
+        totalItems: 0,
+        items: [],
+      }),
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=bot&limit=20`]: () => ({
+        by: 'bot',
+        totalItems: 0,
+        items: [],
+      }),
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=user&limit=20`]: () => ({
+        by: 'user',
+        totalItems: 0,
+        items: [],
+      }),
+      [`GET /admin/usage/breakdown?preset=30d&tz=${tz}&by=group&limit=20`]: () => ({
+        by: 'group',
+        totalItems: 0,
+        items: [],
+      }),
+      [`GET /admin/usage/heatmap?preset=30d&tz=${tz}&mode=calendar&metric=tokens`]: () => ({
+        mode: 'calendar',
+        metric: 'tokens',
+        maxValue: 0,
+        calendar: [],
+      }),
     })
     renderAt('/admin/usage')
     await screen.findByText('用量服务错误')
     fail = false
     fireEvent.click(screen.getByRole('button', { name: '重试' }))
-    await screen.findByText('近 30 天没有运行')
+    await screen.findByText('当前时间范围内没有运行记录')
   })
 })

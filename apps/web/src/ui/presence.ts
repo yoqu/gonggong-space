@@ -1,12 +1,12 @@
 import { type AnimationEvent, useCallback, useEffect, useState } from 'react'
+import { prefersReducedMotion } from '../lib/motion'
 import './motion.css'
 
 export type PresenceState = 'open' | 'closed'
 
 const REDUCED_TIMEOUT = 130
 
-export const reducedMotion = () =>
-  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+export const reducedMotion = prefersReducedMotion
 
 /**
  * Keeps a closing element mounted with `state: 'closed'` until its own exit animation ends

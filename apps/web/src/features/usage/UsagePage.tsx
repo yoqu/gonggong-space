@@ -17,8 +17,8 @@ import {
 } from '../../ui'
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
-import { TeamFilter } from '../admin/TeamFilter'
 import { Delta, dayLabel, peakOf, ShareCard, sharePct } from './metrics'
+import { UsageWorkspace } from './UsageWorkspace'
 
 type By = 'bot' | 'user' | 'group'
 type Metric = 'totalTokens' | 'runs' | 'unreported'
@@ -37,9 +37,10 @@ export function useUsage(query: string) {
 }
 
 function Bar({ value, max, color = 'var(--system-blue)' }: { value: number; max: number; color?: string }) {
+  const ratio = max > 0 ? Math.max(0.02, Math.min(1, value / max)) : 0
   return (
     <span className="usage-bar" aria-hidden="true">
-      {value > 0 ? <span style={{ width: `${(value / max) * 100}%`, background: color }} /> : null}
+      {value > 0 ? <span style={{ transform: `scaleX(${ratio})`, background: color }} /> : null}
     </span>
   )
 }
@@ -68,10 +69,10 @@ const COUNT: Record<By, (n: number) => string> = {
 const NAME_COLUMN: Record<By, string> = { bot: 'Bot', user: t('触发人'), group: t('群') }
 /** Categorical order keeps neighbours apart in hue; a sixth entity folds into 其他. */
 const PALETTE = [
-  'var(--system-blue)',
-  'var(--system-orange)',
   'var(--system-indigo)',
+  'var(--system-cyan)',
   'var(--system-teal)',
+  'var(--system-orange)',
   'var(--system-pink)',
 ]
 const OTHER = 'var(--system-gray)'
@@ -193,8 +194,8 @@ function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, stri
 }
 
 /**
- * Last 30 days by bot, trigger user or group; the server scopes members to their own bots (spec §3.7).
- * `base` /admin/usage is every team, `teamId` narrows to one team (its admins, or the sysadmin).
+ * Compact 30-day usage panel used by TeamSettings and AccountMenu ("我的用量").
+ * Preserves the legacy `/usage` & `/usage/daily` contract while avoiding table spinner collapse on tab switch.
  */
 export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; teamId?: string }) {
   const [by, setBy] = useState<By>('bot')
@@ -206,20 +207,20 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
     loading,
     reload,
   } = useGet<UsageRowDto[]>(`${base}?by=${by}&days=${WINDOW}${team}`)
-  // Keep previous rows of the same scope while switching `by` so Stats/Trend/Share never collapse and flash.
+  // Keep previous rows of the same scope while switching `by` so Stats/Trend/Share/Table never collapse and flash.
   const [cached, setCached] = useState<{ scope: string; by: By; rows: UsageRowDto[] } | null>(null)
   useEffect(() => {
     if (rows !== null) setCached({ scope, by, rows })
   }, [scope, by, rows])
   const visible = rows ?? (cached?.scope === scope ? cached.rows : null)
   const visibleBy = rows !== null ? by : cached?.scope === scope ? cached.by : by
-  // Twice the window so the tiles can compare against the prior period.
   const daily = useGet<UsageDayDto[]>(
     `${base}/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(browserTimeZone)}${team}`,
   )
   const hasDaily = !!daily.data?.some((d) => d.runs > 0 || d.totalTokens > 0)
   const max = Math.max(1, ...(visible ?? []).map((r) => r.totalTokens))
   const colors = colorsFor(visible ?? [])
+  const stale = rows === null && visible !== null
   return (
     <>
       <Tabs value={by} onChange={setBy} items={TABS} />
@@ -237,43 +238,45 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
       {visible?.length ? <Stats rows={visible} by={visibleBy} daily={daily.data} /> : null}
       {daily.data && (hasDaily || visible?.length) ? <Trend daily={daily.data} /> : null}
       {visible?.length ? <Share rows={visible} colors={colors} /> : null}
-      {rows === null ? (
+      {visible === null ? (
         error ? null : (
           <Spinner size={18} />
         )
-      ) : rows.length ? (
-        <Table<UsageRowDto & { id: string }>
-          aria-label={t('用量明细')}
-          rows={rows.map((r) => ({ ...r, id: r.key }))}
-          multiple={false}
-          defaultSort={{ key: 'totalTokens', dir: 'desc' }}
-          columns={[
-            { key: 'name', title: NAME_COLUMN[by], sortable: true },
-            {
-              key: 'share',
-              title: t('占比'),
-              width: 140,
-              render: (r) => <Bar value={r.totalTokens} max={max} color={colors.get(r.key) ?? OTHER} />,
-            },
-            {
-              key: 'totalTokens',
-              title: 'token',
-              width: 96,
-              align: 'right',
-              sortable: true,
-              render: (r) => (r.totalTokens ? fmtTokens(r.totalTokens) : t('未上报')),
-            },
-            { key: 'runs', title: t('轮次'), width: 64, align: 'right', sortable: true },
-            {
-              key: 'unreported',
-              title: t('未上报'),
-              width: 72,
-              align: 'right',
-              secondary: true,
-              sortable: true,
-            },
-          ]}
-        />
+      ) : visible.length ? (
+        <div className={stale ? 'usage-stale' : undefined}>
+          <Table<UsageRowDto & { id: string }>
+            aria-label={t('用量明细')}
+            rows={visible.map((r) => ({ ...r, id: r.key }))}
+            multiple={false}
+            defaultSort={{ key: 'totalTokens', dir: 'desc' }}
+            columns={[
+              { key: 'name', title: NAME_COLUMN[visibleBy], sortable: true },
+              {
+                key: 'share',
+                title: t('占比'),
+                width: 140,
+                render: (r) => <Bar value={r.totalTokens} max={max} color={colors.get(r.key) ?? OTHER} />,
+              },
+              {
+                key: 'totalTokens',
+                title: 'token',
+                width: 96,
+                align: 'right',
+                sortable: true,
+                render: (r) => (r.totalTokens ? fmtTokens(r.totalTokens) : t('未上报')),
+              },
+              { key: 'runs', title: t('轮次'), width: 64, align: 'right', sortable: true },
+              {
+                key: 'unreported',
+                title: t('未上报'),
+                width: 72,
+                align: 'right',
+                secondary: true,
+                sortable: true,
+              },
+            ]}
+          />
+        </div>
       ) : (
         <EmptyState compact illustration={<NoDataArt />} title={t('近 30 天没有运行')} />
       )}
@@ -284,16 +287,11 @@ export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; te
   )
 }
 
-/** 管理后台 · 用量: every bot in the system, or one team's. */
+/** 管理后台 · AI 用量: full layered analytics workspace (概览 / 运行明细 / 会话洞察). */
 export function UsagePage() {
-  const [teamId, setTeamId] = useState('')
   return (
-    <AdminPage
-      title={t('用量')}
-      desc={t('按 Bot、触发人、群汇总 token 用量。')}
-      actions={<TeamFilter value={teamId} onChange={setTeamId} />}
-    >
-      <UsagePanel base="/admin/usage" teamId={teamId} />
+    <AdminPage title={t('用量')} desc={t('全平台 AI 运行 Token、费用、耗时与会话行为分析。')}>
+      <UsageWorkspace base="/admin/usage" showTeamFilter />
     </AdminPage>
   )
 }

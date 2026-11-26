@@ -1,10 +1,8 @@
 import { type CSSProperties, useLayoutEffect, useRef } from 'react'
+import { prefersReducedMotion } from '../lib/motion'
 import './rolling-number.css'
 
 const SPLIT_RE = /^([^\d]*)(\d[\d.,:]*\d|\d)(.*)$/
-
-const reducedMotion = () =>
-  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 function splitParts(text: string): [prefix: string, numeric: string, suffix: string] {
   const m = SPLIT_RE.exec(text)
@@ -20,7 +18,7 @@ export function RollingNumber({ value }: { value: string | number }) {
   const text = String(value)
   const [prefix, numeric, suffix] = splitParts(text)
   const prev = useRef<{ suffix: string } | null>(null)
-  const isStatic = prev.current === null || prev.current.suffix !== suffix || reducedMotion()
+  const isStatic = prev.current === null || prev.current.suffix !== suffix || prefersReducedMotion()
   useLayoutEffect(() => {
     prev.current = { suffix }
   }, [suffix])
