@@ -21,9 +21,21 @@ export function useArtifactBots() {
   return ARTIFACT_BOT_NAMES.flatMap((name) => all.filter((b) => b.name === name))
 }
 
+const LAST_KEY = 'gg.works.newBot'
+
+/** The AI last picked on any canvas: a new work starts with it. */
+export function lastWorkBot() {
+  try {
+    return localStorage.getItem(LAST_KEY)
+  } catch {
+    return null
+  }
+}
+
 export function rememberCanvasBot(artifactId: string, botId: string) {
   try {
     localStorage.setItem(storeKey(artifactId), botId)
+    localStorage.setItem(LAST_KEY, botId)
   } catch {}
 }
 

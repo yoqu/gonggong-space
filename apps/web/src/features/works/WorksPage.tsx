@@ -15,7 +15,6 @@ import {
   NoResultsArt,
   NoWorksArt,
   PopUpButton,
-  Presence,
   SearchField,
   SegmentedControl,
   Skeleton,
@@ -27,7 +26,7 @@ import { useArtifactPreview } from '../artifacts/store'
 import { channelsApi } from '../groups/sections'
 import { otherTeam, switchTeam } from '../teams/store'
 import { TeamSwitcher } from '../teams/TeamSwitcher'
-import { NewWorkDialog } from './NewWork'
+import { useNewWork } from './NewWork'
 import { WorkEditor } from './WorkEditor'
 import './works.css'
 
@@ -131,7 +130,7 @@ export function WorksPage() {
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
-  const [creating, setCreating] = useState(false)
+  const newWork = useNewWork(() => void loadWorks())
   useEffect(() => {
     void loadWorks()
     if (useWorks.getState().groups === null) void loadWorkGroups()
@@ -199,7 +198,13 @@ export function WorksPage() {
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
-        <Button size="small" variant="primary" icon="plus" onClick={() => setCreating(true)}>
+        <Button
+          size="small"
+          variant="primary"
+          icon="plus"
+          loading={newWork.busy}
+          onClick={() => void newWork.create()}
+        >
           {t('新建')}
         </Button>
       </header>
@@ -362,11 +367,6 @@ export function WorksPage() {
           />
         </div>
       )}
-      <Presence>
-        {creating ? (
-          <NewWorkDialog onClose={() => setCreating(false)} onCreated={() => void loadWorks()} />
-        ) : null}
-      </Presence>
     </section>
   )
 }

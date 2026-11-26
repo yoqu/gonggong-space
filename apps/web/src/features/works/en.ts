@@ -44,9 +44,6 @@ export default {
     "Sharing to another group makes the work visible to the team: that group's members can view it, and can change it after joining the group it lives in.",
   '作品还不是团队可见，只有创建人、Bot 主人或群管理员能分享到其他群':
     "The work is not visible to the team yet: only its creator, its bot's owner or a group admin can share it to other groups.",
-  新建作品: 'New work',
-  '选一个 AI，在画布左侧的 AI 对话里说要做什么，它做出第一版后继续对话修改':
-    'Pick an AI, then tell it what to make in the AI chat on the left of the canvas; it makes a first version and you refine it in the chat.',
   '团队里还没有共字君或姜维川的 Claude Code': 'Neither AI open for works is in the team yet',
   创建者: 'Creator',
 }

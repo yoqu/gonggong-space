@@ -457,11 +457,12 @@ describe('作品 page', () => {
     expect(localStorage.getItem('gg.team')).toBe('t2')
   })
 
-  it('creates with one of the two AIs, no group: an empty work opens in its editor with that AI picked', async () => {
+  it('新建 opens an empty work on its canvas straight away, no dialog, with the last AI picked there', async () => {
     const bot = (id: string, name: string) => ({ id, name }) as BotDto
     useWorkspace.setState({
       bots: [bot('b1', '蒋庆的 Codex'), bot('b2', '姜维川的 Claude Code'), bot('b3', '共字君')],
     })
+    localStorage.setItem('gg.works.newBot', 'b2')
     const calls = mockApi({
       'GET /works/groups': GROUPS,
       'GET /works': [],
@@ -469,27 +470,33 @@ describe('作品 page', () => {
     })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
-    fireEvent.click(within(dialog).getByRole('button', { name: '交给谁' }))
-    expect(screen.getAllByRole('menuitemcheckbox').map((x) => x.textContent)).toEqual([
-      '共字君',
-      '姜维川的 Claude Code',
-    ])
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '姜维川的 Claude Code' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
     await waitFor(() => expect(where()).toContain('/works/a9'))
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(calls.find((c) => c.method === 'POST')).toMatchObject({ path: '/works', body: { botId: 'b2' } })
     expect(localStorage.getItem('gg.canvasBot.a9')).toBe('b2')
   })
 
-  it('says so when neither AI is in the team', async () => {
-    useWorkspace.setState({ bots: [] })
-    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
+  it('新建 defaults to the first AI open for works', async () => {
+    const bot = (id: string, name: string) => ({ id, name }) as BotDto
+    useWorkspace.setState({ bots: [bot('b1', '蒋庆的 Codex'), bot('b3', '共字君')] })
+    const calls = mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [],
+      'POST /works': { artifactId: 'a9' },
+    })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
-    expect(within(dialog).getByText('团队里还没有共字君或姜维川的 Claude Code')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '下一步' })).toHaveProperty('disabled', true)
+    await waitFor(() => expect(where()).toContain('/works/a9'))
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ botId: 'b3' })
+  })
+
+  it('says so when neither AI is in the team', async () => {
+    useWorkspace.setState({ bots: [] })
+    const calls = mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
+    renderAt('/works')
+    fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    expect(await screen.findByText('团队里还没有共字君或姜维川的 Claude Code')).toBeTruthy()
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 })
 
