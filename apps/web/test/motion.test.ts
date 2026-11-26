@@ -236,7 +236,7 @@ describe('motion and touch CSS contract', () => {
     expect(dock).toMatch(/@media \(pointer: coarse\) \{\s*\.task-dock__main \{\s*height: 36px;/)
   })
 
-  it('round 6: inbox cards rise in and leave aside, unread bars, touch-sized deletes', () => {
+  it('round 6: inbox cards rise in and leave aside, unread and thread-color bars, touch-sized deletes', () => {
     const motion = read('ui/motion.css')
     expect(ruleOf(motion, '.ui-leaving')).toContain('ui-leave var(--fade-out) forwards')
     const inbox = read('features/chat/thread-inbox.css')
@@ -245,7 +245,7 @@ describe('motion and touch CSS contract', () => {
     expect(inbox).toMatch(/@media \(hover: hover\) \{\s*\.thread-inbox__card:hover/)
     const rail = read('features/chat/group-threads.css')
     expect(rail).toMatch(/@media \(hover: hover\) \{\s*\.group-threads__row:hover/)
-    expect(ruleOf(rail, '.group-threads__row[data-unread]::before')).toContain(
+    expect(ruleOf(rail, '.group-threads__row::before')).toContain(
       'background: var(--thread-hue)',
     )
     const notif = read('features/notifications/notifications.css')
