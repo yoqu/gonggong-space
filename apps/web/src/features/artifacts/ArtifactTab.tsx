@@ -513,7 +513,7 @@ function PrototypeArtifactTab({
             {chatRoot ? (
               <CanvasComposer
                 groupId={a.groupId}
-                chat={{ rootId: chatRoot, artifactId: a.id, botId: a.botId }}
+                chat={{ rootId: chatRoot, artifactId: a.id, botId: a.botId, designSystem: true }}
               />
             ) : null}
           </div>

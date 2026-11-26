@@ -8,8 +8,9 @@ import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { useCanvasChat } from '../src/features/artifacts/chatRoot'
 import { type CanvasContext, clearContext, useCanvasContext } from '../src/features/artifacts/context'
+import { setArtifactPage } from '../src/features/artifacts/page'
 import { artifactSlash, parseArtifactSlash } from '../src/features/artifacts/slash'
-import { resetArtifacts, useArtifactFocus } from '../src/features/artifacts/store'
+import { loadArtifact, resetArtifacts, useArtifactFocus } from '../src/features/artifacts/store'
 import { MessageComposer } from '../src/features/chat/MessageComposer'
 import { RunCard, UserMessage } from '../src/features/chat/TimelineItems'
 import { useToasts } from '../src/ui'
@@ -87,6 +88,61 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
       threadRootId: 'root1',
       artifactContext: { artifactId: 'a1' },
     })
+  })
+
+  it('names every selected page top left, drops the other chips, and keeps 设计系统 under the input', () => {
+    mockApi({})
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    setCanvas([
+      home,
+      { key: 'screen:detail', screenId: 'detail', screenTitle: '详情', pinned: false },
+      { key: 'screen:pay', screenId: 'pay', screenTitle: '支付', pinned: false },
+    ])
+    render(<MessageComposer group={group} onSent={() => {}} canvasChat={{ ...chat, designSystem: true }} />)
+    const pages = screen.getByTestId('art-canvas-pages')
+    expect(
+      within(pages)
+        .getAllByTestId('art-canvas-page')
+        .map((c) => c.textContent),
+    ).toEqual(['首页', '详情', '支付'])
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
+    expect(screen.queryByTestId('art-variations')).toBeNull()
+    expect(
+      within(screen.getByTestId('composer-chips')).queryByRole('button', { name: /设计系统/ }),
+    ).toBeNull()
+    const asked = useCanvasContext.getState().design?.n ?? 0
+    fireEvent.click(screen.getByRole('button', { name: '设计系统' }))
+    expect(useCanvasContext.getState().design).toEqual({ artifactId: 'a1', n: asked + 1 })
+    fireEvent.click(within(pages).getByRole('button', { name: '移除 详情' }))
+    expect(
+      within(pages)
+        .getAllByTestId('art-canvas-page')
+        .map((c) => c.textContent),
+    ).toEqual(['首页', '支付'])
+  })
+
+  it('takes the one page opened in the list as the selected page and sends it along', async () => {
+    const calls = mockApi({
+      'GET /artifacts/a1': () => ({
+        id: 'a1',
+        title: '读书会',
+        manifest: { entry: 'home', screens: [{ id: 'home', title: '首页', file: 'screens/home.html' }] },
+      }),
+      'GET /artifacts/a1/versions': () => [],
+      'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }),
+    })
+    await loadArtifact('a1')
+    setArtifactPage('a1', 'home')
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    render(<MessageComposer group={group} onSent={() => {}} canvasChat={chat} />)
+    expect(screen.getByTestId('art-canvas-page').textContent).toBe('首页')
+    type('标题加粗')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
+    expect(posts(calls, '/groups/g1/messages')[0]).toMatchObject({
+      artifactContext: { artifactId: 'a1', page: 'home' },
+    })
+    setArtifactPage('a1', null)
   })
 
   it('leaves the group composer to the group, 全屏 or not, and keeps the canvas selection out of it', async () => {
@@ -224,7 +280,7 @@ describe('dismissible canvas Bot target chip', () => {
     expect(posts(calls, '/artifacts/a1/commands')).toHaveLength(1)
   })
 
-  it('resets bypass when canvas selection changes and hides × in canvasChat mode', () => {
+  it('resets bypass when canvas selection changes and drops the target chip in canvasChat mode', () => {
     mockApi({})
     setCanvas()
     const { rerender } = render(<MessageComposer group={group} onSent={() => {}} />)
@@ -235,7 +291,7 @@ describe('dismissible canvas Bot target chip', () => {
     act(() => setCanvas([{ key: 'screen:detail', screenId: 'detail', screenTitle: '详情', pinned: false }]))
     expect(screen.getByTestId('art-context-to')).toBeTruthy()
 
-    // In dedicated canvasChat mode, no × dismiss button is offered.
+    // The canvas's own composer always goes to the artifact's bot: no target chip.
     useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
     rerender(
       <MessageComposer
@@ -244,8 +300,7 @@ describe('dismissible canvas Bot target chip', () => {
         canvasChat={{ rootId: 'root1', artifactId: 'a1', botId: 'b1' }}
       />,
     )
-    const target = screen.getByTestId('art-context-to')
-    expect(within(target).queryByRole('button', { name: '改为仅发给群成员，不触发 Bot' })).toBeNull()
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
   })
 
   it('animates CandidatePopover enter/exit with usePresence data-state', () => {
@@ -363,8 +418,9 @@ describe('design system entry (G14)', () => {
     mockApi({})
     setCanvas()
     render(<MessageComposer group={group} onSent={() => {}} />)
+    const asked = useCanvasContext.getState().design?.n ?? 0
     fireEvent.click(screen.getByRole('button', { name: /设计系统/ }))
-    expect(useCanvasContext.getState().design).toEqual({ artifactId: 'a1', n: 1 })
+    expect(useCanvasContext.getState().design).toEqual({ artifactId: 'a1', n: asked + 1 })
   })
 })
 

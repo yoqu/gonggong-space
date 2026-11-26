@@ -16,11 +16,18 @@ import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
 import { Checkbox, Composer, Presence, useEscape, useOutsidePress, usePresence } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
-import { ContextChips, ForegroundChip } from '../artifacts/ContextChips'
+import { CanvasPageChips, ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { useCanvasChat } from '../artifacts/chatRoot'
-import { artifactContextOf, type CanvasContext, clearContext, useCanvasContext } from '../artifacts/context'
+import {
+  artifactContextOf,
+  type CanvasContext,
+  clearContext,
+  requestDesignPanel,
+  useCanvasContext,
+} from '../artifacts/context'
 import { setEditing, useEditing, useEditingOf } from '../artifacts/editing'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
+import { useShownPage } from '../artifacts/page'
 import { useArtifactCommands } from '../artifacts/pluginCommands'
 import { artifactSlash, commandSelection, parseArtifactSlash, selectedScreenIds } from '../artifacts/slash'
 import { useArtifactEntry } from '../artifacts/store'
@@ -105,6 +112,13 @@ export function uuid() {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
 
+export type CanvasChatTarget = {
+  rootId: string
+  artifactId: string
+  botId: string | null
+  designSystem?: boolean
+}
+
 export const MessageComposer = memo(function MessageComposer({
   group,
   onSent,
@@ -124,9 +138,10 @@ export const MessageComposer = memo(function MessageComposer({
   thread?: string
   /**
    * The canvas's own composer: everything typed here goes to the artifact's 画布 AI 对话 (its bot unless another is
-   * @-ed), never to the group. It owns the canvas selection while the canvas is in front.
+   * @-ed), never to the group. It owns the canvas selection while the canvas is in front. `designSystem`: the
+   * canvas has a design-system panel, opened from under the input.
    */
-  canvasChat?: { rootId: string; artifactId: string; botId: string | null }
+  canvasChat?: CanvasChatTarget
   /** ↑ in the empty composer edits this message (my latest, while still editable). */
   lastEditable?: () => MessageDto | undefined
 }) {
@@ -213,6 +228,10 @@ export const MessageComposer = memo(function MessageComposer({
             t('作品'),
         }
       : null
+  // The canvas's own composer: the one page opened in its list is what the message is about, short of a selection.
+  const chatManifest = useArtifactEntry(canvasChat?.artifactId ?? '')?.artifact?.manifest
+  const chatPage = useShownPage(canvasChat?.artifactId ?? '', chatManifest)
+  const soloPage = chatManifest?.screens.find((x) => x.id === chatPage) ?? null
   const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
   const hasScreens = selectedScreenIds(canvas).length > 0
   const slashList = artifactSlash(useArtifactCommands(artifact?.artifactId))
@@ -508,6 +527,8 @@ export const MessageComposer = memo(function MessageComposer({
     if (Object.keys(runOptions).length) req.runOptions = runOptions
     const sendWithCanvas = !!canvas && (!bypassCanvasBot || mentioned.length > 0)
     if (sendWithCanvas && canvas) req.artifactContext = artifactContextOf(canvas)
+    else if (canvasChat && chatPage)
+      req.artifactContext = { artifactId: canvasChat.artifactId, page: chatPage }
     if (foreground) req.foregroundArtifactId = foreground.artifactId
     // One taken back with an unknown fate keeps its clientId only if resent exactly as before, so the server dedupes it.
     req.clientId = reusedClientId(group.id, req) ?? uuid()
@@ -535,7 +556,9 @@ export const MessageComposer = memo(function MessageComposer({
     if (selection && sendWithCanvas) clearContext()
   }
 
-  const chips = appending || quote || canvas || foreground || uploads.items.length > 0
+  const pageChips = !!canvasChat && (!!selection || !!soloPage)
+  const chips =
+    appending || quote || (canvasChat ? pageChips : canvas) || foreground || uploads.items.length > 0
   return (
     <div
       ref={wrapRef}
@@ -647,6 +670,16 @@ export const MessageComposer = memo(function MessageComposer({
                 },
               ]
             : []),
+          ...(canvasChat?.designSystem
+            ? [
+                {
+                  icon: 'palette' as const,
+                  label: t('设计系统'),
+                  text: t('设计系统'),
+                  onClick: () => requestDesignPanel(canvasChat.artifactId),
+                },
+              ]
+            : []),
         ]}
         hint={
           // With the canvas selected, the chips say who the message goes to.
@@ -667,7 +700,13 @@ export const MessageComposer = memo(function MessageComposer({
                 />
               ) : null}
               {targets.length ? (
-                <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
+                <RunConfigChips
+                  group={group}
+                  bots={targets}
+                  picks={picks}
+                  onChange={setPicks}
+                  bare={!!canvasChat && targets.length === 1}
+                />
               ) : null}
             </>
           ) : undefined
@@ -676,7 +715,11 @@ export const MessageComposer = memo(function MessageComposer({
           chips ? (
             <div className="composer__chips" data-testid="composer-chips">
               <AppendBanner groupId={group.id} scope={scope} />
-              {canvas ? (
+              {canvasChat ? (
+                pageChips ? (
+                  <CanvasPageChips context={selection} page={soloPage?.title ?? null} />
+                ) : null
+              ) : canvas ? (
                 <ContextChips
                   context={canvas}
                   onEnd={editingContext ? () => setEditing(main, null) : undefined}

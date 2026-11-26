@@ -160,6 +160,30 @@ describe('message canvas context (G11)', () => {
     expect(gone.statusCode).toBe(400)
   })
 
+  it('keeps a canvas message to the selected screens, or to the one page shown', async () => {
+    const s = await setup()
+    const note = async (artifactContext: object, clientId: string) => {
+      const res = await s.req('POST', `/api/groups/${s.g.id}/messages`, {
+        body: '改一下',
+        clientId,
+        artifactContext,
+      })
+      expect(res.statusCode).toBe(200)
+      return (await s.meta((res.json() as MessageDto).id)).artifactNote ?? ''
+    }
+    const selected = await note({ artifactId: s.a.id, screenIds: ['home'] }, 'client-0011')
+    expect(selected).toContain('本条只改上面选中的屏幕，其他已有屏幕和 tokens.css 等全局文件不要改')
+    const element = await note(
+      { artifactId: s.a.id, elements: [{ file: 'screens/home.html', ggId: H1, label: '标题' }] },
+      'client-0012',
+    )
+    expect(element).toContain('本条只改上面选中的屏幕')
+    const page = await note({ artifactId: s.a.id, page: 'home' }, 'client-0013')
+    expect(page).toContain('本条只改页面「首页」（home），其他已有屏幕和 tokens.css 等全局文件不要改')
+    const whole = await note({ artifactId: s.a.id }, 'client-0014')
+    expect(whole).not.toContain('本条只改')
+  })
+
   it('posts sent annotations as a short sentence with the list in the agent note', async () => {
     const s = await setup()
     const n = (

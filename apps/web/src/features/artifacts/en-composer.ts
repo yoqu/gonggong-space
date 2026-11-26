@@ -12,4 +12,5 @@ export default {
   给选中的屏幕加入场动效: 'Add motion to the selected screens',
   在画布中查看: 'View on canvas',
   '改了 {screens}': 'Changed {screens}',
+  在左侧页面列表里选中的页面: 'The page selected in the page list on the left',
 }

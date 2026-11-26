@@ -3,7 +3,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { t } from '../../i18n'
 import { Button, Spinner } from '../../ui'
 import { ActiveRunsContext } from '../chat/MessageActions'
-import { MessageComposer } from '../chat/MessageComposer'
+import { type CanvasChatTarget, MessageComposer } from '../chat/MessageComposer'
 import { PendingMessages } from '../chat/PendingMessages'
 import { useThreadItem } from '../chat/ThreadView'
 import { ThreadScope } from '../chat/threadSummary'
@@ -101,13 +101,7 @@ function ChatList({ group, rootId }: { group: GroupDto; rootId: string }) {
 const ignoreSent = () => {}
 
 /** The canvas's own input box: what is typed here goes to its 画布 AI 对话 (shown in the rail), never to the group. */
-export function CanvasComposer({
-  groupId,
-  chat,
-}: {
-  groupId: string
-  chat: { rootId: string; artifactId: string; botId: string | null }
-}) {
+export function CanvasComposer({ groupId, chat }: { groupId: string; chat: CanvasChatTarget }) {
   const group = useChatGroup(groupId, chat.artifactId)
   if (!group) return null
   return (

@@ -105,7 +105,11 @@ type Selection = {
   elements: (ArtifactElementRef & { label?: string })[]
   refs?: string[]
   page?: string
+  /** A member's message (not a command): it changes only the selected screens, or the one page shown. */
+  scoped?: boolean
 }
+
+const KEEP_OTHERS = '其他已有屏幕和 tokens.css 等全局文件不要改（新建屏幕不受此限），除非成员明确要求。'
 
 const REF_KIND = { image: '图片', pdf: 'PDF', text: '文本' } as const
 
@@ -130,6 +134,7 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
   }
   if (sel.screenIds.length) lines.push('选中的屏幕：', ...sel.screenIds.map((id) => `- ${screenLine(m, id)}`))
   const elements: MessageCanvas['elements'] = []
+  const picked = sel.screenIds.length > 0 || sel.elements.length > 0
   if (sel.elements.length) {
     lines.push('选中的元素：')
     for (const e of uniqueElements(sel.elements)) {
@@ -141,6 +146,8 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
       })
     }
   }
+  if (sel.scoped && picked) lines.push(`本条只改上面选中的屏幕，${KEEP_OTHERS}`)
+  else if (sel.scoped && solo) lines.push(`本条只改页面「${solo.title}」（${solo.id}），${KEEP_OTHERS}`)
   const refs = (sel.refs ?? []).map(
     (file) => m?.refs?.find((r) => r.file === file) ?? fail('invalid', '参考不存在：{id}', { id: file }),
   )
@@ -500,6 +507,7 @@ export async function artifactContextNote(ctx: Ctx, a: Artifact, c: ArtifactCont
     elements: c.elements ?? [],
     refs: c.refs ?? [],
     ...(c.page && { page: c.page }),
+    scoped: true,
   })
   return { note: ['[画布上下文：这条消息针对下面的产物和选中内容]', ...lines].join('\n'), canvas }
 }

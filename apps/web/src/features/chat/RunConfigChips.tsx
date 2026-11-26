@@ -37,11 +37,14 @@ export function RunConfigChips({
   bots,
   picks,
   onChange,
+  bare = false,
 }: {
   group: GroupDto
   bots: BotDto[]
   picks: Picks
   onChange: (picks: Picks) => void
+  /** The model only, without the bot's name (the canvas's composer, always to its bot). */
+  bare?: boolean
 }) {
   const canConfigure = useCanConfigure(group)
   const set = (botId: string, next: Picks[string] | null) => {
@@ -59,6 +62,7 @@ export function RunConfigChips({
           pick={picks[bot.id]}
           editable={canConfigure(bot)}
           onPick={(next) => set(bot.id, next)}
+          bare={bare}
         />
       ))}
     </span>
@@ -76,6 +80,7 @@ export function RunConfigChip({
   editable,
   onPick,
   scope = 'message',
+  bare = false,
 }: {
   group: GroupDto
   bot: BotDto
@@ -83,6 +88,7 @@ export function RunConfigChip({
   editable: boolean
   onPick: (next: RunConfigPick | null) => void
   scope?: 'message' | 'schedule' | 'webhook'
+  bare?: boolean
 }) {
   const message = scope === 'message'
   const state = useWorkspace((s) => s.botStates[group.id]?.[bot.id])
@@ -92,7 +98,7 @@ export function RunConfigChip({
   const model = pick?.model !== undefined ? pick.model : saved.model
   const effort = fitEffort(catalog, model, pick?.effort !== undefined ? pick.effort : saved.effort)
   const label = agentLabel(catalog, model ?? catalog?.current ?? null, effort)
-  const text = message ? `${bot.name} · ${label}` : label
+  const text = message && !bare ? `${bot.name} · ${label}` : label
   const name = t('{name} 的模型与推理强度', { name: bot.name })
   if (!editable || !live)
     return (

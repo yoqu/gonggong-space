@@ -32,6 +32,53 @@ export function ForegroundChip({ title, onRemove }: { title: string; onRemove: (
 }
 
 /**
+ * The canvas composer's top left: the pages the next message changes, each by name (the canvas selection, removable),
+ * or the one page opened in the list when nothing is selected.
+ */
+export function CanvasPageChips({ context, page }: { context: CanvasContext | null; page: string | null }) {
+  const items = context?.items ?? []
+  return (
+    <div className="art-chips" data-testid="art-canvas-pages">
+      {items.length ? (
+        items.map((i) => {
+          const label = i.ref
+            ? t('参考 · {name}', { name: i.ref.title })
+            : i.element
+              ? `${i.screenTitle} › ${i.element.label}`
+              : i.screenTitle
+          return (
+            <span key={i.key} className="art-chip" title={label}>
+              <Icon name={itemIcon(i)} size={13} className="art-chip__icon" />
+              <span className="art-chip__text" data-testid="art-canvas-page">
+                {label}
+              </span>
+              <button
+                type="button"
+                className="art-chip__x"
+                aria-label={t('移除 {name}', { name: label })}
+                onClick={() => removeContextItem(i.key)}
+              >
+                <Icon name="xmark" size={10} weight={2} />
+              </button>
+            </span>
+          )
+        })
+      ) : page ? (
+        <span className="art-chip" title={t('在左侧页面列表里选中的页面')}>
+          <Icon name="smartphone" size={13} className="art-chip__icon" />
+          <span className="art-chip__text" data-testid="art-canvas-page">
+            {page}
+          </span>
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+const itemIcon = (i: CanvasContext['items'][number]) =>
+  i.ref ? (i.ref.kind === 'image' ? 'image' : 'doc-text') : i.element ? 'cursor' : 'smartphone'
+
+/**
  * The canvas selection above the group composer: `产物 · 屏` or `屏 › 元素`, each removable. `bot`: who a message
  * without an @ goes to (the artifact's bot); 换 Bot puts an @ of one of the `others` in front of the draft.
  */
@@ -147,16 +194,9 @@ export function ContextChips({
             : i.element
               ? `${i.screenTitle} › ${i.element.label}`
               : `${context.title} · ${i.screenTitle}`
-          const icon = i.ref
-            ? i.ref.kind === 'image'
-              ? 'image'
-              : 'doc-text'
-            : i.element
-              ? 'cursor'
-              : 'smartphone'
           return (
             <span key={i.key} className="art-chip" title={label}>
-              <Icon name={icon} size={13} className="art-chip__icon" />
+              <Icon name={itemIcon(i)} size={13} className="art-chip__icon" />
               <span className="art-chip__text">{label}</span>
               <button
                 type="button"
