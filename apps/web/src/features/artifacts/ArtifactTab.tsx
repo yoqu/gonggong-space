@@ -159,6 +159,8 @@ function PrototypeArtifactTab({
   const groupKind = useWorkspace((s) => s.groups.find((g) => g.id === a.groupId)?.kind)
   const { bot: resolvedBot } = useArtifactBot(a?.groupId ?? '', a?.botId)
   const head = a?.headVersionId ?? null
+  const headRef = useRef(head)
+  headRef.current = head
   const shown = viewing ?? head
   // Before the first version the canvas's editing tools are off: nothing reads or edits against `base` then.
   const base = head ?? ''
@@ -584,7 +586,9 @@ function PrototypeArtifactTab({
                 readOnly={readOnly}
                 undo={undo}
                 redo={redo}
-                onEdit={(ops) => editArtifact(tab.artifactId, base, ops)}
+                onEdit={(ops) =>
+                  headRef.current ? editArtifact(tab.artifactId, headRef.current, ops) : Promise.resolve()
+                }
                 onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
                 onPresent={present}
                 readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? base)}

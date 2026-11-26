@@ -68,12 +68,14 @@ function EnvRows({
   const saved = useRef<Record<string, string>>(env)
   const sent = useRef(JSON.stringify(env))
   const inflight = useRef<string | null>(null)
+  const queued = useRef<{ key: string; value: Record<string, string> } | null>(null)
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
   const latest = useRef(text)
-  const send = (parsed: Record<string, string>) => {
-    const key = JSON.stringify(parsed)
-    if (key === sent.current || key === inflight.current) return
+  const flush = (key: string, parsed: Record<string, string>) => {
     inflight.current = key
-    void onSave(parsed)
+    void onSaveRef
+      .current(parsed)
       .then((ok) => {
         if (ok) {
           saved.current = parsed
@@ -83,7 +85,20 @@ function EnvRows({
       .catch(() => {})
       .finally(() => {
         if (inflight.current === key) inflight.current = null
+        const next = queued.current
+        queued.current = null
+        if (next && next.key !== sent.current) flush(next.key, next.value)
       })
+  }
+  const send = (parsed: Record<string, string>) => {
+    const key = JSON.stringify(parsed)
+    const effective = queued.current?.key ?? inflight.current ?? sent.current
+    if (key === effective) return
+    if (inflight.current !== null) {
+      queued.current = key === inflight.current ? null : { key, value: parsed }
+      return
+    }
+    flush(key, parsed)
   }
   const commit = (value: string, leaving: boolean) => {
     let parsed: Record<string, string>
@@ -94,7 +109,8 @@ function EnvRows({
       return
     }
     onAccept()
-    if (Object.keys(parsed).length === 0 && sent.current !== '{}') {
+    const effective = queued.current?.key ?? inflight.current ?? sent.current
+    if (Object.keys(parsed).length === 0 && effective !== '{}') {
       if (!leaving) setConfirmEmpty(true)
       return
     }

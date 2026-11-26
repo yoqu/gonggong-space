@@ -28,6 +28,9 @@ export function MirrorRows({
   const [node, setNode] = useState(mirror.kind === 'custom' ? mirror.node : '')
   const sent = useRef(mirror.kind === 'custom' ? JSON.stringify(mirror) : '')
   const inflight = useRef<string | null>(null)
+  const queued = useRef<{ key: string; value: Mirror } | null>(null)
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
   const missing =
     registry.trim() && !node.trim()
       ? t('还需要填写 Node.js 下载地址')
@@ -38,21 +41,33 @@ export function MirrorRows({
     kind === 'custom' ? JSON.stringify({ kind: 'custom', registry: registry.trim(), node: node.trim() }) : ''
   const dirty =
     kind === 'custom' && (registry.trim() !== '' || node.trim() !== '') && customDraft !== sent.current
-  // A custom mirror needs both addresses; commit `sent` only after save succeeds so a failure can retry on re-blur.
+  // A custom mirror needs both addresses; serialize pending saves and commit `sent` only after success.
+  const flush = (key: string, m: Mirror) => {
+    inflight.current = key
+    void Promise.resolve(onSaveRef.current(m))
+      .then((ok) => {
+        if (ok !== false) sent.current = key
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (inflight.current === key) inflight.current = null
+        const next = queued.current
+        queued.current = null
+        if (next && next.key !== sent.current) flush(next.key, next.value)
+      })
+  }
   const commit = {
     onBlur: () => {
       const m: Mirror = { kind: 'custom', registry: registry.trim(), node: node.trim() }
+      if (!m.registry || !m.node) return
       const key = JSON.stringify(m)
-      if (!m.registry || !m.node || key === sent.current || key === inflight.current) return
-      inflight.current = key
-      void Promise.resolve(onSave(m))
-        .then((ok) => {
-          if (ok !== false) sent.current = key
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (inflight.current === key) inflight.current = null
-        })
+      const effective = queued.current?.key ?? inflight.current ?? sent.current
+      if (key === effective) return
+      if (inflight.current !== null) {
+        queued.current = key === inflight.current ? null : { key, value: m }
+        return
+      }
+      flush(key, m)
     },
     onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && !e.nativeEvent.isComposing) commit.onBlur()
@@ -69,7 +84,10 @@ export function MirrorRows({
             value={kind}
             onChange={(k) => {
               setKind(k)
-              if (k !== 'custom') void onSave({ kind: k })
+              if (k !== 'custom') {
+                queued.current = null
+                void onSave({ kind: k })
+              }
             }}
           />
         </span>

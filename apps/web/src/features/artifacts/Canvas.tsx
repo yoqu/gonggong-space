@@ -642,7 +642,6 @@ export function Canvas({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-
   // ── bridge ──
   const origin = preview?.origin ?? null
   const textEdit = useTextEdit({
@@ -826,7 +825,9 @@ export function Canvas({
   }
   const askAboutElement = (command: ArtifactCommand, el: PickedElement, text: string) =>
     el.ggId ? ask(command, { ggIds: [{ file: el.file, ggId: el.ggId }], text }) : Promise.resolve(false)
-  const saveOps = (ops: ArtifactEditOp[]) => saveEdits(onEdit, ops)
+  const onEditRef = useRef(onEdit)
+  onEditRef.current = onEdit
+  const saveOps = (ops: ArtifactEditOp[]) => saveEdits(onEditRef.current, ops)
   const annotate = async (req: Omit<CreateAnnotationReq, 'versionId' | 'note'>, note: string) => {
     try {
       await createAnnotation(artifactId, { versionId: versionKey, ...req, note })

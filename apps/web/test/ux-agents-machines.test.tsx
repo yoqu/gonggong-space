@@ -351,6 +351,29 @@ describe('U-34, U-62, U-64 AdminPanels retry, loading, delete locks & hide 删�
     await screen.findByText('群A')
     expect(screen.queryByRole('button', { name: '删除所选' })).toBeNull()
   })
+
+  it('hides deprecated screen_recording and accessibility checks from legacy daemons (Codex #4)', async () => {
+    mockApi({
+      'GET /machines/m1/diag': [
+        { kind: 'server', status: 'ok', detail: 'HTTPS 正常' },
+        { kind: 'screen_recording', status: 'warn', detail: '未授权录屏' },
+        { kind: 'accessibility', status: 'error', detail: '未开启辅助功能' },
+      ],
+      'GET /machines/m1/logs?level=info&limit=300': { lines: [] },
+      'GET /machines/m1/tools': STATE,
+    })
+    render(
+      <MemoryRouter>
+        <DiagnosticsPanel machine={machine} />
+      </MemoryRouter>,
+    )
+    const section = await screen.findByRole('region', { name: '自检' })
+    expect(await within(section).findByText('服务器连接')).toBeTruthy()
+    expect(within(section).queryByText('screen_recording')).toBeNull()
+    expect(within(section).queryByText('accessibility')).toBeNull()
+    expect(within(section).queryByText('未授权录屏')).toBeNull()
+    expect(within(section).queryByText('未开启辅助功能')).toBeNull()
+  })
 })
 
 describe('U-35 PluginTrustsPanel busy op isolation, confirm revoke & retry', () => {
@@ -464,6 +487,40 @@ describe('U-46 MirrorRows retries failed save on re-blur', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     fireEvent.blur(node)
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2))
+  })
+
+  it('serializes rapid A -> B -> A custom mirror edits so reverting before B resolves still saves A (Codex #2)', async () => {
+    let resolveB: (ok: boolean) => void = () => {}
+    const onSave = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<boolean>((r) => (resolveB = r)))
+      .mockResolvedValueOnce(true)
+    const init = { kind: 'custom' as const, registry: 'https://a.test', node: 'https://na.test' }
+    render(<MirrorRows mirror={init} status={null} onSave={onSave} />)
+    const reg = screen.getByRole('textbox', { name: 'npm registry' })
+    const node = screen.getByRole('textbox', { name: 'Node.js 下载地址' })
+
+    // Edit A -> B and blur while B stays in flight
+    fireEvent.change(reg, { target: { value: 'https://b.test' } })
+    fireEvent.change(node, { target: { value: 'https://nb.test' } })
+    fireEvent.blur(node)
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave).toHaveBeenNthCalledWith(1, {
+      kind: 'custom',
+      registry: 'https://b.test',
+      node: 'https://nb.test',
+    })
+
+    // Revert B -> A before B finishes
+    fireEvent.change(reg, { target: { value: 'https://a.test' } })
+    fireEvent.change(node, { target: { value: 'https://na.test' } })
+    fireEvent.blur(node)
+    expect(onSave).toHaveBeenCalledTimes(1)
+
+    // Resolve B -> queued revert A flushes sequentially
+    await act(async () => resolveB(true))
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2))
+    expect(onSave).toHaveBeenNthCalledWith(2, init)
   })
 })
 

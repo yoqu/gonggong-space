@@ -284,6 +284,31 @@ describe('U-44 & U-46 Settings error/retry, EnvRows retry & cancel, HTTP copy, u
     expect(env.value).toBe('FOO=2')
   })
 
+  it('serializes rapid A -> B -> A env edits so reverting before B resolves still saves A (Codex #2)', async () => {
+    let resolveB: () => void = () => {}
+    m.setEnv.mockImplementationOnce(() => new Promise<void>((r) => (resolveB = r))).mockResolvedValueOnce()
+    render(<SettingsPage go={() => {}} />)
+    const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
+    expect(env.value).toBe('FOO=1')
+
+    // Edit A -> B and blur while save B stays in flight
+    fireEvent.change(env, { target: { value: 'FOO=2' } })
+    fireEvent.blur(env)
+    await waitFor(() => expect(m.setEnv).toHaveBeenCalledTimes(1))
+    expect(m.setEnv).toHaveBeenNthCalledWith(1, { FOO: '2' })
+
+    // Revert B -> A before B finishes
+    fireEvent.change(env, { target: { value: 'FOO=1' } })
+    fireEvent.blur(env)
+    // Must not race concurrently while B is in flight
+    expect(m.setEnv).toHaveBeenCalledTimes(1)
+
+    // Resolve B -> queued revert A must now flush sequentially
+    await act(async () => resolveB())
+    await waitFor(() => expect(m.setEnv).toHaveBeenCalledTimes(2))
+    expect(m.setEnv).toHaveBeenNthCalledWith(2, { FOO: '1' })
+  })
+
   it('shows unencrypted HTTP label for http:// server and inline alert on unbind failure', async () => {
     useDaemon.setState({ info: { ...INFO, server: 'http://10.0.0.5:3000' } })
     m.unbind.mockRejectedValueOnce('解绑失败：无权限')

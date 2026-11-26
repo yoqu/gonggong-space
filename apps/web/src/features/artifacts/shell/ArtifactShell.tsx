@@ -225,8 +225,8 @@ export function ArtifactShell({
   }
 
   const onDeleteThread = async (threadId: string) => {
-    if (await attempt(() => deleteArtifactThread(threadId)))
-      setThreads((prev) => prev.filter((x) => x.id !== threadId))
+    await deleteArtifactThread(threadId)
+    setThreads((prev) => prev.filter((x) => x.id !== threadId))
   }
 
   const onSendThreads = async (ids: string[], extra: string) => {

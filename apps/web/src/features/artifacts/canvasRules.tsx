@@ -319,6 +319,10 @@ export function useCanvasRules(o: {
     </div>
   ) : null
 
+  const saveRef = useRef(o.save)
+  saveRef.current = o.save
+  const pagesRef = useRef(data.pages)
+  pagesRef.current = data.pages
   const hint = o.bot ? offlineHint(o.bot) : t('暂无可用 Bot')
   const panel =
     o.panel === 'rules' && screen ? (
@@ -331,7 +335,12 @@ export function useCanvasRules(o: {
         canEdit={o.canEdit}
         selected={selected}
         onSelect={(i) => selectRule(screen.id, i)}
-        onSaveRules={(rules) => o.save([ruleFileOp(screen.id, page?.title ?? null, rules)])}
+        onSaveRules={(rules) =>
+          saveRef.current([ruleFileOp(screen.id, pagesRef.current[screen.id]?.title ?? null, rules)])
+        }
+        onRestoreRules={(id, rules) =>
+          saveRef.current([ruleFileOp(id, pagesRef.current[id]?.title ?? null, rules)])
+        }
         onSaveSource={(md) => o.save([{ kind: 'file', path: `rules/${screen.id}.md`, content: md }])}
         adding={adding?.screenId === screen.id ? adding : null}
         onAdd={startAdding}

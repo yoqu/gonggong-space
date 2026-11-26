@@ -1,5 +1,5 @@
 import type { PageRule } from '@gonggong/protocol'
-import { type KeyboardEvent, useEffect, useState } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import {
@@ -281,6 +281,7 @@ export function RulesPanel({
   selected,
   onSelect,
   onSaveRules,
+  onRestoreRules,
   onSaveSource,
   adding,
   onAdd,
@@ -301,6 +302,8 @@ export function RulesPanel({
   selected: number | null
   onSelect: (i: number) => void
   onSaveRules: (rules: PageRule[]) => Promise<boolean>
+  /** Restores a deleted rule on a specific screen if the user switched screens before clicking Undo. */
+  onRestoreRules?: (screenId: string, rules: PageRule[]) => Promise<boolean>
   onSaveSource: (md: string) => Promise<boolean>
   adding: RulesAdding | null
   onAdd: () => void
@@ -316,16 +319,30 @@ export function RulesPanel({
   const [source, setSource] = useState<string | null>(null)
   const rules = data?.rules ?? []
   const stats = ruleStats(rules)
+  const saveRulesRef = useRef(onSaveRules)
+  saveRulesRef.current = onSaveRules
+  const restoreRulesRef = useRef(onRestoreRules)
+  restoreRulesRef.current = onRestoreRules
+  const screenRef = useRef(screenId)
+  screenRef.current = screenId
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new screen or file drops the unsaved source
   useEffect(() => setSource(null), [screenId, data])
   const replace = async (i: number, next: PageRule | null) => {
     const prev = rules
-    const ok = await onSaveRules(rules.flatMap((r, k) => (k === i ? (next ? [next] : []) : [r])))
+    const deletedAt = screenId
+    const ok = await saveRulesRef.current(rules.flatMap((r, k) => (k === i ? (next ? [next] : []) : [r])))
     if (ok && !next) {
       toast({
         type: 'info',
         message: t('已删除规则'),
-        action: { label: t('撤销#undo'), onClick: () => void onSaveRules(prev) },
+        action: {
+          label: t('撤销#undo'),
+          onClick: () => {
+            if (screenRef.current !== deletedAt && restoreRulesRef.current)
+              void restoreRulesRef.current(deletedAt, prev)
+            else void saveRulesRef.current(prev)
+          },
+        },
       })
     }
     return ok

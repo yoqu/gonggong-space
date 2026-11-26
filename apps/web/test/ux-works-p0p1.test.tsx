@@ -7,7 +7,8 @@ import type {
   UserDto,
   WorkDto,
 } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -17,10 +18,13 @@ import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { useArtifactBot } from '../src/features/artifacts/actions'
 import { CanvasBotPicker, useCanvasBot } from '../src/features/artifacts/CanvasBotPicker'
 import { CanvasPageChips } from '../src/features/artifacts/ContextChips'
+import { useCanvasRules } from '../src/features/artifacts/canvasRules'
 import { ArtifactPage } from '../src/features/artifacts/host'
 import { PageRail } from '../src/features/artifacts/PageRail'
 import { RulesPanel } from '../src/features/artifacts/RulesPanel'
+import { ruleFileOp } from '../src/features/artifacts/rules'
 import { resetShares, ShareDialog, useShareAccess } from '../src/features/artifacts/share'
+import { ArtifactShell } from '../src/features/artifacts/shell/ArtifactShell'
 import { SiteStage } from '../src/features/artifacts/shell/SiteStage'
 import { ThreadsSidebar } from '../src/features/artifacts/shell/ThreadsSidebar'
 import { resetArtifacts } from '../src/features/artifacts/store'
@@ -30,7 +34,7 @@ import { PreviewsView } from '../src/features/previews/PreviewsView'
 import { resetPreviews } from '../src/features/previews/store'
 import { resetWorks, WorksPage } from '../src/features/works/WorksPage'
 import { Toaster } from '../src/ui'
-import { mockApi } from './mockApi'
+import { apiError, mockApi } from './mockApi'
 
 const me = { id: 'u1', name: '姜维川', role: 'member' } as UserDto
 const bot = (o: Partial<BotDto>): BotDto =>
@@ -564,5 +568,125 @@ describe('U-21: Error recovery retry in DiffPane', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(retry).toHaveBeenCalled()
+  })
+})
+
+describe('Codex #1: RulesPanel undo toast submits against post-delete head', () => {
+  it('uses latest head (v2) via canvasRules/RulesPanel refs when undoing a rule deletion', async () => {
+    const rule = { anchor: 'btn', label: '按钮', text: '点击登录', pending: false }
+    const calls: { head: string; ops: unknown[] }[] = []
+
+    function Harness() {
+      const [head, setHead] = useState('v1')
+      const [panel, setPanel] = useState<'rules' | null>('rules')
+      const [content, setContent] = useState(() => {
+        const op = ruleFileOp('s1', '首页', [rule])
+        return 'content' in op ? op.content : ''
+      })
+      const cr = useCanvasRules({
+        screens: [{ id: 's1', title: '首页', file: 's1.html' }],
+        files: [{ path: 'rules/s1.md', hash: head }],
+        readFile: async () => content,
+        versionKey: head,
+        canEdit: true,
+        frames: new Map(),
+        scrolls: {},
+        origin: null,
+        mode: 'preview',
+        panel,
+        setPanel: (next) => setPanel(next === 'rules' ? 'rules' : null),
+        bot: bot({}),
+        save: async (ops) => {
+          calls.push({ head, ops })
+          const fileOp = ops.find((op) => op.kind === 'file')
+          if (fileOp && 'content' in fileOp) setContent(fileOp.content)
+          setHead((cur) => (cur === 'v1' ? 'v2' : 'v3'))
+          return true
+        },
+        complete: async () => true,
+        focus: () => {},
+      })
+      return (
+        <>
+          <Toaster />
+          <button type="button" onClick={() => cr.open('s1')}>
+            open-rules
+          </button>
+          {cr.panel}
+        </>
+      )
+    }
+
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'open-rules' }))
+    expect(await screen.findByText('点击登录')).toBeTruthy()
+
+    // Delete on v1 -> advances head to v2
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]!.head).toBe('v1')
+
+    // Click undo toast -> MUST submit against post-delete head v2 and restore rule text
+    const undoBtn = await screen.findByRole('button', { name: '撤销' })
+    fireEvent.click(undoBtn)
+    await waitFor(() => expect(calls).toHaveLength(2))
+    expect(calls[1]!.head).toBe('v2')
+    expect(JSON.stringify(calls[1]!.ops)).toContain(rule.text)
+  })
+})
+
+describe('Codex #3: ArtifactShell thread deletion failure surfaces inline error without success toast', () => {
+  it('keeps ConfirmActionDialog open with error and never toasts 已删除 when DELETE fails', async () => {
+    mockApi({
+      'POST /artifacts/a1/preview': { previewId: 'pv1', origin: 'https://pv.test', url: 'https://pv.test/' },
+      'GET /artifacts/a1/threads': [
+        {
+          id: 'th1',
+          artifactId: 'a1',
+          versionId: 'v1',
+          anchor: { kind: 'site', path: '/', point: { x: 10, y: 20 } },
+          status: 'open',
+          createdBy: 'u1',
+          createdByName: '姜维川',
+          messages: [
+            { id: 'm1', authorId: 'u1', authorName: '姜维川', text: '改颜色', at: '2026-11-26T00:00:00Z' },
+          ],
+          createdAt: '2026-11-26T00:00:00Z',
+          updatedAt: '2026-11-26T00:00:00Z',
+        },
+      ],
+      'DELETE /artifact-threads/th1': apiError(403, 'forbidden', '删除失败：权限不足'),
+    })
+
+    render(
+      <>
+        <Toaster />
+        <ArtifactShell
+          artifact={artifact({ kind: 'site', site: true, headVersionId: 'v1' })}
+          versions={[
+            {
+              id: 'v1',
+              n: 1,
+              source: 'host',
+              authorName: '姜维川',
+              createdAt: '2026-11-26T00:00:00Z',
+              issues: [],
+            } as never,
+          ]}
+          tabKey="artifact:a1"
+          active
+        />
+      </>,
+    )
+
+    fireEvent.click(await screen.findByTestId('shell-threads-btn'))
+    expect(await screen.findByText('改颜色')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+
+    expect(await within(dialog).findByText('删除失败：权限不足')).toBeTruthy()
+    expect(screen.queryByText('已删除')).toBeNull()
+    expect(screen.getByText('改颜色')).toBeTruthy()
   })
 })

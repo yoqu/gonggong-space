@@ -135,6 +135,7 @@ function UpgradeNow({ machine, latest }: { machine: MachineDto; latest: string }
   )
 }
 
+const DEPRECATED_CHECKS = new Set<DiagCheck['kind']>(['screen_recording', 'accessibility'])
 const CHECK_LABEL: Partial<Record<DiagCheck['kind'], string>> = {
   server: t('服务器连接'),
   agent: 'Agent',
@@ -173,7 +174,7 @@ function SelfChecks({ machine, onOpenGit }: { machine: MachineDto; onOpenGit?: (
       ) : (
         <GroupBox>
           {data
-            .filter((c) => c.status !== 'skipped')
+            .filter((c) => c.status !== 'skipped' && !DEPRECATED_CHECKS.has(c.kind))
             .map((c) => (
               <GroupRow
                 key={c.kind}
