@@ -38,6 +38,7 @@ function AppendAction({ run }: { run: RunDto }) {
   // A continuation has no prompt to interrupt: a message for it starts the next turn.
   if (
     !APPENDABLE.includes(run.status) ||
+    run.stoppedBy ||
     run.continuationOf ||
     !bot ||
     (me !== run.originUserId && me !== bot.ownerId)
@@ -68,6 +69,9 @@ export function RunActions({ run }: { run: RunDto }) {
   if (!STOPPABLE.includes(run.status)) return null
   const othersRun = !!run.originUserId && run.originUserId !== me
   const chain = run.hop > 1
+  // Stopped but not yet wound down by the agent: the server ends it within its grace, so no second click.
+  const stopping = !!run.stoppedBy
+  const pending = stopping || (busy && !confirming)
   const stop = async () => {
     setBusy(true)
     try {
@@ -86,9 +90,10 @@ export function RunActions({ run }: { run: RunDto }) {
         variant="destructive"
         icon="octagon-xmark"
         disabled={busy}
+        loading={stopping}
         onClick={() => setConfirming(true)}
       >
-        {t('终止整条链')}
+        {stopping ? t('正在停止…') : t('终止整条链')}
       </Button>
       <Presence>
         {confirming ? (
@@ -124,10 +129,10 @@ export function RunActions({ run }: { run: RunDto }) {
         size="small"
         icon="stop"
         disabled={busy}
-        loading={busy && !confirming}
+        loading={pending}
         onClick={() => (othersRun ? setConfirming(true) : void stop())}
       >
-        {t('停止')}
+        {pending ? t('正在停止…') : t('停止')}
       </Button>
       <Presence>
         {confirming ? (

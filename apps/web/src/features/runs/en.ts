@@ -136,6 +136,7 @@ export default {
   已回答: 'Answered',
   打断并追加: 'Interrupt & append',
   终止整条链: 'Stop the whole chain',
+  '正在停止…': 'Stopping…',
   取消: 'Cancel',
   终止: 'Stop',
   停止这条接力链上所有未完成的轮次: 'Stops every unfinished turn in this relay chain',

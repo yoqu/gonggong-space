@@ -44,7 +44,7 @@ type User = { id: string; name: string }
 const DISCARD_TIMEOUT_MS = 60_000
 /** How long a stopped live run waits for the daemon's run.done before the server ends it (a hung agent, or a daemon
  * that lost the run). A mutable box so tests can shorten it. */
-export const stopGrace = { ms: 30_000 }
+export const stopGrace = { ms: 10_000 }
 
 /** Ids of the relay chain `runId` belongs to: its root and every descendant. */
 async function chainIds(db: Db | Tx, runId: string): Promise<string[]> {
@@ -137,6 +137,8 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
     const voidReason: VoidReason = chain || run.hop > 1 ? 'chain_stopped' : 'stopped'
     // Marked before run.cancel goes out, so the daemon's run.done always finds who stopped it.
     const live = !WAITING.includes(run.status) && !!machineId && ctx.hub.isOnline(machineId)
+    // Already winding down: a repeat click must not resend run.cancel or arm another grace timer.
+    if (live && run.stoppedBy) continue
     const [row] = await ctx.db
       .update(runs)
       .set(

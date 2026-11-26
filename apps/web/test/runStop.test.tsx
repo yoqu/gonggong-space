@@ -97,6 +97,19 @@ describe('run actions', () => {
     expect(screen.queryByRole('button', { name: '停止' })).toBeNull()
   })
 
+  it('a run already stopping shows 正在停止 and cannot be stopped or appended to again', () => {
+    me('u-wang')
+    const calls = mockApi({})
+    const { rerender } = render(<RunActions run={run({ stoppedBy: 'u-li' })} />)
+    const btn = screen.getByRole('button', { name: /正在停止/ }) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: '打断并追加' })).toBeNull()
+    fireEvent.click(btn)
+    expect(calls).toEqual([])
+    rerender(<RunActions run={run({ hop: 2, stoppedBy: 'u-li' })} />)
+    expect((screen.getByRole('button', { name: /正在停止/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('chained hops offer 终止整条链 instead, locked while it stops', async () => {
     let finish: (v: unknown) => void = () => {}
     const calls = mockApi({ 'POST /runs/r1/stop-chain': () => new Promise((r) => (finish = r)) })

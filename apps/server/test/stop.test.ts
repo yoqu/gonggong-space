@@ -34,7 +34,7 @@ beforeEach(async () => {
   t = await createTestApp({ now: () => clock })
 })
 afterEach(() => {
-  stopGrace.ms = 30_000
+  stopGrace.ms = 10_000
   return t.close()
 })
 
@@ -251,6 +251,16 @@ describe('/stop command', () => {
     w.done(first!.id)
     await new Promise((r) => setTimeout(r, 50))
     expect((await w.run(first!.id)).interrupt).toBeNull()
+  })
+
+  it('stopping a run that is already stopping again is a no-op: no second cancel, no second timer', async () => {
+    const w = await world()
+    await w.say(w.as.li, '@小王的 Claude 改退款接口')
+    const [first] = await w.runsOf(w.claude.id)
+    const by = { id: w.zhao.id, name: '赵敏' }
+    expect(await stopRuns(t.ctx, { groupId: w.g.id, runId: first!.id }, by)).toHaveLength(1)
+    expect(await stopRuns(t.ctx, { groupId: w.g.id, runId: first!.id }, by)).toEqual([])
+    expect(w.sent.filter((m) => m.t === 'run.cancel')).toHaveLength(1)
   })
 
   it('a daemon answering the cancel in time ends the run as before', async () => {
