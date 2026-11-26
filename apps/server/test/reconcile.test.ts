@@ -117,4 +117,25 @@ describe('hello reconciliation (daemon restart)', () => {
     expect((await status(a.id)).status).toBe('running')
     expect((await status(b.id)).status).toBe('awaiting_approval')
   })
+
+  it('does not replay settled approvals for runs interrupted on reconnect', async () => {
+    const w = await world()
+    const lost = await w.run(w.claude.id, 'running')
+    const next = await w.run(w.claude.id, 'queued')
+    await t.db.insert(approvals).values({
+      runId: lost.id,
+      requestId: 'req-lost',
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: 'echo hi',
+      options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }],
+      status: 'approved',
+      decidedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    const box = await connect(hello(w.token, []))
+    expect(await box.next()).toMatchObject({ t: 'welcome' })
+    // The next queued turn starts directly without replaying approval.decision for the interrupted run.
+    expect(await box.next()).toMatchObject({ t: 'run.start', runId: next.id })
+  })
 })

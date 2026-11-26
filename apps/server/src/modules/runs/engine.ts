@@ -5,7 +5,12 @@ import type { DaemonHub } from '../../daemon/hub.js'
 import { attachments, bots, groupBots, messages, runEvents, runs, threadSessions } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
 import { seal } from '../../lib/seal.js'
-import { onAiApproved, onApprovalRequest, voidApprovals } from '../approvals/service.js'
+import {
+  onAiApproved,
+  onApprovalRequest,
+  replayApprovalDecisions,
+  voidApprovals,
+} from '../approvals/service.js'
 import { dropMachineActivity, onArtifactActivity } from '../artifacts/activity.js'
 import { publishBots } from '../bots/dto.js'
 import { mirrorDelta, mirrorRun } from '../feishu/mirror.js'
@@ -14,7 +19,12 @@ import { runAudience } from '../messages/guests.js'
 import { memberMentions, notifyMentions } from '../messages/mentions.js'
 import { authorName, type MessageMeta, messageDto, postEvent, publishMessage } from '../messages/service.js'
 import { pushToAll } from '../notifications/message-push.js'
-import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
+import {
+  onQuestionAsk,
+  onQuestionWithdraw,
+  replayQuestionAnswers,
+  voidQuestions,
+} from '../questions/service.js'
 import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
 import { pauseStopped, requeueRun } from '../sync/resolve.js'
@@ -112,6 +122,8 @@ export function startRunEngine(ctx: Ctx) {
   }
   const onOnline = (machineId: string) =>
     enqueue(machineId, async () => {
+      await replayApprovalDecisions(ctx, machineId)
+      await replayQuestionAnswers(ctx, machineId)
       const owned = await ctx.db
         .select({ id: bots.id })
         .from(bots)

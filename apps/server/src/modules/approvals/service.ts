@@ -5,7 +5,7 @@ import {
   type PermissionOption,
   type RunAudience,
 } from '@gonggong/protocol'
-import { and, eq, inArray, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groupBots, groups, runs } from '../../db/schema.js'
 import { audit, teamOfGroupSql } from '../../lib/audit.js'
@@ -245,6 +245,87 @@ export function startApprovalTimer(ctx: Ctx) {
   return startSweep('approval timeout', () => expireApprovals(ctx), TICK_MS)
 }
 
+/** Re-sends settled decisions of this machine's live runs on reconnect; the daemon ignores already-handled ids. */
+export async function replayApprovalDecisions(ctx: Ctx, machineId: string) {
+  const rows = await ctx.db
+    .select({ a: approvals })
+    .from(approvals)
+    .innerJoin(runs, eq(runs.id, approvals.runId))
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(
+      and(
+        eq(bots.machineId, machineId),
+        inArray(runs.status, LIVE),
+        inArray(approvals.status, ['approved', 'rejected', 'expired']),
+      ),
+    )
+    .orderBy(asc(approvals.decidedAt), asc(approvals.createdAt))
+  const first = rows[0]
+  if (!first) return
+  const settled = rows.map((r) => r.a)
+  const earliest = settled.reduce((min, a) => {
+    const t = a.decidedAt ?? a.createdAt
+    return t < min ? t : min
+  }, first.a.decidedAt ?? first.a.createdAt)
+  const logs = await ctx.db
+    .select({ detail: auditLogs.detail })
+    .from(auditLogs)
+    .where(
+      and(
+        gte(auditLogs.createdAt, new Date(earliest.getTime() - 1000)),
+        eq(auditLogs.category, 'approval'),
+        inArray(
+          sql`${auditLogs.detail}->>'approvalId'`,
+          settled.map((a) => a.id),
+        ),
+      ),
+    )
+  const logged = new Map<string, { optionId: string | null; session: boolean }>()
+  for (const { detail } of logs) {
+    const d = detail as { approvalId?: unknown; optionId?: unknown; session?: unknown }
+    if (typeof d.approvalId === 'string') {
+      logged.set(d.approvalId, {
+        optionId: typeof d.optionId === 'string' ? d.optionId : null,
+        session: d.session === true,
+      })
+    }
+  }
+  for (const a of settled) {
+    const record = logged.get(a.id)
+    const optionId = record ? record.optionId : fallbackOptionId(a)
+    const session = record?.session ?? false
+    ctx.hub.send(machineId, {
+      t: 'approval.decision',
+      runId: a.runId,
+      requestId: a.requestId,
+      optionId,
+      ...(session && { session: true }),
+    })
+  }
+}
+
+function fallbackOptionId(a: Approval): string | null {
+  const options = a.options as PermissionOption[]
+  if (a.status === 'approved') {
+    return (
+      (options.find((o) => o.kind === 'allow_once') ?? options.find((o) => o.kind === 'allow_always'))
+        ?.optionId ?? null
+    )
+  }
+  return options.find((o) => o.kind === 'reject_once')?.optionId ?? null
+}
+
+function settledStep(a: Approval, status: Settled, sent: boolean) {
+  if (!sent) {
+    if (status === 'approved') return runStep('已批准，等待 Bot 电脑重连后继续…')
+    if (status === 'rejected') return runStep('已拒绝，等待 Bot 电脑重连后继续…')
+    return runStep('审批超时，等待 Bot 电脑重连后继续…')
+  }
+  return status === 'approved'
+    ? runStep('已批准：{title}', { title: a.title })
+    : runStep('请求被拒绝，agent 自行绕路')
+}
+
 /** Records the outcome once (a racing decision/timeout loses), answers the daemon and audits it. */
 async function settle(
   ctx: Ctx,
@@ -260,14 +341,15 @@ async function settle(
     .where(and(eq(approvals.id, row.a.id), eq(approvals.status, 'pending')))
     .returning()
   if (!a) return null
-  if (row.machineId)
-    ctx.hub.send(row.machineId, {
-      t: 'approval.decision',
-      runId: a.runId,
-      requestId: a.requestId,
-      optionId,
-      ...(session && { session: true }),
-    })
+  const sent = row.machineId
+    ? ctx.hub.send(row.machineId, {
+        t: 'approval.decision',
+        runId: a.runId,
+        requestId: a.requestId,
+        optionId,
+        ...(session && { session: true }),
+      })
+    : false
   await ctx.db.insert(auditLogs).values({
     category: 'approval',
     actorUserId,
@@ -278,7 +360,7 @@ async function settle(
     createdAt: ctx.now(),
   })
   await resolveNotifications(ctx, 'approval', 'approvalId', [a.id])
-  await syncRun(ctx, a.runId)
+  await syncRun(ctx, a.runId, settledStep(a, status, sent), { whenClear: true })
   return a
 }
 
@@ -291,13 +373,25 @@ const auditDetail = (a: Approval) => ({
 })
 
 /** A live run awaits approval exactly while it has a pending request; publishes the run with its approvals. */
-async function syncRun(ctx: Ctx, runId: string, step?: ReturnType<typeof runStep>) {
+async function syncRun(
+  ctx: Ctx,
+  runId: string,
+  step?: ReturnType<typeof runStep>,
+  opts?: { whenClear?: boolean },
+) {
   const pending = sql`exists (select 1 from ${approvals} where ${approvals.runId} = ${runs.id} and ${approvals.status} = 'pending')`
+  const stepUpdate =
+    step && opts?.whenClear
+      ? {
+          step: sql`case when ${pending} then ${runs.step} else ${step.step} end`,
+          stepI18n: sql`case when ${pending} then ${runs.stepI18n} else ${JSON.stringify(step.stepI18n)}::jsonb end`,
+        }
+      : step
   const [updated] = await ctx.db
     .update(runs)
     .set({
       status: sql`case when ${pending} then 'awaiting_approval' else 'running' end`,
-      ...step,
+      ...stepUpdate,
     })
     .where(and(eq(runs.id, runId), inArray(runs.status, ['running', 'awaiting_approval'])))
     .returning()

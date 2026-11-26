@@ -38,7 +38,7 @@ afterEach(() => {
   return t.close()
 })
 
-async function daemon(token: string) {
+async function daemon(token: string, activeRuns: string[] = []) {
   const ws = t.ws('/ws/daemon')
   const box = inbox(ws)
   await box.opened
@@ -50,9 +50,10 @@ async function daemon(token: string) {
     daemonVersion: '0.1.0',
     machine: { name: 'mbp', os: 'macos', arch: 'aarch64' },
     agents: [],
+    activeRuns,
   })
   expect(await box.next()).toMatchObject({ t: 'welcome' })
-  return { send, next: () => box.next<ServerToDaemon>() }
+  return { send, next: () => box.next<ServerToDaemon>(), close: () => ws.close() }
 }
 
 function watch(userId: string) {
@@ -133,7 +134,23 @@ async function world() {
     c.post<ApprovalDto & { error?: string }>(`/api/runs/${a.runId}/approvals/${a.id}`, { optionId })
   const audit = () => t.db.select().from(auditLogs).orderBy(asc(auditLogs.id))
   const run = async (id: string) => (await t.db.select().from(runs).where(eq(runs.id, id)))[0]!
-  return { owner, viewer, bot, group, d, ownerWeb, viewerWeb, request, owners, viewers, decide, audit, run }
+  return {
+    owner,
+    viewer,
+    machine,
+    token,
+    bot,
+    group,
+    d,
+    ownerWeb,
+    viewerWeb,
+    request,
+    owners,
+    viewers,
+    decide,
+    audit,
+    run,
+  }
 }
 
 describe('approvals', () => {
@@ -701,5 +718,81 @@ describe('始终允许 rules', () => {
     await w.decide(w.owners, approval, 'always')
     expect(await alwaysAllow(w.bot.id)).toEqual(['go build'])
     expect((await w.audit()).map((a) => a.action)).not.toContain('bot.always_allow')
+  })
+
+  it('updates step on decision only when no other approval is pending', async () => {
+    const w = await world()
+    const { runId, approval: first } = await w.request('req-1', OPTIONS)
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-2',
+      title: 'Write',
+      toolKind: 'edit',
+      detail: 'a.ts',
+      options: OPTIONS,
+    })
+    const withTwo = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    expect(withTwo.step).toBe('等待审批：Write')
+
+    // Deciding the first while the second is still pending keeps awaiting_approval and the waiting step.
+    await w.decide(w.owners, first, 'allow')
+    expect(await w.d.next()).toEqual({ t: 'approval.decision', runId, requestId: 'req-1', optionId: 'allow' })
+    expect(await w.run(runId)).toMatchObject({ status: 'awaiting_approval', step: '等待审批：Write' })
+
+    // Deciding the last pending request clears awaiting_approval and updates step immediately.
+    await w.decide(w.owners, withTwo.approvals[1]!, 'reject')
+    expect(await w.d.next()).toEqual({
+      t: 'approval.decision',
+      runId,
+      requestId: 'req-2',
+      optionId: 'reject',
+    })
+    expect(await w.run(runId)).toMatchObject({ status: 'running', step: '请求被拒绝，agent 自行绕路' })
+  })
+
+  it('replays settled decisions with optionId and session flag when the daemon reconnects', async () => {
+    const w = await world()
+    const { runId } = await w.request('req-1', OPTIONS)
+    // Add a second request with rememberSession so we test session: true replay as well.
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-2',
+      title: 'Run command',
+      toolKind: 'execute',
+      detail: 'curl https://example.com',
+      options: OPTIONS,
+      rememberSession: ['curl'],
+    })
+    const withTwo = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    const [first, second] = withTwo.approvals
+
+    // Simulate a server-restart / network blip window: daemon disconnects before owner approves.
+    w.d.close()
+    await vi.waitFor(() => expect(t.ctx.hub.isOnline(w.machine.id)).toBe(false))
+
+    expect((await w.decide(w.owners, first!, 'always')).status).toBe(200)
+    const res = await w.owners.post<ApprovalDto>(`/api/runs/${runId}/approvals/${second!.id}`, {
+      optionId: 'allow',
+      session: true,
+    })
+    expect(res.status).toBe(200)
+    // While offline, the run no longer shows the misleading "等待审批" step.
+    expect(await w.run(runId)).toMatchObject({
+      status: 'running',
+      step: '已批准，等待 Bot 电脑重连后继续…',
+    })
+
+    // Daemon reconnects reporting the run still alive: both settled decisions are replayed faithfully.
+    const d2 = await daemon(w.token, [runId])
+    expect(await d2.next()).toEqual({ t: 'approval.decision', runId, requestId: 'req-1', optionId: 'always' })
+    expect(await d2.next()).toEqual({
+      t: 'approval.decision',
+      runId,
+      requestId: 'req-2',
+      optionId: 'allow',
+      session: true,
+    })
   })
 })

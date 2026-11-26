@@ -33,7 +33,7 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-async function daemon(token: string) {
+async function daemon(token: string, activeRuns: string[] = []) {
   const ws = t.ws('/ws/daemon')
   const box = inbox(ws)
   await box.opened
@@ -45,9 +45,10 @@ async function daemon(token: string) {
     daemonVersion: '0.1.0',
     machine: { name: 'mbp', os: 'macos', arch: 'aarch64' },
     agents: [],
+    activeRuns,
   })
   expect(await box.next()).toMatchObject({ t: 'welcome' })
-  return { send, next: () => box.next<ServerToDaemon>() }
+  return { send, next: () => box.next<ServerToDaemon>(), close: () => ws.close() }
 }
 
 function watch(userId: string) {
@@ -163,6 +164,8 @@ async function world() {
     owner,
     viewer,
     trigger,
+    machine,
+    token,
     bot,
     group,
     d,
@@ -523,5 +526,76 @@ describe('interrupt and append', () => {
     w.d.send({ ...DONE, runId, outcome: 'interrupted', appendsApplied: 0 })
     await w.viewerWeb.run((r) => r.id === runId && r.status === 'interrupted')
     expect(await t.db.select().from(runs)).toHaveLength(1)
+  })
+
+  it('updates step when answered online and replays missed answers on daemon reconnect', async () => {
+    const w = await world()
+    const runId = await w.start()
+    const q1 = await w.ask(runId, 'r/q1')
+    expect((await w.answer(w.triggers, q1)).status).toBe(200)
+    expect(await w.d.next()).toMatchObject({ t: 'question.answer', runId, requestId: 'r/q1' })
+    expect(await w.run(runId)).toMatchObject({ status: 'running', step: '赵敏 已回答' })
+
+    // Second question card answered with an attachment while the daemon is disconnected.
+    const q2 = await w.ask(runId, 'r/q2')
+    const [file] = await t.db
+      .insert(attachments)
+      .values({
+        uploaderId: w.trigger.id,
+        groupId: w.group.id,
+        name: 'spec.md',
+        size: 42,
+        mime: 'text/markdown',
+        storageKey: 'spec.md',
+      })
+      .returning()
+    w.d.close()
+    await vi.waitFor(() => expect(t.ctx.hub.isOnline(w.machine.id)).toBe(false))
+
+    expect((await w.answer(w.triggers, q2, ANSWERS, [file!.id])).status).toBe(200)
+    expect(await w.run(runId)).toMatchObject({
+      status: 'running',
+      step: '已回答，等待 Bot 电脑重连后继续…',
+    })
+
+    const d2 = await daemon(w.token, [runId])
+    expect(await d2.next()).toEqual({
+      t: 'question.answer',
+      runId,
+      requestId: 'r/q1',
+      answers: ANSWERS,
+      attachments: [],
+      answeredBy: '赵敏',
+    })
+    expect(await d2.next()).toEqual({
+      t: 'question.answer',
+      runId,
+      requestId: 'r/q2',
+      answers: ANSWERS,
+      attachments: [{ id: file!.id, name: 'spec.md', size: 42, mime: 'text/markdown', messageId: q2.id }],
+      answeredBy: '赵敏',
+    })
+
+    // A question card that expires while the daemon is offline also updates step and replays on reconnect.
+    d2.send({ t: 'question.ask', runId, requestId: 'r/q3', questions: QUESTIONS })
+    await w.viewerWeb.run((r) => r.id === runId && r.questions.length === 3)
+    d2.close()
+    await vi.waitFor(() => expect(t.ctx.hub.isOnline(w.machine.id)).toBe(false))
+    clock = new Date(clock.getTime() + 31 * 60_000)
+    await expireQuestions(t.ctx)
+    expect(await w.run(runId)).toMatchObject({
+      status: 'running',
+      step: '提问超时，等待 Bot 电脑重连后继续…',
+    })
+    const d3 = await daemon(w.token, [runId])
+    const replayed = [await d3.next(), await d3.next(), await d3.next()]
+    expect(replayed).toContainEqual({
+      t: 'question.answer',
+      runId,
+      requestId: 'r/q3',
+      answers: null,
+      attachments: [],
+      answeredBy: null,
+    })
   })
 })

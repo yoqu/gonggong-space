@@ -1,7 +1,16 @@
 import type { Answer, DaemonToServer, Question } from '@gonggong/protocol'
-import { and, eq, inArray, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { auditLogs, bots, groups, questionLeanings, questionSets, runs } from '../../db/schema.js'
+import {
+  attachments,
+  auditLogs,
+  bots,
+  groups,
+  questionLeanings,
+  questionSets,
+  runs,
+  users,
+} from '../../db/schema.js'
 import { teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { startSweep } from '../../lib/sweep.js'
@@ -12,7 +21,7 @@ import { memberMentions } from '../messages/mentions.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { publishRun } from '../runs/dto.js'
 import { runStep } from '../runs/step.js'
-import { leaningsOf, questionSetDto } from './dto.js'
+import { attachmentDto, leaningsOf, questionSetDto } from './dto.js'
 
 type QuestionSet = typeof questionSets.$inferSelect
 type QuestionAsk = Extract<DaemonToServer, { t: 'question.ask' }>
@@ -118,16 +127,22 @@ export async function answerQuestions(
     return { settled: settled ?? fail('conflict', '该提问已处理'), files }
   })
   await resolveNotifications(ctx, 'question', 'questionSetId', [id])
-  if (row.machineId)
-    ctx.hub.send(row.machineId, {
-      t: 'question.answer',
-      runId,
-      requestId: settled.requestId,
-      answers,
-      attachments: files,
-      answeredBy: user.name,
-    })
-  await syncRun(ctx, runId)
+  const sent = row.machineId
+    ? ctx.hub.send(row.machineId, {
+        t: 'question.answer',
+        runId,
+        requestId: settled.requestId,
+        answers,
+        attachments: files,
+        answeredBy: user.name,
+      })
+    : false
+  await syncRun(
+    ctx,
+    runId,
+    sent ? runStep('{who} 已回答', { who: user.name }) : runStep('已回答，等待 Bot 电脑重连后继续…'),
+    { whenClear: true },
+  )
   return questionSetDto(settled, user.name, files)
 }
 
@@ -173,16 +188,22 @@ export async function expireQuestions(ctx: Ctx) {
     const settled = await settle(ctx, ctx.db, row, 'expired', {}, null)
     if (!settled) continue
     await resolveNotifications(ctx, 'question', 'questionSetId', [settled.id])
-    if (row.machineId)
-      ctx.hub.send(row.machineId, {
-        t: 'question.answer',
-        runId: settled.runId,
-        requestId: settled.requestId,
-        answers: null,
-        attachments: [],
-        answeredBy: null,
-      })
-    await syncRun(ctx, settled.runId)
+    const sent = row.machineId
+      ? ctx.hub.send(row.machineId, {
+          t: 'question.answer',
+          runId: settled.runId,
+          requestId: settled.requestId,
+          answers: null,
+          attachments: [],
+          answeredBy: null,
+        })
+      : false
+    await syncRun(
+      ctx,
+      settled.runId,
+      sent ? runStep('无人回答，agent 按推荐项继续') : runStep('提问超时，等待 Bot 电脑重连后继续…'),
+      { whenClear: true },
+    )
   }
 }
 
@@ -267,14 +288,60 @@ const auditDetail = (q: QuestionSet) => ({
   questions: (q.questions as Question[]).map((x) => x.title),
 })
 
+/** Re-sends settled answers of this machine's live runs on reconnect; the daemon ignores already-handled ids. */
+export async function replayQuestionAnswers(ctx: Ctx, machineId: string) {
+  const rows = await ctx.db
+    .select({ q: questionSets, answeredByName: users.name })
+    .from(questionSets)
+    .innerJoin(runs, eq(runs.id, questionSets.runId))
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(users, eq(users.id, questionSets.answeredBy))
+    .where(
+      and(
+        eq(bots.machineId, machineId),
+        inArray(runs.status, LIVE),
+        inArray(questionSets.status, ['answered', 'expired']),
+      ),
+    )
+    .orderBy(asc(questionSets.answeredAt), asc(questionSets.createdAt))
+  if (!rows.length) return
+  const fileIds = rows.flatMap((r) => (r.q.status === 'answered' ? r.q.attachmentIds : []))
+  const files = fileIds.length
+    ? (await ctx.db.select().from(attachments).where(inArray(attachments.id, fileIds))).map(attachmentDto)
+    : []
+  for (const { q, answeredByName } of rows) {
+    const answered = q.status === 'answered'
+    ctx.hub.send(machineId, {
+      t: 'question.answer',
+      runId: q.runId,
+      requestId: q.requestId,
+      answers: answered ? ((q.answers as Answer[] | null) ?? null) : null,
+      attachments: answered ? q.attachmentIds.flatMap((id) => files.filter((f) => f.id === id)) : [],
+      answeredBy: answered ? (answeredByName ?? null) : null,
+    })
+  }
+}
+
 /** A live run awaits an answer exactly while it has a pending card; publishes the run with its cards. */
-async function syncRun(ctx: Ctx, runId: string, step?: ReturnType<typeof runStep>) {
+async function syncRun(
+  ctx: Ctx,
+  runId: string,
+  step?: ReturnType<typeof runStep>,
+  opts?: { whenClear?: boolean },
+) {
   const pending = sql`exists (select 1 from ${questionSets} where ${questionSets.runId} = ${runs.id} and ${questionSets.status} = 'pending')`
+  const stepUpdate =
+    step && opts?.whenClear
+      ? {
+          step: sql`case when ${pending} then ${runs.step} else ${step.step} end`,
+          stepI18n: sql`case when ${pending} then ${runs.stepI18n} else ${JSON.stringify(step.stepI18n)}::jsonb end`,
+        }
+      : step
   const [updated] = await ctx.db
     .update(runs)
     .set({
       status: sql`case when ${pending} then 'awaiting_answer' else 'running' end`,
-      ...step,
+      ...stepUpdate,
     })
     .where(and(eq(runs.id, runId), inArray(runs.status, ['running', 'awaiting_answer'])))
     .returning()
