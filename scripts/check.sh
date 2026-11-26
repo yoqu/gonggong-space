@@ -25,7 +25,7 @@ else
   changed="$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)"
 fi
 
-web=false desktop=false server=false protocol=false cargo=false tools=false vendor=false
+typecheck=true web=false desktop=false server=false protocol=false cargo=false tools=false vendor=false
 for f in $changed; do
   case "$f" in
     docs/* | *.md | e2e/* | videos/* | website/*) ;;
@@ -49,7 +49,11 @@ run() { echo "▶ $*"; "$@"; }
 # only push each other into swap. /tmp rather than $TMPDIR, which a bot's shell may point elsewhere.
 # A larger machine allows more at once: GG_CHECK_SLOTS in its ~/.config/gonggong/peer.env.
 lock="${GG_CHECK_LOCK:-/tmp/gonggong-check.lock}"
-slots="$(sed -n 's/^GG_CHECK_SLOTS=//p' "$HOME/.config/gonggong/peer.env" 2>/dev/null)"
+peer_env="${GG_PEER_ENV:-$HOME/.config/gonggong/peer.env}"
+role="$(sed -n 's/^GG_ROLE=//p' "$peer_env" 2>/dev/null || true)"
+slots="$(sed -n 's/^GG_CHECK_SLOTS=//p' "$peer_env" 2>/dev/null || true)"
+# Cap vitest concurrency on the smaller machine so local and fallback runs do not push it into swap.
+[ "$role" = light ] && export VITEST_MAX_WORKERS="${VITEST_MAX_WORKERS:-3}"
 serial() {
   local i rc
   if command -v lockf >/dev/null; then
@@ -163,6 +167,7 @@ if [ -f .internal-patterns ]; then
 fi
 run_job() {
   case "$1" in
+    typecheck) run pnpm typecheck ;;
     tools) run node --test tools/*.test.mjs ;;
     vendor)
       [ -d vendor/open-artifact/node_modules ] || (cd vendor/open-artifact && run npm ci --no-audit --no-fund)
@@ -190,12 +195,13 @@ if [ -n "$jobs" ]; then
   exit 0
 fi
 
-# The smaller machine hands over the suites heavy on memory, the larger one the light ones it would wait on.
+# The smaller machine hands over the heavy checks and suites; the larger one keeps everything local via GG_CHECK_SLOTS
+# rather than pushing web tests back onto the smaller machine.
 offload="" peer_pid=""
 if ! $local; then
-  case "$(sed -n 's/^GG_ROLE=//p' "$HOME/.config/gonggong/peer.env" 2>/dev/null)" in
-    light) offload="$(wanted_jobs server cargo)" ;;
-    heavy) offload="$(wanted_jobs protocol desktop web)" ;;
+  case "$role" in
+    light) offload="$(wanted_jobs typecheck web server cargo)" ;;
+    heavy) offload="" ;;
   esac
 fi
 if [ -n "$offload" ]; then
@@ -209,7 +215,7 @@ if [ -n "$offload" ]; then
 fi
 
 run node scripts/check-size.mjs
-run pnpm typecheck
+grep -qx typecheck <<<"$offload" || run_job typecheck
 run pnpm lint
 for job in $(wanted_jobs tools vendor protocol desktop web server cargo); do
   grep -qx "$job" <<<"$offload" || run_job "$job"
