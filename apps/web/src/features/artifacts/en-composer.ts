@@ -13,6 +13,7 @@ export default {
   在画布中查看: 'View on canvas',
   '改了 {screens}': 'Changed {screens}',
   在左侧页面列表里选中的页面: 'The page selected in the page list on the left',
-  '选择 AI': 'Choose an AI',
-  '执行的 AI': 'AI to run',
+  '执行的 Bot': 'Bot to run',
+  在左侧页面列表里选中的文件夹: 'The folder selected in the page list on the left',
+  返回全部页面: 'Back to all pages',
 }

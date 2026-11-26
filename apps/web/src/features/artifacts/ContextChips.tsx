@@ -35,7 +35,17 @@ export function ForegroundChip({ title, onRemove }: { title: string; onRemove: (
  * The canvas composer's top left: the pages the next message changes, each by name (the canvas selection, removable),
  * or the one page opened in the list when nothing is selected.
  */
-export function CanvasPageChips({ context, page }: { context: CanvasContext | null; page: string | null }) {
+export function CanvasPageChips({
+  context,
+  page,
+  pageKind = 'screen',
+  onClearPage,
+}: {
+  context: CanvasContext | null
+  page: string | null
+  pageKind?: 'screen' | 'folder'
+  onClearPage?: () => void
+}) {
   const items = context?.items ?? []
   return (
     <div className="art-chips" data-testid="art-canvas-pages">
@@ -64,11 +74,25 @@ export function CanvasPageChips({ context, page }: { context: CanvasContext | nu
           )
         })
       ) : page ? (
-        <span className="art-chip" title={t('在左侧页面列表里选中的页面')}>
-          <Icon name="smartphone" size={13} className="art-chip__icon" />
+        <span
+          className="art-chip"
+          title={pageKind === 'folder' ? t('在左侧页面列表里选中的文件夹') : t('在左侧页面列表里选中的页面')}
+        >
+          <Icon name={pageKind === 'folder' ? 'folder' : 'smartphone'} size={13} className="art-chip__icon" />
           <span className="art-chip__text" data-testid="art-canvas-page">
             {page}
           </span>
+          {onClearPage ? (
+            <button
+              type="button"
+              className="art-chip__x"
+              aria-label={t('返回全部页面')}
+              title={t('返回全部页面')}
+              onClick={onClearPage}
+            >
+              <Icon name="xmark" size={10} weight={2} />
+            </button>
+          ) : null}
         </span>
       ) : null}
     </div>

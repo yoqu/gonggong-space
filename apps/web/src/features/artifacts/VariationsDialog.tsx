@@ -32,15 +32,16 @@ export function VariationsDialog({
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       closeOnBackdrop={false}
       title={t('自定义变体')}
       message={screens.join('、')}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: onClose },
         {
-          label: bot ? t('发给 @{name}', { name: bot.name }) : t('群里没有 Bot'),
+          label: bot ? t('发给 @{name}', { name: bot.name }) : t('暂无可用 Bot'),
           variant: 'primary',
+          loading: busy,
           disabled: busy || !bot || !text.trim(),
           onClick: () => void send(),
         },

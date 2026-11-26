@@ -916,7 +916,7 @@
   direction: rtl;
   text-align: left;
   font-size: var(--text-caption-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .ft__row[aria-selected="true"] .ft__dir {
   color: inherit;
@@ -936,7 +936,7 @@
   min-height: 24px;
   padding-right: var(--space-8);
   font-size: var(--text-footnote-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .ft__note--error {
   color: var(--tint-red-text);

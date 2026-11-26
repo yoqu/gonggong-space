@@ -623,6 +623,7 @@
 }
 .plg-compose__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8);
   min-width: 0;

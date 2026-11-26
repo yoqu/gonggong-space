@@ -1,6 +1,9 @@
 export default {
   // Artifact Shell (S0)
-  添加批注: 'Add comment',
+  '添加批注#shell': 'Add comment',
+  在编辑器中选中内容后添加批注: 'Select content in the editor to add a comment',
+  '删除后该批注及回复将一并移除，无法恢复。':
+    'This removes the comment and all its replies and cannot be undone.',
   退出批注模式: 'Exit comment mode',
   点击页面添加坐标批注: 'Click on the page to add a coordinate comment',
   '写下对这处页面的修改意见…': 'Write feedback for this spot on the page…',

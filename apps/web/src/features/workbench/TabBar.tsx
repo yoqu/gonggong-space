@@ -145,19 +145,25 @@ export function TabBar({
       <NewTabMenu className="bench__btn">
         <Icon name="plus" size={12} weight={1.8} />
       </NewTabMenu>
-      <MenuButton
-        aria-label={t('全部标签页')}
-        title={t('全部标签页')}
-        className="bench__btn"
-        align="end"
-        items={tabs.map((t) => ({
-          value: tabKey(t),
-          label: <TabLabel tab={t}>{(meta) => meta.title}</TabLabel>,
-        }))}
-        onSelect={activate}
-      >
-        <Icon name="chevron-down" size={12} weight={1.8} />
-      </MenuButton>
+      {tabs.length > 0 ? (
+        <MenuButton
+          aria-label={t('全部标签页')}
+          title={t('全部标签页')}
+          className="bench__btn"
+          align="end"
+          items={tabs.map((t) => {
+            const k = tabKey(t)
+            return {
+              value: k,
+              checked: k === active,
+              label: <TabLabel tab={t}>{(meta) => meta.title}</TabLabel>,
+            }
+          })}
+          onSelect={activate}
+        >
+          <Icon name="chevron-down" size={12} weight={1.8} />
+        </MenuButton>
+      ) : null}
     </div>
   )
 }

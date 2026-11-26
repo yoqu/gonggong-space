@@ -170,11 +170,15 @@ const UPLOAD_HINT = t('上传含 gonggong-plugin.json 的文件夹或 zip；同�
 
 /** One layer's plugins under `base` (`/admin/plugins`, `/teams/:id/plugins`): upload and delete. */
 export function PluginLayerList({ base }: { base: string }) {
-  const { data, error, reload } = useGet<PluginDto[]>(base)
+  const { data, error, loading, reload } = useGet<PluginDto[]>(base)
   return (
     <>
-      {error ? <Alert variant="error" title={t('配置加载失败')} description={error} /> : null}
-      {data?.length === 0 ? (
+      {error ? (
+        <Alert variant="error" title={t('配置加载失败')} description={error} onRetry={reload} />
+      ) : null}
+      {error && !data ? null : loading && !data ? (
+        <Spinner />
+      ) : data?.length === 0 ? (
         <EmptyState
           illustration={<NoPluginsArt />}
           title={t('还没有插件')}
@@ -221,6 +225,7 @@ function botAvailability(plugins: GroupPluginDto[], botId: string, botName: stri
 export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
   const list = useGroupPlugins(group.id)
   const error = useGroupPluginsError(group.id)
+  const [toggling, setToggling] = useState<string | null>(null)
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const base = `/groups/${group.id}/plugins`
   const reload = () => loadPlugins(group.id)
@@ -263,10 +268,15 @@ export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; 
                     <DeletePlugin base={base} p={p} onDone={reload} />
                   ) : null}
                   <Switch
-                    disabled={readOnly}
+                    disabled={readOnly || toggling === p.id}
                     ariaLabel={t('在本群启用 {name}', { name: p.manifest.title })}
                     checked={p.enabledInGroup}
-                    onChange={(on) => void attempt(() => togglePlugin(group.id, p.id, on))}
+                    onChange={(on) => {
+                      setToggling(p.id)
+                      void attempt(() => togglePlugin(group.id, p.id, on)).finally(() =>
+                        setToggling((cur) => (cur === p.id ? null : cur)),
+                      )
+                    }}
                   />
                 </span>
               </GroupRow>

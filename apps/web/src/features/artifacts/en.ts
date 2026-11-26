@@ -239,4 +239,25 @@ export default {
   已删除批注: 'Annotation deleted',
   'AI 做出第一版后可以编辑': 'You can edit once the AI makes the first version',
   '在下方对话框里说要做什么，AI 会做出第一版': 'Tell the AI below what to make; it makes the first version',
+  还没有内容: 'Nothing here yet',
+  '在左侧 AI 对话里说要做什么，AI 会做出第一版':
+    'Tell the AI what to make in the AI chat on the left; it makes the first version',
+  '只有创建人、Bot 主人或群管理员能开关分享':
+    'Only the creator, the bot owner or a group admin can toggle sharing',
+  只有创建人和已授权成员能打开: 'Only the creator and invited members can open it',
+  '本团队成员都能查看和演示，创建人和协作者可修改':
+    'Team members can view and present; the creator and collaborators can edit',
+  还没有页面: 'No pages yet',
+  '在下方输入想法，让 Bot 生成第一版':
+    'Describe what to build below and the Bot will create the first version',
+  '在 AI 对话里说要做什么，Bot 会做出第一版':
+    'Describe what to build in AI chat and the Bot will create the first version',
+  生成第一版后可分享: 'Available after the first version is generated',
+  生成第一版后可发送到群: 'Available after the first version is generated',
+  删除后将从作品列表中移除: 'Removed from your works list',
+  '已授权 {name}': 'Granted access to {name}',
+  '已更新 {name} 的权限': 'Updated access for {name}',
+  '已移除 {name} 的权限': 'Removed access for {name}',
+  成员列表加载失败: 'Failed to load team members',
+  团队里其他成员均已授权: 'All other team members already have access',
 }

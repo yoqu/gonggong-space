@@ -10,8 +10,17 @@ import {
 } from '@gonggong/protocol'
 import { type ReactNode, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { toastError } from '../../lib/errors'
-import { Button, Dialog, Icon, Menu, type MenuItem, Popover, SegmentedControl } from '../../ui'
+import {
+  Button,
+  ConfirmActionDialog,
+  Dialog,
+  Icon,
+  Menu,
+  type MenuItem,
+  Popover,
+  Presence,
+  SegmentedControl,
+} from '../../ui'
 import { AttachmentChips, type useUploads } from '../attachments/ComposerAttachments'
 import { ImportDesignDialog } from './ImportDesignDialog'
 import type { CreationDraft } from './model'
@@ -84,6 +93,7 @@ export function PromptComposer({
   const device = selects[0]
   const imported = useGroupDesignSystems(group.id)
   const [importing, setImporting] = useState(false)
+  const [deletingDs, setDeletingDs] = useState<{ id: string; title: string } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const text = typeof draft.inputs[promptId] === 'string' ? (draft.inputs[promptId] as string) : ''
   const setInput = (id: string, v: string) => onDraft({ inputs: { ...draft.inputs, [id]: v } })
@@ -130,8 +140,9 @@ export function PromptComposer({
     if (v === IMPORT) return setImporting(true)
     if (v.startsWith(DELETE)) {
       const id = v.slice(DELETE.length)
-      if (id === importedPick?.id) onDraft({ designSystemId: AUTO_DESIGN_SYSTEM })
-      return void deleteDesignSystem(group.id, id).catch(toastError)
+      const target = imported.find((d) => d.id === id)
+      if (target) setDeletingDs({ id: target.id, title: target.title })
+      return
     }
     onDraft({ designSystemId: v })
   }
@@ -244,12 +255,13 @@ export function PromptComposer({
               icon="arrow-up"
               aria-label={bot ? t('交给 {bot}', { bot: bot.name }) : t('交给 AI')}
               title={problems[0]}
+              loading={busy}
               disabled={blocked}
               onClick={onSubmit}
             />
           </div>
         </div>
-        {problems.length && text.trim() ? (
+        {problems.length && (text.trim() || !bot) ? (
           <div className="plg-compose__warn" role="status">
             <Icon name="warning" size={12} />
             {problems[0]}
@@ -279,6 +291,23 @@ export function PromptComposer({
           }}
         />
       ) : null}
+      <Presence>
+        {deletingDs ? (
+          <ConfirmActionDialog
+            title={t('要删除设计系统「{title}」吗？', { title: deletingDs.title })}
+            message={t('删除后将从本群的导入列表中移除，不影响已生成的作品。')}
+            consequences={[]}
+            label={t('删除')}
+            done={t('已删除')}
+            run={async () => {
+              await deleteDesignSystem(group.id, deletingDs.id)
+              if (deletingDs.id === importedPick?.id) onDraft({ designSystemId: AUTO_DESIGN_SYSTEM })
+            }}
+            onDone={() => setDeletingDs(null)}
+            onClose={() => setDeletingDs(null)}
+          />
+        ) : null}
+      </Presence>
     </Dialog>
   )
 }

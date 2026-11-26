@@ -70,7 +70,7 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
     useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
     render(<MessageComposer group={group} onSent={() => {}} canvasChat={chat} />)
-    expect(input().placeholder).toBe('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+    expect(input().placeholder).toBe('描述要怎么改，Bot 的回复显示在「AI 对话」里')
     type('首页改成深色')
     fireEvent.keyDown(input(), { key: 'Enter' })
     await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
@@ -104,7 +104,7 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     for (const name of ['@ 提及', '命令', '表情']) expect(screen.queryByRole('button', { name })).toBeNull()
     expect(screen.getByRole('button', { name: '图片' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '附件' })).toBeTruthy()
-    const chip = screen.getByRole('button', { name: '执行的 AI' })
+    const chip = screen.getByRole('button', { name: '执行的 Bot' })
     expect(chip.textContent).toContain('共字君')
     fireEvent.pointerDown(chip, { button: 0, pointerType: 'mouse' })
     fireEvent.click(chip)
@@ -116,7 +116,7 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     expect(posts(calls, '/groups/g1/messages')[0]).toMatchObject({ body: '首页改成深色', botId: 'jw' })
     view.unmount()
     render(<MessageComposer group={g} onSent={() => {}} canvasChat={chat} />)
-    expect(screen.getByRole('button', { name: '执行的 AI' }).textContent).toContain('姜维川的 Claude Code')
+    expect(screen.getByRole('button', { name: '执行的 Bot' }).textContent).toContain('姜维川的 Claude Code')
   })
 
   it('names every selected page top left, drops the other chips, and keeps 设计系统 under the input', () => {

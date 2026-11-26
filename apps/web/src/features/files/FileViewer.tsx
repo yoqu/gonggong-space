@@ -729,18 +729,14 @@ export function FileViewer({
           </div>
         )
       case 'pdf':
-        return url ? <PdfView url={url} name={name} meta={meta} onSize={onHeadSize} /> : null
       case 'docx':
       case 'xlsx':
-      case 'pptx':
-        return url ? (
-          <OfficeView
-            kind={kind}
-            url={url}
-            name={name}
-            download={(message) => <Download url={url} name={name} message={message} />}
-          />
-        ) : null
+      case 'pptx': {
+        const dl = (message: string) => <Download url={url} name={name} message={message} />
+        if (!url) return dl(t('历史版本暂不支持预览此文件'))
+        if (kind === 'pdf') return <PdfView url={url} name={name} meta={meta} onSize={onHeadSize} />
+        return <OfficeView kind={kind} url={url} name={name} download={dl} />
+      }
       case 'binary':
         return <Download url={url} name={name} message={t('该类型暂不支持预览，可下载查看')} />
     }

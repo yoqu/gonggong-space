@@ -319,7 +319,7 @@ export function useCanvasRules(o: {
     </div>
   ) : null
 
-  const hint = o.bot ? offlineHint(o.bot) : t('群里没有 Bot')
+  const hint = o.bot ? offlineHint(o.bot) : t('暂无可用 Bot')
   const panel =
     o.panel === 'rules' && screen ? (
       <RulesPanel

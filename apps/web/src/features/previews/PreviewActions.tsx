@@ -28,6 +28,7 @@ export function PreviewActions({
   const [sharing, setSharing] = useState(false)
   const [stopping, setStopping] = useState(false)
   const demo = useSession((s) => s.tenancy?.demoMode)
+  const online = p.status === 'online'
   const run = async (key: string, request: () => Promise<unknown>) => {
     setBusy(key)
     await attempt(request)
@@ -51,29 +52,38 @@ export function PreviewActions({
       setBusy(undefined)
     }
   }
-  const stopLabel = p.serviceId ? t('停止穿透和服务') : t('停止穿透')
+  const stopLabel =
+    p.status === 'stopped'
+      ? t('彻底关闭')
+      : p.status === 'offline'
+        ? t('关闭预览')
+        : p.serviceId
+          ? t('停止预览和服务')
+          : t('停止预览')
   return (
     <div className="pv-actions">
-      <a
-        className="ui-btn ui-btn--plain ui-btn--small ui-icon-btn"
-        href={openUrl(p.id, p.path)}
-        target="_blank"
-        rel="noreferrer"
-        title={t('打开')}
-        aria-label={t('打开')}
-      >
-        <Icon name="external" size={15} />
-      </a>
-      {p.status === 'online' ? (
-        <IconButton
-          size="small"
-          title={t('在工作台打开')}
-          onClick={() => {
-            if (openInWorkbench(p)) onDone?.()
-          }}
-        >
-          {'sidebar-right' as const}
-        </IconButton>
+      {online ? (
+        <>
+          <a
+            className="ui-btn ui-btn--plain ui-btn--small ui-icon-btn"
+            href={openUrl(p.id, p.path)}
+            target="_blank"
+            rel="noreferrer"
+            title={t('打开')}
+            aria-label={t('打开')}
+          >
+            <Icon name="external" size={15} />
+          </a>
+          <IconButton
+            size="small"
+            title={t('在工作台打开')}
+            onClick={() => {
+              if (openInWorkbench(p)) onDone?.()
+            }}
+          >
+            {'sidebar-right' as const}
+          </IconButton>
+        </>
       ) : null}
       {p.canManage ? (
         <>
@@ -92,7 +102,7 @@ export function PreviewActions({
               {'link' as const}
             </IconButton>
           ) : null}
-          {p.kind === 'http' ? (
+          {online && p.kind === 'http' ? (
             <IconButton
               size="small"
               title={t('托管到服务器')}
@@ -102,14 +112,16 @@ export function PreviewActions({
               {'cloud' as const}
             </IconButton>
           ) : null}
-          <IconButton
-            size="small"
-            title={t('重新截图')}
-            disabled={busy === 'shot'}
-            onClick={() => void run('shot', () => api.post(`/previews/${p.id}/snapshot`))}
-          >
-            {'arrow-clockwise' as const}
-          </IconButton>
+          {online ? (
+            <IconButton
+              size="small"
+              title={t('重新截图')}
+              disabled={busy === 'shot'}
+              onClick={() => void run('shot', () => api.post(`/previews/${p.id}/snapshot`))}
+            >
+              {'arrow-clockwise' as const}
+            </IconButton>
+          ) : null}
           <IconButton
             size="small"
             title={stopLabel}
@@ -125,8 +137,8 @@ export function PreviewActions({
         {stopping ? (
           <ClosePreviewConfirm
             preview={p}
-            mode="stop"
-            stopService
+            mode={p.status === 'stopped' ? 'close' : 'stop'}
+            stopService={p.status === 'online' && !!p.serviceId}
             onDone={onDone}
             onClose={() => setStopping(false)}
           />

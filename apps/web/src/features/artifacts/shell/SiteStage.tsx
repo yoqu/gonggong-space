@@ -1,5 +1,5 @@
 import type { ArtifactThreadDto } from '@gonggong/protocol'
-import { type MouseEvent, type RefObject, useState } from 'react'
+import { type MouseEvent, type RefObject, useRef, useState } from 'react'
 import { t } from '../../../i18n'
 import { cx } from '../../../lib/cx'
 import { Button, Spinner, Textarea } from '../../../ui'
@@ -8,6 +8,10 @@ interface PendingPin {
   x: number
   y: number
 }
+
+const POP_W = 280
+const POP_H = 160
+const POP_PAD = 12
 
 /**
  * Hosted static site stage (`kind === 'site'`): renders the site iframe with a coordinate-annotation
@@ -33,9 +37,10 @@ export function SiteStage({
   annotating: boolean
   readOnly: boolean
   activeThreadId: string | null
-  onCreatePin: (point: { x: number; y: number }, text: string) => Promise<void>
+  onCreatePin: (point: { x: number; y: number }, text: string) => Promise<boolean | undefined>
   onSelectThread: (th: ArtifactThreadDto) => void
 }) {
+  const stageRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<PendingPin | null>(null)
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -66,19 +71,36 @@ export function SiteStage({
   }
 
   const submit = async () => {
-    if (!draft || !text.trim()) return
+    if (!draft || !text.trim() || saving) return
     setSaving(true)
     try {
-      await onCreatePin(draft, text.trim())
-      setDraft(null)
-      setText('')
+      const ok = await onCreatePin(draft, text.trim())
+      if (ok !== false) {
+        setDraft(null)
+        setText('')
+      }
+    } catch {
+      // keep draft so the member can retry or edit
     } finally {
       setSaving(false)
     }
   }
 
+  const stageW = stageRef.current?.clientWidth ?? 0
+  const stageH = stageRef.current?.clientHeight ?? 0
+  const popLeft = draft
+    ? stageW > 0
+      ? Math.max(POP_PAD, Math.min(draft.x, Math.max(POP_PAD, stageW - POP_W - POP_PAD)))
+      : Math.max(POP_PAD, draft.x)
+    : POP_PAD
+  const popTop = draft
+    ? stageH > 0
+      ? Math.max(POP_PAD, Math.min(draft.y, Math.max(POP_PAD, stageH - POP_H - POP_PAD)))
+      : Math.max(POP_PAD, draft.y)
+    : POP_PAD
+
   return (
-    <div className="art-shell__site" data-testid="shell-site-stage">
+    <div ref={stageRef} className="art-shell__site" data-testid="shell-site-stage">
       <iframe
         key={`${src}|${versionKey}`}
         ref={frameRef}
@@ -125,9 +147,9 @@ export function SiteStage({
         <div
           className="art-shell__pin-pop"
           role="dialog"
-          aria-label={t('添加批注')}
+          aria-label={t('添加批注#shell')}
           data-testid="shell-site-pin-popover"
-          style={{ left: Math.max(12, draft.x), top: Math.max(12, draft.y) }}
+          style={{ left: popLeft, top: popTop }}
         >
           <div className="art-shell__pin-coord">{t('坐标 ({x}, {y})', { x: draft.x, y: draft.y })}</div>
           <Textarea
@@ -138,17 +160,18 @@ export function SiteStage({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setDraft(null)
+              if (e.key === 'Escape' && !saving) setDraft(null)
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && text.trim()) void submit()
             }}
           />
           <div className="art-shell__pin-acts">
-            <Button size="small" variant="plain" onClick={() => setDraft(null)}>
+            <Button size="small" variant="plain" disabled={saving} onClick={() => setDraft(null)}>
               {t('取消')}
             </Button>
             <Button
               size="small"
               variant="primary"
+              loading={saving}
               disabled={saving || !text.trim()}
               onClick={() => void submit()}
             >

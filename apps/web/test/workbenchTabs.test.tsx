@@ -145,7 +145,7 @@ describe('tab bar', () => {
   it('lists every tab in the overflow menu', () => {
     render(<Workbench />)
     fireEvent.click(screen.getByRole('button', { name: '全部标签页' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /运行 r2/ }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /运行 r2/ }))
     expect(state()?.active).toBe('run:r2')
   })
 

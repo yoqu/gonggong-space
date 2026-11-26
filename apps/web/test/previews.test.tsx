@@ -283,7 +283,7 @@ describe('输入框上方的穿透标记', () => {
     })
     render(<PreviewTags groupId="g1" />)
     fireEvent.click(await screen.findByRole('button', { name: /登录页/ }))
-    fireEvent.click(screen.getByRole('button', { name: '停止穿透和服务' }))
+    fireEvent.click(screen.getByRole('button', { name: '停止预览和服务' }))
     const confirm = await screen.findByRole('alertdialog', { name: '要停止「登录页」的在线预览吗？' })
     expect(
       within(confirm).getByText('停止后，群成员将无法继续打开这个预览链接，相关后台服务也会一并停止。'),

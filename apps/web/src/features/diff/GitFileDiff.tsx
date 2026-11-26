@@ -2,7 +2,7 @@ import type { GitDiffDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { EmptyState, NoChangesArt, Spinner, toast } from '../../ui'
+import { Button, EmptyState, NoChangesArt, Spinner, toast } from '../../ui'
 import { type GitTarget, runGitAction } from '../git/api'
 import { inTarget } from '../git/commands'
 import { DiffView } from './DiffParts'
@@ -100,12 +100,14 @@ export function GitFileDiff({
 }) {
   const whitespace = useDiffSettings((s) => s.whitespace)
   const fullContext = useDiffSettings((s) => s.fullContext)
+  const [nonce, setNonce] = useState(0)
+  const stampKey = nonce ? `${stamp}|${nonce}` : stamp
   const read = whitespace === 'none' ? url : withQuery(url, `whitespace=${whitespace}`)
   // The whole file comes as context and the view folds what is unchanged; one too big to come whole is read with
   // git's own context instead, unless the whole file is asked for.
-  const whole = useGitDiff(withQuery(read, `context=${FULL_CONTEXT}`), stamp)
+  const whole = useGitDiff(withQuery(read, `context=${FULL_CONTEXT}`), stampKey)
   const cut = !!whole?.truncated && !fullContext
-  const plain = useGitDiff(cut ? read : null, stamp)
+  const plain = useGitDiff(cut ? read : null, stampKey)
   const diff = cut ? plain : whole
   const file = diff?.files.find((f) => f.path === path) ?? diff?.files[0]
   const root = useRef<HTMLDivElement>(null)
@@ -117,7 +119,19 @@ export function GitFileDiff({
         </div>
       )
     if (diff.error)
-      return <EmptyState compact icon="warning" title={t('无法读取差异')} description={diff.error} />
+      return (
+        <EmptyState
+          compact
+          icon="warning"
+          title={t('无法读取差异')}
+          description={diff.error}
+          action={
+            <Button size="small" onClick={() => setNonce((n) => n + 1)}>
+              {t('重试')}
+            </Button>
+          }
+        />
+      )
     // A patch cut before its first hunk has nothing to show but the note.
     if (!file)
       return diff.truncated ? null : (

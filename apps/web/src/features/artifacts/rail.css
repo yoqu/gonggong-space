@@ -107,7 +107,7 @@
   background: none;
   font-size: var(--text-footnote-size);
   font-weight: 600;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   cursor: pointer;
 }
 .art-rail__tab:hover {
@@ -125,7 +125,7 @@
 .art-rail__count {
   margin-left: var(--space-6);
   font-weight: 400;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .art-rail__icon,
 .art-rail__more {
@@ -232,7 +232,7 @@ button.art-rail__name {
   margin-left: var(--space-6);
   font-size: var(--text-caption-size);
   font-weight: 400;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .art-rail__more {
   opacity: 0;
@@ -262,7 +262,7 @@ button.art-rail__name {
 .art-rail__hint {
   margin: var(--space-8) var(--space-12);
   font-size: var(--text-caption-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 
 /* Command log */
@@ -274,7 +274,7 @@ button.art-rail__name {
 .art-log__empty {
   margin: var(--space-8) var(--space-12);
   font-size: var(--text-caption-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .art-log__item {
   padding: var(--space-8) var(--space-4);
@@ -298,7 +298,7 @@ button.art-rail__name {
 }
 .art-log__head time {
   flex: 1;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   white-space: nowrap;
 }
 .art-log__bot {
@@ -373,4 +373,36 @@ button.art-rail__name {
 }
 .art-rail__row--below {
   box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.art-page-pill {
+  position: absolute;
+  top: var(--space-12);
+  left: 50%;
+  z-index: 4;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-10);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--label);
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+}
+.art-page-pill__all {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.art-page-pill__all:hover {
+  text-decoration: underline;
 }

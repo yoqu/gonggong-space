@@ -2,6 +2,7 @@ import {
   type AnnotationDto,
   ARTIFACT_REF_TYPES,
   ARTIFACT_UPLOAD_MAX_BYTES,
+  ARTIFACT_UPLOAD_PDF_MAX_BYTES,
   type ArtifactCommandReq,
   type ArtifactEditOp,
   type ArtifactUploadRes,
@@ -18,6 +19,7 @@ import { ApiError, api, errorText } from '../../lib/api'
 import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
+import { pickDefaultBot, useArtifactBots } from './CanvasBotPicker'
 
 // R3 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: direct edits, annotations and AI commands from the canvas.
 
@@ -37,9 +39,20 @@ export function useGroupBots(groupId: string): BotDto[] {
  */
 const usePicked = create<Record<string, string>>()(() => ({}))
 export function useArtifactBot(groupId: string, ownBotId?: string | null) {
-  const bots = useGroupBots(groupId)
+  const groupBots = useGroupBots(groupId)
+  const artifactBots = useArtifactBots()
+  const ownBot = useWorkspace((s) => (ownBotId ? s.bots.find((b) => b.id === ownBotId) : undefined))
+  const bots = useMemo(() => {
+    if (groupBots.length) return groupBots
+    const fallback: BotDto[] = []
+    if (ownBot) fallback.push(ownBot)
+    for (const b of artifactBots) {
+      if (!fallback.some((x) => x.id === b.id)) fallback.push(b)
+    }
+    return fallback
+  }, [groupBots, ownBot, artifactBots])
   const picked = usePicked((s) => s[groupId])
-  const bot = bots.find((b) => b.id === picked) ?? bots.find((b) => b.id === ownBotId) ?? bots[0] ?? null
+  const bot = bots.find((b) => b.id === picked) ?? bots.find((b) => b.id === ownBotId) ?? pickDefaultBot(bots)
   const pick = useCallback((id: string) => usePicked.setState({ [groupId]: id }), [groupId])
   return { bots, bot, pick }
 }
@@ -108,8 +121,8 @@ export function refUpload(file: File): Blob | string {
   const ext = (file.name.split('.').pop() ?? '').toLowerCase()
   const type = file.name.includes('.') ? REF_TYPES[ext] : undefined
   if (!type) return t('不支持的文件类型：{name}', { name: file.name })
-  if (file.size > ARTIFACT_UPLOAD_MAX_BYTES)
-    return t('{name} 超过 {mb} MB', { name: file.name, mb: ARTIFACT_UPLOAD_MAX_BYTES / 1024 / 1024 })
+  const maxBytes = type === 'application/pdf' ? ARTIFACT_UPLOAD_PDF_MAX_BYTES : ARTIFACT_UPLOAD_MAX_BYTES
+  if (file.size > maxBytes) return t('{name} 超过 {mb} MB', { name: file.name, mb: maxBytes / 1024 / 1024 })
   return new Blob([file], { type })
 }
 

@@ -5,7 +5,16 @@ import { useWorkbench } from '../../app/workbench'
  * Set by a page that hosts an artifact on its own (作品 `/works/:id`) rather than as a workbench tab: what deleting
  * it leaves to, and moving it stays on the page instead of following it into the target group's chat.
  */
-export const ArtifactPage = createContext<{ leave: () => void } | null>(null)
+export interface ArtifactPageHost {
+  leave: () => void
+  /** Back to works list when hosted on /works/:id (renders inside the artifact toolbar). */
+  back?: () => void
+  /** Opens the send-to-group dialog when hosted on /works/:id. */
+  onShareToGroup?: () => void
+  groupKind?: 'group' | 'dm' | 'works'
+}
+
+export const ArtifactPage = createContext<ArtifactPageHost | null>(null)
 
 export const useArtifactPage = () => useContext(ArtifactPage)
 

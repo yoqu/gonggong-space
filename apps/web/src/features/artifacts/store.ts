@@ -143,6 +143,9 @@ export function useArtifactPreview(artifactId: string, versionId: string | null,
     preview: null,
     error: '',
   })
+  const [nonce, setNonce] = useState(0)
+  const retry = () => setNonce((n) => n + 1)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: nonce forces a manual retry
   useEffect(() => {
     if (!enabled) return
     let live = true
@@ -154,8 +157,8 @@ export function useArtifactPreview(artifactId: string, versionId: string | null,
     return () => {
       live = false
     }
-  }, [artifactId, versionId, enabled])
-  return state
+  }, [artifactId, versionId, enabled, nonce])
+  return { ...state, retry }
 }
 
 /** PATCH /api/artifacts/:id — renames the artifact (its card follows). */

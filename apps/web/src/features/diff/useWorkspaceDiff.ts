@@ -1,5 +1,5 @@
 import type { DiffRepo, DiffScope, WorkspaceDiffDto } from '@gonggong/protocol'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
@@ -28,6 +28,7 @@ export interface WorkspaceDiff {
   branch: string | null
   error: string | null
   loading: boolean
+  retry?: () => void
 }
 
 /**
@@ -51,10 +52,12 @@ export function useWorkspaceDiff(
   patchRepos: DiffRepo[] = [],
 ): WorkspaceDiff {
   const [state, setState] = useState<WorkspaceDiff>(EMPTY)
+  const [nonce, setNonce] = useState(0)
+  const retry = useCallback(() => setNonce((n) => n + 1), [])
   const stored = scope === 'turn' && patch !== undefined
   const { groupId, botId, runId } = source ?? { groupId: null, botId: null, runId: null }
   const stamp = useGitStamp(groupId, botId)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new git stamp means the workspace changed
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new git stamp or manual retry means re-reading
   useEffect(() => {
     if (stored || !groupId) return
     let alive = true
@@ -93,7 +96,7 @@ export function useWorkspaceDiff(
       off()
       clearTimeout(timer)
     }
-  }, [stored, groupId, botId, runId, scope, stamp])
+  }, [stored, groupId, botId, runId, scope, stamp, nonce])
   const files = useMemo(() => parsePatch(patch ?? ''), [patch])
   if (stored)
     return {
@@ -105,5 +108,5 @@ export function useWorkspaceDiff(
       error: null,
       loading: false,
     }
-  return state
+  return { ...state, retry }
 }

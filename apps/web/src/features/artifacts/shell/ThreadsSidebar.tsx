@@ -3,7 +3,17 @@ import { useState } from 'react'
 import { t } from '../../../i18n'
 import { cx } from '../../../lib/cx'
 import { ago } from '../../../lib/time'
-import { Button, Checkbox, EmptyState, Icon, Tag, type TagTone, Textarea } from '../../../ui'
+import {
+  Button,
+  Checkbox,
+  ConfirmActionDialog,
+  EmptyState,
+  Icon,
+  Presence,
+  Tag,
+  type TagTone,
+  Textarea,
+} from '../../../ui'
 import { BotChoice } from '../ElementPopover'
 import { Panel } from '../SidePanel'
 
@@ -33,6 +43,7 @@ export function ThreadsSidebar({
   versionId,
   meId,
   readOnly,
+  isSite = true,
   activeId,
   bots,
   bot,
@@ -45,15 +56,16 @@ export function ThreadsSidebar({
   onClose,
 }: {
   threads: ArtifactThreadDto[]
-  versionId: string | null
+  versionId?: string | null
   meId: string | null
   readOnly: boolean
+  isSite?: boolean
   activeId: string | null
   bots: BotDto[]
   bot: BotDto | null
   onPickBot: (id: string) => void
   onSelect: (th: ArtifactThreadDto) => void
-  onReply: (threadId: string, text: string) => Promise<void>
+  onReply: (threadId: string, text: string) => Promise<boolean | undefined>
   onStatus: (threadId: string, status: ArtifactThreadStatus) => Promise<void>
   onDelete: (threadId: string) => Promise<void>
   onSend: (ids: string[], extra: string) => Promise<boolean>
@@ -65,6 +77,7 @@ export function ThreadsSidebar({
   const [replyOpen, setReplyOpen] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [replyBusy, setReplyBusy] = useState(false)
+  const [deleting, setDeleting] = useState<ArtifactThreadDto | null>(null)
 
   const list = versionId ? threads.filter((x) => x.versionId === versionId) : threads
   const olderSent = versionId ? threads.filter((x) => x.versionId !== versionId && x.status === 'sent') : []
@@ -85,12 +98,16 @@ export function ThreadsSidebar({
 
   const submitReply = async (threadId: string) => {
     const text = replyText.trim()
-    if (!text) return
+    if (!text || replyBusy) return
     setReplyBusy(true)
     try {
-      await onReply(threadId, text)
-      setReplyText('')
-      setReplyOpen(null)
+      const ok = await onReply(threadId, text)
+      if (ok !== false) {
+        setReplyText('')
+        setReplyOpen(null)
+      }
+    } catch {
+      // keep reply draft on error
     } finally {
       setReplyBusy(false)
     }
@@ -198,9 +215,12 @@ export function ThreadsSidebar({
                         </Button>
                       )}
                       {th.createdBy === meId ? (
-                        <Button size="small" variant="plain" onClick={() => void onDelete(th.id)}>
-                          {t('删除')}
-                        </Button>
+                        <>
+                          <span className="spacer" />
+                          <Button size="small" variant="plain" onClick={() => setDeleting(th)}>
+                            {t('删除')}
+                          </Button>
+                        </>
                       ) : null}
                     </div>
                   ) : null}
@@ -220,6 +240,7 @@ export function ThreadsSidebar({
                         <Button
                           size="small"
                           variant="primary"
+                          loading={replyBusy}
                           disabled={replyBusy || !replyText.trim()}
                           onClick={() => void submitReply(th.id)}
                         >
@@ -238,7 +259,13 @@ export function ThreadsSidebar({
           compact
           icon="mappin"
           title={t('还没有批注')}
-          description={readOnly ? undefined : t('请先点击上方「添加批注」在页面上落点')}
+          description={
+            readOnly
+              ? undefined
+              : isSite
+                ? t('请先点击上方「添加批注」在页面上落点')
+                : t('在编辑器中选中内容后添加批注')
+          }
         />
       )}
       {!readOnly && list.length ? (
@@ -259,10 +286,24 @@ export function ThreadsSidebar({
             disabled={sending || !bot || !chosen.length}
             onClick={() => void send()}
           >
-            {bot ? t('发给 @{name}（{n}）', { name: bot.name, n: chosen.length }) : t('群里没有 Bot')}
+            {bot ? t('发给 @{name}（{n}）', { name: bot.name, n: chosen.length }) : t('暂无可用 Bot')}
           </Button>
         </div>
       ) : null}
+      <Presence>
+        {deleting ? (
+          <ConfirmActionDialog
+            title={t('要删除这条批注吗？')}
+            message={t('删除后该批注及回复将一并移除，无法恢复。')}
+            consequences={[]}
+            label={t('删除')}
+            done={t('已删除')}
+            run={() => onDelete(deleting.id)}
+            onDone={() => setDeleting(null)}
+            onClose={() => setDeleting(null)}
+          />
+        ) : null}
+      </Presence>
     </Panel>
   )
 }

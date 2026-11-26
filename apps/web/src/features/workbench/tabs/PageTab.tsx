@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { t } from '../../../i18n'
-import { EmptyState, Lightbox } from '../../../ui'
+import { Button, EmptyState, Lightbox } from '../../../ui'
 import { fileIconName } from '../../files/FileViewer'
 import { PageFrame, pageFailure } from '../../rich/HtmlRender'
 import type { TabMeta, TabProps } from '../types'
@@ -9,6 +9,7 @@ import type { TabMeta, TabProps } from '../types'
 export function PageTab({ tab }: TabProps<'page'>) {
   const [image, setImage] = useState<{ src: string; alt: string }>()
   const [failed, setFailed] = useState<'gone' | 'error' | null>(null)
+  const [nonce, setNonce] = useState(0)
   if (failed)
     return (
       <EmptyState
@@ -17,11 +18,25 @@ export function PageTab({ tab }: TabProps<'page'>) {
         description={
           failed === 'gone' ? t('「{title}」的文件已被清理或丢失', { title: tab.page.title }) : undefined
         }
+        action={
+          failed === 'error' ? (
+            <Button
+              size="small"
+              onClick={() => {
+                setFailed(null)
+                setNonce((n) => n + 1)
+              }}
+            >
+              {t('重试')}
+            </Button>
+          ) : undefined
+        }
       />
     )
   return (
     <>
       <PageFrame
+        key={nonce}
         page={tab.page}
         className="html-render__tab"
         onImage={setImage}

@@ -164,7 +164,10 @@ export default {
     'For a site or repository, the bot extracts colors, fonts and component styles at each creation.',
   自动选择: 'Auto',
   '跑步 App：今日计划、实时跑步、月度报告': "Running app: today's plan, live run, monthly report",
-  '选择 Bot': 'Choose a bot',
+  '选择 Bot': 'Choose a Bot',
+  '要删除设计系统「{title}」吗？': 'Delete design system "{title}"?',
+  '删除后将从本群的导入列表中移除，不影响已生成的作品。':
+    "Removes it from this group's imported list. Existing works are not affected.",
   预设: 'Presets',
   '本群暂时没有 Bot 能接这个任务': 'No bot in this group can take this right now',
   '可以先选好内容，最后一步会写明每个 Bot 不能用的原因。':

@@ -211,7 +211,7 @@ export function AnnotationsPanel({
             disabled={busy || !bot || !chosen.length}
             onClick={() => void send()}
           >
-            {bot ? t('发给 @{name}（{n}）', { name: bot.name, n: chosen.length }) : t('群里没有 Bot')}
+            {bot ? t('发给 @{name}（{n}）', { name: bot.name, n: chosen.length }) : t('暂无可用 Bot')}
           </Button>
         </div>
       ) : null}

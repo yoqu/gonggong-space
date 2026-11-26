@@ -83,6 +83,10 @@
 .pv-dot--stopped {
   background: var(--system-orange);
 }
+.pv-dot--offline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--system-gray);
+}
 .pv-actions {
   display: flex;
   flex: none;

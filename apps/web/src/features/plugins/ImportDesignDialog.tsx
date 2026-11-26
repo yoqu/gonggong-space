@@ -42,11 +42,17 @@ export function ImportDesignDialog({
       width={640}
       title={t('导入我的设计')}
       message={t('DESIGN.md 是描述产品外观的开放格式文档。导入后保存到本群，之后的创作都能选用。')}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       closeOnBackdrop={false}
       actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('继续'), variant: 'primary', disabled: empty || busy, onClick: () => void submit() },
+        { label: t('取消'), disabled: busy, onClick: onClose },
+        {
+          label: t('继续'),
+          variant: 'primary',
+          loading: busy,
+          disabled: empty || busy,
+          onClick: () => void submit(),
+        },
       ]}
     >
       <div className="plg-import">

@@ -1,5 +1,6 @@
 import type { ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { downloadUrl } from '../../lib/download'
 import { attempt } from '../../lib/errors'
@@ -17,13 +18,13 @@ import {
 } from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
 import { ActivityNote } from './ActivityLayer'
-import { useGroupBots } from './actions'
+import { useArtifactBot } from './actions'
 import { Canvas, type CanvasRequest } from './Canvas'
 import { CanvasComposer } from './CanvasChat'
 import { useFrontCanvasChat } from './chatRoot'
 import { useDesignSystem } from './DesignSystemPanel'
 import { exportZipUrl } from './ExportPanel'
-import { useLeaveArtifact } from './host'
+import { useArtifactPage, useLeaveArtifact } from './host'
 import { IssuesButton } from './IssuesButton'
 import { MoveDialog } from './MoveDialog'
 import { PageRail, useRail } from './PageRail'
@@ -87,16 +88,37 @@ const PROJECT = {
 
 export function ArtifactTab(props: TabProps<'artifact'>) {
   const entry = useArtifact(props.tab.artifactId)
+  const page = useArtifactPage()
   const a = entry?.artifact
-  if (!entry) return <Spinner />
+  const backBar = page?.back ? (
+    <header className="art-bar">
+      <Button size="small" variant="plain" icon="chevron-left" aria-label={t('返回作品')} onClick={page.back}>
+        {t('作品')}
+      </Button>
+    </header>
+  ) : null
+  if (!entry)
+    return backBar ? (
+      <div className="art">
+        {backBar}
+        <div className="art-site__wait">
+          <Spinner />
+        </div>
+      </div>
+    ) : (
+      <Spinner />
+    )
   if (!a)
     return (
-      <EmptyState
-        icon="grid"
-        title={t('产物已删除或无法读取')}
-        description={entry.error}
-        action={<Button onClick={() => void loadArtifact(props.tab.artifactId)}>{t('重试')}</Button>}
-      />
+      <div className="art">
+        {backBar}
+        <EmptyState
+          icon="warning"
+          title={t('产物已删除或无法读取')}
+          description={entry.error}
+          action={<Button onClick={() => void loadArtifact(props.tab.artifactId)}>{t('重试')}</Button>}
+        />
+      </div>
     )
   // Non-prototype artifacts (`site`, `slides`, `whiteboard`, `motion`) run in the unified Shell.
   const kind = a.kind ?? (a.site ? 'site' : 'prototype')
@@ -131,18 +153,26 @@ function PrototypeArtifactTab({
   const [archiving, setArchiving] = useState(false)
   const [moving, setMoving] = useState(false)
   const manager = useArtifactManager(a?.groupId ?? '', a?.botId, a?.createdBy ?? null, a?.canManage)
+  const page = useArtifactPage()
   const leave = useLeaveArtifact(tabKey)
-  const groupBots = useGroupBots(a?.groupId ?? '')
+  const allBots = useWorkspace((s) => s.bots)
+  const groupKind = useWorkspace((s) => s.groups.find((g) => g.id === a.groupId)?.kind)
+  const { bot: resolvedBot } = useArtifactBot(a?.groupId ?? '', a?.botId)
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
   // Before the first version the canvas's editing tools are off: nothing reads or edits against `base` then.
   const base = head ?? ''
-  const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
+  const {
+    preview,
+    error: previewError,
+    retry: retryPreview,
+  } = useArtifactPreview(tab.artifactId, viewing, !!head)
   const { detail, tokens: tokensCss } = useVersionDetail(tab.artifactId, shown)
   const readOnly = !!viewing || busy
   const design = useDesignSystem({
     artifactId: tab.artifactId,
     groupId: a?.groupId,
+    botId: a?.botId,
     versionId: shown,
     css: tokensCss,
     hasDesignMd: detail?.id === shown && !!detail?.files.some((f) => f.path === 'DESIGN.md'),
@@ -248,6 +278,7 @@ function PrototypeArtifactTab({
           botId={a.botId}
           visibility={a.visibility}
           createdBy={a.createdBy}
+          canManage={a.canManage}
           onClose={() => setSharing(false)}
         />
       ) : null}
@@ -285,6 +316,17 @@ function PrototypeArtifactTab({
   return (
     <div className="art">
       <header className="art-bar">
+        {page?.back ? (
+          <Button
+            size="small"
+            variant="plain"
+            icon="chevron-left"
+            aria-label={t('返回作品')}
+            onClick={page.back}
+          >
+            {t('作品')}
+          </Button>
+        ) : null}
         {!isSite && !rail.open ? (
           <Button
             size="small"
@@ -344,7 +386,7 @@ function PrototypeArtifactTab({
           </MenuButton>
         ) : null}
         {a.runner ? (
-          <Runner status={a.runner.status} name={groupBots.find((b) => b.id === a.runner?.botId)?.name} />
+          <Runner status={a.runner.status} name={allBots.find((b) => b.id === a.runner?.botId)?.name} />
         ) : null}
         <ActivityNote artifactId={a.id} />
         {current?.issues.length ? (
@@ -353,7 +395,7 @@ function PrototypeArtifactTab({
             versionId={current.id}
             issues={current.issues}
             manifest={shownManifest}
-            bot={groupBots.find((b) => b.id === a.botId) ?? groupBots[0] ?? null}
+            bot={resolvedBot}
             readOnly={readOnly}
           />
         ) : null}
@@ -407,7 +449,25 @@ function PrototypeArtifactTab({
             </Button>
           </>
         )}
-        <Button size="small" variant="primary" icon="share" onClick={() => setSharing(true)}>
+        {page?.onShareToGroup ? (
+          <Button
+            size="small"
+            icon="message"
+            disabled={!head}
+            title={!head ? t('生成第一版后可发送到群') : undefined}
+            onClick={page.onShareToGroup}
+          >
+            {t('发送到群')}
+          </Button>
+        ) : null}
+        <Button
+          size="small"
+          variant="primary"
+          icon="share"
+          disabled={!head}
+          title={!head ? t('生成第一版后可分享') : undefined}
+          onClick={() => setSharing(true)}
+        >
           {t('分享')}
         </Button>
       </header>
@@ -416,7 +476,7 @@ function PrototypeArtifactTab({
           <i className="art-queued__dot" aria-hidden="true" />
           <span>
             {t('@{name} 离线，{n} 个指令排队中，上线后自动执行', {
-              name: groupBots.find((b) => b.id === a.botId)?.name ?? 'Bot',
+              name: allBots.find((b) => b.id === a.botId)?.name ?? 'Bot',
               n: Math.max(1, a.queuedRunCount),
             })}
           </span>
@@ -434,11 +494,28 @@ function PrototypeArtifactTab({
           </Button>
         </div>
       ) : null}
-      {previewError ? (
-        <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
-      ) : isSite ? (
+      {isSite ? (
         !head ? (
-          <Generating />
+          a.running || a.queued ? (
+            <Generating />
+          ) : (
+            <EmptyState
+              icon="grid"
+              title={t('还没有内容')}
+              description={t('在 AI 对话里说要做什么，Bot 会做出第一版')}
+            />
+          )
+        ) : previewError ? (
+          <EmptyState
+            icon="warning"
+            title={t('打不开产物预览')}
+            description={previewError}
+            action={
+              <Button size="small" onClick={retryPreview}>
+                {t('重试')}
+              </Button>
+            }
+          />
         ) : preview ? (
           <iframe
             ref={siteFrame}
@@ -467,11 +544,12 @@ function PrototypeArtifactTab({
               artifactId={a.id}
               groupId={a.groupId}
               manifest={shownManifest ?? null}
+              empty={!head}
               readOnly={readOnly || !head}
               canEdit={a.access !== 'view'}
               narrow={rail.narrow}
-              refreshKey={`${head}|${a.running ? 1 : 0}`}
-              onEdit={(ops) => editArtifact(tab.artifactId, base, ops)}
+              refreshKey={`${head ?? ''}|${a.running ? 1 : 0}`}
+              onEdit={(ops) => (head ? editArtifact(tab.artifactId, head, ops) : Promise.resolve())}
               onClose={() => rail.setOpen(false)}
               versionId={viewing}
               onPicked={() => rail.narrow && rail.setOpen(false)}
@@ -480,6 +558,17 @@ function PrototypeArtifactTab({
           <div className="art-stage">
             {!head && (a.running || a.queued) ? (
               <Generating />
+            ) : previewError ? (
+              <EmptyState
+                icon="warning"
+                title={t('打不开产物预览')}
+                description={previewError}
+                action={
+                  <Button size="small" onClick={retryPreview}>
+                    {t('重试')}
+                  </Button>
+                }
+              />
             ) : (
               <Canvas
                 artifactId={a.id}
@@ -531,7 +620,11 @@ function PrototypeArtifactTab({
         {archiving ? (
           <ConfirmActionDialog
             title={t('删除产物「{title}」？', { title: a.title })}
-            message={t('从群里移除，群成员不再看到它')}
+            message={
+              page?.groupKind === 'works' || groupKind !== 'group'
+                ? t('删除后将从作品列表中移除')
+                : t('从群里移除，群成员不再看到它')
+            }
             consequences={[t('文件和版本保留，可以恢复')]}
             label={t('删除')}
             done={t('已删除')}
@@ -583,7 +676,8 @@ function TitleField({ title, onDone }: { title: string; onDone: (title: string |
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing) finish(value.trim() || null)
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229)
+          finish(value.trim() || null)
         else if (e.key === 'Escape') {
           e.stopPropagation()
           finish(null)

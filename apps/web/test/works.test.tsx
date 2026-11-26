@@ -18,10 +18,32 @@ import { ArtifactCardView } from '../src/features/artifacts/ArtifactCard'
 import { resetWorks, WorksPage } from '../src/features/works/WorksPage'
 import { mockApi } from './mockApi'
 
-vi.mock('../src/features/artifacts/ArtifactTab', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/features/artifacts/ArtifactTab')>()),
-  ArtifactTab: ({ tab }: { tab: { artifactId: string } }) => <div data-testid="editor">{tab.artifactId}</div>,
-}))
+vi.mock('../src/features/artifacts/ArtifactTab', async (importOriginal) => {
+  const { useArtifactPage } = await import('../src/features/artifacts/host')
+  const { useArtifact } = await import('../src/features/artifacts/store')
+  return {
+    ...(await importOriginal<typeof import('../src/features/artifacts/ArtifactTab')>()),
+    ArtifactTab: ({ tab }: { tab: { artifactId: string } }) => {
+      const page = useArtifactPage()
+      const a = useArtifact(tab.artifactId)?.artifact
+      return (
+        <div>
+          {page?.back ? (
+            <button type="button" aria-label="返回作品" onClick={page.back}>
+              作品
+            </button>
+          ) : null}
+          {page?.onShareToGroup ? (
+            <button type="button" disabled={!a} onClick={page.onShareToGroup}>
+              发送到群
+            </button>
+          ) : null}
+          <div data-testid="editor">{tab.artifactId}</div>
+        </div>
+      )
+    },
+  }
+})
 
 const me = { id: 'u1', name: '姜维川', role: 'member' } as UserDto
 
@@ -272,14 +294,14 @@ describe('作品 page', () => {
     mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [...WORKS].reverse() })
     renderAt('/works')
     const grid = await screen.findByRole('list', { name: '作品' })
-    fireEvent.click(screen.getByRole('button', { name: '来自群' }))
+    fireEvent.click(screen.getByRole('button', { name: '来源' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '来自私聊' }))
     expect(
       within(grid)
         .getAllByRole('listitem')
         .map((x) => x.textContent),
     ).toEqual([expect.stringContaining('品牌官网')])
-    fireEvent.click(screen.getByRole('button', { name: '来自群' }))
+    fireEvent.click(screen.getByRole('button', { name: '来源' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '运营群' }))
     expect(
       within(grid)
@@ -287,7 +309,7 @@ describe('作品 page', () => {
         .map((x) => x.textContent),
     ).toEqual([expect.stringContaining('双十一活动汇报')])
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索作品' }), { target: { value: '露营' } })
-    expect(screen.getByText('没有符合条件的作品')).toBeTruthy()
+    expect(screen.getByText('没有找到「露营」相关作品')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '清除筛选' }))
     fireEvent.click(screen.getByRole('button', { name: '排序' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '按名称' }))
@@ -418,18 +440,18 @@ describe('作品 page', () => {
       'POST /artifacts/a1/post': undefined,
     })
     renderAt('/works/a1')
-    const share = await screen.findByRole('button', { name: '分享到群聊' })
+    const share = await screen.findByRole('button', { name: '发送到群' })
     await waitFor(() => expect((share as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(share)
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: '分享到' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '发送到' }))
     expect(screen.getAllByRole('menuitemcheckbox').map((o) => o.textContent)).toEqual([
       '麓客产品群（作品所在群）',
       '设计群',
     ])
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '设计群' }))
     expect(within(dialog).getByText(/会把作品设为「团队可见」/)).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: '分享' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '发送' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST' && c.path === '/artifacts/a1/post')?.body).toEqual({
         groupId: 'g3',
@@ -495,7 +517,7 @@ describe('作品 page', () => {
     const calls = mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
-    expect(await screen.findByText('团队里还没有共字君或姜维川的 Claude Code')).toBeTruthy()
+    expect(await screen.findByText('当前团队暂无可用于创作作品的 Bot')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 })

@@ -320,7 +320,7 @@
 }
 .diff__line--note,
 .diff__side--note {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-style: italic;
 }
 .diff__word--add,
@@ -406,7 +406,7 @@
   text-overflow: ellipsis;
   font-family: var(--font-sans);
   font-size: var(--text-subheadline-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 
 .diff__row {
@@ -561,7 +561,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-right: var(--space-6);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
   animation: diff-hint-in var(--fade-in);
 }

@@ -154,7 +154,7 @@ import {
   ZOOM_SELECTION,
   zoomItems,
 } from './menus'
-import { noEditReasonOf, PageEmpty } from './PageRail'
+import { noEditReasonOf, PagePill } from './PageRail'
 import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
@@ -1630,10 +1630,9 @@ export function Canvas({
         void upload([...e.dataTransfer.files])
       }}
     >
-      {!versionKey || (page && !nodes.length) ? <PageEmpty first={!versionKey} /> : null}
+      <PagePill id={artifactId} page={page} manifest={manifest} empty={!nodes.length} first={!versionKey} />
       <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer panning; the keyboard pans with the arrows */}
-        {/* biome-ignore lint/a11y/useKeyWithClickEvents: Esc clears the selection */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: pointer panning and Esc clears selection */}
         <div
           ref={plane}
           className={cx(

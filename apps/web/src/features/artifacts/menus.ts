@@ -72,7 +72,7 @@ export const VARIATION_CUSTOM = 'custom'
 export type BotState = 'none' | string | null
 
 const botTitle = (bot: BotState) =>
-  bot === 'none' ? { disabled: true, title: t('群里没有 Bot') } : bot ? { title: bot } : {}
+  bot === 'none' ? { disabled: true, title: t('暂无可用 Bot') } : bot ? { title: bot } : {}
 /** An offline bot heads the menu with the hint. */
 const botHeader = (bot: BotState): MenuItem[] => (bot && bot !== 'none' ? [{ header: bot }] : [])
 const gen = (label: string, command: string, bot: BotState, shortcut?: string): MenuItem => ({

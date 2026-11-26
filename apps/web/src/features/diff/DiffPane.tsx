@@ -1,7 +1,7 @@
 import type { DiffScope } from '@gonggong/protocol'
 import { type ReactNode, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { EmptyState, Icon, NoChangesArt, Spinner } from '../../ui'
+import { Button, EmptyState, Icon, NoChangesArt, Spinner } from '../../ui'
 import type { GitTarget } from '../git/api'
 import { DiffFileList, DiffLayoutToggle, DiffScopeBar, DiffView, emptyText, scopeNote } from './DiffParts'
 import { DiffToolbar, type FileSteps } from './DiffToolbar'
@@ -123,7 +123,19 @@ export function DiffPane({
           <Spinner />
         </div>
       ) : diff.error ? (
-        <EmptyState compact icon="warning" title={t('无法读取改动')} description={diff.error} />
+        <EmptyState
+          compact
+          icon="warning"
+          title={t('无法读取改动')}
+          description={diff.error}
+          action={
+            diff.retry ? (
+              <Button size="small" onClick={diff.retry}>
+                {t('重试')}
+              </Button>
+            ) : undefined
+          }
+        />
       ) : !diff.files.length ? (
         <EmptyState
           compact

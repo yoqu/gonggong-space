@@ -13,6 +13,7 @@ import {
   Select,
   Tag,
   Textarea,
+  toast,
 } from '../../ui'
 import { isWholePage, type RuleTarget, ruleStats, type ScreenRules, splitRefs, WHOLE_PAGE } from './rules'
 
@@ -317,8 +318,18 @@ export function RulesPanel({
   const stats = ruleStats(rules)
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new screen or file drops the unsaved source
   useEffect(() => setSource(null), [screenId, data])
-  const replace = (i: number, next: PageRule | null) =>
-    onSaveRules(rules.flatMap((r, k) => (k === i ? (next ? [next] : []) : [r])))
+  const replace = async (i: number, next: PageRule | null) => {
+    const prev = rules
+    const ok = await onSaveRules(rules.flatMap((r, k) => (k === i ? (next ? [next] : []) : [r])))
+    if (ok && !next) {
+      toast({
+        type: 'info',
+        message: t('已删除规则'),
+        action: { label: t('撤销#undo'), onClick: () => void onSaveRules(prev) },
+      })
+    }
+    return ok
+  }
   return (
     <aside className="art-panel art-rules" aria-label={t('页面规则')}>
       <header className="art-panel__head">

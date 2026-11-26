@@ -106,7 +106,7 @@ export function ExportPanel({
         ? t('让 @{name} 根据产物写一份产品需求文档（PRD），保存为 brief.md，屏幕详情里的设计说明也会读它。', {
             name: bot.name,
           })
-        : t('群里没有 Bot'),
+        : t('暂无可用 Bot'),
       action: t('生成项目简报'),
     },
     share: {

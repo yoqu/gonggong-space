@@ -9,21 +9,29 @@ export default {
   本群可见: 'This group',
   团队可见: 'Team',
   没有符合条件的作品: 'No matching works',
+  '没有找到「{query}」相关作品': 'No works matching "{query}"',
   还没有团队共享的作品: 'No team-shared works yet',
   '团队内设为「团队可见」的作品会出现在这里': 'Works set to Team visibility in this team appear here',
+  你还没有创建作品: "You haven't created any works yet",
+  '点右上角「新建」或在群里发起创作，你创建的作品会出现在这里':
+    'Click "New" above or start a creation in a group; works you create appear here',
   还没有作品: 'No works yet',
-  '在群里发起创作，产出的原型和幻灯片会汇总到这里':
-    'Start a creation in a group chat; the prototypes and slides it makes gather here',
+  '点下方「新建」直接开始创作，或在群里发起创作，产出的原型和幻灯片会汇总到这里':
+    'Click "New" below or start a creation in a group; prototypes and slides gather here',
   作品不存在或你没有权限查看: "This work doesn't exist or you can't view it",
   返回作品: 'Back to works',
   '只读 · 来自公开群「{group}」，加入后可修改': 'Read-only · from public group "{group}", join to edit',
   '只读 · 来自「{group}」（仅群成员可修改）': 'Read-only · from "{group}" (group members only can edit)',
   '只读 · 来自 {name} 的私聊': "Read-only · from {name}'s direct chat",
   '只读 · 来自私聊': 'Read-only · from a direct chat',
+  '只读 · {name} 的独立作品（仅创建人与协作者可修改）':
+    "Read-only · {name}'s standalone work (creator and collaborators only can edit)",
+  '只读 · 独立作品（仅创建人与协作者可修改）':
+    'Read-only · standalone work (creator and collaborators only can edit)',
   加入群并编辑: 'Join & edit',
   来自私聊: 'Direct chats',
-  来自群: 'Group',
-  全部群: 'All groups',
+  独立作品: 'Standalone works',
+  全部来源: 'All sources',
   排序: 'Sort',
   最近更新: 'Recently updated',
   按名称: 'By name',
@@ -32,18 +40,23 @@ export default {
   全屏演示: 'Present full screen',
   在新窗口打开: 'Open in new window',
   托管网页: 'Hosted site',
-  分享到群聊: 'Share to chat',
+  打不开作品预览: "Couldn't open work preview",
+  刷新失败: 'Refresh failed',
+  发送到群: 'Send to group',
   '{group}（作品所在群）': '{group} (where the work lives)',
-  已分享到群聊: 'Shared to the chat',
-  去群聊: 'Go to chat',
-  '分享「{title}」到群聊': 'Share "{title}" to a chat',
-  '群里会出现作品卡片，大家可以在群聊里讨论；编辑仍在作品页进行':
+  已发送到群: 'Sent to group',
+  去群里看看: 'View in group',
+  '发送「{title}」到群': 'Send "{title}" to a group',
+  '群里会出现作品卡片，大家可以在群里讨论；编辑仍在作品页进行':
     "The work's card appears in the group for discussion; editing stays on the work's page.",
-  分享到: 'Share to',
-  '分享到其他群会把作品设为「团队可见」，该群成员可以查看，进作品所在群后才能修改':
-    "Sharing to another group makes the work visible to the team: that group's members can view it, and can change it after joining the group it lives in.",
-  '作品还不是团队可见，只有创建人、Bot 主人或群管理员能分享到其他群':
-    "The work is not visible to the team yet: only its creator, its bot's owner or a group admin can share it to other groups.",
-  '团队里还没有共字君或姜维川的 Claude Code': 'Neither AI open for works is in the team yet',
+  发送到: 'Send to',
+  你还没有加入任何群: "You haven't joined any groups yet",
+  '发送到群会把作品设为「团队可见」，团队成员可查看，创建人和已授权协作者可修改':
+    'Sending to a group makes this work visible to the team: team members can view it, while its creator and collaborators can edit it.',
+  '发送到其他群会把作品设为「团队可见」，该群成员可以查看，进作品所在群后才能修改':
+    "Sending to another group makes the work visible to the team: that group's members can view it, and can edit it after joining the group it lives in.",
+  '作品还不是团队可见，只有创建人、Bot 主人或群管理员能发送到其他群':
+    "The work is not visible to the team yet: only its creator, its bot's owner or a group admin can send it to other groups.",
+  '当前团队暂无可用于创作作品的 Bot': 'No Bot is available for works in this team yet',
   创建者: 'Creator',
 }

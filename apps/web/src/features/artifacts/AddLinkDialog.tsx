@@ -80,7 +80,7 @@ export function AddLinkDialog({
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       closeOnBackdrop={false}
       title={t('添加链接')}
       width={520}
@@ -96,7 +96,7 @@ export function AddLinkDialog({
         ) : null
       }
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: onClose },
         {
           label: t('添加到画布'),
           variant: 'primary',

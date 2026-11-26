@@ -10,7 +10,7 @@ import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useStat
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { api } from '../../../lib/api'
+import { api, errorText } from '../../../lib/api'
 import { cx } from '../../../lib/cx'
 import {
   Button,
@@ -205,8 +205,14 @@ function RefPicker({
 
 /** Fuzzy workspace search: the composer's @ file candidates, scoped to this bot. */
 function useSearch(groupId: string, botId: string, query: string) {
-  const [hits, setHits] = useState<{ q: string; entries: FileCandidatesDto['entries'] } | null>(null)
+  const [hits, setHits] = useState<{
+    q: string
+    entries: FileCandidatesDto['entries']
+    error: string | null
+  } | null>(null)
+  const [nonce, setNonce] = useState(0)
   const q = query.trim()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: nonce forces a manual search retry
   useEffect(() => {
     if (!q) return
     let live = true
@@ -216,16 +222,20 @@ function useSearch(groupId: string, botId: string, query: string) {
           `/groups/${groupId}/candidates/files?q=${encodeURIComponent(q)}&botId=${botId}`,
         )
         .then(
-          (r) => live && setHits({ q, entries: r.entries }),
-          () => live && setHits({ q, entries: [] }),
+          (r) => live && setHits({ q, entries: r.entries, error: null }),
+          (e: unknown) => live && setHits({ q, entries: [], error: errorText(e) }),
         )
     }, SEARCH_DEBOUNCE_MS)
     return () => {
       live = false
       clearTimeout(timer)
     }
-  }, [groupId, botId, q])
-  return q && hits?.q === q ? hits.entries : null
+  }, [groupId, botId, q, nonce])
+  return {
+    entries: q && hits?.q === q && !hits.error ? hits.entries : null,
+    error: q && hits?.q === q ? hits.error : null,
+    retry: () => setNonce((n) => n + 1),
+  }
 }
 
 function CompareMark({ compare, path, dir }: { compare: Compare; path: string; dir: boolean }) {
@@ -281,7 +291,11 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
     ['', ...expanded],
   )
   const compare = useCompare(tab.base ? gitUrls.compare(repo, tab.base, rev) : null, rev ? '' : stamp)
-  const hits = useSearch(groupId, tab.botId, rev ? '' : query)
+  const {
+    entries: hits,
+    error: searchError,
+    retry: retrySearch,
+  } = useSearch(groupId, tab.botId, rev ? '' : query)
   const showTree = wide ? !collapsed : treeOpen
 
   // Navigating to a folder (breadcrumbs, 在文件浏览器中定位) reveals it.
@@ -462,6 +476,15 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
         ) : (
           <div className="ft__note">{t('没有文件变化')}</div>
         )}
+      </div>
+    ) : searchError ? (
+      <div className="ft">
+        <div className="ft__note ft__note--error">
+          {searchError}
+          <Button size="small" variant="plain" onClick={retrySearch}>
+            {t('重试')}
+          </Button>
+        </div>
       </div>
     ) : hits !== null ? (
       <div className="ft">

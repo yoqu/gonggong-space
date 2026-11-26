@@ -94,7 +94,7 @@ export function IssuesButton({
             fullWidth
             loading={busy}
             disabled={!bot || !manifest || readOnly}
-            title={bot ? (readOnly ? t('历史版本只读') : undefined) : t('群里没有 Bot')}
+            title={bot ? (readOnly ? t('历史版本只读') : undefined) : t('暂无可用 Bot')}
             onClick={() => void fix(close)}
           >
             {bot ? t('让 @{name} 修复', { name: bot.name }) : t('让 AI 修复')}

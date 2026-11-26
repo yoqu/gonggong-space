@@ -6,6 +6,7 @@ import type {
 } from '@gonggong/protocol'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from '../../../app/session'
+import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
 import { downloadUrl } from '../../../lib/download'
 import { attempt } from '../../../lib/errors'
@@ -21,11 +22,11 @@ import {
   toast,
 } from '../../../ui'
 import { ActivityNote } from '../ActivityLayer'
-import { useGroupBots } from '../actions'
+import { useArtifactBot } from '../actions'
 import { CanvasChat, CanvasComposer } from '../CanvasChat'
 import { useFrontCanvasChat } from '../chatRoot'
 import { exportZipUrl } from '../ExportPanel'
-import { useLeaveArtifact } from '../host'
+import { useArtifactPage, useLeaveArtifact } from '../host'
 import { MoveDialog } from '../MoveDialog'
 import { type RunnerStatus, runnerText } from '../runner'
 import { Panel } from '../SidePanel'
@@ -95,15 +96,17 @@ export function ArtifactShell({
   active: boolean
 }) {
   const me = useSession((s) => s.user)
+  const allBots = useWorkspace((s) => s.bots)
+  const groupKind = useWorkspace((s) => s.groups.find((g) => g.id === a.groupId)?.kind)
+  const page = useArtifactPage()
   const manager = useArtifactManager(a.groupId, a.botId, a.createdBy, a.canManage)
   const leave = useLeaveArtifact(tabKey)
-  const groupBots = useGroupBots(a.groupId)
+  const { bots: groupBots, bot, pick: setPickedBotId } = useArtifactBot(a.groupId, a.botId)
   const [viewing, setViewing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [sidebar, setSidebar] = useState<SidebarTab>(null)
   const [annotating, setAnnotating] = useState(false)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
-  const [pickedBotId, setPickedBotId] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [archiving, setArchiving] = useState(false)
@@ -119,19 +122,10 @@ export function ArtifactShell({
   const readOnly = viewOnly || !!viewing || busy
   const isSite = a.kind === 'site'
 
-  const { preview, error: previewError } = useArtifactPreview(a.id, viewing, !!head)
+  const { preview, error: previewError, retry: retryPreview } = useArtifactPreview(a.id, viewing, !!head)
   const { threads, setThreads } = useArtifactThreads(a.id, !!head)
 
   const chatRoot = useFrontCanvasChat(a.groupId, a.id, active && !viewOnly && sidebar === 'chat')
-
-  const bot = useMemo(
-    () =>
-      (pickedBotId ? groupBots.find((b) => b.id === pickedBotId) : null) ??
-      (a.botId ? groupBots.find((b) => b.id === a.botId) : null) ??
-      groupBots[0] ??
-      null,
-    [pickedBotId, groupBots, a.botId],
-  )
 
   const current = versions.find((v) => v.id === shown)
   // Site pins are page coordinates of one version; editor anchors follow content, and every save is a new version.
@@ -187,7 +181,7 @@ export function ArtifactShell({
   }
 
   const onCreatePin = async (point: { x: number; y: number }, text: string) => {
-    if (!shown) return
+    if (!shown) return false
     let created: ArtifactThreadDto | null = null
     const ok = await attempt(async () => {
       created = await createArtifactThread(a.id, {
@@ -198,24 +192,24 @@ export function ArtifactShell({
         text,
       })
     })
-    if (!ok || !created) return
+    if (!ok || !created) return false
     const nextThread = created as ArtifactThreadDto
     setThreads((prev) => (prev.some((x) => x.id === nextThread.id) ? prev : [...prev, nextThread]))
     setActiveThreadId(nextThread.id)
     setAnnotating(false)
     setSidebar('threads')
+    return true
   }
 
   const onReply = async (threadId: string, text: string) => {
     let updated: ArtifactThreadDto | null = null
-    if (
-      await attempt(async () => {
-        updated = await replyArtifactThread(threadId, { text, to: [] })
-      })
-    ) {
-      const u = updated as ArtifactThreadDto | null
-      if (u) setThreads((prev) => prev.map((x) => (x.id === u.id ? u : x)))
-    }
+    const ok = await attempt(async () => {
+      updated = await replyArtifactThread(threadId, { text, to: [] })
+    })
+    if (!ok) return false
+    const u = updated as ArtifactThreadDto | null
+    if (u) setThreads((prev) => prev.map((x) => (x.id === u.id ? u : x)))
+    return true
   }
 
   const onStatus = async (threadId: string, status: ArtifactThreadStatus) => {
@@ -287,6 +281,17 @@ export function ArtifactShell({
   return (
     <div className="art art-shell" data-testid="artifact-shell" data-kind={a.kind}>
       <header className="art-bar art-shell__bar">
+        {page?.back ? (
+          <Button
+            size="small"
+            variant="plain"
+            icon="chevron-left"
+            aria-label={t('返回作品')}
+            onClick={page.back}
+          >
+            {t('作品')}
+          </Button>
+        ) : null}
         {!viewOnly ? (
           <MenuButton
             className="ui-btn ui-btn--plain ui-btn--small art-bar__menu"
@@ -331,10 +336,7 @@ export function ArtifactShell({
           </MenuButton>
         ) : null}
         {a.runner ? (
-          <ShellRunner
-            status={a.runner.status}
-            name={groupBots.find((b) => b.id === a.runner?.botId)?.name}
-          />
+          <ShellRunner status={a.runner.status} name={allBots.find((b) => b.id === a.runner?.botId)?.name} />
         ) : null}
         <ActivityNote artifactId={a.id} />
         {chrome?.saved ? (
@@ -352,7 +354,7 @@ export function ArtifactShell({
             aria-pressed={annotating}
             onClick={() => setAnnotating((on) => !on)}
           >
-            {annotating ? t('退出批注模式') : t('添加批注')}
+            {annotating ? t('退出批注模式') : t('添加批注#shell')}
           </Button>
         ) : null}
         <Button
@@ -422,8 +424,26 @@ export function ArtifactShell({
         >
           {t('全屏')}
         </Button>
+        {!viewOnly && page?.onShareToGroup ? (
+          <Button
+            size="small"
+            icon="message"
+            disabled={!head}
+            title={!head ? t('生成第一版后可发送到群') : undefined}
+            onClick={page.onShareToGroup}
+          >
+            {t('发送到群')}
+          </Button>
+        ) : null}
         {!viewOnly ? (
-          <Button size="small" variant="primary" icon="share" onClick={() => setSharing(true)}>
+          <Button
+            size="small"
+            variant="primary"
+            icon="share"
+            disabled={!head}
+            title={!head ? t('生成第一版后可分享') : undefined}
+            onClick={() => setSharing(true)}
+          >
             {t('分享')}
           </Button>
         ) : null}
@@ -451,7 +471,16 @@ export function ArtifactShell({
               <Spinner />
             </div>
           ) : previewError ? (
-            <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
+            <EmptyState
+              icon="warning"
+              title={t('打不开产物预览')}
+              description={previewError}
+              action={
+                <Button size="small" onClick={retryPreview}>
+                  {t('重试')}
+                </Button>
+              }
+            />
           ) : isSite ? (
             <SiteStage
               title={a.title}
@@ -498,6 +527,7 @@ export function ArtifactShell({
             versionId={threadVersion}
             meId={me?.id ?? null}
             readOnly={readOnly}
+            isSite={isSite}
             activeId={activeThreadId}
             bots={groupBots}
             bot={bot}
@@ -547,6 +577,7 @@ export function ArtifactShell({
             botId={a.botId}
             visibility={a.visibility}
             createdBy={a.createdBy}
+            canManage={a.canManage}
             onClose={() => setSharing(false)}
           />
         ) : null}
@@ -555,7 +586,11 @@ export function ArtifactShell({
         {archiving ? (
           <ConfirmActionDialog
             title={t('删除产物「{title}」？', { title: a.title })}
-            message={t('从群里移除，群成员不再看到它')}
+            message={
+              page?.groupKind === 'works' || groupKind !== 'group'
+                ? t('删除后将从作品列表中移除')
+                : t('从群里移除，群成员不再看到它')
+            }
             consequences={[t('文件和版本保留，可以恢复')]}
             label={t('删除')}
             done={t('已删除')}
@@ -600,7 +635,8 @@ function ShellTitleField({ title, onDone }: { title: string; onDone: (title: str
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing) finish(value.trim() || null)
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229)
+          finish(value.trim() || null)
         else if (e.key === 'Escape') {
           e.stopPropagation()
           finish(null)

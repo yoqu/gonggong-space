@@ -1,5 +1,9 @@
-import type { CreatedPreviewShare, PreviewDto, PreviewShareDto } from '@gonggong/protocol'
-import { PREVIEW_SHARE_DEFAULT_DAYS } from '@gonggong/protocol'
+import {
+  type CreatedPreviewShare,
+  PREVIEW_SHARE_DEFAULT_DAYS,
+  type PreviewDto,
+  type PreviewShareDto,
+} from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -7,12 +11,14 @@ import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { localDateTime } from '../../lib/time'
 import {
+  Alert,
   Button,
   ConfirmActionDialog,
   Dialog,
   GroupBox,
   PopUpButton,
   Presence,
+  Spinner,
   Tag,
   TextField,
 } from '../../ui'
@@ -57,18 +63,21 @@ export const shareState = (s: PreviewShareDto) =>
 /** Public links of one preview (plan P8): always expiring; the full link is shown once, right after creating it. */
 export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose: () => void }) {
   const [shares, setShares] = useState<PreviewShareDto[] | null>(null)
+  const [loadError, setLoadError] = useState('')
   const [days, setDays] = useState(String(PREVIEW_SHARE_DEFAULT_DAYS))
   const [created, setCreated] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [revoking, setRevoking] = useState<PreviewShareDto | null>(null)
-  const load = useCallback(
-    () =>
-      api
-        .get<PreviewShareDto[]>(`/previews/${preview.id}/shares`)
-        .then(setShares)
-        .catch((e) => toastError(e)),
-    [preview.id],
-  )
+  const load = useCallback(() => {
+    setLoadError('')
+    return api
+      .get<PreviewShareDto[]>(`/previews/${preview.id}/shares`)
+      .then((list) => {
+        setShares(list)
+        setLoadError('')
+      })
+      .catch((e) => setLoadError(e instanceof Error ? e.message : t('加载失败')))
+  }, [preview.id])
   useEffect(() => void load(), [load])
   const create = async () => {
     setBusy(true)
@@ -91,7 +100,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
       title={t('公开链接 · {title}', { title: preview.title })}
       message={t('拿到链接的人无需登录即可访问这个预览，到期或收回后立即失效；访问会记入审计。')}
       width={520}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
     >
       <div className="pv-share__create">
         <PopUpButton aria-label={t('有效期')} size="small" value={days} options={DAYS} onChange={setDays} />
@@ -107,7 +116,11 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
           </Button>
         </div>
       ) : null}
-      {shares?.length ? (
+      {loadError && !shares ? (
+        <Alert variant="error" title={t('加载失败')} description={loadError} onRetry={() => void load()} />
+      ) : shares === null ? (
+        <Spinner size={14} />
+      ) : shares.length ? (
         <GroupBox>
           {shares.map((s) => (
             <div key={s.id} className="pv-share__row">
@@ -129,7 +142,9 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
             </div>
           ))}
         </GroupBox>
-      ) : null}
+      ) : (
+        <span className="pv-muted">{t('还没有公开链接')}</span>
+      )}
       <Presence>
         {revoking ? (
           <RevokeShareDialog

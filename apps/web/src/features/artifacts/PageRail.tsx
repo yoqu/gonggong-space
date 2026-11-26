@@ -129,6 +129,7 @@ export function PageRail({
   artifactId,
   groupId,
   manifest,
+  empty = false,
   readOnly,
   canEdit,
   narrow = false,
@@ -141,6 +142,8 @@ export function PageRail({
   artifactId: string
   groupId: string
   manifest: GgArtifactManifest | null
+  /** Before the first version exists: shows empty creation hint instead of single-page note. */
+  empty?: boolean
   readOnly: boolean
   /** A group member (not a visitor): may edit and read the command log. */
   canEdit: boolean
@@ -225,6 +228,7 @@ export function PageRail({
         <Pages
           artifactId={artifactId}
           manifest={manifest}
+          empty={empty}
           readOnly={readOnly || !canEdit}
           onEdit={onEdit}
           onClose={onClose}
@@ -275,6 +279,7 @@ export function PageRail({
 function Pages({
   artifactId,
   manifest: m,
+  empty,
   readOnly,
   onEdit,
   onClose,
@@ -283,6 +288,7 @@ function Pages({
 }: {
   artifactId: string
   manifest: GgArtifactManifest | null
+  empty?: boolean
   readOnly: boolean
   onEdit: (ops: ArtifactEditOp[]) => Promise<unknown>
   onClose: () => void
@@ -333,7 +339,9 @@ function Pages({
     return (
       <>
         {header}
-        <p className="art-log__empty">{t('单页产物，没有页面列表')}</p>
+        <p className="art-log__empty">
+          {empty ? t('还没有页面，生成第一版后会列在这里') : t('单页产物，没有页面列表')}
+        </p>
       </>
     )
 
@@ -413,9 +421,18 @@ function Pages({
           onDrop: (e: DragEvent) => {
             e.preventDefault()
             e.stopPropagation()
-            const next = screenTarget(s, edgeOf(e))
+            const edge = edgeOf(e)
+            const next = screenTarget(s, edge)
             setDragged(null)
             setOver(null)
+            if (!edge && next) {
+              setFolded((f) => {
+                if (!f.has(s.id)) return f
+                const u = new Set(f)
+                u.delete(s.id)
+                return u
+              })
+            }
             void save(next)
           },
         }
@@ -479,8 +496,12 @@ function Pages({
       onFocus={(e) => e.currentTarget.select()}
       onBlur={(e) => commit(e.currentTarget.value)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur()
-        else if (e.key === 'Escape') setEditing(null)
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229)
+          e.currentTarget.blur()
+        else if (e.key === 'Escape') {
+          e.stopPropagation()
+          setEditing(null)
+        }
       }}
     />
   )
@@ -558,6 +579,7 @@ function Pages({
             className="art-rail__more"
             aria-label={t('页面操作')}
             align="end"
+            portal
             items={[
               { label: t('重命名'), value: 'rename' },
               { label: t('创建副本'), value: 'duplicate' },
@@ -626,6 +648,7 @@ function Pages({
               className="art-rail__more"
               aria-label={t('文件夹操作')}
               align="end"
+              portal
               items={[
                 { label: t('添加子文件夹'), value: 'sub', disabled: deepest },
                 { label: t('上方添加文件夹'), value: 'above' },
@@ -712,7 +735,12 @@ function Pages({
           <ConfirmActionDialog
             title={t('删除页面「{title}」？', { title: deleting.title })}
             message={t('从产物里移除这个页面')}
-            consequences={[t('可以在版本记录里找回')]}
+            consequences={[
+              ...(subpages(m, deleting.id).length
+                ? [t('它的 {n} 个子页面会移到上一级，不会被删除', { n: subpages(m, deleting.id).length })]
+                : []),
+              t('可以在版本记录里找回'),
+            ]}
             label={t('删除')}
             done={t('已删除')}
             run={() => onEdit([{ kind: 'manifest', op: 'delete', screenId: deleting.id }])}
@@ -742,3 +770,35 @@ export const noEditReasonOf = (versionKey: string, readOnly: boolean, manifest: 
       : !manifest
         ? t('单页产物不支持画布编辑')
         : undefined
+
+/** Pill shown at top-center of the canvas when filtered to a single page or folder. */
+export function PagePill({
+  id,
+  page,
+  manifest,
+  empty,
+  first,
+}: {
+  id: string
+  page: string | null
+  manifest?: GgArtifactManifest | null
+  empty?: boolean
+  first?: boolean
+}) {
+  if (first) return <PageEmpty first />
+  if (!page) return null
+  const folder = manifest?.groups?.find((g) => g.id === page)
+  const title = folder?.title ?? manifest?.screens.find((s) => s.id === page)?.title ?? page
+  return (
+    <>
+      <div className="art-page-pill" role="status" data-testid="art-page-pill">
+        <Icon name={folder ? 'folder' : 'smartphone'} size={13} />
+        <span>{t('正在查看「{name}」', { name: title })}</span>
+        <button type="button" className="art-page-pill__all" onClick={() => setArtifactPage(id, null)}>
+          {t('查看全部页面')}
+        </button>
+      </div>
+      {empty ? <PageEmpty /> : null}
+    </>
+  )
+}

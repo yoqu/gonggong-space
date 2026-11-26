@@ -99,6 +99,7 @@ export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
       <div className="plg-req__foot">
         <Button
           size="small"
+          loading={busy}
           disabled={!draft || busy}
           title={draft ? undefined : t('这个插件已在本群停用')}
           onClick={() => void again()}
@@ -108,6 +109,7 @@ export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
         <Button
           size="small"
           disabled={!draft}
+          title={draft ? undefined : t('这个插件已在本群停用')}
           onClick={() => draft && openCreation({ groupId: m.groupId, draft, step: 'content' })}
         >
           {t('改参数重做…')}
@@ -173,8 +175,15 @@ export function CreationDraftView({ m, card }: { m: MessageDto; card: CreationDr
             <Button
               size="small"
               variant="primary"
+              loading={busy}
               disabled={!draft || busy || card.missing.length > 0}
-              title={card.missing.length ? t('先在「改参数」里补充') : undefined}
+              title={
+                card.missing.length
+                  ? t('先在「改参数」里补充')
+                  : !draft
+                    ? t('这个插件已在本群停用')
+                    : undefined
+              }
               onClick={start}
             >
               {t('开始')}

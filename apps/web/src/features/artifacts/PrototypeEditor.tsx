@@ -624,7 +624,7 @@ export function PrototypeEditor({
                     type="button"
                     className="proto-screens__imagine"
                     disabled={!bot}
-                    title={bot ? undefined : t('群里没有 Bot')}
+                    title={bot ? undefined : t('暂无可用 Bot')}
                     onClick={() => setImagine(true)}
                   >
                     <Icon name="sparkle" size={14} />
@@ -866,7 +866,7 @@ export function PrototypeEditor({
             />
           ) : (
             <div className={cx('proto-pencil', bottomRail && 'proto-pencil--raised')}>
-              <Tooltip content={bot ? t('描述要怎么改这屏') : t('群里没有 Bot')}>
+              <Tooltip content={bot ? t('描述要怎么改这屏') : t('暂无可用 Bot')}>
                 <button
                   type="button"
                   className="proto-pencil__btn"

@@ -799,7 +799,7 @@ describe('AI commands', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成' }))
     const it = item(screen.getByRole('menu'), /重新生成/)
     expect(it.hasAttribute('disabled')).toBe(true)
-    expect(it.getAttribute('title')).toBe('群里没有 Bot')
+    expect(it.getAttribute('title')).toBe('暂无可用 Bot')
   })
 })
 

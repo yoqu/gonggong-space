@@ -231,3 +231,11 @@
 .art-run__open {
   flex: none;
 }
+.art-bot-dot--offline {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--system-gray);
+}

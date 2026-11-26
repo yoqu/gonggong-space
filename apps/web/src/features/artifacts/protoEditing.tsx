@@ -175,7 +175,7 @@ export function ElementMenu({
   const [busy, setBusy] = useState(false)
   const located = el.ggId !== null
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
-  const noBot = bot ? undefined : t('群里没有 Bot')
+  const noBot = bot ? undefined : t('暂无可用 Bot')
   const offline = offlineHint(bot) ?? undefined
   const ro = readOnly ? t('历史版本只读') : undefined
   const status = textEditingHint(texting)

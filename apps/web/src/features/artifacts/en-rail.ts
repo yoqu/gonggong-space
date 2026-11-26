@@ -7,6 +7,11 @@ export default {
   收起侧栏: 'Hide sidebar',
   展开侧栏: 'Show sidebar',
   '单页产物，没有页面列表': 'A single-page artifact has no page list',
+  '还没有页面，生成第一版后会列在这里': 'No pages yet. They appear here once the first version is ready.',
+  '它的 {n} 个子页面会移到上一级，不会被删除':
+    'Its {n} {n:subpage moves|subpages move} up one level and will not be deleted',
+  '正在查看「{name}」': 'Viewing "{name}"',
+  查看全部页面: 'View all pages',
   移到顶层: 'Move to top level',
   页面名称: 'Page name',
   '入口#entry': 'Entry',

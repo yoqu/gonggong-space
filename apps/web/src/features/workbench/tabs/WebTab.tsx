@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../../app/session'
 import { useWorkbench } from '../../../app/workbench'
-import { Button, EmptyState, Icon, Presence, SegmentedControl, TextField } from '../../../ui'
+import { Button, EmptyState, Icon, Presence, SegmentedControl, Spinner, TextField } from '../../../ui'
 import '../../previews/previews.css'
 import { t } from '../../../i18n'
+import { attempt } from '../../../lib/errors'
+import { startPreview } from '../../previews/meta'
 import { PREVIEW_STATE } from '../../previews/PreviewCard'
 import { ShareDialog } from '../../previews/ShareDialog'
 import { openUrl, usePreview } from '../../previews/store'
@@ -43,6 +45,7 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
   const [draft, setDraft] = useState(tab.path)
   const [viewport, setViewport] = useState(() => loadViewport(tab.previewId))
   const [sharing, setSharing] = useState(false)
+  const [starting, setStarting] = useState(false)
   const demo = useSession((s) => s.tenancy?.demoMode)
   const stage = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState({ width: 0, height: 0 })
@@ -59,7 +62,14 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
 
   const src = openUrl(tab.previewId, tab.path)
   const p = state?.preview
+  const online = state?.status === 'online'
   const status = state ? PREVIEW_STATE[state.status] : null
+  const restart = async () => {
+    if (!p || starting) return
+    setStarting(true)
+    await attempt(() => startPreview(p.id))
+    setStarting(false)
+  }
   const enter = () => {
     const path = draft.trim().startsWith('/') ? draft.trim() : `/${draft.trim()}`
     setDraft(path)
@@ -77,6 +87,7 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
           variant="plain"
           icon="arrow-clockwise"
           aria-label={t('刷新')}
+          disabled={!online}
           onClick={() => setReload((n) => n + 1)}
         />
         <TextField
@@ -86,9 +97,10 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
           prefix={t('进入路径')}
           title={t('回车后从这个路径重新进入；页面内的跳转不会同步到这里')}
           value={draft}
+          disabled={!online}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) enter()
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) enter()
           }}
         />
         <SegmentedControl
@@ -101,24 +113,26 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
             saveViewport(tab.previewId, v)
           }}
         />
-        <a
-          className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon"
-          href={src}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={t('新窗口打开')}
-          title={t('新窗口打开')}
-        >
-          <Icon name="external" size={14} />
-        </a>
+        {online ? (
+          <a
+            className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon"
+            href={src}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={t('新窗口打开')}
+            title={t('新窗口打开')}
+          >
+            <Icon name="external" size={14} />
+          </a>
+        ) : null}
         {p?.canManage && !demo ? (
           <Button size="small" variant="plain" icon="link" onClick={() => setSharing(true)}>
             {t('公开链接…')}
           </Button>
         ) : null}
-        {status ? (
+        {status && state ? (
           <span className="pv-card__state">
-            <span className="pv-dot" style={{ background: status.color }} />
+            <span className={`pv-dot pv-dot--${state.status}`} />
             {status.label}
           </span>
         ) : null}
@@ -144,12 +158,23 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
             icon="desktop"
             title={t('服务已停止 · 等待 Bot 重新发布')}
             description={t('恢复在线后自动重新加载')}
+            action={
+              p?.canManage ? (
+                <Button size="small" loading={starting} onClick={() => void restart()}>
+                  {t('重新启动')}
+                </Button>
+              ) : undefined
+            }
           />
         ) : state?.status === 'offline' ? (
           <EmptyState icon="desktop" title={t('电脑离线')} description={t('恢复在线后自动重新加载')} />
         ) : state?.status === 'closed' ? (
           <PreviewClosed icon="desktop" tabKey={key} />
-        ) : null}
+        ) : (
+          <div className="wt-web__wait">
+            <Spinner />
+          </div>
+        )}
       </div>
       <Presence>
         {sharing && p ? <ShareDialog preview={p} onClose={() => setSharing(false)} /> : null}

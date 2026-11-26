@@ -15,12 +15,13 @@ function OpenLinkDialog({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const link = parseHttpUrl(url, true)
+  const invalid = url.trim().length > 0 && !link
   const submit = () => {
     if (!link) return
     if (openTab({ kind: 'link', url: link.url, title: title.trim() || link.parsed.host })) onClose()
   }
   const enter = (e: KeyboardEvent) => {
-    if (e.key !== 'Enter') return
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return
     e.preventDefault()
     submit()
   }
@@ -40,6 +41,7 @@ function OpenLinkDialog({ onClose }: { onClose: () => void }) {
           label={t('网址')}
           placeholder="https://"
           value={url}
+          error={invalid ? t('请输入以 http:// 或 https:// 开头的有效网址') : undefined}
           autoFocus
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={enter}

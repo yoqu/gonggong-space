@@ -315,5 +315,5 @@
 }
 .bench-menu__sub {
   font-size: var(--text-caption-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }

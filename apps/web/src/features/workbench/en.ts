@@ -162,4 +162,5 @@ export default {
     'No computer available: you need one of your computers online, on macOS or Linux, with the latest Gonggong client.',
   '这次运行的 Agent 没有上报上下文用量': 'The agent did not report context usage for this run',
   还没有工作区: 'No workspace yet',
+  '请输入以 http:// 或 https:// 开头的有效网址': 'Enter a valid URL starting with http:// or https://',
 } satisfies Record<string, string>

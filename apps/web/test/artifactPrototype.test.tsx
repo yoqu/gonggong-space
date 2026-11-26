@@ -523,7 +523,7 @@ describe('prototype editor', () => {
     await openEditor()
     fireEvent.click(screen.getByRole('button', { name: '扫码查看' }))
     const dialog = await screen.findByRole('dialog', { name: '扫码查看' })
-    expect(within(dialog).getByText('只有 Bot 主人或群管理员能开关分享')).toBeTruthy()
+    expect(within(dialog).getByText('只有创建人、Bot 主人或群管理员能开关分享')).toBeTruthy()
     expect(
       within(dialog).getByRole('button', { name: '开启分享并生成二维码' }).hasAttribute('disabled'),
     ).toBe(true)
@@ -805,7 +805,7 @@ describe('share', () => {
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByRole('button', { name: '分享' }))
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
-    expect(within(dialog).getByText('只有 Bot 主人或群管理员能开关分享')).toBeTruthy()
+    expect(within(dialog).getByText('只有创建人、Bot 主人或群管理员能开关分享')).toBeTruthy()
     expect(within(dialog).getByRole('switch', { name: '开启分享' }).hasAttribute('disabled')).toBe(true)
     expect(within(dialog).getByRole('button', { name: '开启并复制链接' }).hasAttribute('disabled')).toBe(true)
   })
@@ -817,7 +817,7 @@ describe('share', () => {
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByRole('button', { name: '分享' }))
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
-    expect(within(dialog).queryByText('只有 Bot 主人或群管理员能开关分享')).toBeNull()
+    expect(within(dialog).queryByText('只有创建人、Bot 主人或群管理员能开关分享')).toBeNull()
   })
 })
 

@@ -688,7 +688,7 @@
 }
 .art-keys__row small {
   margin-left: var(--space-6);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-caption-size);
 }
 .art-keys__row--soon > span {
@@ -1143,7 +1143,7 @@
 }
 .art-pop__action small {
   grid-column: 2;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-caption-size);
 }
 .art-pop__action:hover:not(:disabled) {
@@ -1273,7 +1273,7 @@
 }
 .art-el__hint {
   margin: var(--space-4) 0 0;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: 11px;
 }
 .art-el__hint--bad {
@@ -1457,7 +1457,7 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

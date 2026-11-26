@@ -1,6 +1,5 @@
 import type { GroupDesignSystemDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
-import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
 import {
@@ -24,7 +23,7 @@ import {
 import { Markdown } from '../chat/Markdown'
 import { ImportDesignDialog } from '../plugins/ImportDesignDialog'
 import { useGroupDesignSystems } from '../plugins/store'
-import type { Notify } from './actions'
+import { type Notify, useArtifactBot } from './actions'
 import { ROLE_LABEL } from './DesignSystemNode'
 import { frontMatterName, frontMatterValue, renderableMd, SEED_KEY, setFrontMatter } from './designMd'
 import {
@@ -86,12 +85,9 @@ function useDesignMd(artifactId: string, versionId: string | null, has: boolean)
 }
 
 /** The group's bot to run apply-design-system: the one that made the latest AI version, else the first. */
-function useApplyBot(groupId: string | undefined, author: string | null) {
-  return useWorkspace((s) => {
-    const ids = s.groups.find((g) => g.id === groupId)?.botIds ?? []
-    const bots = s.bots.filter((b) => ids.includes(b.id))
-    return (bots.find((b) => b.name === author) ?? bots[0]) || null
-  })
+function useApplyBot(groupId: string | undefined, author: string | null, botId?: string | null) {
+  const { bots } = useArtifactBot(groupId ?? '', botId)
+  return (bots.find((b) => b.name === author) ?? bots[0]) || null
 }
 
 /**
@@ -101,6 +97,7 @@ function useApplyBot(groupId: string | undefined, author: string | null) {
 export function useDesignSystem(o: {
   artifactId: string
   groupId: string | undefined
+  botId?: string | null
   /** The shown version; null before the first one. */
   versionId: string | null
   /** The shown version's tokens.css; null while it loads or when it has none. */
@@ -118,7 +115,7 @@ export function useDesignSystem(o: {
   )
   const [draft, setDraft] = useState<Draft | null>(null)
   const [leaving, setLeaving] = useState<(() => void) | null>(null)
-  const bot = useApplyBot(o.groupId, o.author)
+  const bot = useApplyBot(o.groupId, o.author, o.botId)
   const dirty = isDirty(draft)
 
   // A new version drops a clean (or just saved) draft; a dirty one stays to be saved or discarded.
@@ -402,7 +399,7 @@ function DesignSystemPanel({
                       value: `${GROUP}${d.id}`,
                       title: bot
                         ? t('让 {bot} 按它重写设计系统并统一所有屏幕', { bot: bot.name })
-                        : t('群里没有 Bot'),
+                        : t('暂无可用 Bot'),
                       disabled: !bot,
                       icon: <Chips colors={d.swatches} />,
                     })),
@@ -668,7 +665,7 @@ function DesignSystemPanel({
             variant="primary"
             icon="sparkle"
             disabled={locked || !bot || !!invalid.length}
-            title={bot ? t('保存后让 {bot} 按设计系统统一所有屏幕', { bot: bot.name }) : t('群里没有 Bot')}
+            title={bot ? t('保存后让 {bot} 按设计系统统一所有屏幕', { bot: bot.name }) : t('暂无可用 Bot')}
             onClick={() => void save(true)}
           >
             {t('保存并让 AI 统一')}

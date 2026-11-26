@@ -8,8 +8,8 @@ import { api, errorText } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { ago, fullTime } from '../../lib/time'
 import {
+  Alert,
   Button,
-  Dialog,
   EmptyState,
   Icon,
   NoResultsArt,
@@ -79,11 +79,15 @@ type Scope = 'all' | 'mine' | 'team'
 type Sort = 'recent' | 'title'
 
 const SHARED_DM = '__dm__'
+const STANDALONE = '__works__'
 const isSharedDm = (w: WorkDto) => w.groupKind === 'dm' && w.access === 'view'
-const sourceKey = (w: WorkDto) => (isSharedDm(w) ? SHARED_DM : w.groupId)
-const sourceTitle = (w: WorkDto) => (isSharedDm(w) ? t('私聊') : w.groupTitle)
+const isStandalone = (w: WorkDto) => w.groupKind === 'works'
+const sourceKey = (w: WorkDto) => (isStandalone(w) ? STANDALONE : isSharedDm(w) ? SHARED_DM : w.groupId)
+const sourceTitle = (w: WorkDto) => (isStandalone(w) ? '' : isSharedDm(w) ? t('私聊') : w.groupTitle)
+const sourceLabel = (w: WorkDto) =>
+  isStandalone(w) ? t('独立作品') : isSharedDm(w) ? t('来自私聊') : w.groupTitle
 const cardVisibility = (w: WorkDto): ArtifactVisibility =>
-  w.groupKind === 'dm' && w.visibility === 'group' ? 'private' : w.visibility
+  (w.groupKind === 'dm' || w.groupKind === 'works') && w.visibility === 'group' ? 'private' : w.visibility
 
 /**
  * Opening `/works/:artifactId` when it is not in the current team's works list: if the caller can read it in
@@ -125,12 +129,12 @@ export function WorksPage() {
   const { artifactId } = useParams()
   const navigate = useNavigate()
   const me = useSession((s) => s.user?.id)
-  const { groups, list, error } = useWorks()
+  const { list, error } = useWorks()
   const [scope, setScope] = useState<Scope>('all')
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
-  const newWork = useNewWork(() => void loadWorks())
+  const newWork = useNewWork(() => loadWorks())
   useEffect(() => {
     void loadWorks()
     if (useWorks.getState().groups === null) void loadWorkGroups()
@@ -170,9 +174,7 @@ export function WorksPage() {
   const all = list ?? []
   const sources = [
     ...new Map(
-      all
-        .map((w) => [sourceKey(w), isSharedDm(w) ? t('来自私聊') : w.groupTitle] as const)
-        .filter(([, label]) => !!label),
+      all.map((w) => [sourceKey(w), sourceLabel(w)] as const).filter(([, label]) => !!label),
     ).entries(),
   ]
   const q = query.trim().toLowerCase()
@@ -198,16 +200,23 @@ export function WorksPage() {
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
-        <Button
-          size="small"
-          variant="primary"
-          icon="plus"
-          loading={newWork.busy}
-          onClick={() => void newWork.create()}
-        >
-          {t('新建')}
-        </Button>
+        {list?.length || (error && !list) ? (
+          <Button
+            size="small"
+            variant="primary"
+            icon="plus"
+            loading={newWork.busy}
+            onClick={() => void newWork.create()}
+          >
+            {t('新建')}
+          </Button>
+        ) : null}
       </header>
+      {error && list ? (
+        <div className="works__bar">
+          <Alert variant="error" title={t('刷新失败')} description={error} onRetry={() => void loadWorks()} />
+        </div>
+      ) : null}
       {list?.length ? (
         <div className="works__bar">
           <SegmentedControl<Scope>
@@ -223,12 +232,12 @@ export function WorksPage() {
           />
           {sources.length > 1 ? (
             <PopUpButton
-              aria-label={t('来自群')}
+              aria-label={t('来源')}
               size="small"
               value={group}
               onChange={setGroup}
               options={[
-                { value: 'all', label: t('全部群') },
+                { value: 'all', label: t('全部来源') },
                 ...sources.map(([id, title]) => ({ value: id, label: title })),
               ]}
             />
@@ -345,22 +354,38 @@ export function WorksPage() {
             illustration={filtered ? <NoResultsArt /> : <NoWorksArt />}
             title={
               filtered
-                ? t('没有符合条件的作品')
+                ? q
+                  ? t('没有找到「{query}」相关作品', { query: query.trim() })
+                  : t('没有符合条件的作品')
                 : scope === 'team'
                   ? t('还没有团队共享的作品')
-                  : t('还没有作品')
+                  : scope === 'mine'
+                    ? t('你还没有创建作品')
+                    : t('还没有作品')
             }
             description={
               filtered
                 ? undefined
                 : scope === 'team'
                   ? t('团队内设为「团队可见」的作品会出现在这里')
-                  : t('在群里发起创作，产出的原型和幻灯片会汇总到这里')
+                  : scope === 'mine'
+                    ? t('点右上角「新建」或在群里发起创作，你创建的作品会出现在这里')
+                    : t('点下方「新建」直接开始创作，或在群里发起创作，产出的原型和幻灯片会汇总到这里')
             }
             action={
               filtered && list.length ? (
                 <Button size="small" onClick={clear}>
                   {t('清除筛选')}
+                </Button>
+              ) : !list.length ? (
+                <Button
+                  size="small"
+                  variant="primary"
+                  icon="plus"
+                  loading={newWork.busy}
+                  onClick={() => void newWork.create()}
+                >
+                  {t('新建')}
                 </Button>
               ) : undefined
             }
@@ -373,18 +398,22 @@ export function WorksPage() {
 
 /** A work I may only look at (a team member outside its group): its preview, presentable, nothing to edit. */
 function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
-  const { preview, error } = useArtifactPreview(work.id, null, true)
+  const { preview, error, retry } = useArtifactPreview(work.id, null, true)
   const frame = useRef<HTMLIFrameElement>(null)
   const [joining, setJoining] = useState(false)
   const canJoin = work.access === 'view' && work.groupKind === 'group' && work.groupVisibility === 'public'
   const note =
-    work.groupKind === 'dm'
+    work.groupKind === 'works'
       ? work.creatorName
-        ? t('只读 · 来自 {name} 的私聊', { name: work.creatorName })
-        : t('只读 · 来自私聊')
-      : canJoin
-        ? t('只读 · 来自公开群「{group}」，加入后可修改', { group: work.groupTitle })
-        : t('只读 · 来自「{group}」（仅群成员可修改）', { group: work.groupTitle })
+        ? t('只读 · {name} 的独立作品（仅创建人与协作者可修改）', { name: work.creatorName })
+        : t('只读 · 独立作品（仅创建人与协作者可修改）')
+      : work.groupKind === 'dm'
+        ? work.creatorName
+          ? t('只读 · 来自 {name} 的私聊', { name: work.creatorName })
+          : t('只读 · 来自私聊')
+        : canJoin
+          ? t('只读 · 来自公开群「{group}」，加入后可修改', { group: work.groupTitle })
+          : t('只读 · 来自「{group}」（仅群成员可修改）', { group: work.groupTitle })
   const joinAndEdit = async () => {
     setJoining(true)
     const joined = await attempt(() => channelsApi.join(work.groupId))
@@ -425,8 +454,23 @@ function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
       </header>
       {preview ? (
         <iframe ref={frame} className="works__frame" title={work.title} src={preview.url} allowFullScreen />
+      ) : error ? (
+        <div className="works__center">
+          <EmptyState
+            icon="warning"
+            title={t('打不开作品预览')}
+            description={error}
+            action={
+              <Button size="small" onClick={retry}>
+                {t('重试')}
+              </Button>
+            }
+          />
+        </div>
       ) : (
-        <div className="works__center">{error || <Spinner />}</div>
+        <div className="works__center">
+          <Spinner />
+        </div>
       )}
     </section>
   )

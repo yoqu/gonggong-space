@@ -32,6 +32,7 @@ export default {
   '被 {n} 个页面引用': 'Referenced by {n} {n:page|pages}',
   '引用：': 'Referenced by: ',
   还没有共享规则: 'No shared rules yet',
+  已删除规则: 'Rule deleted',
   '几个页面都用到的规则写在这里，页面规则里用 S1 引用':
     'Rules several pages share go here; page rules refer to them as S1',
 }

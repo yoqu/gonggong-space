@@ -13,6 +13,7 @@ import {
   PullDownButton,
   Spinner,
   Tag,
+  toast,
 } from '../../ui'
 import { ClosePreviewConfirm } from './ClosePreviewConfirm'
 import {
@@ -109,14 +110,18 @@ function Lists({
                   <div className="pv-row">
                     <span className="pv-row__main">
                       <span className="pv-row__title-line">
-                        <a
-                          href={openUrl(p.id, p.path)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="pv-row__title"
-                        >
-                          {p.title}
-                        </a>
+                        {p.status === 'online' ? (
+                          <a
+                            href={openUrl(p.id, p.path)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="pv-row__title"
+                          >
+                            {p.title}
+                          </a>
+                        ) : (
+                          <span className="pv-row__title">{p.title}</span>
+                        )}
                         <Tag tone={badge.tone}>{badge.text}</Tag>
                       </span>
                       <span className="pv-muted">
@@ -129,8 +134,8 @@ function Lists({
                       {p.status === 'stopped' && p.canManage ? (
                         <>
                           <Button
-                            variant="primary"
                             size="small"
+                            loading={busyKey === `start:${p.id}`}
                             disabled={busyKey === `start:${p.id}`}
                             onClick={() => void act(`start:${p.id}`, () => startPreview(p.id))}
                           >
@@ -161,12 +166,14 @@ function Lists({
                             <Button
                               variant="plain"
                               size="small"
+                              loading={busyKey === `close:${p.id}`}
                               disabled={busyKey === `close:${p.id}`}
                               onClick={() =>
                                 p.status === 'offline'
-                                  ? void act(`close:${p.id}`, () =>
-                                      api.post(`/previews/${p.id}/close`, { stopService: false }),
-                                    )
+                                  ? void act(`close:${p.id}`, async () => {
+                                      await api.post(`/previews/${p.id}/close`, { stopService: false })
+                                      toast({ type: 'success', message: t('已关闭预览') })
+                                    })
                                   : setClosing({ preview: p, mode: 'stop' })
                               }
                             >
@@ -174,14 +181,14 @@ function Lists({
                                 ? t('关闭#close')
                                 : p.serviceId
                                   ? t('停止')
-                                  : t('停止穿透')}
+                                  : t('停止预览')}
                             </Button>
                           ) : null}
                         </>
                       )}
                       {menuItems.length ? (
                         <PullDownButton
-                          variant="plain"
+                          variant="ghost"
                           size="small"
                           icon="more"
                           indicator={false}

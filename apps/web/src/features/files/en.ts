@@ -57,4 +57,5 @@ export default {
   同目录文件: 'Files in this folder',
   '复制带行号的引用，按住 Shift 选范围': 'Copy a reference with line numbers; Shift-click for a range',
   '已复制 {ref}': 'Copied {ref}',
+  历史版本暂不支持预览此文件: 'Preview is not available for this file in a past revision',
 } satisfies Record<string, string>

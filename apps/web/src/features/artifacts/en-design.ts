@@ -35,7 +35,7 @@ export default {
   '套用插件的设计系统，或让 AI 生成 tokens.css': 'Apply a preset, or ask the AI to generate tokens.css',
   '保存并让 AI 统一': 'Save & apply with AI',
   '保存后让 {bot} 按设计系统统一所有屏幕': 'Save, then have {bot} restyle every screen to the design system',
-  '群里没有 Bot': 'No Bot in this group',
+  '暂无可用 Bot': 'No Bot available',
   '已让 {bot} 按设计系统统一所有屏幕': '{bot} is restyling every screen to the design system',
   设计系统已保存: 'Design system saved',
   '产物已有新版本，和你的改动冲突，改动没有保存。可以放弃改动后重新编辑。':

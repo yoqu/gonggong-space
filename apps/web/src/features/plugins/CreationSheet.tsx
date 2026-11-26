@@ -272,7 +272,7 @@ export function CreationSheet({
         closeOnBackdrop={false}
         footer={<span className="plg-sheet__count">{`${at + 1} / ${steps.length}`}</span>}
         actions={[
-          { label: t('取消'), onClick: requestClose },
+          { label: t('取消'), disabled: busy, onClick: requestClose },
           ...(at > 0 ? [{ label: t('上一步'), onClick: () => goStep(steps[at - 1] as CreationStep) }] : []),
           last
             ? {

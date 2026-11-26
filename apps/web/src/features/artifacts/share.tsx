@@ -12,6 +12,7 @@ import { localDate } from '../../lib/time'
 import { Button, Dialog, Icon, SegmentedControl, Switch } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
 import { ArtifactMembers } from './ArtifactMembers'
+import { useArtifactPage } from './host'
 import { setArtifactVisibility, useArtifactEntry } from './store'
 
 // Stitch's Share (capability list §9) on 共工's preview shares: one public link to the artifact's head, read-only.
@@ -69,15 +70,21 @@ export function useArtifactShare(artifactId: string) {
 /** Tests: forget loaded shares. */
 export const resetShares = () => useShares.setState({}, true)
 
-/** Who may turn the link on or off: the owner of the artifact's bot or a group admin, never in demo mode. */
-export function useShareAccess(groupId: string, botId: string | null | undefined): string | null {
+/** Who may turn the link on or off: its creator, the owner of its bot, or a group admin, never in demo mode. */
+export function useShareAccess(
+  groupId: string,
+  botId: string | null | undefined,
+  createdBy?: string | null,
+  canManage?: boolean,
+): string | null {
   const me = useSession((s) => s.user?.id)
   const demo = useSession((s) => !!s.tenancy?.demoMode)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const owner = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.ownerId)
   if (demo) return t('演示模式下不能开启分享')
-  if (me && (owner === me || (group && isGroupAdmin(group, me)))) return null
-  return t('只有 Bot 主人或群管理员能开关分享')
+  if (canManage || (me && (createdBy === me || owner === me || (group && isGroupAdmin(group, me)))))
+    return null
+  return t('只有创建人、Bot 主人或群管理员能开关分享')
 }
 
 /** Who manages it (sets who sees it, moves it): its creator, the owner of its bot or a group admin. */
@@ -102,6 +109,11 @@ const VISIBILITY_NOTE: Record<ArtifactVisibility, string> = {
 const DM_VISIBILITY_NOTE: Record<'private' | 'team', string> = {
   private: t('仅你本人能打开'),
   team: t('本团队成员都能只读查看和演示，仅你能修改'),
+}
+
+const WORKS_VISIBILITY_NOTE: Record<'private' | 'team', string> = {
+  private: t('只有创建人和已授权成员能打开'),
+  team: t('本团队成员都能查看和演示，创建人和协作者可修改'),
 }
 
 const expiry = (at: string | null) => (at ? t('链接 {date} 到期', { date: localDate(at) }) : '')
@@ -134,6 +146,7 @@ export function ShareDialog({
   botId,
   visibility,
   createdBy,
+  canManage,
   onClose,
 }: {
   artifactId: string
@@ -141,16 +154,21 @@ export function ShareDialog({
   botId: string | null | undefined
   visibility: ArtifactVisibility
   createdBy: string | null
+  canManage?: boolean
   onClose: () => void
 }) {
   const { share, busy, set } = useArtifactShare(artifactId)
-  const denied = useShareAccess(groupId, botId)
   const detail = useArtifactEntry(artifactId)?.artifact
-  const canScope = useArtifactManager(groupId, botId, createdBy, detail?.canManage)
+  const managed = canManage ?? detail?.canManage
+  const denied = useShareAccess(groupId, botId, createdBy, managed)
+  const canScope = useArtifactManager(groupId, botId, createdBy, managed)
+  const page = useArtifactPage()
   const dm = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.kind === 'dm')
+  const standalone = page?.groupKind === 'works'
+  const noGroup = dm || standalone
   const [scope, setScope] = useState(visibility)
   const [saving, setSaving] = useState(false)
-  const effectiveScope: ArtifactVisibility = dm && scope === 'group' ? 'private' : scope
+  const effectiveScope: ArtifactVisibility = noGroup && scope === 'group' ? 'private' : scope
   const changeScope = async (next: ArtifactVisibility) => {
     const was = scope
     setScope(next)
@@ -172,7 +190,7 @@ export function ShareDialog({
     const s = await set(true, lockFirst ? { locked: true } : {})
     if (s?.url) await copyWithToast(shareText(s.url, s.password), copiedToast(s.password))
   }
-  const scopeItems = dm
+  const scopeItems = noGroup
     ? [
         { value: 'private' as const, label: t('仅自己'), disabled: !canScope || saving },
         { value: 'team' as const, label: t('团队'), disabled: !canScope || saving },
@@ -182,9 +200,11 @@ export function ShareDialog({
         { value: 'group' as const, label: t('本群'), disabled: !canScope || saving },
         { value: 'team' as const, label: t('团队'), disabled: !canScope || saving },
       ]
-  const scopeNote = dm
-    ? DM_VISIBILITY_NOTE[effectiveScope === 'team' ? 'team' : 'private']
-    : VISIBILITY_NOTE[scope]
+  const scopeNote = standalone
+    ? WORKS_VISIBILITY_NOTE[effectiveScope === 'team' ? 'team' : 'private']
+    : dm
+      ? DM_VISIBILITY_NOTE[effectiveScope === 'team' ? 'team' : 'private']
+      : VISIBILITY_NOTE[scope]
   return (
     <Dialog open onClose={onClose} title={t('分享产物')} width={440}>
       <div className="art-share">
@@ -326,17 +346,27 @@ export function QrDialog({
   artifactId,
   groupId,
   botId,
+  createdBy,
+  canManage,
   screen,
   onClose,
 }: {
   artifactId: string
   groupId: string
   botId: string | null | undefined
+  createdBy?: string | null
+  canManage?: boolean
   screen?: string
   onClose: () => void
 }) {
   const { share, busy, set } = useArtifactShare(artifactId)
-  const denied = useShareAccess(groupId, botId)
+  const detail = useArtifactEntry(artifactId)?.artifact
+  const denied = useShareAccess(
+    groupId,
+    botId,
+    createdBy ?? detail?.createdBy,
+    canManage ?? detail?.canManage,
+  )
   const url = share?.enabled && share.url ? screenLink(share.url, screen) : null
   return (
     <Dialog open onClose={onClose} title={t('扫码查看')} width={340}>
