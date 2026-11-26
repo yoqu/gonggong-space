@@ -1,7 +1,14 @@
 import type { FeishuProjectChatDto, GroupDto, SidebarSectionDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, feishuChats, feishuIdentities, systemParams } from '../src/db/schema.js'
+import {
+  auditLogs,
+  feishuChats,
+  feishuIdentities,
+  groups,
+  systemParams,
+  teamSections,
+} from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
 import { inviteDelay, settleInvites } from '../src/modules/feishu/invite.js'
@@ -137,6 +144,52 @@ describe('飞书项目 · 需求群建群接口', () => {
     const [g] = await t.db.select().from(feishuChats).where(eq(feishuChats.chatId, CHAT))
     expect(g?.boundBy).toBe(other.id)
     expect((await call(body())).status).toBe(403)
+  })
+})
+
+describe('需求群团队分区与默认设置', () => {
+  const REPO = { url: 'https://gitlab.example.com/luke-plus/app.git', branch: 'main' }
+  const teamOpts = { teamSection: '需求迭代开发', botRepliesInThread: true, replyStyle: 'tech' as const }
+
+  async function section(teamId: string, createdBy: string) {
+    const [row] = await t.db
+      .insert(teamSections)
+      .values({ teamId, name: '需求迭代开发', position: 0, createdBy })
+      .returning()
+    return row!.id
+  }
+
+  it('files a new group under the team section with the repo, the named bot and the settings', async () => {
+    const s = await setup()
+    const secId = await section(s.teamId, s.sys.id)
+    const helper = await t.seed.bot({ ownerId: s.sys.id, name: '共字君' })
+    const res = await call(
+      body({ section: undefined, ...teamOpts, repo: REPO, botNames: ['共字君', '不存在'] }),
+    )
+    expect(res.status).toBe(200)
+    const group = (await s.liHttp.get<GroupDto>(`/api/groups/${res.body.groupId}`)).body
+    expect(group.botIds.sort()).toEqual([s.bot.id, helper.id].sort())
+    expect(group.repo).toEqual(REPO)
+    expect(group).toMatchObject({ replyStyle: 'tech', botRepliesInThread: true, sectionId: null })
+    const [row] = await t.db.select().from(groups).where(eq(groups.id, res.body.groupId))
+    expect(row).toMatchObject({ teamSectionId: secId, defaultSection: null })
+  })
+
+  it('brings an already bound group into the team section and settings', async () => {
+    const s = await setup()
+    const secId = await section(s.teamId, s.sys.id)
+    const { groupId } = (await call(body())).body
+    expect((await call(body({ section: undefined, ...teamOpts }))).body).toEqual({ groupId, created: false })
+    const [row] = await t.db.select().from(groups).where(eq(groups.id, groupId))
+    expect(row?.teamSectionId).toBe(secId)
+    const group = (await s.liHttp.get<GroupDto>(`/api/groups/${groupId}`)).body
+    expect(group).toMatchObject({ replyStyle: 'tech', botRepliesInThread: true })
+  })
+
+  it('refuses an unknown team section without creating anything', async () => {
+    await setup()
+    expect((await call(body({ teamSection: '没有这个分区' }))).status).toBe(400)
+    expect(await t.db.select().from(feishuChats)).toHaveLength(0)
   })
 })
 

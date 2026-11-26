@@ -45,7 +45,7 @@ async function requireTeamSection(ctx: Ctx, teamId: string, id: string) {
 }
 
 /** Everyone in the team sees the directory change. */
-async function publishDirectory(ctx: Ctx, teamId: string) {
+export async function publishDirectory(ctx: Ctx, teamId: string) {
   const rows = await ctx.db
     .select({ userId: teamMembers.userId })
     .from(teamMembers)

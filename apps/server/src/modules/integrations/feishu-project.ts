@@ -1,8 +1,17 @@
 import { type FeishuProjectChatDto, FeishuProjectChatReq } from '@gonggong/protocol'
-import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
+import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
-import { feishuChats, feishuIdentities, groups, teamMembers, users } from '../../db/schema.js'
+import {
+  bots,
+  feishuChats,
+  feishuIdentities,
+  groups,
+  teamMembers,
+  teamSections,
+  users,
+} from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail, HttpError } from '../../lib/errors.js'
 import { mainApp } from '../feishu/apps.js'
@@ -12,8 +21,10 @@ import { credsOf } from '../feishu/gateway.js'
 import { boundGroupOf, syncFromFeishu } from '../feishu/members.js'
 import { markBound } from '../feishu/mirror.js'
 import { createGroup } from '../groups/create.js'
+import { forgetGroupParams } from '../groups/params.js'
 import { publishGroup } from '../groups/service.js'
 import { setNotice } from '../groups/settings.js'
+import { publishDirectory } from '../team-sections/routes.js'
 import { integrationTeam } from './tokens.js'
 
 /** Feishu failing is worth retrying, unlike a bad request. */
@@ -46,16 +57,54 @@ async function ownerOf(ctx: Ctx, teamId: string, ownerUnionId: string | undefine
   return admin ?? fail('conflict', '团队没有可用的管理员')
 }
 
-/** The bound group of the chat filed under `section` for its members; another team's group reads as a conflict. */
-async function existing(ctx: Ctx, teamId: string, chatId: string, section: string | undefined) {
+type Req = z.output<typeof FeishuProjectChatReq>
+
+/** The 团队分区 named `name` in the team; an unknown name is refused rather than filed nowhere. */
+async function teamSectionId(ctx: Ctx, teamId: string, name: string) {
+  const [row] = await ctx.db
+    .select({ id: teamSections.id })
+    .from(teamSections)
+    .where(and(eq(teamSections.teamId, teamId), eq(teamSections.name, name)))
+    .orderBy(asc(teamSections.position), asc(teamSections.createdAt))
+    .limit(1)
+  return row?.id ?? fail('invalid', '团队分区「{name}」不存在', { name })
+}
+
+/** Team bots by name; unknown or deleted names are left out. */
+async function botsNamed(ctx: Ctx, teamId: string, names: string[]) {
+  if (!names.length) return []
+  const rows = await ctx.db
+    .select({ id: bots.id })
+    .from(bots)
+    .where(and(eq(bots.teamId, teamId), inArray(bots.name, names), isNull(bots.deletedAt)))
+  return rows.map((r) => r.id)
+}
+
+/** The bound group of the chat; another team's group reads as a conflict. */
+async function existing(ctx: Ctx, teamId: string, chatId: string) {
   const bound = await boundGroupOf(ctx, chatId)
   if (!bound) return null
   if (bound.teamId !== teamId) return fail('forbidden', '该飞书群已关联其他团队的群')
-  if (section) {
-    await ctx.db.update(groups).set({ defaultSection: section }).where(eq(groups.id, bound.id))
-    await publishGroup(ctx, bound.id)
-  }
   return bound.id
+}
+
+/** Section and settings asked for, applied to a new or an already bound group alike. */
+async function apply(ctx: Ctx, teamId: string, groupId: string, req: Req, sectionId: string | undefined) {
+  const params = {
+    ...(req.replyStyle && { replyStyle: req.replyStyle }),
+    ...(req.botRepliesInThread !== undefined && { botRepliesInThread: req.botRepliesInThread }),
+  }
+  const set = {
+    ...(sectionId ? { teamSectionId: sectionId } : req.section ? { defaultSection: req.section } : {}),
+    ...(Object.keys(params).length
+      ? { params: sql`${groups.params} || ${JSON.stringify(params)}::jsonb` }
+      : {}),
+  }
+  if (!Object.keys(set).length) return
+  await ctx.db.update(groups).set(set).where(eq(groups.id, groupId))
+  forgetGroupParams(ctx.db, groupId)
+  await publishGroup(ctx, groupId)
+  if (sectionId) await publishDirectory(ctx, teamId)
 }
 
 /**
@@ -66,16 +115,26 @@ export function feishuProjectRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.post('/api/integrations/feishu-project/chats', async (req): Promise<FeishuProjectChatDto> => {
       const teamId = integrationTeam(ctx.config.feishuProjectTokens, req)
-      const { feishuChatId: chatId, section, workItem } = FeishuProjectChatReq.parse(req.body)
-      const found = await existing(ctx, teamId, chatId, section)
-      if (found) return { groupId: found, created: false }
+      const body = FeishuProjectChatReq.parse(req.body)
+      const { feishuChatId: chatId, workItem } = body
+      const sectionId = body.teamSection ? await teamSectionId(ctx, teamId, body.teamSection) : undefined
+      const found = await existing(ctx, teamId, chatId)
+      if (found) {
+        await apply(ctx, teamId, found, body, sectionId)
+        return { groupId: found, created: false }
+      }
 
       const main = (await mainApp(ctx)) ?? fail('unavailable', '系统管理员尚未接入飞书')
       const chat = (await feishu(ctx.feishu.api.listChats(credsOf(main)))).find((c) => c.chatId === chatId)
       if (!chat) return fail('conflict', '共工机器人不在该飞书群中')
       const members = await feishu(ctx.feishu.api.chatMembers(credsOf(main), chatId))
       const owner = await ownerOf(ctx, teamId, chat.ownerUnionId)
-      const botIds = await botsInChat(ctx, teamId, chatId)
+      const botIds = [
+        ...new Set([
+          ...(await botsInChat(ctx, teamId, chatId)),
+          ...(await botsNamed(ctx, teamId, body.botNames ?? [])),
+        ]),
+      ]
       const name = (chat.name || workItem.name || chatId).slice(0, 60)
       let groupId: string
       try {
@@ -83,7 +142,7 @@ export function feishuProjectRoutes(ctx: Ctx) {
           ctx,
           owner,
           teamId,
-          { name, kind: 'group', memberIds: [], botIds, repo: null },
+          { name, kind: 'group', memberIds: [], botIds, repo: body.repo ?? null },
           async (tx, id) => {
             const [row] = await tx
               .insert(feishuChats)
@@ -91,18 +150,19 @@ export function feishuProjectRoutes(ctx: Ctx) {
               .onConflictDoNothing()
               .returning()
             if (!row) fail('conflict', '该飞书群已关联其他群')
-            if (section) await tx.update(groups).set({ defaultSection: section }).where(eq(groups.id, id))
           },
         )
       } catch (err) {
         // A concurrent call bound the chat first: answer as the retry it is.
         const raced =
-          err instanceof HttpError &&
-          err.code === 'conflict' &&
-          (await existing(ctx, teamId, chatId, section))
-        if (raced) return { groupId: raced, created: false }
+          err instanceof HttpError && err.code === 'conflict' && (await existing(ctx, teamId, chatId))
+        if (raced) {
+          await apply(ctx, teamId, raced, body, sectionId)
+          return { groupId: raced, created: false }
+        }
         throw err
       }
+      await apply(ctx, teamId, groupId, body, sectionId)
       markBound(ctx, groupId)
       await setNotice(ctx, groupId, `需求：${workItem.name}\n${workItem.url}`, owner.id)
       await syncFromFeishu(ctx, { id: groupId, teamId }, members)

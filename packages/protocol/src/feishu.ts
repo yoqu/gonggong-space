@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { FeishuIssue } from './feishu-errors.js'
-import { GroupDto } from './web.js'
+import { GroupDto, ReplyStyle } from './web.js'
 
 // ── 飞书联动 (plan 飞书联动-开发计划) ──
 
@@ -145,6 +145,17 @@ export const FeishuProjectChatReq = z.object({
   feishuChatId: z.string().trim().min(1),
   /** Name of the sidebar section members get the group filed under. */
   section: z.string().trim().min(1).max(60).optional(),
+  /** Name of the team's 团队分区 the group is filed under (seen by the whole team); unknown names are refused. */
+  teamSection: z.string().trim().min(1).max(60).optional(),
+  /** Main repo of a newly created group. */
+  repo: z
+    .object({ url: z.string().trim().min(1).max(2000), branch: z.string().trim().min(1).max(200) })
+    .optional(),
+  /** Team bots pulled into a newly created group by name, besides the ones already in the chat; unknown names are skipped. */
+  botNames: z.array(z.string().trim().min(1).max(60)).max(10).optional(),
+  /** Group settings, applied on every call. */
+  botRepliesInThread: z.boolean().optional(),
+  replyStyle: ReplyStyle.optional(),
   workItem: z.object({
     id: z.union([z.number(), z.string()]),
     name: z.string().trim().max(200),
