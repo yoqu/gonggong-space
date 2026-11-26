@@ -400,7 +400,7 @@ impl Services {
         let h = self.find_any(id)?;
         match &h.origin.how {
             How::Static(dir) => inside(&h.origin.root, dir),
-            How::Command(_) => Err(crate::t!("只有静态站点可以直接托管，请让 Bot 构建后用 preview_host 托管").into()),
+            How::Command(_) => Err(crate::t!("只有静态站点可以直接托管，请让 Bot 构建后再托管").into()),
         }
     }
 

@@ -390,7 +390,7 @@ describe('CLI connectors', () => {
 
   it('reminds the owner once when the login runs out within two days; old member profiles are ignored', async () => {
     const w = await world()
-    await w.upload()
+    const plugin = await w.upload()
     w.online()
     const soon = new Date(Date.now() + 24 * 3600_000).toISOString()
     const update = {
@@ -410,7 +410,13 @@ describe('CLI connectors', () => {
     const got = await t.db.select().from(notifications).where(eq(notifications.userId, w.wang.id))
     expect(got).toHaveLength(1)
     expect(got[0]).toMatchObject({ type: 'connector_expiring' })
-    expect(got[0]!.payload).toMatchObject({ connectorTitle: '飞书', machineName: w.machine.name })
+    expect(got[0]!.payload).toMatchObject({
+      connectorTitle: '飞书',
+      machineName: w.machine.name,
+      pluginId: plugin.id,
+      groupId: w.group.id,
+      groupName: w.group.name,
+    })
     expect(await t.db.select().from(notifications).where(eq(notifications.userId, w.zhao.id))).toEqual([])
   })
 })

@@ -257,4 +257,46 @@ describe('notificationView', () => {
       'C\'s computer cannot reach org/app (connection timed out); fix it, then click "Recheck" in the group',
     )
   })
+
+  it('routes connector_expiring to the group connector dialog, or to the computer when no group is present', () => {
+    const en = createTranslator('en', protocolEn).text
+    const payload = {
+      groupId: 'g1',
+      groupName: '支付',
+      pluginId: 'p1',
+      machineId: 'm1',
+      connectorTitle: '飞书',
+      machineName: 'mbp',
+    }
+    expect(notificationView(n('connector_expiring', payload))).toEqual({
+      label: '连接即将过期',
+      text: '你的 飞书 登录在 mbp 上将在两天内过期，请重新连接',
+      group: '支付',
+      href: '/g/g1?connector=p1',
+    })
+    expect(view(n('connector_expiring', payload), en)).toEqual({
+      label: 'Connection expiring',
+      text: 'Your 飞书 login on mbp expires within 2 days; connect again',
+      group: '支付',
+      href: '/g/g1?connector=p1',
+    })
+    expect(
+      notificationView(n('connector_expiring', { groupId: 'g1', connectorTitle: '飞书', machineName: 'mbp' }))
+        .href,
+    ).toBe('/g/g1')
+    expect(
+      notificationView(
+        n('connector_expiring', { machineId: 'm1', connectorTitle: '飞书', machineName: 'mbp' }),
+      ).href,
+    ).toBe('/machine/m1')
+  })
+
+  it('keeps protocolEn terminology consistent and free of CJK characters', () => {
+    expect(protocolEn['Bot 闲置后下次对话自动开新会话']).toBe('Start a new Bot session after idle for')
+    expect(protocolEn['✓ {bot} 已绑定到 {path}（本机目录）']).toBe(
+      '✓ {bot} is bound to {path} (local folder)',
+    )
+    const cjk = Object.entries(protocolEn).filter(([, v]) => /[一-鿿]/.test(v))
+    expect(cjk).toEqual([])
+  })
 })

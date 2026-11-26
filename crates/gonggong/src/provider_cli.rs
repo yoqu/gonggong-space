@@ -26,7 +26,7 @@ pub enum ProviderCmd {
         #[arg(value_parser = parse_kind)]
         agent: Option<AgentKind>,
     },
-    /// Add a provider from a preset (--preset) or manually (--name + --base-url); the API key is read from stdin.
+    /// Add a provider from a preset (--preset) or manually (--name + --base-url); pass --key-stdin to read the API key from stdin.
     Add {
         /// Agent name (claude, codex, gemini, ...).
         #[arg(value_parser = parse_kind)]
@@ -78,8 +78,11 @@ pub enum ProviderCmd {
     Rm {
         /// Provider ID to delete.
         id: String,
+        /// Skip confirmation.
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
-    /// Set a computer default (`use <agent> <id|official>`) or bot override (`use --bot <bot> <id|official|inherit>`).
+    /// Set a computer default (`use <agent> <id|official>`) or Bot override (`use --bot <bot> <id|official|inherit>`).
     Use {
         /// Bot ID or name (omit to set the computer default).
         #[arg(long)]
@@ -189,7 +192,21 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
             })?;
             println!("{}", t!("已修改 {id}；使用它的会话会重启进程后继续", id = id));
         }
-        ProviderCmd::Rm { id } => {
+        ProviderCmd::Rm { id, yes } => {
+            if let Some(p) = Store::load(home)?.get(&id) {
+                let confirmed = confirm_provider_rm(
+                    &id,
+                    &p.name,
+                    yes,
+                    std::io::IsTerminal::is_terminal(&std::io::stdin()),
+                    std::io::stdin().lock(),
+                    std::io::stderr(),
+                )?;
+                if !confirmed {
+                    println!("{}", t!("已取消"));
+                    return Ok(());
+                }
+            }
             let p = Store::update(home, |s| s.remove(&id))?;
             crate::inject::prune(home, &Store::load(home)?, None);
             println!("{}", t!("已删除 {name}；使用它的会话下一轮会自动开启新会话", name = p.name));
@@ -487,9 +504,48 @@ async fn print_stale(home: &Path, agent: AgentKind) -> Result<()> {
     Ok(())
 }
 
+fn confirm_provider_rm<R: std::io::BufRead, W: std::io::Write>(
+    id: &str,
+    name: &str,
+    yes: bool,
+    is_tty: bool,
+    mut input: R,
+    mut output: W,
+) -> Result<bool> {
+    if yes {
+        return Ok(true);
+    }
+    if !is_tty {
+        bail!(t!("删除供应商需要交互确认，非交互环境请加 --yes"));
+    }
+    write!(
+        output,
+        "{}",
+        t!("确认删除供应商「{name}」（{id}）？使用它的会话下一轮会开启新会话 [y/N]：", name = name, id = id)
+    )?;
+    output.flush()?;
+    let mut line = String::new();
+    input.read_line(&mut line)?;
+    let ans = line.trim().to_ascii_lowercase();
+    Ok(ans == "y" || ans == "yes")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn provider_rm_requires_confirmation_or_yes() {
+        let mut out = Vec::new();
+        assert!(confirm_provider_rm("p1", "DeepSeek", false, false, &b""[..], &mut out).is_err());
+        assert!(confirm_provider_rm("p1", "DeepSeek", true, false, &b""[..], &mut out).unwrap());
+
+        out.clear();
+        assert!(!confirm_provider_rm("p1", "DeepSeek", false, true, &b"n\n"[..], &mut out).unwrap());
+        assert!(!confirm_provider_rm("p1", "DeepSeek", false, true, &b"\n"[..], &mut out).unwrap());
+        assert!(confirm_provider_rm("p1", "DeepSeek", false, true, &b"y\n"[..], &mut out).unwrap());
+        assert!(String::from_utf8(out).unwrap().contains("DeepSeek"));
+    }
 
     #[test]
     fn agent_settings_change_all_or_nothing() {

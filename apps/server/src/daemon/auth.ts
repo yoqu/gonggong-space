@@ -8,12 +8,13 @@ import { fail } from '../lib/errors.js'
 /** Guards daemon REST calls (`Authorization: Bearer <machine token>`); revoked machines and disabled owners are rejected. */
 export async function requireMachine(ctx: Ctx, req: FastifyRequest) {
   const token = /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1]
-  if (!token) return fail('unauthorized', 'missing machine token')
+  if (!token) return fail('unauthorized', '缺少电脑登录凭据')
   const [row] = await ctx.db
     .select({ machine: machines, ownerDisabled: users.disabledAt })
     .from(machines)
     .innerJoin(users, eq(users.id, machines.ownerId))
     .where(eq(machines.tokenHash, sha256(token)))
-  if (!row || row.machine.revokedAt || row.ownerDisabled) return fail('unauthorized', 'machine token revoked')
+  if (!row || row.machine.revokedAt || row.ownerDisabled)
+    return fail('unauthorized', '电脑登录已失效，请重新绑定')
   return row.machine
 }

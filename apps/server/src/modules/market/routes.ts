@@ -143,7 +143,7 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
       .select({ id: users.id, role: users.role })
       .from(users)
       .where(eq(users.id, machine.ownerId))
-    return me ?? fail('unauthorized', 'machine token revoked')
+    return me ?? fail('unauthorized', '电脑登录已失效，请重新绑定')
   }
   app.get('/api/daemon/market', async (req) =>
     marketList(ctx, await owner(req), MarketQuery.parse(req.query)),

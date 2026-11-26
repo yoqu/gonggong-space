@@ -84,6 +84,16 @@ describe('群标签栏', () => {
     await w.add(w.asWang, { target: { kind: 'entry', entry: 'schedules' } })
     const list = await w.tabs(w.asLi)
     expect(list.map((x) => x.title)).toEqual(['发布流程', '需求文档', '定时任务'])
+    const enTabs = await t.app.inject({
+      method: 'GET',
+      url: w.url,
+      headers: { cookie: await t.seed.cookie(w.li.id), 'accept-language': 'en' },
+    })
+    expect((enTabs.json() as GroupTabsDto).tabs.map((x) => x.title)).toEqual([
+      '发布流程',
+      '需求文档',
+      'Schedules',
+    ])
     expect(seen.filter((x) => x.t === 'group.tabs').at(-1)).toMatchObject({ groupId: w.g.id, tabs: list })
 
     const ids = list.map((x) => x.id)

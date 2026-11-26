@@ -181,8 +181,9 @@ export async function listWorks(ctx: Ctx, userId: string, teamId: string): Promi
       {
         id: r.a.id,
         groupId: r.a.groupId,
-        // Mask another member's DM name on the server so private chat titles never leak over the wire.
-        groupTitle: groupKind === 'dm' && !r.member ? '' : translateGroupTitle(r.groupTitle),
+        // Mask standalone works spaces and other members' DM names so internal/private titles never leak.
+        groupTitle:
+          groupKind === 'works' || (groupKind === 'dm' && !r.member) ? '' : translateGroupTitle(r.groupTitle),
         groupKind,
         groupVisibility,
         title: r.a.title,

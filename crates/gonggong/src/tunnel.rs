@@ -314,7 +314,7 @@ where
                     let open = match serde_json::from_slice::<TunnelOpen>(&frame.payload) {
                         Ok(open) => open,
                         Err(e) => {
-                            out.reset(t!("open 无效：{e}", e = e)).await;
+                            out.reset(t!("预览连接请求无效：{e}", e = e)).await;
                             continue;
                         }
                     };

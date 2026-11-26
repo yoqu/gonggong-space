@@ -77,9 +77,9 @@ describe('作品 新建 with an AI, no group', () => {
     const [gb] = await t.db.select().from(groupBots).where(eq(groupBots.groupId, space!.id))
     expect(gb).toMatchObject({ botId: w.gz.id, guest: true })
     expect((await w.me.get<GroupDto[]>('/api/groups')).body.map((g) => g.id)).not.toContain(space!.id)
-    expect((await w.me.get<WorkDto[]>('/api/works')).body.map((x) => [x.id, x.access])).toEqual([
-      [a!.id, 'edit'],
-    ])
+    expect((await w.me.get<WorkDto[]>('/api/works')).body.map((x) => [x.id, x.access, x.groupTitle])).toEqual(
+      [[a!.id, 'edit', '']],
+    )
 
     // Its AI 对话 opens with how to create it, then the first message says what to make and starts the AI.
     const chat = await w.me.post<ArtifactChatDto>(`/api/artifacts/${a!.id}/chat`)
@@ -106,6 +106,38 @@ describe('作品 新建 with an AI, no group', () => {
   it('only takes the AIs open for works', async () => {
     const w = await world()
     const other = await t.seed.bot({ ownerId: w.owner.id, name: '姜维川的 Codex', triggerScope: 'all' })
-    expect((await w.me.post('/api/works', { botId: other.id })).status).toBe(400)
+    const res = await w.me.post<{ message: string }>('/api/works', { botId: other.id })
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe('这个 Bot 暂不支持创作作品，请从列表里选择可用的 Bot')
+  })
+
+  it('lets a standalone work creator run canvas commands, agent-send, and toggle public share', async () => {
+    const w = await world()
+    t.ctx.config.preview = { domain: 'preview.test', ports: [0, 0], publicUrl: null }
+    const created = await w.me.post<{ artifactId: string }>('/api/works', { botId: w.gz.id })
+    expect(created.status).toBe(200)
+    const id = created.body.artifactId
+
+    const agentRes = await w.me.post<{ status: string; messageId?: string }>(
+      `/api/artifacts/${id}/agent-send`,
+      {
+        text: '帮我加一页介绍',
+      },
+    )
+    expect(agentRes.status).toBe(200)
+    expect(agentRes.body.status).toBe('delivered')
+
+    const on = await w.me.post<{ enabled: boolean; url: string | null }>(`/api/artifacts/${id}/share`, {
+      enabled: true,
+    })
+    expect(on.status).toBe(200)
+    expect(on.body.enabled).toBe(true)
+    expect(on.body.url).toBeTruthy()
+
+    const off = await w.me.post<{ enabled: boolean; url: string | null }>(`/api/artifacts/${id}/share`, {
+      enabled: false,
+    })
+    expect(off.status).toBe(200)
+    expect(off.body.enabled).toBe(false)
   })
 })

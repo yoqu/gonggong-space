@@ -100,7 +100,8 @@ export async function claimAttachments(
   if (!ids.length) return []
   const max = (await effectiveParams(tx, o.groupId)).attachmentsPerMessage
   if (ids.length > max) return fail('invalid', '每条消息最多 {max} 个附件', { max })
-  if (new Set(ids).size !== ids.length || !ids.every(isUuid)) return fail('invalid', '附件无效')
+  if (new Set(ids).size !== ids.length || !ids.every(isUuid))
+    return fail('invalid', '附件编号无效，请重新上传')
   const rows = await tx
     .update(attachments)
     .set({ messageId: o.messageId })

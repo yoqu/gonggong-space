@@ -937,7 +937,7 @@ pub async fn cli(home: &Path, cmd: Option<AgentsCmd>) -> Result<()> {
             for kind in kinds {
                 match upgrade(home, kind, &print).await {
                     Ok(s) => println!("{} {}", kind.label(), s.version.as_deref().unwrap_or("-")),
-                    Err(e) if all => println!("{}：{e:#}", kind.label()),
+                    Err(e) if all => println!("{}", t!("{tool}：{err}", tool = kind.label(), err = format!("{e:#}"))),
                     Err(e) => return Err(e),
                 }
             }
@@ -968,7 +968,11 @@ fn set_mirror(home: &Path, value: Option<String>, node: Option<String>) -> Resul
         Mirror::Official => t!("官方源"),
         Mirror::Custom { .. } => t!("自定义"),
     };
-    println!("{}\nnpm\t{}\nNode.js\t{}", t!("镜像源：{name}", name = name), m.registry(), m.node_dist());
+    println!("{}", t!("镜像源：{name}", name = name));
+    let rows = vec![vec!["npm", m.registry()], vec!["Node.js", m.node_dist()]];
+    for line in crate::format_columns(&rows) {
+        println!("{}", line.trim_end());
+    }
     Ok(())
 }
 

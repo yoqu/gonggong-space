@@ -48,7 +48,7 @@ export async function artifactChatRoot(ctx: Ctx, a: Pick<Artifact, 'id' | 'group
  */
 export async function artifactGuestBot(ctx: Ctx, group: { id: string; teamId: string }, botId: string) {
   const [bot] = await ctx.db
-    .select({ id: bots.id, name: bots.name })
+    .select({ id: bots.id, name: bots.name, machineId: bots.machineId })
     .from(bots)
     .where(
       and(

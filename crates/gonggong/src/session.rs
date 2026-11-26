@@ -589,7 +589,7 @@ impl Shared {
         let step = if allowed {
             t!("已批准：{title}", title = p.title)
         } else {
-            t!("请求被拒绝，agent 自行绕路").into()
+            t!("请求被拒绝，Bot 会换个方式继续").into()
         };
         let event = RunEvent::Status { status: RunStatus::Running, step };
         out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });

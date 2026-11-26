@@ -205,4 +205,18 @@ mod tests {
         }
         assert!(missing.is_empty(), "missing English:\n{}", missing.join("\n"));
     }
+
+    #[test]
+    fn english_dictionary_has_no_cjk_or_deprecated_terms() {
+        let map: HashMap<&str, &str> = en::EN.iter().copied().collect();
+        for (k, v) in en::EN {
+            assert!(!v.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)), "CJK in en value for {k}: {v}");
+        }
+        assert_eq!(map.get("现在就改"), Some(&"Edit now"));
+        assert_eq!(map.get("等运行结束再改"), Some(&"Wait for active runs to finish"));
+        assert_eq!(map.get("已取消授权，需要时可重新连接"), Some(&"Authorization canceled; connect again when needed"));
+        assert_eq!(map.get("私聊"), Some(&"Direct chat"));
+        assert_eq!(map.get("本机目录"), Some(&"Local folder"));
+        assert!(!map.contains_key("请求被拒绝，agent 自行绕路"));
+    }
 }

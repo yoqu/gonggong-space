@@ -186,7 +186,7 @@ export const protocolEn = {
   '{bot} 离线，无法执行 /cd': '{bot} is offline and cannot run /cd',
   '{bot} 绑定工作区失败：{error}': '{bot} failed to bind the workspace: {error}',
   '✓ {bot} 已使用托管工作区': '✓ {bot} now uses the managed workspace',
-  '✓ {bot} 已绑定到 {path}（本机目录）': '✓ {bot} is bound to {path} (local directory)',
+  '✓ {bot} 已绑定到 {path}（本机目录）': '✓ {bot} is bound to {path} (local folder)',
   '已请求 {bot} 使用托管工作区，等待本机确认…':
     'Asked {bot} to use the managed workspace; waiting for this computer to confirm…',
   '已请求 {bot} 绑定到 {path}，等待本机校验…':
@@ -323,8 +323,11 @@ export const protocolEn = {
   '{machine} 请求接入': '{machine} asks to connect',
   待授权的插件: 'Plugin to authorize',
   连接即将过期: 'Connection expiring',
+  '你的 {connector} 登录在 {machine} 上将在两天内过期，请重新连接':
+    'Your {connector} login on {machine} expires within 2 days; connect again',
+  // legacy
   '{connector}在 {machine} 上的登录两天内过期，请重新连接':
-    'Your {connector} login on {machine} runs out within two days; connect again',
+    'Your {connector} login on {machine} expires within 2 days; connect again',
   '插件 {plugin} {version} 要在 {machine} 上运行代码，请确认':
     'Plugin {plugin} {version} wants to run code on {machine}. Please confirm',
   '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you; please confirm the binding',
@@ -371,7 +374,7 @@ export const protocolEn = {
     'Group chat context replayed when a session cannot resume (max tokens)',
   '每轮随消息附带的群聊上下文（token 上限）': 'Group chat context sent with each turn (max tokens)',
   完整运行过程保留: 'Keep full run details for',
-  'Bot 闲置后下次对话自动开新会话': 'Start a new bot session after idle for',
+  'Bot 闲置后下次对话自动开新会话': 'Start a new Bot session after idle for',
   预览无人访问后自动关闭: 'Close previews after no visits for',
   预览公开链接最长有效期: 'Longest validity of a public preview link',
   单个附件大小上限: 'Max size of one attachment',

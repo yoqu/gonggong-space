@@ -39,7 +39,8 @@ export async function newWork(ctx: Ctx, me: { id: string }, teamId: string, botI
   await requirePluginsOn(ctx.db)
   const space = await worksSpace(ctx, me.id, teamId)
   const bot =
-    (await artifactGuestBot(ctx, space, botId)) ?? fail('invalid', '只能选共字君或姜维川的 Claude Code')
+    (await artifactGuestBot(ctx, space, botId)) ??
+    fail('invalid', '这个 Bot 暂不支持创作作品，请从列表里选择可用的 Bot')
   const prototypes = (await groupPluginList(ctx.db, space.id)).filter(
     (r) =>
       r.enabledInGroup &&

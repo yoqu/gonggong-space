@@ -12,7 +12,7 @@ import { sysParams } from '../admin/params.js'
 import { findMember } from '../groups/service.js'
 import { openPortListener } from '../previews/gateway.js'
 import { previewOrigin } from '../previews/routes.js'
-import { newSlug, requireManager } from '../previews/service.js'
+import { newSlug } from '../previews/service.js'
 import { type Artifact, findArtifact, isArtifactManager, requireVersion } from './service.js'
 
 const DAY = 86400_000
@@ -112,13 +112,15 @@ export async function setShare(
   { enabled, follow, locked }: ArtifactShareReq,
   req: FastifyRequest,
 ): Promise<ArtifactShareDto> {
+  const m = await findMember(ctx, a.groupId, me.id)
+  if (!(await isArtifactManager(ctx, a, me.id, !!m?.member.isAdmin)))
+    fail(
+      'forbidden',
+      enabled
+        ? '只有创建人、Bot 主人或群管理员能管理公开链接'
+        : '只有创建人、Bot 主人或群管理员能关闭公开链接',
+    )
   if (!enabled) {
-    if (a.botId) await requireManager(ctx, a.groupId, a.botId, me.id)
-    else {
-      const m = await findMember(ctx, a.groupId, me.id)
-      if (!(await isArtifactManager(ctx, a, me.id, !!m?.member.isAdmin)))
-        fail('forbidden', '只有创建人、Bot 主人或群管理员能关闭公开链接')
-    }
     const live = await liveShare(ctx, a)
     if (live) {
       await ctx.db.update(previewShares).set({ revokedAt: ctx.now() }).where(eq(previewShares.id, live.s.id))
@@ -136,7 +138,6 @@ export async function setShare(
   const { previewShareMaxDays, demoMode } = await sysParams(ctx.db)
   if (demoMode) fail('forbidden', '演示模式下不能创建公开链接')
   const preview = await openArtifactPreview(ctx, a, null)
-  await requireManager(ctx, preview.groupId, preview.botId, me.id)
   const pin = follow ? null : a.headVersionId
   const live = await liveShare(ctx, a)
   const password = locked === undefined ? undefined : locked ? newPassword() : null

@@ -164,9 +164,18 @@ pub trait Handler: Send + Sync + 'static {
     fn report(&self, _out: &Outbox) {}
 }
 
+fn format_rejected(reason: RejectReason, message: &str) -> String {
+    let label = match reason {
+        RejectReason::Protocol => crate::t!("协议版本不兼容"),
+        RejectReason::Revoked => crate::t!("登录已失效"),
+        RejectReason::Unauthorized => crate::t!("未授权"),
+    };
+    crate::t!("服务器拒绝连接（{reason}）：{message}", reason = label, message = message)
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Fatal {
-    #[error("server rejected this daemon ({reason:?}): {message}")]
+    #[error("{}", format_rejected(*reason, message))]
     Rejected { reason: RejectReason, message: String },
 }
 
@@ -403,7 +412,10 @@ impl<H: Handler> Service<H> {
                 }
                 return Ok(Some(Fatal::Rejected { reason, message }));
             }
-            other => anyhow::bail!("unexpected first message {other:?}"),
+            other => {
+                tracing::warn!("unexpected first message {other:?}");
+                anyhow::bail!("{}", crate::t!("服务器返回了意外的握手消息"));
+            }
         };
         let every = Duration::from_secs(heartbeat_sec.max(1));
         // A socket whose peer stopped reading blocks writes once its buffer is full, and then no heartbeat would
@@ -529,7 +541,7 @@ async fn next_msg(ws: &mut Ws) -> anyhow::Result<ServerToDaemon> {
             return Ok(serde_json::from_str(&t)?);
         }
     }
-    anyhow::bail!("server closed during handshake")
+    anyhow::bail!("{}", crate::t!("握手时服务器断开了连接"))
 }
 
 #[cfg(test)]
@@ -544,6 +556,15 @@ mod tests {
 
     fn text(run_id: &str, delta: &str) -> DaemonToServer {
         event(run_id, RunEvent::Text { delta: delta.into(), agent_id: None })
+    }
+
+    #[test]
+    fn fatal_rejected_display_has_no_raw_debug_or_daemon_jargon() {
+        let err = Fatal::Rejected { reason: RejectReason::Revoked, message: "电脑登录已失效".into() };
+        let msg = err.to_string();
+        assert!(!msg.contains("daemon"), "contains daemon jargon: {msg}");
+        assert!(!msg.contains("Revoked"), "contains raw Debug enum: {msg}");
+        assert!(msg.contains("电脑登录已失效"), "{msg}");
     }
 
     /// A run.event that alone weighs about `bytes`.

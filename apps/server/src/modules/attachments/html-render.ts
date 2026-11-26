@@ -26,7 +26,7 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 /** No allow-same-origin: the page runs in an opaque origin, away from the app's session, even opened directly. */
 const PAGE_CSP = 'sandbox allow-scripts allow-forms allow-popups'
 
-const invalid = () => fail('invalid', '页面无效')
+const invalid = () => fail('invalid', '页面内容无效，请检查 HTML 与截图格式')
 
 export const htmlRenderSnapshotFile = (attachmentId: string) =>
   join(dataDir(), 'attachments', `${attachmentId}.png`)

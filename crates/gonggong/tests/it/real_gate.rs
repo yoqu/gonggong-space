@@ -75,7 +75,7 @@ async fn verify(kind: AgentKind, adapter: &str, cli: Option<PathBuf>) {
         while let Some(msg) = rx.recv().await {
             match msg {
                 DaemonToServer::QuestionAsk { run_id, request_id, questions } if run_id == "g2r" => {
-                    assert!(questions[0].options.iter().any(|o| o == "并行修改"), "{questions:?}");
+                    assert!(questions[0].options.iter().any(|o| o == "现在就改"), "{questions:?}");
                     assert!(!dir.join("probe1.txt").exists(), "changed before the confirmation");
                     asked = true;
                     let answers = vec![Answer { question_id: "q1".into(), choices: vec![0], text: None }];

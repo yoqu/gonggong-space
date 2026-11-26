@@ -166,7 +166,7 @@ export async function remindExpiring(ctx: Ctx, machineId: string, probes: Connec
       machineId,
       machineName: machine.label ?? machine.name,
       refreshExpiresAt: p.refreshExpiresAt,
-      ...(c && { groupId: c.groupId }),
+      ...(c && { groupId: c.groupId, groupName: c.groupName, pluginId: c.pluginId }),
     })
   }
 }

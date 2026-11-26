@@ -2,7 +2,8 @@ import type { ConnectorSpec, PluginManifest } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groupBots } from '../../db/schema.js'
+import { bots, groupBots, groups } from '../../db/schema.js'
+import { groupTitle, translateGroupTitle } from '../groups/title.js'
 import { groupPluginLists, pluginsOn } from '../plugins/service.js'
 import { syncChanged } from './state.js'
 
@@ -18,17 +19,28 @@ export const cliSpec = (name: string, m: PluginManifest): ConnectorSpec | null =
 export async function machineConnectors(db: Read, machineId: string) {
   if (!(await pluginsOn(db))) return []
   const rows = await db
-    .select({ groupId: groupBots.groupId })
+    .select({ groupId: groupBots.groupId, title: groupTitle })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
+    .innerJoin(groups, eq(groups.id, groupBots.groupId))
     .where(and(eq(bots.machineId, machineId), isNull(bots.deletedAt)))
-  const lists = await groupPluginLists(db, [...new Set(rows.map((r) => r.groupId))])
-  const found = new Map<string, { spec: ConnectorSpec; title: string; groupId: string }>()
+  const groupNames = new Map(rows.map((r) => [r.groupId, translateGroupTitle(r.title)]))
+  const lists = await groupPluginLists(db, [...groupNames.keys()])
+  const found = new Map<
+    string,
+    { spec: ConnectorSpec; title: string; pluginId: string; groupId: string; groupName: string }
+  >()
   for (const [groupId, list] of lists)
     for (const r of list) {
       const spec = r.enabledInGroup ? cliSpec(r.plugin.name, r.version.manifest) : null
       if (spec && !found.has(spec.connector))
-        found.set(spec.connector, { spec, title: r.version.manifest.title, groupId })
+        found.set(spec.connector, {
+          spec,
+          title: r.version.manifest.title,
+          pluginId: r.plugin.id,
+          groupId,
+          groupName: groupNames.get(groupId) ?? '',
+        })
     }
   return [...found.values()].sort((a, b) => a.spec.connector.localeCompare(b.spec.connector))
 }

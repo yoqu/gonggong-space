@@ -4,12 +4,16 @@ export const en = {
   '本群最多置顶 {n} 条消息，请先取消一条': 'A group pins at most {n} messages; unpin one first',
   '进度 {n}%': 'Progress {n}%',
   标签不存在: 'Tab not found',
-  'Git 记录标签需要指定 Bot': 'A Git history tab needs a bot',
+  'Git 记录标签需要指定 Bot': 'A Git history tab needs a Bot',
+  群公告: 'Group notice',
+  置顶消息: 'Pinned messages',
+  定时任务: 'Schedules',
+  'Git 记录': 'Git log',
   '本群最多 {n} 个标签，请先删除一个': 'A group has at most {n} tabs; delete one first',
   '标签已被他人修改，请刷新后重试': 'Someone changed the tabs; refresh and try again',
   // Daemon and request guards
-  'missing machine token': 'missing machine token',
-  'machine token revoked': 'machine token revoked',
+  缺少电脑登录凭据: 'Missing computer credentials',
+  '电脑登录已失效，请重新绑定': 'Computer sign-in expired; bind again',
   拒绝跨站请求: 'Cross-site request refused',
   请求无效: 'Invalid request',
   操作失败: 'Operation failed',
@@ -54,7 +58,7 @@ export const en = {
   删除电脑的供应商: "Deleted a computer's provider",
   修改电脑的默认供应商: "Changed a computer's default provider",
   修改电脑的官方登录设置: "Changed a computer's official login settings",
-  '修改电脑的 Agent 设置': "Changed a computer's agent settings",
+  '修改电脑的 Agent 设置': "Changed a computer's Agent settings",
   导入电脑的供应商: "Imported a computer's providers",
   未设置: 'not set',
   开放自助注册: 'Opened self-registration',
@@ -128,7 +132,7 @@ export const en = {
   '安装 {tool}': 'Installed {tool}',
   '升级 {tool}': 'Upgraded {tool}',
   '升级共工客户端到 {version}': 'Upgraded the Gonggong client to {version}',
-  '修改 Agent 工具的镜像源': 'Changed the mirror for agent tools',
+  '修改 Agent 工具的镜像源': 'Changed the mirror for Agent tools',
   '设置 Bot {bot} 的供应商': 'Set the provider of Bot {bot}',
   '修改系统参数：{changes}': 'Changed system parameters: {changes}',
   修改群名称与公告: 'Changed the group name and notice',
@@ -228,15 +232,15 @@ export const en = {
   电脑终端: 'the computer terminal',
 
   '接入飞书主应用 {appId}': 'Connected the Feishu main app {appId}',
-  '为 Bot {bot} 接入飞书应用 {appId}': 'Connected Feishu app {appId} to bot {bot}',
+  '为 Bot {bot} 接入飞书应用 {appId}': 'Connected Feishu app {appId} to Bot {bot}',
   '移除飞书主应用 {appId}': 'Removed the Feishu main app {appId}',
-  '移除 Bot {bot} 的飞书应用 {appId}': 'Removed Feishu app {appId} from bot {bot}',
+  '移除 Bot {bot} 的飞书应用 {appId}': 'Removed Feishu app {appId} from Bot {bot}',
   开启飞书自动开户: 'Turn on Feishu auto sign-up',
   关闭飞书自动开户: 'Turn off Feishu auto sign-up',
 
   // Feishu
   'App ID 应以 cli_ 开头': 'The App ID must start with cli_',
-  '该飞书应用已被其他 Bot 或主应用使用': 'This Feishu app is already used by another bot or the main app',
+  '该飞书应用已被其他 Bot 或主应用使用': 'This Feishu app is already used by another Bot or the main app',
   '飞书校验失败：{reason}': 'Feishu rejected the credentials: {reason}',
   该账号或飞书身份已绑定其他身份: 'This account or Feishu identity is already linked to another one',
   '飞书登录已过期，请重新登录': 'The Feishu sign-in has expired; please sign in again',
@@ -256,7 +260,7 @@ export const en = {
 
   // Runs, approvals, questions
   运行不存在: 'Run not found',
-  '只有触发人或 Bot 主人可以重新运行': 'Only the requester or the bot owner can rerun this run',
+  '只有触发人或 Bot 主人可以重新运行': 'Only the requester or the Bot owner can rerun this run',
   '接力运行不能单独重新运行，请到原群消息重新触发':
     'A relayed run cannot be rerun alone; trigger it again from the original group message',
   只有失败或已失效的运行可以重新运行: 'Only failed or expired runs can be rerun',
@@ -291,8 +295,10 @@ export const en = {
   未绑定飞书或飞书账号没有头像: 'No Feishu account is linked, or it has no avatar',
   '这台电脑上没有这个群的 Bot': 'This computer has no Bot in this group',
   '每条消息最多 {max} 个附件': 'At most {max} {max:attachment|attachments} per message',
-  附件无效: 'Invalid attachment',
-  页面无效: 'Invalid page',
+  '附件字段无效，请重新上传': 'Invalid attachment field; upload again',
+  请至少上传一个附件: 'Upload at least one attachment',
+  '附件编号无效，请重新上传': 'Invalid attachment ID; upload again',
+  '页面内容无效，请检查 HTML 与截图格式': 'Invalid page payload; check the HTML and screenshot format',
   附件无效或已发送过: 'Invalid attachment, or it was already sent',
 
   // Auth and accounts
@@ -350,22 +356,22 @@ export const en = {
   '选中的电脑不属于 Bot 主人或已解绑': "The selected computer doesn't belong to the Bot owner or was unbound",
   '审批方式只有 Bot 主人能修改': "Only the Bot's owner can change how it asks for approval",
   'Git 提交身份只有 Bot 主人能修改': "Only the Bot's owner can change its Git commit identity",
-  'Agent 设置只有 Bot 主人能修改': "Only the Bot's owner can change its agent settings",
-  'Bot 不能覆盖 Agent 设置「{id}」': 'A Bot cannot override the agent setting "{id}"',
-  'Agent 设置「{id}」的取值无效': 'Invalid value for the agent setting "{id}"',
+  'Agent 设置只有 Bot 主人能修改': "Only the Bot's owner can change its Agent settings",
+  'Bot 不能覆盖 Agent 设置「{id}」': 'A Bot cannot override the Agent setting "{id}"',
+  'Agent 设置「{id}」的取值无效': 'Invalid value for the Agent setting "{id}"',
   '该 Bot 不在群内': 'This Bot is not in the group',
   只有电脑主人可以确认: "Only the computer's owner can confirm",
   '该 Bot 无需确认': "This Bot doesn't need confirming",
   'Bot 不在本群': 'The Bot is not in this group',
-  这台电脑不能上传这个网页: 'This machine may not upload this site',
+  这台电脑不能上传这个网页: 'This computer may not upload this site',
   '请把「{title}」构建成静态网页，并用 preview_host 托管到服务器':
     'Please build "{title}" as a static site and host it on the server with preview_host',
   只能上传托管网页: 'Only hosted sites can be uploaded here',
   只有网页预览可以托管: 'Only web previews can be hosted',
   'Bot 所在电脑的客户端版本过旧，请升级后再托管':
-    "The Bot's machine runs an old client; upgrade it to host sites",
+    "The Bot's computer runs an old client; upgrade it to host sites",
   'Bot 所在电脑未响应，请确认它在线后重试':
-    "The Bot's machine did not respond; make sure it is online and retry",
+    "The Bot's computer did not respond; make sure it is online and retry",
   'Bot 不存在或已删除': 'The Bot does not exist or was deleted',
   '仅 Bot 主人或系统管理员可查看该 Bot 的用量': "Only the Bot's owner or a system admin can see its usage",
 
@@ -381,7 +387,7 @@ export const en = {
   与系统命令重名: 'Same name as a system command',
   '停止运行（未 @ Bot 时停止本群全部）': 'Stop runs (all in the group when no Bot is mentioned)',
   开新会话: 'Start a new session',
-  '绑定本机目录（仅分区）': 'Bind a local directory (partition mode only)',
+  '绑定本机目录（仅分区）': 'Bind a local folder (partition mode only)',
 
   // Git accounts and repos
   '连接超时，请稍后重试': 'Connection timed out, try again later',
@@ -429,7 +435,7 @@ export const en = {
     "The only group admin can't be removed, appoint another admin first",
   群不存在或你已不在群内: "The group doesn't exist or you are no longer in it",
   仅群管理员可操作: 'Only group admins can do this',
-  '私聊的头像跟随 Bot': "A DM's avatar follows its bot",
+  '私聊的头像跟随 Bot': "A direct chat's avatar follows its Bot",
   团队不存在或你不是该团队成员: "The team doesn't exist or you're not a member of it",
   你还没有加入任何团队: "You haven't joined any team yet",
   仅团队管理员可操作: 'Only team admins can do this',
@@ -462,7 +468,7 @@ export const en = {
   仅创建人可见: 'Only its creator can open this',
   '只能查看，进群后才能修改': 'View only: join the group to change it',
   '只有创建人、Bot 主人或群管理员能设置权限':
-    'Only the creator, the bot owner or a group admin can set access',
+    'Only the creator, the Bot owner, or a group admin can set access',
   成员不在本团队: 'This person is not in the team',
   创建人始终可以编辑: 'The creator can always edit',
   '只有创建人、Bot 主人或群管理员能修改可见范围':
@@ -473,7 +479,7 @@ export const en = {
   // Computers, tools and providers
   电脑不存在: 'Computer not found',
   '只有电脑主人可以管理其 Agent 工具与供应商':
-    "Only the computer's owner can manage its agent tools and providers",
+    "Only the computer's owner can manage its Agent tools and providers",
   请先升级这台电脑的共工客户端: "Upgrade this computer's Gonggong client first",
   '请先升级这台电脑的共工客户端，才能为一个供应商登记多种协议':
     "Upgrade this computer's Gonggong client to register more than one protocol for a provider",
@@ -561,14 +567,14 @@ export const en = {
   'SKILL.md 的 secrets 不合法（{path}）：{reason}': 'Invalid secrets in SKILL.md ({path}): {reason}',
   '密钥 {name} 不需要这样填写，请刷新后重试': 'Secret {name} is not filled this way; refresh and try again',
   '这张卡片发出时还没有绑定密钥定义，请让 Bot 重新申请，或到设置「我的密钥」里填写':
-    'This card predates bound definitions; ask the bot again, or fill it in under My secrets',
-  '密钥 {name} 的定义已变更，请让 Bot 重新申请': 'The definition of {name} changed; ask the bot again',
-  '卡片已失效，请让 Bot 重新申请': 'This card is no longer valid; ask the bot again',
+    'This card predates bound definitions; ask the Bot again, or fill it in under My secrets',
+  '密钥 {name} 的定义已变更，请让 Bot 重新申请': 'The definition of {name} changed; ask the Bot again',
+  '卡片已失效，请让 Bot 重新申请': 'This card is no longer valid; ask the Bot again',
   '仅 {admins} 可以创建这些密钥': 'Only {admins} can create these secrets',
   'Skill {skill} 已升级或移除，卡片已失效，请让 Bot 重新申请':
-    'Skill {skill} was upgraded or removed; this card is no longer valid, ask the bot again',
+    'Skill {skill} was upgraded or removed; this card is no longer valid; ask the Bot again',
   '期间已出现同名密钥 {name}，卡片已失效，请让 Bot 重新申请':
-    'A secret named {name} appeared meanwhile; this card is no longer valid, ask the bot again',
+    'A secret named {name} appeared meanwhile; this card is no longer valid; ask the Bot again',
   密钥已创建: 'The secrets were already created',
   '「个人」模式的密钥由各成员自己填写，没有统一值':
     'A "personal" secret is filled in by each member and has no shared value',
@@ -627,7 +633,7 @@ export const en = {
   插件不存在: 'Plugin not found',
   连接器不存在: 'Connector not found',
   这台电脑不能用来连接: "This computer can't be used to connect",
-  '本群没有运行在你电脑上的在线 Bot': 'None of the online bots here runs on your computer',
+  '本群没有运行在你电脑上的在线 Bot': 'None of the online Bots here runs on your computer',
   只有电脑主人可以在这台电脑上连接: 'Only the computer owner can connect on it',
   '连接超时，请重试': 'Connecting timed out, try again',
   连接: 'Connect',
@@ -635,7 +641,7 @@ export const en = {
   去连接: 'Connect',
   等待连接: 'Waiting to connect',
   '请到共工群里连接；如需在飞书直接打开，请系统管理员设置对外地址':
-    'Connect in the 共工 group; for a link that opens from Feishu, ask a system admin to set the public URL',
+    'Connect in the Gonggong group; for a link that opens from Feishu, ask a system admin to set the public URL',
   '连接器「{title}」没有声明密钥 {name}': 'Connector "{title}" does not declare the secret {name}',
   '{name} 是团队共享密钥，请团队管理员填写': '{name} is a team-shared secret; a team admin fills it in',
   '插件不能超过 5 MB': 'A plugin cannot exceed 5 MB',
@@ -653,7 +659,8 @@ export const en = {
   只有平台层插件可以带供应商预设: 'Only platform-layer plugins can bring provider presets',
   '插件命令 {name} 与系统命令重名': 'Plugin command {name} has the name of a system command',
   这个插件不能用来创作: 'This plugin cannot be used for creations',
-  '只能选共字君或姜维川的 Claude Code': 'Only the AIs open for works can be picked',
+  '这个 Bot 暂不支持创作作品，请从列表里选择可用的 Bot':
+    "This Bot can't create works yet; choose an available Bot from the list",
   没有可用的产品原型插件: 'No product prototype plugin is available',
   只有电脑主人能授权插件在这台电脑上运行: "Only the computer's owner can allow plugins to run on it",
   授权不存在: 'Authorization not found',
@@ -857,14 +864,14 @@ export const en = {
   '{name} 已回答': '{name} answered',
   '待审批：{title}': 'Awaiting approval: {title}',
   '「始终允许」将添加的规则': 'Rules "Always allow" will add',
-  '仅 Bot 主人 {name} 可以审批': 'Only the bot owner {name} can approve',
+  '仅 Bot 主人 {name} 可以审批': 'Only the Bot owner {name} can approve',
   '已处理 {n} 项审批与提问': '{n} approvals and questions handled',
   共工: 'Gonggong',
   '飞书调用失败：{what}{todo}（飞书错误码 {code}：{reason}）':
     'Feishu call failed: {what} {todo} (Feishu error {code}: {reason})',
   '拉入飞书群失败：{what}{todo}（飞书错误码 {code}：{reason}）':
     'Could not add it to the Feishu chat: {what} {todo} (Feishu error {code}: {reason})',
-  私聊不能关联飞书群: "A DM can't be linked to a Feishu chat",
+  私聊不能关联飞书群: "A direct chat can't be linked to a Feishu chat",
   系统管理员尚未接入飞书: "The system admin hasn't connected Feishu yet",
   '该群已关联飞书群，请先取消关联': 'This group is already linked to a Feishu chat, unlink it first',
   共工机器人不在该飞书群中: "The Gonggong bot isn't in that Feishu chat",
@@ -903,9 +910,9 @@ export const en = {
   '你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。':
     "You're not a member of the linked Gonggong group, so you can't use this Bot. Ask a group admin to add you.",
   '使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新 @ 即可。':
-    'Link your Feishu account to Gonggong before using bots, then @ the bot again.',
+    'Link your Feishu account to Gonggong before using Bots, then @ the Bot again.',
   '使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新发送即可。':
-    'Link your Feishu account to Gonggong before using bots, then send it again.',
+    'Link your Feishu account to Gonggong before using Bots, then send it again.',
   '这个 Bot 还没有共享给你，请在共工中向 Bot 主人申请共享后再发送。':
     "This Bot isn't shared with you. Request a share from its owner in Gonggong, then send again.",
   请先绑定飞书账号: 'Link your Feishu account first',
@@ -951,12 +958,12 @@ export const en = {
   群不是强制同步模式: 'The group is not in force sync mode',
   '群未绑定仓库，不能切换为强制同步': 'Bind a repo to the group before switching to force sync',
   '基准 Bot 不在群内': 'The base Bot is not in the group',
-  '基准 Bot 使用本机目录，不能作为基准': 'The base Bot uses a local directory and cannot be the base',
+  '基准 Bot 使用本机目录，不能作为基准': 'The base Bot uses a local folder and cannot be the base',
   '基准 Bot 的托管工作区尚未就绪': "The base Bot's managed workspace is not ready yet",
   '基准 Bot 所在的电脑离线': "The base Bot's computer is offline",
   '仅群管理员或 Bot 主人可操作': "Only group admins or the Bot's owner can do this",
   '正在切换为强制同步，请稍后再试': 'The group is switching to force sync; try again shortly',
-  '使用本机目录的 Bot 不参与强制同步': 'Bots using a local directory do not take part in force sync',
+  '使用本机目录的 Bot 不参与强制同步': 'Bots using a local folder do not take part in force sync',
   该副本已参与强制同步: 'This replica already takes part in force sync',
   '强制同步群不能更换仓库，请先切回分区模式':
     'A force-sync group cannot change its repo; switch back to partition mode first',
@@ -965,18 +972,18 @@ export const en = {
   '只能改为同一仓库的其他地址（如 SSH 改为 HTTP）':
     'Only another URL of the same repo is allowed (e.g. SSH to HTTP)',
   附加仓库不存在: 'No such extra repo',
-  '该目录不是 git 仓库': 'The directory is not a git repository',
+  '该目录不是 git 仓库': 'The directory is not a Git repository',
   '该目录的 remote 与附加仓库 {repo} 不一致': "The directory's remote does not match the extra repo {repo}",
   请先移除附加仓库: 'Remove the extra repos first',
   该仓库已是本群的附加仓库: 'This repo is already an extra repo of the group',
   'Bot 所在的电脑离线，上线后再处理': "The Bot's computer is offline; handle this once it connects",
-  该副本没有待处理的本地改动: 'This replica has no local changes to settle',
+  该副本没有待处理的本地改动: 'This replica has no local changes to resolve',
   '该 Bot 已不在强制同步中，本轮改动留在工作区':
     'This Bot no longer takes part in force sync; the changes stay in its workspace',
   '群的同步存储已超过 {gb} GB 上限': "The group's sync storage exceeds its {gb} GB limit",
   '基准 Bot 所在电脑的共工客户端版本过旧，请升级':
     "The base Bot's computer runs a Gonggong client too old to sync; upgrade it first",
-  冲突不存在或已处理: 'The conflict does not exist or was already settled',
+  冲突不存在或已处理: 'The conflict does not exist or was already resolved',
   需要为每个冲突文件选择处理方式: 'Choose what to do with every conflicting file',
   '只有双方都存在的文本文件可以交给 Bot 合并':
     'Only text files present on both sides can be merged by the Bot',
@@ -999,15 +1006,15 @@ export const en = {
 
   // Manual git in a group
   '仅分区模式群可以使用 Git 操作': 'Git operations are only available in partition groups',
-  '{bot} 离线，无法读取 Git 信息': "{bot} is offline, can't read git",
-  '{bot} 离线，无法执行 Git 操作': "{bot} is offline, can't run the git operation",
-  '{bot} 未响应，Git 操作结果未知': "{bot} did not respond; the git operation's outcome is unknown",
+  '{bot} 离线，无法读取 Git 信息': "{bot} is offline, can't read Git info",
+  '{bot} 离线，无法执行 Git 操作': "{bot} is offline, can't run the Git operation",
+  '{bot} 未响应，Git 操作结果未知': "{bot} did not respond; the Git operation's outcome is unknown",
   '{bot} 正在运行，等运行结束后再操作': '{bot} is running; try again once the run ends',
   推送基准分支需要再次确认: 'Pushing the base branch needs a second confirmation',
   操作不存在: 'Operation not found',
   该操作已处理: 'This operation was already handled',
   该操作已过期: 'This operation has expired',
-  '只有 Bot 主人可以处理 Git 操作申请': 'Only the Bot owner can decide git requests',
+  '只有 Bot 主人可以处理 Git 操作申请': 'Only the Bot owner can decide Git requests',
   提交不存在: 'Commit not found',
   受保护的基准分支不能强制推送: 'The protected base branch cannot be force-pushed',
   受保护的基准分支不能在远程删除: 'The protected base branch cannot be deleted on the remote',
@@ -1062,7 +1069,7 @@ export const en = {
   '先把作品设为团队可见，其他群的成员才能打开':
     'Make the work visible to the team first, so other groups can open it',
   '目标群已有同一目录的产物：{dir}': 'The target group already has an artifact in {dir}',
-  'Bot 正在修改这个产物，等本轮结束后再移动': 'A bot is working on this artifact; move it once its turn ends',
+  'Bot 正在修改这个产物，等本轮结束后再移动': 'A Bot is working on this artifact; move it once its turn ends',
   '只有产物创建人、Bot 主人或群管理员能移动产物':
     "Only the artifact's creator, its Bot's owner or a group admin can move it",
   '文件不存在：{path}': 'File not found: {path}',
@@ -1140,4 +1147,28 @@ export const en = {
   'Webhook 调用过于频繁，请稍后再试': 'Too many webhook requests; try again later',
   '正文不能超过 {kb} KB': 'Body cannot exceed {kb} KB',
   '附件不能超过 {kb} KB': 'Attachment cannot exceed {kb} KB',
+  '由飞书项目自动创建群 {name}': 'Auto-created group {name} from Feishu Project',
+  '新建 Webhook「{name}」': 'Created webhook "{name}"',
+  '修改 Webhook「{name}」': 'Updated webhook "{name}"',
+  '启用 Webhook「{name}」': 'Enabled webhook "{name}"',
+  '停用 Webhook「{name}」': 'Disabled webhook "{name}"',
+  '重置 Webhook「{name}」的令牌': 'Rotated token for webhook "{name}"',
+  '删除 Webhook「{name}」': 'Deleted webhook "{name}"',
+  '触发 Webhook「{name}」': 'Triggered webhook "{name}"',
+  'Webhook「{name}」已自动停用（创建人已离群）': 'Webhook "{name}" auto-disabled (owner left the group)',
+  '上次排查尚未结束，本次不触发 Bot。':
+    'The previous investigation is still running; no Bot was triggered this time.',
+  '只有创建人、Bot 主人或群管理员能管理公开链接':
+    'Only the creator, the Bot owner, or a group admin can manage the public link',
+  '其他：{text}': 'Other: {text}',
+  '（未作答）': '(Not answered)',
+  '申请链接只能是 https 地址': 'Request URL must start with https://',
+  必须是插件目录内的相对路径: 'Must be a relative path inside the plugin folder',
+  '需要 npm 或 command': 'Requires npm or command',
+  '需要 env': 'Requires env',
+  '必须是一个 text 输入项': 'Must be a text input',
+  '有模板、设计系统或输入项时必须填写': 'Required when templates, design systems, or inputs are defined',
+  连接器类插件必须且只能由它填写: 'Only connector plugins may set this field, and it is required for them',
+  'CLI 登录的连接器不能再要求密钥': 'CLI-login connectors cannot also require secrets',
+  取值重复: 'Duplicate value',
 } satisfies Record<string, string>

@@ -310,7 +310,7 @@ impl Connectors {
             let probe = this.probe(&cmd.spec, &cmd.profile, result.is_ok()).await;
             let result = result.and_then(|()| match cmd.action {
                 ConnectorsAction::Connect if probe.state != ConnectorCliState::Ready => {
-                    bail!(t!("登录未完成：{detail}", detail = probe.detail.clone().unwrap_or_default()))
+                    bail!("{}", incomplete_login_error(probe.detail.as_deref()))
                 }
                 _ => Ok(()),
             });
@@ -370,7 +370,7 @@ impl Connectors {
             ConnectorCliState::NeedsInit if spec.driver == ConnectorDriver::LarkCli => {
                 within(self.lark_init(&cli, profile, r)).await?
             }
-            ConnectorCliState::Error => bail!(probe.detail.unwrap_or_default()),
+            ConnectorCliState::Error => bail!("{}", probe_error_detail(probe.detail.as_deref())),
             _ => {}
         }
         match spec.driver {
@@ -451,7 +451,7 @@ impl Connectors {
             .await?;
         // A person who leaves some scopes out makes lark-cli exit non-zero, yet the login works.
         if !status.success() && self.probe(spec, profile, false).await.state != ConnectorCliState::Ready {
-            bail!(t!("登录未完成：{detail}", detail = last));
+            bail!("{}", incomplete_login_error(Some(&last)));
         }
         Ok(())
     }
@@ -470,11 +470,9 @@ impl Connectors {
             if drivers::meegle_pending(&stdout) {
                 continue;
             }
-            return match drivers::meegle_poll_status(&stdout) {
-                Some(s) if s.contains("expired") || s.contains("denied") => {
-                    bail!(t!("登录未完成：{detail}", detail = s))
-                }
-                _ => Ok(()),
+            return match drivers::meegle_poll_status(&stdout).and_then(|s| meegle_poll_error(&s)) {
+                Some(msg) => bail!("{msg}"),
+                None => Ok(()),
             };
         }
     }
@@ -498,9 +496,10 @@ impl Connectors {
 
     async fn output(&self, cli: &Path, args: &[String], limit: Duration) -> Result<std::process::Output> {
         let run = self.command(cli, args).stdout(Stdio::piped()).stderr(Stdio::piped()).output();
+        let label = program_label(cli);
         match tokio::time::timeout(limit, run).await {
-            Ok(out) => Ok(out.with_context(|| t!("无法启动 {program}", program = cli.display()))?),
-            Err(_) => bail!(t!("{program} 未在 {secs} 秒内响应", program = cli.display(), secs = limit.as_secs())),
+            Ok(out) => Ok(out.with_context(|| t!("无法启动 {program}", program = label))?),
+            Err(_) => bail!(t!("{program} 未在 {secs} 秒内响应", program = label, secs = limit.as_secs())),
         }
     }
 
@@ -511,7 +510,7 @@ impl Connectors {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .with_context(|| t!("无法启动 {program}", program = cli.display()))?;
+            .with_context(|| t!("无法启动 {program}", program = program_label(cli)))?;
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
         for pipe in [
             Box::new(child.stdout.take().expect("piped")) as Box<dyn tokio::io::AsyncRead + Unpin + Send>,
@@ -629,6 +628,34 @@ fn locate(home: &Path, search: Option<&std::ffi::OsStr>, bin: &str) -> Option<Pa
 }
 
 /// The login shell's PATH, read once: a GUI-started daemon misses nvm and the like.
+fn program_label(cli: &Path) -> String {
+    cli.file_name().and_then(|n| n.to_str()).unwrap_or("cli").to_string()
+}
+
+fn incomplete_login_error(detail: Option<&str>) -> String {
+    match detail.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(detail) => t!("登录未完成：{detail}", detail = detail),
+        None => t!("登录未完成，请重新连接").into(),
+    }
+}
+
+fn probe_error_detail(detail: Option<&str>) -> String {
+    match detail.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(detail) => detail.to_string(),
+        None => t!("检查连接状态失败，请重试").into(),
+    }
+}
+
+fn meegle_poll_error(status: &str) -> Option<String> {
+    if status.contains("expired") {
+        Some(t!("授权链接已过期，请重新连接").into())
+    } else if status.contains("denied") {
+        Some(t!("已取消授权，需要时可重新连接").into())
+    } else {
+        None
+    }
+}
+
 fn login_path() -> Option<&'static OsString> {
     static PATH: OnceLock<Option<OsString>> = OnceLock::new();
     PATH.get_or_init(|| {
@@ -638,4 +665,33 @@ fn login_path() -> Option<&'static OsString> {
         None
     })
     .as_ref()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_meegle_oauth_poll_errors_to_clear_user_copy() {
+        assert_eq!(meegle_poll_error("expired_token").as_deref(), Some("授权链接已过期，请重新连接"));
+        assert_eq!(meegle_poll_error("access_denied").as_deref(), Some("已取消授权，需要时可重新连接"));
+        assert_eq!(meegle_poll_error("ok"), None);
+    }
+
+    #[test]
+    fn avoids_dangling_colon_and_empty_probe_errors() {
+        assert_eq!(incomplete_login_error(None), "登录未完成，请重新连接");
+        assert_eq!(incomplete_login_error(Some("   ")), "登录未完成，请重新连接");
+        assert_eq!(incomplete_login_error(Some("超时")), "登录未完成：超时");
+        assert_eq!(probe_error_detail(None), "检查连接状态失败，请重试");
+        assert_eq!(probe_error_detail(Some("bad config")), "bad config");
+    }
+
+    #[test]
+    fn hides_full_cli_path_in_program_label() {
+        assert_eq!(
+            program_label(Path::new("/Users/alice/.gonggong/connectors/feishu/node_modules/.bin/lark-cli")),
+            "lark-cli"
+        );
+    }
 }

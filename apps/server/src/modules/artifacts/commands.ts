@@ -14,7 +14,7 @@ import {
 } from '@gonggong/protocol'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { artifactThreads, messages } from '../../db/schema.js'
+import { artifactThreads, groups, messages } from '../../db/schema.js'
 import { type MessageKey, t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
@@ -24,7 +24,7 @@ import { findDesignSystem } from '../plugins/designSystems.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { publishThread } from '../threads/service.js'
 import { readBlob } from './blobs.js'
-import { artifactChatRoot } from './chat.js'
+import { artifactChatRoot, artifactGuestBot } from './chat.js'
 import { publishArtifactThreads } from './events.js'
 import { screenIdOf } from './files.js'
 import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
@@ -251,6 +251,24 @@ const withText = (action: string, text: string | undefined) =>
  * Posts a message as the member @-ing the bot about the artifact, in its 画布 AI 对话: a short sentence and the
  * selection for people, the full instruction in `artifactNote` for the agent. Its run checks the artifact out first.
  */
+/** Resolves a Bot for canvas actions: either a regular group Bot or a works guest Bot (standalone works / canvas picker). */
+async function resolveArtifactBot(
+  ctx: Ctx,
+  a: Artifact,
+  botId: string,
+  inGroup?: Awaited<ReturnType<typeof activeBots>>,
+) {
+  const list = inGroup ?? (await activeBots(ctx, a.groupId))
+  const found = list.find((b) => b.id === botId)
+  if (found) return found
+  const [group] = await ctx.db
+    .select({ id: groups.id, teamId: groups.teamId })
+    .from(groups)
+    .where(eq(groups.id, a.groupId))
+  if (!group) return null
+  return artifactGuestBot(ctx, group, botId)
+}
+
 async function postAsMember(
   ctx: Ctx,
   me: { id: string; name: string },
@@ -258,8 +276,7 @@ async function postAsMember(
   botId: string,
   say: { action: string; canvas: MessageCanvas; note: string[] },
 ) {
-  const bot =
-    (await activeBots(ctx, a.groupId)).find((b) => b.id === botId) ?? fail('invalid', 'Bot 不在本群')
+  const bot = (await resolveArtifactBot(ctx, a, botId)) ?? fail('invalid', 'Bot 不在本群')
   const meta: MessageMeta = {
     mentions: [bot.id],
     artifactRefs: [a.id],
@@ -477,11 +494,11 @@ export async function sendAgentMessage(
   a: Artifact,
   r: ArtifactAgentSendReq,
 ): Promise<ArtifactAgentSendRes> {
-  const bots = await activeBots(ctx, a.groupId)
+  const inGroup = await activeBots(ctx, a.groupId)
   const target =
-    (r.botId ? bots.find((b) => b.id === r.botId) : null) ??
-    (a.botId ? bots.find((b) => b.id === a.botId) : null) ??
-    bots[0]
+    (r.botId ? await resolveArtifactBot(ctx, a, r.botId, inGroup) : null) ??
+    (a.botId ? await resolveArtifactBot(ctx, a, a.botId, inGroup) : null) ??
+    inGroup[0]
   if (!target) return { status: 'failed', reason: t('群里没有可用的 Bot') }
   const head = a.headVersionId ? await requireVersion(ctx.db, a, null) : null
   const note = [

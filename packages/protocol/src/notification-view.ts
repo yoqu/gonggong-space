@@ -200,12 +200,16 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
     case 'connector_expiring':
       return {
         label: say('连接即将过期'),
-        text: say('{connector}在 {machine} 上的登录两天内过期，请重新连接', {
+        text: say('你的 {connector} 登录在 {machine} 上将在两天内过期，请重新连接', {
           connector: p('connectorTitle'),
           machine: p('machineName'),
         }),
         group,
-        href: at(''),
+        href: p('groupId')
+          ? `/g/${p('groupId')}${p('pluginId') ? `?connector=${encodeURIComponent(p('pluginId'))}` : ''}`
+          : p('machineId')
+            ? `/machine/${p('machineId')}`
+            : '',
       }
     case 'plugin_trust':
       return {

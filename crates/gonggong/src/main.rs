@@ -49,7 +49,7 @@ enum Cmd {
         /// Only accept server certificates issued by the PEM CA at this path (any certificate is accepted by default).
         #[arg(long, requires = "server", conflicts_with = "fingerprint")]
         ca_file: Option<PathBuf>,
-        /// Also have the server create a bot of this Agent on this computer and open a DM with it
+        /// Also have the server create a Bot of this Agent on this computer and open a direct chat with it
         /// (claude|codex|gemini|codebuddy|pi|deepseek|antigravity|opencode|qwen|kimi|goose|copilot).
         #[arg(long, value_name = "AGENT", value_parser = configure::parse_kind)]
         create_bot: Option<AgentKind>,
@@ -62,27 +62,30 @@ enum Cmd {
         #[command(subcommand)]
         cmd: ServiceCmd,
     },
-    /// Unbind this computer locally (removes the saved token).
+    /// Remove this computer's local sign-in credentials (does not delete local workspaces).
     Logout,
     /// Show which server and owner this computer is bound to.
     Status,
-    /// Connect to the server and run bots dispatched to this computer.
+    /// Connect to the server and run Bots dispatched to this computer.
     Run {
         /// Replace the ACP adapter command for every agent (debugging / tests).
         #[arg(long, env = "GONGGONG_ADAPTER_CMD", hide = true)]
         adapter_cmd: Option<String>,
     },
-    /// List the bots bound to this computer (settings are managed on the Web).
+    /// List the Bots bound to this computer (settings are managed on the Web).
     Bots,
     /// Measure latency and bandwidth to the server and report them (shown to admins only).
     Net,
-    /// Check the server connection, Agents, git credentials, disk space and line endings.
+    /// Check the server connection, Agents, Git credentials, disk space and line endings.
     Doctor,
     /// List this computer's workspaces and local backups.
     Workspaces {
         /// Delete the removed / unused managed workspaces of <group>/<bot> (IDs or names). /cd dirs are never deleted.
         #[arg(long, value_name = "GROUP/BOT")]
         delete: Option<String>,
+        /// Skip confirmation when deleting workspaces.
+        #[arg(short = 'y', long, requires = "delete")]
+        yes: bool,
         /// Point a /cd-bound <group>/<bot> back at its managed clone (same as `/cd @bot --reset`).
         #[arg(long, value_name = "GROUP/BOT", conflicts_with = "delete")]
         reset_cd: Option<String>,
@@ -395,15 +398,30 @@ async fn main() -> anyhow::Result<()> {
                 std::process::exit(1);
             }
         }
-        Cmd::Workspaces { delete: None, reset_cd: None } => {
+        Cmd::Workspaces { delete: None, reset_cd: None, .. } => {
             let config = config()?;
             workspaces(&list_workspaces(&config).await, &gonggong::workspace::backups(&config::home()));
         }
-        Cmd::Workspaces { delete: Some(target), .. } => {
+        Cmd::Workspaces { delete: Some(target), yes, .. } => {
             let entries = list_workspaces(&config()?).await;
             let doomed: Vec<_> = entries.iter().filter(|e| e.matches(&target) && e.deletable()).collect();
             if doomed.is_empty() {
                 bail!(t!("「{target}」没有可删除的工作区（只能删除已移出或未使用的托管工作区）", target = target));
+            }
+            let mut items = Vec::with_capacity(doomed.len());
+            for e in &doomed {
+                items.push((*e, gonggong::workspace::changes(e).await));
+            }
+            let confirmed = confirm_workspace_delete(
+                &items,
+                yes,
+                std::io::IsTerminal::is_terminal(&std::io::stdin()),
+                std::io::stdin().lock(),
+                std::io::stderr(),
+            )?;
+            if !confirmed {
+                println!("{}", t!("已取消"));
+                return Ok(());
             }
             for e in doomed {
                 gonggong::workspace::delete(&config::home(), e).map_err(anyhow::Error::msg)?;
@@ -443,4 +461,77 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Provider { cmd } => gonggong::provider_cli::run(&config::home(), cmd).await?,
     }
     Ok(())
+}
+
+fn confirm_workspace_delete<R: std::io::BufRead, W: std::io::Write>(
+    items: &[(&gonggong::workspace::Entry, std::result::Result<Option<gonggong::workspace::Changes>, String>)],
+    yes: bool,
+    is_tty: bool,
+    mut input: R,
+    mut output: W,
+) -> anyhow::Result<bool> {
+    for (e, ch) in items {
+        let size = e.size.map(|s| format!(" ({})", human_size(s))).unwrap_or_default();
+        let note = match ch {
+            Ok(Some(c)) if c.uncommitted > 0 || c.unpushed > 0 => format!(
+                " — {}",
+                t!("有 {u} 处未提交改动、{p} 个未推送提交", u = c.uncommitted, p = c.unpushed)
+            ),
+            Err(_) => format!(" — {}", t!("无法检查 Git 状态")),
+            _ => String::new(),
+        };
+        writeln!(output, "  {}{}{}", e.path.display(), size, note)?;
+    }
+    if yes {
+        return Ok(true);
+    }
+    if !is_tty {
+        bail!(t!("删除工作区需要交互确认，非交互环境请加 --yes"));
+    }
+    write!(output, "{}", t!("确认删除以上 {n} 个工作区目录？此操作不可撤销 [y/N]：", n = items.len()))?;
+    output.flush()?;
+    let mut line = String::new();
+    input.read_line(&mut line)?;
+    let ans = line.trim().to_ascii_lowercase();
+    Ok(ans == "y" || ans == "yes")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gonggong::workspace::{Changes, Entry, EntryState};
+
+    fn sample_entry() -> Entry {
+        Entry {
+            group_id: "g1".into(),
+            group_name: Some("支付".into()),
+            dm: false,
+            bot_id: "b1".into(),
+            bot_name: Some("Claude".into()),
+            kind: EntryKind::Managed,
+            path: PathBuf::from("/tmp/ws/pay/claude"),
+            size: Some(2048),
+            state: EntryState::Removed,
+            last_used_at: None,
+            changes: None,
+        }
+    }
+
+    #[test]
+    fn workspace_delete_prints_dirty_status_and_requires_confirmation_or_yes() {
+        let entry = sample_entry();
+        let items = vec![(&entry, Ok(Some(Changes { uncommitted: 2, unpushed: 1 })))];
+
+        let mut out = Vec::new();
+        assert!(confirm_workspace_delete(&items, false, false, &b""[..], &mut out).is_err());
+        let printed = String::from_utf8(out).unwrap();
+        assert!(printed.contains("/tmp/ws/pay/claude"), "{printed}");
+        assert!(printed.contains("有 2 处未提交改动、1 个未推送提交"), "{printed}");
+
+        let mut out = Vec::new();
+        assert!(!confirm_workspace_delete(&items, false, true, &b"n\n"[..], &mut out).unwrap());
+        assert!(!confirm_workspace_delete(&items, false, true, &b"\n"[..], &mut out).unwrap());
+        assert!(confirm_workspace_delete(&items, false, true, &b"y\n"[..], &mut out).unwrap());
+        assert!(confirm_workspace_delete(&items, true, false, &b""[..], &mut out).unwrap());
+    }
 }

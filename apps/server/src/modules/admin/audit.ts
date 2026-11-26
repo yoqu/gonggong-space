@@ -9,7 +9,7 @@ import { and, desc, eq, inArray, lt } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, runs, users } from '../../db/schema.js'
-import { type MessageKey, t } from '../../i18n/index.js'
+import { t as defaultT, type MessageKey } from '../../i18n/index.js'
 import { idParam } from '../../lib/ids.js'
 import { TIER_LABEL } from '../bots/tier.js'
 
@@ -63,6 +63,20 @@ const TOOL: Record<string, string> = {
   pi: 'pi',
   deepseek: 'DeepSeek Harness',
   antigravity: 'Antigravity CLI',
+  opencode: 'OpenCode',
+  qwen: 'Qwen Code',
+  kimi: 'Kimi Code',
+  goose: 'Goose',
+  copilot: 'GitHub Copilot CLI',
+}
+const WEBHOOK: Record<string, MessageKey> = {
+  'webhook.create': '新建 Webhook「{name}」',
+  'webhook.update': '修改 Webhook「{name}」',
+  'webhook.enable': '启用 Webhook「{name}」',
+  'webhook.disable': '停用 Webhook「{name}」',
+  'webhook.rotate': '重置 Webhook「{name}」的令牌',
+  'webhook.delete': '删除 Webhook「{name}」',
+  'webhook.call': '触发 Webhook「{name}」',
 }
 const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.save': '保存电脑的供应商',
@@ -126,10 +140,11 @@ const FEISHU_CHAT: Record<string, MessageKey> = {
 const GIT_STATUS: Record<string, MessageKey> = { succeeded: '成功', failed: '失败' }
 
 const TEAM_ROLE: Record<string, MessageKey> = { owner: '所有者', admin: '管理员', member: '成员' }
-const teamRole = (v: unknown) => (TEAM_ROLE[str(v)] ? t(TEAM_ROLE[str(v)] as MessageKey) : str(v))
-const role = (v: unknown) => (ROLE[str(v)] ? t(ROLE[str(v)] as MessageKey) : str(v))
+const teamRole = (v: unknown, t = defaultT) =>
+  TEAM_ROLE[str(v)] ? t(TEAM_ROLE[str(v)] as MessageKey) : str(v)
+const role = (v: unknown, t = defaultT) => (ROLE[str(v)] ? t(ROLE[str(v)] as MessageKey) : str(v))
 
-function paramChanges(d: Detail) {
+function paramChanges(d: Detail, t = defaultT) {
   const changes = (d.changes ?? {}) as Record<string, [unknown, unknown]>
   const numeric = SYSTEM_PARAM_VIEW.filter((p) => p.key in changes).map(({ key, label, unit }) => {
     const [from, to] = changes[key] as [unknown, unknown]
@@ -156,7 +171,12 @@ function paramChanges(d: Detail) {
 }
 
 /** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
-export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: Names): string {
+export function summarize(
+  row: Pick<Row, 'category' | 'action'>,
+  d: Detail,
+  n: Names,
+  t: typeof defaultT = defaultT,
+): string {
   const bot = n.runBot(d.runId)
   switch (row.category) {
     case 'approval': {
@@ -265,12 +285,14 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return d.kind === 'main'
             ? t('移除飞书主应用 {appId}', { appId: str(d.appId) })
             : t('移除 Bot {bot} 的飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
+        case 'feishu.project.create_group':
+          return t('由飞书项目自动创建群 {name}', { name: str(d.name) })
         case 'user.create':
-          return t('新建账号 {account}（{role}）', { account: str(d.account), role: role(d.role) })
+          return t('新建账号 {account}（{role}）', { account: str(d.account), role: role(d.role, t) })
         case 'user.update': {
           const parts = [
             d.name === undefined ? '' : t('姓名改为 {name}', { name: str(d.name) }),
-            d.role === undefined ? '' : t('角色改为 {role}', { role: role(d.role) }),
+            d.role === undefined ? '' : t('角色改为 {role}', { role: role(d.role, t) }),
           ].filter(Boolean)
           return t('修改账号 {user}：{changes}', { user: n.user(d.userId), changes: parts.join(t('，')) })
         }
@@ -299,9 +321,9 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'team.owner':
           return t('指定 {name} 为团队所有者', { name: str(d.name) })
         case 'team.member.add':
-          return t('将 {name} 加入团队（{role}）', { name: str(d.name), role: teamRole(d.role) })
+          return t('将 {name} 加入团队（{role}）', { name: str(d.name), role: teamRole(d.role, t) })
         case 'team.member.role':
-          return t('将 {name} 的团队角色改为{role}', { name: str(d.name), role: teamRole(d.role) })
+          return t('将 {name} 的团队角色改为{role}', { name: str(d.name), role: teamRole(d.role, t) })
         case 'team.member.remove':
           return t('将 {name} 移出团队', { name: str(d.name) })
         case 'team.leave':
@@ -309,11 +331,11 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'team.transfer':
           return t('将团队所有权转让给 {name}', { name: str(d.name) })
         case 'team.invite.create':
-          return t('创建团队邀请链接（{role}）', { role: teamRole(d.role) })
+          return t('创建团队邀请链接（{role}）', { role: teamRole(d.role, t) })
         case 'team.invite.revoke':
           return t('撤销团队邀请链接')
         case 'team.invite.accept':
-          return t('通过邀请链接加入团队（{role}）', { role: teamRole(d.role) })
+          return t('通过邀请链接加入团队（{role}）', { role: teamRole(d.role, t) })
         case 'user.enable':
           return t('启用账号 {account}', { account: str(d.account) })
         case 'daemon.release':
@@ -355,7 +377,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'bot.provider':
           return t('设置 Bot {bot} 的供应商', { bot: n.bot(d.botId) })
         case 'params.update':
-          return t('修改系统参数：{changes}', { changes: paramChanges(d) })
+          return t('修改系统参数：{changes}', { changes: paramChanges(d, t) })
         case 'group.update':
           return t('修改群名称与公告')
         case 'group.notice.remove':
@@ -497,6 +519,12 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'share.visit':
           return t('通过公开链接访问预览「{title}」', { title: str(d.title) })
       }
+      break
+    case 'webhook':
+      if (row.action === 'webhook.auto_disable')
+        return t('Webhook「{name}」已自动停用（创建人已离群）', { name: str(d.name) })
+      if (row.action in WEBHOOK) return t(WEBHOOK[row.action] as MessageKey, { name: str(d.name) })
+      break
   }
   return row.action
 }

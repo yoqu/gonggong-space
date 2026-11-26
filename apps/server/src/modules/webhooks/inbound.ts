@@ -11,6 +11,7 @@ import {
 import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { attachments, groupMembers, groups, messages, runs, users, webhooks } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
@@ -138,7 +139,7 @@ export async function handleWebhookCall(
       : []
     if (last && UNFINISHED.includes(last.status)) {
       skipped = 'busy'
-      body = `${body}\n\n_上次排查尚未结束，本次不触发 Bot。_`
+      body = `${body}\n\n_${t('上次排查尚未结束，本次不触发 Bot。')}_`
     } else {
       const inGroup = await activeBots(ctx, w.groupId)
       const allowed = w.botIds.flatMap((id) => inGroup.filter((b) => b.id === id))

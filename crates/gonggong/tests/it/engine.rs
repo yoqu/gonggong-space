@@ -322,7 +322,7 @@ async fn a_rejected_or_timed_out_request_lets_the_agent_carry_on() {
     let (events, done) = r.finish("r1").await;
     assert_eq!(
         events.first(),
-        Some(&RunEvent::Status { status: RunStatus::Running, step: "请求被拒绝，agent 自行绕路".into() })
+        Some(&RunEvent::Status { status: RunStatus::Running, step: "请求被拒绝，Bot 会换个方式继续".into() })
     );
     assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "权限被拒绝，未写入。"));
 
@@ -1651,7 +1651,7 @@ async fn a_change_beside_a_writer_waits_for_it_unless_confirmed() {
     assert!(request_id.starts_with("r2/"), "{request_id}");
     assert_eq!(
         (q.kind, q.options.as_slice(), q.recommended),
-        (QuestionType::Single, &["并行修改".to_string(), "等它结束再改".to_string()][..], Some(1))
+        (QuestionType::Single, &["现在就改".to_string(), "等运行结束再改".to_string()][..], Some(1))
     );
     assert!(
         q.title.contains("小王的 Claude（群「g1」）") && q.title.contains("本轮要运行可能改动文件的命令"),
@@ -1716,7 +1716,7 @@ async fn a_turn_that_cannot_switch_to_asking_first_waits_for_the_writer_before_i
     s.bot.agent_kind = AgentKind::Codex;
     r.run(s);
     let (request_id, q) = dir_question(&mut r, "r2").await;
-    assert_eq!(q.options, ["并行修改", "等它结束再改"]);
+    assert_eq!(q.options, ["现在就改", "等运行结束再改"]);
     choose(&r, "r2", &request_id, 1);
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     let mut order = vec![];

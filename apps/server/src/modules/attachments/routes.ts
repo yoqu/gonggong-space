@@ -92,7 +92,7 @@ async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { ru
       }
       if (part.fieldname !== 'files') {
         part.file.resume()
-        return fail('invalid', '附件无效')
+        return fail('invalid', '附件字段无效，请重新上传')
       }
       files++
       if (files > params.attachmentsPerMessage) {
@@ -118,7 +118,7 @@ async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { ru
       })
     }
     SendAttachmentsArgs.shape.text.parse(text)
-    if (!stored.length) return fail('invalid', '附件无效')
+    if (!stored.length) return fail('invalid', '请至少上传一个附件')
     const message = await ctx.db.transaction(async (tx) => {
       const [live] = await tx
         .select({ id: runs.id })

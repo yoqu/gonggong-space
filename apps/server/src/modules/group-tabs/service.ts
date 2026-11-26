@@ -8,6 +8,7 @@ import {
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupKnowledge, groupTabs, users } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { linkMeta } from './link-meta.js'
@@ -48,7 +49,10 @@ export async function groupTabList(ctx: Ctx, groupId: string): Promise<GroupTabs
     tabs: rows.map(
       ({ tab, user, bot }): GroupTabDto => ({
         id: tab.id,
-        title: tab.title,
+        title:
+          tab.target.kind === 'entry' && tab.title === ENTRY_TITLES[tab.target.entry]
+            ? t(ENTRY_TITLES[tab.target.entry])
+            : tab.title,
         target: tab.target,
         stale: stale(tab.target),
         createdBy: { name: user ?? bot ?? '', bot: !!tab.createdByBotId },
