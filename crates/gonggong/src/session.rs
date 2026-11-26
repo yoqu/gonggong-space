@@ -553,6 +553,14 @@ impl Shared {
         confirm_in(&mut self.0.lock().unwrap(), question)
     }
 
+    /// Reports what the active turn `run_id` is doing meanwhile, e.g. whom it waits for.
+    pub(crate) fn status(&self, run_id: &str, step: String) {
+        let s = self.0.lock().unwrap();
+        let Some(a) = s.active.as_ref().filter(|a| a.run_id == run_id) else { return };
+        let event = RunEvent::Status { status: RunStatus::Running, step };
+        a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
+    }
+
     /// Takes back a question nobody answered, e.g. the directory freed up first.
     pub(crate) fn withdraw(&self, request_id: &str, step: &str) {
         let mut s = self.0.lock().unwrap();
@@ -1250,7 +1258,7 @@ fn confirm_in(s: &mut State, question: Question) -> Option<(String, oneshot::Rec
     s.requests += 1;
     let n = s.requests;
     let (run_id, out) = s.active.as_ref().map(|a| (a.run_id.clone(), a.out.clone()))?;
-    let step = t!("等待确认：同一工作区有其他会话在运行").to_string();
+    let step = t!("等待确认：同一工作区还有其他运行").to_string();
     out.send(DaemonToServer::RunEvent {
         run_id: run_id.clone(),
         event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },

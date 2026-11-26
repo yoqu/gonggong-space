@@ -507,7 +507,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("{who} 确认并行运行", "{who} confirmed running in parallel"),
     ("{who} 选择排队，等待工作区空闲", "{who} chose to queue until the workspace is free"),
     ("无人确认，等待工作区空闲", "No confirmation; waiting for the workspace to be free"),
-    ("等待确认：同一工作区有其他会话在运行", "Awaiting confirmation: another session is running in the same workspace"),
+    ("等待确认：同一工作区还有其他运行", "Awaiting confirmation: other runs are active in this workspace"),
     ("已批准：{title}", "Approved: {title}"),
     ("请求被拒绝，Bot 会换个方式继续", "Request denied; the Bot will try another way"),
     (
@@ -538,11 +538,12 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("{label} {target} 不可用：{e}", "{label} {target} is unavailable: {e}"),
     ("无法记录会话使用的供应商：{e}", "Can't record the session's provider: {e}"),
     (
-        "工作区 {dir} 正在被 {holders} 使用。改动范围不重叠时可以并行；改到同一文件会互相覆盖。现在就开始吗？",
-        "Workspace {dir} is in use by {holders}. Running in parallel is fine when the changes don't overlap; edits to the same file overwrite each other. Start now?",
+        "{holders} 也在工作区 {dir} 运行，可能正在修改文件。改到同一文件会互相覆盖，现在就开始吗？",
+        "Active in workspace {dir}: {holders} (may be editing files). Edits to the same file overwrite each other. Start now?",
     ),
-    ("并行开始", "Start in parallel"),
-    ("排队等待", "Queue"),
+    ("现在就开始", "Start now"),
+    ("等运行结束再开始", "Wait for active runs to finish"),
+    ("等 {holders} 结束后再开始", "Waiting for {holders} to finish before starting"),
     ("{bot}（群「{group}」）", "{bot} (group \"{group}\")"),
     ("工作区已空闲，开始运行", "The workspace is free; starting"),
     (
@@ -554,8 +555,9 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("修改文件", "change files"),
     ("现在就改", "Edit now"),
     ("等运行结束再改", "Wait for active runs to finish"),
+    ("等 {holders} 结束后再修改文件", "Waiting for {holders} to finish before editing files"),
     ("已停止，不再等待修改工作区", "Stopped; no longer waiting to change the workspace"),
-    ("其他会话已结束，开始修改", "The other sessions ended; changing files now"),
+    ("其他运行已结束，开始修改", "The other runs finished; editing now"),
     ("已停止，不再等待工作区空闲", "Stopped; no longer waiting for the workspace to be free"),
     ("/cd 目录不存在：{path}", "/cd directory doesn't exist: {path}"),
     ("无法创建工作区 {path}: {e}", "Can't create workspace {path}: {e}"),
@@ -845,10 +847,19 @@ pub(super) const EN: &[(&str, &str)] = &[
     // Slice E additions (U-14, U-48, U-66)
     ("有 {u} 处未提交改动、{p} 个未推送提交", "{u} uncommitted {u:change|changes}, {p} unpushed {p:commit|commits}"),
     ("无法检查 Git 状态", "Could not check Git status"),
-    ("删除工作区需要交互确认，非交互环境请加 --yes", "Deleting workspaces requires confirmation; pass --yes in non-interactive environments"),
-    ("确认删除以上 {n} 个工作区目录？此操作不可撤销 [y/N]：", "Delete the {n} workspace {n:folder|folders} above? This cannot be undone [y/N]: "),
+    (
+        "删除工作区需要交互确认，非交互环境请加 --yes",
+        "Deleting workspaces requires confirmation; pass --yes in non-interactive environments",
+    ),
+    (
+        "确认删除以上 {n} 个工作区目录？此操作不可撤销 [y/N]：",
+        "Delete the {n} workspace {n:folder|folders} above? This cannot be undone [y/N]: ",
+    ),
     ("已取消", "Canceled"),
-    ("删除供应商需要交互确认，非交互环境请加 --yes", "Deleting a provider requires confirmation; pass --yes in non-interactive environments"),
+    (
+        "删除供应商需要交互确认，非交互环境请加 --yes",
+        "Deleting a provider requires confirmation; pass --yes in non-interactive environments",
+    ),
     (
         "确认删除供应商「{name}」（{id}）？使用它的会话下一轮会开启新会话 [y/N]：",
         "Delete provider \"{name}\" ({id})? Sessions using it will start fresh on their next turn [y/N]: ",

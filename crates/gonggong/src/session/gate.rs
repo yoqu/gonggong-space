@@ -112,7 +112,8 @@ impl Shared {
             return;
         };
         let mut changed = gate.subscribe();
-        let (mut ask, mut asked, mut force) = (None, false, false);
+        let (mut ask, mut asked, mut force, mut waited) = (None, false, false, false);
+        let mut holders = vec![];
         loop {
             // Checked, taken and asked under one lock: an interrupted wait neither takes the directory nor asks.
             let step = {
@@ -122,12 +123,14 @@ impl Shared {
                 } else {
                     match gate.take(force) {
                         Ok(()) => Step::Open,
-                        Err(others) if !asked => {
-                            asked = true;
-                            ask = confirm_in(&mut s, gate.question(&others, &target));
+                        Err(others) => {
+                            if !asked {
+                                asked = true;
+                                ask = confirm_in(&mut s, gate.question(&others, &target));
+                            }
+                            holders = others;
                             Step::Wait
                         }
-                        Err(_) => Step::Wait,
                     }
                 }
             };
@@ -140,7 +143,9 @@ impl Shared {
                 }
                 Step::Open => {
                     if let Some((request_id, _)) = &ask {
-                        self.withdraw(request_id, t!("其他会话已结束，开始修改"));
+                        self.withdraw(request_id, t!("其他运行已结束，开始修改"));
+                    } else if waited {
+                        self.status(&run_id, t!("其他运行已结束，开始修改").into());
                     }
                     return self.open(&run_id, epoch, &gate).await;
                 }
@@ -160,7 +165,11 @@ impl Shared {
                 },
             };
             if let Some(choice) = answered {
-                (ask, force) = (None, choice);
+                (ask, force, waited) = (None, choice, !choice);
+                if waited {
+                    let step = t!("等 {holders} 结束后再修改文件", holders = holders.join(t!("、")));
+                    self.status(&run_id, step);
+                }
             }
         }
     }

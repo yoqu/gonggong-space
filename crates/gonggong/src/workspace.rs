@@ -234,6 +234,10 @@ impl Workspaces {
             };
             if let Some(choice) = decided {
                 (ask, go) = (Ask::Answered, choice);
+                if !choice {
+                    let holders: Vec<_> = others.iter().map(|h| h.label.as_str()).collect();
+                    shared.status(&me.run_id, t!("等 {holders} 结束后再开始", holders = holders.join(t!("、"))));
+                }
             }
         }
     }

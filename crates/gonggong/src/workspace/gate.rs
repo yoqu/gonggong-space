@@ -29,16 +29,16 @@ fn display_dir(dir: &Path) -> String {
 }
 
 pub(super) fn dir_question(dir: &Path, others: &[Holder]) -> Question {
-    let names: Vec<_> = others.iter().map(|h| h.label.as_str()).collect();
+    let holders = others.iter().map(|h| h.label.as_str()).collect::<Vec<_>>().join(t!("、"));
     Question {
         id: "q1".into(),
         kind: QuestionType::Single,
         title: t!(
-            "工作区 {dir} 正在被 {holders} 使用。改动范围不重叠时可以并行；改到同一文件会互相覆盖。现在就开始吗？",
-            dir = display_dir(dir),
-            holders = names.join(t!("、"))
+            "{holders} 也在工作区 {dir} 运行，可能正在修改文件。改到同一文件会互相覆盖，现在就开始吗？",
+            holders = holders,
+            dir = display_dir(dir)
         ),
-        options: vec![t!("并行开始").into(), t!("排队等待").into()],
+        options: vec![t!("现在就开始").into(), t!("等运行结束再开始").into()],
         recommended: Some(1),
         option_meta: vec![],
     }
@@ -46,12 +46,13 @@ pub(super) fn dir_question(dir: &Path, others: &[Holder]) -> Question {
 
 /// The write confirmation of a guarded turn about to change `target` while `others` may change files too.
 fn write_question(dir: &Path, others: &[String], target: &str) -> Question {
+    let holders = others.join(t!("、"));
     Question {
         id: "q1".into(),
         kind: QuestionType::Single,
         title: t!(
             "{holders} 也在工作区 {dir} 运行，可能正在修改文件；本轮要{target}。改到同一文件会互相覆盖，现在就改吗？",
-            holders = others.join(t!("、")),
+            holders = holders,
             dir = display_dir(dir),
             target = target
         ),
@@ -124,5 +125,6 @@ mod tests {
         let q = dir_question(dir, &[holder]);
         assert!(!q.title.contains("/Users/alice"), "leaked owner path: {}", q.title);
         assert!(q.title.contains("my-app"), "missing folder name: {}", q.title);
+        assert_eq!(q.options, ["现在就开始", "等运行结束再开始"]);
     }
 }

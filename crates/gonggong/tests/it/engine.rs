@@ -322,7 +322,9 @@ async fn a_rejected_or_timed_out_request_lets_the_agent_carry_on() {
     let (events, done) = r.finish("r1").await;
     assert_eq!(
         events.first(),
-        Some(&RunEvent::Status { status: RunStatus::Running, step: "请求被拒绝，Bot 会换个方式继续".into() })
+        Some(&RunEvent::Status {
+            status: RunStatus::Running, step: "请求被拒绝，Bot 会换个方式继续".into()
+        })
     );
     assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "权限被拒绝，未写入。"));
 
@@ -1671,20 +1673,67 @@ async fn a_change_beside_a_writer_waits_for_it_unless_confirmed() {
     r.run(full(in_dir("r3", "g3", "mock:exec touch b.txt", dir.path())));
     let (request_id, _) = dir_question(&mut r, "r3").await;
     choose(&r, "r3", &request_id, 1);
-    until_of(
-        &mut r,
-        "r3",
-        |m| matches!(m, DaemonToServer::RunEvent { event, .. } if *event == running("王磊 选择排队，等待工作区空闲")),
-    )
-    .await;
+    // The card says whom it waits for, and when it goes on.
+    let waiting = running("等 小王的 Claude（群「g1」） 结束后再修改文件");
+    until_of(&mut r, "r3", |m| matches!(m, DaemonToServer::RunEvent { event, .. } if *event == waiting)).await;
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
-    let mut order = vec![];
+    let (mut order, mut steps) = (vec![], vec![]);
     while order.len() < 2 {
-        if let DaemonToServer::RunDone(d) = r.next().await {
-            order.push((d.run_id, d.outcome, d.reply.ends_with("ran")));
+        match r.next().await {
+            DaemonToServer::RunDone(d) => order.push((d.run_id, d.outcome, d.reply.ends_with("ran"))),
+            DaemonToServer::RunEvent { run_id, event: RunEvent::Status { step, .. } } if run_id == "r3" => {
+                steps.push(step)
+            }
+            _ => {}
         }
     }
     assert_eq!(order, [("r1".into(), RunOutcome::Interrupted, false), ("r3".into(), RunOutcome::Completed, true)]);
+    assert!(steps.iter().any(|s| s == "其他运行已结束，开始修改"), "{steps:?}");
+}
+
+#[tokio::test]
+async fn the_change_confirmation_says_runs_not_sessions() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
+    let seen = until_of(&mut r, "r2", |m| matches!(m, DaemonToServer::QuestionAsk { .. })).await;
+    assert!(seen.iter().any(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Status { step, .. }, .. }
+        if step == "等待确认：同一工作区还有其他运行")));
+    let Some(DaemonToServer::QuestionAsk { questions, .. }) = seen.last() else { unreachable!() };
+    assert_eq!(questions[0].options, ["现在就改", "等运行结束再改"]);
+    r.send(ServerToDaemon::RunCancel { run_id: "r2".into() });
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    done_of(&mut r, "r2").await;
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
+}
+
+#[tokio::test]
+async fn a_turn_that_cannot_ask_first_is_asked_before_it_starts_and_says_whom_it_waits_for() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    // Copilot has no mode that asks before changing files: it cannot join guarded.
+    let mut s = in_dir("r2", "g2", "mock:echo", dir.path());
+    s.bot.agent_kind = AgentKind::Copilot;
+    r.run(s);
+    let (request_id, q) = dir_question(&mut r, "r2").await;
+    assert_eq!(
+        q.title,
+        format!(
+            "小王的 Claude（群「g1」） 也在工作区 {} 运行，可能正在修改文件。改到同一文件会互相覆盖，现在就开始吗？",
+            dir.path().canonicalize().unwrap().file_name().unwrap().to_str().unwrap()
+        )
+    );
+    assert_eq!(q.options, ["现在就开始", "等运行结束再开始"]);
+    choose(&r, "r2", &request_id, 1);
+    let waiting = running("等 小王的 Claude（群「g1」） 结束后再开始");
+    until_of(&mut r, "r2", |m| matches!(m, DaemonToServer::RunEvent { event, .. } if *event == waiting)).await;
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let (_, done) = done_of(&mut r, "r2").await;
+    assert_eq!(done.outcome, RunOutcome::Completed);
 }
 
 #[tokio::test]
