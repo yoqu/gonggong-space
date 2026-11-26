@@ -274,6 +274,37 @@ describe('首次登录引导进度', () => {
     expect((await s.http.get<UserOnboarding>('/api/me/onboarding')).body).toEqual({})
   })
 
+  it('persists approvalGuide state and seen count alongside guide and exposes onboarding on /api/me', async () => {
+    const user = await t.seed.user()
+    const http = client(t, await t.seed.cookie(user.id))
+    expect((await http.patch('/api/me/onboarding', {})).status).toBe(400)
+
+    await http.patch<UserOnboarding>('/api/me/onboarding', { guide: 'done' })
+    const seen1 = await http.patch<UserOnboarding>('/api/me/onboarding', { approvalGuideSeen: 1 })
+    expect(seen1.status).toBe(200)
+    expect(seen1.body).toMatchObject({ guide: 'done', approvalGuideSeen: 1 })
+
+    const dismissed = await http.patch<UserOnboarding>('/api/me/onboarding', {
+      approvalGuide: 'dismissed',
+      approvalGuideSeen: 1,
+    })
+    expect(dismissed.status).toBe(200)
+    expect(dismissed.body).toMatchObject({
+      guide: 'done',
+      approvalGuide: 'dismissed',
+      approvalGuideSeen: 1,
+    })
+    expect(typeof dismissed.body.approvalGuideAt).toBe('string')
+
+    const me = await http.get<{ onboarding?: UserOnboarding }>('/api/me')
+    expect(me.status).toBe(200)
+    expect(me.body.onboarding).toMatchObject({
+      guide: 'done',
+      approvalGuide: 'dismissed',
+      approvalGuideSeen: 1,
+    })
+  })
+
   it('the group a newcomer was added to shows in their group list', async () => {
     const s = await setup()
     await configure(s)

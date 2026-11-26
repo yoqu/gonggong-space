@@ -1,8 +1,9 @@
 import type { AccessLevel, BotAccess, TriggerScope, UserBriefDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
-import { AlertDialog, Button, FormRow, IconButton, Select } from '../../ui'
+import { AlertDialog, Button, FormRow, IconButton, Select, Tag } from '../../ui'
 import { MemberPicker } from '../groups/pickers'
+import type { AccessFocus } from './accessScope'
 
 /** A non-owner audience's choice: a run level, or 不可触发 (kept as `triggerScope`). */
 export type AudienceLevel = AccessLevel | 'deny'
@@ -74,6 +75,7 @@ export function AudienceFields({
   list,
   users,
   ownerId,
+  focus,
   onListChange,
 }: {
   canEdit: boolean
@@ -83,6 +85,7 @@ export function AudienceFields({
   list: string[]
   users: UserBriefDto[]
   ownerId: string
+  focus?: AccessFocus
   onListChange: (ids: string[]) => void
 }) {
   const [confirming, setConfirming] = useState<keyof AudienceValue | null>(null)
@@ -105,20 +108,30 @@ export function AudienceFields({
       // Letting everyone in but not the list would make the list mean less than nobody.
       disabled: (demo && l === 'full') || (who === 'trusted' && l === 'deny' && value.others !== 'deny'),
     }))
-  const row = (who: keyof AudienceValue, label: string, hint: string) => (
-    <FormRow label={label} align="top" hint={<div>{canEdit ? hint : LEVEL_HINT[value[who]]}</div>}>
-      {canEdit ? (
-        <Select<AudienceLevel>
-          label={label}
-          options={options(who)}
-          value={value[who]}
-          onChange={(l) => pick(who, l)}
-        />
-      ) : (
-        <span>{AUDIENCE_LEVEL_LABEL[value[who]]}</span>
-      )}
-    </FormRow>
-  )
+  const row = (who: keyof AudienceValue, label: string, hint: string) => {
+    const highlighted = focus === who
+    return (
+      <FormRow
+        label={label}
+        align="top"
+        highlighted={highlighted}
+        focusTag={highlighted ? who : undefined}
+        badge={highlighted ? <Tag tone="blue">{t('本次请求适用')}</Tag> : undefined}
+        hint={<div>{canEdit ? hint : LEVEL_HINT[value[who]]}</div>}
+      >
+        {canEdit ? (
+          <Select<AudienceLevel>
+            label={label}
+            options={options(who)}
+            value={value[who]}
+            onChange={(l) => pick(who, l)}
+          />
+        ) : (
+          <span>{AUDIENCE_LEVEL_LABEL[value[who]]}</span>
+        )}
+      </FormRow>
+    )
+  }
   const cascadesTrusted = confirming === 'others' && value.trusted === 'deny'
   return (
     <>

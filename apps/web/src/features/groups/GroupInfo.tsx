@@ -53,6 +53,7 @@ import { usePreviews } from '../previews/store'
 import { BotWorkspaceDialog, blocker, botOnline, isPaused, workspaceText } from '../repos/BotWorkspaceDialog'
 import { RepoGit } from '../repos/BotWorkspaces'
 import { repoPath } from '../repos/RepoPicker'
+import { graduateApprovalGuide } from '../runs/approvalGuide'
 import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
 import { SchedulesView } from '../schedules/SchedulesView'
 import { useSchedules } from '../schedules/store'
@@ -696,7 +697,9 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
     if (v === 'global') return setEditingId(b.id)
     if (v === 'remove') return setRemoving(b)
     const tier = v.slice(TIER_PREFIX.length)
-    void attempt(() => groupsApi.setBotTier(group.id, b.id, tier === FOLLOW ? null : (tier as Tier)))
+    void attempt(() => groupsApi.setBotTier(group.id, b.id, tier === FOLLOW ? null : (tier as Tier))).then(
+      (ok) => ok && graduateApprovalGuide(me?.id),
+    )
   }
 
   return (
@@ -866,7 +869,13 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
       <Presence>
         {editing && me ? (
           <Suspense fallback={null}>
-            <BotDialog bot={editing} me={me} tab="access" onClose={() => setEditingId(null)} />
+            <BotDialog
+              bot={editing}
+              me={me}
+              tab="access"
+              groupId={group.id}
+              onClose={() => setEditingId(null)}
+            />
           </Suspense>
         ) : null}
       </Presence>

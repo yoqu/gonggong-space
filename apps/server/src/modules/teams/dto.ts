@@ -1,4 +1,11 @@
-import type { MeDto, TeamDto, TeamInviteDto, TeamMemberDto, TeamRole } from '@gonggong/protocol'
+import type {
+  MeDto,
+  TeamDto,
+  TeamInviteDto,
+  TeamMemberDto,
+  TeamRole,
+  UserOnboarding,
+} from '@gonggong/protocol'
 import { and, asc, count, eq, isNotNull, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { notifications, type teamInvites, teamMembers, teams, users } from '../../db/schema.js'
@@ -62,6 +69,7 @@ export async function meDto(ctx: Ctx, user: typeof users.$inferSelect): Promise<
     demoMode: params.demoMode,
     pluginsEnabled: params.pluginsEnabled,
     notifyPrefs: user.notifyPrefs,
+    onboarding: (user.onboarding ?? {}) as UserOnboarding,
   }
 }
 

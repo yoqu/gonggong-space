@@ -1,6 +1,7 @@
 import type { Tier } from '@gonggong/protocol'
 import { t } from '../../i18n'
-import { FormRow, SegmentedControl, type Token, TokenField } from '../../ui'
+import { FormRow, SegmentedControl, Tag, type Token, TokenField } from '../../ui'
+import type { AccessFocus } from './accessScope'
 
 /** 审批方式: one choice made of the bot's tier and AI review (read-only is a legacy tier, shown only while set). */
 export type ApprovalMode = 'ask' | 'review' | 'full' | 'read-only'
@@ -59,6 +60,7 @@ export function ApprovalFields({
   value,
   outdated,
   builtin,
+  focus,
   onChange,
 }: {
   owner: boolean
@@ -68,9 +70,11 @@ export function ApprovalFields({
   outdated?: string
   /** The bot's agent and machine hand 帮我审批 to the agent's own reviewer where it works. */
   builtin?: boolean
+  focus?: AccessFocus
   value: ApprovalValue
   onChange: (value: ApprovalValue) => void
 }) {
+  const focused = focus === 'owner'
   const mode = approvalMode(value)
   const unattended = value.aiReview ? 'review' : 'ask'
   const modes: ApprovalMode[] = [
@@ -90,6 +94,9 @@ export function ApprovalFields({
       <FormRow
         label={t('审批方式')}
         align="top"
+        highlighted={focused}
+        focusTag={focused ? 'owner' : undefined}
+        badge={focused ? <Tag tone="blue">{t('本次请求适用')}</Tag> : undefined}
         hint={
           <>
             {mode === 'full' ? (

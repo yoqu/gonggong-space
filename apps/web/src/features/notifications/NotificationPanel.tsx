@@ -32,6 +32,7 @@ import {
   useLeaving,
   usePresence,
 } from '../../ui'
+import { useBotDialog } from '../bots/dialogStore'
 import { useSettings } from '../settings/store'
 import { otherTeam } from '../teams/store'
 import { PushAction } from './NotificationSettings'
@@ -144,8 +145,11 @@ const DECIDED_HERE = new Set<NotificationDto['type']>(['bot_share_request', 'joi
  * 批准 / 拒绝 of an approval raised in a chat the owner is not in (someone's DM with a bot shared with them): there is
  * no card to decide on, so the notification carries the options. The settled notification arrives over realtime.
  */
-function ApprovalActions({ n }: { n: NotificationDto }) {
+function ApprovalActions({ n, onClose }: { n: NotificationDto; onClose: () => void }) {
   const [busy, setBusy] = useState<string | null>(null)
+  const bots = useWorkspace((s) => s.bots)
+  const botId = typeof n.payload.botId === 'string' ? n.payload.botId : null
+  const hasBot = !!botId && bots.some((b) => b.id === botId)
   const options = (n.payload.options ?? []) as PermissionOption[]
   const allow = options.find((o) => o.kind === 'allow_once') ?? options.find((o) => o.kind === 'allow_always')
   const reject =
@@ -182,6 +186,23 @@ function ApprovalActions({ n }: { n: NotificationDto }) {
         >
           {t('拒绝#reject')}
         </Button>
+      ) : null}
+      {hasBot && botId ? (
+        <IconButton
+          size="small"
+          variant="plain"
+          title={t('调整权限设置')}
+          onClick={() => {
+            onClose()
+            useBotDialog.getState().open({
+              botId,
+              tab: 'access',
+              groupId: typeof n.payload.groupId === 'string' ? n.payload.groupId : undefined,
+            })
+          }}
+        >
+          <Icon name="gear" size={14} />
+        </IconButton>
       ) : null}
     </div>
   )
@@ -413,7 +434,7 @@ function Panel({
                           {v.group ? <div className="notif__group">{v.group}</div> : null}
                         </div>
                       </button>
-                      {outside(n) ? <ApprovalActions n={n} /> : null}
+                      {outside(n) ? <ApprovalActions n={n} onClose={onClose} /> : null}
                       {DECIDED_HERE.has(n.type) && !n.resolvedAt ? <DecideActions n={n} /> : null}
                       <IconButton
                         size="small"

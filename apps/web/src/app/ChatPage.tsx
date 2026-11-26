@@ -3,8 +3,8 @@ import { Suspense, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useShallow } from 'zustand/react/shallow'
 import { useLinkedArtifact } from '../features/artifacts/link'
-import type { BotTab } from '../features/bots/BotSettings'
-import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
+import { useBotDialog } from '../features/bots/dialogStore'
+import { BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { ThreadInbox } from '../features/chat/ThreadInbox'
@@ -264,7 +264,6 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const [binding, setBinding] = useState(false)
   /** The new bot dialog, on `machineId` when opened right after binding it. */
   const [newBot, setNewBot] = useState<{ machineId?: string } | null>(null)
-  const [setting, setSetting] = useState<{ botId: string; tab?: BotTab } | null>(null)
   const myBots = bots.filter((b) => b.ownerId === me?.id)
   const sharedBots = bots.filter((b) => !!me && b.sharedWith.includes(me.id))
   const myMachines = machines.filter((m) => m.ownerId === me?.id)
@@ -452,7 +451,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
                 key={openBot.id}
                 bot={openBot}
                 me={me}
-                onSettings={(tab) => setSetting({ botId: openBot.id, tab })}
+                onSettings={(tab) => useBotDialog.getState().open({ botId: openBot.id, tab })}
                 onBack={mobile ? () => navigate('/') : undefined}
               />
             </Suspense>
@@ -607,13 +606,6 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
         {newBot && me ? (
           <Suspense fallback={null}>
             <NewBotDialog me={me} machineId={newBot.machineId} onClose={() => setNewBot(null)} />
-          </Suspense>
-        ) : null}
-      </Presence>
-      <Presence>
-        {openBot && openBot.id === setting?.botId && me ? (
-          <Suspense fallback={null}>
-            <BotDialog bot={openBot} me={me} tab={setting.tab} onClose={() => setSetting(null)} />
           </Suspense>
         ) : null}
       </Presence>

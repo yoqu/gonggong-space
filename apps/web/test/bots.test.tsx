@@ -773,6 +773,7 @@ describe('bot detail', () => {
         aiReview: true,
       }),
     )
+    expect(screen.getByText(/下一轮运行起生效/)).toBeTruthy()
   })
 
   it('帮我审批 offers no AI 预审 model to pick', async () => {

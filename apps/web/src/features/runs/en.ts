@@ -384,4 +384,18 @@ export default {
   收起提示: 'Collapse details',
   报告连接器状态: 'Report connector status',
   请求连接: 'Request connection',
+  '调整权限设置…': 'Approval settings…',
+  '调整此 Bot 的权限与审批设置': 'Adjust approval and permission settings for this Bot',
+  '不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或配置常用命令白名单。':
+    'Tired of approving every step? Switch to "Review for me" or "Allow everything", or add command rules in settings.',
+  '不想每次手动确认？可在设置中改为「帮我审批」，或配置常用命令白名单。':
+    'Tired of approving every step? Switch to "Review for me" or add command rules in settings.',
+  '这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的审批方式。':
+    'Started by another member. Adjust "Trusted list" or "Everyone else" approval in settings.',
+  '这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的自动审批。':
+    'Started by another member. Adjust "Trusted list" or "Everyone else" auto-approval in settings.',
+  去设置: 'Open settings',
+  不再提醒: "Don't show again",
+  '已收起提示；随时可点卡片右上角「{label}」调整权限':
+    'Tip hidden. Click "{label}" at the top right of any card anytime to adjust permissions',
 } satisfies Record<string, string>

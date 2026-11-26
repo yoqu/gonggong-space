@@ -1,4 +1,4 @@
-import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import { type CSSProperties, type FormEvent, type ReactNode, useEffect, useRef } from 'react'
 import { cx } from '../lib/cx'
 import './form-layout.css'
 
@@ -46,22 +46,48 @@ export function FormRow({
   hint,
   align = 'center',
   colon = true,
+  highlighted = false,
+  focusTag,
+  badge,
   children,
 }: {
   label?: string
   hint?: ReactNode
   align?: 'center' | 'top'
   colon?: boolean
+  /** Emphasizes and scrolls this row into view when opened from a contextual shortcut. */
+  highlighted?: boolean
+  focusTag?: string
+  badge?: ReactNode
   children?: ReactNode
 }) {
-  const top = align === 'top' || Boolean(hint)
+  const controlRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlighted) controlRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [highlighted])
+  const top = align === 'top' || Boolean(hint) || Boolean(badge)
   return (
     <>
-      <div className={cx('ui-form__label', top && 'ui-form__label--top')}>
+      <div
+        className={cx(
+          'ui-form__label',
+          top && 'ui-form__label--top',
+          highlighted && 'ui-form__label--highlight',
+        )}
+      >
         {label ? `${label}${colon ? '：' : ''}` : null}
       </div>
-      <div className={cx('ui-form__control', top && 'ui-form__control--top')}>
+      <div
+        ref={controlRef}
+        data-focus-row={focusTag || undefined}
+        className={cx(
+          'ui-form__control',
+          top && 'ui-form__control--top',
+          highlighted && 'ui-form__control--highlight',
+        )}
+      >
         {children}
+        {badge ? <div className="ui-form__focus-badge">{badge}</div> : null}
         {hint ? <div className="ui-form__hint">{hint}</div> : null}
       </div>
     </>

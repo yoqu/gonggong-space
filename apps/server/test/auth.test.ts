@@ -78,6 +78,7 @@ describe('login / logout / me', () => {
       demoMode: false,
       pluginsEnabled: false,
       notifyPrefs: {},
+      onboarding: {},
     })
     const c = res.cookies.find((x) => x.name === 'gonggong_session')
     expect(c).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' })

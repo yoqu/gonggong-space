@@ -248,13 +248,29 @@ export const TeamOnboardingDto = z.object({
     .optional(),
 })
 export type TeamOnboardingDto = z.infer<typeof TeamOnboardingDto>
-/** GET/PATCH /api/me/onboarding: how the user left the first-login guide; no `guide` = not seen yet. */
+/** How the user left or silenced the approval-card permission guide. */
+export const ApprovalGuideState = z.enum(['dismissed', 'graduated', 'fatigued'])
+export type ApprovalGuideState = z.infer<typeof ApprovalGuideState>
+
+/** GET/PATCH /api/me/onboarding: first-login guide and approval-card permission guide state. */
 export const UserOnboarding = z.object({
   guide: z.enum(['done', 'skipped']).optional(),
   at: z.string().optional(),
+  approvalGuide: ApprovalGuideState.optional(),
+  approvalGuideSeen: z.number().int().min(0).max(10).optional(),
+  approvalGuideAt: z.string().optional(),
 })
 export type UserOnboarding = z.infer<typeof UserOnboarding>
-export const UpdateOnboardingReq = z.object({ guide: z.enum(['done', 'skipped']) })
+export const UpdateOnboardingReq = z
+  .object({
+    guide: z.enum(['done', 'skipped']).optional(),
+    approvalGuide: ApprovalGuideState.optional(),
+    approvalGuideSeen: z.number().int().min(0).max(10).optional(),
+  })
+  .refine(
+    (v) => v.guide !== undefined || v.approvalGuide !== undefined || v.approvalGuideSeen !== undefined,
+    'Nothing to update',
+  )
 /** Display order, labels and units of 系统参数 (also used by audit summaries). */
 export const SYSTEM_PARAM_VIEW: {
   key: Exclude<

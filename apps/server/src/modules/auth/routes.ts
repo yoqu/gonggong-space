@@ -130,11 +130,13 @@ export function authRoutes(ctx: Ctx) {
 
     app.patch('/api/me/onboarding', async (req): Promise<UserOnboarding> => {
       const user = await requireUser(ctx, req)
-      const { guide } = UpdateOnboardingReq.parse(req.body)
+      const { guide, approvalGuide, approvalGuideSeen } = UpdateOnboardingReq.parse(req.body)
+      const now = ctx.now().toISOString()
       const onboarding: UserOnboarding = {
         ...(user.onboarding as UserOnboarding),
-        guide,
-        at: ctx.now().toISOString(),
+        ...(guide !== undefined && { guide, at: now }),
+        ...(approvalGuide !== undefined && { approvalGuide, approvalGuideAt: now }),
+        ...(approvalGuideSeen !== undefined && { approvalGuideSeen }),
       }
       await ctx.db.update(users).set({ onboarding }).where(eq(users.id, user.id))
       return onboarding

@@ -6,6 +6,7 @@ import { AppRail } from '../src/app/AppRail'
 import { AppShell, ShellBar } from '../src/app/AppShell'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { useBotDialog } from '../src/features/bots/dialogStore'
 import { SearchOverlay } from '../src/features/search/SearchOverlay'
 import { useSettings } from '../src/features/settings/store'
 import { realtime } from '../src/lib/realtime'
@@ -171,6 +172,83 @@ describe('notification center', () => {
     act(() => release(undefined))
     await waitFor(() => expect(approve.getAttribute('aria-busy')).toBeNull())
     expect(screen.getByTestId('where').textContent).toBe('/')
+  })
+
+  it('offers an approval settings shortcut on cross-group approval notifications', async () => {
+    const options = [
+      { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+      { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+    ]
+    useWorkspace.setState({
+      groups: [],
+      bots: [
+        {
+          id: 'b1',
+          teamId: 't1',
+          name: '小王的 Claude',
+          ownerId: 'u1',
+          ownerName: '王磊',
+          agentKind: 'claude',
+          avatar: 'role-no',
+          followAgent: false,
+          avatarUrl: null,
+          machineId: 'm1',
+          machineName: 'mbp',
+          binding: 'bound',
+          presence: 'online',
+          systemPrompt: '',
+          tier: 'workspace',
+          triggerScope: 'all',
+          access: { trusted: 'ask', others: 'auto' },
+          triggerList: [],
+          concurrency: 2,
+          createdBy: 'u1',
+          agentVersion: null,
+          agentMinVersion: null,
+          groupCount: 1,
+          defaultWorkspace: null,
+          approval: 'ask',
+          allowlist: [],
+          alwaysAllow: [],
+          aiReview: false,
+          model: null,
+          effort: null,
+          catalog: null,
+          gitName: null,
+          gitEmail: null,
+          gitDefaultEmail: 'b1@bots.gonggong.local',
+          sharedWith: [],
+          agentSettings: {},
+        },
+      ],
+    })
+    const payload = { ...note({}).payload, botId: 'b1', approvalId: 'a1', options }
+    mockApi({ 'GET /notifications': [note({ payload })], 'GET /users': [] })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route
+              path="*"
+              element={
+                <>
+                  <AppRail />
+                  <ShellBar />
+                  <Where />
+                </>
+              }
+            />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    const list = await screen.findByTestId('notification-list')
+    const btn = await within(list).findByRole('button', { name: '调整权限设置' })
+    fireEvent.click(btn)
+    const dialog = await screen.findByRole('dialog', { name: 'Bot 详情' })
+    expect(within(dialog).getByRole('tab', { name: '权限' }).getAttribute('aria-selected')).toBe('true')
+    act(() => useBotDialog.getState().close())
   })
 
   it('lets the machine owner allow a plugin to run code right in the notification', async () => {

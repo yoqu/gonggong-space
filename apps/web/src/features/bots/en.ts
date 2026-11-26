@@ -94,6 +94,26 @@ export default {
   用量未上报: 'Usage not reported',
   默认工作区路径: 'Default workspace path',
   '{name} 已保存 · 下一次新开会话时生效': '{name} saved · Applies from the next new session',
+  '{name} 已保存 · 运行中的任务立即生效': '{name} saved · Applies to running tasks immediately',
+  '{name} 已保存 · 审批级别立即生效，规则下一轮起生效':
+    '{name} saved · Approval level applies immediately; rules apply from the next run',
+  '{name} 已保存 · 审批方式立即生效，其余下一次新开会话时生效':
+    '{name} saved · Approval applies immediately; other changes apply from the next new session',
+  '{name} 已保存 · 下一轮运行起生效': '{name} saved · Applies from the next run',
+  '{name} 已保存': '{name} saved',
+  本次请求适用: 'Applies to this request',
+  '当前：{mode}': 'Mode: {mode}',
+  '本群：{mode}': 'This group: {mode}',
+  '信任名单：{mode}': 'Trusted list: {mode}',
+  '其他成员：{mode}': 'Everyone else: {mode}',
+  '当前群「{group}」已单独设为「{tier}」': '"{group}" is overridden to "{tier}"',
+  '当前群已单独设为「{tier}」': 'This group is overridden to "{tier}"',
+  '本群审批方式会作为其他成员的权限上限覆盖全局设置。若要改回跟随下面的全局规则，可恢复跟随全局。':
+    "This group's approval mode acts as a ceiling over the global levels for others. Reset to follow global to use the settings below.",
+  '本群单独设置了审批方式，会覆盖下方全局「审批方式」；保存下方修改后本群仍以此处为准。':
+    'This group overrides the global approval mode below; saving changes below will still follow this group override.',
+  恢复跟随全局: 'Follow global',
+  已恢复本群跟随全局审批方式: 'Reset this group to follow global approval',
   角色: 'Role',
   系统提示词: 'System prompt',
   '作为 Bot 的角色说明和群内简介，群内可再补充；下一次新开会话时生效':

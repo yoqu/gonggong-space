@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { create } from 'zustand'
+import { BotDialogHost } from '../features/bots/BotDialogHost'
 import { syncPush } from '../features/notifications/push'
 import { SettingsHost } from '../features/settings/SettingsHost'
 import { TeamSwitcher, useMultiTeam } from '../features/teams/TeamSwitcher'
@@ -157,6 +158,7 @@ export function AppShell() {
         </Suspense>
       ) : null}
       <SettingsHost />
+      <BotDialogHost />
       <Toaster />
     </div>
   )

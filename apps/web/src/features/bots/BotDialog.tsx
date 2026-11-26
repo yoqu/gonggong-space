@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
 import { Dialog, DiscardChangesDialog } from '../../ui'
+import type { AccessFocus } from './accessScope'
 import { BotDetail, type BotTab } from './BotSettings'
 import './bots.css'
 
@@ -11,11 +12,15 @@ export function BotDialog({
   bot,
   me,
   tab,
+  groupId,
+  focus,
   onClose,
 }: {
   bot: BotDto
   me: UserDto
   tab?: BotTab
+  groupId?: string
+  focus?: AccessFocus
   onClose: () => void
 }) {
   const users = useGet<UserBriefDto[]>('/users').data ?? []
@@ -28,7 +33,17 @@ export function BotDialog({
   return (
     <>
       <Dialog open title={t('Bot 详情')} width={540} closeOnBackdrop={!dirty} onClose={requestClose}>
-        <BotDetail key={bot.id} bot={bot} me={me} users={users} tab={tab} plain onDirtyChange={setDirty} />
+        <BotDetail
+          key={bot.id}
+          bot={bot}
+          me={me}
+          users={users}
+          tab={tab}
+          groupId={groupId}
+          focus={focus}
+          plain
+          onDirtyChange={setDirty}
+        />
       </Dialog>
       <DiscardChangesDialog
         open={confirming}

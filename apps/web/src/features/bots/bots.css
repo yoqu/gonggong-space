@@ -485,3 +485,9 @@ a.bot-page__group:hover {
   margin-top: var(--space-4);
   color: var(--tint-orange-text);
 }
+.bot-settings__banner {
+  grid-column: 1 / -1;
+}
+.bot-settings__banner-actions {
+  margin-top: var(--space-8);
+}

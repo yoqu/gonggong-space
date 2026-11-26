@@ -6,13 +6,14 @@ import {
   type MachineDto,
   OFFICIAL_PROVIDER,
   type ProviderStoreView,
+  type Tier,
   type UsageRowDto,
   type UserBriefDto,
   type UserDto,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
-import { useWorkspace } from '../../app/workspace'
+import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
@@ -33,11 +34,14 @@ import {
   toast,
 } from '../../ui'
 import { FeishuAppForm } from '../feishu/FeishuAppForm'
+import { groupsApi } from '../groups/api'
 import { effectiveProvider, providerBlocked, useProviderSwitch } from '../machines/providers'
+import { graduateApprovalGuide } from '../runs/approvalGuide'
 import { UsageBars, useUsage } from '../usage/UsagePage'
 import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfig'
-import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
+import { APPROVAL_MODE_LABEL, ApprovalFields, type ApprovalValue, approvalMode } from './ApprovalFields'
 import { AudienceFields, type AudienceValue, audiencePatch, audienceValue } from './AudienceFields'
+import type { AccessFocus } from './accessScope'
 import { avatarSrc, BotAvatar, botRole, RolePicker, roleFace, roleHint } from './avatars'
 import { BotAgentSettingRows, cleanOverrides } from './BotAgentSettings'
 import { choiceProvider, ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
@@ -163,6 +167,57 @@ const sameAccess = (a: BotAccess, b: BotAccess) => a.trusted === b.trusted && a.
 const sameMap = (a: Record<string, string>, b: Record<string, string>) =>
   Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => b[k] === v)
 
+const hasPermissionChange = (patch: BotPatch) =>
+  'tier' in patch ||
+  'aiReview' in patch ||
+  'alwaysAllow' in patch ||
+  'triggerScope' in patch ||
+  'triggerList' in patch ||
+  'access' in patch
+
+function saveToastMessage(
+  botName: string,
+  patch: BotPatch,
+  workspaceChanged: boolean,
+  providerChanged: boolean,
+) {
+  const hasLive = 'tier' in patch || 'access' in patch
+  const hasNextRun =
+    'aiReview' in patch ||
+    'alwaysAllow' in patch ||
+    'triggerScope' in patch ||
+    'triggerList' in patch ||
+    'concurrency' in patch
+  const hasNextSession =
+    'systemPrompt' in patch ||
+    'model' in patch ||
+    'effort' in patch ||
+    'gitName' in patch ||
+    'gitEmail' in patch ||
+    'agentSettings' in patch ||
+    workspaceChanged ||
+    providerChanged
+  if (hasLive && !hasNextRun && !hasNextSession)
+    return t('{name} 已保存 · 运行中的任务立即生效', { name: botName })
+  if (hasLive && hasNextRun && !hasNextSession)
+    return t('{name} 已保存 · 审批级别立即生效，规则下一轮起生效', { name: botName })
+  if (hasLive && hasNextSession)
+    return t('{name} 已保存 · 审批方式立即生效，其余下一次新开会话时生效', { name: botName })
+  if (!hasLive && hasNextRun && !hasNextSession)
+    return t('{name} 已保存 · 下一轮运行起生效', { name: botName })
+  if (!hasLive && !hasNextRun && !hasNextSession) return t('{name} 已保存', { name: botName })
+  return t('{name} 已保存 · 下一次新开会话时生效', { name: botName })
+}
+
+const GROUP_TIER_LABEL = (tier: Tier, aiReview: boolean, focus?: AccessFocus) =>
+  tier === 'full'
+    ? t('完全允许')
+    : tier === 'read-only'
+      ? t('只读')
+      : focus === 'trusted' || focus === 'others'
+        ? t('需要审批')
+        : APPROVAL_MODE_LABEL[approvalMode({ tier, aiReview })]
+
 /**
  * Settings of a bot, in tabs: who it is, where and with what it runs, who may use it and what it may do, the rest.
  * Every change, the provider and default workspace included, waits for 保存.
@@ -173,6 +228,8 @@ export function BotDetail({
   users,
   plain,
   tab: initialTab = 'basic',
+  groupId,
+  focus,
   onDirtyChange,
   onChanged,
 }: {
@@ -182,12 +239,22 @@ export function BotDetail({
   /** Embedded in a dialog: no panel chrome, no usage tab (the bot page shows it). */
   plain?: boolean
   tab?: BotTab
+  groupId?: string
+  focus?: AccessFocus
   onDirtyChange?: (dirty: boolean) => void
   onChanged?: () => void
 }) {
   const owner = me.id === bot.ownerId
   const canEdit = owner || me.role === 'sysadmin'
   const demo = useSession((s) => s.tenancy?.demoMode)
+  const group = useWorkspace((s) => (groupId ? s.groups.find((g) => g.id === groupId) : undefined))
+  const groupStates = useWorkspace((s) => (groupId ? s.botStates[groupId] : undefined))
+  const groupState = groupStates?.[bot.id]
+  const groupTier = groupState?.tier ?? null
+  useEffect(() => {
+    if (groupId && group && !groupStates) void loadBotStates(groupId).catch(() => {})
+  }, [groupId, group, groupStates])
+  const [resettingGroupTier, setResettingGroupTier] = useState(false)
   const [tab, setTab] = useState<string>(initialTab)
   useEffect(() => setTab(initialTab), [initialTab])
   const [name, setName] = useState(bot.name)
@@ -262,20 +329,25 @@ export function BotDetail({
   }, [canEdit, dirty, onDirtyChange])
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
-  const commit = async () => {
+  const commit = async (providerSwitched = false) => {
     setSaving(true)
     let changed = false
+    const workspaceChanged = workspace !== bot.defaultWorkspace
     try {
       if (Object.keys(patch).length) {
         await botsApi.update(bot.id, patch)
         changed = true
+        if (hasPermissionChange(patch)) graduateApprovalGuide(me.id)
       }
-      if (workspace !== bot.defaultWorkspace) {
+      if (workspaceChanged) {
         await botsApi.setDefaultWorkspace(bot.id, workspace)
         changed = true
       }
       changed = true
-      toast({ type: 'success', message: t('{name} 已保存 · 下一次新开会话时生效', { name: name.trim() }) })
+      toast({
+        type: 'success',
+        message: saveToastMessage(name.trim(), patch, workspaceChanged, providerSwitched),
+      })
     } catch (e) {
       toastError(e)
     } finally {
@@ -299,12 +371,12 @@ export function BotDetail({
       toastError(e)
       return
     }
-    await commit()
+    await commit(true)
   })
   const save = () =>
     providerDirty && view
       ? switcher.request({ agent: bot.agentKind, choice: picked ?? savedProvider, botId: bot.id }, view)
-      : void commit()
+      : void commit(false)
 
   const basic = (
     <Form>
@@ -420,13 +492,64 @@ export function BotDetail({
     </Form>
   )
 
+  const resetGroupTier = async () => {
+    if (!groupId) return
+    setResettingGroupTier(true)
+    try {
+      await groupsApi.setBotTier(groupId, bot.id, null)
+      if (groupState)
+        useWorkspace
+          .getState()
+          .applyEvent({ t: 'group.botState', groupId, state: { ...groupState, tier: null } })
+      graduateApprovalGuide(me.id)
+      toast({ type: 'success', message: t('已恢复本群跟随全局审批方式') })
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setResettingGroupTier(false)
+    }
+  }
+
   const access = (
     <Form>
+      {groupId && groupTier !== null ? (
+        <div className="bot-settings__banner">
+          <Alert
+            variant="warning"
+            title={
+              group?.name
+                ? t('当前群「{group}」已单独设为「{tier}」', {
+                    group: group.name,
+                    tier: GROUP_TIER_LABEL(groupTier, bot.aiReview, focus),
+                  })
+                : t('当前群已单独设为「{tier}」', {
+                    tier: GROUP_TIER_LABEL(groupTier, bot.aiReview, focus),
+                  })
+            }
+            description={
+              focus === 'trusted' || focus === 'others'
+                ? t(
+                    '本群审批方式会作为其他成员的权限上限覆盖全局设置。若要改回跟随下面的全局规则，可恢复跟随全局。',
+                  )
+                : t('本群单独设置了审批方式，会覆盖下方全局「审批方式」；保存下方修改后本群仍以此处为准。')
+            }
+          >
+            {canEdit ? (
+              <div className="bot-settings__banner-actions">
+                <Button size="small" loading={resettingGroupTier} onClick={() => void resetGroupTier()}>
+                  {t('恢复跟随全局')}
+                </Button>
+              </div>
+            ) : null}
+          </Alert>
+        </div>
+      ) : null}
       <ApprovalFields
         owner={owner}
         canEdit={canEdit}
         demo={demo}
         value={approval}
+        focus={focus}
         outdated={
           machine?.online && !machine.features.includes('approvalGates') ? (bot.machineName ?? '') : undefined
         }
@@ -444,6 +567,7 @@ export function BotDetail({
         list={list}
         users={users}
         ownerId={bot.ownerId}
+        focus={focus}
         onListChange={setList}
       />
     </Form>

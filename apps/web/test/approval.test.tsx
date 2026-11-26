@@ -1,9 +1,10 @@
 import { ApprovalDto, type BotDto, type RunDto } from '@gonggong/protocol'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { ApprovalBlock } from '../src/features/runs/ApprovalBlock'
+import { resetApprovalGuide } from '../src/features/runs/approvalGuide'
 import { apiError, mockApi } from './mockApi'
 
 const NOW = new Date(2026, 8, 23, 10, 21, 0)
@@ -63,11 +64,14 @@ const login = (id: string, name: string) =>
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(NOW)
-  useWorkspace.setState({ bots: [bot] })
+  resetApprovalGuide()
+  useSession.setState({ tenancy: undefined as never })
+  useWorkspace.setState({ bots: [bot], groups: [], botStates: {} })
 })
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  resetApprovalGuide()
 })
 
 describe('ApprovalBlock', () => {
@@ -166,7 +170,7 @@ describe('ApprovalBlock', () => {
     expect(screen.getByText(/01:29 后自动拒绝/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '批准' }))
-    await waitFor(() => expect(calls).toHaveLength(1))
+    await waitFor(() => expect(calls.filter((c) => c.path.startsWith('/runs/'))).toHaveLength(1))
     expect(calls[0]).toMatchObject({
       method: 'POST',
       path: '/runs/r1/approvals/a1',
@@ -433,9 +437,10 @@ describe('ApprovalBlock', () => {
     expect(screen.getByText(/还有 1 个请求在等待/)).toBeTruthy()
     expect(screen.getByText('go vet ./...')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '全部批准（2）' }))
-    await waitFor(() => expect(calls).toHaveLength(2))
-    expect(calls.map((c) => c.path)).toEqual(['/runs/r1/approvals/a1', '/runs/r1/approvals/a2'])
-    expect(calls.every((c) => (c.body as { optionId: string }).optionId === 'allow')).toBe(true)
+    const approvalCalls = () => calls.filter((c) => c.path.startsWith('/runs/'))
+    await waitFor(() => expect(approvalCalls()).toHaveLength(2))
+    expect(approvalCalls().map((c) => c.path)).toEqual(['/runs/r1/approvals/a1', '/runs/r1/approvals/a2'])
+    expect(approvalCalls().every((c) => (c.body as { optionId: string }).optionId === 'allow')).toBe(true)
   })
 
   it('shows the declared risk of each waiting MCP request', () => {
@@ -497,7 +502,7 @@ describe('ApprovalBlock', () => {
       { optionId: 'always', name: 'Always', kind: 'allow_always' },
       ...approval().options,
     ] as ApprovalDto['options']
-    render(
+    const { container } = render(
       <ApprovalBlock
         run={run([
           approval({ options, remember: ['go'], rememberSession: ['go'] }),
@@ -505,7 +510,10 @@ describe('ApprovalBlock', () => {
         ])}
       />,
     )
-    const names = screen.getAllByRole('button').map((b) => b.textContent)
+    const actions = container.querySelector('.approval__actions') as HTMLElement
+    const names = within(actions)
+      .getAllByRole('button')
+      .map((b) => b.textContent)
     expect(names).toEqual(['批准', '拒绝', '更多', '全部批准（2）'])
   })
 

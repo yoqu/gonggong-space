@@ -1,15 +1,19 @@
 import type { ApprovalDto, ApprovalMcp, PermissionOption, ReviewRisk, RunDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
 import { countdown, hm } from '../../lib/time'
-import { Button, Icon, MenuButton, type MenuItem, Spinner, Tag, type TagTone } from '../../ui'
+import { Button, Icon, MenuButton, type MenuItem, Spinner, Tag, type TagTone, toast } from '../../ui'
+import { effectiveApprovalScope } from '../bots/accessScope'
+import { useBotDialog } from '../bots/dialogStore'
 import { CountdownRing } from '../chat/RunGraphics'
 import './approval.css'
 import { t } from '../../i18n'
+import { dismissApprovalGuide, recordApprovalDecision, useApprovalGuideActive } from './approvalGuide'
 import { mcpArgs, mcpTool, toolTitle } from './mcp'
 
 /** ACP tool kinds as the prototype names them. */
@@ -202,13 +206,29 @@ export function ApprovalCard({
   others?: ApprovalDto[]
 }) {
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === run.botId))
+  const group = useWorkspace((s) => (run.groupId ? s.groups.find((g) => g.id === run.groupId) : undefined))
+  const groupTier = useWorkspace((s) =>
+    run.groupId ? (s.botStates[run.groupId]?.[run.botId]?.tier ?? null) : null,
+  )
   const me = useSession((s) => s.user)
   const pending = a.status === 'pending'
   const now = useNow(pending)
   /** The action in flight, so its own button spins. */
   const [busy, setBusy] = useState<string | null>(null)
+  const [flashGear, setFlashGear] = useState(false)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    },
+    [],
+  )
   const mine = !!me && me.id === bot?.ownerId
   const demo = useSession((s) => s.tenancy?.demoMode)
+  const scope =
+    pending && mine && bot ? effectiveApprovalScope({ bot, run, group, groupTier, demo: !!demo }) : null
+  const guideActive = useApprovalGuideActive(pending && mine ? me?.id : undefined)
+  const guideVisible = pending && mine && !!scope && guideActive
   const allow = pick(a.options, ['allow_once', 'allow_always'])
   // Without rules to remember, 批准，不再询问 would silently behave like 批准 (plan A7).
   const always = a.remember.length
@@ -217,10 +237,32 @@ export function ApprovalCard({
   const reject = pick(a.options, ['reject_once', 'reject_always'])
   const left = Date.parse(a.expiresAt) - now
 
+  const openSettings = () => {
+    if (!scope) return
+    useBotDialog.getState().open({
+      botId: run.botId,
+      tab: 'access',
+      groupId: run.groupId,
+      focus: scope.focus,
+    })
+  }
+  const dismissGuide = () => {
+    if (!me || !scope) return
+    dismissApprovalGuide(me.id)
+    setFlashGear(true)
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlashGear(false), 2600)
+    toast({
+      type: 'info',
+      message: t('已收起提示；随时可点卡片右上角「{label}」调整权限', { label: scope.pillLabel }),
+    })
+  }
+
   const send = async (path: string, body: unknown, action: string) => {
     setBusy(action)
     try {
       await api.post(path, body)
+      if (guideVisible && me) recordApprovalDecision(me.id, a.id)
     } catch (e) {
       toastError(e)
     } finally {
@@ -236,10 +278,15 @@ export function ApprovalCard({
   const approveAll = async () => {
     setBusy('all')
     try {
+      let sent = 0
       for (const x of [a, ...others]) {
         const option = pick(x.options, ['allow_once', 'allow_always'])
-        if (option) await api.post(`/runs/${run.id}/approvals/${x.id}`, { optionId: option.optionId })
+        if (option) {
+          await api.post(`/runs/${run.id}/approvals/${x.id}`, { optionId: option.optionId })
+          sent++
+        }
       }
+      if (sent > 0 && guideVisible && me) recordApprovalDecision(me.id, a.id)
     } catch (e) {
       toastError(e)
     } finally {
@@ -265,9 +312,22 @@ export function ApprovalCard({
         ) : (
           <Icon name="shield-warning" size={14} />
         )}
-        {t('权限请求 · {kind}', {
-          kind: a.mcp ? mcpTool(a.mcp).label : (KIND[a.toolKind] ?? t('其他操作')),
-        })}
+        <span className="approval__title-text">
+          {t('权限请求 · {kind}', {
+            kind: a.mcp ? mcpTool(a.mcp).label : (KIND[a.toolKind] ?? t('其他操作')),
+          })}
+        </span>
+        {scope ? (
+          <button
+            type="button"
+            className={cx('approval__mode', flashGear && 'approval__mode--highlight')}
+            title={t('调整此 Bot 的权限与审批设置')}
+            onClick={openSettings}
+          >
+            <span>{scope.pillLabel}</span>
+            <Icon name="gear" size={12} />
+          </button>
+        ) : null}
       </div>
       {a.mcp ? <McpRequest mcp={a.mcp} detail={a.detail} /> : <ApprovalDetail text={a.detail} />}
       <div className="approval__why">
@@ -323,7 +383,7 @@ export function ApprovalCard({
                 {t('拒绝#reject')}
               </Button>
               {(() => {
-                const moreItems: MenuItem[] = [
+                const baseItems: MenuItem[] = [
                   ...(allow && a.rememberSession.length > 0
                     ? [
                         {
@@ -346,7 +406,12 @@ export function ApprovalCard({
                       ]
                     : []),
                 ]
-                if (!moreItems.length) return null
+                if (!baseItems.length) return null
+                const moreItems: MenuItem[] = [
+                  ...baseItems,
+                  { separator: true },
+                  { value: 'settings', label: t('调整权限设置…'), icon: 'gear' },
+                ]
                 const moreBusy =
                   busy === 'full-access' || busy === 'session' || (!!always && busy === always.optionId)
                 return (
@@ -361,6 +426,7 @@ export function ApprovalCard({
                       else if (v === 'always' && always) void decide(always)
                       else if (v === 'full-access')
                         void send(`/runs/${run.id}/full-access`, {}, 'full-access')
+                      else if (v === 'settings') openSettings()
                     }}
                   >
                     {moreBusy ? <Spinner size={12} /> : null}
@@ -400,6 +466,30 @@ export function ApprovalCard({
           <span>{outcome(a)}</span>
         </div>
       )}
+      {guideVisible && scope ? (
+        <div className="approval__guide">
+          <span className="approval__guide-text">
+            <Icon name="sparkle" size={12} className="approval__guide-icon" />
+            <span>
+              {scope.focus === 'owner'
+                ? demo
+                  ? t('不想每次手动确认？可在设置中改为「帮我审批」，或配置常用命令白名单。')
+                  : t('不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或配置常用命令白名单。')
+                : demo
+                  ? t('这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的自动审批。')
+                  : t('这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的审批方式。')}
+            </span>
+          </span>
+          <span className="approval__guide-actions">
+            <button type="button" className="approval__guide-link" onClick={openSettings}>
+              {t('去设置')}
+            </button>
+            <button type="button" className="approval__guide-dismiss" onClick={dismissGuide}>
+              {t('不再提醒')}
+            </button>
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }
