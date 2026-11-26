@@ -202,11 +202,13 @@ export const MessageComposer = memo(function MessageComposer({
   const canvasKey = canvas ? `${canvas.artifactId}:${canvas.items.map((i) => i.key).join(',')}` : ''
   // …and a plain message sent with the canvas selected goes to the artifact's bot; from the canvas's composer, to the
   // AI picked under its input.
-  const canvasPick = useCanvasBot(group, canvasChat?.artifactId ?? '', canvasChat?.botId ?? null)
+  const canvasPick = useCanvasBot(canvasChat?.artifactId ?? '')
   const botOfCanvas = canvasChat ? (canvasPick.bot?.id ?? null) : canvas ? canvas.botId : undefined
   const rawCanvasBot =
     botOfCanvas !== undefined && !appending && !command && !mentioned.length && !soleDm
-      ? (groupBots.find((b) => b.id === botOfCanvas) ?? null)
+      ? canvasChat
+        ? canvasPick.bot
+        : (groupBots.find((b) => b.id === botOfCanvas) ?? null)
       : null
   const canvasBotBypassed = bypassCanvasBot && !canvasChat && !!rawCanvasBot
   const canvasBot = canvasBotBypassed ? null : rawCanvasBot
@@ -706,12 +708,7 @@ export const MessageComposer = memo(function MessageComposer({
         }
         accessory={
           canvasChat ? (
-            <CanvasBotPicker
-              bot={canvasPick.bot}
-              options={canvasPick.options}
-              usable={canvasPick.usable}
-              onPick={canvasPick.pick}
-            />
+            <CanvasBotPicker bot={canvasPick.bot} options={canvasPick.options} onPick={canvasPick.pick} />
           ) : targets.length || thread ? (
             <>
               {thread ? (

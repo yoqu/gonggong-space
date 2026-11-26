@@ -298,7 +298,7 @@ export function groupRoutes(ctx: Ctx) {
           .values({ groupId: group.id, botId: bot.id })
           .onConflictDoUpdate({
             target: [groupBots.groupId, groupBots.botId],
-            set: { removedAt: null, addedAt: ctx.now() },
+            set: { removedAt: null, guest: false, addedAt: ctx.now() },
           })
         if (ownerJoins) await tx.insert(groupMembers).values({ groupId: group.id, userId: bot.ownerId })
       })

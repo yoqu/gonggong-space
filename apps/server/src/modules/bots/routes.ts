@@ -214,7 +214,14 @@ export function botRoutes(ctx: Ctx) {
         })
         .from(groupBots)
         .innerJoin(groups, eq(groups.id, groupBots.groupId))
-        .where(and(eq(groupBots.botId, bot.id), isNull(groupBots.removedAt), isNull(groups.archivedAt)))
+        .where(
+          and(
+            eq(groupBots.botId, bot.id),
+            isNull(groupBots.removedAt),
+            eq(groupBots.guest, false),
+            isNull(groups.archivedAt),
+          ),
+        )
       const live = await ctx.db
         .select({
           id: runs.id,

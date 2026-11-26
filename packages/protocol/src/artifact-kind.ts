@@ -12,3 +12,5 @@ export type ArtifactExportFormat = z.infer<typeof ArtifactExportFormat>
 /** `db`: live per-document state (artifact_docs) serialized into versions; `files`: versions only. */
 export const ArtifactStore = z.enum(['files', 'db'])
 export type ArtifactStore = z.infer<typeof ArtifactStore>
+/** The AIs offered under the canvas's input, whatever the artifact's group: they run there without joining it. */
+export const ARTIFACT_BOT_NAMES = ['共字君', '姜维川的 Claude Code']

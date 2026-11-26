@@ -66,7 +66,7 @@ afterEach(() => {
 describe("the canvas's own composer (画布 AI 对话)", () => {
   const chat = { rootId: 'root1', artifactId: 'a1', botId: 'b1' }
 
-  it("always posts to the artifact's AI 对话, to its bot, carrying the canvas selection", async () => {
+  it("always posts to the artifact's AI 对话, carrying the canvas selection; the server picks its bot when none is open for works", async () => {
     const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
     useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
     render(<MessageComposer group={group} onSent={() => {}} canvasChat={chat} />)
@@ -77,9 +77,9 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     expect(posts(calls, '/groups/g1/messages')[0]).toMatchObject({
       body: '首页改成深色',
       threadRootId: 'root1',
-      botId: 'b1',
     })
     expect(posts(calls, '/groups/g1/messages')[0]).not.toHaveProperty('alsoSent')
+    expect(posts(calls, '/groups/g1/messages')[0]).not.toHaveProperty('botId')
 
     setCanvas()
     type('标题加粗')
@@ -91,13 +91,13 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     })
   })
 
-  it('sends to the AI picked bottom right, among the fixed ones, and remembers it; only files and links on the left', async () => {
+  it('sends to the AI picked bottom right, among the fixed ones even outside the group, and remembers it; only files and links on the left', async () => {
     const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
     const fixed = [
-      { ...bots[0], id: 'gz', name: '工字君' },
+      { ...bots[0], id: 'gz', name: '共字君' },
       { ...bots[0], id: 'jw', name: '姜维川的 Claude Code' },
     ] as BotDto[]
-    const g = { ...group, botIds: ['b1', 'gz', 'jw'] } as GroupDto
+    const g = { ...group, botIds: ['b1'] } as GroupDto
     useWorkspace.setState({ groups: [g], bots: [...bots, ...fixed] })
     useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
     const view = render(<MessageComposer group={g} onSent={() => {}} canvasChat={chat} />)
@@ -105,7 +105,7 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     expect(screen.getByRole('button', { name: '图片' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '附件' })).toBeTruthy()
     const chip = screen.getByRole('button', { name: '执行的 AI' })
-    expect(chip.textContent).toContain('工字君')
+    expect(chip.textContent).toContain('共字君')
     fireEvent.pointerDown(chip, { button: 0, pointerType: 'mouse' })
     fireEvent.click(chip)
     expect(screen.queryByRole('menuitemradio', { name: '设计助手' })).toBeNull()

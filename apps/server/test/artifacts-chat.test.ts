@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type {
   ArtifactChatDto,
   ArtifactSubmitRes,
+  GroupDto,
   GroupThreadsDto,
   MessageDto,
   ThreadDto,
@@ -94,6 +95,48 @@ describe('canvas AI chat (画布 AI 对话)', () => {
     expect(sent.statusCode).toBe(200)
     const m = sent.json() as MessageDto
     expect(m.mentions).toEqual([second.id])
+  })
+
+  it('runs a fixed artifact AI picked on the canvas without putting it in the group', async () => {
+    const s = await setup()
+    const gz = await t.seed.bot({ ownerId: s.outsider.id, name: '共字君', triggerScope: 'all' })
+    const { rootId } = (await s.req('POST', `/api/artifacts/${s.a.id}/chat`)).json() as ArtifactChatDto
+    const before = await s.timeline()
+    const sent = await s.req('POST', `/api/groups/${s.g.id}/messages`, {
+      body: '首页改成深色',
+      clientId: 'canvas-chat-guest',
+      threadRootId: rootId,
+      botId: gz.id,
+    })
+    expect(sent.statusCode).toBe(200)
+    const m = sent.json() as MessageDto
+    expect(m.mentions).toEqual([gz.id])
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, m.id))
+    expect(run).toMatchObject({ botId: gz.id, threadRootId: rootId })
+    // Not a bot of the group: not listed, nothing about it in the group's messages, its owner not pulled in.
+    const group = (await s.req('GET', `/api/groups/${s.g.id}`)).json() as GroupDto
+    expect(group.botIds).toEqual([s.bot.id])
+    expect(group.members.map((u) => u.userId)).not.toContain(s.outsider.id)
+    expect(await s.timeline()).toEqual(before)
+    // Pulled in later, it becomes a bot of the group like any other.
+    const admin = await t.seed.cookie(s.wang.id)
+    const added = await s.req('POST', `/api/groups/${s.g.id}/bots`, { botId: gz.id }, admin)
+    expect((added.json() as GroupDto).botIds).toEqual([s.bot.id, gz.id])
+  })
+
+  it('ignores a picked AI that is neither in the group nor open for works', async () => {
+    const s = await setup()
+    const stranger = await t.seed.bot({ ownerId: s.outsider.id, name: '路人的 Codex', triggerScope: 'all' })
+    const { rootId } = (await s.req('POST', `/api/artifacts/${s.a.id}/chat`)).json() as ArtifactChatDto
+    const m = (
+      await s.req('POST', `/api/groups/${s.g.id}/messages`, {
+        body: '首页改成深色',
+        clientId: 'canvas-chat-stranger',
+        threadRootId: rootId,
+        botId: stranger.id,
+      })
+    ).json() as MessageDto
+    expect(m.mentions).toEqual([s.bot.id])
   })
 
   it('puts canvas commands in the conversation too', async () => {

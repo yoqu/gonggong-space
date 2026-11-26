@@ -75,7 +75,14 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       .select({ botId: groupBots.botId, n: count() })
       .from(groupBots)
       .innerJoin(groups, eq(groups.id, groupBots.groupId))
-      .where(and(inArray(groupBots.botId, ids), isNull(groupBots.removedAt), isNull(groups.archivedAt)))
+      .where(
+        and(
+          inArray(groupBots.botId, ids),
+          isNull(groupBots.removedAt),
+          eq(groupBots.guest, false),
+          isNull(groups.archivedAt),
+        ),
+      )
       .groupBy(groupBots.botId),
     ctx.db
       .select({ botId: botShares.botId, userId: botShares.userId })

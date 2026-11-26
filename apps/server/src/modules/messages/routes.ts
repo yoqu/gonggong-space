@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { groupMembers, groups, messages } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { artifactGuestBot } from '../artifacts/chat.js'
 import { artifactContextNote } from '../artifacts/commands.js'
 import { foregroundArtifact, requireArtifact } from '../artifacts/service.js'
 import { claimAttachments } from '../attachments/service.js'
@@ -203,7 +204,12 @@ export function messageRoutes(ctx: Ctx) {
       // A plain message sent with the canvas selected goes to the artifact's bot, as if it were @-ed.
       // …or, in its 画布 AI 对话, to the AI picked under the input.
       const canvasBotId = chat && picked ? picked : canvas?.botId
-      const canvasBot = canvas && !parsed && !target ? inGroup.find((b) => b.id === canvasBotId) : undefined
+      const canvasBot =
+        canvas && !parsed && !target
+          ? (inGroup.find((b) => b.id === canvasBotId) ??
+            (chat && picked ? await artifactGuestBot(ctx, group, picked) : null) ??
+            inGroup.find((b) => b.id === canvas.botId))
+          : undefined
       const fallback = soleDmBot ?? canvasBot
       const mentions = agent?.botIds ?? (!explicit.length && fallback ? [fallback.id] : explicit)
       const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)

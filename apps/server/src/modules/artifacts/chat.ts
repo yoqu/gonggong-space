@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { and, eq, sql } from 'drizzle-orm'
+import { ARTIFACT_BOT_NAMES } from '@gonggong/protocol'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { messages } from '../../db/schema.js'
+import { bots, groupBots, messages } from '../../db/schema.js'
 import type { MessageMeta, MessageRow } from '../messages/service.js'
 import type { Artifact } from './service.js'
 
@@ -39,4 +40,35 @@ export async function artifactChatRoot(ctx: Ctx, a: Pick<Artifact, 'id' | 'group
       .returning()
     return row as MessageRow
   })
+}
+
+/**
+ * `botId` when it is one of the AIs open for works (ARTIFACT_BOT_NAMES) in `group`'s team, made a guest of `group` so it
+ * can run in its 画布 AI 对话 without joining it; null for any other bot.
+ */
+export async function artifactGuestBot(ctx: Ctx, group: { id: string; teamId: string }, botId: string) {
+  const [bot] = await ctx.db
+    .select({ id: bots.id, name: bots.name })
+    .from(bots)
+    .where(
+      and(
+        eq(bots.id, botId),
+        eq(bots.teamId, group.teamId),
+        inArray(bots.name, ARTIFACT_BOT_NAMES),
+        isNull(bots.deletedAt),
+      ),
+    )
+  if (!bot) return null
+  const [row] = await ctx.db
+    .select({ guest: groupBots.guest, removedAt: groupBots.removedAt })
+    .from(groupBots)
+    .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
+  if (row && !row.removedAt) return row.guest ? bot : null
+  // 'unbound': its first run takes a managed workspace and says so in the conversation, not in the group.
+  const fresh = { guest: true, workspaceState: 'unbound', removedAt: null, addedAt: ctx.now() }
+  await ctx.db
+    .insert(groupBots)
+    .values({ groupId: group.id, botId: bot.id, ...fresh })
+    .onConflictDoUpdate({ target: [groupBots.groupId, groupBots.botId], set: fresh })
+  return bot
 }

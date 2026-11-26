@@ -656,6 +656,8 @@ export const groupBots = pgTable(
     repoPaths: jsonb('repo_paths').$type<Record<string, string>>().notNull().default({}),
     /** When this bot last got the group knowledge base in a run.start; later changes go to its resumed session. */
     knowledgeAt: ts('knowledge_at'),
+    /** Joined only to run in the group's 画布 AI 对话 (ARTIFACT_BOT_NAMES): not listed or @-able in the group. */
+    guest: boolean('guest').notNull().default(false),
     removedAt: ts('removed_at'),
     addedAt: createdAt(),
   },

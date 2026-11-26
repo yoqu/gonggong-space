@@ -28,7 +28,7 @@ export async function adminGroupDtos(ctx: Ctx, where?: SQL): Promise<AdminGroupD
     ctx.db
       .select({ groupId: groupBots.groupId, n: count() })
       .from(groupBots)
-      .where(and(inArray(groupBots.groupId, ids), isNull(groupBots.removedAt)))
+      .where(and(inArray(groupBots.groupId, ids), isNull(groupBots.removedAt), eq(groupBots.guest, false)))
       .groupBy(groupBots.groupId),
   ])
   const n = (list: { groupId: string; n: number }[], id: string) => list.find((x) => x.groupId === id)?.n ?? 0

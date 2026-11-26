@@ -126,7 +126,14 @@ export function activeBots(ctx: Ctx, groupId: string) {
     .select({ id: bots.id, name: bots.name, ownerId: bots.ownerId, machineId: bots.machineId })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
-    .where(and(eq(groupBots.groupId, groupId), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
+    .where(
+      and(
+        eq(groupBots.groupId, groupId),
+        isNull(groupBots.removedAt),
+        eq(groupBots.guest, false),
+        isNull(bots.deletedAt),
+      ),
+    )
     .orderBy(asc(groupBots.addedAt))
 }
 
@@ -231,7 +238,14 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       .select({ groupId: groupBots.groupId, botId: groupBots.botId, workspacePath: groupBots.workspacePath })
       .from(groupBots)
       .innerJoin(bots, eq(bots.id, groupBots.botId))
-      .where(and(inArray(groupBots.groupId, gids), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
+      .where(
+        and(
+          inArray(groupBots.groupId, gids),
+          isNull(groupBots.removedAt),
+          eq(groupBots.guest, false),
+          isNull(bots.deletedAt),
+        ),
+      )
       .orderBy(asc(groupBots.addedAt)),
     ctx.db
       .select()
