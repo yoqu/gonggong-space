@@ -523,7 +523,7 @@ export default {
   '已删除 {ok} 个，{fail} 个失败': 'Deleted {ok}, {fail} failed',
   '已删除 {n} 个工作区': 'Deleted {n} {n:workspace|workspaces}',
   已删除的群: 'Deleted group',
-  '已删除的 Bot': 'Deleted bot',
+  '已删除的 Bot': 'Deleted Bot',
   '压缩 Git 历史数据，不影响代码和未提交的改动':
     'Compacts Git history; code and uncommitted changes are untouched',
 } satisfies Record<string, string>

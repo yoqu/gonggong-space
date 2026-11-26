@@ -587,13 +587,30 @@ describe('group settings inspector', () => {
     ).toBe(image)
   })
 
-  it('lets an admin remove the notice for everyone after confirming', async () => {
+  it('hides the banner only for an admin too; removing for everyone stays in 群公告 behind a confirmation', async () => {
     const calls = mockApi(
-      routes([group({ notice: '走 PR' })], { 'DELETE /groups/g1/notice': group({ notice: '' }) }),
+      routes([group({ notice: '走 PR' })], {
+        'PUT /groups/g1/prefs': (b: unknown) => group({ notice: '走 PR', ...(b as object) }),
+        'GET /groups/g1/notices': [
+          { id: 'n2', body: '走 PR', authorName: '王磊', createdAt: at, removedAt: null },
+        ],
+        'DELETE /groups/g1/notice': group({ notice: '' }),
+      }),
     )
     renderAt('/g/g1')
     const bar = await screen.findByTestId('group-notice')
-    fireEvent.click(within(bar).getByRole('button', { name: '移除' }))
+    expect(within(bar).queryByRole('button', { name: '移除' })).toBeNull()
+    fireEvent.click(within(bar).getByRole('button', { name: '不再显示此公告' }))
+    await waitFor(() => expect(screen.queryByTestId('group-notice')).toBeNull())
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ noticeHidden: true })
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /^群公告/ }))
+    const view = await screen.findByRole('complementary', { name: '群设置' })
+    fireEvent.click(await within(view).findByRole('button', { name: '在对话顶部显示' }))
+    expect(await screen.findByTestId('group-notice')).toBeTruthy()
+    fireEvent.click(within(view).getByRole('button', { name: '移除群公告' }))
     const dialog = await screen.findByRole('dialog', { name: '要移除群公告吗？' })
     fireEvent.click(within(dialog).getByRole('button', { name: '移除' }))
     await waitFor(() => expect(screen.queryByTestId('group-notice')).toBeNull())
@@ -618,7 +635,7 @@ describe('group settings inspector', () => {
     )
     renderAt('/g/g1')
     const bar = await screen.findByTestId('group-notice')
-    fireEvent.click(within(bar).getByRole('button', { name: '不再显示' }))
+    fireEvent.click(within(bar).getByRole('button', { name: '不再显示此公告' }))
     await waitFor(() => expect(screen.queryByTestId('group-notice')).toBeNull())
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ noticeHidden: true })
 

@@ -921,17 +921,18 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
                     <Tag tone="blue">{group.noticeHidden ? t('当前 · 已隐藏') : t('当前')}</Tag>
                   ) : null}
                   <span className="spacer" />
-                  {current && isAdmin ? (
-                    <Button variant="plain" size="small" onClick={() => setRemoving(true)}>
-                      {t('移除')}
-                    </Button>
-                  ) : current ? (
+                  {current ? (
                     <Button
                       variant="plain"
                       size="small"
                       onClick={() => void hideNotice(group.id, !group.noticeHidden)}
                     >
                       {group.noticeHidden ? t('在对话顶部显示') : t('不再显示')}
+                    </Button>
+                  ) : null}
+                  {current && isAdmin ? (
+                    <Button variant="plain" size="small" onClick={() => setRemoving(true)}>
+                      {t('移除群公告')}
                     </Button>
                   ) : null}
                 </div>
@@ -941,7 +942,7 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
         </GroupBox>
       ) : null}
       <div className="gs-foot">
-        {t('群管理员移除的公告对所有人隐藏；成员「不再显示」只对自己生效，发布新公告后重新显示。')}
+        {t('群管理员移除的公告对所有人隐藏；「不再显示」只对自己生效，发布新公告后重新显示。')}
       </div>
       <Presence>
         {removing ? <RemoveNoticeDialog groupId={group.id} onClose={() => setRemoving(false)} /> : null}

@@ -95,7 +95,8 @@ export default {
   移除: 'Remove',
   在对话顶部显示: 'Show atop the chat',
   不再显示: "Don't show again",
-  '群管理员移除的公告对所有人隐藏；成员「不再显示」只对自己生效，发布新公告后重新显示。':
+  不再显示此公告: 'Hide this notice for me',
+  '群管理员移除的公告对所有人隐藏；「不再显示」只对自己生效，发布新公告后重新显示。':
     'A notice removed by a group admin is hidden for everyone; "Don\'t show again" only hides it for you, until a new notice is posted.',
   '跟随全局（{tier}）': 'Follow global ({tier})',
   本群审批方式: 'Approval in this group',

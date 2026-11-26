@@ -64,6 +64,9 @@ export default {
   请先填写指令: 'Enter instructions first',
   '请至少选择 1 个候选 Bot': 'Pick at least 1 candidate Bot',
   请设置有效的执行时间: 'Set a valid run time',
+  '正在计算执行时间…': 'Calculating run times…',
+  '无法预览执行时间，请检查网络后重试': "Can't preview run times; check your connection and try again",
+  重试: 'Retry',
   '所选候选 Bot 当前全部离线，到点会跳过':
     'All selected candidate Bots are offline; this run will be skipped',
   '将在 {time} 执行': 'Runs at {time}',

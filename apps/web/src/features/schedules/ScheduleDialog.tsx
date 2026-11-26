@@ -117,6 +117,8 @@ export function ScheduleDialog({
   const [picks, setPicks] = useState<Picks>(schedule?.runOptions ?? {})
   const [draft, setDraft] = useState(() => draftOf(schedule))
   const [preview, setPreview] = useState<{ error: I18nText | null; next: string[] } | null>(null)
+  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [attemptNo, setAttemptNo] = useState(0)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const snapshot = JSON.stringify([name, prompt, candidates, picks, draft])
@@ -128,22 +130,30 @@ export function ScheduleDialog({
   const timing = timingOf(draft)
   const key = JSON.stringify({ ...timing, timezone })
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the timing
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the timing; `attemptNo` re-runs it
   useEffect(() => {
     setPreview(null)
-    if (!timing.cron && !timing.runAt) return
+    if (!timing.cron && !timing.runAt) {
+      setPreviewState('idle')
+      return
+    }
+    setPreviewState('loading')
     let live = true
     const timer = setTimeout(() => {
       schedulesApi.preview({ ...timing, timezone }).then(
-        (p) => live && setPreview(p),
-        () => {},
+        (p) => {
+          if (!live) return
+          setPreview(p)
+          setPreviewState('idle')
+        },
+        () => live && setPreviewState('failed'),
       )
     }, 300)
     return () => {
       live = false
       clearTimeout(timer)
     }
-  }, [key])
+  }, [key, attemptNo])
 
   const set = (o: Partial<Draft>) => setDraft((d) => ({ ...d, ...o }))
   const ready = !!name.trim() && !!prompt.trim() && candidates.length > 0 && !!preview && !preview.error
@@ -155,7 +165,7 @@ export function ScheduleDialog({
         ? t('请至少选择 1 个候选 Bot')
         : preview?.error
           ? t.text(preview.error)
-          : !preview
+          : !preview && previewState === 'idle'
             ? t('请设置有效的执行时间')
             : null
 
@@ -287,16 +297,31 @@ export function ScheduleDialog({
                 />
               )}
             </div>
-            <p className={preview?.error ? 'sc-preview sc-preview--error' : 'sc-preview'}>
-              {preview?.error
-                ? t.text(preview.error)
-                : preview?.next.length
-                  ? draft.mode === 'once'
-                    ? t('将在 {time} 执行', { time: formatInZone(preview.next[0]!, timezone) })
-                    : t('接下来：{times}', {
-                        times: preview.next.map((iso) => formatInZone(iso, timezone)).join(t('、')),
-                      })
-                  : null}
+            <p
+              className={
+                preview?.error || previewState === 'failed' ? 'sc-preview sc-preview--error' : 'sc-preview'
+              }
+            >
+              {previewState === 'loading' ? (
+                t('正在计算执行时间…')
+              ) : previewState === 'failed' ? (
+                <>
+                  {t('无法预览执行时间，请检查网络后重试')}{' '}
+                  <Button size="small" variant="plain" onClick={() => setAttemptNo((n) => n + 1)}>
+                    {t('重试')}
+                  </Button>
+                </>
+              ) : preview?.error ? (
+                t.text(preview.error)
+              ) : preview?.next.length ? (
+                draft.mode === 'once' ? (
+                  t('将在 {time} 执行', { time: formatInZone(preview.next[0]!, timezone) })
+                ) : (
+                  t('接下来：{times}', {
+                    times: preview.next.map((iso) => formatInZone(iso, timezone)).join(t('、')),
+                  })
+                )
+              ) : null}
             </p>
           </section>
         </div>

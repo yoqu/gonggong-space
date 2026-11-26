@@ -176,7 +176,7 @@ describe('R3A P1-1: GroupNotice full notice reading, topic jump and 2-line clamp
     render(<GroupNotice group={group()} readOnly />)
     const bar = screen.getByTestId('group-notice')
     expect(within(bar).queryByRole('button', { name: '移除' })).toBeNull()
-    expect(within(bar).queryByRole('button', { name: '不再显示' })).toBeNull()
+    expect(within(bar).queryByRole('button', { name: '不再显示此公告' })).toBeNull()
 
     const btn = within(bar).getByRole('button', { name: new RegExp(TOPIC) })
     expect(btn.textContent).toBe(LONG_NOTICE)

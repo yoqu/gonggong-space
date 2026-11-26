@@ -1,10 +1,9 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useInspector } from '../../app/inspector'
-import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, Dialog, PinnedBanner, Presence, toast } from '../../ui'
+import { Button, Dialog, PinnedBanner, toast } from '../../ui'
 import { groupsApi } from './api'
 
 export const isGroupAdmin = (group: GroupDto, userId?: string) =>
@@ -50,16 +49,17 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
   )
 }
 
-/** The pinned notice atop the chat: admins remove it for everyone, members hide it for themselves. */
+/** The pinned notice atop the chat: × only hides it for me; admins remove it for everyone from 群公告. */
 export function GroupNotice({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
-  const me = useSession((s) => s.user)
-  const [removing, setRemoving] = useState(false)
   const [expanded, setExpanded] = useState(false)
   if (!group.notice || group.noticeHidden) return null
-  const admin = isGroupAdmin(group, me?.id)
   const hide = async () => {
     if (await hideNotice(group.id, true))
-      toast({ type: 'success', message: t('已隐藏，可在群设置「群公告」中查看') })
+      toast({
+        type: 'success',
+        message: t('已隐藏，可在群设置「群公告」中查看'),
+        action: { label: t('撤销#undo'), onClick: () => void hideNotice(group.id, false) },
+      })
   }
   return (
     <div data-testid="group-notice">
@@ -72,17 +72,14 @@ export function GroupNotice({ group, readOnly = false }: { group: GroupDto; read
             ? () => setExpanded((v) => !v)
             : () => useInspector.getState().open('group-info', 'notices')
         }
-        closeLabel={admin ? t('移除') : t('不再显示')}
-        onClose={readOnly ? undefined : admin ? () => setRemoving(true) : () => void hide()}
+        closeLabel={t('不再显示此公告')}
+        onClose={readOnly ? undefined : () => void hide()}
       />
       {readOnly && expanded ? (
         <div className="pn-pinned__expanded" data-testid="group-notice-expanded">
           {group.notice}
         </div>
       ) : null}
-      <Presence>
-        {removing ? <RemoveNoticeDialog groupId={group.id} onClose={() => setRemoving(false)} /> : null}
-      </Presence>
     </div>
   )
 }

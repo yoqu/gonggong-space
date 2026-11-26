@@ -54,13 +54,20 @@ const STATUS_COLOR: Record<RunStatus, string> = {
 const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '—')
 const rate = (r: { completedRuns: number; endedRuns: number }) => pct(r.completedRuns, r.endedRuns)
 
+/** Under 10 in the previous window a percentage swings wildly (1 → 0 reads ↓ 100%), so show the raw value. */
+function Change({ now, before, days }: { now: number; before: number; days: number }) {
+  if (before < 10)
+    return <span className="usage-stat__delta">{t('前 {n} 天：{v}', { n: days, v: before })}</span>
+  return <Delta now={now} before={before} days={days} />
+}
+
 function Tiles({ o, days }: { o: ConversationOverviewDto; days: number }) {
   const { current: c, previous: p } = o
   const counted = (label: string, k: keyof ConversationMetricsDto & DayMetric) => ({
     label,
     value: String(c[k]),
     spark: o.daily.map((d) => d[k]),
-    foot: <Delta now={c[k]} before={p[k]} days={days} />,
+    foot: <Change now={c[k]} before={p[k]} days={days} />,
   })
   const tiles = [
     {
@@ -72,7 +79,7 @@ function Tiles({ o, days }: { o: ConversationOverviewDto; days: number }) {
     {
       label: t('新建会话'),
       value: String(c.newConversations),
-      foot: <Delta now={c.newConversations} before={p.newConversations} days={days} />,
+      foot: <Change now={c.newConversations} before={p.newConversations} days={days} />,
     },
     counted(t('用户消息'), 'userMessages'),
     counted(t('Bot 回复'), 'botMessages'),
