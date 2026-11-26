@@ -155,6 +155,8 @@ export interface ThreadSummaryProps {
   unread?: number
   /** One of the new replies @s the reader. */
   mentioned?: boolean
+  /** The thread's own color, softly tinting the bar so threads tell apart. */
+  hue?: string
   onClick?: () => void
 }
 
@@ -165,10 +167,16 @@ export function ThreadSummary({
   extra,
   unread = 0,
   mentioned,
+  hue,
   onClick,
 }: ThreadSummaryProps) {
   return (
-    <button type="button" className={cx('pn-thread', unread > 0 && 'pn-thread--unread')} onClick={onClick}>
+    <button
+      type="button"
+      className={cx('pn-thread', unread > 0 && 'pn-thread--unread')}
+      style={hue ? ({ '--thread-hue': hue } as CSSProperties) : undefined}
+      onClick={onClick}
+    >
       <AvatarGroup people={people} size={20} max={3} />
       <span className="pn-thread__count">
         {count ? <RollingNumber value={t('{n} 条回复', { n: count })} /> : t('查看话题')}

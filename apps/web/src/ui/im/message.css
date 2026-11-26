@@ -344,6 +344,13 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
 .pn-thread:hover {
   background: var(--quote-fill);
 }
+.pn-thread[style*="--thread-hue"] {
+  background: color-mix(in srgb, var(--thread-hue) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--thread-hue) 14%, transparent);
+}
+.pn-thread[style*="--thread-hue"]:hover {
+  background: color-mix(in srgb, var(--thread-hue) 14%, transparent);
+}
 .pn-thread__count {
   color: var(--bubble-link);
   font-weight: 600;

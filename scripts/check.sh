@@ -182,7 +182,7 @@ run_job() {
       ;;
   esac
 }
-wanted_jobs() { local j; for j in "$@"; do [ "${!j}" = true ] && echo "$j"; done; }
+wanted_jobs() { local j; for j in "$@"; do if [ "${!j}" = true ]; then echo "$j"; fi; done; }
 
 if [ -n "$jobs" ]; then
   for job in $(wanted_jobs ${jobs//,/ }); do run_job "$job"; done

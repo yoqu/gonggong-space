@@ -1,5 +1,5 @@
 import type { GroupDto, GroupThreadItemDto, GroupThreadsDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
@@ -13,6 +13,7 @@ import {
   FailedArt,
   Mascot,
   PanelHead,
+  paletteColor,
   Spinner,
   Tag,
   useEscape,
@@ -35,6 +36,7 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
       className="group-threads__row"
       data-testid="group-thread"
       data-unread={state.unread > 0 || undefined}
+      style={{ '--thread-hue': paletteColor(root.id) } as CSSProperties}
       onClick={() => openThread(root.id, true)}
     >
       <span className="group-threads__top">

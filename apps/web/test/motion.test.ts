@@ -245,7 +245,9 @@ describe('motion and touch CSS contract', () => {
     expect(inbox).toMatch(/@media \(hover: hover\) \{\s*\.thread-inbox__card:hover/)
     const rail = read('features/chat/group-threads.css')
     expect(rail).toMatch(/@media \(hover: hover\) \{\s*\.group-threads__row:hover/)
-    expect(ruleOf(rail, '.group-threads__row[data-unread]::before')).toContain('background: var(--accent)')
+    expect(ruleOf(rail, '.group-threads__row[data-unread]::before')).toContain(
+      'background: var(--thread-hue)',
+    )
     const notif = read('features/notifications/notifications.css')
     expect(ruleOf(notif, '.notif__row[data-new]:not(.ui-leaving)')).toContain('ui-enter var(--spring-snappy)')
     expect(notif).toMatch(/@media \(pointer: coarse\) \{\s*\.notif__delete \{\s*min-width: 32px;/)

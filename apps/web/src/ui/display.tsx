@@ -115,7 +115,8 @@ function hash(s: string) {
   return x
 }
 
-const paletteColor = (name: string) => `var(--avatar-${(hash(name) % 6) + 1})`
+/** A stable color of the avatar palette for a name or id. */
+export const paletteColor = (name: string) => `var(--avatar-${(hash(name) % 6) + 1})`
 
 /** One character per mosaic tile: a Chinese given name's last character, else the first letter. */
 function tileChar(name: string) {
