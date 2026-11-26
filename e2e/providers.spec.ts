@@ -222,7 +222,16 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       const port = process.env.GONGGONG_PG_PORT ?? '54329'
       const dump = execFileSync(
         'pg_dump',
-        ['-h', '/tmp', '-p', port, '-U', 'gonggong', '--data-only', 'gonggong_e2e'],
+        [
+          '-h',
+          '/tmp',
+          '-p',
+          port,
+          '-U',
+          'gonggong',
+          '--data-only',
+          process.env.GONGGONG_E2E_DB ?? 'gonggong_e2e',
+        ],
         { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 },
       )
       expect(dump).toContain('供应商切换')

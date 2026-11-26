@@ -10,10 +10,10 @@ test('A creates a team and invites B by link → B @s own bot there → A remove
   test.setTimeout(10 * 60_000)
   // Both accounts start in the default team (created while single-team mode is still on).
   await memberWithMachine(page, 'teamowner')
-  const bCtx = await browser.newContext({ baseURL: 'http://127.0.0.1:5190' })
+  const bCtx = await browser.newContext({ baseURL: test.info().project.use.baseURL })
   const bPage = await bCtx.newPage()
   const b = await memberWithMachine(bPage, 'teamguest')
-  const admin = (await browser.newContext({ baseURL: 'http://127.0.0.1:5190' })).request
+  const admin = (await browser.newContext({ baseURL: test.info().project.use.baseURL })).request
   await adminSession(admin)
   const params = async (data: object) =>
     expect((await admin.put('/api/admin/params', { data })).ok()).toBe(true)

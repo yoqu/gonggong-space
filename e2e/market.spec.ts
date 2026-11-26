@@ -10,7 +10,7 @@ test('market smoke: an author publishes past the preflight; a member finds it, i
   test.setTimeout(3 * 60_000)
   const tag = Date.now().toString(36)
   const name = `smoke-${tag}`
-  const admin = (await browser.newContext({ baseURL: 'http://127.0.0.1:5190' })).request
+  const admin = (await browser.newContext({ baseURL: test.info().project.use.baseURL })).request
   await adminSession(admin)
   await call(admin, 'post', '/api/admin/users', {
     account: `mk${tag}`,

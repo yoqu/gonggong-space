@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { buildDaemon, memberWithMachine, setDefaultWorkspace } from './helpers'
+import { adminSession, buildDaemon, memberWithMachine, setDefaultWorkspace } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -68,7 +68,7 @@ test('a bot waiting for its owner to confirm cannot be triggered', async ({ page
   // Log in as admin and create a bot for the member → pending_confirm.
   const member = page.request
   await member.post('/api/auth/logout')
-  await member.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
+  await adminSession(member)
   const bot = await api.call<{ id: string; binding: string }>('post', '/api/bots', {
     name: '待确认 Codex',
     ownerId: me.id,

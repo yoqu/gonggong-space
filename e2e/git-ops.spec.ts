@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { FilesTreeDto, GitCompareDto, GitOperationDto } from '@gonggong/protocol'
 import { expect, type Page, test } from '@playwright/test'
-import { bindManaged, buildDaemon, memberWithMachine, ROOT, remoteRepo } from './helpers'
+import { adminSession, bindManaged, buildDaemon, memberWithMachine, ROOT, remoteRepo } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -23,7 +23,7 @@ async function extraMember(page: Page, account: string) {
     .newContext({ baseURL: test.info().project.use.baseURL, locale: 'zh-CN' })
   const other = await ctx.newPage()
   const r = other.request
-  await r.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
+  await adminSession(r)
   const u = await (
     await r.post('/api/admin/users', {
       data: { account, name: account, role: 'member', password: 'init-pass-1' },

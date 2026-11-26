@@ -196,7 +196,8 @@ test('a group admin turns an inherited skill off for the group in settings, and 
   test.setTimeout(4 * 60_000)
   const tag = Date.now().toString(36)
   const name = `shared-${tag}`
-  const admin = (await page.context().browser()!.newContext({ baseURL: 'http://127.0.0.1:5190' })).request
+  const admin = (await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL }))
+    .request
   await adminSession(admin)
   const shared = await call<{ id: string }>(admin, 'post', '/api/admin/skills', {
     files: [

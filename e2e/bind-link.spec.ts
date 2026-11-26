@@ -37,7 +37,7 @@ test('bind via 接入链接; the owner allows a command on the web and the daemo
   })
 
   // Only the owner may change the approval settings, not even a sysadmin.
-  const ctx = await page.context().browser()!.newContext({ baseURL: 'http://127.0.0.1:5190' })
+  const ctx = await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL })
   await adminSession(ctx.request)
   const denied = await ctx.request.patch(`/api/bots/${bot.id}`, { data: { alwaysAllow: ['node -e'] } })
   expect(denied.status()).toBe(403)

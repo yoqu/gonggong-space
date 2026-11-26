@@ -2,7 +2,7 @@ import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Page, request, test } from '@playwright/test'
-import { bindManaged, buildDaemon, machine, memberWithMachine, ROOT } from './helpers'
+import { adminSession, bindManaged, buildDaemon, machine, memberWithMachine, ROOT } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -14,9 +14,9 @@ async function say(page: Page, text: string) {
 }
 
 async function asAdmin(page: Page) {
-  const ctx = await page.context().browser()!.newContext({ baseURL: 'http://127.0.0.1:5190' })
+  const ctx = await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL })
   const admin = await ctx.newPage()
-  await admin.request.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
+  await adminSession(admin.request)
   return { admin, close: () => ctx.close() }
 }
 

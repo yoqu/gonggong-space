@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
-import { bindManaged, buildDaemon, memberWithMachine, ROOT, remoteRepo } from './helpers'
+import { adminSession, bindManaged, buildDaemon, memberWithMachine, ROOT, remoteRepo } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -162,9 +162,9 @@ test('a global MCP server configured by the admin is injected into new sessions'
   const { m, name } = await setup(page, 'mcp1', { tier: 'full' })
   try {
     // Configure as admin in a separate context, forcing a new session.
-    const admin = await page.context().browser()!.newContext({ baseURL: 'http://127.0.0.1:5190' })
+    const admin = await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL })
     const r = admin.request
-    await r.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
+    await adminSession(r)
     const res = await r.post('/api/admin/mcp', {
       data: {
         enabled: true,

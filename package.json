@@ -16,7 +16,9 @@
     "lint": "biome check .",
     "test": "node --test tools/*.test.mjs && pnpm -r test && cargo test --workspace",
     "check": "bash scripts/check.sh",
-    "e2e": "playwright test -c e2e"
+    "e2e": "playwright test -c e2e",
+    "e2e:fast": "playwright test -c e2e --project=fast --no-deps",
+    "e2e:live": "playwright test -c e2e --project=live"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
