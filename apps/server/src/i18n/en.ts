@@ -1171,4 +1171,9 @@ export const en = {
   连接器类插件必须且只能由它填写: 'Only connector plugins may set this field, and it is required for them',
   'CLI 登录的连接器不能再要求密钥': 'CLI-login connectors cannot also require secrets',
   取值重复: 'Duplicate value',
+  '官方 / 默认': 'Official / Default',
+  默认模型: 'Default model',
+  私聊: 'DM',
+  群聊: 'Group',
+  其他: 'Other',
 } satisfies Record<string, string>

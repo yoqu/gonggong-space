@@ -1,15 +1,33 @@
-import { UsageDailyQuery, type UsageDayDto, UsageQuery, type UsageRowDto } from '@gonggong/protocol'
+import {
+  UsageAnalyticsQuery,
+  type UsageBreakdownDto,
+  UsageBreakdownQuery,
+  UsageDailyQuery,
+  type UsageDayDto,
+  UsageExportQuery,
+  type UsageFacetsDto,
+  type UsageHeatmapDto,
+  UsageHeatmapQuery,
+  type UsageInsightsDto,
+  UsageInsightsQuery,
+  type UsageOverviewDto,
+  UsageQuery,
+  type UsageRowDto,
+  type UsageRunsDto,
+  UsageRunsQuery,
+  type UsageTimeseriesDto,
+  UsageTimeseriesQuery,
+} from '@gonggong/protocol'
 import { and, asc, desc, eq, gte, sql } from 'drizzle-orm'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groups, runs, users } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
-import { idParam, isUuid } from '../../lib/ids.js'
-import { requireSysadmin, requireUser } from '../auth/session.js'
-import { isSharedWith } from '../bots/shares.js'
-import { currentTeam, requireTeam } from '../teams/service.js'
+import { getBreakdown, getFacets, getHeatmap, getOverview, getTimeseries } from './analytics.js'
+import { exportUsage } from './export.js'
+import { getInsights } from './insights.js'
+import { addDays, DAY_MS, dayIn, platformUsageScope, type ScopedFn, usageScope } from './query.js'
+import { getRuns } from './runs.js'
 
-const DAY_MS = 86_400_000
 const DIMENSIONS = {
   bot: [bots.id, bots.name],
   user: [users.id, users.name],
@@ -21,57 +39,20 @@ const tokens = sql<number>`coalesce(sum((${runs.usage}->>'totalTokens')::bigint)
 const unreported = sql<number>`count(*) filter (where ${runs.usage}->>'totalTokens' is null)`.mapWith(Number)
 
 /**
- * Runs of the current team's bots: sysadmins see all of them; members only their own bots' runs, and a botId filter
- * only for bots they own (or their own runs of a bot shared with them). With `teamId`, a team admin sees the whole team (团队设置 · 用量).
- */
-async function scope(ctx: Ctx, req: FastifyRequest, q: { botId?: string; teamId?: string }) {
-  const me = await requireUser(ctx, req)
-  const byBot = () => (q.botId ? eq(runs.botId, idParam(q.botId, 'Bot 不存在')) : undefined)
-  if (q.teamId)
-    return and(eq(bots.teamId, (await requireTeam(ctx, me.id, q.teamId, 'admin')).team.id), byBot())
-  const teamId = await currentTeam(ctx, req, me.id)
-  const admin = me.role === 'sysadmin'
-  if (q.botId && !admin) {
-    const [bot] = isUuid(q.botId)
-      ? await ctx.db.select({ ownerId: bots.ownerId }).from(bots).where(eq(bots.id, q.botId))
-      : []
-    // Someone the bot is shared with sees their own turns only.
-    if (bot && bot.ownerId !== me.id && (await isSharedWith(ctx, q.botId, me.id)))
-      return and(eq(bots.teamId, teamId), byBot(), eq(runs.originUserId, me.id))
-    if (bot?.ownerId !== me.id) return fail('forbidden', '仅 Bot 主人或系统管理员可查看该 Bot 的用量')
-  }
-  return and(eq(bots.teamId, teamId), byBot(), admin ? undefined : eq(bots.ownerId, me.id))
-}
-
-/** 管理后台 · 用量: every team, or the one picked. */
-async function platformScope(ctx: Ctx, req: FastifyRequest, q: { botId?: string; teamId?: string }) {
-  await requireSysadmin(ctx, req)
-  return and(
-    q.teamId ? eq(bots.teamId, idParam(q.teamId, '团队不存在')) : undefined,
-    q.botId ? eq(runs.botId, idParam(q.botId, 'Bot 不存在')) : undefined,
-  )
-}
-
-/** YYYY-MM-DD of `at` in `timeZone`, and `n` calendar days before it. */
-const dayIn = (at: Date, timeZone: string) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at)
-const minusDays = (day: string, n: number) =>
-  new Date(Date.parse(`${day}T00:00:00Z`) - n * DAY_MS).toISOString().slice(0, 10)
-
-/**
- * Usage totals over runs that actually started (spec §3.7), grouped by bot / chain initiator / group, or by local
- * calendar day for the trend chart. No quotas.
+ * Usage totals over runs (spec §3.7) plus full multi-dimensional analytics under `/api[/admin]/usage/*`.
+ * Legacy `GET ${base}` and `GET ${base}/daily` remain strictly backward-compatible.
  */
 export function usageRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     for (const [base, scoped] of [
-      ['/api/usage', scope],
-      ['/api/admin/usage', platformScope],
+      ['/api/usage', usageScope],
+      ['/api/admin/usage', platformUsageScope],
     ] as const)
-      usage(app, base, scoped)
+      register(app, base, scoped)
   }
 
-  function usage(app: FastifyInstance, base: string, scoped: typeof scope) {
+  function register(app: FastifyInstance, base: string, scoped: ScopedFn) {
+    // ── Legacy endpoints (BotPage, BotSettings, TeamAdminTabs, UsageDialog, e2e) ──
     app.get(base, async (req): Promise<UsageRowDto[]> => {
       const q = UsageQuery.parse(req.query)
       const where = await scoped(ctx, req, q)
@@ -91,7 +72,7 @@ export function usageRoutes(ctx: Ctx) {
       const q = UsageDailyQuery.parse(req.query)
       const where = await scoped(ctx, req, q)
       const now = ctx.now()
-      const days = Array.from({ length: q.days }, (_, i) => minusDays(dayIn(now, q.tz), q.days - 1 - i))
+      const days = Array.from({ length: q.days }, (_, i) => addDays(dayIn(now, q.tz), -(q.days - 1 - i)))
       const day = sql<string>`to_char(${runs.startedAt} at time zone ${q.tz}, 'YYYY-MM-DD')`
       const rows = await ctx.db
         .select({ day, runs: count, totalTokens: tokens, unreported })
@@ -103,6 +84,51 @@ export function usageRoutes(ctx: Ctx) {
         .groupBy(sql`1`)
       const byDay = new Map(rows.map((r) => [r.day, r]))
       return days.map((d) => ({ day: d, runs: 0, totalTokens: 0, unreported: 0, ...byDay.get(d) }))
+    })
+
+    // ── Rich AI Usage Analytics endpoints ──
+    app.get(`${base}/facets`, async (req): Promise<UsageFacetsDto> => {
+      const q = UsageAnalyticsQuery.parse(req.query)
+      return getFacets(ctx, q, await scoped(ctx, req, q, { forFacets: true }))
+    })
+
+    app.get(`${base}/overview`, async (req): Promise<UsageOverviewDto> => {
+      const q = UsageAnalyticsQuery.parse(req.query)
+      return getOverview(ctx, q, await scoped(ctx, req, q))
+    })
+
+    app.get(`${base}/timeseries`, async (req): Promise<UsageTimeseriesDto> => {
+      const q = UsageTimeseriesQuery.parse(req.query)
+      return getTimeseries(ctx, q, await scoped(ctx, req, q))
+    })
+
+    app.get(`${base}/breakdown`, async (req): Promise<UsageBreakdownDto> => {
+      const q = UsageBreakdownQuery.parse(req.query)
+      return getBreakdown(ctx, q, await scoped(ctx, req, q))
+    })
+
+    app.get(`${base}/heatmap`, async (req): Promise<UsageHeatmapDto> => {
+      const q = UsageHeatmapQuery.parse(req.query)
+      return getHeatmap(ctx, q, await scoped(ctx, req, q))
+    })
+
+    app.get(`${base}/insights`, async (req): Promise<UsageInsightsDto> => {
+      const q = UsageInsightsQuery.parse(req.query)
+      return getInsights(ctx, q, await scoped(ctx, req, q))
+    })
+
+    app.get(`${base}/runs`, async (req): Promise<UsageRunsDto> => {
+      const q = UsageRunsQuery.parse(req.query)
+      return getRuns(ctx, q, await scoped(ctx, req, q))
+    })
+
+    app.get(`${base}/export`, async (req, reply) => {
+      const q = UsageExportQuery.parse(req.query)
+      const out = await exportUsage(ctx, q, await scoped(ctx, req, q))
+      reply
+        .header('content-type', out.contentType)
+        .header('content-disposition', `attachment; filename="${out.filename}"`)
+        .send(out.body)
     })
   }
 }
