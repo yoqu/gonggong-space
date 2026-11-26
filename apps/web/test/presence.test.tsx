@@ -98,6 +98,24 @@ describe('useLeaving', () => {
     expect(gone).toHaveBeenCalledOnce()
     expect(btn.hasAttribute('data-leaving')).toBe(false)
   })
+
+  it('drops pending exits on unmount instead of updating a gone tree', () => {
+    vi.useFakeTimers()
+    const gone = vi.fn()
+    function Rows() {
+      const { leave } = useLeaving(220)
+      return (
+        <button type="button" onClick={() => leave('a', gone)}>
+          删
+        </button>
+      )
+    }
+    const { unmount } = render(<Rows />)
+    fireEvent.click(screen.getByRole('button', { name: '删' }))
+    unmount()
+    act(() => vi.advanceTimersByTime(500))
+    expect(gone).not.toHaveBeenCalled()
+  })
 })
 
 describe('Presence', () => {

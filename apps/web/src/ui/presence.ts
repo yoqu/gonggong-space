@@ -1,4 +1,4 @@
-import { type AnimationEvent, useCallback, useEffect, useState } from 'react'
+import { type AnimationEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { prefersReducedMotion } from '../lib/motion'
 import './motion.css'
 
@@ -41,11 +41,21 @@ export function usePresence(open: boolean, { timeout = 300 }: { timeout?: number
  */
 export function useLeaving(timeout = 220) {
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set())
+  // Pending exits are dropped on unmount: their state updates would land on a gone tree.
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
+  useEffect(() => {
+    const pending = timers.current
+    return () => {
+      for (const timer of pending) clearTimeout(timer)
+      pending.clear()
+    }
+  }, [])
   const leave = useCallback(
     (id: string, gone: () => void) => {
       const ms = reducedMotion() ? Math.min(timeout, REDUCED_TIMEOUT) : timeout
       setLeaving((s) => new Set(s).add(id))
-      setTimeout(() => {
+      const timer = setTimeout(() => {
+        timers.current.delete(timer)
         setLeaving((s) => {
           const next = new Set(s)
           next.delete(id)
@@ -53,6 +63,7 @@ export function useLeaving(timeout = 220) {
         })
         gone()
       }, ms)
+      timers.current.add(timer)
     },
     [timeout],
   )
