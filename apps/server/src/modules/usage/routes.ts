@@ -11,6 +11,7 @@ import {
   type UsageInsightsDto,
   UsageInsightsQuery,
   type UsageOverviewDto,
+  type UsagePricingStatusDto,
   UsageQuery,
   type UsageRowDto,
   type UsageRunsDto,
@@ -22,9 +23,12 @@ import { and, asc, desc, eq, gte, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groups, runs, users } from '../../db/schema.js'
-import { getBreakdown, getFacets, getHeatmap, getOverview, getTimeseries } from './analytics.js'
+import { requireSysadmin, requireUser } from '../auth/session.js'
+import { getBreakdown, getFacets, getOverview, getTimeseries } from './analytics.js'
 import { exportUsage } from './export.js'
+import { getHeatmap } from './heatmap.js'
 import { getInsights } from './insights.js'
+import { getPricingStatus, syncPricingNow } from './pricing-sync.js'
 import { addDays, DAY_MS, dayIn, platformUsageScope, type ScopedFn, usageScope } from './query.js'
 import { getRuns } from './runs.js'
 
@@ -49,6 +53,11 @@ export function usageRoutes(ctx: Ctx) {
       ['/api/admin/usage', platformUsageScope],
     ] as const)
       register(app, base, scoped)
+
+    app.post('/api/admin/usage/pricing/sync', async (req): Promise<UsagePricingStatusDto> => {
+      await requireSysadmin(ctx, req)
+      return syncPricingNow(ctx.now())
+    })
   }
 
   function register(app: FastifyInstance, base: string, scoped: ScopedFn) {
@@ -87,6 +96,12 @@ export function usageRoutes(ctx: Ctx) {
     })
 
     // ── Rich AI Usage Analytics endpoints ──
+    app.get(`${base}/pricing`, async (req): Promise<UsagePricingStatusDto> => {
+      if (base === '/api/admin/usage') await requireSysadmin(ctx, req)
+      else await requireUser(ctx, req)
+      return getPricingStatus(ctx.now())
+    })
+
     app.get(`${base}/facets`, async (req): Promise<UsageFacetsDto> => {
       const q = UsageAnalyticsQuery.parse(req.query)
       return getFacets(ctx, q, await scoped(ctx, req, q, { forFacets: true }))

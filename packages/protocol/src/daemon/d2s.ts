@@ -113,6 +113,8 @@ export const RunDone = z.object({
   appendsApplied: z.number().int(),
   /** Force groups only (null in partition groups). */
   sync: RunSyncDone.nullable().default(null),
+  /** Concrete model served by the agent for this turn (post-turn discovery or session config); omitted by older daemons. */
+  model: z.string().optional(),
 })
 export type RunDone = z.infer<typeof RunDone>
 

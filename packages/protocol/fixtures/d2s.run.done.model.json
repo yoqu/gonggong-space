@@ -1,0 +1,22 @@
+{
+  "t": "run.done",
+  "runId": "r1",
+  "outcome": "completed",
+  "reply": "done",
+  "filesChanged": 0,
+  "usage": {
+    "inputTokens": 1200,
+    "outputTokens": 300,
+    "totalTokens": 1500,
+    "cachedReadTokens": 800,
+    "cachedWriteTokens": 120,
+    "costUsd": 0.012
+  },
+  "sessionId": "sess-1",
+  "newSessionReason": null,
+  "error": null,
+  "git": null,
+  "patch": null,
+  "appendsApplied": 0,
+  "model": "claude-sonnet-4-6"
+}

@@ -1173,6 +1173,7 @@ export const en = {
   取值重复: 'Duplicate value',
   '官方 / 默认': 'Official / Default',
   默认模型: 'Default model',
+  '默认模型 · {agent}': 'Default model · {agent}',
   私聊: 'DM',
   群聊: 'Group',
   其他: 'Other',

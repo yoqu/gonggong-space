@@ -16,6 +16,7 @@ import { idParam, isUuid } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { isSharedWith } from '../bots/shares.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
+import { resolvedModelExpr } from './model-resolve.js'
 
 export const HOUR_MS = 3_600_000
 export const DAY_MS = 86_400_000
@@ -255,7 +256,14 @@ export function buildFilterWhere(
     if (q.groupId) parts.push(eq(runs.groupId, idParam(q.groupId, '群不存在')))
     if (q.agentKind) parts.push(eq(bots.agentKind, q.agentKind))
     if (q.model) {
-      parts.push(q.model === USAGE_DEFAULT_SENTINEL ? isNull(runs.model) : eq(runs.model, q.model))
+      if (q.model === USAGE_DEFAULT_SENTINEL) {
+        parts.push(sql`${resolvedModelExpr} is null`)
+      } else if (q.model.startsWith(`${USAGE_DEFAULT_SENTINEL}:`)) {
+        const kind = q.model.slice(USAGE_DEFAULT_SENTINEL.length + 1)
+        parts.push(and(sql`${resolvedModelExpr} is null`, eq(bots.agentKind, kind)))
+      } else {
+        parts.push(sql`${resolvedModelExpr} = ${q.model}`)
+      }
     }
     if (q.provider) {
       parts.push(
@@ -287,6 +295,7 @@ export function buildFilterWhere(
           ilike(users.name, pattern),
           ilike(groups.name, pattern),
           ilike(runs.model, pattern),
+          sql`${resolvedModelExpr} ilike ${pattern}`,
           ilike(runs.step, pattern),
           ilike(runs.summary, pattern),
           sql`${runs.settings}->>'provider' ilike ${pattern}`,

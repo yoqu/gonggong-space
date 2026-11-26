@@ -7,13 +7,12 @@ import type {
 } from '@gonggong/protocol'
 import { and, desc, eq, isNull, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groups, messages, runEvents, runs, users } from '../../db/schema.js'
+import { bots, groups, machines, messages, runEvents, runs, users } from '../../db/schema.js'
 import { sysParams } from '../admin/params.js'
+import { buildPricingPlan, resolvedModelExpr } from './model-resolve.js'
 import {
   buildFilterWhere,
-  costUsdExpr,
   durationMsExpr,
-  hasCostExpr,
   inputTokensExpr,
   isFailedExpr,
   outputTokensExpr,
@@ -48,7 +47,10 @@ export async function getInsights(
 ): Promise<UsageInsightsDto> {
   const range = resolveRange(q, ctx.now())
   const where = buildFilterWhere(q, scopeWhere, range)
-  const retentionDays = (await sysParams(ctx.db)).runRetentionDays
+  const [retentionDays, plan] = await Promise.all([
+    sysParams(ctx.db).then((p) => p.runRetentionDays),
+    buildPricingPlan(ctx, where),
+  ])
 
   const sessionKeyExpr = sql<string>`coalesce(${runs.sessionAfter}, ${runs.id}::text)`
 
@@ -66,20 +68,21 @@ export async function getInsights(
         userName: sql<string>`(array_agg(${users.name} order by ${runAtExpr} desc))[1]`,
         model: sql<
           string | null
-        >`(array_agg(${runs.model} order by ${runAtExpr} desc) filter (where ${runs.model} is not null))[1]`,
+        >`(array_agg(${resolvedModelExpr} order by ${runAtExpr} desc) filter (where ${resolvedModelExpr} is not null))[1]`,
         turns: sql<number>`count(*)`.mapWith(Number),
         failedTurns: sql<number>`count(*) filter (where ${isFailedExpr})`.mapWith(Number),
         totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
         inputTokens: sql<number>`coalesce(sum(${inputTokensExpr}), 0)`.mapWith(Number),
         outputTokens: sql<number>`coalesce(sum(${outputTokensExpr}), 0)`.mapWith(Number),
-        costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
-        costReportedRuns: sql<number>`count(*) filter (where ${hasCostExpr})`.mapWith(Number),
+        costUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
+        costReportedRuns: sql<number>`count(*) filter (where ${plan.hasEffectiveCostExpr})`.mapWith(Number),
         totalDurationMs: sql<number>`coalesce(round(sum(${durationMsExpr})), 0)`.mapWith(Number),
         firstAt: sql<Date>`min(${runAtExpr})`.mapWith((v) => new Date(v)),
         lastAt: sql<Date>`max(${runAtExpr})`.mapWith((v) => new Date(v)),
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where)
@@ -99,6 +102,7 @@ export async function getInsights(
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(and(where, sql`${durationMsExpr} is not null`))
@@ -109,10 +113,11 @@ export async function getInsights(
         source: triggerSourceExpr,
         runs: sql<number>`count(*)`.mapWith(Number),
         totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
-        costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
+        costUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
@@ -126,6 +131,7 @@ export async function getInsights(
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where),
@@ -138,6 +144,7 @@ export async function getInsights(
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .innerJoin(sql`lateral jsonb_array_elements(${runs.plugins}) as p(elem)`, sql`true`)
@@ -154,6 +161,7 @@ export async function getInsights(
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where),
@@ -282,6 +290,7 @@ async function queryToolUsage(
     .select({ id: runs.id })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
     .innerJoin(users, eq(users.id, runs.originUserId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(and(where, isNull(runs.purgedAt)))

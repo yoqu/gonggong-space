@@ -363,7 +363,7 @@ describe('usage analytics API', () => {
         'claude-sonnet-4-6',
         'claude-opus-4-6',
         'gemini-2.5-pro',
-        USAGE_DEFAULT_SENTINEL,
+        `${USAGE_DEFAULT_SENTINEL}:codex`,
       ]),
     )
     expect(res.body.providers.map((p) => p.value)).toEqual(
@@ -416,8 +416,11 @@ describe('usage analytics API', () => {
     expect(kpi.outputTokens).toBe(1150)
     expect(kpi.tokenReportedRuns).toBe(4)
     expect(kpi.unreportedRuns).toBe(2)
-    expect(kpi.totalCostUsd).toBe(0.32)
-    expect(kpi.costReportedRuns).toBe(3)
+    // Official Anthropic keeps reported costUsd (r1=0.05, r6=0.02); third-party OpenRouter (r2=0.03) and Gemini (r4=0.000875) use catalog pricing.
+    expect(kpi.totalCostUsd).toBe(0.100875)
+    expect(kpi.costReportedRuns).toBe(4)
+    expect(kpi.reportedCostRuns).toBe(2)
+    expect(kpi.estimatedCostRuns).toBe(2)
     // Cache: only r1 latest event (750 / 1000), purged r6 excluded!
     expect(kpi.cacheReportedRuns).toBe(1)
     expect(kpi.cacheReadTokens).toBe(750)
@@ -517,8 +520,9 @@ describe('usage analytics API', () => {
     )
     expect(dailyCost.status).toBe(200)
     expect(dailyCost.body.granularity).toBe('day')
-    expect(dailyCost.body.series[0]!.key).toBe('OpenRouter')
-    expect(dailyCost.body.series[0]!.costUsd).toBe(0.25)
+    expect(dailyCost.body.series[0]!.key).toBe('Anthropic')
+    expect(dailyCost.body.series[0]!.costUsd).toBe(0.07)
+    expect(dailyCost.body.series.find((s) => s.key === 'OpenRouter')?.costUsd).toBe(0.03)
 
     // Non-additive metrics (duration / throughput) use run-share so legend shares sum cleanly to 1
     const durSeries = await api.get<UsageTimeseriesDto>(
@@ -560,7 +564,7 @@ describe('usage analytics API', () => {
       totalTokens: 2800,
       avgDurationMs: 80000,
       avgOutputTps: 10,
-      costUsd: 0.25,
+      costUsd: 0.03,
     })
     const sonnet = byModel.body.items.find((i) => i.key === 'claude-sonnet-4-6')!
     expect(sonnet.runs).toBe(2)
@@ -627,7 +631,7 @@ describe('usage analytics API', () => {
       userName: '陈晨',
       turns: 2,
       totalTokens: 3800,
-      costUsd: 0.3,
+      costUsd: 0.08,
     })
     // Multi-user turns in sess-1 must not split into duplicate sessionKey rows
     expect(new Set(recentSessions.map((s) => s.sessionKey)).size).toBe(recentSessions.length)

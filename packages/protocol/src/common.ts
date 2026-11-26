@@ -90,6 +90,8 @@ export const Usage = z.object({
   inputTokens: z.number().int().optional(),
   outputTokens: z.number().int().optional(),
   totalTokens: z.number().int().optional(),
+  cachedReadTokens: z.number().int().nonnegative().optional(),
+  cachedWriteTokens: z.number().int().nonnegative().optional(),
   costUsd: z.number().optional(),
 })
 export type Usage = z.infer<typeof Usage>

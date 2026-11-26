@@ -12,6 +12,7 @@ import {
   voidApprovals,
 } from '../approvals/service.js'
 import { dropMachineActivity, onArtifactActivity } from '../artifacts/activity.js'
+import { botCatalog } from '../bots/config.js'
 import { publishBots } from '../bots/dto.js'
 import { mirrorDelta, mirrorRun } from '../feishu/mirror.js'
 import { requeueAppends } from '../messages/append.js'
@@ -29,6 +30,7 @@ import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
 import { pauseStopped, requeueRun } from '../sync/resolve.js'
 import { followOnReply, isArtifactChat, publishThread, touchThread } from '../threads/service.js'
+import { normalizeConcreteModel } from '../usage/model-resolve.js'
 import { settleWebhook } from '../webhooks/service.js'
 import { publishBotState, updateContextUsage } from '../workspaces/state.js'
 import { cardColumns, LIVE, publishRun, publishStep, type RunRow } from './dto.js'
@@ -389,8 +391,20 @@ async function onSessionConfig(
   machineId: string,
   msg: Extract<DaemonMsg, { t: 'session.config' }>,
 ) {
-  if (!(await liveRun(ctx, machineId, msg.runId))) return
-  const { model, effort, settings = null } = msg
+  const run = await liveRun(ctx, machineId, msg.runId)
+  if (!run) return
+  const { effort, settings = null } = msg
+  let model = normalizeConcreteModel(msg.model) ?? normalizeConcreteModel(run.model)
+  if (!model) {
+    const [bot] = await ctx.db
+      .select({ agentKind: bots.agentKind, machineId: bots.machineId })
+      .from(bots)
+      .where(eq(bots.id, run.botId))
+    if (bot) {
+      const catalog = await botCatalog(ctx.db, bot)
+      model = normalizeConcreteModel(catalog?.current)
+    }
+  }
   for (const row of await ctx.db
     .update(runs)
     .set({ model, effort, settings })
@@ -436,6 +450,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
   const { redact } = await runRedactors(ctx, owned.id)
   const reply = done.reply.trim() ? redact(done.reply) : null
   const userMentions = reply ? await memberMentions(ctx, owned.groupId, reply, { skipCode: true }) : []
+  const doneModel = normalizeConcreteModel(done.model)
   const ended = await ctx.db.transaction(async (tx) => {
     const [run] = await tx
       .update(runs)
@@ -448,6 +463,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
         patch: done.patch && seal(redact(done.patch)),
         patchRepos: done.repos,
         ...(done.usage && { usage: done.usage }),
+        ...(doneModel && { model: doneModel }),
         ...(done.newSessionReason && { newSessionReason: done.newSessionReason }),
         sessionAfter: done.sessionId,
         endedAt: ctx.now(),

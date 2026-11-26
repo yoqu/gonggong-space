@@ -246,6 +246,45 @@ export type UsageTriggerSource = z.infer<typeof UsageTriggerSource>
 export const UsageExportFormat = z.enum(['csv', 'json'])
 export type UsageExportFormat = z.infer<typeof UsageExportFormat>
 
+export const UsageCostSource = z.enum(['reported', 'catalog', 'unpriced'])
+export type UsageCostSource = z.infer<typeof UsageCostSource>
+
+export const UsageModelSource = z.enum(['recorded', 'bot_default', 'machine_default', 'unknown'])
+export type UsageModelSource = z.infer<typeof UsageModelSource>
+
+/** Live USD→CNY FX rate metadata for currency display and CSV export. */
+export const UsageFxStatusDto = z.object({
+  usdToCny: z.number().positive(),
+  syncedAt: z.string().nullable(),
+  source: z.string(),
+  stale: z.boolean(),
+})
+export type UsageFxStatusDto = z.infer<typeof UsageFxStatusDto>
+
+/** GET /api[/admin]/usage/pricing and POST /api/admin/usage/pricing/sync */
+export const UsagePricingStatusDto = z.object({
+  source: z.string(),
+  syncedAt: z.string().nullable(),
+  providerCount: z.number().int(),
+  modelCount: z.number().int(),
+  stale: z.boolean(),
+  refreshing: z.boolean(),
+  fx: UsageFxStatusDto,
+})
+export type UsagePricingStatusDto = z.infer<typeof UsagePricingStatusDto>
+
+/** Per-1M-token USD unit prices from the pricing catalog. */
+export const UsageModelUnitPriceDto = z.object({
+  input: z.number(),
+  output: z.number(),
+  cacheRead: z.number(),
+  cacheWrite: z.number(),
+  provider: z.string().optional(),
+  matchedId: z.string().optional(),
+  aliasMatched: z.boolean().optional(),
+})
+export type UsageModelUnitPriceDto = z.infer<typeof UsageModelUnitPriceDto>
+
 /** Shared filter query accepted by all `/api[/admin]/usage/*` analytics endpoints. */
 export const UsageAnalyticsQuery = z.object({
   preset: UsageTimePreset.default('30d'),
@@ -318,7 +357,11 @@ export const UsageKpiDto = z.object({
   successRate: z.number().nullable(),
   totalCostUsd: z.number(),
   costReportedRuns: z.number().int(),
-  /** Prompt cache read tokens from unpurged `run_events` breakdown.cache. */
+  /** Runs priced via adapter-reported costUsd (official pricing). */
+  reportedCostRuns: z.number().int().optional(),
+  /** Runs priced via models.dev catalog lookup. */
+  estimatedCostRuns: z.number().int().optional(),
+  /** Prompt cache read tokens from runs.usage or unpurged `run_events` breakdown.cache. */
   cacheReadTokens: z.number().int(),
   cacheInputTokens: z.number().int(),
   /** cacheReadTokens / cacheInputTokens; null when no runs reported cache. */
@@ -351,6 +394,9 @@ export const UsageOverviewDto = z.object({
   kpi: UsageKpiDto,
   previous: UsageKpiDto.nullable(),
   capabilities: UsageCapabilitiesDto,
+  reportedCostRuns: z.number().int().optional(),
+  estimatedCostRuns: z.number().int().optional(),
+  pricing: UsagePricingStatusDto.optional(),
 })
 export type UsageOverviewDto = z.infer<typeof UsageOverviewDto>
 
@@ -435,6 +481,8 @@ export const UsageBreakdownRowDto = z.object({
   tokenShare: z.number(),
   runShare: z.number(),
   costShare: z.number(),
+  unitPrice: UsageModelUnitPriceDto.nullable().optional(),
+  modelDisplayName: z.string().nullable().optional(),
 })
 export type UsageBreakdownRowDto = z.infer<typeof UsageBreakdownRowDto>
 
@@ -646,6 +694,10 @@ export const UsageRunItemDto = z.object({
   triggerSource: UsageTriggerSource,
   plugins: z.array(z.string()),
   personalSkills: z.number().int(),
+  costSource: UsageCostSource.optional(),
+  unitPrice: UsageModelUnitPriceDto.nullable().optional(),
+  modelDisplayName: z.string().nullable().optional(),
+  modelSource: UsageModelSource.optional(),
 })
 export type UsageRunItemDto = z.infer<typeof UsageRunItemDto>
 

@@ -1,7 +1,8 @@
 import type { UsageExportQuery, UsageRunItemDto } from '@gonggong/protocol'
 import type { SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { dayIn } from './query.js'
+import { getActiveUsdToCny } from './pricing-sync.js'
+import { dayIn, round } from './query.js'
 import { buildRunsWhere, selectRunItems } from './runs.js'
 
 const FORMULA_PREFIX = /^[=+\-@\t\r]/
@@ -16,7 +17,9 @@ export function escapeCsvCell(value: string | number | boolean | null | undefine
   return s
 }
 
-const CSV_COLUMNS: { header: string; get: (r: UsageRunItemDto) => string | number | boolean | null }[] = [
+const buildCsvColumns = (
+  usdToCny: number,
+): { header: string; get: (r: UsageRunItemDto) => string | number | boolean | null }[] => [
   { header: 'id', get: (r) => r.id },
   { header: 'queuedAt', get: (r) => r.queuedAt },
   { header: 'startedAt', get: (r) => r.startedAt },
@@ -32,6 +35,7 @@ const CSV_COLUMNS: { header: string; get: (r: UsageRunItemDto) => string | numbe
   { header: 'agentKind', get: (r) => r.agentKind },
   { header: 'userName', get: (r) => r.userName },
   { header: 'model', get: (r) => r.model },
+  { header: 'modelSource', get: (r) => r.modelSource ?? null },
   { header: 'effort', get: (r) => r.effort },
   { header: 'provider', get: (r) => r.provider },
   { header: 'triggerSource', get: (r) => r.triggerSource },
@@ -39,6 +43,8 @@ const CSV_COLUMNS: { header: string; get: (r: UsageRunItemDto) => string | numbe
   { header: 'outputTokens', get: (r) => r.outputTokens },
   { header: 'totalTokens', get: (r) => r.totalTokens },
   { header: 'costUsd', get: (r) => r.costUsd },
+  { header: 'costCny', get: (r) => (r.costUsd === null ? null : round(r.costUsd * usdToCny, 6)) },
+  { header: 'costSource', get: (r) => r.costSource ?? null },
   { header: 'outputTps', get: (r) => r.outputTps },
   { header: 'filesChanged', get: (r) => r.filesChanged },
   { header: 'hop', get: (r) => r.hop },
@@ -48,9 +54,10 @@ const CSV_COLUMNS: { header: string; get: (r: UsageRunItemDto) => string | numbe
   { header: 'step', get: (r) => r.step },
 ]
 
-export function toUsageCsv(items: UsageRunItemDto[]): string {
-  const header = CSV_COLUMNS.map((c) => c.header).join(',')
-  const lines = items.map((item) => CSV_COLUMNS.map((c) => escapeCsvCell(c.get(item))).join(','))
+export function toUsageCsv(items: UsageRunItemDto[], usdToCny = getActiveUsdToCny()): string {
+  const columns = buildCsvColumns(usdToCny)
+  const header = columns.map((c) => c.header).join(',')
+  const lines = items.map((item) => columns.map((c) => escapeCsvCell(c.get(item))).join(','))
   return `\uFEFF${[header, ...lines].join('\r\n')}\r\n`
 }
 
@@ -83,6 +90,6 @@ export async function exportUsage(
   return {
     contentType: 'text/csv; charset=utf-8',
     filename: `gonggong-usage-${q.preset}-${dateTag}.csv`,
-    body: toUsageCsv(items),
+    body: toUsageCsv(items, getActiveUsdToCny()),
   }
 }

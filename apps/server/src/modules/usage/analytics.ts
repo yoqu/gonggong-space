@@ -6,11 +6,8 @@ import {
   type UsageBreakdownDto,
   type UsageBreakdownQuery,
   type UsageBreakdownRowDto,
-  type UsageCalendarCellDto,
   type UsageCapabilitiesDto,
   type UsageFacetsDto,
-  type UsageHeatmapDto,
-  type UsageHeatmapQuery,
   type UsageKpiDto,
   type UsageMetric,
   type UsageOverviewDto,
@@ -19,26 +16,26 @@ import {
   type UsageTimeseriesDto,
   type UsageTimeseriesLegendDto,
   type UsageTimeseriesQuery,
-  type UsageWeekHourCellDto,
 } from '@gonggong/protocol'
 import { and, desc, eq, isNull, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groups, runEvents, runs, users } from '../../db/schema.js'
+import { bots, groups, machines, runEvents, runs, users } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { sysParams } from '../admin/params.js'
+import { buildPricingPlan, modelKeyExpr, resolvedModelExpr, type SqlPricingPlan } from './model-resolve.js'
+import { matchModelPrice, toUnitPriceDto } from './pricing.js'
+import { getPricingStatus } from './pricing-sync.js'
 import {
   AGENT_LABELS,
   addDays,
   buildFilterWhere,
   completedWithDurExpr,
   completedWithOutExpr,
-  costUsdExpr,
   DAY_MS,
   dayIn,
   durationMsExpr,
   effectiveTps,
   HOUR_MS,
-  hasCostExpr,
   hasTokensExpr,
   hourIn,
   inputTokensExpr,
@@ -61,6 +58,10 @@ const NULL_TEXT = sql<string | null>`cast(null as text)`
 
 const dimLabel = (by: UsageBreakdownBy, key: string, rawName: string | null) => {
   if (key === USAGE_DEFAULT_SENTINEL) return by === 'provider' ? t('官方 / 默认') : t('默认模型')
+  if (by === 'model' && key.startsWith(`${USAGE_DEFAULT_SENTINEL}:`)) {
+    const kind = key.slice(USAGE_DEFAULT_SENTINEL.length + 1) as AgentKind
+    return t('默认模型 · {agent}', { agent: AGENT_LABELS[kind] ?? kind })
+  }
   if (by === 'agentKind') return AGENT_LABELS[key as AgentKind] ?? key
   if (by === 'groupKind') return key === 'dm' ? t('私聊') : t('群聊')
   return rawName || key
@@ -70,8 +71,8 @@ const dimensionSql = (by: UsageBreakdownBy) => {
   switch (by) {
     case 'model':
       return {
-        key: sql<string>`coalesce(${runs.model}, ${DEFAULT_SQL})`,
-        name: sql<string | null>`${runs.model}`,
+        key: modelKeyExpr,
+        name: resolvedModelExpr,
         sublabel: NULL_TEXT,
       }
     case 'agentKind':
@@ -114,13 +115,38 @@ const dimensionSql = (by: UsageBreakdownBy) => {
 }
 
 async function queryCacheStats(ctx: Ctx, where: SQL | undefined) {
+  const directCacheRead = sql<number | null>`(${runs.usage}->>'cachedReadTokens')::bigint`
+  const directCacheTotal = sql<number>`coalesce((${runs.usage}->>'inputTokens')::bigint, 0) + coalesce((${runs.usage}->>'cachedReadTokens')::bigint, 0) + coalesce((${runs.usage}->>'cachedWriteTokens')::bigint, 0)`
+
+  const [directRow] = await ctx.db
+    .select({
+      runs: sql<number>`count(*) filter (where ${directCacheRead} is not null and ${directCacheTotal} > 0)`.mapWith(
+        Number,
+      ),
+      read: sql<number>`coalesce(sum(${directCacheRead}) filter (where ${directCacheRead} is not null and ${directCacheTotal} > 0), 0)`.mapWith(
+        Number,
+      ),
+      total:
+        sql<number>`coalesce(sum(${directCacheTotal}) filter (where ${directCacheRead} is not null and ${directCacheTotal} > 0), 0)`.mapWith(
+          Number,
+        ),
+    })
+    .from(runs)
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
+    .innerJoin(users, eq(users.id, runs.originUserId))
+    .innerJoin(groups, eq(groups.id, runs.groupId))
+    .where(where)
+
+  // Fallback to latest unpurged run_events breakdown.cache for runs without direct usage.cachedReadTokens.
   const unpurgedRuns = ctx.db
     .select({ id: runs.id })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
     .innerJoin(users, eq(users.id, runs.originUserId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
-    .where(and(where, isNull(runs.purgedAt)))
+    .where(and(where, isNull(runs.purgedAt), sql`${directCacheRead} is null`))
     .as('u_runs')
 
   const latest = ctx.db
@@ -135,7 +161,7 @@ async function queryCacheStats(ctx: Ctx, where: SQL | undefined) {
     .orderBy(runEvents.runId, desc(runEvents.id))
     .as('latest_cache')
 
-  const [row] = await ctx.db
+  const [evRow] = await ctx.db
     .select({
       runs: sql<number>`count(*)`.mapWith(Number),
       read: sql<number>`coalesce(sum(${latest.read}), 0)`.mapWith(Number),
@@ -143,11 +169,15 @@ async function queryCacheStats(ctx: Ctx, where: SQL | undefined) {
     })
     .from(latest)
 
+  const totalRuns = (directRow?.runs ?? 0) + (evRow?.runs ?? 0)
+  const totalRead = (directRow?.read ?? 0) + (evRow?.read ?? 0)
+  const totalInput = (directRow?.total ?? 0) + (evRow?.total ?? 0)
+
   return {
-    cacheReportedRuns: row?.runs ?? 0,
-    cacheReadTokens: row?.read ?? 0,
-    cacheInputTokens: row?.total ?? 0,
-    cacheHitRate: safeDiv(row?.read ?? 0, row?.total ?? 0, 4),
+    cacheReportedRuns: totalRuns,
+    cacheReadTokens: totalRead,
+    cacheInputTokens: totalInput,
+    cacheHitRate: safeDiv(totalRead, totalInput, 4),
   }
 }
 
@@ -155,6 +185,7 @@ async function queryCapabilities(
   ctx: Ctx,
   where: SQL | undefined,
   retentionDays: number,
+  plan: SqlPricingPlan,
   cacheReportedRuns?: number,
 ): Promise<UsageCapabilitiesDto> {
   const [[flags], [toolRow], cacheRuns] = await Promise.all([
@@ -164,15 +195,16 @@ async function queryCapabilities(
           sql<boolean>`coalesce(bool_or(${runs.usage}->>'inputTokens' is not null or ${runs.usage}->>'outputTokens' is not null), false)`.mapWith(
             Boolean,
           ),
-        hasCost: sql<boolean>`coalesce(bool_or(${hasCostExpr}), false)`.mapWith(Boolean),
+        hasCost: sql<boolean>`coalesce(bool_or(${plan.hasEffectiveCostExpr}), false)`.mapWith(Boolean),
         hasProvider: sql<boolean>`coalesce(bool_or(${providerExpr} is not null), false)`.mapWith(Boolean),
-        hasModels: sql<boolean>`coalesce(bool_or(${runs.model} is not null), false)`.mapWith(Boolean),
+        hasModels: sql<boolean>`coalesce(bool_or(${resolvedModelExpr} is not null), false)`.mapWith(Boolean),
         hasPlugins: sql<boolean>`coalesce(bool_or(jsonb_array_length(${runs.plugins}) > 0), false)`.mapWith(
           Boolean,
         ),
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where),
@@ -181,6 +213,7 @@ async function queryCapabilities(
       .from(runEvents)
       .innerJoin(runs, eq(runs.id, runEvents.runId))
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(and(where, isNull(runs.purgedAt), eq(runEvents.kind, 'tool')))
@@ -202,7 +235,7 @@ async function queryCapabilities(
   }
 }
 
-async function queryKpi(ctx: Ctx, where: SQL | undefined): Promise<UsageKpiDto> {
+async function queryKpi(ctx: Ctx, where: SQL | undefined, plan: SqlPricingPlan): Promise<UsageKpiDto> {
   const [[agg], cache] = await Promise.all([
     ctx.db
       .select({
@@ -217,8 +250,14 @@ async function queryKpi(ctx: Ctx, where: SQL | undefined): Promise<UsageKpiDto> 
         failedRuns: sql<number>`count(*) filter (where ${isFailedExpr})`.mapWith(Number),
         cancelledRuns: sql<number>`count(*) filter (where ${isCancelledExpr})`.mapWith(Number),
         liveRuns: sql<number>`count(*) filter (where ${isLiveExpr})`.mapWith(Number),
-        totalCostUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
-        costReportedRuns: sql<number>`count(*) filter (where ${hasCostExpr})`.mapWith(Number),
+        totalCostUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
+        costReportedRuns: sql<number>`count(*) filter (where ${plan.hasEffectiveCostExpr})`.mapWith(Number),
+        reportedCostRuns: sql<number>`count(*) filter (where (${plan.costSourceExpr}) = 'reported')`.mapWith(
+          Number,
+        ),
+        estimatedCostRuns: sql<number>`count(*) filter (where (${plan.costSourceExpr}) = 'catalog')`.mapWith(
+          Number,
+        ),
         avgDurationMs: sql<
           number | null
         >`round(avg(${durationMsExpr}) filter (where ${completedWithDurExpr}))`.mapWith((v) =>
@@ -248,6 +287,7 @@ async function queryKpi(ctx: Ctx, where: SQL | undefined): Promise<UsageKpiDto> 
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where),
@@ -268,6 +308,8 @@ async function queryKpi(ctx: Ctx, where: SQL | undefined): Promise<UsageKpiDto> 
     liveRuns: 0,
     totalCostUsd: 0,
     costReportedRuns: 0,
+    reportedCostRuns: 0,
+    estimatedCostRuns: 0,
     avgDurationMs: null,
     p50DurationMs: null,
     p95DurationMs: null,
@@ -292,6 +334,8 @@ async function queryKpi(ctx: Ctx, where: SQL | undefined): Promise<UsageKpiDto> 
     successRate: safeDiv(a.completedRuns, a.endedRuns, 4),
     totalCostUsd: round(a.totalCostUsd, 6),
     costReportedRuns: a.costReportedRuns,
+    reportedCostRuns: a.reportedCostRuns,
+    estimatedCostRuns: a.estimatedCostRuns,
     cacheReadTokens: cache.cacheReadTokens,
     cacheInputTokens: cache.cacheInputTokens,
     cacheHitRate: cache.cacheHitRate,
@@ -313,7 +357,10 @@ export async function getFacets(
 ): Promise<UsageFacetsDto> {
   const range = resolveRange(q, ctx.now())
   const where = buildFilterWhere(q, scopeWhere, range, { skipDimFilters: true })
-  const retentionDays = (await sysParams(ctx.db)).runRetentionDays
+  const [retentionDays, plan] = await Promise.all([
+    sysParams(ctx.db).then((p) => p.runRetentionDays),
+    buildPricingPlan(ctx, where),
+  ])
 
   const facetQuery = (by: UsageBreakdownBy) => {
     const dim = dimensionSql(by)
@@ -321,6 +368,7 @@ export async function getFacets(
       .select({ value: dim.key, name: dim.name, sublabel: dim.sublabel, count: countExpr })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where)
@@ -336,7 +384,7 @@ export async function getFacets(
     facetQuery('bot'),
     facetQuery('user'),
     facetQuery('group'),
-    queryCapabilities(ctx, where, retentionDays),
+    queryCapabilities(ctx, where, retentionDays, plan),
   ])
 
   const mapRows = (
@@ -366,19 +414,31 @@ export async function getOverview(
   q: UsageAnalyticsQuery,
   scopeWhere: SQL | undefined,
 ): Promise<UsageOverviewDto> {
-  const range = resolveRange(q, ctx.now())
+  const now = ctx.now()
+  const range = resolveRange(q, now)
   const currentWhere = buildFilterWhere(q, scopeWhere, range)
   const prevWhere =
     range.previousFrom && range.previousTo
       ? buildFilterWhere(q, scopeWhere, { from: range.previousFrom, to: range.previousTo })
       : null
-  const retentionDays = (await sysParams(ctx.db)).runRetentionDays
+
+  const [retentionDays, currentPlan, prevPlan] = await Promise.all([
+    sysParams(ctx.db).then((p) => p.runRetentionDays),
+    buildPricingPlan(ctx, currentWhere),
+    prevWhere ? buildPricingPlan(ctx, prevWhere) : Promise.resolve(null),
+  ])
 
   const [kpi, previous] = await Promise.all([
-    queryKpi(ctx, currentWhere),
-    prevWhere ? queryKpi(ctx, prevWhere) : Promise.resolve(null),
+    queryKpi(ctx, currentWhere, currentPlan),
+    prevWhere && prevPlan ? queryKpi(ctx, prevWhere, prevPlan) : Promise.resolve(null),
   ])
-  const capabilities = await queryCapabilities(ctx, currentWhere, retentionDays, kpi.cacheReportedRuns)
+  const capabilities = await queryCapabilities(
+    ctx,
+    currentWhere,
+    retentionDays,
+    currentPlan,
+    kpi.cacheReportedRuns,
+  )
 
   return {
     range: {
@@ -391,6 +451,9 @@ export async function getOverview(
     kpi,
     previous,
     capabilities,
+    reportedCostRuns: kpi.reportedCostRuns,
+    estimatedCostRuns: kpi.estimatedCostRuns,
+    pricing: getPricingStatus(now),
   }
 }
 
@@ -456,14 +519,15 @@ export async function getTimeseries(
   const now = ctx.now()
   const range = resolveRange(q, now)
   const where = buildFilterWhere(q, scopeWhere, range)
+  const plan = await buildPricingPlan(ctx, where)
 
-  // Determine effective bucket span & granularity (clamp hourly to <= 7 days).
   let effectiveFrom = range.from
   if (!effectiveFrom) {
     const [bounds] = await ctx.db
       .select({ minAt: sql<Date | null>`min(${runAtExpr})`.mapWith((v) => (v ? new Date(v) : null)) })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
+      .leftJoin(machines, eq(machines.id, bots.machineId))
       .innerJoin(users, eq(users.id, runs.originUserId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
       .where(where)
@@ -489,7 +553,7 @@ export async function getTimeseries(
       totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
       inputTokens: sql<number>`coalesce(sum(${inputTokensExpr}), 0)`.mapWith(Number),
       outputTokens: sql<number>`coalesce(sum(${outputTokensExpr}), 0)`.mapWith(Number),
-      costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
+      costUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
       runs: countExpr,
       completedRuns: sql<number>`count(*) filter (where ${runs.status} = 'completed')`.mapWith(Number),
       failedRuns: sql<number>`count(*) filter (where ${isFailedExpr})`.mapWith(Number),
@@ -509,6 +573,7 @@ export async function getTimeseries(
     })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
     .innerJoin(users, eq(users.id, runs.originUserId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(where)
@@ -549,7 +614,7 @@ export async function getTimeseries(
       runs: countExpr,
       failedRuns: sql<number>`count(*) filter (where ${isFailedExpr})`.mapWith(Number),
       totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
-      costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
+      costUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
       avgDurationMs: sql<
         number | null
       >`round(avg(${durationMsExpr}) filter (where ${completedWithDurExpr}))`.mapWith((v) =>
@@ -569,6 +634,7 @@ export async function getTimeseries(
     })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
     .innerJoin(users, eq(users.id, runs.originUserId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(where)
@@ -653,7 +719,7 @@ export async function getTimeseries(
       key: dim.key,
       runs: countExpr,
       totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
-      costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
+      costUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
       durSum: sql<number>`coalesce(sum(${durationMsExpr}) filter (where ${completedWithDurExpr}), 0)`.mapWith(
         Number,
       ),
@@ -668,6 +734,7 @@ export async function getTimeseries(
     })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
     .innerJoin(users, eq(users.id, runs.originUserId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(where)
@@ -739,6 +806,7 @@ export async function getBreakdown(
 ): Promise<UsageBreakdownDto> {
   const range = resolveRange(q, ctx.now())
   const where = buildFilterWhere(q, scopeWhere, range)
+  const plan = await buildPricingPlan(ctx, where)
   const dim = dimensionSql(q.by)
 
   const rows = await ctx.db
@@ -755,8 +823,8 @@ export async function getBreakdown(
       totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
       inputTokens: sql<number>`coalesce(sum(${inputTokensExpr}), 0)`.mapWith(Number),
       outputTokens: sql<number>`coalesce(sum(${outputTokensExpr}), 0)`.mapWith(Number),
-      costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
-      costReportedRuns: sql<number>`count(*) filter (where ${hasCostExpr})`.mapWith(Number),
+      costUsd: sql<number>`coalesce(sum(${plan.costZeroExpr}), 0)`.mapWith(Number),
+      costReportedRuns: sql<number>`count(*) filter (where ${plan.hasEffectiveCostExpr})`.mapWith(Number),
       avgDurationMs: sql<
         number | null
       >`round(avg(${durationMsExpr}) filter (where ${completedWithDurExpr}))`.mapWith((v) =>
@@ -777,6 +845,7 @@ export async function getBreakdown(
     })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
+    .leftJoin(machines, eq(machines.id, bots.machineId))
     .innerJoin(users, eq(users.id, runs.originUserId))
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(where)
@@ -787,28 +856,37 @@ export async function getBreakdown(
   const sumCost = rows.reduce((n, r) => n + r.costUsd, 0)
 
   const mapped: UsageBreakdownRowDto[] = rows
-    .map((r) => ({
-      key: r.key,
-      name: dimLabel(q.by, r.key, r.name),
-      sublabel: r.sublabel,
-      runs: r.runs,
-      completedRuns: r.completedRuns,
-      failedRuns: r.failedRuns,
-      cancelledRuns: r.cancelledRuns,
-      unreportedRuns: r.unreportedRuns,
-      successRate: safeDiv(r.completedRuns, r.endedRuns, 4),
-      totalTokens: r.totalTokens,
-      inputTokens: r.inputTokens,
-      outputTokens: r.outputTokens,
-      costUsd: round(r.costUsd, 6),
-      costReportedRuns: r.costReportedRuns,
-      avgDurationMs: r.avgDurationMs,
-      p95DurationMs: r.p95DurationMs,
-      avgOutputTps: effectiveTps(r.tpsOut, r.tpsDur),
-      tokenShare: safeDiv(r.totalTokens, sumTokens, 4) ?? 0,
-      runShare: safeDiv(r.runs, sumRuns, 4) ?? 0,
-      costShare: safeDiv(r.costUsd, sumCost, 4) ?? 0,
-    }))
+    .map((r) => {
+      const matched = q.by === 'model' && r.name ? matchModelPrice(r.name, q.provider ?? null) : null
+      return {
+        key: r.key,
+        name: dimLabel(q.by, r.key, r.name),
+        sublabel: r.sublabel,
+        runs: r.runs,
+        completedRuns: r.completedRuns,
+        failedRuns: r.failedRuns,
+        cancelledRuns: r.cancelledRuns,
+        unreportedRuns: r.unreportedRuns,
+        successRate: safeDiv(r.completedRuns, r.endedRuns, 4),
+        totalTokens: r.totalTokens,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        costUsd: round(r.costUsd, 6),
+        costReportedRuns: r.costReportedRuns,
+        avgDurationMs: r.avgDurationMs,
+        p95DurationMs: r.p95DurationMs,
+        avgOutputTps: effectiveTps(r.tpsOut, r.tpsDur),
+        tokenShare: safeDiv(r.totalTokens, sumTokens, 4) ?? 0,
+        runShare: safeDiv(r.runs, sumRuns, 4) ?? 0,
+        costShare: safeDiv(r.costUsd, sumCost, 4) ?? 0,
+        ...(q.by === 'model'
+          ? {
+              unitPrice: matched ? toUnitPriceDto(matched) : null,
+              modelDisplayName: matched ? matched.displayName : null,
+            }
+          : {}),
+      }
+    })
     .sort((a, b) => b.totalTokens - a.totalTokens || b.runs - a.runs || a.name.localeCompare(b.name))
 
   return {
@@ -816,95 +894,4 @@ export async function getBreakdown(
     totalItems: mapped.length,
     items: mapped.slice(0, q.limit),
   }
-}
-
-const heatValue = (
-  metric: UsageHeatmapQuery['metric'],
-  r: { totalTokens: number; runs: number; costUsd: number },
-) => (metric === 'tokens' ? r.totalTokens : metric === 'runs' ? r.runs : round(r.costUsd, 6))
-
-export async function getHeatmap(
-  ctx: Ctx,
-  q: UsageHeatmapQuery,
-  scopeWhere: SQL | undefined,
-): Promise<UsageHeatmapDto> {
-  const now = ctx.now()
-  if (q.mode === 'calendar') {
-    const endDay = dayIn(now, q.tz)
-    const startDay = addDays(endDay, -370)
-    const where = buildFilterWhere(q, scopeWhere, {
-      from: new Date(now.getTime() - 372 * DAY_MS),
-      to: now,
-    })
-    const dayExpr = sql<string>`to_char(${runAtExpr} at time zone ${q.tz}, 'YYYY-MM-DD')`
-    const rows = await ctx.db
-      .select({
-        day: dayExpr,
-        runs: countExpr,
-        totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
-        costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
-      })
-      .from(runs)
-      .innerJoin(bots, eq(bots.id, runs.botId))
-      .innerJoin(users, eq(users.id, runs.originUserId))
-      .innerJoin(groups, eq(groups.id, runs.groupId))
-      .where(where)
-      .groupBy(sql`1`)
-    const byDay = new Map(rows.map((r) => [r.day, r]))
-    const calendar: UsageCalendarCellDto[] = []
-    let maxValue = 0
-    for (let i = 0; i < 371; i++) {
-      const day = addDays(startDay, i)
-      const r = byDay.get(day)
-      const cell = {
-        day,
-        runs: r?.runs ?? 0,
-        totalTokens: r?.totalTokens ?? 0,
-        costUsd: round(r?.costUsd ?? 0, 6),
-        value: r ? heatValue(q.metric, r) : 0,
-      }
-      if (cell.value > maxValue) maxValue = cell.value
-      calendar.push(cell)
-    }
-    return { mode: 'calendar', metric: q.metric, maxValue, calendar }
-  }
-
-  const range = resolveRange(q, now)
-  const where = buildFilterWhere(q, scopeWhere, range)
-  const dowExpr = sql<number>`extract(dow from ${runAtExpr} at time zone ${q.tz})::int`.mapWith(Number)
-  const hourExpr = sql<number>`extract(hour from ${runAtExpr} at time zone ${q.tz})::int`.mapWith(Number)
-  const rows = await ctx.db
-    .select({
-      dow: dowExpr,
-      hour: hourExpr,
-      runs: countExpr,
-      totalTokens: sql<number>`coalesce(sum(${totalTokensExpr}), 0)`.mapWith(Number),
-      costUsd: sql<number>`coalesce(sum(${costUsdExpr}), 0)`.mapWith(Number),
-    })
-    .from(runs)
-    .innerJoin(bots, eq(bots.id, runs.botId))
-    .innerJoin(users, eq(users.id, runs.originUserId))
-    .innerJoin(groups, eq(groups.id, runs.groupId))
-    .where(where)
-    .groupBy(sql`1`, sql`2`)
-
-  const byCell = new Map(rows.map((r) => [`${r.dow}:${r.hour}`, r]))
-  const weekHour: UsageWeekHourCellDto[] = []
-  let maxValue = 0
-  for (let dow = 0; dow < 7; dow++) {
-    for (let hour = 0; hour < 24; hour++) {
-      const r = byCell.get(`${dow}:${hour}`)
-      const cell = {
-        dow,
-        hour,
-        runs: r?.runs ?? 0,
-        totalTokens: r?.totalTokens ?? 0,
-        costUsd: round(r?.costUsd ?? 0, 6),
-        value: r ? heatValue(q.metric, r) : 0,
-      }
-      if (cell.value > maxValue) maxValue = cell.value
-      weekHour.push(cell)
-    }
-  }
-  return { mode: 'week_hour', metric: q.metric, maxValue, weekHour }
 }
