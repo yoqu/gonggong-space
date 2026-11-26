@@ -166,6 +166,7 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
         repos: vec![],
         appends_applied: 0,
         sync: None,
+        model: None,
     }));
     out.send(DaemonToServer::RunDiscarded { run_id: "r0".into(), ok: true, files: 1, error: None });
     tokio::time::sleep(Duration::from_millis(300)).await;
@@ -236,6 +237,7 @@ impl Handler for Reporter {
                 repos: vec![],
                 appends_applied: 0,
                 sync: None,
+                model: None,
             }));
         }
     }

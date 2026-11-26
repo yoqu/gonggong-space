@@ -244,3 +244,30 @@ fn run_start_takes_cli_profiles_and_refuses_odd_ones() {
         assert!(serde_json::from_value::<ServerToDaemon>(raw.clone()).is_err(), "{odd}");
     }
 }
+
+#[test]
+fn run_done_model_and_cache_usage_fixture_round_trips() {
+    let raw: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../packages/protocol/fixtures/d2s.run.done.model.json")).unwrap();
+    let parsed: DaemonToServer = serde_json::from_value(raw.clone()).unwrap();
+    let DaemonToServer::RunDone(ref done) = parsed else { panic!("expected RunDone") };
+    assert_eq!(done.model.as_deref(), Some("claude-sonnet-4-6"));
+    let usage = done.usage.as_ref().expect("usage");
+    assert_eq!((usage.cached_read_tokens, usage.cached_write_tokens), (Some(800), Some(120)));
+    let mut back = serde_json::to_value(&parsed).unwrap();
+    // `sync` serializes as null when unset, matching `tests/it/contract.rs`'s strip_nulls contract.
+    assert_eq!(back.as_object_mut().unwrap().remove("sync"), Some(serde_json::Value::Null));
+    assert_eq!(back, raw);
+
+    // Older run.done fixtures omit model and cache token fields cleanly.
+    let legacy: DaemonToServer =
+        serde_json::from_str(include_str!("../../../../packages/protocol/fixtures/d2s.run.done.json")).unwrap();
+    let DaemonToServer::RunDone(ref legacy_done) = legacy else { panic!("expected RunDone") };
+    assert_eq!(legacy_done.model, None);
+    let legacy_usage = legacy_done.usage.as_ref().expect("usage");
+    assert_eq!((legacy_usage.cached_read_tokens, legacy_usage.cached_write_tokens), (None, None));
+    let reserialized = serde_json::to_value(&legacy).unwrap();
+    assert!(reserialized.get("model").is_none());
+    assert!(reserialized["usage"].get("cachedReadTokens").is_none());
+    assert!(reserialized["usage"].get("cachedWriteTokens").is_none());
+}

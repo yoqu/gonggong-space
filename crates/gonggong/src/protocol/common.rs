@@ -89,13 +89,17 @@ pub enum RunStatus {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input_tokens: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_tokens: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub total_tokens: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_read_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_write_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost_usd: Option<f64>,
 }
 

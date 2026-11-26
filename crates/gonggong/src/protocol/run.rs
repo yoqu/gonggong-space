@@ -287,6 +287,9 @@ pub struct RunDone {
     /// Force groups only.
     #[serde(default)]
     pub sync: Option<RunSyncDone>,
+    /// Concrete model served by the agent for this turn; omitted by older daemons.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 pub const PATCH_MAX_BYTES: usize = 512 * 1024;

@@ -1342,7 +1342,7 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
         patch: None,
         repos: vec![],
         appends_applied: 0,
-        sync: None,
+        sync: None, model: None,
     }
 }
 

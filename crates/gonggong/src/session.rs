@@ -139,7 +139,7 @@ async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Plann
             (selection, removed, launch, official)
         }
         Err(e) => {
-            shared.finish(Err(format!("{e:#}")), None, None);
+            shared.finish(Err(format!("{e:#}")), None, None, None);
             return None;
         }
     };
@@ -185,7 +185,7 @@ async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Pla
             Some(turn)
         }
         Err(e) => {
-            shared.finish(Err(e), None, None);
+            shared.finish(Err(e), None, None, None);
             None
         }
     }
@@ -319,6 +319,8 @@ struct State {
     adopting: Option<Adopting>,
     /// The latest `current_mode_update`: an adapter reports the mode it fell back to (Claude `auto` → `acceptEdits`).
     mode_update: Option<String>,
+    /// The latest `config_option_update` emitted by the adapter during a turn.
+    config_options: Option<Vec<SessionConfigOption>>,
     /// A gate switching the session back to the bot's mode mid-turn (`gate`).
     restoring: Option<tokio::task::JoinHandle<Option<String>>>,
     /// What each ACP session's context is made of, as far as we saw it.
@@ -474,6 +476,10 @@ impl Shared {
 
     fn take_mode_update(&self) -> Option<String> {
         self.0.lock().unwrap().mode_update.take()
+    }
+
+    fn take_config_options(&self) -> Option<Vec<SessionConfigOption>> {
+        self.0.lock().unwrap().config_options.take()
     }
 
     /// Next prompt of the active turn after the current one ended: the queued appends, unless it was stopped.
@@ -642,7 +648,7 @@ impl Shared {
         let run_id = &req.start.run_id;
         if s.cancelled.remove(run_id) {
             s.pending.remove(run_id);
-            req.out.send(done(run_id, RunOutcome::Interrupted, Turn::default(), None, None, None, None));
+            req.out.send(done(run_id, RunOutcome::Interrupted, Turn::default(), None, None, None, None, None));
             return Some(false);
         }
         s.last = None;
@@ -716,7 +722,7 @@ impl Shared {
         s.prev = Some(Prev::of(&a, session.clone()));
         let error = failure.filter(|_| outcome == RunOutcome::Failed).map(|e| truncate(&e));
         let session = session.map(|id| id.0.to_string());
-        a.out.send(done(&a.run_id, outcome, a.turn, None, session, None, error));
+        a.out.send(done(&a.run_id, outcome, a.turn, None, session, None, error, None));
     }
 
     /// Output between turns: asks the server for a run of the conversation to report it under (`run.continue`),
@@ -1016,6 +1022,9 @@ impl Shared {
         if let SessionUpdate::CurrentModeUpdate(u) = &n.update {
             s.mode_update = Some(u.current_mode_id.0.to_string());
         }
+        if let SessionUpdate::ConfigOptionUpdate(u) = &n.update {
+            s.config_options = Some(u.config_options.clone());
+        }
         // Sent right after session creation (before streaming); feeds the / candidates.
         if let (SessionUpdate::AvailableCommandsUpdate(u), Some(a)) = (&n.update, s.active.as_ref()) {
             let commands = u
@@ -1101,7 +1110,13 @@ impl Shared {
     }
 
     /// Ends the active turn and reports it. `Err` = the agent failed.
-    fn finish(&self, result: Result<PromptResponse, String>, session: Option<&SessionId>, reason: Option<&str>) {
+    fn finish(
+        &self,
+        result: Result<PromptResponse, String>,
+        session: Option<&SessionId>,
+        reason: Option<&str>,
+        model: Option<String>,
+    ) {
         let mut s = self.0.lock().unwrap();
         s.conn = None;
         s.approvals.clear();
@@ -1126,6 +1141,7 @@ impl Shared {
                         session,
                         reason,
                         Some(truncate(&error)),
+                        model,
                     ));
                     return;
                 }
@@ -1135,17 +1151,11 @@ impl Shared {
                     RunOutcome::Completed
                 };
                 let cost = a.turn.usage.as_ref().and_then(|u| u.cost_usd);
-                // Claude reports all-zero usage for cancelled turns; treat that as unreported.
-                let usage = resp.usage.filter(|u| u.total_tokens > 0).map(|u| Usage {
-                    input_tokens: Some(u.input_tokens),
-                    output_tokens: Some(u.output_tokens),
-                    total_tokens: Some(u.total_tokens),
-                    cost_usd: cost,
-                });
-                done(&a.run_id, outcome, a.turn, usage, session, reason, None)
+                let usage = model::usage_from_acp(resp.usage, cost);
+                done(&a.run_id, outcome, a.turn, usage, session, reason, None, model)
             }
-            Err(_) if cancelled => done(&a.run_id, RunOutcome::Interrupted, a.turn, None, session, reason, None),
-            Err(e) => done(&a.run_id, RunOutcome::Failed, a.turn, None, session, reason, Some(truncate(&e))),
+            Err(_) if cancelled => done(&a.run_id, RunOutcome::Interrupted, a.turn, None, session, reason, None, model),
+            Err(e) => done(&a.run_id, RunOutcome::Failed, a.turn, None, session, reason, Some(truncate(&e)), model),
         };
         a.out.send(msg);
     }
@@ -1286,6 +1296,7 @@ fn send_cancel(s: &State) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn done(
     run_id: &str,
     outcome: RunOutcome,
@@ -1294,6 +1305,7 @@ fn done(
     session_id: Option<String>,
     new_session_reason: Option<String>,
     error: Option<String>,
+    model: Option<String>,
 ) -> DaemonToServer {
     // Shell edits (Codex) carry no tool locations: git sees them.
     let reply = turn.reply();
@@ -1312,6 +1324,7 @@ fn done(
         repos: turn.repos,
         appends_applied: turn.appends_applied,
         sync: turn.sync,
+        model,
     })
 }
 
@@ -1408,8 +1421,7 @@ where
     Ok((serde_json::from_value(raw.clone())?, raw))
 }
 
-/// The adapters' "use your own default" row, left out of catalogs: `None` means the same.
-const ADAPTER_DEFAULT: &str = "default";
+use model::ADAPTER_DEFAULT;
 
 fn named(choices: Vec<Choice>) -> Vec<Choice> {
     choices.into_iter().filter(|c| c.value != ADAPTER_DEFAULT).collect()
@@ -1624,7 +1636,7 @@ pub(crate) async fn run(
         if shared.0.lock().unwrap().active.is_some() {
             tracing::warn!("adapter ended mid-turn: {error}");
             shared.post_turn(shared.ending(Err(()))).await;
-            shared.finish(Err(error), resume.as_ref(), None);
+            shared.finish(Err(error), resume.as_ref(), None, None);
         }
     }
 }
@@ -1721,7 +1733,7 @@ async fn connect(
                         conv.official = turn.official;
                         conv.turn(turn.req, turn.removed, resume, dir.guarded.then(|| dir.gate())).await?;
                     }
-                    None => shared.finish(Err(String::new()), resume.as_ref(), None),
+                    None => shared.finish(Err(String::new()), resume.as_ref(), None, None),
                 }
                 turn = loop {
                     match tokio::time::timeout(engine.config.idle, rx.recv()).await {
@@ -1843,7 +1855,7 @@ impl Conversation<'_> {
                         if let Some(api) = self.api {
                             let files: Vec<_> = s.prompt.fallback_context.iter().flat_map(|m| &m.attachments).collect();
                             if let Err(e) = attachments::fetch(api, &req.cwd, files).await {
-                                self.shared.finish(Err(e), None, None);
+                                self.shared.finish(Err(e), None, None, None);
                                 return Ok(());
                             }
                         }
@@ -1858,13 +1870,13 @@ impl Conversation<'_> {
                     if reason.is_some()
                         && let Err(e) = self.pin(&req, &id).await
                     {
-                        self.shared.finish(Err(e), None, None);
+                        self.shared.finish(Err(e), None, None, None);
                         return Ok(());
                     }
                     (id, reason, history)
                 }
                 Err(e) => {
-                    self.shared.finish(Err(t!("无法建立 agent 会话：{e}", e = describe(&e))), None, None);
+                    self.shared.finish(Err(t!("无法建立 agent 会话：{e}", e = describe(&e))), None, None, None);
                     return Ok(());
                 }
             },
@@ -1880,7 +1892,7 @@ impl Conversation<'_> {
         if let Some(mode) = builtin.or(fallback) {
             self.switch(&session, mode).await;
         }
-        self.configure(&req, &session).await;
+        let pre_model = self.configure(&req, &session).await;
         // A model switch may have taken `auto` away too.
         if let Some(mode) = self.shared.take_mode_update() {
             self.mode = Some(mode);
@@ -1905,10 +1917,11 @@ impl Conversation<'_> {
         if let Some(gate) = gate
             && !self.guard(&req, &session, gate).await
         {
-            self.shared.finish(Err(String::new()), Some(&session), None);
+            self.shared.finish(Err(String::new()), Some(&session), None, pre_model);
             return Ok(());
         }
         // Before streaming, so a /stop during the fetch still cancels the prompt.
+        self.shared.take_config_options();
         self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
         let text = s.command.clone().unwrap_or_else(|| {
@@ -1954,9 +1967,36 @@ impl Conversation<'_> {
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
                 let error = result.as_ref().err().cloned();
+                let outcome = self.shared.ending(result.as_ref().map_err(drop));
+                let updated_model = self.shared.take_config_options().and_then(|opts| {
+                    self.options = opts;
+                    model::model_from_config_options(
+                        s.bot.agent_kind,
+                        &self.selection,
+                        self.launch.as_ref(),
+                        self.user_home,
+                        &self.options,
+                    )
+                });
+                let ran_inference = outcome == RunOutcome::Completed
+                    || (outcome == RunOutcome::Interrupted
+                        && result.as_ref().ok().and_then(|r| r.usage.as_ref()).is_some_and(|u| u.total_tokens > 0));
+                let served_model = if ran_inference {
+                    let probe = model::PostTurnProbe::new(
+                        s.bot.agent_kind,
+                        req.cwd.clone(),
+                        session.0.to_string(),
+                        &self.selection,
+                        self.user_home,
+                    );
+                    model::discover_served_model(probe).await
+                } else {
+                    None
+                };
+                let done_model = model::combine_done_model(pre_model, updated_model, served_model);
                 self.shared.report_context(&session, result.as_ref().ok().and_then(|r| r.usage.as_ref()));
-                self.shared.post_turn(self.shared.ending(result.as_ref().map_err(drop))).await;
-                self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
+                self.shared.post_turn(outcome).await;
+                self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref(), done_model);
                 // Before the next turn switches modes itself; failed, the mode is unknown and the next switch is sent.
                 if let Some(restoring) = self.shared.take_restoring() {
                     let Ok(mode) = tokio::time::timeout(self.cancel_grace, restoring).await else {
@@ -2062,7 +2102,7 @@ impl Conversation<'_> {
     /// Switches the session to the requested model and effort (else the session's initial values) when they differ
     /// from the current ones, then reports what is in effect. Model first: switching it may change the effort levels
     /// on offer and reset the effort set before.
-    async fn configure(&mut self, req: &TurnReq, session: &SessionId) {
+    async fn configure(&mut self, req: &TurnReq, session: &SessionId) -> Option<String> {
         let bot = &req.start.bot;
         // A third-party provider only serves its own models; its default one is injected with the process, and the
         // adapter's catalog may not list it.
@@ -2147,14 +2187,24 @@ impl Conversation<'_> {
             let (id, current, _) = select(&self.options, &category)?;
             Some(self.applied.get(&id).cloned().unwrap_or(current)).filter(|v| v != ADAPTER_DEFAULT)
         };
+        let resolved_model = model::resolve_pre_turn_model(
+            bot.agent_kind,
+            &self.selection,
+            self.launch.as_ref(),
+            self.user_home,
+            bot.model.as_deref(),
+            unlisted(&self.options),
+            &self.options,
+            &self.applied,
+            self.models.as_ref().map(|m| m.current.as_str()),
+        );
         req.out.send(DaemonToServer::SessionConfig {
             run_id: req.start.run_id.clone(),
-            model: unlisted(&self.options)
-                .or_else(|| in_effect(SessionConfigOptionCategory::Model))
-                .or_else(|| self.models.as_ref().map(|m| m.current.clone())),
+            model: resolved_model.clone(),
             effort: in_effect(SessionConfigOptionCategory::ThoughtLevel),
             settings: self.launch.as_ref().map(|l| l.snapshot.clone()),
         });
+        resolved_model
     }
 
     /// Claude reads the per-session system prompt and the provider's settings file (written with the process) from
@@ -2266,6 +2316,7 @@ fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer
 
 mod context;
 mod gate;
+mod model;
 mod permission;
 #[cfg(test)]
 use permission::name_mcp_call;
