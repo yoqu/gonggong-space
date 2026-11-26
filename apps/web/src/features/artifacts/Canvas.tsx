@@ -154,7 +154,7 @@ import {
   ZOOM_SELECTION,
   zoomItems,
 } from './menus'
-import { PageEmpty } from './PageRail'
+import { noEditReasonOf, PageEmpty } from './PageRail'
 import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
@@ -496,7 +496,7 @@ export function Canvas({
   /** The pages take the pointer: picked in 标记 / 直接编辑, worked by plain clicks in 交互. */
   const through = live || tool === 'play'
   const canEdit = !readOnly && !!manifest
-  const noEditReason = readOnly ? t('历史版本只读') : !manifest ? t('单页产物不支持画布编辑') : undefined
+  const noEditReason = noEditReasonOf(versionKey, readOnly, manifest)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved nodes in place
   useEffect(() => setMoves({}), [manifest])
@@ -1630,7 +1630,7 @@ export function Canvas({
         void upload([...e.dataTransfer.files])
       }}
     >
-      {page && !nodes.length ? <PageEmpty /> : null}
+      {!versionKey || (page && !nodes.length) ? <PageEmpty first={!versionKey} /> : null}
       <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
         {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer panning; the keyboard pans with the arrows */}
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Esc clears the selection */}

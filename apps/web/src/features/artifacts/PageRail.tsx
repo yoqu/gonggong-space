@@ -724,9 +724,21 @@ function Pages({
   )
 }
 
-/** A folder (文件夹) with no screens yet, over the canvas. */
-export const PageEmpty = () => (
+/** A folder (文件夹) with no screens yet, or (`first`) a work before its first version, over the canvas. */
+export const PageEmpty = ({ first }: { first?: boolean }) => (
   <p className="art-page-empty" data-testid="art-page-empty">
-    {t('这个文件夹还没有页面：让 AI 生成，或从左侧把页面拖进来')}
+    {first
+      ? t('在下方对话框里说要做什么，AI 会做出第一版')
+      : t('这个文件夹还没有页面：让 AI 生成，或从左侧把页面拖进来')}
   </p>
 )
+
+/** Why the canvas's editing tools are off, if they are. */
+export const noEditReasonOf = (versionKey: string, readOnly: boolean, manifest: unknown) =>
+  !versionKey
+    ? t('AI 做出第一版后可以编辑')
+    : readOnly
+      ? t('历史版本只读')
+      : !manifest
+        ? t('单页产物不支持画布编辑')
+        : undefined

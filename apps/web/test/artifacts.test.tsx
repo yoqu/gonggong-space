@@ -133,10 +133,40 @@ describe('artifact tab', () => {
 
   it('shows placeholders until the first version arrives', async () => {
     const calls = mockApi(
-      routes({ 'GET /artifacts/a1': artifact({ headVersionId: null, head: null, running: true }) }),
+      routes({
+        'GET /artifacts/a1': artifact({ headVersionId: null, head: null, running: true }),
+        'POST /artifacts/a1/chat': {
+          rootId: 'chat-root',
+          group: { id: 'g1', kind: 'works', name: '作品空间', members: [], botIds: [] },
+        },
+      }),
     )
     renderTab()
     expect(await screen.findByText('正在生成，第一版完成后显示在这里')).toBeTruthy()
+    expect(await screen.findByTestId('art-composer')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/artifacts/a1/preview')).toBe(false)
+  })
+
+  it('an empty work keeps its canvas, tools and AI chat: editing waits for the first version', async () => {
+    const calls = mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ headVersionId: null, head: null, manifest: null, running: false }),
+        'GET /artifacts/a1/versions': [],
+        'POST /artifacts/a1/chat': {
+          rootId: 'chat-root',
+          group: { id: 'g1', kind: 'works', name: '作品空间', members: [], botIds: [] },
+        },
+      }),
+    )
+    renderTab()
+    expect(await screen.findByRole('application', { name: '画布' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '选择' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '直接编辑' })).toHaveProperty('disabled', true)
+    expect(screen.getByText('在下方对话框里说要做什么，AI 会做出第一版')).toBeTruthy()
+    expect(screen.queryByText('正在生成，第一版完成后显示在这里')).toBeNull()
+    await waitFor(() =>
+      expect(document.querySelector('.composer textarea, .composer [contenteditable]')).toBeTruthy(),
+    )
     expect(calls.some((c) => c.path === '/artifacts/a1/preview')).toBe(false)
   })
 
