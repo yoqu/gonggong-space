@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.33 — 2026-11-26
+
+- 多个 Bot 共用一个工作区时，只读不打扰；需要写入且有其他写者时，才确认并行还是等待 / Bots can read a shared workspace without interruption. A write prompts for confirmation only when another run may also write
+- 话题入口显示本群未读数，Bot 在话题中的附件、卡片和提示留在原话题 / The Threads button shows the group's unread count, and bot attachments, cards, and prompts stay in their originating thread
+- 原型画布可直接选择执行的 AI，编辑范围限于选中的页面 / Choose an AI directly in the prototype canvas; edits are scoped to the selected screens
+- 飞书项目需求群可归入团队分区，并配置主仓库、Bot 和回复方式 / Feishu Project work-item groups can be organized into team sections and configured with a primary repository, bots, and reply behavior
+- 下线微信小程序预览和桌面实时画面及远程控制 / WeChat mini program previews, desktop live streaming, and remote control have been retired
+
 ## v0.4.32 — 2026-11-25
 
 - Claude 供应商可以使用默认配置目录 `~/.claude`，复用登录、MCP 和 Skill；同目录的供应商仍可使用各自的设置 / Claude providers can use the default `~/.claude` directory to share sign-in, MCP, and skills while keeping provider-specific settings
