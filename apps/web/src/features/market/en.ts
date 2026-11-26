@@ -142,7 +142,7 @@ export default {
   '已保存「{name}」草稿 r{n}': 'Saved draft r{n} of {name}',
   请确认没有泄露密钥或本机路径: 'Make sure no secrets or local paths leak',
   稍后提交: 'Submit later',
-  '公开条目由平台管理员审核。': 'Public listings are reviewed by platform admins.',
+  '公开条目由系统管理员审核。': 'Public listings are reviewed by system admins.',
   '仅本团队条目由团队管理员审核。': 'Team-only listings are reviewed by team admins.',
   '粘贴 SKILL.md': 'Paste SKILL.md',
   'GitHub 链接': 'GitHub link',
@@ -151,8 +151,8 @@ export default {
   '已读取 {n} 个文件': 'Read {n} {n:file|files}',
   '文件夹或 ZIP 的根目录要有 SKILL.md（Skill）或 gonggong-plugin.json（插件）；同团队同名即发布新版本。':
     'The folder or zip needs SKILL.md (skill) or gonggong-plugin.json (plugin) at its root; the same name in the same team publishes a new version.',
-  '公开条目由平台管理员审核，仅本团队可见的条目由团队管理员审核。':
-    'Platform admins review public listings; team admins review team-only ones.',
+  '公开条目由系统管理员审核，仅本团队可见的条目由团队管理员审核。':
+    'System admins review public listings; team admins review team-only ones.',
   没有待审核的版本: 'No versions waiting for review',
   审核: 'Review',
   '审核 {name} r{n}': 'Review {name} r{n}',

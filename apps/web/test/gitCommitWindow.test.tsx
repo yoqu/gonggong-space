@@ -424,7 +424,7 @@ describe('file context menu', () => {
 
     fireEvent.contextMenu(untracked)
     fireEvent.click(await screen.findByRole('menuitem', { name: '删除…' }))
-    const del = await dialog('删除未跟踪的文件')
+    const del = await dialog('要删除未跟踪的文件吗？')
     expect(del.getByText('src/new.ts')).toBeTruthy()
     fireEvent.click(del.getByRole('button', { name: '删除' }))
     await waitFor(() =>

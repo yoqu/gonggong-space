@@ -108,7 +108,7 @@ export function TeamsPage() {
               title: t('所有者'),
               width: 120,
               sortable: true,
-              render: (x) => x.ownerName ?? '--',
+              render: (x) => x.ownerName ?? '—',
             },
             { key: 'members', title: t('成员'), width: 72, align: 'right', sortable: true },
             {

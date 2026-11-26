@@ -221,6 +221,7 @@ export function GitToolbar({
         className="gtb-btn"
         aria-label={t('更多 Git 操作')}
         align="end"
+        portal
         items={more}
         onSelect={onMore}
       >

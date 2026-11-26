@@ -217,7 +217,7 @@ export function CommitView({
       {data?.limited ? <Alert description={t('客户端版本较旧，部分功能需升级')} /> : null}
       <div className="gc-tree">
         {error ? (
-          <Alert variant="error" description={t('读取改动失败：{error}', { error })} />
+          <Alert variant="error" description={t('读取改动失败：{error}', { error })} onRetry={onReload} />
         ) : !data ? (
           <div className="git-refs__note">
             <Spinner size={14} />

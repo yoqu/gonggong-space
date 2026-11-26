@@ -155,8 +155,9 @@ export default {
   '你在该团队的 Bot 将被删除，并退出所有群':
     'Your bots in this team are deleted and you leave all its groups',
   '所有成员都无法再进入，群转为只读': 'No member can enter it anymore; its groups become read-only',
-  '团队只有你一人，无法退出；如需清理请联系平台管理员':
-    'You are the only member and cannot leave; ask a platform admin to clean up the team',
+  '团队只有你一人，无法退出；如需清理请联系系统管理员':
+    'You are the only member and cannot leave; ask a system admin to clean up the team',
   '你是唯一的所有者，需先在「成员」里转让所有权':
     'You are the only owner; transfer ownership under Members first',
+  请粘贴有效的团队邀请链接: 'Paste a valid team invite link',
 }

@@ -30,6 +30,7 @@ import {
   Spinner,
   TextField,
   toast,
+  useDiscardGuard,
 } from '../../ui'
 import { BindCodePanel, useBindCode } from '../machines/BindCodePanel'
 import { OS_LABEL } from '../machines/model'
@@ -133,26 +134,31 @@ function NewBotProviderFields({
 
 function Shell({
   onClose,
+  busy,
   cta,
   actions,
   children,
 }: {
   onClose: () => void
+  busy?: boolean
   cta?: ModalAction
   actions?: ModalAction[]
   children: ReactNode
 }) {
+  const close = () => {
+    if (!busy) onClose()
+  }
   return (
     <Dialog
       open
       width={540}
       title={t('新建 Bot')}
       message={t('创建时直接绑定到 Bot 主人的电脑')}
-      onClose={onClose}
+      onClose={close}
       closeOnBackdrop={false}
       actions={
         actions ?? [
-          { label: t('取消'), onClick: onClose },
+          { label: t('取消'), disabled: busy, onClick: close },
           cta ?? { label: t('创建'), variant: 'primary', disabled: true },
         ]
       }
@@ -232,6 +238,17 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   const live = useWorkspace((s) => s.bots.find((b) => b.id === created?.id)) ?? created
   const openDm = useDm(live)
   const formId = useId()
+  const dirty =
+    !created &&
+    !!draft &&
+    (draft.touched ||
+      !!draft.prompt.trim() ||
+      !!draft.workspace ||
+      draft.provider !== INHERIT_PROVIDER ||
+      draft.avatar !== 'role-agent' ||
+      !!draft.config.model ||
+      !!draft.config.effort)
+  const guard = useDiscardGuard(dirty, onClose)
 
   // Own machines come from the live store, so a daemon that just connected shows its agents right away.
   const machinesOf = (o: BotOwnerDto) => {
@@ -361,200 +378,205 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   }
 
   return (
-    <Shell
-      onClose={onClose}
-      cta={{
-        label: !m ? t('创建') : self ? t('创建并绑定') : t('创建并发送确认'),
-        variant: 'primary',
-        type: 'submit',
-        form: formId,
-        disabled: !draft.name.trim() || busy,
-      }}
-    >
-      <Form id={formId} onSubmit={() => void create()}>
-        <Divider label={t('基本信息')} />
-        {owners.length > 1 ? (
-          <FormRow label={t('Bot 主人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
-            <PopUpButton
-              aria-label={t('Bot 主人')}
-              value={owner.id}
-              options={owners.map((o) => ({
-                value: o.id,
-                label:
-                  o.id === me.id
-                    ? t('{name}（我）', { name: o.name })
-                    : t('{name} · {n} 台电脑', { name: o.name, n: machinesOf(o).length }),
-              }))}
-              onChange={(id) => {
-                const o = owners.find((x) => x.id === id)
-                if (o) setDraft(draftFor(o, machinesOf(o), draft.prompt))
-              }}
-            />
+    <>
+      <Shell
+        busy={busy}
+        onClose={guard.requestClose}
+        cta={{
+          label: !m ? t('创建') : self ? t('创建并绑定') : t('创建并发送确认'),
+          variant: 'primary',
+          type: 'submit',
+          form: formId,
+          loading: busy,
+          disabled: !draft.name.trim() || busy,
+        }}
+      >
+        <Form id={formId} onSubmit={() => void create()}>
+          <Divider label={t('基本信息')} />
+          {owners.length > 1 ? (
+            <FormRow label={t('Bot 主人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
+              <PopUpButton
+                aria-label={t('Bot 主人')}
+                value={owner.id}
+                options={owners.map((o) => ({
+                  value: o.id,
+                  label:
+                    o.id === me.id
+                      ? t('{name}（我）', { name: o.name })
+                      : t('{name} · {n} 台电脑', { name: o.name, n: machinesOf(o).length }),
+                }))}
+                onChange={(id) => {
+                  const o = owners.find((x) => x.id === id)
+                  if (o) setDraft(draftFor(o, machinesOf(o), draft.prompt))
+                }}
+              />
+            </FormRow>
+          ) : null}
+
+          <FormRow label={t('名称')}>
+            <div className="newbot__inline newbot__name">
+              <Avatar
+                name={draft.name}
+                shape="square"
+                size={32}
+                src={avatarSrc(roleFace(draft.avatar, draft.agent))}
+              />
+              <TextField
+                aria-label={t('名称')}
+                value={draft.name}
+                onChange={(e) => set({ name: e.target.value, touched: true })}
+              />
+            </div>
           </FormRow>
-        ) : null}
 
-        <FormRow label={t('名称')}>
-          <div className="newbot__inline newbot__name">
-            <Avatar
-              name={draft.name}
-              shape="square"
-              size={32}
-              src={avatarSrc(roleFace(draft.avatar, draft.agent))}
-            />
-            <TextField
-              aria-label={t('名称')}
-              value={draft.name}
-              onChange={(e) => set({ name: e.target.value, touched: true })}
-            />
-          </div>
-        </FormRow>
-
-        {roles ? (
-          <FormRow label={t('角色')} align="top" hint={roleHint(draft.avatar, draft.agent)}>
-            <RolePicker value={draft.avatar} agent={draft.agent} onChange={(avatar) => set({ avatar })} />
-          </FormRow>
-        ) : (
-          <FormRow hint={t('默认用 Agent 的形象，一眼看出是哪家')}>
-            <Button size="small" onClick={() => setRoles(true)}>
-              {t('换个角色…')}
-            </Button>
-          </FormRow>
-        )}
-
-        <FormRow label={t('系统提示词')} align="top" hint={t('同时作为群内简介。')}>
-          <TextField
-            multiline
-            aria-label={t('系统提示词')}
-            rows={3}
-            value={draft.prompt}
-            placeholder={t('后端接口开发，只改 server/ 目录')}
-            onChange={(e) => set({ prompt: e.target.value })}
-          />
-        </FormRow>
-
-        <Divider label={t('运行配置')} />
-        <FormRow label={t('运行电脑')} align={machines.length ? 'top' : 'center'}>
-          {machines.length ? (
-            <RadioGroup
-              aria-label={t('运行电脑')}
-              value={m?.id}
-              options={(() => {
-                const counts = new Map<string, number>()
-                for (const x of machines) counts.set(x.name, (counts.get(x.name) ?? 0) + 1)
-                return machines.map((x) => {
-                  const dup = (counts.get(x.name) ?? 0) > 1
-                  const extra = dup
-                    ? !x.online && x.lastSeenAt
-                      ? ` · ${t('最后在线 {time}', { time: ago(x.lastSeenAt) })}`
-                      : ` · #${x.id.slice(0, 4)}`
-                    : ''
-                  return {
-                    value: x.id,
-                    label: (
-                      <span className="newbot__machine">
-                        <span>{x.name}</span>
-                        <span className="newbot__muted">
-                          {OS_LABEL[x.os]} · {x.online ? t('在线') : t('离线')}
-                          {extra}
-                        </span>
-                      </span>
-                    ),
-                  }
-                })
-              })()}
-              onChange={(id) => {
-                const x = machines.find((y) => y.id === id)
-                if (!x) return
-                const agent = reportedAgent(x, draft.agent)
-                  ? draft.agent
-                  : (AGENT_KINDS.find((k) => reportedAgent(x, k)) ?? draft.agent)
-                set({
-                  machineId: x.id,
-                  agent,
-                  workspace: null,
-                  provider: INHERIT_PROVIDER,
-                  config: NO_CONFIG,
-                  ...named(agent),
-                })
-              }}
-            />
+          {roles ? (
+            <FormRow label={t('角色')} align="top" hint={roleHint(draft.avatar, draft.agent)}>
+              <RolePicker value={draft.avatar} agent={draft.agent} onChange={(avatar) => set({ avatar })} />
+            </FormRow>
           ) : (
-            <span className="newbot__muted">
-              {t('{owner} 还没有绑定电脑。Bot 会以「待绑定」状态创建，可先选择 Agent 种类。', {
-                owner: owner.name,
-              })}
-            </span>
+            <FormRow hint={t('默认用 Agent 的形象，一眼看出是哪家')}>
+              <Button size="small" onClick={() => setRoles(true)}>
+                {t('换个角色…')}
+              </Button>
+            </FormRow>
           )}
-        </FormRow>
 
-        <FormRow label="Agent" align="top">
-          <RadioGroup
-            aria-label="Agent"
-            value={draft.agent}
-            // An online machine whose client is too old for an agent still lists it, greyed, saying why.
-            options={AGENT_KINDS.filter((k) => clientRuns(m, k) || m?.online).map((k) => {
-              const outdated = !clientRuns(m, k)
-              const v = m && reportedAgent(m, k)
-              const unknown = !!m && agentsUndetected(m)
-              const missing = outdated || (!!m && !v && !unknown)
-              return {
-                value: k,
-                disabled: missing,
-                label: (
-                  <span className="newbot__machine">
-                    <AgentIcon kind={k} size={16} className="newbot__agent-face" />
-                    {AGENT_META[k].name}
-                    <span className={missing ? 'newbot__missing' : 'newbot__muted'}>
-                      {outdated
-                        ? t('客户端需升级')
-                        : !m
-                          ? ''
-                          : v
-                            ? (v.version ?? t('已安装'))
-                            : unknown
-                              ? t('待检测')
-                              : t('未安装')}
-                    </span>
-                  </span>
-                ),
-              }
-            })}
-            onChange={(k) => set({ agent: k, provider: INHERIT_PROVIDER, config: NO_CONFIG, ...named(k) })}
-          />
-        </FormRow>
-
-        {m && !more ? (
-          <FormRow hint={t('都可以在创建后的 Bot 设置里修改')}>
-            <Button size="small" onClick={() => setMore(true)}>
-              {t('设置供应商、模型与默认工作区…')}
-            </Button>
+          <FormRow label={t('系统提示词')} align="top" hint={t('同时作为群内简介。')}>
+            <TextField
+              multiline
+              aria-label={t('系统提示词')}
+              rows={3}
+              value={draft.prompt}
+              placeholder={t('后端接口开发，只改 server/ 目录')}
+              onChange={(e) => set({ prompt: e.target.value })}
+            />
           </FormRow>
-        ) : null}
-        {m && more ? (
-          <NewBotProviderFields
-            machine={m}
-            meId={me.id}
-            ownerId={owner.id}
-            agent={draft.agent}
-            provider={draft.provider}
-            config={draft.config}
-            onChange={set}
-          />
-        ) : null}
 
-        {more && self && m?.online ? (
-          <DefaultWorkspaceRow
-            machineId={m.id}
-            value={draft.workspace}
-            hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认自动克隆。')}
-            pickLabel={t('选择目录…')}
-            onChange={(workspace) => set({ workspace })}
-          />
-        ) : null}
-      </Form>
-      <div className={result.tone === 'offline' ? 'newbot__alert--neutral' : undefined}>
-        <Alert variant={RESULT_VARIANT[result.tone]} title={result.title} description={result.desc} />
-      </div>
-    </Shell>
+          <Divider label={t('运行配置')} />
+          <FormRow label={t('运行电脑')} align={machines.length ? 'top' : 'center'}>
+            {machines.length ? (
+              <RadioGroup
+                aria-label={t('运行电脑')}
+                value={m?.id}
+                options={(() => {
+                  const counts = new Map<string, number>()
+                  for (const x of machines) counts.set(x.name, (counts.get(x.name) ?? 0) + 1)
+                  return machines.map((x) => {
+                    const dup = (counts.get(x.name) ?? 0) > 1
+                    const extra = dup
+                      ? !x.online && x.lastSeenAt
+                        ? ` · ${t('最后在线 {time}', { time: ago(x.lastSeenAt) })}`
+                        : ` · #${x.id.slice(0, 4)}`
+                      : ''
+                    return {
+                      value: x.id,
+                      label: (
+                        <span className="newbot__machine">
+                          <span>{x.name}</span>
+                          <span className="newbot__muted">
+                            {OS_LABEL[x.os]} · {x.online ? t('在线') : t('离线')}
+                            {extra}
+                          </span>
+                        </span>
+                      ),
+                    }
+                  })
+                })()}
+                onChange={(id) => {
+                  const x = machines.find((y) => y.id === id)
+                  if (!x) return
+                  const agent = reportedAgent(x, draft.agent)
+                    ? draft.agent
+                    : (AGENT_KINDS.find((k) => reportedAgent(x, k)) ?? draft.agent)
+                  set({
+                    machineId: x.id,
+                    agent,
+                    workspace: null,
+                    provider: INHERIT_PROVIDER,
+                    config: NO_CONFIG,
+                    ...named(agent),
+                  })
+                }}
+              />
+            ) : (
+              <span className="newbot__muted">
+                {t('{owner} 还没有绑定电脑。Bot 会以「待绑定」状态创建，可先选择 Agent 种类。', {
+                  owner: owner.name,
+                })}
+              </span>
+            )}
+          </FormRow>
+
+          <FormRow label="Agent" align="top">
+            <RadioGroup
+              aria-label="Agent"
+              value={draft.agent}
+              // An online machine whose client is too old for an agent still lists it, greyed, saying why.
+              options={AGENT_KINDS.filter((k) => clientRuns(m, k) || m?.online).map((k) => {
+                const outdated = !clientRuns(m, k)
+                const v = m && reportedAgent(m, k)
+                const unknown = !!m && agentsUndetected(m)
+                const missing = outdated || (!!m && !v && !unknown)
+                return {
+                  value: k,
+                  disabled: missing,
+                  label: (
+                    <span className="newbot__machine">
+                      <AgentIcon kind={k} size={16} className="newbot__agent-face" />
+                      {AGENT_META[k].name}
+                      <span className={missing ? 'newbot__missing' : 'newbot__muted'}>
+                        {outdated
+                          ? t('客户端需升级')
+                          : !m
+                            ? ''
+                            : v
+                              ? (v.version ?? t('已安装'))
+                              : unknown
+                                ? t('待检测')
+                                : t('未安装')}
+                      </span>
+                    </span>
+                  ),
+                }
+              })}
+              onChange={(k) => set({ agent: k, provider: INHERIT_PROVIDER, config: NO_CONFIG, ...named(k) })}
+            />
+          </FormRow>
+
+          {m && !more ? (
+            <FormRow hint={t('都可以在创建后的 Bot 设置里修改')}>
+              <Button size="small" onClick={() => setMore(true)}>
+                {t('设置供应商、模型与默认工作区…')}
+              </Button>
+            </FormRow>
+          ) : null}
+          {m && more ? (
+            <NewBotProviderFields
+              machine={m}
+              meId={me.id}
+              ownerId={owner.id}
+              agent={draft.agent}
+              provider={draft.provider}
+              config={draft.config}
+              onChange={set}
+            />
+          ) : null}
+
+          {more && self && m?.online ? (
+            <DefaultWorkspaceRow
+              machineId={m.id}
+              value={draft.workspace}
+              hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认自动克隆。')}
+              pickLabel={t('选择目录…')}
+              onChange={(workspace) => set({ workspace })}
+            />
+          ) : null}
+        </Form>
+        <div className={result.tone === 'offline' ? 'newbot__alert--neutral' : undefined}>
+          <Alert variant={RESULT_VARIANT[result.tone]} title={result.title} description={result.desc} />
+        </div>
+      </Shell>
+      {guard.dialog}
+    </>
   )
 }

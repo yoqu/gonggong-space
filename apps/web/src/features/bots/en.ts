@@ -33,8 +33,8 @@ export default {
   'Git 提交身份': 'Git commit identity',
   'Git 提交名': 'Git commit name',
   'Git 提交邮箱': 'Git commit email',
-  'Bot 提交代码时的作者名和邮箱，留空用默认值；下次启动 agent 时生效':
-    'Author name and email of the commits the Bot makes; blank uses the default. Takes effect the next time the agent starts',
+  'Bot 提交代码时的作者名和邮箱，留空用默认值；下次启动 Agent 时生效':
+    'Author name and email of the commits the Bot makes; blank uses the default. Takes effect the next time the Agent starts',
   '只有 Bot 主人能修改 Git 提交身份': 'Only the Bot owner can change the Git commit identity',
   '、': ', ',
   已开启: 'On',
@@ -310,4 +310,6 @@ export default {
     'Turning on "Everyone else" also sets "Trusted list" to Allow everything. Their tasks will no longer ask you: the Bot may do anything on your computer, including dangerous commands such as deleting files or pushing code.',
   '他们发起的任务不再询问你，Bot 可以在你的电脑上执行任何操作，包括删除文件、推送代码等危险命令。':
     'Their tasks will no longer ask you: the Bot may do anything on your computer, including dangerous commands such as deleting files or pushing code.',
+  已添加共享成员: 'Shared members added',
+  已取消共享: 'Sharing canceled',
 } satisfies Record<string, string>

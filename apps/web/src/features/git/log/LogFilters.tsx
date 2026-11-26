@@ -693,6 +693,7 @@ export function LogFilters({
         aria-label={t('视图选项')}
         title={t('视图选项')}
         align="end"
+        portal
         items={viewItems(f, view, !!me)}
         onSelect={(v) => {
           if (v === 'mine') return onView({ ...view, mine: !view.mine })

@@ -679,7 +679,7 @@
   line-height: 20px;
 }
 .glog-info__meta dt {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .glog-info__meta dd {
   display: flex;
@@ -735,7 +735,7 @@
   text-decoration: underline;
 }
 .glog-info__time {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
 .glog-info__branches {

@@ -1,5 +1,5 @@
 import { type MySecretDto, SECRET_MIN_LENGTH } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { attempt } from '../../lib/errors'
@@ -11,6 +11,7 @@ import {
   ConfirmActionDialog,
   Dialog,
   EmptyState,
+  Form,
   GroupBox,
   GroupRow,
   NoSecretsArt,
@@ -20,6 +21,7 @@ import {
   Switch,
   Tag,
   toast,
+  useDiscardGuard,
 } from '../../ui'
 import { MODE_LABEL, secretsApi, valueState } from './api'
 import '../config/config.css'
@@ -29,10 +31,20 @@ export const FOREIGN_NOTE = t('电脑主人能读到 Bot 进程的环境变量�
 
 /** 设置 · 我的密钥: definitions of my teams and groups that take my own value (`shared_overridable` / `personal`). */
 export function MySecrets() {
-  const { data, error, reload } = useGet<MySecretDto[]>('/me/secrets')
+  const { data, error, loading, reload } = useGet<MySecretDto[]>('/me/secrets')
   const [filling, setFilling] = useState<MySecretDto | null>(null)
   const [clearing, setClearing] = useState<MySecretDto | null>(null)
-  if (error) return <Alert variant="error" title={t('密钥加载失败')} description={error} />
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  if (error)
+    return (
+      <Alert
+        variant="error"
+        title={t('密钥加载失败')}
+        description={error}
+        retrying={loading}
+        onRetry={reload}
+      />
+    )
   if (!data) return <Spinner />
   if (!data.length)
     return (
@@ -45,8 +57,14 @@ export function MySecrets() {
     )
   const places = [...new Set(data.map((d) => d.where))]
   const toggle = async (d: MySecretDto, on: boolean) => {
-    await attempt(() => secretsApi.setMine(d.secret.id, { allowForeignMachines: on }))
-    reload()
+    if (togglingId === d.secret.id) return
+    setTogglingId(d.secret.id)
+    try {
+      await attempt(() => secretsApi.setMine(d.secret.id, { allowForeignMachines: on }))
+      reload()
+    } finally {
+      setTogglingId((cur) => (cur === d.secret.id ? null : cur))
+    }
   }
   return (
     <>
@@ -84,6 +102,8 @@ export function MySecrets() {
                           size="small"
                           label={<span className="gs-desc">{t('他人电脑可用')}</span>}
                           checked={d.mine.allowForeignMachines}
+                          loading={togglingId === d.secret.id}
+                          disabled={togglingId === d.secret.id}
                           onChange={(on) => void toggle(d, on)}
                         />
                         <Button size="small" onClick={() => setClearing(d)}>
@@ -148,7 +168,15 @@ export function FillMine({
   const [foreign, setForeign] = useState(item.mine?.allowForeignMachines ?? false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const formId = useId()
+  const short = value.length > 0 && value.length < SECRET_MIN_LENGTH
+  const dirty = !!value || foreign !== (item.mine?.allowForeignMachines ?? false)
+  const guard = useDiscardGuard(dirty, onClose)
+  const requestClose = () => {
+    if (!busy) guard.requestClose()
+  }
   const submit = async () => {
+    if (busy || value.length < SECRET_MIN_LENGTH) return
     setBusy(true)
     try {
       await secretsApi.setMine(item.secret.id, { value, allowForeignMachines: foreign })
@@ -160,37 +188,47 @@ export function FillMine({
     }
   }
   return (
-    <Dialog
-      open
-      title={t('填写 {name}', { name: item.secret.name })}
-      message={item.secret.description || undefined}
-      onClose={busy ? () => {} : onClose}
-      closeOnBackdrop={false}
-      actions={[
-        { label: t('取消'), onClick: onClose, disabled: busy },
-        {
-          label: t('保存'),
-          variant: 'primary',
-          onClick: () => void submit(),
-          loading: busy,
-          disabled: value.length < SECRET_MIN_LENGTH,
-        },
-      ]}
-    >
-      <SecureField
-        label={t('值')}
-        autoComplete="new-password"
-        hint={
-          item.mine
-            ? `${t('当前：{state}', { state: valueState(item.mine) })} · ${t('至少 8 个字符')}`
-            : t('至少 8 个字符')
-        }
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <Checkbox label={FOREIGN} checked={foreign} onChange={setForeign} />
-      <div className="gs-desc">{FOREIGN_NOTE}</div>
-      {error ? <Alert variant="error" title={error} /> : null}
-    </Dialog>
+    <>
+      <Dialog
+        open
+        title={t('填写 {name}', { name: item.secret.name })}
+        message={item.secret.description || undefined}
+        onClose={requestClose}
+        closeOnBackdrop={false}
+        actions={[
+          { label: t('取消'), onClick: requestClose, disabled: busy },
+          {
+            label: t('保存'),
+            variant: 'primary',
+            type: 'submit',
+            form: formId,
+            loading: busy,
+            disabled: busy || value.length < SECRET_MIN_LENGTH,
+          },
+        ]}
+      >
+        <Form id={formId} onSubmit={() => void submit()}>
+          <SecureField
+            label={t('值')}
+            autoComplete="new-password"
+            autoFocus
+            hint={
+              short
+                ? undefined
+                : item.mine
+                  ? `${t('当前：{state}', { state: valueState(item.mine) })} · ${t('至少 8 个字符')}`
+                  : t('至少 8 个字符')
+            }
+            error={short ? t('至少 8 个字符') : undefined}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          <Checkbox label={FOREIGN} checked={foreign} onChange={setForeign} />
+          <div className="gs-desc">{FOREIGN_NOTE}</div>
+        </Form>
+        {error ? <Alert variant="error" title={error} /> : null}
+      </Dialog>
+      {guard.dialog}
+    </>
   )
 }

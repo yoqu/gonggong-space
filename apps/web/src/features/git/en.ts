@@ -481,4 +481,10 @@ export default {
   没有可贮藏的改动: 'No changes to stash',
   先写提交说明: 'Enter a commit message first',
   先勾选要提交的文件: 'Select files to commit first',
+  '要删除贮藏吗？': 'Drop stash?',
+  '要清空贮藏吗？': 'Clear stashes?',
+  '要删除未跟踪的文件吗？': 'Delete untracked files?',
+  '要中止{op}吗？': 'Abort {op}?',
+  '要放弃解决冲突吗？': 'Abandon conflict resolution?',
+  '要从该版本取回文件吗？': 'Get files from this revision?',
 } satisfies Record<string, string>

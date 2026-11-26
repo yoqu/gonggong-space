@@ -52,7 +52,7 @@
   padding: 0 var(--space-8) var(--space-4);
   font-size: var(--text-footnote-size);
   font-weight: 600;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .dirpick__place {
   display: flex;
@@ -167,7 +167,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .dirpick__list {
   flex: 1;

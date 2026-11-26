@@ -2,7 +2,16 @@ import type { FeishuAppView } from '@gonggong/protocol'
 import { lazy, Suspense, useState } from 'react'
 import { locale, t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { Alert, Button, ConfirmActionDialog, Presence, SecureField, TextField, toast } from '../../ui'
+import {
+  Alert,
+  Button,
+  ConfirmActionDialog,
+  Presence,
+  SecureField,
+  Spinner,
+  TextField,
+  toast,
+} from '../../ui'
 import { FeishuAppSteps, useFeishuApp } from './FeishuAppSteps'
 import { FeishuAppTag } from './FeishuAppTag'
 import './feishu.css'
@@ -32,7 +41,7 @@ export function FeishuAppForm({
   onChange?: () => void
 }) {
   const feishu = useFeishuApp(path)
-  const { app, retrying } = feishu
+  const { app, error: loadError, loading: loadPending, retrying } = feishu
   const reload = () => {
     feishu.reload()
     onChange?.()
@@ -62,6 +71,25 @@ export function FeishuAppForm({
       setBusy(false)
     }
   }
+
+  if (loadError)
+    return (
+      <div className="feishu-app">
+        <Alert
+          variant="error"
+          title={t('飞书应用加载失败')}
+          description={loadError}
+          retrying={loadPending}
+          onRetry={feishu.reload}
+        />
+      </div>
+    )
+  if (!feishu.data && loadPending)
+    return (
+      <div className="feishu-app">
+        <Spinner />
+      </div>
+    )
 
   return (
     <div className="feishu-app">
@@ -96,7 +124,7 @@ export function FeishuAppForm({
           <div className="feishu-app__actions">
             <Button
               size="small"
-              variant={app ? undefined : 'primary'}
+              variant={app || blocked ? undefined : 'primary'}
               disabled={!!blocked}
               onClick={() => setScan('create')}
             >
@@ -126,6 +154,11 @@ export function FeishuAppForm({
           </div>
           {error ? <Alert variant="error" description={error} /> : null}
           <div className="feishu-app__actions">
+            {app ? (
+              <Button size="small" variant="plain" disabled={busy} onClick={() => setReplacing(false)}>
+                {t('取消')}
+              </Button>
+            ) : null}
             <Button
               size="small"
               disabled={busy || !appId.trim() || !appSecret.trim()}
@@ -134,11 +167,6 @@ export function FeishuAppForm({
             >
               {app ? t('更换') : t('接入#verb')}
             </Button>
-            {app ? (
-              <Button size="small" variant="plain" onClick={() => setReplacing(false)}>
-                {t('取消')}
-              </Button>
-            ) : null}
           </div>
         </>
       )}
@@ -160,7 +188,7 @@ export function FeishuAppForm({
       <Presence>
         {removing ? (
           <ConfirmActionDialog
-            title={removeLabel}
+            title={t('要{action}吗？', { action: removeLabel })}
             message={t('确定移除飞书应用 {appId}？', { appId: app?.appId ?? '' })}
             consequences={[
               t('断开该应用的长连接，飞书里将无法再使用它'),

@@ -1,10 +1,12 @@
 import { type ChannelDto, type SidebarSectionDto, sectionSubtree } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
+import { errorText } from '../../lib/api'
 import { attempt, toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
 import {
+  Alert,
   AlertDialog,
   Avatar,
   Button,
@@ -42,7 +44,11 @@ export function SectionNameDialog({
 }) {
   const [name, setName] = useState(initial)
   const [busy, setBusy] = useState(false)
+  const composingRef = useRef(false)
   const ok = !!name.trim() && name.trim() !== initial
+  const close = () => {
+    if (!busy) onClose()
+  }
   // One request at a time: a double click or Enter repeat must not create two sections.
   const save = () => {
     if (!ok || busy) return
@@ -56,6 +62,7 @@ export function SectionNameDialog({
     <Dialog
       open
       width={400}
+      closeOnBackdrop={false}
       title={
         initial
           ? team
@@ -67,10 +74,12 @@ export function SectionNameDialog({
               ? t('新建团队分区')
               : t('新建分区')
       }
-      onClose={onClose}
+      onClose={close}
       footer={
         <>
-          <Button onClick={onClose}>{t('取消')}</Button>
+          <Button disabled={busy} onClick={close}>
+            {t('取消')}
+          </Button>
           <Button variant="primary" disabled={!ok} loading={busy} onClick={save}>
             {initial ? t('保存') : t('创建')}
           </Button>
@@ -88,8 +97,15 @@ export function SectionNameDialog({
         placeholder={t('如：发版与运维')}
         autoFocus
         onChange={(e) => setName(e.target.value)}
+        onCompositionStart={() => {
+          composingRef.current = true
+        }}
+        onCompositionEnd={() => {
+          composingRef.current = false
+        }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) save()
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229 && !composingRef.current)
+            save()
         }}
       />
     </Dialog>
@@ -113,21 +129,39 @@ export function BrowseChannelsDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [list, setList] = useState<ChannelDto[] | null>(null)
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [retryKey, setRetryKey] = useState(0)
   const [joining, setJoining] = useState('')
   const [show, setShow] = useState<Show>('all')
   const [order, setOrder] = useState<Order>('active')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryKey triggers reload
   useEffect(() => {
     let live = true
+    setLoading(true)
     // Typing waits for a pause instead of querying on every keystroke.
     const id = setTimeout(
-      () => channelsApi.list(q).then((l) => live && setList(l), toastError),
+      () =>
+        channelsApi.list(q).then(
+          (l) => {
+            if (!live) return
+            setList(l)
+            setLoadError('')
+            setLoading(false)
+          },
+          (e) => {
+            if (!live) return
+            setLoadError(errorText(e))
+            setLoading(false)
+          },
+        ),
       q ? SEARCH_DEBOUNCE_MS : 0,
     )
     return () => {
       live = false
       clearTimeout(id)
     }
-  }, [q])
+  }, [q, retryKey])
   const open = (id: string) => {
     onClose()
     navigate(`/g/${id}`)
@@ -178,8 +212,18 @@ export function BrowseChannelsDialog({ onClose }: { onClose: () => void }) {
           onChange={setOrder}
         />
       </div>
+      {loadError ? (
+        <Alert
+          variant="error"
+          description={loadError}
+          retrying={loading}
+          onRetry={() => setRetryKey((k) => k + 1)}
+        />
+      ) : null}
       {!list ? (
-        <Spinner />
+        loadError ? null : (
+          <Spinner />
+        )
       ) : shown.length ? (
         <GroupBox className="browse-channels">
           {shown.map((c) => {
@@ -285,7 +329,7 @@ export function DeleteSectionDialog({
       }}
       actions={[
         { label: t('取消'), disabled: busy, onClick: onClose },
-        { label: t('删除'), variant: 'destructive', disabled: busy, onClick: onConfirm },
+        { label: t('删除'), variant: 'destructive', disabled: busy, loading: busy, onClick: onConfirm },
       ]}
     />
   )

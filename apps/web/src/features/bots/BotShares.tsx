@@ -2,7 +2,7 @@ import type { BotDto, UserBriefDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { AlertDialog, Button, Form, FormRow, IconButton, Presence } from '../../ui'
+import { AlertDialog, Button, Form, FormRow, IconButton, Presence, toast } from '../../ui'
 import { MemberPicker } from '../groups/pickers'
 import { botsApi } from './model'
 import { ShareRequestList } from './ShareRequest'
@@ -26,7 +26,10 @@ export function BotShares({ bot, users }: { bot: BotDto; users: UserBriefDto[] }
   }
   const confirmRemove = async () => {
     if (!removing || busy) return
-    if (await save(bot.sharedWith.filter((x) => x !== removing))) setRemoving(null)
+    if (await save(bot.sharedWith.filter((x) => x !== removing))) {
+      toast({ type: 'success', message: t('已取消共享') })
+      setRemoving(null)
+    }
   }
   return (
     <Form>
@@ -68,7 +71,11 @@ export function BotShares({ bot, users }: { bot: BotDto; users: UserBriefDto[] }
             </Button>
           }
           users={users.filter((u) => u.id !== bot.ownerId && !bot.sharedWith.includes(u.id))}
-          onAdd={(ids) => void save([...bot.sharedWith, ...ids])}
+          onAdd={(ids) =>
+            void save([...bot.sharedWith, ...ids]).then(
+              (ok) => ok && toast({ type: 'success', message: t('已添加共享成员') }),
+            )
+          }
         />
       </FormRow>
       <ShareRequestList bot={bot} />

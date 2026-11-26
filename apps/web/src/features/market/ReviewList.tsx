@@ -17,7 +17,7 @@ export function MarketReviewList({ path }: { path: string }) {
   if (!data) return error ? <Alert variant="error" title={error} onRetry={reload} /> : <Spinner />
   return (
     <>
-      <div className="gs-note">{t('公开条目由平台管理员审核，仅本团队可见的条目由团队管理员审核。')}</div>
+      <div className="gs-note">{t('公开条目由系统管理员审核，仅本团队可见的条目由团队管理员审核。')}</div>
       {data.length ? (
         <GroupBox>
           {data.map((r) => (

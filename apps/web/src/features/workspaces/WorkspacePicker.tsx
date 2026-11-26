@@ -55,27 +55,41 @@ export function WorkspacePicker({
     .map((p) => p.path)
   const local = [...new Set([...(found?.paths ?? []), ...remembered])]
   const [foreign, setForeign] = useState<{ path: string; remote: string } | null>(null)
-  const bind = (path: string | null, force?: boolean) =>
-    api
-      .put(`/groups/${group.id}/bots/${bot.id}/workspace`, force ? { path, force } : { path })
-      .then(() => {
-        onDone?.()
-        onClose()
-      })
-      .catch(toastError)
+  const [busy, setBusy] = useState(false)
+  const bind = async (path: string | null, force?: boolean) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await api.put(`/groups/${group.id}/bots/${bot.id}/workspace`, force ? { path, force } : { path })
+      onDone?.()
+      onClose()
+    } catch (e) {
+      toastError(e)
+      setBusy(false)
+    }
+  }
   // A directory outside the group repo is allowed for this bot only, after a warning. Local (file://) group repos
   // can't be compared here; the daemon keeps checking those.
   const pick = async (path: string) => {
+    if (busy) return
     const want = group.repo && repoKey(group.repo.url)
     if (!want) return bind(path)
+    setBusy(true)
     try {
       const { git } = await api.get<DirListingDto>(
         `/machines/${bot.machineId}/dirs?path=${encodeURIComponent(path)}`,
       )
-      if (git?.remotes.some((u) => repoKey(u) === want)) return bind(path)
+      if (git?.remotes.some((u) => repoKey(u) === want)) {
+        await api.put(`/groups/${group.id}/bots/${bot.id}/workspace`, { path })
+        onDone?.()
+        onClose()
+        return
+      }
+      setBusy(false)
       setForeign({ path, remote: git ? (git.remotes[0] ?? t('无 remote')) : t('不是 git 仓库') })
     } catch (e) {
       toastError(e)
+      setBusy(false)
     }
   }
 
@@ -85,12 +99,19 @@ export function WorkspacePicker({
         machineId={bot.machineId}
         title={t('为 {bot} 选择工作区', { bot: bot.name })}
         start={bot.defaultWorkspace}
+        busy={busy}
         onPick={(path) => void pick(path)}
         onClose={onClose}
         extra={
           <div className="dirpick__choices">
             {local.map((p) => (
-              <button key={p} type="button" className="dirpick__choice" onClick={() => void bind(p)}>
+              <button
+                key={p}
+                type="button"
+                className="dirpick__choice"
+                disabled={busy}
+                onClick={() => void bind(p)}
+              >
                 <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
                 <span className="dirpick__choice-text">
                   <span className="dirpick__choice-title">
@@ -102,7 +123,12 @@ export function WorkspacePicker({
               </button>
             ))}
             {group.repo ? (
-              <button type="button" className="dirpick__choice" onClick={() => void bind(null)}>
+              <button
+                type="button"
+                className="dirpick__choice"
+                disabled={busy}
+                onClick={() => void bind(null)}
+              >
                 <Icon name="git-branch" size={16} className="dirpick__choice-icon" />
                 <span className="dirpick__choice-text">
                   <span className="dirpick__choice-title">
@@ -121,6 +147,7 @@ export function WorkspacePicker({
               <button
                 type="button"
                 className="dirpick__choice"
+                disabled={busy}
                 onClick={() => bot.defaultWorkspace && void pick(bot.defaultWorkspace)}
               >
                 <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
@@ -131,10 +158,15 @@ export function WorkspacePicker({
               </button>
             ) : null}
             {group.repo ? null : (
-              <button type="button" className="dirpick__choice" onClick={() => void bind(null)}>
+              <button
+                type="button"
+                className="dirpick__choice"
+                disabled={busy}
+                onClick={() => void bind(null)}
+              >
                 <Icon name="folder" size={16} className="dirpick__choice-icon" />
                 <span className="dirpick__choice-text">
-                  <span className="dirpick__choice-title">{t('使用托管目录')}</span>
+                  <span className="dirpick__choice-title">{t('使用托管工作区')}</span>
                   <span className="dirpick__choice-desc">
                     {t('共工在电脑上为这个会话单独建的目录，不碰你已有的文件')}
                   </span>
@@ -161,10 +193,18 @@ export function WorkspacePicker({
               <li>{t('仅影响 {bot}，群内其他 Bot 不变', { bot: bot.name })}</li>
             </ul>
           }
-          onClose={() => setForeign(null)}
+          onClose={() => {
+            if (!busy) setForeign(null)
+          }}
           actions={[
-            { label: t('取消'), onClick: () => setForeign(null) },
-            { label: t('仍然使用'), variant: 'primary', onClick: () => void bind(foreign.path, true) },
+            { label: t('取消'), disabled: busy, onClick: () => setForeign(null) },
+            {
+              label: t('仍然使用'),
+              variant: 'primary',
+              disabled: busy,
+              loading: busy,
+              onClick: () => void bind(foreign.path, true),
+            },
           ]}
         />
       ) : null}

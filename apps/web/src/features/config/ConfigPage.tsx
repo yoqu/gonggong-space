@@ -17,7 +17,6 @@ import {
   Checkbox,
   Dialog,
   Disclosure,
-  EmptyState,
   Form,
   FormRow,
   GroupBox,
@@ -31,7 +30,6 @@ import {
   Tag,
   TextField,
   toast,
-  UnsupportedArt,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { MarketReviewList } from '../market/ReviewList'
@@ -52,17 +50,11 @@ const BUILTIN_TOOLS = [
   ...Object.values(GONGGONG_TOOL_TITLES).map((key) => t.text({ key })),
 ].join(t('、'))
 
-type CType = 'mcp' | 'skill' | 'plugin' | 'prompt' | 'secret' | 'review'
-const LAYERS = [
-  { value: 'platform' as const, label: t('平台层') },
-  { value: 'team' as const, label: t('团队层'), disabled: true },
-  { value: 'group' as const, label: t('群层'), disabled: true },
-]
+type CType = 'mcp' | 'skill' | 'plugin' | 'secret' | 'review'
 const CTYPES: { value: CType; label: string }[] = [
   { value: 'mcp', label: 'MCP' },
   { value: 'skill', label: 'Skill' },
   { value: 'plugin', label: t('插件') },
-  { value: 'prompt', label: t('指令') },
   { value: 'secret', label: t('密钥') },
   { value: 'review', label: t('待审核') },
 ]
@@ -347,8 +339,6 @@ export function ConfigPage() {
       }
     >
       <div className="cfg__bar">
-        <Tabs items={LAYERS} value="platform" onChange={() => undefined} />
-        <span className="spacer" />
         <Tabs items={CTYPES} value={ctype} onChange={setCtype} />
       </div>
       <div className="cfg">
@@ -361,12 +351,6 @@ export function ConfigPage() {
             <MarketReviewList path="/market/reviews" />
           ) : ctype === 'secret' ? (
             <SecretLayerList base="/admin/secrets" scope="platform" bots={bots} />
-          ) : ctype !== 'mcp' ? (
-            <EmptyState
-              illustration={<UnsupportedArt />}
-              title={t('暂不支持 {type}', { type: CTYPES.find((c) => c.value === ctype)?.label ?? '' })}
-              description={t('目前支持配置 MCP、Skill、插件、密钥与待审核条目。')}
-            />
           ) : (
             <McpLayerList layer={layer} tag={t('平台层')} />
           )}

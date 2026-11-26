@@ -132,9 +132,9 @@ describe('admin console', () => {
       '正常',
       '',
     ])
-    expect(cells('wanglei').slice(2, 6)).toEqual(['--', '普通成员', '1 台 · 离线', '正常'])
+    expect(cells('wanglei').slice(2, 6)).toEqual(['—', '普通成员', '1 台 · 离线', '正常'])
     expect(cells('zhaomin').slice(4, 6)).toEqual(['未绑定', '待修改密码'])
-    expect(cells('liuyang').slice(4, 6)).toEqual(['--', '已停用'])
+    expect(cells('liuyang').slice(4, 6)).toEqual(['—', '已停用'])
     // Row actions live in one trailing「操作」pull-down; my own row can only be edited.
     const more = within(rowOf('chenchen')).getByRole('button', { name: '操作' })
     expect(more.className).toContain('ui-btn--small')

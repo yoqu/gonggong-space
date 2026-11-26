@@ -10,7 +10,17 @@ const POLL_MS = 1500
 
 /** Saved is not done: what is left (approval, availability range), live from the app itself. */
 function Saved({ path, onChange }: { path: string; onChange: () => void }) {
-  const { app, retry, retrying } = useFeishuApp(path)
+  const { app, error, loading, reload, retry, retrying } = useFeishuApp(path)
+  if (error)
+    return (
+      <Alert
+        variant="error"
+        title={t('飞书应用加载失败')}
+        description={error}
+        retrying={loading}
+        onRetry={reload}
+      />
+    )
   if (!app) return <Spinner />
   return <FeishuAppSteps app={app} retrying={retrying} full onRetry={() => void retry().then(onChange)} />
 }
@@ -109,7 +119,8 @@ export function FeishuScanDialog({
       ]}
     >
       <div className="feishu-scan">
-        {error ? <Alert variant="error" description={error} /> : null}
+        {!session && !error ? <Spinner /> : null}
+        {error ? <Alert variant="error" description={error} onRetry={start} /> : null}
         {session?.status === 'waiting' ? (
           <>
             <QRCodeSVG value={session.url} size={196} marginSize={2} title={t('飞书扫码')} />

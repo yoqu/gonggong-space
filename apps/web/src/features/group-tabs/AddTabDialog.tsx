@@ -157,14 +157,26 @@ export function AddTabDialog({ group, onClose }: { group: GroupDto; onClose: () 
           </FormRow>
         ) : kind === 'knowledge' ? (
           <FormRow label={t('知识库条目')}>
-            <Select
-              label={t('知识库条目')}
-              options={(kb.data?.entries ?? []).map((e) => ({ value: e.id, label: e.title }))}
-              value={knowledgeId}
-              onChange={setKnowledgeId}
-              placeholder={kb.data && !kb.data.entries.length ? t('知识库还没有条目') : t('请选择')}
-              disabled={!kb.data?.entries.length}
-            />
+            {kb.error ? (
+              <Alert
+                variant="error"
+                title={t('知识库加载失败')}
+                description={kb.error}
+                retrying={kb.loading}
+                onRetry={kb.reload}
+              />
+            ) : !kb.data ? (
+              <Spinner size={14} />
+            ) : (
+              <Select
+                label={t('知识库条目')}
+                options={kb.data.entries.map((e) => ({ value: e.id, label: e.title }))}
+                value={knowledgeId}
+                onChange={setKnowledgeId}
+                placeholder={!kb.data.entries.length ? t('知识库还没有条目') : t('请选择')}
+                disabled={!kb.data.entries.length}
+              />
+            )}
           </FormRow>
         ) : kind === 'file' ? (
           <>

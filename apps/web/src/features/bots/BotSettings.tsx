@@ -99,13 +99,28 @@ function warning(bot: BotDto, userName: (id: string) => string, machine: Machine
 /** Why the Bot cannot run yet; its owner confirms a Bot someone else created for them right here. */
 export function BotWarning({ bot, users, owner }: { bot: BotDto; users: UserBriefDto[]; owner: boolean }) {
   const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
+  const [confirming, setConfirming] = useState(false)
   const warn = warning(bot, (id) => users.find((u) => u.id === id)?.name ?? '--', machine)
   if (!warn) return null
+  const onConfirm = async () => {
+    if (confirming) return
+    setConfirming(true)
+    try {
+      await confirmBot(bot.id)
+    } finally {
+      setConfirming(false)
+    }
+  }
   return (
     <Alert variant="warning" title={warn.title} description={warn.desc}>
       {bot.presence === 'pending_confirm' && owner ? (
         <div className="bots-detail__confirm">
-          <Button variant="primary" onClick={() => void confirmBot(bot.id)}>
+          <Button
+            variant="primary"
+            loading={confirming}
+            disabled={confirming}
+            onClick={() => void onConfirm()}
+          >
             {t('确认')}
           </Button>
         </div>
@@ -458,7 +473,7 @@ export function BotDetail({
         <FormRow
           label={t('Git 提交身份')}
           align="top"
-          hint={t('Bot 提交代码时的作者名和邮箱，留空用默认值；下次启动 agent 时生效')}
+          hint={t('Bot 提交代码时的作者名和邮箱，留空用默认值；下次启动 Agent 时生效')}
         >
           <div className="bots-detail__git">
             <TextField

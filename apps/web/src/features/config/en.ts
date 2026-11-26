@@ -72,14 +72,14 @@ export default {
   添加一项: 'Add item',
 
   // Skills
-  '说明这个 skill 做什么、什么时候使用': 'What this skill does and when to use it',
+  '说明这个 Skill 做什么、什么时候使用': 'What this Skill does and when to use it',
   '历史版本 {name}': 'Version history of {name}',
   '编辑 {name}': 'Edit {name}',
   '还没有 Skill': 'No skills yet',
   '上传 SKILL.md 所在的文件夹或 zip，保存后相关 Bot 下一轮即可使用。':
     'Upload the folder or zip containing SKILL.md; affected Bots can use it from their next run.',
-  '与仓库自带的同名 skill 冲突时跳过团队版，运行卡片会提示。':
-    'A team skill named like one in the repo is skipped, with a note on the run card.',
+  '与仓库自带的同名 Skill 冲突时跳过团队版，运行卡片会提示。':
+    'A team Skill named like one in the repo is skipped, with a note on the run card.',
   '添加 Skill…': 'Add Skill…',
   '继承自团队/平台': 'Inherited from team / platform',
   '内容只读；在本群关闭只影响本群，团队和其他群照常加载。':
@@ -87,7 +87,7 @@ export default {
   '在本群启用 {name}': 'Enable {name} in this group',
   '删除 Skill {name}？': 'Delete skill {name}?',
   '删除后历史版本一并移除，无法恢复。': 'Its version history is removed too. This cannot be undone.',
-  '相关 Bot 下一轮起不再加载这个 skill': 'Affected Bots stop loading this skill from their next run',
+  '相关 Bot 下一轮起不再加载这个 Skill': 'Affected Bots stop loading this Skill from their next run',
   '已删除 {name}': 'Deleted {name}',
   导入文件夹: 'Import folder',
   '导入文件夹…': 'Import folder…',

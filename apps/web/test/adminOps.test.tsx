@@ -203,11 +203,11 @@ describe('群', () => {
     expect(cells('支付服务重构')).toEqual([
       '支付服务重构',
       '默认团队',
-      '--',
+      '—',
       'git.corp/pay/pay-server',
       '6',
       '4',
-      '--',
+      '—',
     ])
     await waitFor(() =>
       expect(cells('旧版后台')).toEqual([
@@ -224,11 +224,11 @@ describe('群', () => {
     expect(cells('王磊 ⇄ 小王的 Claude')).toEqual([
       '王磊 ⇄ 小王的 Claude',
       '默认团队',
-      '--',
+      '—',
       '未绑定',
       '1',
       '1',
-      '--',
+      '—',
     ])
   })
 })
@@ -367,7 +367,7 @@ describe('电脑与网络', () => {
       '周婷',
       'zt-desktop',
       'Windows',
-      '--',
+      '—',
       'v0.8.7',
       '',
       '180 ms',
@@ -380,11 +380,11 @@ describe('电脑与网络', () => {
       '王磊',
       'never-measured',
       'macOS',
-      '--',
+      '—',
       'v0.9.3',
       '',
-      '--',
-      '--',
+      '—',
+      '—',
       '离线',
       '从未连接',
       '',
@@ -405,7 +405,9 @@ describe('电脑与网络', () => {
     expect(within(page).getByRole('heading', { name: /zt-desktop/ })).toBeTruthy()
     expect(within(page).queryByRole('tab')).toBeNull()
     expect(within(page).getByRole('button', { name: '重命名' })).toBeTruthy()
-    expect(within(page).getByRole('button', { name: '解绑电脑' })).toBeTruthy()
+    fireEvent.click(within(page).getByRole('button', { name: '更多操作' }))
+    expect(screen.getByRole('menuitem', { name: '解绑电脑…' })).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
     expect(within(page).queryByRole('button', { name: '新建终端' })).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
     fireEvent.click(within(page).getByRole('link', { name: '返回后台' }))

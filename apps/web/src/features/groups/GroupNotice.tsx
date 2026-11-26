@@ -22,13 +22,15 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
   const run = async () => {
     if (busy) return
     setBusy(true)
-    if (await attempt(() => groupsApi.removeNotice(groupId))) onClose()
-    else setBusy(false)
+    if (await attempt(() => groupsApi.removeNotice(groupId))) {
+      toast({ type: 'success', message: t('已移除群公告') })
+      onClose()
+    } else setBusy(false)
   }
   return (
     <Dialog
       open
-      title={t('移除群公告')}
+      title={t('要移除群公告吗？')}
       width={400}
       closeOnBackdrop={false}
       onClose={close}

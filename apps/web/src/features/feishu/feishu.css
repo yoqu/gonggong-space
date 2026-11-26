@@ -63,7 +63,7 @@
 }
 
 .feishu-app__or {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 
 .feishu-scan {
@@ -168,7 +168,7 @@
 
 .feishu-steps__detail {
   font-family: var(--font-mono);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 
 .feishu-steps__done {

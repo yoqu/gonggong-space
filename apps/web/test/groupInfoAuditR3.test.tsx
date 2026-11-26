@@ -471,7 +471,7 @@ describe('R3A P1-6: danger zone AlertDialog and busy guards', () => {
     })
     const onClose = vi.fn()
     render(<RemoveNoticeDialog groupId="g1" onClose={onClose} />)
-    const dlg = screen.getByRole('dialog', { name: '移除群公告' })
+    const dlg = screen.getByRole('dialog', { name: '要移除群公告吗？' })
 
     fireEvent.click(screen.getByTestId('dialog-overlay'))
     expect(onClose).not.toHaveBeenCalled()

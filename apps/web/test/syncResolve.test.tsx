@@ -209,6 +209,9 @@ describe('sync panel actions', () => {
       within(screen.getByTestId('replica-b2')).queryByRole('button', { name: '提交本地改动' }),
     ).toBeNull()
     fireEvent.click(within(mine).getByRole('button', { name: '提交本地改动' }))
+    await waitFor(() =>
+      expect(within(mine).getByRole('button', { name: '丢弃本地改动' }).hasAttribute('disabled')).toBe(false),
+    )
     fireEvent.click(within(mine).getByRole('button', { name: '丢弃本地改动' }))
     const dlg = await screen.findByRole('alertdialog')
     fireEvent.click(within(dlg).getByRole('button', { name: '丢弃' }))

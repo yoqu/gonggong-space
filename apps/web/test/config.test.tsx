@@ -82,9 +82,9 @@ describe('配置中心', () => {
     })
     renderConfig()
     expect(await screen.findByRole('heading', { name: '配置中心' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: '平台层' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: '团队层' }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('tab', { name: '群层' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByRole('tab', { name: '团队层' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: '群层' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: '指令' })).toBeNull()
     await screen.findByText('wiki-search')
     // The built-in gonggong row is always on and not counted: the subtitle says custom.
     expect(screen.getByText('自定义 MCP 2 个 · 已启用 1 个')).toBeTruthy()
@@ -104,15 +104,7 @@ describe('配置中心', () => {
       (screen.getByRole('checkbox', { name: '强制相关 Bot 下一轮开新会话' }) as HTMLInputElement).checked,
     ).toBe(false)
 
-    fireEvent.click(screen.getByRole('tab', { name: '指令' }))
-    expect(
-      screen
-        .getByText('暂不支持 指令')
-        .closest('.ui-empty')
-        ?.querySelector('.ui-empty__art svg[aria-hidden="true"]'),
-    ).toBeTruthy()
     expect(screen.queryByText(/一期|二期|三期/)).toBeNull()
-    expect(screen.queryByText('wiki-search')).toBeNull()
   })
 
   it('saves toggles, additions and removals; forcing a new session is opt-in', async () => {

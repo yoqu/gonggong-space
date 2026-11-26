@@ -331,7 +331,7 @@
   white-space: nowrap;
 }
 .gs-row__meta {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-caption-size);
 }
 .gs-files {

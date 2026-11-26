@@ -65,7 +65,7 @@ function EnableWizard({ group, onCancel }: { group: GroupDto; onCancel: () => vo
   if (!preview) return <Spinner />
   const bases = preview.bots.filter((b) => b.canBase)
   const confirm = async () => {
-    if (!baseId) return
+    if (!baseId || busy) return
     setBusy(true)
     try {
       await groupsApi.enableSync(group.id, baseId)
@@ -115,8 +115,10 @@ function EnableWizard({ group, onCancel }: { group: GroupDto; onCancel: () => vo
         )}
       </div>
       <div className="sync-actions">
-        <Button onClick={onCancel}>{t('取消')}</Button>
-        <Button variant="primary" disabled={!baseId || busy} onClick={() => void confirm()}>
+        <Button disabled={busy} onClick={onCancel}>
+          {t('取消')}
+        </Button>
+        <Button variant="primary" loading={busy} disabled={!baseId || busy} onClick={() => void confirm()}>
           {t('确认切换')}
         </Button>
       </div>
@@ -179,7 +181,7 @@ export function SyncModeTab({ group }: { group: GroupDto }) {
       <Presence>
         {disabling ? (
           <ConfirmActionDialog
-            title={t('切回分区模式')}
+            title={t('要切回分区模式吗？')}
             message={t('「{name}」将停止强制同步。', { name: group.name })}
             consequences={[
               t('各 Bot 保留当前文件，此后各自独立工作'),

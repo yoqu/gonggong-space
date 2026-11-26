@@ -46,18 +46,18 @@ function Replica({
   const state = STATE[shown]
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [conflict, setConflict] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busyOp, setBusyOp] = useState<'join' | 'submit' | null>(null)
   const row = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focus) row.current?.scrollIntoView?.({ block: 'center' })
   }, [focus])
   const join = (force: boolean) => syncApi.join(groupId, r.botId, force)
-  const runAction = (fn: () => Promise<unknown>, okMsg: string) => {
-    if (busy) return
-    setBusy(true)
+  const runAction = (op: 'join' | 'submit', fn: () => Promise<unknown>, okMsg: string) => {
+    if (busyOp) return
+    setBusyOp(op)
     void fn()
       .then(() => toast({ type: 'success', message: okMsg }), toastError)
-      .finally(() => setBusy(false))
+      .finally(() => setBusyOp(null))
   }
   const joinable = canAct && r.state === 'excluded' && r.workspace === 'managed'
   // Uncommitted changes would block a plain join again: they must be discarded (or cleaned up on the machine).
@@ -92,12 +92,17 @@ function Replica({
       </span>
       <span className="sync-row__actions">
         {joinable && !dirty ? (
-          <Button size="small" disabled={busy} onClick={() => runAction(() => join(false), t('已开始加入'))}>
+          <Button
+            size="small"
+            loading={busyOp === 'join'}
+            disabled={!!busyOp}
+            onClick={() => runAction('join', () => join(false), t('已开始加入'))}
+          >
             {t('加入')}
           </Button>
         ) : null}
         {joinable ? (
-          <Button size="small" onClick={() => setConfirm('join')}>
+          <Button size="small" disabled={!!busyOp} onClick={() => setConfirm('join')}>
             {t('丢弃本地改动并加入')}
           </Button>
         ) : null}
@@ -105,14 +110,15 @@ function Replica({
           <>
             <Button
               size="small"
-              disabled={busy}
+              loading={busyOp === 'submit'}
+              disabled={!!busyOp}
               onClick={() =>
-                runAction(() => syncApi.drift(groupId, r.botId, 'submit'), t('已开始提交本地改动'))
+                runAction('submit', () => syncApi.drift(groupId, r.botId, 'submit'), t('已开始提交本地改动'))
               }
             >
               {t('提交本地改动')}
             </Button>
-            <Button size="small" onClick={() => setConfirm('discard')}>
+            <Button size="small" disabled={!!busyOp} onClick={() => setConfirm('discard')}>
               {t('丢弃本地改动')}
             </Button>
           </>
@@ -136,7 +142,7 @@ function Replica({
       <Presence>
         {confirm === 'discard' ? (
           <ConfirmActionDialog
-            title={t('丢弃本地改动')}
+            title={t('要丢弃本地改动吗？')}
             message={t('{bot} 的工作区将回到最新版本。', { bot: r.botName })}
             consequences={[
               t('本地改动的文件会先备份到本机，再被覆盖或删除'),
@@ -152,7 +158,7 @@ function Replica({
       <Presence>
         {confirm === 'join' ? (
           <ConfirmActionDialog
-            title={t('丢弃本地改动并加入')}
+            title={t('要丢弃本地改动并加入吗？')}
             message={t('{bot} 的工作区将与最新版本保持一致。', { bot: r.botName })}
             consequences={[
               t('未提交的改动和最新版本没有的文件会先备份到本机，再被覆盖或删除'),

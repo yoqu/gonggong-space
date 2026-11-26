@@ -200,22 +200,24 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
     toast({ type: 'success', message: t('密码已修改，其他设备上的登录已失效') })
     onClose()
   })
+  const busy = pc.phase !== 'idle'
   return (
     <Dialog
       open
       title={t('修改密码')}
       message={t('修改后，其他设备上的登录会失效。')}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       closeOnBackdrop={false}
       width={420}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: onClose },
         {
           label: pc.phase === 'busy' ? t('保存中…') : t('保存新密码'),
           variant: 'primary',
           type: 'submit',
           form: 'change-password',
-          disabled: pc.phase !== 'idle',
+          loading: pc.phase === 'busy',
+          disabled: busy,
         },
       ]}
     >

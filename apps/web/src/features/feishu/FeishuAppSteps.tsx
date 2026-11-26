@@ -11,7 +11,7 @@ const FEISHU_ADMIN = 'https://www.feishu.cn/admin'
 
 /** The Feishu app at `path`, refreshed while its long connection comes up, with 重试 of its dev config. */
 export function useFeishuApp(path: string) {
-  const { data, reload } = useGet<FeishuAppView>(path)
+  const { data, error, loading, reload } = useGet<FeishuAppView>(path)
   const app = data?.app ?? null
   const [retrying, setRetrying] = useState(false)
 
@@ -34,7 +34,7 @@ export function useFeishuApp(path: string) {
     }
   }, [path, reload])
 
-  return { data, app, reload, retry, retrying }
+  return { data, app, error, loading, reload, retry, retrying }
 }
 
 type State = 'done' | 'wait' | 'warn' | 'fail' | 'note'

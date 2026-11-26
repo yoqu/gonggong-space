@@ -9,7 +9,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt, toastError } from '../../lib/errors'
 import { localDateTime } from '../../lib/time'
-import { Alert, Button, Dialog, EmptyState, GroupBox, Spinner, Switch, Tag } from '../../ui'
+import { Alert, AlertDialog, Button, EmptyState, GroupBox, Spinner, Switch, Tag } from '../../ui'
 import { botsText, useBotNames } from '../bots/model'
 import { STATUS_LABEL } from '../chat/RunGraphics'
 import '../groups/groups.css'
@@ -155,23 +155,24 @@ export function WebhooksView({ group, readOnly }: { group: GroupDto; readOnly: b
         />
       ) : null}
       {confirmRotate ? (
-        <Dialog
+        <AlertDialog
           open
-          width={420}
           title={t('重置「{name}」的令牌？', { name: confirmRotate.name })}
-          onClose={() => setConfirmRotate(null)}
-          footer={
-            <>
-              <span className="spacer" />
-              <Button onClick={() => setConfirmRotate(null)}>{t('取消')}</Button>
-              <Button variant="destructive" loading={rotating} onClick={() => void doRotate(confirmRotate)}>
-                {t('确认重置')}
-              </Button>
-            </>
-          }
-        >
-          <p className="gs-muted">{t('旧的调用地址将立即失效，需要同步更新 Jenkins 等外部系统的配置。')}</p>
-        </Dialog>
+          message={t('旧的调用地址将立即失效，需要同步更新 Jenkins 等外部系统的配置。')}
+          onClose={() => {
+            if (!rotating) setConfirmRotate(null)
+          }}
+          actions={[
+            { label: t('取消'), disabled: rotating, onClick: () => setConfirmRotate(null) },
+            {
+              label: t('确认重置'),
+              variant: 'destructive',
+              disabled: rotating,
+              loading: rotating,
+              onClick: () => void doRotate(confirmRotate),
+            },
+          ]}
+        />
       ) : null}
       {revealed ? <WebhookUrlDialog token={revealed} onClose={() => setRevealed(null)} /> : null}
     </>

@@ -390,7 +390,7 @@ function BasicTab({
         label={t('Bot 回复进话题')}
         description={
           dm
-            ? t('Bot 的回复放进这条消息的话题，多 Bot 讨论不刷屏')
+            ? t('Bot 的回复放进这条消息的话题，主时间线更清爽')
             : t('在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏')
         }
       >

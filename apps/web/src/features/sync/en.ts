@@ -123,4 +123,7 @@ export default {
     'Locally changed files are backed up on the machine first, then overwritten or deleted',
   丢弃: 'Discard',
   已开始丢弃本地改动: 'Discarding local changes',
+  '要切回分区模式吗？': 'Switch back to partition mode?',
+  '要丢弃本地改动吗？': 'Discard local changes?',
+  '要丢弃本地改动并加入吗？': 'Discard local changes and join?',
 }

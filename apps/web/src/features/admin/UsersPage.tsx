@@ -188,7 +188,7 @@ export function UsersPage() {
               secondary: true,
               sortable: true,
               sortValue: (u) => u.teams.join(t('、')),
-              render: (u) => u.teams.join(t('、')) || '--',
+              render: (u) => u.teams.join(t('、')) || '—',
             },
             {
               key: 'role',

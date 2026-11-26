@@ -15,7 +15,7 @@
 }
 .bot-pick__rank {
   width: 16px;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
 .bot-pick__name {
@@ -32,7 +32,7 @@
   border-radius: 50%;
 }
 .bot-pick__off {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-caption-size);
 }
 .bot-pick__row--add {

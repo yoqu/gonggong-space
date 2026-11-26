@@ -1,7 +1,7 @@
 import type { InheritedMcpDto, InheritedSkillDto, McpServerDto, SkillDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
-import { Alert, EmptyState, GroupBox, GroupRow, Tag } from '../../ui'
+import { Alert, EmptyState, GroupBox, GroupRow, Spinner, Tag } from '../../ui'
 import './config.css'
 
 type Row = { name: string; scope: 'group' | 'team' | 'platform'; on: boolean; description?: string }
@@ -39,7 +39,19 @@ export function GroupConfigView({ groupId, kind }: { groupId: string; kind: 'mcp
   return (
     <>
       <div className="gs-note">{t('仅群管理员可修改')}</div>
-      {error ? <Alert variant="error" title={t('配置加载失败')} description={error} /> : null}
+      {error ? (
+        <Alert
+          variant="error"
+          title={t('配置加载失败')}
+          description={error}
+          retrying={own.loading || inherited.loading}
+          onRetry={() => {
+            own.reload()
+            inherited.reload()
+          }}
+        />
+      ) : null}
+      {!rows && !error ? <Spinner /> : null}
       {rows && !rows.length ? (
         <EmptyState compact title={kind === 'mcp' ? t('暂无 MCP') : t('暂无 Skill')} />
       ) : null}

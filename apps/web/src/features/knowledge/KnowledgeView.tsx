@@ -77,7 +77,7 @@ function Row({
           <span>{ago(e.updatedAt)}</span>
         </span>
       </button>
-      <MenuButton aria-label={t('更多')} title={t('更多')} align="end" items={items} onSelect={select}>
+      <MenuButton aria-label={t('更多')} title={t('更多')} align="end" portal items={items} onSelect={select}>
         <Icon name="more" weight={2.6} />
       </MenuButton>
     </div>

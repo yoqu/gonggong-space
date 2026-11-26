@@ -33,6 +33,7 @@ import {
   Switch,
   Tag,
   TextField,
+  useDiscardGuard,
 } from '../../ui'
 import { expired, MODE_HINT, MODE_LABEL, SCOPE_LABEL, secretsApi, valueState } from './api'
 import { FillMine } from './MySecrets'
@@ -62,7 +63,7 @@ export function SecretLayerList({
   bots: Bot[]
   editable?: boolean
 }) {
-  const { data, error, reload } = useGet<SecretDto[]>(base)
+  const { data, error, loading, reload } = useGet<SecretDto[]>(base)
   // My own values, so a member fills theirs here instead of going to 设置 · 我的密钥; a failure only hides that.
   const mine = useGet<MySecretDto[]>('/me/secrets')
   const mineOf = (s: SecretDto) => (s.overridden ? undefined : mine.data?.find((m) => m.secret.id === s.id))
@@ -125,7 +126,7 @@ export function SecretLayerList({
         ) : null}
         {own && editable ? (
           <PullDownButton
-            variant="plain"
+            variant="ghost"
             size="small"
             icon="more"
             indicator={false}
@@ -147,7 +148,15 @@ export function SecretLayerList({
 
   return (
     <>
-      {error ? <Alert variant="error" title={t('密钥加载失败')} description={error} /> : null}
+      {error ? (
+        <Alert
+          variant="error"
+          title={t('密钥加载失败')}
+          description={error}
+          retrying={loading}
+          onRetry={reload}
+        />
+      ) : null}
       {data && !own.length ? (
         <EmptyState
           compact
@@ -267,6 +276,20 @@ function SecretDialog({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const formId = useId()
+  const initialExpires = editing?.expiresAt ? fullTime(editing.expiresAt).slice(0, 10) : ''
+  const dirty =
+    name !== (editing?.name ?? '') ||
+    description !== (editing?.description ?? '') ||
+    mode !== (editing?.mode ?? 'shared') ||
+    JSON.stringify(botIds) !== JSON.stringify(editing?.botIds ?? null) ||
+    expires !== initialExpires ||
+    enabled !== (editing?.enabled ?? true) ||
+    !!value ||
+    !!myValue
+  const guard = useDiscardGuard(dirty, onClose)
+  const requestClose = () => {
+    if (!busy) guard.requestClose()
+  }
 
   const submit = async () => {
     if (!editing) {
@@ -303,118 +326,128 @@ function SecretDialog({
   }
 
   return (
-    <Dialog
-      open
-      title={editing ? t('编辑密钥') : t('新建密钥')}
-      message={t('Bot 运行时以同名环境变量读取；改动下一轮生效。')}
-      width={560}
-      onClose={onClose}
-      closeOnBackdrop={false}
-      actions={[
-        { label: t('取消'), onClick: onClose },
-        { label: t('保存'), variant: 'primary', type: 'submit', form: formId, disabled: busy },
-      ]}
-    >
-      <Form id={formId} onSubmit={() => void submit()}>
-        <FormRow label={t('名称')} hint={editing ? undefined : t('环境变量名，如 FEISHU_DEVOPS_TOKEN')}>
-          <TextField
-            aria-label={t('名称')}
-            mono
-            value={name}
-            disabled={!!editing}
-            placeholder="FEISHU_DEVOPS_TOKEN"
-            onChange={(e) => setName(e.target.value.toUpperCase())}
-            autoFocus={!editing}
-          />
-        </FormRow>
-        <FormRow label={t('用途')} align="top">
-          <TextField
-            multiline
-            aria-label={t('用途')}
-            rows={2}
-            maxLength={500}
-            placeholder={t('做什么用，怎么申请')}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </FormRow>
-        <FormRow label={t('模式')} align="top" hint={MODE_HINT[mode]}>
-          <RadioGroup
-            aria-label={t('模式')}
-            direction="row"
-            options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
-            value={mode}
-            onChange={setMode}
-          />
-        </FormRow>
-        <FormRow label={t('可用 Bot')} align="top">
-          <SegmentedControl
-            aria-label={t('可用 Bot')}
-            size="small"
-            items={[
-              { value: 'all' as const, label: t('全部 Bot') },
-              { value: 'some' as const, label: t('指定 Bot') },
-            ]}
-            value={botIds === null ? 'all' : 'some'}
-            onChange={(v) => setBotIds(v === 'all' ? null : [])}
-          />
-          {botIds === null ? null : (
-            <CheckboxGroup
-              aria-label={t('指定 Bot')}
-              options={bots.map((b) => ({ value: b.id, label: b.name }))}
-              value={botIds}
-              onChange={setBotIds}
+    <>
+      <Dialog
+        open
+        title={editing ? t('编辑密钥') : t('新建密钥')}
+        message={t('Bot 运行时以同名环境变量读取；改动下一轮生效。')}
+        width={560}
+        onClose={requestClose}
+        closeOnBackdrop={false}
+        actions={[
+          { label: t('取消'), disabled: busy, onClick: requestClose },
+          {
+            label: t('保存'),
+            variant: 'primary',
+            type: 'submit',
+            form: formId,
+            disabled: busy,
+            loading: busy,
+          },
+        ]}
+      >
+        <Form id={formId} onSubmit={() => void submit()}>
+          <FormRow label={t('名称')} hint={editing ? undefined : t('环境变量名，如 FEISHU_DEVOPS_TOKEN')}>
+            <TextField
+              aria-label={t('名称')}
+              mono
+              value={name}
+              disabled={!!editing}
+              placeholder="FEISHU_DEVOPS_TOKEN"
+              onChange={(e) => setName(e.target.value.toUpperCase())}
+              autoFocus={!editing}
             />
+          </FormRow>
+          <FormRow label={t('用途')} align="top">
+            <TextField
+              multiline
+              aria-label={t('用途')}
+              rows={2}
+              maxLength={500}
+              placeholder={t('做什么用，怎么申请')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </FormRow>
+          <FormRow label={t('模式')} align="top" hint={MODE_HINT[mode]}>
+            <RadioGroup
+              aria-label={t('模式')}
+              direction="row"
+              options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+              value={mode}
+              onChange={setMode}
+            />
+          </FormRow>
+          <FormRow label={t('可用 Bot')} align="top">
+            <SegmentedControl
+              aria-label={t('可用 Bot')}
+              size="small"
+              items={[
+                { value: 'all' as const, label: t('全部 Bot') },
+                { value: 'some' as const, label: t('指定 Bot') },
+              ]}
+              value={botIds === null ? 'all' : 'some'}
+              onChange={(v) => setBotIds(v === 'all' ? null : [])}
+            />
+            {botIds === null ? null : (
+              <CheckboxGroup
+                aria-label={t('指定 Bot')}
+                options={bots.map((b) => ({ value: b.id, label: b.name }))}
+                value={botIds}
+                onChange={setBotIds}
+              />
+            )}
+          </FormRow>
+          <FormRow label={t('到期时间')} hint={t('留空则不过期')}>
+            <TextField
+              aria-label={t('到期时间')}
+              type="date"
+              value={expires}
+              onChange={(e) => setExpires(e.target.value)}
+            />
+          </FormRow>
+          <FormRow label={t('启用')}>
+            <Switch ariaLabel={t('启用')} checked={enabled} onChange={setEnabled} />
+          </FormRow>
+          {mode === 'personal' ? null : (
+            <FormRow
+              label={t('统一值')}
+              hint={
+                editing?.value
+                  ? t('当前：{state}；留空则保持不变', { state: valueState(editing.value) })
+                  : t('可稍后填写；存入后不再显示明文')
+              }
+            >
+              <SecureField
+                aria-label={t('填写统一值')}
+                autoComplete="new-password"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </FormRow>
           )}
-        </FormRow>
-        <FormRow label={t('到期时间')} hint={t('留空则不过期')}>
-          <TextField
-            aria-label={t('到期时间')}
-            type="date"
-            value={expires}
-            onChange={(e) => setExpires(e.target.value)}
-          />
-        </FormRow>
-        <FormRow label={t('启用')}>
-          <Switch ariaLabel={t('启用')} checked={enabled} onChange={setEnabled} />
-        </FormRow>
-        {mode === 'personal' ? null : (
-          <FormRow
-            label={t('统一值')}
-            hint={
-              editing?.value
-                ? t('当前：{state}；留空则保持不变', { state: valueState(editing.value) })
-                : t('可稍后填写；存入后不再显示明文')
-            }
-          >
-            <SecureField
-              aria-label={t('填写统一值')}
-              autoComplete="new-password"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-            />
-          </FormRow>
-        )}
-        {editing || mode === 'shared' ? null : (
-          <FormRow
-            label={t('我的值')}
-            hint={
-              mode === 'personal'
-                ? t('可选；只在你触发时注入，其他成员各自填写')
-                : t('可选；只对你生效，覆盖统一值')
-            }
-          >
-            <SecureField
-              aria-label={t('填写我的值')}
-              autoComplete="new-password"
-              value={myValue}
-              onChange={(e) => setMyValue(e.target.value)}
-            />
-          </FormRow>
-        )}
-      </Form>
-      {error ? <Alert variant="error" title={error} /> : null}
-    </Dialog>
+          {editing || mode === 'shared' ? null : (
+            <FormRow
+              label={t('我的值')}
+              hint={
+                mode === 'personal'
+                  ? t('可选；只在你触发时注入，其他成员各自填写')
+                  : t('可选；只对你生效，覆盖统一值')
+              }
+            >
+              <SecureField
+                aria-label={t('填写我的值')}
+                autoComplete="new-password"
+                value={myValue}
+                onChange={(e) => setMyValue(e.target.value)}
+              />
+            </FormRow>
+          )}
+        </Form>
+        {error ? <Alert variant="error" title={error} /> : null}
+      </Dialog>
+      {guard.dialog}
+    </>
   )
 }
 
@@ -430,8 +463,14 @@ function FillSharedDialog({
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const formId = useId()
+  const guard = useDiscardGuard(!!value, onClose)
+  const requestClose = () => {
+    if (!busy) guard.requestClose()
+  }
   const short = value.length > 0 && value.length < SECRET_MIN_LENGTH
   const submit = async () => {
+    if (busy || value.length < SECRET_MIN_LENGTH) return
     setBusy(true)
     try {
       await secretsApi.update(secret.id, { value })
@@ -442,36 +481,43 @@ function FillSharedDialog({
     }
   }
   return (
-    <Dialog
-      open
-      title={t('填写 {name}', { name: secret.name })}
-      message={
-        secret.description ||
-        t('填写统一值，对该层所有可用的 Bot 生效；Bot 运行时以环境变量使用，值不会出现在聊天记录和日志里。')
-      }
-      onClose={onClose}
-      closeOnBackdrop={false}
-      actions={[
-        { label: t('取消'), onClick: onClose },
-        {
-          label: t('保存'),
-          variant: 'primary',
-          onClick: () => void submit(),
-          disabled: busy || value.length < SECRET_MIN_LENGTH,
-        },
-      ]}
-    >
-      {error ? <Alert variant="error" title={error} /> : null}
-      <SecureField
-        aria-label={t('填写统一值')}
-        autoComplete="new-password"
-        placeholder={t('输入 {name} 的值', { name: secret.name })}
-        hint={short ? undefined : t('至少 8 个字符')}
-        error={short ? t('至少 8 个字符') : undefined}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        autoFocus
-      />
-    </Dialog>
+    <>
+      <Dialog
+        open
+        title={t('填写 {name}', { name: secret.name })}
+        message={
+          secret.description ||
+          t('填写统一值，对该层所有可用的 Bot 生效；Bot 运行时以环境变量使用，值不会出现在聊天记录和日志里。')
+        }
+        onClose={requestClose}
+        closeOnBackdrop={false}
+        actions={[
+          { label: t('取消'), disabled: busy, onClick: requestClose },
+          {
+            label: t('保存'),
+            variant: 'primary',
+            type: 'submit',
+            form: formId,
+            loading: busy,
+            disabled: busy || value.length < SECRET_MIN_LENGTH,
+          },
+        ]}
+      >
+        {error ? <Alert variant="error" title={error} /> : null}
+        <Form id={formId} onSubmit={() => void submit()}>
+          <SecureField
+            aria-label={t('填写统一值')}
+            autoComplete="new-password"
+            placeholder={t('输入 {name} 的值', { name: secret.name })}
+            hint={short ? undefined : t('至少 8 个字符')}
+            error={short ? t('至少 8 个字符') : undefined}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            autoFocus
+          />
+        </Form>
+      </Dialog>
+      {guard.dialog}
+    </>
   )
 }

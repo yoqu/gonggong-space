@@ -235,7 +235,7 @@ describe('team settings', () => {
     a.unmount()
 
     owners(asOwner.slice(0, 1))
-    expect(await screen.findByText('团队只有你一人，无法退出；如需清理请联系平台管理员')).toBeTruthy()
+    expect(await screen.findByText('团队只有你一人，无法退出；如需清理请联系系统管理员')).toBeTruthy()
     expect((screen.getByRole('button', { name: '退出' }) as HTMLButtonElement).disabled).toBe(true)
   })
 

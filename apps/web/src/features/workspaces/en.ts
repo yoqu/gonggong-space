@@ -48,4 +48,7 @@ export default {
   使用托管目录: 'Use a managed directory',
   '共工在电脑上为这个会话单独建的目录，不碰你已有的文件':
     'A directory Gonggong makes on your computer for this conversation alone, away from your own files',
+  '要删除终端「{name}」吗？': 'Delete terminal "{name}"?',
+  终端已删除: 'Terminal deleted',
+  使用托管工作区: 'Use managed workspace',
 } satisfies Record<string, string>

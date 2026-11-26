@@ -17,6 +17,7 @@ import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
   Avatar,
   Button,
   Dialog,
@@ -44,14 +45,26 @@ import { TakeoverDialog } from './TakeoverDialog'
 import '../config/config.css'
 
 /** 团队设置 · MCP: the team layer, over the platform one and under each group's (plan D8). */
-export function TeamMcpTab({ team }: { team: TeamDto }) {
+export function TeamMcpTab({
+  team,
+  onDirtyChange,
+  onSavingChange,
+}: {
+  team: TeamDto
+  onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
+}) {
   const layer = useMcpLayer(`/teams/${team.id}/mcp`)
+  useEffect(() => {
+    onSavingChange?.(layer.busy)
+  }, [layer.busy, onSavingChange])
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
   return (
     <>
       <div className="gs-note">
         {t('对本团队所有群生效；与平台层同名时以团队层为准，群管理员可在群设置中再覆盖。')}
       </div>
-      <McpLayerList layer={layer} tag={t('团队层')} />
+      <McpLayerList layer={layer} tag={t('团队层')} onDirtyChange={onDirtyChange} />
       <McpSaved force={layer.savedForce} />
     </>
   )
@@ -99,9 +112,14 @@ export function TeamInstallsView({ team }: { team: TeamDto }) {
 
 /** 团队设置 · 仓库: the team's repos, each opening what is installed for groups working in it. */
 export function TeamReposTab({ team, readOnly = false }: { team: TeamDto; readOnly?: boolean }) {
-  const { data, error } = useGet<RepoDto[]>(`/teams/${team.id}/repos`)
+  const { data, error, loading, reload } = useGet<RepoDto[]>(`/teams/${team.id}/repos`)
   const [open, setOpen] = useState<string | null>(null)
-  if (!data) return error ? <div className="gs-note">{error}</div> : <Spinner />
+  if (!data)
+    return error ? (
+      <Alert variant="error" description={error} retrying={loading} onRetry={reload} />
+    ) : (
+      <Spinner />
+    )
   return (
     <>
       <div className="gs-note">{t('对主仓库是它的群生效；优先于团队层，群层可再覆盖。')}</div>
@@ -157,19 +175,43 @@ export function TeamPluginsTab({ team }: { team: TeamDto }) {
 const VIEW = new Map(SYSTEM_PARAM_VIEW.map((v) => [v.key, v]))
 
 /** 团队设置 · 参数: the team's overrides; empty fields inherit the platform value shown as placeholder (plan D9). */
-export function TeamParamsTab({ team }: { team: TeamDto }) {
-  const { data } = useGet<TeamParamsDto>(`/teams/${team.id}/params`)
+export function TeamParamsTab({
+  team,
+  onDirtyChange,
+  onSavingChange,
+}: {
+  team: TeamDto
+  onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
+}) {
+  const { data, error, loading, reload } = useGet<TeamParamsDto>(`/teams/${team.id}/params`)
   const [draft, setDraft] = useState<TeamParams | null>(null)
   const [busy, setBusy] = useState(false)
   const [saved, flashSaved] = useFlash()
   useEffect(() => {
     if (data) setDraft(data.overrides)
   }, [data])
-  if (!data || !draft) return <Spinner />
-  const dirty = TEAM_PARAM_KEYS.some((k) => draft[k] !== data.overrides[k])
+  const dirty = !!data && !!draft && TEAM_PARAM_KEYS.some((k) => draft[k] !== data.overrides[k])
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+  useEffect(() => {
+    onSavingChange?.(busy)
+  }, [busy, onSavingChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
+  if (!data || !draft)
+    return error ? (
+      <Alert variant="error" description={error} retrying={loading} onRetry={reload} />
+    ) : (
+      <Spinner />
+    )
   const save = async () => {
     setBusy(true)
-    if (await attempt(() => teamsApi.update(team.id, { params: draft }))) flashSaved()
+    if (await attempt(() => teamsApi.update(team.id, { params: draft }))) {
+      flashSaved()
+      reload()
+    }
     setBusy(false)
   }
   return (
@@ -229,20 +271,50 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
 }
 
 /** 团队设置 · 新手群: where new members land, the bot they are told to @, and the example questions. */
-export function TeamOnboardingTab({ team }: { team: TeamDto }) {
-  const { data } = useGet<TeamOnboardingDto>(`/teams/${team.id}/onboarding`)
+export function TeamOnboardingTab({
+  team,
+  onDirtyChange,
+  onSavingChange,
+}: {
+  team: TeamDto
+  onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
+}) {
+  const { data, error, loading, reload } = useGet<TeamOnboardingDto>(`/teams/${team.id}/onboarding`)
   const [draft, setDraft] = useState<TeamOnboardingReq | null>(null)
   const [busy, setBusy] = useState(false)
   const [saved, flashSaved] = useFlash()
   useEffect(() => {
     if (data) setDraft({ groupId: data.groupId, botId: data.botId, examples: data.examples })
   }, [data])
-  if (!data || !draft) return <Spinner />
+  const dirty =
+    !!data &&
+    !!draft &&
+    (draft.groupId !== data.groupId ||
+      draft.botId !== data.botId ||
+      draft.examples.some((q, i) => q !== data.examples[i]))
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+  useEffect(() => {
+    onSavingChange?.(busy)
+  }, [busy, onSavingChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
+  if (!data || !draft)
+    return error ? (
+      <Alert variant="error" description={error} retrying={loading} onRetry={reload} />
+    ) : (
+      <Spinner />
+    )
   const options = data.options ?? []
   const bots = options.find((g) => g.id === draft.groupId)?.bots ?? []
   const save = async () => {
     setBusy(true)
-    if (await attempt(() => api.put(`/teams/${team.id}/onboarding`, draft))) flashSaved()
+    if (await attempt(() => api.put(`/teams/${team.id}/onboarding`, draft))) {
+      flashSaved()
+      reload()
+    }
     setBusy(false)
   }
   return (
@@ -296,7 +368,7 @@ export function TeamOnboardingTab({ team }: { team: TeamDto }) {
       <div className="team-actions">
         <Button
           variant="primary"
-          disabled={draft.examples.some((q) => !q.trim())}
+          disabled={!dirty || draft.examples.some((q) => !q.trim())}
           loading={busy}
           done={saved}
           onClick={() => void save()}
@@ -313,11 +385,16 @@ export function TeamOnboardingTab({ team }: { team: TeamDto }) {
 
 /** 团队设置 · 群: every group of the team; admins open theirs, view or take over the others (plan D19). */
 export function TeamGroupsTab({ team, onClose }: { team: TeamDto; onClose: () => void }) {
-  const { data, error } = useGet<TeamGroupDto[]>(`/teams/${team.id}/groups`)
+  const { data, error, loading, reload } = useGet<TeamGroupDto[]>(`/teams/${team.id}/groups`)
   const navigate = useNavigate()
   const [open, setOpen] = useState<TeamGroupDto | null>(null)
   const [taking, setTaking] = useState<TeamGroupDto | null>(null)
-  if (!data) return error ? <div className="gs-note">{error}</div> : <Spinner />
+  if (!data)
+    return error ? (
+      <Alert variant="error" description={error} retrying={loading} onRetry={reload} />
+    ) : (
+      <Spinner />
+    )
   const go = (id: string) => {
     onClose()
     navigate(`/g/${id}`)

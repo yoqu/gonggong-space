@@ -129,9 +129,14 @@ export function TeamSettingsDialog({
             value: 'onboarding',
             label: t('新手群'),
             icon: 'person-add',
-            body: <TeamOnboardingTab team={team} />,
+            body: <TeamOnboardingTab team={team} onDirtyChange={setDirty} onSavingChange={setSaving} />,
           },
-          { value: 'mcp', label: 'MCP', icon: 'plug', body: <TeamMcpTab team={team} /> },
+          {
+            value: 'mcp',
+            label: 'MCP',
+            icon: 'plug',
+            body: <TeamMcpTab team={team} onDirtyChange={setDirty} onSavingChange={setSaving} />,
+          },
           {
             value: 'skill',
             label: 'Skill',
@@ -146,7 +151,7 @@ export function TeamSettingsDialog({
             value: 'params',
             label: t('参数#settings'),
             icon: 'slider-horizontal',
-            body: <TeamParamsTab team={team} />,
+            body: <TeamParamsTab team={team} onDirtyChange={setDirty} onSavingChange={setSaving} />,
           },
           {
             value: 'conversations',
@@ -238,7 +243,7 @@ function OverviewTab({
     team.role !== 'owner' || !members
       ? null
       : members.length === 1
-        ? t('团队只有你一人，无法退出；如需清理请联系平台管理员')
+        ? t('团队只有你一人，无法退出；如需清理请联系系统管理员')
         : members.filter((m) => m.role === 'owner').length === 1
           ? t('你是唯一的所有者，需先在「成员」里转让所有权')
           : null

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { useGet } from '../../lib/useGet'
@@ -18,16 +18,31 @@ export function InheritedList<T extends Inherited>({
   base: string
   row: (item: T) => { name: string; label: string; tags: string[]; description: ReactNode }
 }) {
-  const { data, error, reload } = useGet<T[]>(base)
+  const { data, error, loading, reload } = useGet<T[]>(base)
+  const [togglingName, setTogglingName] = useState<string | null>(null)
   const toggle = async (name: string, enabled: boolean) => {
+    if (togglingName === name) return
+    setTogglingName(name)
     try {
       await api.put(`${base}/${encodeURIComponent(name)}`, { enabled })
+      reload()
     } catch (e) {
       toast({ type: 'error', title: t('保存失败'), message: errorText(e) })
+      reload()
+    } finally {
+      setTogglingName((cur) => (cur === name ? null : cur))
     }
-    reload()
   }
-  if (error) return <Alert variant="error" title={t('配置加载失败')} description={error} />
+  if (error)
+    return (
+      <Alert
+        variant="error"
+        title={t('配置加载失败')}
+        description={error}
+        retrying={loading}
+        onRetry={reload}
+      />
+    )
   if (!data?.length) return null
   return (
     <>
@@ -56,6 +71,8 @@ export function InheritedList<T extends Inherited>({
               <Switch
                 ariaLabel={t('在本群启用 {name}', { name: r.name })}
                 checked={item.enabledInGroup}
+                loading={togglingName === r.name}
+                disabled={togglingName === r.name}
                 onChange={(on) => void toggle(r.name, on)}
               />
             </GroupRow>

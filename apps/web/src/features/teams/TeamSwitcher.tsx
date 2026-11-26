@@ -50,6 +50,7 @@ export function TeamSwitcher({ redirectPath = '/' }: { redirectPath?: string } =
       <MenuButton
         className="team-switch"
         aria-label={t('切换团队，当前：{name}', { name: current.name })}
+        portal
         items={items}
         onSelect={select}
       >
@@ -97,17 +98,18 @@ export function NewTeamSheet({ onClose }: { onClose: () => void }) {
     <Dialog
       open
       closeOnBackdrop={false}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       title={t('新建团队')}
       message={t('你将成为团队所有者，可邀请成员加入。')}
       width={420}
       actions={[
-        { label: t('取消'), onClick: onClose },
+        { label: t('取消'), disabled: busy, onClick: onClose },
         {
           label: t('创建'),
           variant: 'primary',
           type: 'submit',
           form: 'new-team',
+          loading: busy,
           disabled: busy || !name.trim(),
         },
       ]}
@@ -155,6 +157,7 @@ function JoinTeamSheet({ onClose }: { onClose: () => void }) {
           label={t('邀请链接')}
           placeholder={`${location.origin}/join/…`}
           value={text}
+          error={text.trim() && !token ? t('请粘贴有效的团队邀请链接') : undefined}
           autoFocus
           onChange={(e) => setText(e.target.value)}
         />

@@ -214,7 +214,7 @@ export function gitCommands(target: GitTarget) {
     unstash: (stash: GitStash, initialPop?: boolean) => show({ kind: 'unstash', stash, initialPop }),
     dropStash: (stash: GitStash) =>
       confirm({
-        title: t('删除贮藏'),
+        title: t('要删除贮藏吗？'),
         message: t('删除 {ref}：{message}', { ref: `stash@{${stash.index}}`, message: stash.message }),
         consequences: [t('删除后无法恢复')],
         label: t('删除'),
@@ -223,7 +223,7 @@ export function gitCommands(target: GitTarget) {
       }),
     clearStashes: (n: number) =>
       confirm({
-        title: t('清空贮藏'),
+        title: t('要清空贮藏吗？'),
         message: t('删除全部 {n} 个贮藏', { n }),
         consequences: [t('删除后无法恢复')],
         label: t('清空'),
@@ -235,7 +235,7 @@ export function gitCommands(target: GitTarget) {
     /** IDEA's Delete for untracked files: nothing to roll back to, so they go. */
     deleteFiles: (paths: string[]) =>
       confirm({
-        title: t('删除未跟踪的文件'),
+        title: t('要删除未跟踪的文件吗？'),
         message: t('从磁盘删除 {n} 个未跟踪的文件', { n: paths.length }),
         consequences: [...paths, t('删除后无法恢复')],
         label: t('删除'),
@@ -271,7 +271,7 @@ export function gitCommands(target: GitTarget) {
       ongoing.kind === 'merge' ? show({ kind: 'continue', ongoing }) : void run({ action: 'continue' }),
     abortOngoing: (ongoing: GitOngoing | null) =>
       confirm({
-        title: ongoing ? t('中止{op}', { op: ongoingLabel(ongoing.kind) }) : t('放弃解决冲突'),
+        title: ongoing ? t('要中止{op}吗？', { op: ongoingLabel(ongoing.kind) }) : t('要放弃解决冲突吗？'),
         message: ongoing
           ? t('回到{op}之前的状态', { op: ongoingLabel(ongoing.kind) })
           : t('冲突的文件恢复到 HEAD，其他改动保留'),
@@ -297,7 +297,7 @@ export function gitCommands(target: GitTarget) {
     /** IDEA's Get from Revision: replaces the chosen work-tree paths, deleting ones absent at that revision. */
     restoreFrom: (commit: CommitInfo, paths: string[]) =>
       confirm({
-        title: t('从该版本取回文件'),
+        title: t('要从该版本取回文件吗？'),
         message: t('用 {hash} 的内容替换所选 {n} 个文件', { hash: commit.shortHash, n: paths.length }),
         consequences: [...paths, t('这些文件中未提交的改动会被覆盖')],
         label: t('取回文件'),

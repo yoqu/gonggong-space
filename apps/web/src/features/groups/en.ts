@@ -1,7 +1,7 @@
 export default {
   'Bot 回复进话题': 'Bot replies in threads',
-  'Bot 的回复放进这条消息的话题，多 Bot 讨论不刷屏':
-    "Bot replies go into that message's thread, keeping multi-Bot chats tidy",
+  'Bot 的回复放进这条消息的话题，主时间线更清爽':
+    "Bot replies go into that message's thread, keeping the main timeline tidy",
   '在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏':
     "A Bot @-ed in the group replies in that message's thread, keeping the group tidy",
   重试: 'Retry',
@@ -220,4 +220,6 @@ export default {
   '将对团队所有成员生效，下属 {n} 个子分区也会一并删除；其中的群和消息都会保留，并回到默认列表。':
     'This applies to all team members, and {n} {n:subsection|subsections} inside it will also be deleted. All groups and messages will be kept and returned to the default list.',
   '已删除分区「{name}」，其中的会话已保留': 'Deleted section "{name}"; its conversations were kept',
+  '要移除群公告吗？': 'Remove group notice?',
+  已移除群公告: 'Group notice removed',
 } satisfies Record<string, string>

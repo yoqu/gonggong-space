@@ -35,7 +35,7 @@ import { folderSkillFiles, zipSkillFiles } from './skillFiles'
 
 const TEMPLATE = `---
 name: my-skill
-description: ${t('说明这个 skill 做什么、什么时候使用')}
+description: ${t('说明这个 Skill 做什么、什么时候使用')}
 ---
 
 `
@@ -162,7 +162,7 @@ export function SkillLayerList({ base, tag }: { base: string; tag: string }) {
         </GroupBox>
       )}
       <div className="cfg__foot">
-        <span className="cfg__hint">{t('与仓库自带的同名 skill 冲突时跳过团队版，运行卡片会提示。')}</span>
+        <span className="cfg__hint">{t('与仓库自带的同名 Skill 冲突时跳过团队版，运行卡片会提示。')}</span>
         <span className="spacer" />
         <Button disabled={!data} onClick={() => setOpen({ kind: 'edit', skill: null })}>
           {t('添加 Skill…')}
@@ -177,7 +177,7 @@ export function SkillLayerList({ base, tag }: { base: string; tag: string }) {
           <ConfirmActionDialog
             title={t('删除 Skill {name}？', { name: open.skill.name })}
             message={t('删除后历史版本一并移除，无法恢复。')}
-            consequences={[t('相关 Bot 下一轮起不再加载这个 skill')]}
+            consequences={[t('相关 Bot 下一轮起不再加载这个 Skill')]}
             label={t('删除')}
             done={t('已删除 {name}', { name: open.skill.name })}
             run={() => api.del(`${base}/${open.skill.id}`)}

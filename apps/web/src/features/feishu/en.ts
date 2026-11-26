@@ -245,4 +245,6 @@ export default {
   '先绑定你的飞书账号，共工才能列出你所在的飞书群':
     'Link your Feishu account first so Gonggong can list the Feishu chats you are in',
   去绑定飞书账号: 'Link Feishu account',
+  飞书应用加载失败: 'Failed to load Feishu app',
+  '要{action}吗？': '{action}?',
 } satisfies Record<string, string>

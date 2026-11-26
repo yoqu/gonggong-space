@@ -98,6 +98,7 @@ export function DirPicker({
   managed = false,
   hint = t('进入具体项目目录后选择'),
   extra,
+  busy = false,
   onPick,
   onClose,
 }: {
@@ -111,6 +112,7 @@ export function DirPicker({
   /** Shown where the listed directory cannot be picked (the home it starts at). */
   hint?: string
   extra?: ReactNode
+  busy?: boolean
   onPick: (path: string) => void
   onClose: () => void
 }) {
@@ -129,8 +131,11 @@ export function DirPicker({
   const [draft, setDraft] = useState<string | null>(null)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [retryTick, setRetryTick] = useState(0)
   const draftRef = useRef<HTMLInputElement>(null)
+  const composingRef = useRef(false)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryTick triggers directory reload
   useEffect(() => {
     let live = true
     setDir(null)
@@ -150,7 +155,7 @@ export function DirPicker({
     return () => {
       live = false
     }
-  }, [machineId, path, showHidden])
+  }, [machineId, path, showHidden, retryTick])
 
   const home = places.find((p) => p.kind === 'home')?.path
   useEffect(() => {
@@ -237,13 +242,16 @@ export function DirPicker({
       open
       title={title}
       width={760}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       footer={
         <>
-          <Button onClick={onClose}>{t('取消')}</Button>
+          <Button disabled={busy} onClick={onClose}>
+            {t('取消')}
+          </Button>
           <Button
             variant="primary"
-            disabled={!dir || !!dir.unusable || !!refused}
+            loading={busy}
+            disabled={busy || !dir || !!dir.unusable || !!refused}
             title={dir?.unusable ?? refused ?? undefined}
             onClick={() => dir && pick(dir.path)}
           >
@@ -352,7 +360,9 @@ export function DirPicker({
             {/* Browsing starts at home, which is never selectable itself: guide rather than warn. */}
             {dir?.unusable ? <p className="dirpick__hint">{hint}</p> : null}
             {refused ? <Alert variant="warning" title={refused} /> : null}
-            {error ? <Alert variant="error" title={error} /> : null}
+            {error ? (
+              <Alert variant="error" title={error} onRetry={() => setRetryTick((n) => n + 1)} />
+            ) : null}
             <div className="dirpick__table">
               {dir?.entries.length || editing ? (
                 <div className="dirpick__head">
@@ -374,8 +384,19 @@ export function DirPicker({
                         invalid={!!draftError}
                         aria-label={t('文件夹名称')}
                         onChange={(e) => setDraft(e.target.value)}
+                        onCompositionStart={() => {
+                          composingRef.current = true
+                        }}
+                        onCompositionEnd={() => {
+                          composingRef.current = false
+                        }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (
+                            e.key === 'Enter' &&
+                            !e.nativeEvent.isComposing &&
+                            e.keyCode !== 229 &&
+                            !composingRef.current
+                          ) {
                             e.preventDefault()
                             void create()
                           } else if (e.key === 'Escape') {

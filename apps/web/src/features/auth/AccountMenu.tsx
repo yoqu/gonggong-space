@@ -110,6 +110,7 @@ export function AccountMenu({
         title={user.name}
         align={align}
         placement={placement}
+        portal
         items={items}
         onSelect={select}
       >

@@ -312,7 +312,7 @@ describe('merge or rebase in progress', () => {
       expect(actionsCalled(calls)).toEqual([{ action: 'resolve', path: 'src/legacy.ts', side: 'theirs' }]),
     )
     fireEvent.click(within(tab.getByRole('status')).getByRole('button', { name: '中止合并' }))
-    const d = await dialog('中止合并')
+    const d = await dialog('要中止合并吗？')
     expect(d.getByText('已解决的冲突会丢失')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '中止' }))
     await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'abort' }))
@@ -471,14 +471,14 @@ describe('stashes', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /恢复贮藏/ })).toBeNull())
 
     fireEvent.click(tab.getByRole('button', { name: '删除 stash@{1}' }))
-    fireEvent.click((await dialog('删除贮藏')).getByRole('button', { name: '删除' }))
+    fireEvent.click((await dialog('要删除贮藏吗？')).getByRole('button', { name: '删除' }))
     await waitFor(() =>
       expect(actionsCalled(calls).at(-1)).toEqual({ action: 'stash-drop', stash: 1, expect: S1 }),
     )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '删除贮藏' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '要删除贮藏吗？' })).toBeNull())
 
     fireEvent.click(tab.getByRole('button', { name: '清空' }))
-    const clear = await dialog('清空贮藏')
+    const clear = await dialog('要清空贮藏吗？')
     expect(clear.getByText('删除全部 2 个贮藏')).toBeTruthy()
     fireEvent.click(clear.getByRole('button', { name: '清空' }))
     await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'stash-drop' }))

@@ -36,11 +36,11 @@ export function StashView({
   onPick: (stash: GitStash, c: TreeChange) => void
 }) {
   const base = gitBase(target.groupId, target.botId)
-  const { data, error } = useGitGet<GitStashesDto>(gitUrls.stashes(base, target.repo), stamp)
+  const { data, error, loading, reload } = useGitGet<GitStashesDto>(gitUrls.stashes(base, target.repo), stamp)
   const [openHash, setOpenHash] = useState<string | null>(null)
   const [menuFor, setMenuFor] = useState<GitStash | null>(null)
   const cmd = gitCommands(target)
-  if (error) return <Alert variant="error" description={error} />
+  if (error) return <Alert variant="error" description={error} retrying={loading} onRetry={reload} />
   if (!data)
     return (
       <div className="git-refs__note">
@@ -175,7 +175,15 @@ function StashFiles({
   const untracked = useGitGet<GitCompareDto>(
     stash.untracked ? gitUrls.compare(base, EMPTY_TREE, `${stash.hash}^3`, target.repo) : null,
   )
-  if (tracked.error) return <Alert variant="error" description={tracked.error} />
+  if (tracked.error)
+    return (
+      <Alert
+        variant="error"
+        description={tracked.error}
+        retrying={tracked.loading}
+        onRetry={tracked.reload}
+      />
+    )
   if (!tracked.data || (stash.untracked && !untracked.data && !untracked.error))
     return (
       <div className="git-refs__note">

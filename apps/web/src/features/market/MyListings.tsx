@@ -502,7 +502,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
             ]}
           />
           <div className="gs-note">
-            {visibility === 'public' ? t('公开条目由平台管理员审核。') : t('仅本团队条目由团队管理员审核。')}
+            {visibility === 'public' ? t('公开条目由系统管理员审核。') : t('仅本团队条目由团队管理员审核。')}
           </div>
           <div className="cfg__eyebrow">{t('来源')}</div>
           <SegmentedControl<Source>

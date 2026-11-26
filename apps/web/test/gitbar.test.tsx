@@ -510,7 +510,7 @@ describe('git status bar', () => {
       within(await menu('小王的 Claude')).getByRole('menuitem', { name: '更换 小王的 Claude 的工作区' }),
     )
     const picker = await screen.findByRole('dialog', { name: '为 小王的 Claude 选择工作区' })
-    fireEvent.click(within(picker).getByRole('button', { name: /使用托管目录/ }))
+    fireEvent.click(within(picker).getByRole('button', { name: /使用托管工作区/ }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
         path: '/groups/g1/bots/b1/workspace',
