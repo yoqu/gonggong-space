@@ -23,7 +23,12 @@ import { useBotDialog } from '../bots/dialogStore'
 import { CountdownRing } from '../chat/RunGraphics'
 import './approval.css'
 import { t } from '../../i18n'
-import { dismissApprovalGuide, recordApprovalDecision, useApprovalGuideActive } from './approvalGuide'
+import {
+  dismissApprovalGuide,
+  recordApprovalDecision,
+  useApprovalGuideActive,
+  useApprovalGuideHolder,
+} from './approvalGuide'
 import { mcpArgs, mcpTool, toolTitle } from './mcp'
 
 /** ACP tool kinds as the prototype names them. */
@@ -238,7 +243,10 @@ export function ApprovalCard({
   const scope =
     pending && mine && bot ? effectiveApprovalScope({ bot, run, group, groupTier, demo: !!demo }) : null
   const guideActive = useApprovalGuideActive(pending && mine ? me?.id : undefined)
-  const guideVisible = pending && mine && !!scope && guideActive
+  // No setting skips a red-line request, and 完全允许 asks only for those: the tip would point nowhere.
+  const guideFits = !!scope && !redLine(a) && scope.ownerMode !== 'full'
+  const guideHolder = useApprovalGuideHolder(a.id, pending && mine && guideFits && guideActive)
+  const guideVisible = pending && mine && guideFits && guideActive && guideHolder
   // Deciding drops `scope`: the leaving hint keeps the words it had.
   const guide = usePresence(guideVisible)
   const lastScope = useRef(scope)
@@ -422,11 +430,6 @@ export function ApprovalCard({
                     : []),
                 ]
                 if (!baseItems.length) return null
-                const moreItems: MenuItem[] = [
-                  ...baseItems,
-                  { separator: true },
-                  { value: 'settings', label: t('调整权限设置…'), icon: 'gear' },
-                ]
                 const moreBusy =
                   busy === 'full-access' || busy === 'session' || (!!always && busy === always.optionId)
                 return (
@@ -435,13 +438,12 @@ export function ApprovalCard({
                     aria-label={t('更多')}
                     disabled={!!busy}
                     portal
-                    items={moreItems}
+                    items={baseItems}
                     onSelect={(v) => {
                       if (v === 'session' && allow) void decide(allow, true)
                       else if (v === 'always' && always) void decide(always)
                       else if (v === 'full-access')
                         void send(`/runs/${run.id}/full-access`, {}, 'full-access')
-                      else if (v === 'settings') openSettings()
                     }}
                   >
                     {moreBusy ? <Spinner size={12} /> : null}
@@ -492,13 +494,23 @@ export function ApprovalCard({
           <span className="approval__guide-text">
             <Icon name="sparkle" size={12} className="approval__guide-icon" />
             <span>
-              {guideScope.focus === 'owner'
-                ? demo
-                  ? t('不想每次手动确认？可在设置中改为「帮我审批」，或配置常用命令白名单。')
-                  : t('不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或配置常用命令白名单。')
-                : demo
-                  ? t('这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的自动审批。')
-                  : t('这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的审批方式。')}
+              {guideScope.focus === 'trusted'
+                ? t('这是信任名单成员发起的任务，可在设置中调整「信任名单」的审批方式。')
+                : guideScope.focus === 'others'
+                  ? t('这是其他成员发起的任务，可在设置中调整「其他成员」的审批方式。')
+                  : guideScope.groupOverridden
+                    ? t('本群单独设置了审批方式；可在设置中恢复跟随全局，或把常用命令加到「已允许的命令」。')
+                    : guideScope.ownerMode === 'review'
+                      ? t(
+                          '构建、测试等常规开发命令已直接放行，其余才问你；常用命令可加到「已允许的命令」，以后不再问。',
+                        )
+                      : demo
+                        ? t(
+                            '不想每次手动确认？可在设置中改为「帮我审批」，或把常用命令加到「已允许的命令」。',
+                          )
+                        : t(
+                            '不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或把常用命令加到「已允许的命令」。',
+                          )}
             </span>
           </span>
           <span className="approval__guide-actions">

@@ -131,9 +131,9 @@ describe('ApprovalBlock permission guide & shortcut', () => {
     const pill = screen.getByRole('button', { name: /当前：每次问我/ })
     expect(pill).toBeTruthy()
 
-    // Also exposed at the bottom of the 更多 menu.
+    // The pill is the one entry: 更多 does not repeat it.
     fireEvent.click(screen.getByRole('button', { name: '更多' }))
-    expect(screen.getByRole('menuitem', { name: '调整权限设置…' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: /权限设置/ })).toBeNull()
     fireEvent.click(pill)
 
     const dialog = await screen.findByRole('dialog', { name: 'Bot 详情' })
@@ -165,6 +165,57 @@ describe('ApprovalBlock permission guide & shortcut', () => {
     fireEvent.click(othersPill)
     const dialog3 = await screen.findByRole('dialog', { name: 'Bot 详情' })
     expect(dialog3.querySelector('[data-focus-row="others"]')).toBeTruthy()
+  })
+
+  it('keeps the rule the run was started under after the trusted list changes', () => {
+    login('u1', '王磊')
+    useWorkspace.setState({ bots: [fullBot({ triggerList: ['u3'] })] })
+    render(<ApprovalBlock run={run([approval()], { originUserId: 'u3', audience: 'others' })} />)
+    expect(screen.getByRole('button', { name: /其他成员：需要审批/ })).toBeTruthy()
+    expect(screen.getByText('这是其他成员发起的任务，可在设置中调整「其他成员」的审批方式。')).toBeTruthy()
+  })
+
+  it('names only the trusted rule for a trusted run, and does not suggest 帮我审批 when already on', () => {
+    login('u1', '王磊')
+    useWorkspace.setState({ bots: [fullBot({ aiReview: true })] })
+    const { rerender } = render(
+      <ApprovalBlock run={run([approval()], { originUserId: 'u2', audience: 'trusted' })} />,
+    )
+    expect(
+      screen.getByText('这是信任名单成员发起的任务，可在设置中调整「信任名单」的审批方式。'),
+    ).toBeTruthy()
+    rerender(<ApprovalBlock run={run([approval()], { originUserId: 'u1', audience: 'owner' })} />)
+    expect(screen.getByText(/常规开发命令已直接放行，其余才问你/)).toBeTruthy()
+    expect(screen.queryByText(/改为「帮我审批」/)).toBeNull()
+  })
+
+  it('skips the tip on a red-line request, which no setting lets through', () => {
+    login('u1', '王磊')
+    render(<ApprovalBlock run={run([approval({ reason: 'high_risk' })], { originUserId: 'u1' })} />)
+    expect(screen.queryByRole('button', { name: '不再提醒' })).toBeNull()
+  })
+
+  it('marks the pill when this group caps the level', () => {
+    login('u1', '王磊')
+    useWorkspace.setState({
+      bots: [fullBot({ access: { trusted: 'auto', others: 'full' } })],
+      botStates: { g1: { b1: { tier: 'read-only' } as never } },
+    })
+    render(
+      <ApprovalBlock run={run([approval()], { groupId: 'g1', originUserId: 'u3', audience: 'others' })} />,
+    )
+    expect(screen.getByRole('button', { name: /其他成员：只读（本群）/ })).toBeTruthy()
+  })
+
+  it('shows the tip on one card only when several approvals wait', () => {
+    login('u1', '王磊')
+    render(
+      <>
+        <ApprovalBlock run={run([approval()], { originUserId: 'u1' })} />
+        <ApprovalBlock run={run([approval({ id: 'a2' })], { id: 'r2', originUserId: 'u1' })} />
+      </>,
+    )
+    expect(screen.getAllByRole('button', { name: '不再提醒' })).toHaveLength(1)
   })
 
   it('shows group override warning in BotDialog and lets the owner reset to follow global', async () => {
@@ -216,6 +267,17 @@ describe('ApprovalBlock permission guide & shortcut', () => {
     )
     await waitFor(() => expect(within(dialog).queryByText(/已单独设为/)).toBeNull())
     expect(screen.getByRole('button', { name: /当前：帮我审批/ })).toBeTruthy()
+
+    // The reset applies at once, so its toast can take it back.
+    fireEvent.click(await screen.findByRole('button', { name: '撤销' }))
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.method === 'PUT' && c.path === '/groups/g1/bots/b1/tier').at(-1)?.body,
+      ).toEqual({
+        tier: 'read-only',
+      }),
+    )
+    expect(await screen.findByRole('button', { name: /本群：只读/ })).toBeTruthy()
   })
 
   it('hides the guide and gear shortcut for non-owners and avoids 完全允许 in demoMode', () => {

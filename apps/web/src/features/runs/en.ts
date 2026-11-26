@@ -88,8 +88,8 @@ export default {
     "Discarded this turn's changes · earlier uncommitted work is untouched",
   '默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 {name} 或 Bot 主人可选，无超时。':
     'Kept by default: no rollback, no auto-commit, no stash. Discarding only restores files this turn touched and leaves earlier uncommitted changes alone. Only the initiator {name} or the Bot owner can choose; there is no timeout.',
-  '下一轮上下文会告诉 Agent：上一轮被 /stop 中断，以及这些文件的当前状态。':
-    "The next turn's context tells the Agent the last turn was interrupted by /stop, and the current state of these files.",
+  '下一轮上下文会告诉 Agent：上一轮已被停止，以及这些文件的当前状态。':
+    "The next turn's context tells the Agent the last turn was stopped, and the current state of these files.",
   保留改动: 'Keep changes',
   丢弃本轮改动: "Discard this turn's changes",
   问题: 'Questions',
@@ -113,8 +113,10 @@ export default {
   停止: 'Stop',
   '还有 {n} 题未回答': '{n} {n:question|questions} still unanswered',
   '要停止 {bot} 的这轮运行吗？': 'Stop this run of {bot}?',
-  '这是 {name} 发起的任务，当前轮次会立即中断，已产生的改动会保留在工作区。':
-    '{name} started this task. The current turn stops right away; changes made so far stay in the workspace.',
+  '这是 {name} 发起的任务，还在排队；停止后不会开始运行。':
+    "{name} started this task and it's still queued; stopping it means it won't start.",
+  '这是 {name} 发起的任务，当前轮次会在几秒内停止，已产生的改动会保留在工作区。':
+    '{name} started this task. This turn stops within a few seconds; changes made so far stay in the workspace.',
   '要终止整条链吗？': 'Stop the whole chain?',
   '{name} 已回答 · {at} · 已写入审计记录': 'Answered by {name} · {at} · recorded in the audit log',
   '无人回答，Agent 已按推荐项继续 · {at}': 'No answer; the Agent went on with the recommended options · {at}',
@@ -385,18 +387,21 @@ export default {
   收起提示: 'Collapse details',
   报告连接器状态: 'Report connector status',
   请求连接: 'Request connection',
-  '调整权限设置…': 'Approval settings…',
-  '调整此 Bot 的权限与审批设置': 'Adjust approval and permission settings for this Bot',
-  '不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或配置常用命令白名单。':
-    'Tired of approving every step? Switch to "Review for me" or "Allow everything", or add command rules in settings.',
-  '不想每次手动确认？可在设置中改为「帮我审批」，或配置常用命令白名单。':
-    'Tired of approving every step? Switch to "Review for me" or add command rules in settings.',
-  '这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的审批方式。':
-    'Started by another member. Adjust "Trusted list" or "Everyone else" approval in settings.',
-  '这是其他成员发起的任务，可在设置中调整「信任名单」或「其他成员」的自动审批。':
-    'Started by another member. Adjust "Trusted list" or "Everyone else" auto-approval in settings.',
+  '调整此 Bot 的权限与审批设置': "Adjust this Bot's access settings",
+  '这是信任名单成员发起的任务，可在设置中调整「信任名单」的审批方式。':
+    'Started by a trusted member. Adjust "Trusted list" approval in settings.',
+  '这是其他成员发起的任务，可在设置中调整「其他成员」的审批方式。':
+    'Started by another member. Adjust "Everyone else" approval in settings.',
+  '构建、测试等常规开发命令已直接放行，其余才问你；常用命令可加到「已允许的命令」，以后不再问。':
+    'Builds, tests and other routine dev commands already run without asking; add frequent commands to "Allowed commands" to skip the rest.',
+  '本群单独设置了审批方式；可在设置中恢复跟随全局，或把常用命令加到「已允许的命令」。':
+    'This group has its own approval mode. Follow global in settings, or add frequent commands to "Allowed commands".',
+  '不想每次手动确认？可在设置中改为「帮我审批」，或把常用命令加到「已允许的命令」。':
+    'Tired of approving every step? Switch to "Review for me", or add frequent commands to "Allowed commands".',
+  '不想每次手动确认？可在设置中改为「帮我审批」或「完全允许」，或把常用命令加到「已允许的命令」。':
+    'Tired of approving every step? Switch to "Review for me" or "Allow everything", or add frequent commands to "Allowed commands".',
   去设置: 'Open settings',
   不再提醒: "Don't show again",
   '已收起提示；随时可点卡片右上角「{label}」调整权限':
-    'Tip hidden. Click "{label}" at the top right of any card anytime to adjust permissions',
+    'Tip hidden. Click "{label}" at the top right of any card anytime to adjust access settings',
 } satisfies Record<string, string>

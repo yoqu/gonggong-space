@@ -32,6 +32,7 @@ import {
   useLeaving,
   usePresence,
 } from '../../ui'
+import type { AccessFocus } from '../bots/accessScope'
 import { useBotDialog } from '../bots/dialogStore'
 import { useSettings } from '../settings/store'
 import { otherTeam } from '../teams/store'
@@ -139,6 +140,8 @@ function DecideActions({ n }: { n: NotificationDto }) {
 }
 
 /** Notification types decided right in the panel with DecideActions. */
+const AUDIENCES: AccessFocus[] = ['owner', 'trusted', 'others']
+
 const DECIDED_HERE = new Set<NotificationDto['type']>(['bot_share_request', 'join_request', 'plugin_trust'])
 
 /**
@@ -198,6 +201,7 @@ function ApprovalActions({ n, onClose }: { n: NotificationDto; onClose: () => vo
               botId,
               tab: 'access',
               groupId: typeof n.payload.groupId === 'string' ? n.payload.groupId : undefined,
+              focus: AUDIENCES.find((x) => x === n.payload.audience),
             })
           }}
         >

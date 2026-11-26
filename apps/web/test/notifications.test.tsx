@@ -222,7 +222,7 @@ describe('notification center', () => {
         },
       ],
     })
-    const payload = { ...note({}).payload, botId: 'b1', approvalId: 'a1', options }
+    const payload = { ...note({}).payload, botId: 'b1', approvalId: 'a1', options, audience: 'others' }
     mockApi({ 'GET /notifications': [note({ payload })], 'GET /users': [] })
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -248,6 +248,7 @@ describe('notification center', () => {
     fireEvent.click(btn)
     const dialog = await screen.findByRole('dialog', { name: 'Bot 详情' })
     expect(within(dialog).getByRole('tab', { name: '权限' }).getAttribute('aria-selected')).toBe('true')
+    expect(useBotDialog.getState().target?.focus).toBe('others')
     act(() => useBotDialog.getState().close())
   })
 

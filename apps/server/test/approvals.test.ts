@@ -185,6 +185,8 @@ describe('approvals', () => {
         runId,
         approvalId: approval.id,
         botName: '小王的 Claude',
+        // 调整权限设置 opens on the rule that asked.
+        audience: 'others',
         detail: 'go build ./...',
         // Lets the owner decide from the notification when the run is in a chat they are not in (a shared bot's DM).
         options: OPTIONS,
@@ -194,6 +196,7 @@ describe('approvals', () => {
     expect(w.viewerWeb.seen.some((e) => e.t === 'notification.new')).toBe(false)
     const [listed] = await listRuns(t.ctx, w.group.id)
     expect(listed?.approvals.map((a) => a.id)).toEqual([approval.id])
+    expect(listed?.audience).toBe('others')
   })
 
   it('lets only the bot owner decide, once, with an offered option', async () => {

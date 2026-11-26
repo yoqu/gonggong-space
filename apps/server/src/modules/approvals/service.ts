@@ -100,6 +100,8 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
     approvalId: a.id,
     botId: row.bot.id,
     botName: row.bot.name,
+    // Which access rule asked, so 调整权限设置 opens on that row.
+    audience: (row.run.audience as RunAudience | null) ?? 'owner',
     title: req.title,
     detail: req.detail,
     // Decided right from the notification when the run is in a DM the owner is not in (a shared bot's).

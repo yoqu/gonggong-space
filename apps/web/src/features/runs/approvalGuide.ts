@@ -1,4 +1,5 @@
 import type { ApprovalGuideState, UserOnboarding } from '@gonggong/protocol'
+import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
@@ -59,7 +60,7 @@ function syncSession(patch: Partial<UserOnboarding>) {
 }
 
 const countedApprovals = new Set<string>()
-const useGuideStore = create<{ rev: number }>()(() => ({ rev: 0 }))
+const useGuideStore = create<{ rev: number; holders: string[] }>()(() => ({ rev: 0, holders: [] }))
 const bump = () => useGuideStore.setState((s) => ({ rev: s.rev + 1 }))
 
 function persistGuide(userId: string, next: StoredGuide, patch: Partial<UserOnboarding>) {
@@ -75,6 +76,16 @@ export function useApprovalGuideActive(userId: string | undefined): boolean {
   const onboarding = useSession((s) => s.tenancy?.onboarding)
   if (!userId) return false
   return resolveGuide(userId, onboarding).status === 'active'
+}
+
+/** With several pending cards on screen only the latest one carries the tip, so it is not repeated on each. */
+export function useApprovalGuideHolder(approvalId: string, eligible: boolean): boolean {
+  useEffect(() => {
+    if (!eligible) return
+    useGuideStore.setState((s) => ({ holders: [...s.holders.filter((h) => h !== approvalId), approvalId] }))
+    return () => useGuideStore.setState((s) => ({ holders: s.holders.filter((h) => h !== approvalId) }))
+  }, [approvalId, eligible])
+  return useGuideStore((s) => eligible && s.holders.at(-1) === approvalId)
 }
 
 /** Exit 1: user clicked 「不再提醒」. */

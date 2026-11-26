@@ -182,8 +182,9 @@ function saveToastMessage(
   providerChanged: boolean,
 ) {
   const hasLive = 'tier' in patch || 'access' in patch
+  // 审批方式 is one control: aiReview moving along with tier is that same switch, not a separate rule.
   const hasNextRun =
-    'aiReview' in patch ||
+    ('aiReview' in patch && !('tier' in patch)) ||
     'alwaysAllow' in patch ||
     'triggerScope' in patch ||
     'triggerList' in patch ||
@@ -199,10 +200,7 @@ function saveToastMessage(
     providerChanged
   if (hasLive && !hasNextRun && !hasNextSession)
     return t('{name} 已保存 · 运行中的任务立即生效', { name: botName })
-  if (hasLive && hasNextRun && !hasNextSession)
-    return t('{name} 已保存 · 审批级别立即生效，规则下一轮起生效', { name: botName })
-  if (hasLive && hasNextSession)
-    return t('{name} 已保存 · 审批方式立即生效，其余下一次新开会话时生效', { name: botName })
+  if (hasLive) return t('{name} 已保存 · 权限改动立即生效，其余稍后生效', { name: botName })
   if (!hasLive && hasNextRun && !hasNextSession)
     return t('{name} 已保存 · 下一轮运行起生效', { name: botName })
   if (!hasLive && !hasNextRun && !hasNextSession) return t('{name} 已保存', { name: botName })
@@ -495,14 +493,26 @@ export function BotDetail({
   const resetGroupTier = async () => {
     if (!groupId) return
     setResettingGroupTier(true)
-    try {
-      await groupsApi.setBotTier(groupId, bot.id, null)
+    const previous = groupTier
+    const apply = async (tier: Tier | null) => {
+      await groupsApi.setBotTier(groupId, bot.id, tier)
       if (groupState)
-        useWorkspace
-          .getState()
-          .applyEvent({ t: 'group.botState', groupId, state: { ...groupState, tier: null } })
+        useWorkspace.getState().applyEvent({ t: 'group.botState', groupId, state: { ...groupState, tier } })
+    }
+    try {
+      await apply(null)
       graduateApprovalGuide(me.id)
-      toast({ type: 'success', message: t('已恢复本群跟随全局审批方式') })
+      toast({
+        type: 'success',
+        message: t('已恢复本群跟随全局审批方式'),
+        action: {
+          label: t('撤销#undo'),
+          onClick: () =>
+            void apply(previous)
+              .then(() => toast({ type: 'success', message: t('已撤销') }))
+              .catch(toastError),
+        },
+      })
     } catch (e) {
       toastError(e)
     } finally {
@@ -529,9 +539,11 @@ export function BotDetail({
             description={
               focus === 'trusted' || focus === 'others'
                 ? t(
-                    '本群审批方式会作为其他成员的权限上限覆盖全局设置。若要改回跟随下面的全局规则，可恢复跟随全局。',
+                    '本群审批方式会作为信任名单和其他成员的权限上限覆盖全局设置；恢复跟随全局会立即生效，不用保存。',
                   )
-                : t('本群单独设置了审批方式，会覆盖下方全局「审批方式」；保存下方修改后本群仍以此处为准。')
+                : t(
+                    '本群单独设置了审批方式，下方全局「审批方式」在本群不生效；恢复跟随全局会立即生效，不用保存。',
+                  )
             }
           >
             {canEdit ? (

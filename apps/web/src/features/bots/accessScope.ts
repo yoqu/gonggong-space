@@ -1,6 +1,6 @@
 import type { AccessLevel, BotDto, GroupDto, RunDto, Tier } from '@gonggong/protocol'
 import { t } from '../../i18n'
-import { APPROVAL_MODE_LABEL, approvalMode } from './ApprovalFields'
+import { APPROVAL_MODE_LABEL, type ApprovalMode, approvalMode } from './ApprovalFields'
 import { AUDIENCE_LEVEL_LABEL } from './AudienceFields'
 
 export type AccessFocus = 'owner' | 'trusted' | 'others'
@@ -18,6 +18,8 @@ export interface ApprovalScopeInfo {
   focus: AccessFocus
   pillLabel: string
   modeLabel: string
+  /** The owner's approval mode in effect; only set for the owner's own runs. */
+  ownerMode?: ApprovalMode
   groupOverridden: boolean
 }
 
@@ -33,18 +35,21 @@ export function effectiveApprovalScope({
   demo = false,
 }: {
   bot: Pick<BotDto, 'ownerId' | 'tier' | 'aiReview' | 'triggerList' | 'access'>
-  run: Pick<RunDto, 'originUserId'>
+  run: Pick<RunDto, 'originUserId' | 'audience'>
   group?: Pick<GroupDto, 'kind'>
   groupTier?: Tier | null
   demo?: boolean
 }): ApprovalScopeInfo {
   const origin = run.originUserId
+  // The server fixes the audience at trigger time; editing the trusted list later does not move a live run.
   const focus: AccessFocus =
-    !origin || origin === bot.ownerId
-      ? 'owner'
-      : group?.kind === 'dm' || bot.triggerList?.includes(origin)
-        ? 'trusted'
-        : 'others'
+    run.audience !== undefined
+      ? (run.audience ?? 'owner')
+      : !origin || origin === bot.ownerId
+        ? 'owner'
+        : group?.kind === 'dm' || bot.triggerList?.includes(origin)
+          ? 'trusted'
+          : 'others'
 
   const clampDemo = (tier: Tier): Tier => (demo && tier === 'full' ? 'workspace' : tier)
 
@@ -56,7 +61,7 @@ export function effectiveApprovalScope({
     const pillLabel = groupTier
       ? t('本群：{mode}', { mode: modeLabel })
       : t('当前：{mode}', { mode: modeLabel })
-    return { focus, pillLabel, modeLabel, groupOverridden: groupTier != null }
+    return { focus, pillLabel, modeLabel, ownerMode: mode, groupOverridden: groupTier != null }
   }
 
   const baseLevel: AccessLevel = bot.access?.[focus] ?? 'ask'
@@ -73,8 +78,11 @@ export function effectiveApprovalScope({
           ? 'auto'
           : 'ask'
   const modeLabel = AUDIENCE_LEVEL_LABEL[effectiveLevel]
-  const pillLabel =
-    focus === 'trusted'
+  const pillLabel = cappedByGroup
+    ? focus === 'trusted'
+      ? t('信任名单：{mode}（本群）', { mode: modeLabel })
+      : t('其他成员：{mode}（本群）', { mode: modeLabel })
+    : focus === 'trusted'
       ? t('信任名单：{mode}', { mode: modeLabel })
       : t('其他成员：{mode}', { mode: modeLabel })
   return { focus, pillLabel, modeLabel, groupOverridden: cappedByGroup }

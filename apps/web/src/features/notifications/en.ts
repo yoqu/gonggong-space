@@ -45,5 +45,5 @@ export default {
   待处理的请求不会随已读清除: 'Requests still waiting for you are kept',
   通知加载失败: "Couldn't load notifications",
   飞书通知状态加载失败: "Couldn't load Feishu notification status",
-  调整权限设置: 'Approval settings',
+  调整权限设置: 'Access settings',
 } satisfies Record<string, string>

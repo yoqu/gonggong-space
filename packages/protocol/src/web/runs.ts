@@ -11,6 +11,7 @@ import {
   DiffRepo,
   MAX_ATTACHMENTS,
   Question,
+  RunAudience,
   RunStatus,
   Usage,
 } from '../common.js'
@@ -135,6 +136,8 @@ export const RunDto = z.object({
   offlineWaitMin: z.number().int(),
   /** Human whose @ started the chain; every hop is authorized and answerable by them. */
   originUserId: z.string(),
+  /** Which access rule the run was started under, fixed at trigger; null = from before audiences (owner rule). */
+  audience: RunAudience.nullable().optional(),
   /** Skills from the origin user's personal layer delivered with the turn (Skill 市场 M3); only the count is shown. */
   personalSkills: z.number().int().optional(),
   approvals: z.array(ApprovalDto),
