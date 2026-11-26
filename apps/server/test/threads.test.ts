@@ -120,9 +120,10 @@ describe('thread unread', () => {
 
     const { body: state } = await s.asWang.get<ThreadDto>(`/api/messages/${root.id}/thread`)
     expect(state.state).toMatchObject({ following: true, unread: 2, mentioned: false })
-    expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
+    expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body).toMatchObject({
       unread: 1,
       mentioned: 0,
+      groups: { [s.g.id]: 1 },
     })
 
     const read = await s.asWang.put<ThreadStateDto>(`/api/messages/${root.id}/thread/read`, {})
@@ -130,6 +131,7 @@ describe('thread unread', () => {
     expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
       unread: 0,
       mentioned: 0,
+      groups: {},
     })
   })
 
@@ -139,7 +141,7 @@ describe('thread unread', () => {
     await send(s.asLi, s.g.id, '@赵敏 看下', { threadRootId: root.id })
     const zhao = (await s.asZhao.get<ThreadDto>(`/api/messages/${root.id}/thread`)).body.state
     expect(zhao).toMatchObject({ following: true, unread: 1, mentioned: true })
-    expect((await s.asZhao.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
+    expect((await s.asZhao.get<ThreadUnreadDto>('/api/threads/unread')).body).toMatchObject({
       unread: 1,
       mentioned: 1,
     })
@@ -155,7 +157,7 @@ describe('thread unread', () => {
     await send(s.asLi, s.g.id, '@赵敏 看下', { threadRootId: root.id })
     await s.asZhao.post(`/api/groups/${s.g.id}/read`, {})
     expect(await groupOf(s.asZhao, s.g.id)).toMatchObject({ mentionCount: 0 })
-    expect((await s.asZhao.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
+    expect((await s.asZhao.get<ThreadUnreadDto>('/api/threads/unread')).body).toMatchObject({
       unread: 1,
       mentioned: 1,
     })
@@ -169,7 +171,7 @@ describe('thread unread', () => {
     })
     expect(off.body).toMatchObject({ following: false })
     await send(s.asLi, s.g.id, '回复', { threadRootId: root.id })
-    expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
+    expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body).toMatchObject({
       unread: 0,
       mentioned: 0,
     })
@@ -278,17 +280,17 @@ describe('thread inbox', () => {
     const unread = async (c: C) => (await c.get<ThreadUnreadDto>('/api/threads/unread')).body
 
     expect((await inbox(eveA)).map((x) => [x.groupId, x.root.id])).toEqual([[groupA.id, rootA.id]])
-    expect(await unread(eveA)).toEqual({ unread: 1, mentioned: 0 })
+    expect(await unread(eveA)).toEqual({ unread: 1, mentioned: 0, groups: { [groupA.id]: 1 } })
 
     expect((await inbox(eveB)).map((x) => [x.groupId, x.root.id])).toEqual([
       [groupB.id, rootB2.id],
       [groupB.id, rootB1.id],
     ])
-    expect(await unread(eveB)).toEqual({ unread: 2, mentioned: 1 })
+    expect(await unread(eveB)).toEqual({ unread: 2, mentioned: 1, groups: { [groupB.id]: 2 } })
 
     // Without X-GG-Team, defaults to the earliest-joined team (Team A).
     expect((await inbox(eveDefault)).map((x) => x.root.id)).toEqual([rootA.id])
-    expect(await unread(eveDefault)).toEqual({ unread: 1, mentioned: 0 })
+    expect(await unread(eveDefault)).toEqual({ unread: 1, mentioned: 0, groups: { [groupA.id]: 1 } })
 
     // Foreign team header is refused, and a user in no team gets 403.
     const aliceAsB = client(t, await t.seed.cookie(alice.id), teamB.id)

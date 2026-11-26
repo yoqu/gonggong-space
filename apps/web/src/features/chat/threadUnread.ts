@@ -5,7 +5,7 @@ import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 
 /** Followed threads with new replies, and how many of them @ me (the sidebar's 话题 row). */
-export const useThreadUnread = create<ThreadUnreadDto>()(() => ({ unread: 0, mentioned: 0 }))
+export const useThreadUnread = create<ThreadUnreadDto>()(() => ({ unread: 0, mentioned: 0, groups: {} }))
 
 const REFRESH_MS = 300
 

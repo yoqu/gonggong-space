@@ -177,6 +177,10 @@ export function ThreadSummary({
       style={hue ? ({ '--thread-hue': hue } as CSSProperties) : undefined}
       onClick={onClick}
     >
+      <span className="pn-thread__tag">
+        <Icon name="thread" size={13} />
+        {t('话题')}
+      </span>
       <AvatarGroup people={people} size={20} max={3} />
       <span className="pn-thread__count">
         {count ? <RollingNumber value={t('{n} 条回复', { n: count })} /> : t('查看话题')}
@@ -190,6 +194,7 @@ export function ThreadSummary({
       {unread > 0 && mentioned && <span className="pn-thread__at">{t('@我')}</span>}
       {lastTime && <span className="pn-thread__last">{t('最后回复 {time}', { time: lastTime })}</span>}
       {extra}
+      <Icon name="chevron-right" size={12} className="pn-thread__go" />
     </button>
   )
 }

@@ -387,6 +387,7 @@ describe('a bot answering in a thread', () => {
     expect((await asAlice.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
       unread: 1,
       mentioned: 1,
+      groups: { [w.group.id]: 1 },
     })
     // Reading the thread settles it.
     await asAlice.put(`/api/messages/${root.id}/thread/read`, {})

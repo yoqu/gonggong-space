@@ -25,6 +25,7 @@ import { realtime } from '../../lib/realtime'
 import { useHeightVar } from '../../lib/useHeightVar'
 import { useStickOnResize } from '../../lib/useStickOnResize'
 import {
+  Badge,
   Button,
   ChatHeader,
   ChatNotice,
@@ -91,6 +92,7 @@ import {
 } from './TimelineItems'
 import { openThread } from './thread'
 import { useThreadLive } from './threadSummary'
+import { useThreadUnread } from './threadUnread'
 import { escFree, releaseUnreadMark, useUnreadMark } from './unreadMark'
 import { useMarkRead } from './useMarkRead'
 import { useTimeline } from './useTimeline'
@@ -188,6 +190,7 @@ export function ChatView({
   const threadRoot = useInspector((s) => (s.view === 'thread' ? (s.payload as string) : null))
   const { open: inspect, close: closeInspector } = useInspector.getState()
   const benchTabs = useWorkbench((s) => s.benches[group.id]?.tabs.length ?? 0)
+  const threadsUnread = useThreadUnread((s) => s.groups[group.id] ?? 0)
   const benchOpen = useWorkbench((s) => s.open)
   const [settings, setSettings] = useState<SettingsTab | null>(null)
   useGroupPlugins(group.id)
@@ -764,6 +767,12 @@ export function ChatView({
               {
                 icon: 'thread' as const,
                 label: t('话题#inbox'),
+                text: (
+                  <>
+                    {t('话题#inbox')}
+                    <Badge count={threadsUnread} />
+                  </>
+                ),
                 active: threadsOpen,
                 onClick: () => (threadsOpen && !threadBack ? closeInspector() : inspect('threads')),
               },

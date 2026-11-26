@@ -246,8 +246,15 @@ export const GroupThreadsDto = z.object({
   next: z.number().int().nullable(),
 })
 export type GroupThreadsDto = z.infer<typeof GroupThreadsDto>
-/** GET /api/threads/unread → followed threads with unread replies, and how many of them @ the viewer. */
-export const ThreadUnreadDto = z.object({ unread: z.number().int(), mentioned: z.number().int() })
+/**
+ * GET /api/threads/unread → followed threads with unread replies, how many of them @ the viewer, and the unread
+ * ones per group id (groups without any are left out).
+ */
+export const ThreadUnreadDto = z.object({
+  unread: z.number().int(),
+  mentioned: z.number().int(),
+  groups: z.record(z.string(), z.number().int()),
+})
 export type ThreadUnreadDto = z.infer<typeof ThreadUnreadDto>
 
 /** 稍后处理: PUT /api/messages/:id/save — save (or re-save) a message, with a reminder or none. */

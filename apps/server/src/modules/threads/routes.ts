@@ -350,7 +350,11 @@ export function threadRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const teamId = await currentTeam(ctx, req, me.id)
       const rows = await ctx.db
-        .select({ unread: stateColumns.unread, mentioned: stateColumns.mentioned })
+        .select({
+          groupId: threadFollows.groupId,
+          unread: stateColumns.unread,
+          mentioned: stateColumns.mentioned,
+        })
         .from(threadFollows)
         .innerJoin(
           groupMembers,
@@ -358,10 +362,10 @@ export function threadRoutes(ctx: Ctx) {
         )
         .innerJoin(groups, eq(groups.id, threadFollows.groupId))
         .where(followedBy(me.id, teamId))
-      return {
-        unread: rows.filter((r) => r.unread > 0).length,
-        mentioned: rows.filter((r) => r.mentioned).length,
-      }
+      const unread = rows.filter((r) => r.unread > 0)
+      const byGroup: Record<string, number> = {}
+      for (const r of unread) byGroup[r.groupId] = (byGroup[r.groupId] ?? 0) + 1
+      return { unread: unread.length, mentioned: rows.filter((r) => r.mentioned).length, groups: byGroup }
     })
   }
 }
