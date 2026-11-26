@@ -1,7 +1,7 @@
 import type { GroupFeishuView } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, feishuIdentities } from '../src/db/schema.js'
+import { auditLogs, feishuIdentities, messages } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import type { FakeUser } from './support/feishu.js'
@@ -73,8 +73,10 @@ describe('创建飞书群', () => {
         name: '支付重构',
         ownerUnionId: s.ownerFs.unionId,
         unionIds: [s.liFs.unionId],
-        botAppIds: ['cli_bot0'],
       },
+    ])
+    expect(t.feishu.botsAdded).toEqual([
+      { appId: MAIN, chatId: t.feishu.chatsCreated[0]?.chatId, botAppId: 'cli_bot0' },
     ])
     expect(res.body.chat).toMatchObject({ chatId: t.feishu.chatsCreated[0]?.chatId, name: '支付重构' })
     const audits = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'feishu.chat.create'))
@@ -82,15 +84,22 @@ describe('创建飞书群', () => {
     expect((await s.create()).status).toBe(409)
   })
 
-  it('adds the bots past the first five one by one', async () => {
-    const s = await setup(6)
-    await s.create()
-    const [created] = t.feishu.chatsCreated
-    expect(created?.botAppIds).toHaveLength(5)
-    expect(t.feishu.botsAdded).toHaveLength(1)
-    expect(t.feishu.botsAdded[0]?.chatId).toBe(created?.chatId)
-    expect([...(created?.botAppIds ?? []), t.feishu.botsAdded[0]?.botAppId].sort()).toEqual(
-      [0, 1, 2, 3, 4, 5].map((i) => `cli_bot${i}`),
+  it('creates the chat even when a bot cannot join, and tells the group why', async () => {
+    const s = await setup(2)
+    t.feishu.addBotError = 'unavailable ids: [cli_bot0]'
+    t.feishu.addBotErrorCode = 232043
+    const res = await s.create()
+    expect(res.status).toBe(200)
+    expect(res.body.chat?.chatId).toBe(t.feishu.chatsCreated[0]?.chatId)
+    expect(res.body.bots.filter((b) => b.appId).map((b) => b.issue?.code)).toEqual([232043, 232043])
+    const events = (await t.db.select().from(messages).where(eq(messages.groupId, s.group.id))).filter((m) =>
+      m.body.includes('没能自动拉入飞书群'),
+    )
+    expect(events.map((e) => e.body).sort()).toEqual(
+      ['Bot0', 'Bot1'].map(
+        (n) =>
+          `${n} 没能自动拉入飞书群：飞书应用还没发布，或相关成员不在它的可用范围内。请应用管理员在飞书开放平台发布应用版本，并在飞书管理后台把可用范围设为需要的成员。`,
+      ),
     )
   })
 

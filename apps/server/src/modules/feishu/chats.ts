@@ -172,6 +172,14 @@ export async function pullBotIntoChat(ctx: Ctx, groupId: string, botId: string) 
   const main = chat && (await mainApp(ctx))
   if (!chat || !main) return
   const { refused } = await pullBots(ctx, groupId, main, chat.chatId, botId)
+  await tellRefused(ctx, groupId, refused)
+}
+
+async function tellRefused(
+  ctx: Ctx,
+  groupId: string,
+  refused: { name: string; botId: string; issue: FeishuIssue }[],
+) {
   for (const r of refused)
     await postEvent(
       ctx,
@@ -269,9 +277,8 @@ const tracked = <T>(run: () => Promise<T>) => {
   return p.finally(() => creatingChats.delete(p))
 }
 
-/** Feishu takes at most this many users and bots when creating a chat; the rest are added after. */
+/** Feishu takes at most this many users when creating a chat; the rest are added after. */
 const CREATE_USERS = 50
-const CREATE_BOTS = 5
 
 /** 群设置 · 飞书: a group admin binds the group to one chat of the main app (one to one) and adds bots' apps to it. */
 export function feishuChatRoutes(ctx: Ctx) {
@@ -387,19 +394,12 @@ export function feishuChatRoutes(ctx: Ctx) {
         const owner = members.find((m) => m.userId === user.id)?.unionId
         if (!owner) return fail('invalid', '请先在个人设置中绑定飞书账号')
         const unionIds = members.flatMap((m) => (m.unionId && m.unionId !== owner ? [m.unionId] : []))
-        const apps: { botId: string; appId: string }[] = []
-        for (const b of await activeBots(ctx, group.id)) {
-          const app = await botApp(ctx, b.id)
-          if (app) apps.push({ botId: b.id, appId: app.appId })
-        }
-        const appIds = apps.map((a) => a.appId)
         const name = group.name.slice(0, 60)
         const chatId = await ctx.feishu.api
           .createChat(credsOf(main), {
             name,
             ownerUnionId: owner,
             unionIds: unionIds.slice(0, CREATE_USERS),
-            botAppIds: appIds.slice(0, CREATE_BOTS),
           })
           .catch((err) =>
             err instanceof FeishuError && err.code === NO_SCOPE
@@ -418,9 +418,10 @@ export function feishuChatRoutes(ctx: Ctx) {
         markBound(ctx, group.id)
         for (let i = CREATE_USERS; i < unionIds.length; i += CREATE_USERS)
           await feishu(ctx.feishu.api.addUsers(credsOf(main), chatId, unionIds.slice(i, i + CREATE_USERS)))
-        // One by one: a bot that cannot join (e.g. the chat's bot limit) shows why, with a retry, in the list below.
-        for (const a of apps.slice(CREATE_BOTS))
-          await addBotApp(ctx, group.id, main, chatId, a.botId, a.appId)
+        // Bots join after the chat exists, one by one: one Feishu refuses (e.g. an unpublished app) must not fail the
+        // whole creation; its reason shows, with a retry, in the list below.
+        const { added, refused } = await pullBots(ctx, group.id, main, chatId)
+        await tellRefused(ctx, group.id, refused)
         await publishGroup(ctx, group.id)
         await audit(ctx, {
           category: 'admin',
@@ -430,7 +431,7 @@ export function feishuChatRoutes(ctx: Ctx) {
           action: 'feishu.chat.create',
           detail: { chatId, name },
         })
-        return view(ctx, group.id, user.id)
+        return view(ctx, group.id, user.id, added)
       }),
     )
 

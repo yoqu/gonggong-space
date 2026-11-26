@@ -53,7 +53,6 @@ export class FakeFeishu {
     name: string
     ownerUnionId: string
     unionIds: string[]
-    botAppIds: string[]
   }[] = []
   /** `createChat` fails with this Feishu code when set (99991672: a scope is missing). */
   createChatError: number | null = null

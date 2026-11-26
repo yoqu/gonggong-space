@@ -6,6 +6,7 @@ describe('feishuErrorHint', () => {
     expect(feishuErrorHint(230002)).toMatchObject({ what: '机器人不在飞书群里。', pullIn: true })
     expect(feishuErrorHint(20010).what).toBe('飞书应用还没发布，或相关成员不在它的可用范围内。')
     expect(feishuErrorHint(232024)).toEqual(feishuErrorHint(20010))
+    expect(feishuErrorHint(232043)).toEqual(feishuErrorHint(20010))
     expect(feishuErrorHint(99991672).what).toContain('权限')
     expect(feishuErrorHint(10014).what).toBe('飞书应用的凭证已失效。')
     expect(feishuErrorHint(99991668).what).toBe('你的飞书授权已过期。')
