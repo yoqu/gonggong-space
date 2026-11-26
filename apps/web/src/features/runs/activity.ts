@@ -226,14 +226,14 @@ export function classify(s: Step, root: string | null): Action {
  * reported.
  */
 const COLLAB: Record<string, [verb: string, target?: string]> = {
-  spawnAgent: [t('派出子 agent'), t('详情不可见')],
-  wait: [t('等待子 agent')],
-  sendInput: [t('向子 agent 发送消息')],
-  resumeAgent: [t('恢复子 agent')],
-  closeAgent: [t('关闭子 agent')],
+  spawnAgent: [t('派出子 Agent'), t('详情不可见')],
+  wait: [t('等待子 Agent')],
+  sendInput: [t('向子 Agent 发送消息')],
+  resumeAgent: [t('恢复子 Agent')],
+  closeAgent: [t('关闭子 Agent')],
   // Antigravity CLI: the subagents themselves come from its transcripts (daemon `antigravity`).
-  'Run invoke_subagent': [t('派出子 agent')],
-  'Run manage_subagents': [t('调度了子 agent')],
+  'Run invoke_subagent': [t('派出子 Agent')],
+  'Run manage_subagents': [t('调度了子 Agent')],
 }
 
 /** Titles adapters send before a call's input arrives. */
@@ -264,7 +264,7 @@ const WHAT = (a: Action) =>
         : a.family === 'fetch'
           ? t('访问了网络')
           : a.family === 'delegate'
-            ? t('调度了子 agent')
+            ? t('调度了子 Agent')
             : t('调用了工具')
 
 /** The daemon's status for a call its command rules let through (crates/gonggong i18n, either language). */
@@ -539,7 +539,7 @@ function workSummary(actions: Action[]) {
     n('explore') && t('查阅 {n}', { n: n('explore') }),
     n('execute') && t('命令 {n}', { n: n('execute') }),
     files && t('改动 {n}', { n: files }),
-    n('subagent') && t('子 agent {n}', { n: n('subagent') }),
+    n('subagent') && t('子 Agent {n}', { n: n('subagent') }),
   ]
     .filter(Boolean)
     .join(' · ')

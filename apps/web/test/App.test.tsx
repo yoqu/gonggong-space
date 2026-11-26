@@ -1,5 +1,5 @@
 import type { GroupDto, UserDto } from '@gonggong/protocol'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
@@ -210,6 +210,7 @@ describe('unknown routes', () => {
     )
     renderAt('/admin/nope')
     expect(await screen.findByText('页面不存在')).toBeTruthy()
-    expect(screen.getByRole('link', { name: '返回消息' }).getAttribute('href')).toBe('/')
+    fireEvent.click(screen.getByRole('button', { name: '返回消息' }))
+    await waitFor(() => expect(screen.queryByText('页面不存在')).toBeNull())
   })
 })

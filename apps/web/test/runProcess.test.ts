@@ -476,7 +476,7 @@ describe('process steps', () => {
     })
     expect(steps.map((s) => s.kind)).toEqual(['context', 'subagent', 'text'])
     const [, explore, text] = steps
-    expect(explore).toMatchObject({ label: '子 agent', title: 'Explore', body: '找调用方', running: false })
+    expect(explore).toMatchObject({ label: '子 Agent', title: 'Explore', body: '找调用方', running: false })
     expect(explore!.children!.map((s) => [s.kind, s.running ?? false])).toEqual([
       ['thought', false],
       ['read', false],

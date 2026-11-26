@@ -63,7 +63,12 @@ export function ProviderBanner({ group }: { group: GroupDto }) {
             effective,
           })}
           action={
-            <Button size="small" disabled={sending === bot.id} onClick={() => renew(bot)}>
+            <Button
+              size="small"
+              loading={sending === bot.id}
+              disabled={sending === bot.id}
+              onClick={() => renew(bot)}
+            >
               {t('新会话')}
             </Button>
           }

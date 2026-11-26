@@ -8,7 +8,18 @@ import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
 import { useRealtimeRefresh } from '../../lib/useRealtimeRefresh'
-import { Badge, Button, EmptyChatArt, EmptyState, FailedArt, Icon, Mascot, toast, useLeaving } from '../../ui'
+import {
+  Badge,
+  Button,
+  EmptyChatArt,
+  EmptyState,
+  FailedArt,
+  Icon,
+  Mascot,
+  toast,
+  useEscape,
+  useLeaving,
+} from '../../ui'
 import { MessageComposer } from './MessageComposer'
 import './thread-inbox.css'
 import { messageSnippet } from './snippet'
@@ -47,18 +58,13 @@ function Card({
     else if (opened.current) card.current?.querySelector<HTMLElement>('.thread-inbox__reply')?.focus()
     opened.current ||= replying
   }, [replying])
+  useEscape(() => setReplying(false), replying)
   const { state } = item
   return (
     <article
       ref={card}
       className={cx('thread-inbox__card', leaving && 'ui-leaving')}
       data-unread={state.unread > 0 || undefined}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && replying && !e.defaultPrevented) {
-          e.preventDefault()
-          setReplying(false)
-        }
-      }}
     >
       <button
         type="button"

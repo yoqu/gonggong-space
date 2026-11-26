@@ -39,10 +39,10 @@ import { attempt } from '../lib/errors'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
 import {
-  AlertDialog,
   Avatar,
   Badge,
   Button,
+  ConfirmActionDialog,
   ContextMenu,
   type ConversationActivity,
   ConversationContent,
@@ -60,7 +60,6 @@ import { useInspector } from './inspector'
 import { useSelectionCapsule } from './selectionCapsule'
 import { useSession } from './session'
 import { useHeldOrder, useReorderGlide } from './sidebarOrder'
-import { useWorkbench } from './workbench'
 import { alertCount, lastText, rowCount, useWorkspace } from './workspace'
 
 export const GROUP_MODE_LABEL = { partition: t('分区模式'), force: t('强制同步') }
@@ -200,13 +199,6 @@ const GroupRow = memo(function GroupRow({
   const admins = g.members.filter((m) => m.isAdmin)
   // The group's only admin hands the role over first (as 群信息 asks).
   const onlyAdmin = admins.length === 1 && admins[0]?.userId === me && g.members.length > 1
-  const leave = async () => {
-    setLeaving(false)
-    if (await attempt(() => groupsApi.leave(g.id))) {
-      if (current) navigate('/')
-      toast({ type: 'success', message: t('已离开 {name}', { name: g.name }) })
-    }
-  }
   const onMenu = (v: string) => {
     if (v.startsWith('team:')) void attempt(() => teamSectionsApi.file(g.id, v.slice(5) || null))
     else if (v === 'section:new') onNewSection()
@@ -348,19 +340,22 @@ const GroupRow = memo(function GroupRow({
       </NavLink>
       <Presence>
         {leaving ? (
-          <AlertDialog
-            open
+          <ConfirmActionDialog
             title={t('离开「{name}」？', { name: g.name })}
             message={
               g.visibility === 'public'
                 ? t('你的 Bot 会一并移出；这是公开频道，之后可在「浏览频道」重新加入。')
                 : t('你的 Bot 会一并移出；这是私有群，之后需要成员重新邀请。')
             }
+            consequences={[]}
+            label={t('离开#leave')}
+            done={t('已离开 {name}', { name: g.name })}
+            run={() => groupsApi.leave(g.id)}
+            onDone={() => {
+              setLeaving(false)
+              if (current) navigate('/')
+            }}
             onClose={() => setLeaving(false)}
-            actions={[
-              { label: t('取消'), onClick: () => setLeaving(false) },
-              { label: t('离开#leave'), variant: 'destructive', onClick: () => void leave() },
-            ]}
           />
         ) : null}
       </Presence>

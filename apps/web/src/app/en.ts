@@ -69,6 +69,7 @@ export default {
   还没有会话: 'No conversations yet',
   '被拉进群后，会话会出现在这里': 'Once someone adds you to a group, conversations show up here',
   终端不存在或已删除: 'Terminal not found or deleted',
+  终端加载失败: "Couldn't load terminals",
   '会话#list': 'Conversations',
   发起会话: 'New conversation',
   '电脑与 Bot': 'Computers & Bots',

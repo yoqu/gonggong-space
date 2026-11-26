@@ -173,7 +173,7 @@ export function ActivityDock({
               icon="bot"
               n={subagents}
               narrow={narrow}
-              text={t('子 agent {n} 个运行中', { n: subagents })}
+              text={t('子 Agent {n} 个运行中', { n: subagents })}
             />
           ) : null}
           {tasks ? (

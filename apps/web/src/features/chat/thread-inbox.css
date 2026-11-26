@@ -106,7 +106,7 @@
 }
 .thread-inbox__line > time {
   flex: none;
-  color: var(--label-tertiary, var(--label-secondary));
+  color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
 }
 .thread-inbox__replies {

@@ -132,15 +132,16 @@ export function ConnectorMenu({
                 <Button size="small" onClick={() => onPick(c)}>
                   {c.status === 'expired' ? t('重新连接') : t('连接')}
                 </Button>
-              ) : !c.cli && c.status === 'unconnected' ? null : (
+              ) : (c.cli ? c.cli.state === 'ready' : c.connected) ? (
                 <Switch
                   size="small"
                   checked={c.on}
                   disabled={togglingId === c.id}
+                  loading={togglingId === c.id}
                   ariaLabel={t('在本群启用「{name}」', { name: c.manifest.title })}
                   onChange={(on) => void toggle(c, on)}
                 />
-              )}
+              ) : null}
             </li>
           ))}
         </ul>

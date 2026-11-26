@@ -33,7 +33,7 @@ export function questionText(q: QuestionSetDto) {
     case 'answered':
       return t('{name} 已回答', { name: q.answeredByName ?? '' }).trim()
     case 'expired':
-      return t('无人回答，agent 已按推荐项继续')
+      return t('无人回答，Agent 已按推荐项继续')
     case 'void':
       return t('提问已失效')
   }

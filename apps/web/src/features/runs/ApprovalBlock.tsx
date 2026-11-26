@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
 import { countdown, hm } from '../../lib/time'
-import { Button, Icon, MenuButton, type MenuItem, Tag, type TagTone } from '../../ui'
+import { Button, Icon, MenuButton, type MenuItem, Spinner, Tag, type TagTone } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
 import './approval.css'
 import { t } from '../../i18n'
@@ -303,87 +303,96 @@ export function ApprovalCard({
       )}
       {pending ? (
         <div className="approval__actions">
-          <Button
-            variant="primary"
-            size="small"
-            disabled={!mine || !!busy || !allow}
-            loading={!!allow && busy === allow.optionId}
-            onClick={() => allow && decide(allow)}
-          >
-            {t('批准')}
-          </Button>
-          <Button
-            size="small"
-            disabled={!mine || !!busy || !reject}
-            loading={!!reject && busy === reject.optionId}
-            onClick={() => reject && decide(reject)}
-          >
-            {t('拒绝#reject')}
-          </Button>
-          {(() => {
-            const moreItems: MenuItem[] = [
-              ...(allow && a.rememberSession.length > 0
-                ? [
-                    {
-                      value: 'session',
-                      label: t('本次会话不再问'),
-                      title: t('本次会话不再问：{rules}', { rules: rules(a.rememberSession, a.mcp) }),
-                    },
-                  ]
-                : []),
-              ...(always ? [{ value: 'always', label: a.mcp ? t('以后都允许') : t('批准，不再询问') }] : []),
-              ...(!demo
-                ? [
-                    {
-                      value: 'full-access',
-                      label: t('本次运行免审批'),
-                      title: t('本次运行改为「完全允许」，后续请求不再询问；下一轮恢复原审批方式'),
-                    },
-                  ]
-                : []),
-            ]
-            if (!moreItems.length) return null
-            return (
-              <MenuButton
-                className="ui-btn ui-btn--secondary ui-btn--small"
-                aria-label={t('更多')}
-                disabled={!mine || !!busy}
-                portal
-                items={moreItems}
-                onSelect={(v) => {
-                  if (v === 'session' && allow) void decide(allow, true)
-                  else if (v === 'always' && always) void decide(always)
-                  else if (v === 'full-access') void send(`/runs/${run.id}/full-access`, {}, 'full-access')
-                }}
+          {mine ? (
+            <>
+              <Button
+                variant="primary"
+                size="small"
+                disabled={!!busy || !allow}
+                loading={!!allow && busy === allow.optionId}
+                onClick={() => allow && decide(allow)}
               >
-                {t('更多')}
-                <Icon name="chevron-down" size={11} />
-              </MenuButton>
-            )
-          })()}
-          {others.length > 0 &&
-            ([a, ...others].some(risky) ? (
-              <span className="approval__hint">{t('含可能删除数据或高风险的请求，请逐个审批')}</span>
-            ) : (
-              <Button size="small" disabled={!mine || !!busy} loading={busy === 'all'} onClick={approveAll}>
-                {t('全部批准（{n}）', { n: others.length + 1 })}
+                {t('批准')}
               </Button>
-            ))}
-          {a.rememberSession.length > 0 && a.rememberSession.join() !== a.remember.join() && (
-            <span className="approval__hint">
-              {t('本次会话不再问：{rules}', { rules: rules(a.rememberSession, a.mcp) })}
-            </span>
-          )}
-          {always && (
-            <span className="approval__hint">
-              {t('不再询问：{rules}', { rules: rules(a.remember, a.mcp) })}
-            </span>
-          )}
-          {!mine ? (
+              <Button
+                size="small"
+                disabled={!!busy || !reject}
+                loading={!!reject && busy === reject.optionId}
+                onClick={() => reject && decide(reject)}
+              >
+                {t('拒绝#reject')}
+              </Button>
+              {(() => {
+                const moreItems: MenuItem[] = [
+                  ...(allow && a.rememberSession.length > 0
+                    ? [
+                        {
+                          value: 'session',
+                          label: t('本次会话不再问'),
+                          title: t('本次会话不再问：{rules}', { rules: rules(a.rememberSession, a.mcp) }),
+                        },
+                      ]
+                    : []),
+                  ...(always
+                    ? [{ value: 'always', label: a.mcp ? t('以后都允许') : t('批准，不再询问') }]
+                    : []),
+                  ...(!demo
+                    ? [
+                        {
+                          value: 'full-access',
+                          label: t('本次运行免审批'),
+                          title: t('本次运行改为「完全允许」，后续请求不再询问；下一轮恢复原审批方式'),
+                        },
+                      ]
+                    : []),
+                ]
+                if (!moreItems.length) return null
+                const moreBusy =
+                  busy === 'full-access' || busy === 'session' || (!!always && busy === always.optionId)
+                return (
+                  <MenuButton
+                    className="ui-btn ui-btn--secondary ui-btn--small"
+                    aria-label={t('更多')}
+                    disabled={!!busy}
+                    portal
+                    items={moreItems}
+                    onSelect={(v) => {
+                      if (v === 'session' && allow) void decide(allow, true)
+                      else if (v === 'always' && always) void decide(always)
+                      else if (v === 'full-access')
+                        void send(`/runs/${run.id}/full-access`, {}, 'full-access')
+                    }}
+                  >
+                    {moreBusy ? <Spinner size={12} /> : null}
+                    {t('更多')}
+                    <Icon name="chevron-down" size={11} />
+                  </MenuButton>
+                )
+              })()}
+              {others.length > 0 &&
+                ([a, ...others].some(risky) ? (
+                  <span className="approval__hint">{t('含可能删除数据或高风险的请求，请逐个审批')}</span>
+                ) : (
+                  <Button size="small" disabled={!!busy} loading={busy === 'all'} onClick={approveAll}>
+                    {t('全部批准（{n}）', { n: others.length + 1 })}
+                  </Button>
+                ))}
+              {a.rememberSession.length > 0 && a.rememberSession.join() !== a.remember.join() && (
+                <span className="approval__hint">
+                  {t('本次会话不再问：{rules}', { rules: rules(a.rememberSession, a.mcp) })}
+                </span>
+              )}
+              {always && (
+                <span className="approval__hint">
+                  {t('不再询问：{rules}', { rules: rules(a.remember, a.mcp) })}
+                </span>
+              )}
+            </>
+          ) : (
             <span className="approval__hint">
               {t('仅 Bot 主人 {name} 可操作，你只能查看', { name: bot?.ownerName ?? '' })}
             </span>
-          ) : null}
+          )}
         </div>
       ) : (
         <div className="approval__done">

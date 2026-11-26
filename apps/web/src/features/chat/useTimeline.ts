@@ -137,7 +137,7 @@ export function useTimeline(groupId: string, thread?: string) {
       const page = await api.get<ThreadDto>(`/messages/${thread}/thread?${query}`)
       if (!before) setThreadState(page.state)
       return {
-        messages: before ? page.replies : [page.root, ...page.replies],
+        messages: before ? page.replies : [...(page.root ? [page.root] : []), ...page.replies],
         runs: page.runs,
         more: page.replies.length === PAGE,
       }

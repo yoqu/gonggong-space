@@ -263,8 +263,8 @@ describe('ApprovalBlock', () => {
   it('shows non-owners the request read-only', () => {
     login('u2', '陈晨')
     render(<ApprovalBlock run={run([approval()])} />)
-    expect((screen.getByRole('button', { name: '批准' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: '拒绝' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '拒绝' })).toBeNull()
     expect(screen.getByText('仅 Bot 主人 王磊 可操作，你只能查看')).toBeTruthy()
   })
 

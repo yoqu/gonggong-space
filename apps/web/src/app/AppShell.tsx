@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from 'react'
-import { Outlet } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 import { create } from 'zustand'
 import { syncPush } from '../features/notifications/push'
 import { SettingsHost } from '../features/settings/SettingsHost'
@@ -8,7 +8,10 @@ import { t } from '../i18n'
 import { named } from '../lib/lazy'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
+import { isMarketPath, isWorksPath } from './AppRail'
+import { useSidebarCollapse } from './sidebarCollapse'
 import { useIsMobile } from './viewport'
+import { useWorkbench } from './workbench'
 import { alertCount, useWorkspace } from './workspace'
 
 const NotificationPanel = named(
@@ -105,6 +108,10 @@ function SkipLink() {
 
 export function AppShell() {
   const mobile = useIsMobile()
+  const { pathname } = useLocation()
+  const sidebarCollapsed = useSidebarCollapse((s) => s.collapsed)
+  const benchFull = useWorkbench((s) => s.open && s.mode === 'full')
+  const sidebarHidden = sidebarCollapsed || benchFull || isMarketPath(pathname) || isWorksPath(pathname)
   const { overlay, set } = useShellOverlay()
   const lost = useConnectionLost()
   // Loaded on the first open, then kept mounted so closing still plays its exit animation.
@@ -131,7 +138,7 @@ export function AppShell() {
   return (
     <div className="app">
       <SkipLink />
-      {mobile && lost ? (
+      {lost && (mobile || sidebarHidden) ? (
         <div className="app__offline" role="status">
           {t('连接已断开，正在重连…')}
         </div>

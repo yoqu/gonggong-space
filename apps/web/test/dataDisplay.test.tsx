@@ -61,7 +61,7 @@ describe('Table', () => {
 
   it('shows -- for empty values and the empty text without rows', () => {
     const { rerender } = render(<Table aria-label="t" columns={columns} rows={flat} />)
-    expect(within(row('Gamma')).getByText('--')).toBeTruthy()
+    expect(within(row('Gamma')).getByText('—')).toBeTruthy()
     rerender(<Table aria-label="t" columns={columns} rows={[]} emptyText="没有文稿" />)
     expect(screen.getByText('没有文稿')).toBeTruthy()
   })

@@ -156,6 +156,7 @@ export function RunConfigChip({
       className="run-config__chip"
       aria-label={name}
       align="end"
+      portal
       placement={message ? 'above' : undefined}
       title={text}
       items={items}

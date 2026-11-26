@@ -4,7 +4,7 @@ import { create } from 'zustand'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ago } from '../../lib/time'
-import { type AvatarProps, paletteColor, Tag, type ThreadSummaryProps } from '../../ui'
+import { type AvatarProps, paletteColor, paletteTextColor, Tag, type ThreadSummaryProps } from '../../ui'
 import { botFace } from '../bots/avatars'
 import { openThread } from './thread'
 
@@ -45,6 +45,7 @@ export function useThreadSummary(m: MessageDto): ThreadSummaryProps | undefined 
     unread: m.thread?.unread ?? 0,
     mentioned: m.thread?.mentioned,
     hue: paletteColor(m.id),
+    textHue: paletteTextColor(m.id),
     lastTime: m.thread ? ago(m.thread.lastReplyAt) : undefined,
     extra: live ? (
       <Tag tone="blue" icon="bolt">

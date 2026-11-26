@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, Icon, Presence, Tag } from '../../ui'
+import { Button, Icon, Presence, Tag, toast } from '../../ui'
 import { botsText, useBotNames } from '../bots/model'
 import '../groups/groups.css'
 import { DeleteScheduleDialog } from './DeleteScheduleDialog'
@@ -29,11 +29,12 @@ export function ScheduleCard({
   const names = useBotNames(s?.botIds ?? [])
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const act = async (request: () => Promise<unknown>) => {
-    setBusy(true)
-    await attempt(request)
-    setBusy(false)
+  const [busyOp, setBusyOp] = useState<'toggle' | 'run' | null>(null)
+  const act = async (op: 'toggle' | 'run', request: () => Promise<unknown>, onSuccess?: () => void) => {
+    setBusyOp(op)
+    const ok = await attempt(request)
+    setBusyOp(null)
+    if (ok) onSuccess?.()
   }
   if (!s)
     return (
@@ -57,7 +58,6 @@ export function ScheduleCard({
         <span>
           {timingText(s)} · {botsText(s, names)}
         </span>
-        <span className="gs-muted">{fallback}</span>
         <span className="gs-muted">
           {stateText(s)}
           {last ? ` · ${last}` : ''}
@@ -68,18 +68,36 @@ export function ScheduleCard({
         <div className="sc-card__ops">
           <Button
             size="small"
-            disabled={busy}
-            onClick={() => void act(() => schedulesApi.update(s.id, { enabled: !s.enabled }))}
+            loading={busyOp === 'toggle'}
+            disabled={busyOp !== null}
+            onClick={() => void act('toggle', () => schedulesApi.update(s.id, { enabled: !s.enabled }))}
           >
             {s.enabled ? t('停用') : t('启用')}
           </Button>
-          <Button size="small" disabled={busy} onClick={() => void act(() => schedulesApi.run(s))}>
+          <Button
+            size="small"
+            loading={busyOp === 'run'}
+            disabled={busyOp !== null}
+            onClick={() =>
+              void act(
+                'run',
+                () => schedulesApi.run(s),
+                () =>
+                  toast({ type: 'success', message: t('已触发「{name}」，结果见群里', { name: s.name }) }),
+              )
+            }
+          >
             {t('立即执行')}
           </Button>
           <Button size="small" onClick={() => setEditing(true)}>
             {t('编辑')}
           </Button>
-          <Button size="small" onClick={() => setConfirmDelete(true)}>
+          <Button
+            size="small"
+            variant="plain"
+            className="sc-card__del"
+            onClick={() => setConfirmDelete(true)}
+          >
             {t('删除')}
           </Button>
         </div>

@@ -131,16 +131,18 @@ export function ThreadView({
     onFocused?.()
   }, [focus, tl.loaded, tl.hasMore, tl.older, tl.loadOlder, tl.messages, tl.runs, onFocused])
 
+  const loadOlder = () => {
+    const el = scroll.current
+    if (el) olderAnchor.current = el.scrollHeight
+    tl.loadOlder().catch(() => {
+      olderAnchor.current = null
+    })
+  }
   const onScroll = () => {
     const el = scroll.current
     if (!el) return
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
-    if (el.scrollTop < LOAD_OLDER_PX && tl.hasMore && tl.older === 'idle') {
-      olderAnchor.current = el.scrollHeight
-      tl.loadOlder().catch(() => {
-        olderAnchor.current = null
-      })
-    }
+    if (el.scrollTop < LOAD_OLDER_PX && tl.hasMore && tl.older === 'idle') loadOlder()
   }
 
   const item = useThreadItem(group, tl.messages, tl.runs, readOnly)
@@ -194,6 +196,8 @@ export function ThreadView({
               />
             ) : root ? (
               <InThread.Provider value>{item(root)}</InThread.Provider>
+            ) : tl.loaded ? (
+              <EmptyState bare title={t('话题不存在或已删除')} />
             ) : (
               <Mascot action="wait" size={56} label={t('加载中')} />
             )
@@ -205,7 +209,16 @@ export function ThreadView({
             )
           }
         >
-          {tl.older === 'loading' ? <Spinner /> : null}
+          {tl.older === 'loading' ? (
+            <Spinner />
+          ) : tl.older === 'failed' ? (
+            <div className="chat-scroll__older" data-testid="thread-older-error">
+              {t('加载更早回复失败')}
+              <Button size="small" variant="plain" onClick={loadOlder}>
+                {t('重试')}
+              </Button>
+            </div>
+          ) : null}
           {replies.map(item)}
           {tl.loaded && !readOnly ? (
             <PendingMessages

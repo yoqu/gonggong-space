@@ -6,7 +6,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt, toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, GroupBox, GroupRow, Input, Switch, toast } from '../../ui'
+import { Alert, Button, GroupBox, GroupRow, Input, Switch, toast } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { feishuStartUrl } from '../feishu/login'
 import { saveNotifyPrefs } from './dnd'
@@ -15,6 +15,7 @@ import { enablePush, type PushState, pushState } from './push'
 /** 「开启浏览器通知」, or where this browser's permission stands. */
 export function PushAction() {
   const [state, setState] = useState<PushState>(pushState)
+  const [busy, setBusy] = useState(false)
   if (state === 'unsupported') return null
   if (state === 'granted') return <span>{t('浏览器通知已开启')}</span>
   if (state === 'denied') return <span>{t('浏览器通知已被禁止，请在浏览器设置中允许')}</span>
@@ -22,11 +23,17 @@ export function PushAction() {
     <Button
       size="small"
       variant="plain"
-      onClick={() =>
-        enablePush().then(setState, (e: Error) =>
-          toast({ type: 'error', title: t('开启浏览器通知失败'), message: e.message }),
-        )
-      }
+      loading={busy}
+      disabled={busy}
+      onClick={() => {
+        if (busy) return
+        setBusy(true)
+        void enablePush()
+          .then(setState, (e: Error) =>
+            toast({ type: 'error', title: t('开启浏览器通知失败'), message: e.message }),
+          )
+          .finally(() => setBusy(false))
+      }}
     >
       {t('开启浏览器通知')}
     </Button>
@@ -51,9 +58,18 @@ export function NotificationSettings() {
 /** 免打扰时段: every day in this window nothing is pushed; notifications still wait in the list. */
 function QuietHoursRow() {
   const quiet = useSession((s) => s.tenancy?.notifyPrefs?.quietHours ?? null)
-  const save = (quietHours: NotifyPrefs['quietHours']) => void attempt(() => saveNotifyPrefs({ quietHours }))
+  const [busy, setBusy] = useState(false)
+  const save = async (quietHours: NotifyPrefs['quietHours']) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await attempt(() => saveNotifyPrefs({ quietHours }))
+    } finally {
+      setBusy(false)
+    }
+  }
   const set = (patch: { start?: string; end?: string }) =>
-    quiet && save({ ...quiet, ...patch, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+    quiet && void save({ ...quiet, ...patch, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
   return (
     <GroupRow label={t('免打扰时段')} description={t('每天这段时间不推送浏览器和飞书通知，通知列表照常记录')}>
       <span className="gs-value-line">
@@ -63,6 +79,7 @@ function QuietHoursRow() {
               aria-label={t('开始时间')}
               type="time"
               value={quiet.start}
+              disabled={busy}
               onChange={(e) => e.target.value && set({ start: e.target.value })}
             />
             <span>{t('至')}</span>
@@ -70,6 +87,7 @@ function QuietHoursRow() {
               aria-label={t('结束时间')}
               type="time"
               value={quiet.end}
+              disabled={busy}
               onChange={(e) => e.target.value && set({ end: e.target.value })}
             />
           </>
@@ -77,8 +95,10 @@ function QuietHoursRow() {
         <Switch
           aria-label={t('免打扰时段')}
           checked={!!quiet}
+          loading={busy}
+          disabled={busy}
           onChange={(on) =>
-            save(
+            void save(
               on
                 ? { start: '22:00', end: '08:00', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
                 : null,
@@ -92,9 +112,17 @@ function QuietHoursRow() {
 
 function FeishuNotifyRow() {
   const options = useAuthOptions()
-  const { data, reload } = useGet<FeishuIdentityView>('/me/feishu')
+  const { data, error, reload } = useGet<FeishuIdentityView>('/me/feishu')
+  const [busy, setBusy] = useState(false)
   const { pathname, search } = useLocation()
   const identity = data?.identity ?? null
+  if (error) {
+    return (
+      <GroupRow label={t('飞书通知')}>
+        <Alert variant="error" description={t('飞书通知状态加载失败')} onRetry={reload} />
+      </GroupRow>
+    )
+  }
   if (!data || (!identity && !options?.feishuLogin)) return null
   return (
     <GroupRow
@@ -114,8 +142,16 @@ function FeishuNotifyRow() {
         <Switch
           aria-label={t('飞书通知')}
           checked={identity?.notify ?? false}
-          disabled={!identity}
-          onChange={(notify) => api.put('/me/feishu/notify', { notify }).then(reload, toastError)}
+          loading={busy}
+          disabled={!identity || busy}
+          onChange={(notify) => {
+            if (busy) return
+            setBusy(true)
+            void api
+              .put('/me/feishu/notify', { notify })
+              .then(reload, toastError)
+              .finally(() => setBusy(false))
+          }}
         />
       </span>
     </GroupRow>

@@ -56,7 +56,7 @@ describe('classify', () => {
   it("names Antigravity's subagent tools like Codex's", () => {
     expect(classify(step('other', { title: 'Run invoke_subagent' }), ROOT)).toMatchObject({
       family: 'delegate',
-      verb: '派出子 agent',
+      verb: '派出子 Agent',
     })
     expect(classify(step('other', { title: 'Run manage_subagents' }), ROOT).family).toBe('delegate')
   })
@@ -136,7 +136,7 @@ describe('groupActions', () => {
     expect(items[1]).toMatchObject({ verb: 'Explore', target: '找调用方' })
     expect(items[3]).toMatchObject({ verb: '后台任务', target: 'pnpm dev' })
     const worked = buildItems([sub, step('text', { body: '完成' })], ROOT, false, 1000)[0]
-    expect(worked).toMatchObject({ kind: 'work', summary: '子 agent 1' })
+    expect(worked).toMatchObject({ kind: 'work', summary: '子 Agent 1' })
   })
 
   it('folds a segment’s auto-approvals into one row listing the commands', () => {

@@ -416,7 +416,7 @@ describe('notification center', () => {
     fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
     const list = screen.getByTestId('notification-list')
     expect(within(list).getByRole('status')).toBeTruthy()
-    expect(await within(list).findByText('加载失败')).toBeTruthy()
+    expect(await within(list).findByText('通知加载失败')).toBeTruthy()
     expect(within(list).queryByText('暂无通知')).toBeNull()
     fail = false
     fireEvent.click(within(list).getByRole('button', { name: '重试' }))

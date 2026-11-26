@@ -8,8 +8,8 @@ export default {
   '用你自己的账号连接，Bot 的回复群内可见':
     'Connects with your own account; bot replies are visible to the group',
   去试试: 'Try it',
-  '加密保存为你的个人密钥，将允许群内 Bot 在他人机器上使用（群里的 Bot 很少跑在你自己的电脑上）':
-    "Stored encrypted as your personal secret and usable by the group's bots on others' machines (group bots rarely run on your own computer)",
+  '加密保存为你的个人密钥，将允许群内 Bot 在他人电脑上使用（群里的 Bot 很少跑在你自己的电脑上）':
+    "Stored encrypted as your personal secret and usable by the group's bots on others' computers (group bots rarely run on your own computer)",
   '这个连接器使用团队统一的账号，需要团队管理员在团队密钥里填写':
     'This connector uses a shared team account; a team admin fills it in the team secrets',
   '解绑「{name}」？': 'Unlink "{name}"?',
@@ -93,4 +93,21 @@ export default {
   已复制验证码: 'Code copied',
   '无法打开连接器，请确认已在市场安装并启用':
     "Can't open connector. Make sure it is installed and enabled in the market",
+  补充授权: 'Grant permissions',
+  '要取消当前连接吗？': 'Cancel connecting?',
+  '正在等待安装或扫码授权，关闭将中止本次连接。':
+    'Installation or sign-in is still in progress. Closing will cancel it.',
+  继续连接: 'Keep waiting',
+  取消连接: 'Cancel',
+  '重新检测 {machine}': 'Check {machine} again',
+  '退出 {machine} 登录': 'Sign out on {machine}',
+  '退出 {machine} 上的「{name}」登录？': 'Sign out of "{name}" on {machine}?',
+  '{machine} 上的 Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。':
+    'Bots on {machine} will no longer reach "{name}" with your account. You can reconnect any time.',
+  '{bots} 所在电脑尚未连接{name}，需其电脑主人连接后可用':
+    "Computers running {bots} aren't connected to {name} yet; their owners need to connect",
+  '等待电脑主人 {owner} 连接': 'Waiting for computer owner {owner}',
+  '在 {machine} 上用你的账号登录，自动安装所需工具。':
+    'Signs in with your account on {machine}, installing what is needed.',
+  '请填写以上密钥（至少 8 个字符）': 'Fill in the keys above (at least 8 characters)',
 }

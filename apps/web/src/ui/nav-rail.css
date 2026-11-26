@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-10);
 }
 .ui-rail__footer {
   margin-top: auto;
@@ -94,7 +94,7 @@
 }
 .ui-rail__badge {
   position: absolute;
-  top: -7px;
+  top: -4px;
   left: 26px;
 }
 .ui-rail__badge .ui-badge {

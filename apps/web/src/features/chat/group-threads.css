@@ -65,7 +65,7 @@
 }
 .group-threads__top > time {
   margin-left: auto;
-  color: var(--label-tertiary, var(--label-secondary));
+  color: var(--label-secondary);
 }
 .group-threads__at {
   color: var(--tint-red-text);

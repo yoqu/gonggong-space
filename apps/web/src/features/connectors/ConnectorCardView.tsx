@@ -29,8 +29,15 @@ export const ConnectorCardView = memo(function ConnectorCardView({
   card: ConnectorCard
 }) {
   const mine = useSession((s) => s.user?.id === card.userId)
-  const inGroup = useWorkspace((s) => s.groups.find((g) => g.id === m.groupId)?.kind !== 'dm')
+  const group = useWorkspace((s) => s.groups.find((g) => g.id === m.groupId))
+  const inGroup = group?.kind !== 'dm'
   const c = useConnectorStore((s) => s.lists[m.groupId]?.find((x) => x.id === card.pluginId))
+  const params = m.i18n?.params as Record<string, unknown> | undefined
+  const requester = typeof params?.bot === 'string' && params.bot ? params.bot : null
+  const owner =
+    (typeof params?.user === 'string' && params.user ? params.user : null) ??
+    group?.members.find((x) => x.userId === card.userId)?.name ??
+    null
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const show = async () => {
@@ -61,6 +68,7 @@ export const ConnectorCardView = memo(function ConnectorCardView({
       <span className="tl-event" data-testid="connector-card">
         {c ? <PluginTile m={c.manifest} size={16} src={pluginIcon(c)} /> : <Icon name="plug" size={13} />}
         <span className="tl-event__text">
+          {requester ? `${requester} · ` : ''}
           {card.title} · {reasonText(card)}
         </span>
         {card.resolved ? (
@@ -70,7 +78,7 @@ export const ConnectorCardView = memo(function ConnectorCardView({
             {t('连接')}
           </Button>
         ) : (
-          <Tag tone="gray">{t('仅电脑主人可连接')}</Tag>
+          <Tag tone="gray">{owner ? t('等待电脑主人 {owner} 连接', { owner }) : t('仅电脑主人可连接')}</Tag>
         )}
       </span>
       <Presence>

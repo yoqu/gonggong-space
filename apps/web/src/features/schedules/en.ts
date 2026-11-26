@@ -74,4 +74,5 @@ export default {
     'This cannot be undone; upcoming runs will be canceled immediately',
   已删除定时任务: 'Scheduled task deleted',
   定时任务加载失败: 'Failed to load scheduled tasks',
+  '定时任务 {n}': '{n} {n:schedule|schedules}',
 }

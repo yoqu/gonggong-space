@@ -45,7 +45,7 @@ function Reply({ groupId }: { groupId: string }) {
         aria-label={t('回复…')}
         onChange={(e) => setBody(e.target.value)}
       />
-      <Button size="small" type="submit" disabled={!body.trim() || busy}>
+      <Button size="small" type="submit" loading={busy} disabled={!body.trim() || busy}>
         {t('发送')}
       </Button>
     </form>
@@ -91,6 +91,7 @@ function Card({ item, leaving, onRead }: { item: Item; leaving: boolean; onRead:
 export function UnreadInbox({ onBack }: { onBack?: () => void }) {
   const [list, setList] = useState<Item[] | null>(null)
   const [failed, setFailed] = useState(false)
+  const [readingAll, setReadingAll] = useState(false)
   const { leaving, leave } = useLeaving()
 
   const load = useCallback(async () => {
@@ -106,16 +107,23 @@ export function UnreadInbox({ onBack }: { onBack?: () => void }) {
 
   const read = (groupId: string) => {
     leave(groupId, () => setList((l) => l?.filter((x) => x.group.id !== groupId) ?? null))
-    api.post(`/groups/${groupId}/read`, {}).catch(() => void load())
+    api.post(`/groups/${groupId}/read`, {}).catch((e) => {
+      toastError(e)
+      void load()
+    })
   }
   // The list is every group with unread messages, so reading them all is the team-wide read-all.
   const readAll = async () => {
+    if (readingAll) return
+    setReadingAll(true)
     try {
       await api.post('/groups/read-all', {})
-    } catch {
-      toast({ type: 'error', message: t('操作失败，请重试') })
+    } catch (e) {
+      toastError(e, t('操作失败，请重试'))
+      setReadingAll(false)
       return
     }
+    setReadingAll(false)
     for (const x of list ?? [])
       leave(x.group.id, () => setList((l) => l?.filter((y) => y.group.id !== x.group.id) ?? null))
   }
@@ -131,7 +139,14 @@ export function UnreadInbox({ onBack }: { onBack?: () => void }) {
         <h1 className="works__title">{t('全部未读')}</h1>
         <span className="spacer" />
         {list?.length ? (
-          <Button size="small" variant="plain" icon="check" onClick={() => void readAll()}>
+          <Button
+            size="small"
+            variant="plain"
+            icon="check"
+            loading={readingAll}
+            disabled={readingAll}
+            onClick={() => void readAll()}
+          >
             {t('全部标为已读')}
           </Button>
         ) : null}

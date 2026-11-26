@@ -23,7 +23,8 @@ export function ScheduleTag({ groupId, onManage }: { groupId: string; onManage: 
       trigger={
         <button type="button" className="sc-tag" aria-label={label} title={label}>
           <Icon name="clock" size={13} />
-          <span className="sc-tag__count">{upcoming.length}</span>
+          <span className="sc-tag__count sc-tag__full">{t('定时任务 {n}', { n: upcoming.length })}</span>
+          <span className="sc-tag__count sc-tag__short">{upcoming.length}</span>
         </button>
       }
     >

@@ -1,5 +1,5 @@
 import type { BotDto, MachineDto } from '@gonggong/protocol'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { NavLink } from 'react-router'
 import { BotAvatar } from '../features/bots/avatars'
 import { botStateText, botStateUnderMachine, PRESENCE } from '../features/bots/model'
@@ -27,7 +27,19 @@ function BotRow({
       <NavLink to={`/bot/${b.id}`} className="sidebar__open" title={`${b.name} · ${meta}`}>
         <span className="sidebar__avatar">
           <BotAvatar id={b.id} name={b.name} size={28} />
-          <span className="sidebar__presence" style={{ background: PRESENCE[b.presence].color }} />
+          <span
+            className="sidebar__presence"
+            data-offline={
+              b.presence === 'offline' || b.presence === 'pending_bind' || b.presence === 'pending_confirm'
+                ? ''
+                : undefined
+            }
+            style={
+              b.presence === 'offline' || b.presence === 'pending_bind' || b.presence === 'pending_confirm'
+                ? undefined
+                : { background: PRESENCE[b.presence].color }
+            }
+          />
         </span>
         <span className="sidebar__text">
           <span className="sidebar__name">{b.name}</span>
@@ -75,7 +87,8 @@ function MachineRow({ m, bots }: { m: MachineDto; bots: number }) {
       >
         <span
           className="sidebar__dot"
-          style={{ background: m.online ? 'var(--system-green)' : 'var(--system-gray)' }}
+          data-offline={!m.online || undefined}
+          style={m.online ? { background: 'var(--system-green)' } : undefined}
         />
         <span className="sidebar__text">
           <span className="sidebar__name">{m.name}</span>
@@ -104,8 +117,18 @@ export function MachineSidebar({
   /** On `machineId` when picked from under that machine. */
   onNewBot: (machineId?: string) => void
   /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
-  onConfirmBot: (botId: string) => void
+  onConfirmBot: (botId: string) => unknown
 }) {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const confirm = async (botId: string) => {
+    if (confirmingId) return
+    setConfirmingId(botId)
+    try {
+      await onConfirmBot(botId)
+    } finally {
+      setConfirmingId(null)
+    }
+  }
   const row = (b: BotDto, nested?: boolean) => (
     <BotRow
       key={b.id}
@@ -114,7 +137,13 @@ export function MachineSidebar({
       meta={nested ? botStateUnderMachine(b) : botStateText(b)}
       action={
         b.binding === 'pending_confirm' ? (
-          <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
+          <Button
+            size="small"
+            variant="default"
+            loading={confirmingId === b.id}
+            disabled={confirmingId === b.id}
+            onClick={() => void confirm(b.id)}
+          >
             {t('确认')}
           </Button>
         ) : null
@@ -126,8 +155,8 @@ export function MachineSidebar({
     <div className="sidebar">
       <div className="shellbar">
         <Toolbar title={t('电脑与 Bot')} scrolled={false}>
-          {/* A bot runs on a machine: until one is bound, the main area's 绑定新电脑 is the only way on. */}
-          {machines.length ? (
+          {/* With one machine, its inline "+ 新建 Bot" row is right below; the toolbar action helps when switching across multiple machines. */}
+          {machines.length > 1 ? (
             <ToolbarGroup>
               <ToolbarButton
                 icon="plus"

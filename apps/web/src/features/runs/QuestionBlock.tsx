@@ -48,7 +48,7 @@ function outcome(q: QuestionSetDto, run: RunDto) {
         at: q.answeredAt ? hm(q.answeredAt) : '',
       })
     case 'expired':
-      return t('无人回答，agent 已按推荐项继续 · {at}', { at: hm(q.expiresAt) })
+      return t('无人回答，Agent 已按推荐项继续 · {at}', { at: hm(q.expiresAt) })
     case 'void':
       if (LIVE.includes(run.status)) return t('提问已失效，Agent 不再等待回答')
       return run.status === 'interrupted' ? t('运行已停止，提问已失效') : t('运行已结束，提问已失效')
@@ -127,8 +127,12 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
   }
 
   const [leanings, setLeanings] = useState(set.leanings ?? [])
+  const [leaningKey, setLeaningKey] = useState<string | null>(null)
   useEffect(() => setLeanings(set.leanings ?? []), [set.leanings])
   const lean = async (question: Question, choice: number) => {
+    const key = `${question.id}:${choice}`
+    if (leaningKey) return
+    setLeaningKey(key)
     try {
       const next = await api.post<QuestionSetDto>(`/runs/${run.id}/questions/${set.id}/leanings`, {
         questionId: question.id,
@@ -137,6 +141,8 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
       setLeanings(next.leanings ?? [])
     } catch (e) {
       toastError(e)
+    } finally {
+      setLeaningKey(null)
     }
   }
   const imageUrl = (path: string) =>
@@ -207,7 +213,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
           ) : null}
           {pending && anyRich ? <span>{t('其他人的倾向仅供参考，不算投票')}</span> : null}
           {pending ? (
-            <span className="question__timeout" title={t('超时后 agent 按推荐项继续，并在最终回复列出假设')}>
+            <span className="question__timeout" title={t('超时后 Agent 按推荐项继续，并在最终回复列出假设')}>
               {t('{time} 后超时，按推荐项继续', { time: countdown(Date.parse(set.expiresAt) - now) })}
             </span>
           ) : null}
@@ -275,7 +281,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
                             aria-label={
                               mine ? t('取消倾向 {label}', { label }) : t('倾向 {label}', { label })
                             }
-                            disabled={!me}
+                            disabled={!me || leaningKey === `${question.id}:${i}`}
                             onClick={() => void lean(question, i)}
                           >
                             {mine ? t('取消倾向') : t('倾向')}
@@ -346,8 +352,8 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
           ))}
         </div>
       ) : null}
-      {pending ? <AttachmentChips uploads={uploads} /> : null}
-      {pending ? (
+      {pending && canAnswer ? <AttachmentChips uploads={uploads} /> : null}
+      {pending && canAnswer ? (
         <div className="question__actions">
           <input
             ref={fileInput}
@@ -374,9 +380,9 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
             {t('提交回答')}
           </Button>
         </div>
-      ) : (
+      ) : !pending ? (
         done
-      )}
+      ) : null}
     </div>
   )
 }

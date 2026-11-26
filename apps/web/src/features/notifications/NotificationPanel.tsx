@@ -14,6 +14,7 @@ import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
   Badge,
   Button,
   EmptyState,
@@ -27,6 +28,7 @@ import {
   Tag,
   toast,
   useEscape,
+  useFocusTrap,
   useLeaving,
   usePresence,
 } from '../../ui'
@@ -213,8 +215,12 @@ function Panel({
     !n.resolvedAt &&
     !!n.payload.options &&
     !groups.some((g) => g.id === n.payload.groupId)
+  const panelRef = useRef<HTMLDivElement>(null)
   useEscape(onClose, state === 'open')
+  useFocusTrap(panelRef, state === 'open')
   const { leaving, leave } = useLeaving()
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(() => new Set())
+  const deletingRef = useRef<Set<string>>(new Set())
   const [bulkClearing, setBulkClearing] = useState<ReadonlySet<string>>(() => new Set())
   const bulkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -287,20 +293,29 @@ function Panel({
   }
 
   const remove = async (n: NotificationDto) => {
+    if (deletingRef.current.has(n.id)) return
+    deletingRef.current.add(n.id)
+    setDeleting(new Set(deletingRef.current))
     try {
       await api.del(`/notifications/${n.id}`)
     } catch (e) {
+      deletingRef.current.delete(n.id)
+      setDeleting(new Set(deletingRef.current))
       toastError(e, t('删除通知失败'))
       return
     }
-    leave(n.id, () => setItems((list) => list?.filter((x) => x.id !== n.id) ?? null))
+    leave(n.id, () => {
+      deletingRef.current.delete(n.id)
+      setDeleting(new Set(deletingRef.current))
+      setItems((list) => list?.filter((x) => x.id !== n.id) ?? null)
+    })
     if (!n.readAt) useWorkspace.setState((s) => ({ notifCount: Math.max(0, s.notifCount - 1) }))
   }
 
   const open = (n: NotificationDto) => {
     if (!n.readAt) {
       useWorkspace.setState((s) => ({ notifCount: Math.max(0, s.notifCount - 1) }))
-      void api.post(`/notifications/${n.id}/read`)
+      void api.post(`/notifications/${n.id}/read`).catch(() => {})
     }
     onClose()
     navigate(notificationView(n, t.text).href)
@@ -310,8 +325,10 @@ function Panel({
     <>
       {state === 'open' ? <div className="notif__backdrop" onClick={onClose} aria-hidden="true" /> : null}
       <div
+        ref={panelRef}
         className="notif ui-popover"
         role="dialog"
+        aria-modal="true"
         aria-label={t('通知')}
         data-state={state}
         onAnimationEnd={onAnimationEnd}
@@ -341,10 +358,7 @@ function Panel({
         <div className="notif__list" data-testid="notification-list">
           {failed ? (
             <div className="notif__empty">
-              {t('加载失败')}
-              <Button size="small" variant="plain" onClick={load}>
-                {t('重试')}
-              </Button>
+              <Alert variant="error" title={t('通知加载失败')} onRetry={load} />
             </div>
           ) : !items ? (
             <div className="notif__empty">
@@ -406,6 +420,7 @@ function Panel({
                         variant="plain"
                         title={t('删除通知')}
                         className="notif__delete"
+                        disabled={deleting.has(n.id)}
                         onClick={() => void remove(n)}
                       >
                         <Icon name="xmark" />

@@ -871,7 +871,7 @@ describe('process timeline', () => {
     renderChat()
     const card = (await screen.findAllByTestId('run-card')).at(-1)!
     push({ t: 'run.updated', run: base.run })
-    await waitFor(() => expect(card.textContent).toContain('子 agent 1 个，1 个运行中'))
+    await waitFor(() => expect(card.textContent).toContain('子 Agent 1 个，1 个运行中'))
     expect(card.textContent).toContain('后台任务 1 个运行中')
     const rail = await openRail()
     const list = await within(rail).findByRole('list', { name: '运行过程' })
@@ -883,14 +883,14 @@ describe('process timeline', () => {
     ).toBe('true')
     expect(within(list).getByText('子报告')).toBeTruthy()
     // Codex v1 spawns report no child session: the call says so instead of spinning.
-    expect(within(list).getByText('派出子 agent')).toBeTruthy()
+    expect(within(list).getByText('派出子 Agent')).toBeTruthy()
     expect(within(list).getByText('详情不可见')).toBeTruthy()
     fireEvent.click(within(list).getByRole('button', { name: '停止后台任务 pnpm dev' }))
     await waitFor(() => expect(calls).toContain('POST /runs/r1/tasks/bg1/stop'))
     // The dock under the run counts them on every view and leads back to the row.
     fireEvent.click(within(rail).getByRole('tab', { name: '改动' }))
     const dock = within(rail).getByTestId('activity-dock')
-    expect(within(dock).getByText('子 agent 1 个运行中')).toBeTruthy()
+    expect(within(dock).getByText('子 Agent 1 个运行中')).toBeTruthy()
     expect(within(dock).getByText('后台任务 1 个运行中')).toBeTruthy()
     const scroll = vi.fn()
     Element.prototype.scrollIntoView = scroll

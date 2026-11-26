@@ -1,5 +1,5 @@
 import type { MessageDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
@@ -11,6 +11,7 @@ import './edit.css'
 export function MessageEditor({ message, onDone }: { message: MessageDto; onDone: () => void }) {
   const [body, setBody] = useState(message.body)
   const [busy, setBusy] = useState(false)
+  const composing = useRef(false)
   const empty = !body.trim() && !message.attachments.length
   useEscape(onDone, !busy)
   const save = async () => {
@@ -33,12 +34,21 @@ export function MessageEditor({ message, onDone }: { message: MessageDto; onDone
         value={body}
         disabled={busy}
         onChange={(e) => setBody(e.target.value)}
+        onCompositionStart={() => {
+          composing.current = true
+        }}
+        onCompositionEnd={() => {
+          setTimeout(() => {
+            composing.current = false
+          })
+        }}
         onKeyDown={(e) => {
-          if (e.key === 'Escape' && !e.nativeEvent.isComposing) {
+          if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
+          if (e.key === 'Escape') {
             e.preventDefault()
             e.stopPropagation()
             if (!busy) onDone()
-          } else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+          } else if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             if (!(e.ctrlKey || e.metaKey || e.altKey)) return void save()
             const { selectionStart: s, selectionEnd: end } = e.currentTarget

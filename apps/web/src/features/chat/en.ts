@@ -180,8 +180,8 @@ export default {
   已中断: 'Interrupted',
   已作废: 'Void',
   '改动 {n} 个文件': '{n} {n:file|files} changed',
-  '子 agent {n} 个，{running} 个运行中': '{n} {n:subagent|subagents}, {running} running',
-  '子 agent {n} 个': '{n} {n:subagent|subagents}',
+  '子 Agent {n} 个，{running} 个运行中': '{n} {n:subagent|subagents}, {running} running',
+  '子 Agent {n} 个': '{n} {n:subagent|subagents}',
   '后台任务 {n} 个运行中': '{n} background {n:task|tasks} running',
   '耗时 {time}': 'Took {time}',
   '接力 {hop}/{max}': 'Relay {hop}/{max}',
@@ -193,7 +193,6 @@ export default {
   '{label}：{bots}': '{label}: {bots}',
   '、': ', ',
   '剩余 {time}': '{time} left',
-  机器离线: 'Machine offline',
   '会话恢复失败，已开新会话并补送最近 50 条群消息':
     "Couldn't resume the session; started a new one with the last 50 group messages",
   已按要求开启新会话: 'Started a new session as requested',
@@ -274,8 +273,7 @@ export default {
   审查未提交的改动: 'Review uncommitted changes',
   '在 Git 面板中审查': 'Review in the Git panel',
   '描述要怎么改，发给 @{name}': 'Describe the change for @{name}',
-  '描述要怎么改，AI 的回复显示在左侧「AI 对话」':
-    'Describe the change; AI replies in the AI chat on the left',
+  '描述要怎么改，Bot 的回复显示在「AI 对话」里': 'Describe the change; Bot replies in "AI Chat"',
   '使用了 {n} 个「我的 Skill」': 'Used {n} from My Skills',
   依据: 'Basis',
   从这里标为未读: 'Mark unread from here',
@@ -368,4 +366,8 @@ export default {
   撤回并中断: 'Recall and stop',
   '消息已撤回，但未能停止正在运行的任务，请手动停止':
     'Message recalled, but failed to stop the running task. Please stop it manually',
+  '暂无可用 Bot': 'No Bot available',
+  '话题，{n} 个未读': 'Threads, {n} unread',
+  加载更早回复失败: "Couldn't load earlier replies",
+  话题不存在或已删除: 'Thread not found or deleted',
 } satisfies Record<string, string>

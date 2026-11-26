@@ -153,7 +153,7 @@ function eventStep(id: number, e: RunEvent, live: boolean): Step | null {
       return {
         key,
         kind: 'subagent',
-        label: t('子 agent'),
+        label: t('子 Agent'),
         title: e.name,
         body: e.task,
         agent: e.agentId,

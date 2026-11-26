@@ -14,9 +14,9 @@ import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
-import { Checkbox, Composer, Presence, useEscape, useOutsidePress, usePresence } from '../../ui'
+import { Checkbox, Composer, Presence, toast, useEscape, useOutsidePress, usePresence } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
-import { CanvasBotPicker, useCanvasBot } from '../artifacts/CanvasBotPicker'
+import { CanvasBotPicker, useArtifactBots, useCanvasBot } from '../artifacts/CanvasBotPicker'
 import { CanvasPageChips, ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { useCanvasChat } from '../artifacts/chatRoot'
 import {
@@ -28,7 +28,7 @@ import {
 } from '../artifacts/context'
 import { setEditing, useEditing, useEditingOf } from '../artifacts/editing'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
-import { useShownPage } from '../artifacts/page'
+import { setArtifactPage, useShownPage } from '../artifacts/page'
 import { useArtifactCommands } from '../artifacts/pluginCommands'
 import { artifactSlash, commandSelection, parseArtifactSlash, selectedScreenIds } from '../artifacts/slash'
 import { useArtifactEntry } from '../artifacts/store'
@@ -127,6 +127,8 @@ export const MessageComposer = memo(function MessageComposer({
   thread,
   canvasChat,
   lastEditable,
+  initialConnector,
+  onConnectorOpened,
 }: {
   group: GroupDto
   onSent: (m: MessageDto) => void
@@ -145,6 +147,9 @@ export const MessageComposer = memo(function MessageComposer({
   canvasChat?: CanvasChatTarget
   /** ↑ in the empty composer edits this message (my latest, while still editable). */
   lastEditable?: () => MessageDto | undefined
+  /** `?connector=<id>` deep link (e.g. connector_expiring notification): opens its dialog once loaded. */
+  initialConnector?: string | null
+  onConnectorOpened?: () => void
 }) {
   const mobile = useIsMobile()
   /** The conversation this composer writes to: drafts, quotes and @s are per conversation. */
@@ -170,11 +175,13 @@ export const MessageComposer = memo(function MessageComposer({
   const [variations, setVariations] = useState<number | null>(null)
   /** Member dismissed implicit canvas Bot routing for this message (keeps selection chips intact). */
   const [bypassCanvasBot, setBypassCanvasBot] = useState(false)
-  const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
+  const allBots = useWorkspace((s) => s.bots)
+  const groupBots = allBots.filter((b) => group.botIds.includes(b.id))
+  const artifactBots = useArtifactBots()
   const plugins = useCreationPlugins(group.id)
   const pluginsOn = useSession((s) => !!s.tenancy?.pluginsEnabled)
   // Loaded up front too: the run's process names a connector's MCP calls by its title (mcpLabel).
-  useConnectors(group.id, pluginsOn)
+  const connectors = useConnectors(group.id, pluginsOn)
   const [connectorMenu, setConnectorMenu] = useState(false)
   const [connectorId, setConnectorId] = useState<string | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
@@ -233,11 +240,24 @@ export const MessageComposer = memo(function MessageComposer({
             t('作品'),
         }
       : null
-  // The canvas's own composer: the one page opened in its list is what the message is about, short of a selection.
+  // The canvas's own composer: the one page or folder opened in its list is what the message is about, short of a selection.
   const chatManifest = useArtifactEntry(canvasChat?.artifactId ?? '')?.artifact?.manifest
   const chatPage = useShownPage(canvasChat?.artifactId ?? '', chatManifest)
   const soloPage = chatManifest?.screens.find((x) => x.id === chatPage) ?? null
-  const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
+  const soloFolder = chatManifest?.groups?.find((x) => x.id === chatPage) ?? null
+  const soloTitle = soloPage?.title ?? soloFolder?.title ?? null
+  const hasCanvasBot =
+    !canvasChat ||
+    !!canvasPick.bot ||
+    (!!canvasChat.botId && allBots.some((b) => b.id === canvasChat.botId)) ||
+    groupBots.length > 0
+  const artifactBot =
+    mentioned[0] ??
+    (canvasChat ? canvasBot : null) ??
+    allBots.find((b) => b.id === artifact?.botId) ??
+    groupBots[0] ??
+    artifactBots[0] ??
+    null
   const hasScreens = selectedScreenIds(canvas).length > 0
   const slashList = artifactSlash(useArtifactCommands(artifact?.artifactId))
   const artifactCandidates: Candidate[] = artifact
@@ -281,6 +301,14 @@ export const MessageComposer = memo(function MessageComposer({
       // Storage can be unavailable (private mode, quota); the draft then lives only in memory.
     }
   }, [key, draft])
+
+  // Deep link `?connector=<id>`: open ConnectorDialog once loaded, then strip query param.
+  useEffect(() => {
+    if (!initialConnector || !pluginsOn || connectors === undefined) return
+    if (connectors.some((c) => c.id === initialConnector)) setConnectorId(initialConnector)
+    else toast({ type: 'error', message: t('无法打开连接器，请确认已在市场安装并启用') })
+    onConnectorOpened?.()
+  }, [initialConnector, pluginsOn, connectors, onConnectorOpened])
 
   // The canvas selection belongs to its group: switching groups drops it.
   useEffect(() => {
@@ -347,6 +375,7 @@ export const MessageComposer = memo(function MessageComposer({
     const typed = at === undefined && focused() !== null
     const pos = at ?? (typed ? (input.current?.selectionStart ?? value.length) : value.length)
     if (!typed) pendingCaret.current = pos
+    if (connectorMenu) setConnectorMenu(false)
     setDraft(value)
     setCaret(pos)
     setDismissed(false)
@@ -434,6 +463,7 @@ export const MessageComposer = memo(function MessageComposer({
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (connectorMenu) return
     if (
       e.key === 'ArrowUp' &&
       !draft &&
@@ -507,6 +537,7 @@ export const MessageComposer = memo(function MessageComposer({
   }
 
   const send = async () => {
+    if (!hasCanvasBot) return
     const artifactReq = artifactRequest()
     if (artifactReq) return sendArtifactCommand(artifactReq)
     if (variations) return
@@ -562,7 +593,7 @@ export const MessageComposer = memo(function MessageComposer({
     if (selection && sendWithCanvas) clearContext()
   }
 
-  const pageChips = !!canvasChat && (!!selection || !!soloPage)
+  const pageChips = !!canvasChat && (!!selection || !!soloTitle)
   const connectorTool = pluginsOn
     ? [
         {
@@ -619,11 +650,15 @@ export const MessageComposer = memo(function MessageComposer({
         onCaretChange={setCaret}
         onEmojiOpenChange={(open) => {
           setEmojiOpen(open)
-          if (open) setDismissed(true)
+          if (open) {
+            setDismissed(true)
+            setConnectorMenu(false)
+          }
         }}
         onSend={() => void send()}
         canSend={
-          variations ? hasText(draft) : (hasText(draft) || uploads.items.length > 0) && !uploads.uploading
+          hasCanvasBot &&
+          (variations ? hasText(draft) : (hasText(draft) || uploads.items.length > 0) && !uploads.uploading)
         }
         busy={busy}
         sent={sent}
@@ -635,7 +670,7 @@ export const MessageComposer = memo(function MessageComposer({
               ? t('回复话题，直接发送即可触发 Bot')
               : t('回复话题，@ 触发 Bot')
             : chatRoot && !variations
-              ? t('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+              ? t('描述要怎么改，Bot 的回复显示在「AI 对话」里')
               : variations
                 ? t('描述变体方向，生成 {n} 个变体', { n: variations })
                 : canvasBot
@@ -699,8 +734,8 @@ export const MessageComposer = memo(function MessageComposer({
               ]
         }
         hint={
-          // With the canvas selected, the chips say who the message goes to.
-          mobile || thread || targets.length || soleDm || !draft.trim()
+          // With the canvas selected, the chips (or CanvasBotPicker) say who the message goes to.
+          !hasCanvasBot || mobile || thread || targets.length || soleDm || !draft.trim()
             ? false
             : MENTIONS_ALL.test(draft)
               ? t('@所有人 只通知成员，不会触发 Bot')
@@ -708,7 +743,18 @@ export const MessageComposer = memo(function MessageComposer({
         }
         accessory={
           canvasChat ? (
-            <CanvasBotPicker bot={canvasPick.bot} options={canvasPick.options} onPick={canvasPick.pick} />
+            <>
+              <CanvasBotPicker bot={canvasPick.bot} options={canvasPick.options} onPick={canvasPick.pick} />
+              {targets.length ? (
+                <RunConfigChips
+                  group={group}
+                  bots={targets}
+                  picks={picks}
+                  onChange={setPicks}
+                  bare={targets.length === 1}
+                />
+              ) : null}
+            </>
           ) : targets.length || thread ? (
             <>
               {thread ? (
@@ -730,7 +776,12 @@ export const MessageComposer = memo(function MessageComposer({
               <AppendBanner groupId={group.id} scope={scope} />
               {canvasChat ? (
                 pageChips ? (
-                  <CanvasPageChips context={selection} page={soloPage?.title ?? null} />
+                  <CanvasPageChips
+                    context={selection}
+                    page={soloTitle}
+                    pageKind={soloFolder ? 'folder' : 'screen'}
+                    onClearPage={() => setArtifactPage(canvasChat.artifactId, null)}
+                  />
                 ) : null
               ) : canvas ? (
                 <ContextChips

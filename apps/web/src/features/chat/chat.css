@@ -324,6 +324,15 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
+.git-bar:has(.git-bar__more) .git-bar__items {
+  padding-right: var(--space-12);
+  mask-image: linear-gradient(to right, black calc(100% - 16px), transparent);
+}
+@media (max-width: 767px) {
+  .git-bar {
+    padding: var(--space-6) var(--space-12);
+  }
+}
 .git-bar__items::-webkit-scrollbar,
 .git-bar__others::-webkit-scrollbar {
   display: none;

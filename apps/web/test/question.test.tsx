@@ -206,8 +206,8 @@ describe('QuestionBlock', () => {
     me('u-zhao')
     render(<QuestionBlock run={run()} />)
     expect(button('Go').disabled).toBe(true)
-    expect(button('提交回答').disabled).toBe(true)
-    expect(button('附图片或附件…').disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: '提交回答' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '附图片或附件…' })).toBeNull()
     expect((screen.getByPlaceholderText('自由作答') as HTMLTextAreaElement).disabled).toBe(true)
   })
 
@@ -239,7 +239,7 @@ describe('QuestionBlock', () => {
       }),
       '王磊 已回答 · 10:26 · 已写入审计记录',
     ],
-    [set({ status: 'expired' }), '无人回答，agent 已按推荐项继续 · 10:48'],
+    [set({ status: 'expired' }), '无人回答，Agent 已按推荐项继续 · 10:48'],
     [set({ status: 'void' }), '提问已失效，Agent 不再等待回答'],
   ])('shows the outcome %#', (q, text) => {
     render(<QuestionBlock run={run({ status: 'running', questions: [q] })} />)

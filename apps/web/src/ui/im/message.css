@@ -335,10 +335,12 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
   font: inherit;
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: var(--space-6);
   padding: 4px 8px 4px 4px;
   border-radius: var(--radius-capsule);
-  cursor: default;
+  cursor: pointer;
   font-size: var(--text-callout-size);
 }
 .pn-thread:hover {
@@ -359,14 +361,14 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
   align-items: center;
   gap: 3px;
   padding-left: 4px;
-  color: var(--thread-hue, var(--bubble-link));
+  color: var(--thread-text, var(--thread-hue, var(--bubble-link)));
   font-weight: 600;
   font-size: var(--text-subheadline-size);
 }
 .pn-thread__go {
   flex: none;
   margin-left: -2px;
-  color: var(--thread-hue, var(--label-secondary));
+  color: var(--thread-text, var(--thread-hue, var(--label-secondary)));
   opacity: 0.7;
   transition:
     transform var(--fade-fast),
@@ -410,6 +412,11 @@ body:has(.ucard) .pn-msg .pn-msg__actions {
 .pn-thread__last {
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
+}
+@media (pointer: coarse) {
+  .pn-thread {
+    min-height: 32px;
+  }
 }
 
 /* Hover bar: glass capsule */

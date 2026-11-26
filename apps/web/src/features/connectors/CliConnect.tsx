@@ -53,34 +53,51 @@ export function CliConnect({
   groupId,
   c,
   cli,
+  inGroup = true,
   domains = [],
   machineId: cardMachine,
   onTry,
+  onRunningChange,
 }: {
   groupId: string
   c: ConnectorDto
   cli: ConnectorCliView
+  inGroup?: boolean
   /** Only these Feishu domains (a 就地连接 card asking for missing scopes). */
   domains?: string[]
   /** The machine a 就地连接 card asks to connect on (where the asking bot runs). */
   machineId?: string | null
   onTry?: (text: string) => void
+  onRunningChange?: (running: boolean) => void
 }) {
   const m = c.manifest
   const [run, setRun] = useState<Run | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
-  const [busy, setBusy] = useState<'detect' | null>(null)
-  const [loggingOut, setLoggingOut] = useState(false)
+  const [lastFailed, setLastFailed] = useState<{ kind: 'connect' | 'detect'; machineId?: string } | null>(
+    null,
+  )
+  const [detectingId, setDetectingId] = useState<string | null>(null)
+  const [loggingOut, setLoggingOut] = useState<{ machineId: string; machineName: string } | null>(null)
+  useEffect(() => {
+    onRunningChange?.(!!run)
+  }, [run, onRunningChange])
+  useEffect(() => () => onRunningChange?.(false), [onRunningChange])
   // The run's request: null while the POST is out (events meanwhile are buffered: they can beat its answer).
   const req = useRef<{ id: string | null; machineId: string | null; early: CliEvent[] } | null>(null)
 
   const apply = (e: CliEvent) => {
     if (e.t === 'connector.cli.result') {
+      const failedMachineId = req.current?.machineId ?? undefined
       req.current = null
       setRun(null)
       put(groupId, e.connector)
-      if (e.ok) toast({ type: 'success', message: t('已连接「{name}」', { name: m.title }) })
-      else setFailure(humanError(e.error ?? e.probe?.detail))
+      if (e.ok) {
+        setLastFailed(null)
+        toast({ type: 'success', message: t('已连接「{name}」', { name: m.title }) })
+      } else {
+        setLastFailed({ kind: 'connect', machineId: failedMachineId })
+        setFailure(humanError(e.error ?? e.probe?.detail))
+      }
       return
     }
     setRun((r) =>
@@ -117,6 +134,7 @@ export function CliConnect({
   const connect = async (picked?: string) => {
     const machineId = picked ?? cardMachine ?? undefined
     setFailure(null)
+    setLastFailed(null)
     const first =
       m.connector?.cli?.driver === 'lark-cli' &&
       ['needs_init', 'not_installed'].includes(
@@ -135,6 +153,7 @@ export function CliConnect({
     } catch (e) {
       req.current = null
       setRun(null)
+      setLastFailed({ kind: 'connect', machineId })
       setFailure(humanError(errorText(e)))
     }
   }
@@ -144,15 +163,18 @@ export function CliConnect({
     setRun(null)
     void cliAction(groupId, c.id, 'cancel', r?.machineId ?? undefined).catch(() => {})
   }
-  const detect = async () => {
-    setBusy('detect')
+  const detect = async (machineId?: string) => {
+    const id = machineId ?? mine?.machineId
+    setDetectingId(id ?? '')
     setFailure(null)
+    setLastFailed(null)
     try {
-      await cliAction(groupId, c.id, 'detect', mine?.machineId)
+      await cliAction(groupId, c.id, 'detect', id)
     } catch (e) {
+      setLastFailed({ kind: 'detect', machineId: id })
       setFailure(errorText(e))
     } finally {
-      setBusy(null)
+      setDetectingId(null)
     }
   }
 
@@ -161,17 +183,23 @@ export function CliConnect({
   const mine = cli.machines.find((x) => x.own && x.state === 'ready')
   const example = m.connector?.examples[0]
   const bots = useWorkspace((s) => s.bots)
+  const groupBotIds = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.botIds) ?? []
   const names = (ids: string[]) => ids.map((id) => bots.find((b) => b.id === id)?.name ?? id).join(t('、'))
+  const unreadyBotIds = cli.state === 'ready' ? groupBotIds.filter((id) => !cli.readyBotIds.includes(id)) : []
+  const retryFailed = () => {
+    if (lastFailed?.kind === 'detect') void detect(lastFailed.machineId)
+    else void connect(lastFailed?.machineId)
+  }
   return (
     <div className="cn-cli">
       {failure ? (
-        <Alert variant="error" title={failure} onRetry={() => void connect()} retryLabel={t('重试')} />
+        <Alert variant="error" title={failure} onRetry={retryFailed} retryLabel={t('重试')} />
       ) : null}
       {run ? (
         <CliProgress run={run} onCancel={cancel} />
       ) : cli.state === 'no_machine' ? (
         <Alert variant="info" title={t('Bot 所在电脑不在线')} />
-      ) : cli.state === 'ready' && (!target || target.state === 'ready') ? (
+      ) : cli.state === 'ready' && !domains.length && (!target || target.state === 'ready') ? (
         <div className="cn-detail__actions">
           {example && onTry ? (
             <Button size="large" variant="primary" icon="bubble" onClick={() => onTry(example)}>
@@ -180,10 +208,19 @@ export function CliConnect({
           ) : null}
           {mine ? (
             <>
-              <Button size="large" loading={busy === 'detect'} onClick={() => void detect()}>
+              <Button
+                size="large"
+                loading={detectingId === mine.machineId}
+                disabled={detectingId !== null}
+                onClick={() => void detect(mine.machineId)}
+              >
                 {t('重新检测')}
               </Button>
-              <Button size="large" variant="plain" onClick={() => setLoggingOut(true)}>
+              <Button
+                size="large"
+                variant="plain"
+                onClick={() => setLoggingOut({ machineId: mine.machineId, machineName: mine.machineName })}
+              >
                 {t('退出登录')}
               </Button>
             </>
@@ -198,19 +235,33 @@ export function CliConnect({
           ) : null}
           <div className="cn-detail__actions">
             <Button size="large" variant="primary" onClick={() => void connect(target.machineId)}>
-              {cli.state === 'error' ? t('重试') : c.status === 'expired' ? t('重新连接') : t('连接')}
+              {domains.length && target.state === 'ready'
+                ? t('补充授权')
+                : cli.state === 'error'
+                  ? t('重试')
+                  : c.status === 'expired'
+                    ? t('重新连接')
+                    : t('连接')}
             </Button>
           </div>
           <div className="gs-note">
-            {t(
-              '在 {machine} 上用你的账号登录，自动安装所需工具；群里任何人 @ 这台电脑上的 Bot 都会用这个账号。',
-              {
-                machine: target.machineName,
-              },
-            )}
+            {inGroup
+              ? t(
+                  '在 {machine} 上用你的账号登录，自动安装所需工具；群里任何人 @ 这台电脑上的 Bot 都会用这个账号。',
+                  { machine: target.machineName },
+                )
+              : t('在 {machine} 上用你的账号登录，自动安装所需工具。', { machine: target.machineName })}
           </div>
         </>
       )}
+      {!run && unreadyBotIds.length ? (
+        <div className="gs-note">
+          {t('{bots} 所在电脑尚未连接{name}，需其电脑主人连接后可用', {
+            bots: names(unreadyBotIds),
+            name: m.title,
+          })}
+        </div>
+      ) : null}
       {cli.machines.length ? (
         <Disclosure title={t('电脑 · {n}', { n: cli.machines.length })}>
           <ul className="cn-machines" aria-label={t('各电脑的连接状态')}>
@@ -230,7 +281,29 @@ export function CliConnect({
                     ? t('已连接 · {account}', { account: x.account })
                     : STATE[x.state]}
                 </span>
-                {x.state === 'ready' || !x.own ? null : (
+                {!x.own ? null : x.state === 'ready' ? (
+                  <>
+                    <Button
+                      size="small"
+                      variant="plain"
+                      loading={detectingId === x.machineId}
+                      disabled={!!run || detectingId !== null}
+                      aria-label={t('重新检测 {machine}', { machine: x.machineName })}
+                      onClick={() => void detect(x.machineId)}
+                    >
+                      {t('重新检测')}
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="plain"
+                      disabled={!!run}
+                      aria-label={t('退出 {machine} 登录', { machine: x.machineName })}
+                      onClick={() => setLoggingOut({ machineId: x.machineId, machineName: x.machineName })}
+                    >
+                      {t('退出登录')}
+                    </Button>
+                  </>
+                ) : (
                   <Button
                     size="small"
                     disabled={!!run}
@@ -248,15 +321,19 @@ export function CliConnect({
       <Presence>
         {loggingOut ? (
           <ConfirmActionDialog
-            title={t('退出「{name}」的登录？', { name: m.title })}
-            message={t('这台电脑上的 Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。', {
+            title={t('退出 {machine} 上的「{name}」登录？', {
+              machine: loggingOut.machineName,
+              name: m.title,
+            })}
+            message={t('{machine} 上的 Bot 将不能再用你的账号访问「{name}」，之后可以随时重新连接。', {
+              machine: loggingOut.machineName,
               name: m.title,
             })}
             consequences={[]}
             label={t('退出登录')}
             done={t('已退出「{name}」', { name: m.title })}
-            run={() => cliAction(groupId, c.id, 'logout', mine?.machineId)}
-            onClose={() => setLoggingOut(false)}
+            run={() => cliAction(groupId, c.id, 'logout', loggingOut.machineId)}
+            onClose={() => setLoggingOut(null)}
           />
         ) : null}
       </Presence>

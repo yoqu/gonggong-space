@@ -52,6 +52,10 @@ function Item({
   const m = item.message
   const due = isDue(item)
   const id = m.id
+  const updateRemind = (at: Date | null) =>
+    void savedApi.save(id, at).then((ok) => {
+      if (ok) toast({ type: 'success', message: t('已更新提醒') })
+    })
   return (
     <article
       className={cx('thread-inbox__card later__item', leaving && 'ui-leaving')}
@@ -69,13 +73,13 @@ function Item({
         ) : null}
       </span>
       <button type="button" className="later__body" onClick={() => navigate(messageHref(m))}>
-        <p className="thread-inbox__line">
+        <span className="thread-inbox__line">
           <b>{m.authorName}</b>
           <span>{messageSnippet(m)}</span>
           <time dateTime={m.createdAt} title={t('消息发于 {time}', { time: fullTime(m.createdAt) })}>
             {ago(m.createdAt)}
           </time>
-        </p>
+        </span>
       </button>
       <span className="later__actions">
         {tab === 'open' ? (
@@ -90,11 +94,12 @@ function Item({
             </Button>
             <MenuButton
               className="ui-btn ui-btn--small"
+              portal
               disabled={leaving}
               items={remindPresets().map((p) => ({ value: p.value, label: p.label }))}
               onSelect={(v) => {
                 if (v === 'remind:custom') setCustom(true)
-                else void savedApi.save(id, remindPresets().find((p) => p.value === v)?.at ?? null)
+                else updateRemind(remindPresets().find((p) => p.value === v)?.at ?? null)
               }}
             >
               {t('改提醒')}
@@ -131,9 +136,7 @@ function Item({
         </Button>
       </span>
       <Presence>
-        {custom ? (
-          <RemindDialog onPick={(at) => void savedApi.save(id, at)} onClose={() => setCustom(false)} />
-        ) : null}
+        {custom ? <RemindDialog onPick={(at) => updateRemind(at)} onClose={() => setCustom(false)} /> : null}
       </Presence>
     </article>
   )

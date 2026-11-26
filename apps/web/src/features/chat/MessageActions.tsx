@@ -286,6 +286,9 @@ function useMessageMenu(target: ActionTarget) {
   const [deleting, setDeleting] = useState(false)
   const [recallingBot, setRecallingBot] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [confirmUnpin, setConfirmUnpin] = useState(false)
+  const [unpinning, setUnpinning] = useState(false)
+  const branching = useRef(false)
   const liveRuns = useContext(ActiveRunsContext)
   const navigate = useNavigate()
   const bar = useRef<HTMLDivElement>(null)
@@ -342,11 +345,17 @@ function useMessageMenu(target: ActionTarget) {
       void copyWithToast(part || target.copyText, t('已复制'))
     } else if (value === 'link') void copyWithToast(target.link, t('链接已复制'))
     else if (value === 'unread' && target.message) void markUnreadFrom(target.message)
-    else if (value === 'branch' && target.message)
-      void branch(target.message, (groupId) => navigate(`/g/${groupId}`))
-    else if (value === 'pin' && target.message) void pinsApi.pin(target.message.groupId, target.message.id)
-    else if (value === 'unpin' && target.message)
-      void pinsApi.unpin(target.message.groupId, target.message.id)
+    else if (value === 'branch' && target.message) {
+      if (branching.current) return
+      branching.current = true
+      void branch(target.message, (groupId) => navigate(`/g/${groupId}`)).finally(() => {
+        branching.current = false
+      })
+    } else if (value === 'pin' && target.message)
+      void pinsApi.pin(target.message.groupId, target.message.id).then((ok) => {
+        if (ok) toast({ type: 'success', message: t('已置顶') })
+      })
+    else if (value === 'unpin' && target.message) setConfirmUnpin(true)
     else if (value === 'knowledge') setSaving(true)
     else if (value === 'edit') target.onEdit?.()
     else if (value === 'recall' && mine) {
@@ -380,6 +389,39 @@ function useMessageMenu(target: ActionTarget) {
       </Presence>
       <Presence>
         {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
+      </Presence>
+      <Presence>
+        {confirmUnpin && target.message ? (
+          <AlertDialog
+            open
+            title={t('要取消置顶这条消息吗？')}
+            message={t('所有群成员顶部将不再看到该置顶，并在群内留下一条记录。')}
+            onClose={() => {
+              if (!unpinning) setConfirmUnpin(false)
+            }}
+            actions={[
+              { label: t('取消'), disabled: unpinning, onClick: () => setConfirmUnpin(false) },
+              {
+                label: t('取消置顶'),
+                variant: 'destructive',
+                disabled: unpinning,
+                loading: unpinning,
+                onClick: () => {
+                  const msg = target.message
+                  if (!msg || unpinning) return
+                  setUnpinning(true)
+                  void pinsApi.unpin(msg.groupId, msg.id).then((ok) => {
+                    setUnpinning(false)
+                    if (ok) {
+                      setConfirmUnpin(false)
+                      toast({ type: 'success', message: t('已取消置顶') })
+                    }
+                  })
+                },
+              },
+            ]}
+          />
+        ) : null}
       </Presence>
       <Presence>
         {saving && target.message ? (

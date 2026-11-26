@@ -115,7 +115,7 @@ describe('subagent dock', () => {
     const bar = screen.getByTestId('activity-dock')
     expect(within(bar).getAllByTestId('dock-chip')).toHaveLength(3)
     const more = within(bar).getByRole('button', { name: '+3' })
-    expect(within(bar).getByText('子 agent 6 个运行中')).toBeTruthy()
+    expect(within(bar).getByText('子 Agent 6 个运行中')).toBeTruthy()
     fireEvent.click(more)
     const list = screen.getByRole('list', { name: '后台运行' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(6)

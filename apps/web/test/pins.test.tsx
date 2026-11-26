@@ -1,5 +1,5 @@
 import type { MessageDto, PinnedMessageDto } from '@gonggong/protocol'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkspace } from '../src/app/workspace'
@@ -60,6 +60,8 @@ describe('消息置顶', () => {
     await waitFor(() => expect(useWorkspace.getState().pins.g1).toEqual([pin()]))
     fireEvent.click(screen.getByRole('button', { name: '更多' }))
     fireEvent.click(await screen.findByText('取消置顶'))
+    const confirm = await screen.findByRole('alertdialog', { name: '要取消置顶这条消息吗？' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '取消置顶' }))
     await waitFor(() => expect(calls.at(-1)).toMatchObject({ method: 'DELETE', path: '/groups/g1/pins/m1' }))
   })
 

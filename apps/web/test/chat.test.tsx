@@ -600,7 +600,8 @@ describe('my machines and bots', () => {
       expect(calls).toContainEqual({ method: 'PATCH', path: '/machines/mc2', body: { name: '旧服务器' } }),
     )
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '解绑电脑' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '更多操作' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '解绑电脑…' }))
     const confirm = await screen.findByRole('alertdialog', { name: /解绑电脑 old-box/ })
     fireEvent.click(within(confirm).getByRole('button', { name: '解绑' }))
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())

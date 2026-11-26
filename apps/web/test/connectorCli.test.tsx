@@ -225,6 +225,8 @@ describe('CLI 连接器 · 一站式连接', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '连接' }))
     await within(dialog).findByText('正在连接…')
     fireEvent.keyDown(document, { key: 'Escape' })
+    const confirm = await screen.findByRole('alertdialog', { name: '要取消当前连接吗？' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '取消连接' }))
     await waitFor(() =>
       expect(
         calls.filter((c) => c.path === '/groups/g1/connectors/c5/cli').map((c) => c.body),

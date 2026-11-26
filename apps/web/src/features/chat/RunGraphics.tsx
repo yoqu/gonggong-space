@@ -185,8 +185,8 @@ export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
         <Fact
           label={
             d.subagentsRunning
-              ? t('子 agent {n} 个，{running} 个运行中', { n: d.subagents, running: d.subagentsRunning })
-              : t('子 agent {n} 个', { n: d.subagents })
+              ? t('子 Agent {n} 个，{running} 个运行中', { n: d.subagents, running: d.subagentsRunning })
+              : t('子 Agent {n} 个', { n: d.subagents })
           }
           value={d.subagents}
         >

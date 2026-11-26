@@ -70,7 +70,7 @@ describe('activity dock', () => {
     const onLocate = vi.fn()
     const steps = processSteps(events, [], true)
     render(<ActivityDock steps={steps} onStopTask={onStopTask} onLocate={onLocate} />)
-    expect(screen.getByText('子 agent 2 个运行中')).toBeTruthy()
+    expect(screen.getByText('子 Agent 2 个运行中')).toBeTruthy()
     expect(screen.getByText('后台任务 1 个运行中')).toBeTruthy()
     expect(screen.getAllByTestId('dock-chip')).toHaveLength(2)
     expect(screen.getByRole('button', { name: '+1' })).toBeTruthy()

@@ -118,6 +118,18 @@ function hash(s: string) {
 /** A stable color of the avatar palette for a name or id. */
 export const paletteColor = (name: string) => `var(--avatar-${(hash(name) % 6) + 1})`
 
+const PALETTE_TEXT = [
+  'var(--tint-blue-text)',
+  'var(--tint-green-text)',
+  'var(--tint-orange-text)',
+  'var(--tint-red-text)',
+  'var(--tint-purple-text)',
+  'var(--tint-gray-text)',
+] as const
+
+/** High-contrast text companion to `paletteColor`, meeting WCAG AA across themes. */
+export const paletteTextColor = (name: string) => PALETTE_TEXT[hash(name) % PALETTE_TEXT.length]
+
 /** One character per mosaic tile: a Chinese given name's last character, else the first letter. */
 function tileChar(name: string) {
   const t = initials(name, false)

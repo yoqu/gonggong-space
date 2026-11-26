@@ -157,6 +157,8 @@ export interface ThreadSummaryProps {
   mentioned?: boolean
   /** The thread's own color, softly tinting the bar so threads tell apart. */
   hue?: string
+  /** High-contrast text companion to `hue` for the tag and chevron. */
+  textHue?: string
   onClick?: () => void
 }
 
@@ -168,13 +170,21 @@ export function ThreadSummary({
   unread = 0,
   mentioned,
   hue,
+  textHue,
   onClick,
 }: ThreadSummaryProps) {
   return (
     <button
       type="button"
       className={cx('pn-thread', unread > 0 && 'pn-thread--unread')}
-      style={hue ? ({ '--thread-hue': hue } as CSSProperties) : undefined}
+      style={
+        hue || textHue
+          ? ({
+              ...(hue && { '--thread-hue': hue }),
+              ...(textHue && { '--thread-text': textHue }),
+            } as CSSProperties)
+          : undefined
+      }
       onClick={onClick}
     >
       <span className="pn-thread__tag">

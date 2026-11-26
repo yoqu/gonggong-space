@@ -855,7 +855,7 @@ describe('home route', () => {
     useWorkspace.setState({ groups: [] })
     mockApi(routes([]))
     renderAt('/')
-    expect(await screen.findByText('选择一个群或私聊开始')).toBeTruthy()
+    expect(await screen.findByText('欢迎来到共工空间，王磊')).toBeTruthy()
     expect(screen.getByTestId('where').textContent).toBe('/')
   })
 

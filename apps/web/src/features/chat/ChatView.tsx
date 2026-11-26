@@ -38,7 +38,6 @@ import {
   MessageList,
   PinnedBanner,
   Presence,
-  RollingNumber,
   Spinner,
   TypingIndicator,
   toast,
@@ -209,6 +208,8 @@ export function ChatView({
       ),
     [setParams],
   )
+  const linkedConnector = params.get('connector')
+  const clearLinkedConnector = useCallback(() => patchParams((p) => p.delete('connector')), [patchParams])
   // `?thread=<root id>` (links, notifications, search hits): opens that thread in the rail.
   const linkedThread = params.get('thread')
   useEffect(() => {
@@ -496,7 +497,6 @@ export function ChatView({
     }
     patchParams((p) => p.set('msg', pin.messageId))
   }
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reloaded per group and after a reconnect
   useEffect(() => {
     const load = () => void loadPins(group.id).catch(() => {})
     load()
@@ -766,10 +766,10 @@ export function ChatView({
                 : []),
               {
                 icon: 'thread' as const,
-                label: t('话题#inbox'),
+                label: threadsUnread ? t('话题，{n} 个未读', { n: threadsUnread }) : t('话题#inbox'),
                 text: (
                   <>
-                    {t('话题#inbox')}
+                    <span className="chat-view__threads-label">{t('话题#inbox')}</span>
                     <Badge count={threadsUnread} />
                   </>
                 ),
@@ -1016,6 +1016,8 @@ export function ChatView({
                     dropFiles={dropFiles}
                     onSent={onSent}
                     lastEditable={editLast}
+                    initialConnector={linkedConnector}
+                    onConnectorOpened={clearLinkedConnector}
                   />
                 </ComposerDock>
               </div>

@@ -270,6 +270,7 @@ export function ComboBox({
   const root = useRef<HTMLDivElement>(null)
   const wrap = useRef<HTMLSpanElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const composing = useRef(false)
   useDismiss(open, root, () => setOpen(false), listRef)
   const all = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
   const q = text.toLowerCase()
@@ -315,7 +316,16 @@ export function ComboBox({
             setActive(0)
             onInput?.(e.target.value)
           }}
+          onCompositionStart={() => {
+            composing.current = true
+          }}
+          onCompositionEnd={() => {
+            setTimeout(() => {
+              composing.current = false
+            })
+          }}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing || composing.current || e.keyCode === 229) return
             if (e.key === 'ArrowDown') {
               e.preventDefault()
               if (open) setActive(Math.min(list.length - 1, active + 1))
@@ -426,9 +436,11 @@ export function TokenField({
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
   const [hidden, setHidden] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const composing = useRef(false)
   const labels = tokens.map((t) => tokenOf(t).label)
   const matches = text
     ? suggestions
@@ -437,6 +449,7 @@ export function TokenField({
         .slice(0, 6)
     : []
   const shown = matches.length > 0 && !hidden
+  useDismiss(shown, root, () => setHidden(true), listRef)
   useFixedPosition(shown, box, listRef, 'bottom-start', 4, () => setHidden(true), true)
   const set = (next: Token[]) => {
     setTokens(next)
@@ -454,7 +467,7 @@ export function TokenField({
     input.current?.focus()
   }
   return (
-    <div className={cx('ui-field', 'ui-tokenfield', className)} style={style}>
+    <div ref={root} className={cx('ui-field', 'ui-tokenfield', className)} style={style}>
       {label ? (
         <label className="ui-field__label" htmlFor={id}>
           {label}
@@ -508,8 +521,16 @@ export function TokenField({
               setHidden(false)
             }
           }}
+          onCompositionStart={() => {
+            composing.current = true
+          }}
+          onCompositionEnd={() => {
+            setTimeout(() => {
+              composing.current = false
+            })
+          }}
           onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing) return
+            if (e.nativeEvent.isComposing || composing.current || e.keyCode === 229) return
             if (shown && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
               e.preventDefault()
               setActive((active + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length)
@@ -517,7 +538,6 @@ export function TokenField({
               e.preventDefault()
               add((shown && matches[active]) || { label: text })
             } else if (e.key === 'Backspace' && !text && tokens.length) remove(tokens.length - 1)
-            else if (e.key === 'Escape') setText('')
           }}
           onBlur={() => {
             if (text && commitOnBlur) add({ label: text })

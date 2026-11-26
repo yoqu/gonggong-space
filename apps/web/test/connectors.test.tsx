@@ -121,7 +121,7 @@ describe('连接器详情弹窗', () => {
     fireEvent.click(await within(menu).findByRole('button', { name: '连接' }))
     const dialog = await screen.findByRole('dialog', { name: '数仓' })
     expect(within(dialog).getByText('查询线上数据，按你的 Key 控制可见的库表')).toBeTruthy()
-    expect(within(dialog).getByText(/将允许群内 Bot 在他人机器上使用/)).toBeTruthy()
+    expect(within(dialog).getByText(/将允许群内 Bot 在他人电脑上使用/)).toBeTruthy()
     expect(within(dialog).getByText(/Bot 的回复群内可见/)).toBeTruthy()
     expect(within(dialog).getByText('数仓 Key')).toBeTruthy()
     expect(

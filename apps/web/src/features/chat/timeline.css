@@ -228,8 +228,9 @@
   position: sticky;
   top: 0;
   z-index: 3;
-  margin-block: calc(-1 * var(--space-6));
-  padding-block: var(--space-6);
+  margin-top: calc(-1 * var(--space-6));
+  margin-bottom: 0;
+  padding: var(--space-6) 0 var(--space-8);
   background: linear-gradient(var(--content-bg) 70%, transparent);
 }
 /* Below the pinned prompts, however many there are (--banners-h is measured by ChatView). */
@@ -271,7 +272,7 @@
 }
 .tl-event .tl-time {
   margin-left: var(--space-4);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .tl-fold__head {
   cursor: default;
@@ -359,7 +360,7 @@
   white-space: nowrap;
 }
 .run-card__sub {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .chat-view .pn-msg__meta > .run-card__sub {
   flex: 0 1 auto;
@@ -599,12 +600,20 @@
   color: var(--tint-blue-text);
 }
 
+.chat__center--narrow .chat-view__threads-label {
+  display: none;
+}
+@media (max-width: 640px) {
+  .chat-view__threads-label {
+    display: none;
+  }
+}
 @media (max-width: 767px) {
   .chat-view .pn-chathead__bar {
     padding: 0 var(--space-8) 0 var(--space-16);
   }
   .chat-view .pn-chathead .ui-tag,
-  .chat-view .pn-chathead .ui-toolbar__btn > span {
+  .chat-view .pn-chathead .ui-toolbar__btn > span:not(.ui-badge) {
     display: none;
   }
   .chat-view__banners {

@@ -31,4 +31,5 @@ export default {
   已加入稍后处理: 'Added to Later',
   '已加入稍后处理，{time} 提醒': 'Added to Later, reminder {time}',
   '消息发于 {time}': 'Sent at {time}',
+  已更新提醒: 'Reminder updated',
 }

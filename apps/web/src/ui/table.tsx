@@ -331,7 +331,7 @@ export function Table<R extends TableRow = TableRow>({
                   const text = value == null || typeof value === 'string' || typeof value === 'number'
                   const cell = (
                     <span className={cx('ui-table__cell', text && 'ui-table__cell--text')}>
-                      {(value ?? '--') as ReactNode}
+                      {(value ?? '—') as ReactNode}
                     </span>
                   )
                   return (

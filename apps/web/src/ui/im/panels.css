@@ -433,7 +433,8 @@
   background: var(--system-orange);
 }
 .pn-profile__dot--offline {
-  background: var(--label-tertiary);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--system-gray);
 }
 .pn-profile__title {
   font-size: var(--text-callout-size);

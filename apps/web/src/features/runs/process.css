@@ -72,7 +72,7 @@ button.act-row:active {
   flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-subheadline-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-row__fail {
   color: var(--tint-red-text);
@@ -86,7 +86,7 @@ button.act-row:active {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--text-footnote-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
 .act-text > .act-row__time {
@@ -163,7 +163,7 @@ button.act-row:active {
   margin-bottom: var(--space-2);
   border: 0;
   background: transparent;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font: inherit;
   font-size: var(--text-subheadline-size);
   cursor: pointer;
@@ -235,7 +235,7 @@ button.act-row:hover .act-row__target--file {
 .act-row__state {
   flex: none;
   font-size: var(--text-subheadline-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-item[data-state="failed"] > .act-row .act-row__state {
   color: var(--tint-red-text);
@@ -258,7 +258,7 @@ button.act-row:hover .act-row__target--file {
   margin-bottom: var(--space-2);
   font-size: var(--text-footnote-size);
   font-weight: 600;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-mcp__args {
   display: grid;
@@ -273,7 +273,7 @@ button.act-row:hover .act-row__target--file {
   display: contents;
 }
 .act-mcp__args dt {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-mcp__args dd {
   margin: 0;
@@ -292,7 +292,7 @@ button.act-row:hover .act-row__target--file {
   overflow-wrap: anywhere;
 }
 .act-ask__type {
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-ask__opts {
   color: var(--label-secondary);
@@ -631,7 +631,7 @@ button.act-row:hover .act-row__target--file {
 .act-empty {
   padding: var(--space-8) 0;
   font-size: var(--text-callout-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-detail__tools {
   display: flex;
@@ -656,7 +656,7 @@ button.act-row:hover .act-row__target--file {
 .act-detail__hits {
   flex: none;
   font-size: var(--text-footnote-size);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .act-detail__copy {
   display: inline-grid;
@@ -805,7 +805,7 @@ button.act-row:hover .act-row__target--file {
 }
 .act-web__host {
   flex: none;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-footnote-size);
 }
 @media (prefers-reduced-motion: reduce) {

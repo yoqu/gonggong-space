@@ -50,14 +50,18 @@ export function ConfirmActionDialog({
       title={title}
       message={message}
       detail={
-        <>
-          <ul className="ui-consequences">
-            {consequences.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-          {error ? <Alert variant="error" description={error} /> : null}
-        </>
+        consequences.length || error ? (
+          <>
+            {consequences.length ? (
+              <ul className="ui-consequences">
+                {consequences.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            ) : null}
+            {error ? <Alert variant="error" description={error} /> : null}
+          </>
+        ) : undefined
       }
       onClose={close}
       actions={[

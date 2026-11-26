@@ -667,6 +667,7 @@ export function StopTask({
     <Button
       size="small"
       variant="plain"
+      loading={busy}
       disabled={busy}
       aria-label={t('停止后台任务 {name}', { name })}
       onClick={() => {

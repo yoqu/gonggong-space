@@ -85,6 +85,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const states = useWorkspace((s) => s.botStates[group.id])
   const bots = useWorkspace((s) => s.bots)
   const [picking, setPicking] = useState<BotDto | null>(null)
+  const [recheckingId, setRecheckingId] = useState<string | null>(null)
   const navigate = useNavigate()
   // Hidden per bot and state: a banner comes back once the bot's state changes.
   const hidden = useWorkspaceBannerHidden((s) => s.hidden)
@@ -100,13 +101,24 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   })
   if (!waiting.length && !paused.length) return null
 
-  const recheck = (bot: BotDto) =>
-    api
+  const recheck = (bot: BotDto) => {
+    if (recheckingId === bot.id) return
+    setRecheckingId(bot.id)
+    return api
       .post(`/groups/${group.id}/bots/${bot.id}/recheck`)
       .then(() => toast({ type: 'info', message: t('正在让 {name} 的电脑重新克隆…', { name: bot.name }) }))
       .catch(toastError)
+      .finally(() => setRecheckingId((cur) => (cur === bot.id ? null : cur)))
+  }
 
   const mineReady = waiting.filter((b) => b.ownerId === me?.id && b.machineId && !states?.[b.id]?.error)
+  const primaryCount =
+    paused.filter((b) => b.ownerId === me?.id && b.machineId).length +
+    (mineReady.length > 1 ? mineReady.length : 0) +
+    waiting.filter(
+      (b) => !(mineReady.length > 1 && mineReady.includes(b)) && b.ownerId === me?.id && b.machineId,
+    ).length
+  const primaryVariant = primaryCount > 1 ? 'default' : 'primary'
   return (
     <>
       {paused.map((b) => {
@@ -140,7 +152,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
                     {mine && b.machineId ? (
                       <Button
                         size="small"
-                        variant="primary"
+                        variant={primaryVariant}
                         onClick={() =>
                           navigate(
                             `/machine/${b.machineId}?tab=git${group.repo ? `&repo=${encodeURIComponent(group.repo.url)}` : ''}`,
@@ -150,7 +162,12 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
                         {t('去配置')}
                       </Button>
                     ) : null}
-                    <Button size="small" onClick={() => void recheck(b)}>
+                    <Button
+                      size="small"
+                      loading={recheckingId === b.id}
+                      disabled={recheckingId === b.id}
+                      onClick={() => void recheck(b)}
+                    >
                       {t('重新检查')}
                     </Button>
                   </>
@@ -172,7 +189,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
             <Button
               key={b.id}
               size="small"
-              variant="primary"
+              variant={primaryVariant}
               data-testid={`ws-banner-${b.id}`}
               onClick={() => setPicking(b)}
             >
@@ -198,7 +215,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               text={`${text}${error ? ` · ${error}` : ''}`}
               action={
                 mine && b.machineId ? (
-                  <Button size="small" variant="primary" onClick={() => setPicking(b)}>
+                  <Button size="small" variant={primaryVariant} onClick={() => setPicking(b)}>
                     {t('确认工作区')}
                   </Button>
                 ) : null

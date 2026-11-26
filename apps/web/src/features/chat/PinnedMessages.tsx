@@ -167,6 +167,7 @@ export function PinnedMessages({
             label: t('取消置顶'),
             variant: 'destructive',
             disabled: unpinning,
+            loading: unpinning,
             onClick: () => void confirmUnpin(),
           },
         ]}

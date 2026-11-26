@@ -21,7 +21,7 @@ import { loadTerminalSpaces, useTerminalSpaces } from '../features/terminal/spac
 import { openTab } from '../features/workbench/open'
 import { WorksPage } from '../features/works/WorksPage'
 import { t } from '../i18n'
-import { api } from '../lib/api'
+import { ApiError, api } from '../lib/api'
 import { named } from '../lib/lazy'
 import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence, toast } from '../ui'
@@ -76,17 +76,28 @@ function loadGroups(setState: (s: 'ready' | 'error') => void) {
 /** Loads my groups; reloads after a realtime reconnect to catch up. */
 const loadTeam = () =>
   loadTeamSections().catch((e: Error) => console.warn('team sections failed to load:', e))
-const loadSpaces = () => {
-  loadTerminalSpaces().catch((e: Error) => console.warn('terminal spaces failed to load:', e))
+const loadSpaces = (setSpacesState: (s: 'ready' | 'error') => void) => {
+  loadTerminalSpaces().then(
+    () => setSpacesState('ready'),
+    (e: unknown) => {
+      if (e instanceof ApiError && e.status === 404) {
+        setSpacesState('ready')
+        return
+      }
+      console.warn('terminal spaces failed to load:', e)
+      setSpacesState('error')
+    },
+  )
   loadSections().catch((e: Error) => console.warn('sidebar sections failed to load:', e))
   void loadTeam()
 }
 
 function useChatData() {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [spacesState, setSpacesState] = useState<'loading' | 'ready' | 'error'>('loading')
   useEffect(() => {
     loadGroups(setState)
-    loadSpaces()
+    loadSpaces(setSpacesState)
     // Leaving a group puts it back in the directory if it is filed under a 团队分区.
     const off = realtime.subscribe((e) => {
       if (e.t === 'directory.changed' || e.t === 'group.removed') void loadTeam()
@@ -95,7 +106,7 @@ function useChatData() {
     })
     const offReconnect = realtime.onReconnect(() => {
       loadGroups(setState)
-      loadSpaces()
+      loadSpaces(setSpacesState)
     })
     return () => {
       off()
@@ -106,7 +117,14 @@ function useChatData() {
     setState('loading')
     loadGroups(setState)
   }
-  return [state, retry] as const
+  const retrySpaces = () => {
+    setSpacesState('loading')
+    loadTerminalSpaces().then(
+      () => setSpacesState('ready'),
+      () => setSpacesState('error'),
+    )
+  }
+  return [state, retry, spacesState, retrySpaces] as const
 }
 
 const ONLINE_BOT: readonly BotDto['presence'][] = ['online', 'running']
@@ -240,7 +258,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const { groups, bots, machines, workspaceLoaded } = useWorkspace(
     useShallow((s) => ({ groups: s.groups, bots: s.bots, machines: s.machines, workspaceLoaded: s.loaded })),
   )
-  const [groupsState, retryGroups] = useChatData()
+  const [groupsState, retryGroups, spacesState, retrySpaces] = useChatData()
   const [creating, setCreating] = useState(false)
   const [fromFeishu, setFromFeishu] = useLinkedFeishuChat()
   const [binding, setBinding] = useState(false)
@@ -361,7 +379,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
               loaded={workspaceLoaded}
               onBindMachine={() => setBinding(true)}
               onNewBot={(machineId) => setNewBot({ machineId })}
-              onConfirmBot={(id) => void confirmBot(id)}
+              onConfirmBot={(id) => confirmBot(id)}
             />
           ) : (
             <Sidebar
@@ -461,6 +479,19 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
                 onBack={mobile ? () => navigate('/') : undefined}
               />
             </Suspense>
+          ) : spacesState === 'loading' ? (
+            <div className="chat__placeholder">
+              <Mascot action="wait" size={72} label={t('加载中')} />
+            </div>
+          ) : spacesState === 'error' ? (
+            <div className="chat__placeholder">
+              <EmptyState
+                illustration={<FailedArt />}
+                title={t('终端加载失败')}
+                description={t('请检查网络或服务器状态后重试。')}
+                action={<Button onClick={retrySpaces}>{t('重试')}</Button>}
+              />
+            </div>
           ) : (
             <div className="chat__placeholder">
               <EmptyState
@@ -496,7 +527,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
           />
         ) : preview ? (
           <JoinPreview key={preview.id} group={preview} onBack={mobile ? () => navigate('/') : undefined} />
-        ) : groupsState === 'loading' && (groupId || groups.length) ? (
+        ) : groupsState === 'loading' ? (
           <div className="chat__placeholder">
             <Mascot action="wait" size={72} label={t('加载中')} />
           </div>

@@ -86,7 +86,7 @@
 }
 .ctxw__pending {
   margin-left: var(--space-6);
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
 }
 .ctxw__bar {
   height: 6px;
@@ -250,6 +250,6 @@
 }
 .ctxw__note {
   margin: 0;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-size: var(--text-callout-size);
 }

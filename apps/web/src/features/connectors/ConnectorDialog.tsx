@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import {
   Alert,
+  AlertDialog,
   Button,
   ConfirmActionDialog,
   Dialog,
@@ -58,6 +59,8 @@ export function ConnectorDialog({
   const [unbinding, setUnbinding] = useState(false)
   const [checking, setChecking] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [cliRunning, setCliRunning] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const attempt = async (f: () => Promise<unknown>) => {
     setError('')
     try {
@@ -79,6 +82,14 @@ export function ConnectorDialog({
   const asked = c.missing.length ? c.missing : specs.filter((x) => x.required).map((x) => x.name)
   const ready = asked.every((n) => keyOf(values[n] ?? '').length >= SECRET_MIN_LENGTH)
   const hasDraft = Object.values(values).some((v) => v.length > 0)
+  const canSwitch = c.cli ? c.cli.state === 'ready' : c.connected && !needsConnect(c)
+  const cliTargetOwn = !!c.cli?.machines.find((x) => x.machineId === (machineId ?? c.cli?.target) && x.own)
+  const isConnected = c.cli
+    ? c.cli.state === 'ready' && !domains?.length
+    : c.connected && c.status !== 'expired'
+  const showConnectTitle =
+    !isConnected &&
+    (c.cli ? cliTargetOwn : c.missing.length > 0 || c.status === 'expired' || !!m.connector?.login)
   const toggleInGroup = async (on: boolean) => {
     if (toggling) return
     setToggling(true)
@@ -122,9 +133,11 @@ export function ConnectorDialog({
       open
       aria-label={m.title}
       width={560}
-      closeOnBackdrop={!hasDraft && !busy}
+      closeOnBackdrop={!hasDraft && !busy && !cliRunning}
       onClose={() => {
-        if (!busy) onClose()
+        if (busy) return
+        if (cliRunning) return setConfirmCancel(true)
+        onClose()
       }}
     >
       <div className="cn-detail">
@@ -141,7 +154,9 @@ export function ConnectorDialog({
             <PluginTile m={m} size={56} src={pluginIcon(c)} />
           </span>
         </div>
-        <h2 className="cn-detail__title">{t('连接 {name}', { name: m.title })}</h2>
+        <h2 className="cn-detail__title">
+          {showConnectTitle ? t('连接 {name}', { name: m.title }) : m.title}
+        </h2>
         {m.description ? <p className="cn-detail__desc">{m.description}</p> : null}
         {(c.personal || m.connector?.login || c.cli) && inGroup ? (
           <div className="cn-detail__note">
@@ -159,12 +174,13 @@ export function ConnectorDialog({
                 {t('重新检测')}
               </Button>
             ) : null}
-            {!needsConnect(c) ? (
+            {canSwitch ? (
               <Switch
                 size="small"
                 label={t('在本群启用')}
                 checked={c.on}
                 disabled={toggling}
+                loading={toggling}
                 onChange={(on) => void toggleInGroup(on)}
               />
             ) : null}
@@ -176,9 +192,11 @@ export function ConnectorDialog({
             groupId={groupId}
             c={c}
             cli={c.cli}
+            inGroup={inGroup}
             domains={domains}
             machineId={machineId}
             onTry={onTry && ((x) => onTry(c, x))}
+            onRunningChange={setCliRunning}
           />
         ) : m.connector?.login ? (
           onTry ? (
@@ -213,15 +231,11 @@ export function ConnectorDialog({
           ) : null
         ) : c.connected && c.status !== 'expired' ? (
           <div className="cn-detail__actions">
-            <Button
-              size="large"
-              variant="primary"
-              disabled={!examples[0] || !onTry}
-              icon="bubble"
-              onClick={() => examples[0] && onTry?.(c, examples[0])}
-            >
-              {t('去试试')}
-            </Button>
+            {examples[0] && onTry ? (
+              <Button size="large" variant="primary" icon="bubble" onClick={() => onTry(c, examples[0]!)}>
+                {t('去试试')}
+              </Button>
+            ) : null}
             {c.personal ? (
               <Button size="large" icon="plug" onClick={() => setUnbinding(true)}>
                 {t('解绑')}
@@ -244,7 +258,7 @@ export function ConnectorDialog({
                 <div key={n} className="sn-row">
                   <div className="sn-row__head">
                     <strong>{spec?.title ?? n}</strong>
-                    {spec?.title ? <code>{n}</code> : null}
+                    {spec?.title && spec.title !== n ? <code>{n}</code> : null}
                   </div>
                   {spec?.description ? <div className="gs-desc">{spec.description}</div> : null}
                   <SecureField
@@ -260,9 +274,10 @@ export function ConnectorDialog({
             })}
             <div className="gs-note">
               {t(
-                '加密保存为你的个人密钥，将允许群内 Bot 在他人机器上使用（群里的 Bot 很少跑在你自己的电脑上）',
+                '加密保存为你的个人密钥，将允许群内 Bot 在他人电脑上使用（群里的 Bot 很少跑在你自己的电脑上）',
               )}
             </div>
+            {!ready ? <div className="gs-note">{t('请填写以上密钥（至少 8 个字符）')}</div> : null}
             <div className="cn-detail__actions">
               <Button size="large" variant="primary" type="submit" disabled={!ready || busy} loading={busy}>
                 {t('连接')}
@@ -296,6 +311,27 @@ export function ConnectorDialog({
           </section>
         ) : null}
       </div>
+      <Presence>
+        {confirmCancel ? (
+          <AlertDialog
+            open
+            title={t('要取消当前连接吗？')}
+            message={t('正在等待安装或扫码授权，关闭将中止本次连接。')}
+            onClose={() => setConfirmCancel(false)}
+            actions={[
+              { label: t('继续连接'), onClick: () => setConfirmCancel(false) },
+              {
+                label: t('取消连接'),
+                variant: 'destructive',
+                onClick: () => {
+                  setConfirmCancel(false)
+                  onClose()
+                },
+              },
+            ]}
+          />
+        ) : null}
+      </Presence>
       <Presence>
         {unbinding ? (
           <ConfirmActionDialog

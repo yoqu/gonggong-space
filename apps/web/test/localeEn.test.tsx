@@ -41,7 +41,7 @@ it('renders the not-found page in English', async () => {
   )
   expect(screen.getByText('Page not found')).toBeTruthy()
   expect(screen.getByText("The link may have expired, or you don't have access.")).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Back to messages' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Back to messages' })).toBeTruthy()
 })
 
 it('titles the sidebar section of starred conversations "Starred"', async () => {

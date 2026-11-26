@@ -179,7 +179,7 @@ describe('interrupt block', () => {
   })
 
   it('shows the outcome once chosen', () => {
-    const note = '下一轮上下文会告诉 agent：上一轮被 /stop 中断，以及这些文件的当前状态。'
+    const note = '下一轮上下文会告诉 Agent：上一轮被 /stop 中断，以及这些文件的当前状态。'
     const { rerender } = render(<InterruptBlock run={stopped({ interrupt: 'kept' })} />)
     expect(screen.getByText('已保留本轮改动 · 留在工作区，未提交')).toBeTruthy()
     expect(screen.getByText(note)).toBeTruthy()

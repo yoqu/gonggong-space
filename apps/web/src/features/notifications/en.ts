@@ -43,4 +43,6 @@ export default {
   '已清除 {n} 条，保留 {m} 条待处理的请求':
     'Cleared {n}, kept {m} {m:request|requests} still waiting for you',
   待处理的请求不会随已读清除: 'Requests still waiting for you are kept',
+  通知加载失败: "Couldn't load notifications",
+  飞书通知状态加载失败: "Couldn't load Feishu notification status",
 } satisfies Record<string, string>
