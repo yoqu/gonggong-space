@@ -132,3 +132,113 @@ test('daemon verification downloads every artifact and checks its SHA-256', asyn
   assert.equal(failed.code, 1)
   assert.match(failed.stdout, new RegExp(`FAIL gg ${damaged}: SHA-256 mismatch`))
 })
+
+test('macOS release uses rustup proxy dir (rust-toolchain.toml) and unified MACOSX_DEPLOYMENT_TARGET for gg, desktop and peer', () => {
+  const root = releaseFixture()
+  const bin = join(root, 'bin')
+  const rustupDir = join(root, 'rustup-proxy')
+  const innerBin = join(root, 'toolchains/1.98.0/bin')
+  const log = join(root, 'calls.log')
+  const peerLog = join(root, 'peer.log')
+  mkdirSync(bin, { recursive: true })
+  mkdirSync(rustupDir, { recursive: true })
+  mkdirSync(innerBin, { recursive: true })
+  mkdirSync(join(root, 'apps/desktop/src-tauri'), { recursive: true })
+  writeFileSync(
+    join(root, 'apps/desktop/src-tauri/tauri.conf.json'),
+    '{"version": "0.4.3", "plugins": {"updater": {"pubkey": "test-key"}}}\n',
+  )
+  writeExecutable(join(bin, 'uname'), '#!/usr/bin/env bash\necho Darwin\n')
+  writeExecutable(join(bin, 'security'), '#!/usr/bin/env bash\nexit 0\n')
+  writeExecutable(
+    join(rustupDir, 'rustup'),
+    `#!/usr/bin/env bash
+printf 'rustup %s\\n' "$*" >> "${log}"
+if [ "$1" = which ]; then
+  echo "${innerBin}/$2"
+  exit 0
+fi
+exit 99
+`,
+  )
+  writeExecutable(
+    join(rustupDir, 'cargo'),
+    `#!/usr/bin/env bash
+printf 'cargo PATH0=%s RUSTC=%s DEPLOY=%s %s\\n' "\${PATH%%:*}" "\${RUSTC:-}" "\${MACOSX_DEPLOYMENT_TARGET:-}" "$*" >> "${log}"
+mkdir -p "${root}/target/aarch64-apple-darwin/release"
+: > "${root}/target/aarch64-apple-darwin/release/gg"
+`,
+  )
+  writeExecutable(
+    join(bin, 'pnpm'),
+    `#!/usr/bin/env bash
+printf 'pnpm PATH0=%s RUSTC=%s DEPLOY=%s %s\\n' "\${PATH%%:*}" "\${RUSTC:-}" "\${MACOSX_DEPLOYMENT_TARGET:-}" "$*" >> "${log}"
+if [[ "$*" == *"tauri build"* ]] || [[ "$*" == *"tauri bundle"* ]]; then
+  for arg in "$@"; do
+    case "$arg" in
+      aarch64-apple-darwin | x86_64-apple-darwin) arch="\${arg%%-*}" ;;
+    esac
+  done
+  b="${root}/target/\${arch}-apple-darwin/release/bundle"
+  mkdir -p "$b/dmg" "$b/macos"
+  : > "$b/dmg/Gonggong.dmg"
+  : > "$b/macos/Gonggong.app.tar.gz"
+  : > "$b/macos/Gonggong.app.tar.gz.sig"
+fi
+`,
+  )
+  writeExecutable(
+    join(root, 'scripts/peer.sh'),
+    `#!/usr/bin/env bash
+if [ "$1" = --ping ]; then exit 0; fi
+if [ "$1" = --dir ]; then echo "gg-peer/test"; exit 0; fi
+printf '%s\\n' "$*" >> "${peerLog}"
+mkdir -p "${root}/target/x86_64-apple-darwin/release"
+: > "${root}/target/x86_64-apple-darwin/release/gg"
+`,
+  )
+  writeExecutable(
+    join(bin, 'ssh'),
+    `#!/usr/bin/env bash
+tar -cf - -C "${root}/target/x86_64-apple-darwin/release" gg
+`,
+  )
+
+  const res = run(
+    'bash',
+    ['scripts/release.sh', '--only', 'macos-aarch64,macos-x86_64,desktop', '--build-only', '--allow-dirty'],
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${rustupDir}:${bin}:${process.env.PATH}`,
+        RUSTC: '/some/stale/rustc',
+        TAURI_SIGNING_PRIVATE_KEY: 'dummy-key',
+        MACOSX_DEPLOYMENT_TARGET: '',
+      },
+    },
+  )
+  assert.equal(res.status, 0, res.stderr + res.stdout)
+
+  const calls = readFileSync(log, 'utf8').trim().split('\n')
+  assert.ok(
+    !calls.some((c) => c.includes('rustup run stable')),
+    `should not pin stable toolchain: ${calls.join('\n')}`,
+  )
+  const cargoCall = calls.find((c) => c.startsWith('cargo '))
+  assert.ok(cargoCall, `expected cargo call: ${calls.join('\n')}`)
+  assert.match(cargoCall, new RegExp(`PATH0=${rustupDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+  assert.match(cargoCall, /RUSTC= /)
+  assert.match(cargoCall, /DEPLOY=10\.13 /)
+
+  const tauriBuild = calls.find((c) => c.includes('tauri build'))
+  assert.ok(tauriBuild, `expected tauri build call: ${calls.join('\n')}`)
+  assert.match(tauriBuild, new RegExp(`PATH0=${rustupDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+  assert.doesNotMatch(tauriBuild, new RegExp(innerBin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(tauriBuild, /RUSTC= /)
+  assert.match(tauriBuild, /DEPLOY=10\.13 /)
+
+  const peer = readFileSync(peerLog, 'utf8').trim()
+  assert.match(peer, /MACOSX_DEPLOYMENT_TARGET=10\.13/)
+  assert.match(peer, /cargo build .* -p gonggong --target x86_64-apple-darwin/)
+})

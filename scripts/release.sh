@@ -89,6 +89,18 @@ wanted() { [ -z "$only" ] || [[ ",$only," == *",$1,"* ]]; }
 artifact() { echo "gonggong-$version-$1$([[ $1 == windows-* ]] && echo .exe || true)"; }
 
 rustup="$(command -v rustup || echo /opt/homebrew/opt/rustup/bin/rustup)"
+# Rustup's proxy shims honor rust-toolchain.toml and set the library path rust-objcopy needs to strip binaries;
+# Homebrew's /opt/homebrew/bin holds standalone rustc/cargo instead, so skip it in favor of rustup's own bin dir.
+rustup_bin() {
+  local d
+  for d in "$(dirname "$rustup")" "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin /usr/local/opt/rustup/bin; do
+    case "$d" in /opt/homebrew/bin | /usr/local/bin) continue ;; esac
+    if [ -x "$d/cargo" ] && [ -x "$d/rustup" ]; then echo "$d"; return 0; fi
+  done
+  dirname "$("$rustup" which cargo)"
+}
+# Keep local gg, local Tauri, and peer x86_64 builds on one deployment target so native crates share build caches.
+mac_deploy_target="${MACOSX_DEPLOYMENT_TARGET:-10.13}"
 
 mac_targets=() docker_targets=()
 for p in "${PLATFORMS[@]}"; do
@@ -132,6 +144,10 @@ docker_done() {
 
 mac_desktop=""
 [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop && mac_desktop=1
+rustup_proxy=""
+if [ ${#mac_targets[@]} -gt 0 ] || [ -n "$mac_desktop" ]; then
+  rustup_proxy="$(rustup_bin)"
+fi
 # tauri build would run beforeBuildCommand once per arch: the frontend is built once and both arches embed it.
 no_frontend='{"build":{"beforeBuildCommand":""}}'
 if [ -n "$mac_desktop" ]; then
@@ -145,7 +161,7 @@ peer_x86="" peer_gg="" peer_pid="" peer_log=""
 if [ "$(uname -s)" = Darwin ] && { wanted macos-x86_64 || [ -n "$mac_desktop" ]; } &&
   "$ROOT/scripts/peer.sh" --ping 2>/dev/null; then
   peer_x86=1
-  script="true"
+  script="export MACOSX_DEPLOYMENT_TARGET=$mac_deploy_target"
   ! wanted macos-x86_64 || peer_gg=1 script+=" && cargo build -q --release --locked -p gonggong --target x86_64-apple-darwin"
   [ -z "$mac_desktop" ] || script+=" && pnpm --filter @gonggong/desktop tauri build --target x86_64-apple-darwin \
     --no-bundle --config '$no_frontend'"
@@ -180,13 +196,11 @@ mac_build() { # Rust targets
   local t args=()
   for t in "$@"; do args+=(--target "$t"); done
   echo "== gg $*"
-  # The rustup toolchain has the cross targets; a Homebrew rustc earlier on PATH would not. `rustup run` (not the
-  # bare toolchain binaries) also sets the library path rust-objcopy needs to find libLLVM when stripping.
-  # `rustup run` leaves PATH alone, so cargo would still spawn a Homebrew rustc that lacks the cross target.
+  # Put rustup's proxy dir first on PATH and drop RUSTC so cargo/rustc follow rust-toolchain.toml rather than
+  # Homebrew's rust, and rustup's shim sets the library path rust-objcopy needs to find libLLVM when stripping.
   # One cargo for every target shares its job queue, so the CPU stays busy across both.
-  RUSTC="$("$rustup" which --toolchain stable rustc)" \
-    bash -c 'cd "$1" && shift && exec "$@"' _ "$ROOT" "$rustup" run stable cargo build -q --release --locked -p gonggong \
-    "${args[@]}"
+  (cd "$ROOT" && env -u RUSTC PATH="$rustup_proxy:$PATH" MACOSX_DEPLOYMENT_TARGET="$mac_deploy_target" \
+    cargo build -q --release --locked -p gonggong "${args[@]}")
 }
 local_mac=()
 for p in "${mac_targets[@]}"; do
@@ -232,10 +246,9 @@ if [ -n "$mac_desktop" ]; then
     echo "== desktop $arch ($cmd)"
     bundle="$ROOT/target/$arch-apple-darwin/release/bundle"
     rm -rf "$bundle"
-    # Drop the macOS builds' RUSTC, whose rust-objcopy loses its library path through pnpm (SIP strips DYLD_* on the
-    # way) and so could not strip the binary. The pinned toolchain's bin goes first on PATH instead: a Homebrew cargo
-    # there lacks the Intel target.
-    (cd "$ROOT" && env -u RUSTC PATH="$(dirname "$("$rustup" which cargo)"):$PATH" \
+    # Drop RUSTC and put rustup's proxy dir first on PATH (not the inner toolchain bin): pnpm drops DYLD_* under SIP,
+    # so only rustup's shim restores the library path rust-objcopy needs while still following rust-toolchain.toml.
+    (cd "$ROOT" && env -u RUSTC PATH="$rustup_proxy:$PATH" MACOSX_DEPLOYMENT_TARGET="$mac_deploy_target" \
       pnpm --filter @gonggong/desktop tauri "$cmd" --target "$arch-apple-darwin" --bundles app,dmg --config "$no_frontend")
     # ASCII names: GitHub release assets do not keep the Chinese product name.
     dmg="$out/Gonggong_${version}_$arch.dmg"
