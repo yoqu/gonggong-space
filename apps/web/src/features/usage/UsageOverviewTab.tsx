@@ -15,13 +15,15 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { EmptyState, NoDataArt } from '../../ui'
 import {
+  DEFAULT_COST_FORMAT,
   fmtCompactTokens,
-  fmtCostUsd,
+  fmtCost,
   fmtCount,
   fmtDelta,
   fmtDurationMs,
   fmtRate,
   fmtTps,
+  type UsageCostFormat,
 } from './formatters'
 import type { UsageChartMode, UsageFilterState } from './types'
 import { UsageCalendarHeatmap } from './UsageHeatmap'
@@ -52,6 +54,7 @@ export interface UsageOverviewTabProps {
   heatmapMetric: UsageHeatmapMetric
   onHeatmapMetricChange: (m: UsageHeatmapMetric) => void
   onFilterJump: (patch: Partial<UsageFilterState>) => void
+  costFormat?: UsageCostFormat
   stale?: boolean
 }
 
@@ -77,6 +80,7 @@ export function UsageOverviewTab({
   heatmapMetric,
   onHeatmapMetricChange,
   onFilterJump,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: UsageOverviewTabProps) {
   const kpi = overview?.kpi
@@ -129,17 +133,25 @@ export function UsageOverviewTab({
     ]
 
     if (capabilities.hasCost && kpi.costReportedRuns > 0) {
-      const partial = kpi.costReportedRuns < kpi.totalRuns
+      const unpricedRuns = Math.max(0, kpi.totalRuns - kpi.costReportedRuns)
+      const partial = unpricedRuns > 0
+      const estimatedRuns = overview?.estimatedCostRuns ?? kpi.estimatedCostRuns ?? 0
+      const reportedRuns = overview?.reportedCostRuns ?? kpi.reportedCostRuns ?? 0
       cells.push({
         key: 'cost',
         label: t('费用'),
-        value: fmtCostUsd(kpi.totalCostUsd, partial),
+        value: fmtCost(kpi.totalCostUsd, { partial, format: costFormat }),
         tone: 'green',
         delta: fmtDelta(kpi.totalCostUsd, prev?.totalCostUsd),
-        sub: partial ? (
-          <span>{t('{n} 轮未计价', { n: fmtCount(kpi.totalRuns - kpi.costReportedRuns) })}</span>
-        ) : (
-          <span>{t('{n} 轮已计价', { n: fmtCount(kpi.costReportedRuns) })}</span>
+        sub: (
+          <>
+            {reportedRuns > 0 ? <span>{t('{n} 轮上报', { n: fmtCount(reportedRuns) })}</span> : null}
+            {estimatedRuns > 0 ? <span>{t('{n} 轮目录估算', { n: fmtCount(estimatedRuns) })}</span> : null}
+            {reportedRuns === 0 && estimatedRuns === 0 && !partial ? (
+              <span>{t('{n} 轮已计价', { n: fmtCount(kpi.costReportedRuns) })}</span>
+            ) : null}
+            {partial ? <span>{t('{n} 轮未计价', { n: fmtCount(unpricedRuns) })}</span> : null}
+          </>
         ),
       })
     }
@@ -203,7 +215,7 @@ export function UsageOverviewTab({
     }
 
     return cells
-  }, [kpi, prev, capabilities])
+  }, [kpi, prev, capabilities, costFormat, overview?.estimatedCostRuns, overview?.reportedCostRuns])
 
   const isEmpty = kpi && kpi.totalRuns === 0 && !timeseries?.buckets.some((b) => b.runs > 0)
 
@@ -228,6 +240,7 @@ export function UsageOverviewTab({
         chartMode={chartMode}
         onChartModeChange={onChartModeChange}
         capabilities={capabilities}
+        costFormat={costFormat}
       />
 
       {agentRank?.items.length ? (
@@ -237,6 +250,7 @@ export function UsageOverviewTab({
           totalItems={agentRank.totalItems}
           hasCost={capabilities.hasCost}
           hasInputOutput={capabilities.hasInputOutput}
+          costFormat={costFormat}
           kind="agentKind"
           onSelectRow={(row) => onFilterJump({ agentKind: row.key as AgentKind })}
         />
@@ -249,6 +263,7 @@ export function UsageOverviewTab({
           totalItems={modelRank.totalItems}
           hasCost={capabilities.hasCost}
           hasInputOutput={capabilities.hasInputOutput}
+          costFormat={costFormat}
           kind="model"
           onSelectRow={(row) => onFilterJump({ model: row.key })}
         />
@@ -262,6 +277,7 @@ export function UsageOverviewTab({
             totalItems={botRank.totalItems}
             hasCost={capabilities.hasCost}
             hasInputOutput={capabilities.hasInputOutput}
+            costFormat={costFormat}
             kind="bot"
             compact
             onSelectRow={(row) => onFilterJump({ botId: row.key })}
@@ -274,6 +290,7 @@ export function UsageOverviewTab({
             totalItems={userRank.totalItems}
             hasCost={capabilities.hasCost}
             hasInputOutput={capabilities.hasInputOutput}
+            costFormat={costFormat}
             kind="user"
             compact
             onSelectRow={(row) => onFilterJump({ userId: row.key })}
@@ -288,6 +305,7 @@ export function UsageOverviewTab({
           totalItems={groupRank.totalItems}
           hasCost={capabilities.hasCost}
           hasInputOutput={capabilities.hasInputOutput}
+          costFormat={costFormat}
           kind="group"
           defaultOpen={false}
           onSelectRow={(row) => onFilterJump({ groupId: row.key })}
@@ -301,6 +319,7 @@ export function UsageOverviewTab({
           items={speedRows.items}
           hasModels={capabilities.hasModels}
           hasCost={capabilities.hasCost}
+          costFormat={costFormat}
         />
       ) : null}
 
@@ -309,6 +328,7 @@ export function UsageOverviewTab({
         metric={heatmapMetric}
         onMetricChange={onHeatmapMetricChange}
         hasCost={capabilities.hasCost}
+        costFormat={costFormat}
       />
     </div>
   )

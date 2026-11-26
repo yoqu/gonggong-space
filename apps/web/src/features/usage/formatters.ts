@@ -1,3 +1,4 @@
+import type { UsageCostSource, UsageModelSource, UsageModelUnitPriceDto } from '@gonggong/protocol'
 import { locale, t } from '../../i18n'
 
 /** Ordered categorical series palette (spec #9): 6 distinct hues + gray for Other. */
@@ -11,6 +12,32 @@ export const SERIES_PALETTE = [
 ] as const
 
 export const SERIES_OTHER = 'var(--system-gray)'
+
+export type UsageCurrency = 'cny' | 'usd'
+
+export interface UsageCostFormat {
+  currency: UsageCurrency
+  usdToCny: number
+}
+
+export const DEFAULT_USD_TO_CNY = 7.2
+export const CURRENCY_STORAGE_KEY = 'gg.usage.currency'
+export const DEFAULT_COST_FORMAT: UsageCostFormat = { currency: 'cny', usdToCny: DEFAULT_USD_TO_CNY }
+
+export function readStoredCurrency(): UsageCurrency {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CURRENCY_STORAGE_KEY) : null
+    return raw === 'usd' ? 'usd' : 'cny'
+  } catch {
+    return 'cny'
+  }
+}
+
+export function writeStoredCurrency(currency: UsageCurrency) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(CURRENCY_STORAGE_KEY, currency)
+  } catch {}
+}
 
 export function seriesColor(index: number, key?: string): string {
   if (key === '__other__' || key === 'other') return SERIES_OTHER
@@ -51,15 +78,95 @@ export function fmtCount(n: number): string {
   return Math.round(n).toLocaleString('en-US')
 }
 
-/** Real USD cost formatting; appends `+` when some runs in the scope omitted costUsd. */
+function formatMoneyAmount(amount: number, symbol: '¥' | '$', partial: boolean): string {
+  const suffix = partial ? '+' : ''
+  const abs = Math.abs(amount)
+  const sign = amount < 0 ? '-' : ''
+  if (abs === 0) return `${symbol}0.00${suffix}`
+  if (abs >= 100) return `${sign}${symbol}${Math.round(abs).toLocaleString('en-US')}${suffix}`
+  if (abs >= 1) return `${sign}${symbol}${abs.toFixed(2)}${suffix}`
+  if (abs >= 0.001) return `${sign}${symbol}${abs.toFixed(3)}${suffix}`
+  return `${sign}${symbol}${abs.toFixed(4)}${suffix}`
+}
+
+/** Formats USD cost in active display currency (CNY ¥ by default using live FX, fallback 7.2). */
+export function fmtCost(
+  usd: number | null | undefined,
+  opts?: { partial?: boolean; format?: UsageCostFormat },
+): string {
+  if (usd == null || !Number.isFinite(usd)) return '—'
+  const fmt = opts?.format ?? DEFAULT_COST_FORMAT
+  const rate = fmt.usdToCny > 0 ? fmt.usdToCny : DEFAULT_USD_TO_CNY
+  const isCny = fmt.currency === 'cny'
+  return formatMoneyAmount(isCny ? usd * rate : usd, isCny ? '¥' : '$', opts?.partial ?? false)
+}
+
+/** Compact axis tick for cost series. */
+export function fmtCostAxis(usd: number, format: UsageCostFormat = DEFAULT_COST_FORMAT): string {
+  if (!Number.isFinite(usd) || usd === 0) return '0'
+  const rate = format.usdToCny > 0 ? format.usdToCny : DEFAULT_USD_TO_CNY
+  const isCny = format.currency === 'cny'
+  const sym = isCny ? '¥' : '$'
+  const v = isCny ? usd * rate : usd
+  if (v >= 1000) return `${sym}${trimFixed(v / 1000, 1)}k`
+  if (v >= 10) return `${sym}${Math.round(v)}`
+  return `${sym}${trimFixed(v, 2)}`
+}
+
+/** Explicit USD cost formatting (used for dual currency readout in Run Inspector Drawer). */
 export function fmtCostUsd(usd: number | null | undefined, partial = false): string {
   if (usd == null || !Number.isFinite(usd)) return '—'
-  const suffix = partial ? '+' : ''
-  if (usd === 0) return `$0.00${suffix}`
-  if (usd < 0.001) return `<$0.001${suffix}`
-  if (usd < 0.1) return `$${usd.toFixed(3)}${suffix}`
-  if (usd < 100) return `$${usd.toFixed(2)}${suffix}`
-  return `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
+  return formatMoneyAmount(usd, '$', partial)
+}
+
+/** Formats per-1M-token input/output unit prices in active currency. */
+export function fmtUnitPrice(
+  unit: UsageModelUnitPriceDto | null | undefined,
+  format: UsageCostFormat = DEFAULT_COST_FORMAT,
+): string {
+  if (!unit) return '—'
+  const rate = format.usdToCny > 0 ? format.usdToCny : DEFAULT_USD_TO_CNY
+  const isCny = format.currency === 'cny'
+  const sym = isCny ? '¥' : '$'
+  const scale = isCny ? rate : 1
+  const fmtNum = (n: number) => {
+    const v = n * scale
+    if (v === 0) return `${sym}0`
+    if (v >= 100) return `${sym}${Math.round(v)}`
+    if (v >= 1) return `${sym}${trimFixed(v, 1)}`
+    return `${sym}${trimFixed(v, 2)}`
+  }
+  return `${fmtNum(unit.input)} / ${fmtNum(unit.output)}`
+}
+
+export function fmtUnitPriceDetail(
+  unit: UsageModelUnitPriceDto,
+  format: UsageCostFormat = DEFAULT_COST_FORMAT,
+): string {
+  const rate = format.usdToCny > 0 ? format.usdToCny : DEFAULT_USD_TO_CNY
+  const isCny = format.currency === 'cny'
+  const sym = isCny ? '¥' : '$'
+  const scale = isCny ? rate : 1
+  const f = (n: number) => `${sym}${trimFixed(n * scale, n * scale >= 10 ? 1 : 2)}`
+  const parts = [t('输入 {p}', { p: f(unit.input) }), t('输出 {p}', { p: f(unit.output) })]
+  if (unit.cacheRead > 0) parts.push(t('缓存读 {p}', { p: f(unit.cacheRead) }))
+  if (unit.cacheWrite > 0) parts.push(t('缓存写 {p}', { p: f(unit.cacheWrite) }))
+  return `${parts.join(' · ')} / 1M`
+}
+
+export function fmtCostSource(source: UsageCostSource | undefined): string {
+  if (source === 'reported') return t('适配器上报')
+  if (source === 'catalog') return t('models.dev 估算')
+  if (source === 'unpriced') return t('未计价')
+  return '—'
+}
+
+export function fmtModelSource(source: UsageModelSource | undefined): string {
+  if (source === 'recorded') return t('运行上报')
+  if (source === 'bot_default') return t('Bot 默认配置')
+  if (source === 'machine_default') return t('主机默认配置')
+  if (source === 'unknown') return t('未知#modelSource')
+  return '—'
 }
 
 /** Wall-clock duration in ms -> human compact string. */
@@ -193,6 +300,11 @@ export function fmtRunStatusLabel(
 }
 
 export function fmtEntityLabel(key: string, name: string): string {
+  if (key.startsWith('__default__:')) {
+    if (name && name !== key) return name
+    const agent = key.slice('__default__:'.length)
+    return t('默认模型 · {agent}', { agent: fmtAgentKind(agent) })
+  }
   if (key === '__default__' || !name) return t('默认 / 未上报')
   if (key === '__other__') return t('其他')
   return name

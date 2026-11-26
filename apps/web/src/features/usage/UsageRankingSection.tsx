@@ -4,15 +4,18 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { AgentIcon, Button, Icon, PopUpButton } from '../../ui'
 import {
+  DEFAULT_COST_FORMAT,
   fmtAgentKind,
   fmtCompactTokens,
-  fmtCostUsd,
+  fmtCost,
   fmtCount,
   fmtDurationMs,
   fmtEntityLabel,
   fmtRate,
   fmtTps,
+  fmtUnitPrice,
   seriesColor,
+  type UsageCostFormat,
 } from './formatters'
 
 type RankSort = 'tokens' | 'runs' | 'cost' | 'duration'
@@ -23,6 +26,7 @@ export interface UsageRankingSectionProps {
   totalItems?: number
   hasCost: boolean
   hasInputOutput: boolean
+  costFormat?: UsageCostFormat
   kind?: 'agentKind' | 'model' | 'bot' | 'user' | 'group' | 'provider'
   defaultOpen?: boolean
   initialLimit?: number
@@ -37,6 +41,7 @@ export function UsageRankingSection({
   totalItems,
   hasCost,
   hasInputOutput,
+  costFormat = DEFAULT_COST_FORMAT,
   kind,
   defaultOpen = true,
   initialLimit = 6,
@@ -118,7 +123,7 @@ export function UsageRankingSection({
               effectiveSort === 'runs'
                 ? t('{n} 轮', { n: fmtCount(row.runs) })
                 : effectiveSort === 'cost'
-                  ? fmtCostUsd(row.costUsd, row.costReportedRuns < row.runs)
+                  ? fmtCost(row.costUsd, { partial: row.costReportedRuns < row.runs, format: costFormat })
                   : effectiveSort === 'duration'
                     ? fmtDurationMs(row.avgDurationMs)
                     : row.totalTokens > 0
@@ -126,7 +131,13 @@ export function UsageRankingSection({
                       : t('未上报')
 
             const metaParts: string[] = []
+            if (kind === 'model' && row.modelDisplayName && row.modelDisplayName !== displayName) {
+              metaParts.push(row.modelDisplayName)
+            }
             if (row.sublabel && kind !== 'agentKind') metaParts.push(row.sublabel)
+            if (kind === 'model' && row.unitPrice) {
+              metaParts.push(`${fmtUnitPrice(row.unitPrice, costFormat)} / 1M`)
+            }
             metaParts.push(t('{n} 轮', { n: fmtCount(row.runs) }))
             if (row.failedRuns > 0) metaParts.push(t('{n} 失败', { n: row.failedRuns }))
             if (row.avgDurationMs != null)
@@ -164,7 +175,14 @@ export function UsageRankingSection({
                     </span>
                   ) : null}
                   <div className="usage-rank-row__text">
-                    <span className="usage-rank-row__name" title={displayName}>
+                    <span
+                      className="usage-rank-row__name"
+                      title={
+                        row.modelDisplayName && row.modelDisplayName !== displayName
+                          ? `${displayName} (${row.modelDisplayName})`
+                          : displayName
+                      }
+                    >
                       {displayName}
                     </span>
                     {!compact ? <span className="usage-rank-row__meta">{metaParts.join(' · ')}</span> : null}
@@ -191,7 +209,10 @@ export function UsageRankingSection({
                   {hasCost && effectiveSort !== 'cost' ? (
                     <span className="usage-rank-row__cost">
                       {row.costReportedRuns > 0
-                        ? fmtCostUsd(row.costUsd, row.costReportedRuns < row.runs)
+                        ? fmtCost(row.costUsd, {
+                            partial: row.costReportedRuns < row.runs,
+                            format: costFormat,
+                          })
                         : '—'}
                     </span>
                   ) : null}

@@ -3,14 +3,18 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { SegmentedControl, Table, type TableColumn } from '../../ui'
 import {
+  DEFAULT_COST_FORMAT,
   fmtAgentKind,
   fmtCompactTokens,
-  fmtCostUsd,
+  fmtCost,
   fmtCount,
   fmtDurationMs,
   fmtEntityLabel,
   fmtRate,
   fmtTps,
+  fmtUnitPrice,
+  fmtUnitPriceDetail,
+  type UsageCostFormat,
 } from './formatters'
 
 type SpeedRow = UsageBreakdownRowDto & { id: string }
@@ -21,6 +25,7 @@ export interface UsageSpeedTableProps {
   items: UsageBreakdownRowDto[]
   hasModels: boolean
   hasCost: boolean
+  costFormat?: UsageCostFormat
   stale?: boolean
 }
 
@@ -30,9 +35,12 @@ export function UsageSpeedTable({
   items,
   hasModels,
   hasCost,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: UsageSpeedTableProps) {
   if (!items.length) return null
+
+  const showUnitPrice = by === 'model' && items.some((x) => x.unitPrice != null)
 
   const modeItems: { value: UsageBreakdownBy; label: string }[] = [
     ...(hasModels ? [{ value: 'model' as const, label: t('模型') }] : []),
@@ -45,12 +53,45 @@ export function UsageSpeedTable({
       key: 'name',
       title: by === 'model' ? t('模型') : by === 'agentKind' ? t('Agent 类型') : 'Bot',
       sortable: true,
-      render: (r) => (
-        <span className="usage-speed__name">
-          {by === 'agentKind' ? fmtAgentKind(r.name || r.key) : fmtEntityLabel(r.key, r.name)}
-        </span>
-      ),
+      render: (r) => {
+        const label = by === 'agentKind' ? fmtAgentKind(r.name || r.key) : fmtEntityLabel(r.key, r.name)
+        const tip =
+          r.modelDisplayName && r.modelDisplayName !== label ? `${label} · ${r.modelDisplayName}` : label
+        return (
+          <span className="usage-speed__name" title={tip}>
+            {label}
+          </span>
+        )
+      },
     },
+    ...(showUnitPrice
+      ? [
+          {
+            key: 'unitPrice',
+            title: t('单价 (/1M)'),
+            width: 118,
+            align: 'right' as const,
+            secondary: true,
+            sortable: true,
+            sortValue: (r: SpeedRow) => (r.unitPrice ? r.unitPrice.input + r.unitPrice.output : -1),
+            render: (r: SpeedRow) =>
+              r.unitPrice ? (
+                <span
+                  className="usage-unit-price"
+                  title={
+                    fmtUnitPriceDetail(r.unitPrice, costFormat) +
+                    (r.unitPrice.matchedId ? ` (${r.unitPrice.matchedId})` : '') +
+                    (r.unitPrice.aliasMatched ? ` · ${t('别名匹配')}` : '')
+                  }
+                >
+                  {fmtUnitPrice(r.unitPrice, costFormat)}
+                </span>
+              ) : (
+                '—'
+              ),
+          },
+        ]
+      : []),
     {
       key: 'avgOutputTps',
       title: t('有效产出速率'),
@@ -119,7 +160,7 @@ export function UsageSpeedTable({
             render: (r: SpeedRow) =>
               r.costReportedRuns > 0 ? (
                 <span className="usage-tone--green">
-                  {fmtCostUsd(r.costUsd, r.costReportedRuns < r.runs)}
+                  {fmtCost(r.costUsd, { partial: r.costReportedRuns < r.runs, format: costFormat })}
                 </span>
               ) : (
                 '—'

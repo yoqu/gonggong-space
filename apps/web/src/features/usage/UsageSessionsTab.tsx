@@ -12,15 +12,18 @@ import { cx } from '../../lib/cx'
 import { ago } from '../../lib/time'
 import { AgentIcon, EmptyState, NoDataArt, SegmentedControl } from '../../ui'
 import {
+  DEFAULT_COST_FORMAT,
   fmtAgentKind,
   fmtCompactTokens,
-  fmtCostUsd,
+  fmtCost,
   fmtCount,
   fmtDurationMs,
+  fmtEntityLabel,
   fmtRate,
   fmtToolKind,
   fmtTriggerSource,
   seriesColor,
+  type UsageCostFormat,
 } from './formatters'
 import { UsageWeekHourHeatmap } from './UsageHeatmap'
 import { type UsageKpiCell, UsageKpiStrip } from './UsageKpiStrip'
@@ -39,6 +42,7 @@ export interface UsageSessionsTabProps {
   capabilities: UsageCapabilitiesDto
   sessionSort: UsageSessionSort
   onSessionSortChange: (s: UsageSessionSort) => void
+  costFormat?: UsageCostFormat
   stale?: boolean
 }
 
@@ -46,11 +50,13 @@ function SessionRow({
   s,
   sort,
   hasCost,
+  costFormat,
   showDetails = false,
 }: {
   s: UsageSessionRowDto
   sort: UsageSessionSort
   hasCost: boolean
+  costFormat: UsageCostFormat
   showDetails?: boolean
 }) {
   const primary =
@@ -59,6 +65,7 @@ function SessionRow({
       : sort === 'duration'
         ? fmtDurationMs(s.totalDurationMs)
         : fmtCompactTokens(s.totalTokens)
+  const modelLabel = s.model ? fmtEntityLabel(s.model, s.model) : ''
   return (
     <div className="usage-session-row">
       <span className="usage-session-row__icon">
@@ -70,7 +77,7 @@ function SessionRow({
         </span>
         <span className="usage-session-row__meta">
           {s.botName} · {fmtAgentKind(s.agentKind)}
-          {s.model ? ` · ${s.model}` : ''} · {s.userName} · {ago(s.lastAt)}
+          {modelLabel ? ` · ${modelLabel}` : ''} · {s.userName} · {ago(s.lastAt)}
         </span>
       </div>
       <div className="usage-session-row__right">
@@ -88,7 +95,9 @@ function SessionRow({
         ) : null}
       </div>
       {hasCost && s.costReportedRuns > 0 ? (
-        <span className="usage-session-row__cost">{fmtCostUsd(s.costUsd, s.costReportedRuns < s.turns)}</span>
+        <span className="usage-session-row__cost">
+          {fmtCost(s.costUsd, { partial: s.costReportedRuns < s.turns, format: costFormat })}
+        </span>
       ) : null}
     </div>
   )
@@ -104,6 +113,7 @@ export function UsageSessionsTab({
   capabilities,
   sessionSort,
   onSessionSortChange,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: UsageSessionsTabProps) {
   const [shapeMode, setShapeMode] = useState<ShapeMode>('turns')
@@ -249,6 +259,7 @@ export function UsageSessionsTab({
             totalItems={groupBreakdown.totalItems}
             hasCost={capabilities.hasCost}
             hasInputOutput={capabilities.hasInputOutput}
+            costFormat={costFormat}
             kind="group"
             compact
           />
@@ -260,6 +271,7 @@ export function UsageSessionsTab({
             totalItems={secondaryBreakdown.totalItems}
             hasCost={capabilities.hasCost}
             hasInputOutput={capabilities.hasInputOutput}
+            costFormat={costFormat}
             kind={secondaryKind}
             compact
           />
@@ -267,7 +279,7 @@ export function UsageSessionsTab({
       </div>
 
       <div className="usage-two-col">
-        <UsageWeekHourHeatmap data={heatmap} hasCost={capabilities.hasCost} />
+        <UsageWeekHourHeatmap data={heatmap} hasCost={capabilities.hasCost} costFormat={costFormat} />
 
         <section className="usage-panel" data-testid="usage-top-sessions">
           <div className="usage-panel__head">
@@ -291,6 +303,7 @@ export function UsageSessionsTab({
                 s={s}
                 sort={sessionSort}
                 hasCost={capabilities.hasCost}
+                costFormat={costFormat}
               />
             ))}
           </div>
@@ -517,6 +530,7 @@ export function UsageSessionsTab({
                 s={s}
                 sort="tokens"
                 hasCost={capabilities.hasCost}
+                costFormat={costFormat}
                 showDetails
               />
             ))}

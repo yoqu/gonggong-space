@@ -9,7 +9,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { browserTimeZone } from '../../lib/time'
 import { SegmentedControl } from '../../ui'
-import { fmtCompactTokens, fmtCostUsd, fmtCount } from './formatters'
+import { DEFAULT_COST_FORMAT, fmtCompactTokens, fmtCost, fmtCount, type UsageCostFormat } from './formatters'
 
 function intensityLevel(value: number, max: number): 0 | 1 | 2 | 3 | 4 {
   if (value <= 0 || max <= 0) return 0
@@ -33,8 +33,14 @@ const WEEK_LABELS: Record<number, string> = {
   0: t('周日#short'),
 }
 
-function fmtCellPrimary(metric: UsageHeatmapMetric, runs: number, tokens: number, costUsd: number): string {
-  if (metric === 'cost') return fmtCostUsd(costUsd)
+function fmtCellPrimary(
+  metric: UsageHeatmapMetric,
+  runs: number,
+  tokens: number,
+  costUsd: number,
+  costFormat: UsageCostFormat,
+): string {
+  if (metric === 'cost') return fmtCost(costUsd, { format: costFormat })
   if (metric === 'runs') return t('{n} 轮', { n: fmtCount(runs) })
   return `${fmtCompactTokens(tokens)} tokens`
 }
@@ -55,12 +61,14 @@ export function UsageCalendarHeatmap({
   metric,
   onMetricChange,
   hasCost,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: {
   data: UsageHeatmapDto | null
   metric: UsageHeatmapMetric
   onMetricChange: (m: UsageHeatmapMetric) => void
   hasCost: boolean
+  costFormat?: UsageCostFormat
   stale?: boolean
 }) {
   const [hovered, setHovered] = useState<{
@@ -219,11 +227,19 @@ export function UsageCalendarHeatmap({
             >
               <strong>{hovered.cell.day}</strong>
               <span>
-                {fmtCellPrimary(metric, hovered.cell.runs, hovered.cell.totalTokens, hovered.cell.costUsd)}
+                {fmtCellPrimary(
+                  metric,
+                  hovered.cell.runs,
+                  hovered.cell.totalTokens,
+                  hovered.cell.costUsd,
+                  costFormat,
+                )}
               </span>
               {metric !== 'runs' ? <span>{t('{n} 轮', { n: fmtCount(hovered.cell.runs) })}</span> : null}
               {hasCost && hovered.cell.costUsd > 0 && metric !== 'cost' ? (
-                <span className="usage-tone--green">{fmtCostUsd(hovered.cell.costUsd)}</span>
+                <span className="usage-tone--green">
+                  {fmtCost(hovered.cell.costUsd, { format: costFormat })}
+                </span>
               ) : null}
             </div>
           ) : null}
@@ -247,10 +263,12 @@ export function UsageCalendarHeatmap({
 export function UsageWeekHourHeatmap({
   data,
   hasCost,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: {
   data: UsageHeatmapDto | null
   hasCost: boolean
+  costFormat?: UsageCostFormat
   stale?: boolean
 }) {
   const [hovered, setHovered] = useState<{
@@ -379,11 +397,19 @@ export function UsageWeekHourHeatmap({
                 {WEEK_LABELS[hovered.cell.dow]} {String(hovered.cell.hour).padStart(2, '0')}:00
               </strong>
               <span>
-                {fmtCellPrimary(metric, hovered.cell.runs, hovered.cell.totalTokens, hovered.cell.costUsd)}
+                {fmtCellPrimary(
+                  metric,
+                  hovered.cell.runs,
+                  hovered.cell.totalTokens,
+                  hovered.cell.costUsd,
+                  costFormat,
+                )}
               </span>
               {metric !== 'runs' ? <span>{t('{n} 轮', { n: fmtCount(hovered.cell.runs) })}</span> : null}
               {hasCost && hovered.cell.costUsd > 0 && metric !== 'cost' ? (
-                <span className="usage-tone--green">{fmtCostUsd(hovered.cell.costUsd)}</span>
+                <span className="usage-tone--green">
+                  {fmtCost(hovered.cell.costUsd, { format: costFormat })}
+                </span>
               ) : null}
             </div>
           ) : null}

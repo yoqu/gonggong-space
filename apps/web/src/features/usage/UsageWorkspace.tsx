@@ -9,16 +9,26 @@ import type {
   UsageInsightsDto,
   UsageMetric,
   UsageOverviewDto,
+  UsagePricingStatusDto,
   UsageRunsDto,
   UsageSessionSort,
   UsageTimeseriesBreakdown,
   UsageTimeseriesDto,
 } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
+import { api } from '../../lib/api'
 import { downloadUrl } from '../../lib/download'
 import { useGet } from '../../lib/useGet'
-import { Alert, Skeleton, Tabs } from '../../ui'
+import { Alert, Skeleton, Tabs, useFlash } from '../../ui'
+import {
+  DEFAULT_USD_TO_CNY,
+  readStoredCurrency,
+  type UsageCostFormat,
+  type UsageCurrency,
+  writeStoredCurrency,
+} from './formatters'
 import {
   DEFAULT_USAGE_FILTERS,
   EMPTY_CAPABILITIES,
@@ -51,8 +61,21 @@ export function UsageWorkspace({
 }) {
   const [tab, setTab] = useState<UsageWorkspaceTab>('overview')
   const [filters, setFilters] = useState<UsageFilterState>(DEFAULT_USAGE_FILTERS)
+  const [currency, setCurrency] = useState<UsageCurrency>(() => readStoredCurrency())
+  const [syncedPricing, setSyncedPricing] = useState<UsagePricingStatusDto | null>(null)
+  const [syncingPricing, setSyncingPricing] = useState(false)
+  const [syncPricingError, setSyncPricingError] = useState('')
+  const [syncPricingDone, flashSyncPricingDone] = useFlash()
   const [refreshSec, setRefreshSec] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
+
+  const isSysadmin = useSession((s) => s.user?.role === 'sysadmin')
+  const canSyncPricing = isSysadmin && base === '/admin/usage'
+
+  const handleCurrencyChange = useCallback((next: UsageCurrency) => {
+    setCurrency(next)
+    writeStoredCurrency(next)
+  }, [])
 
   // Overview chart & table controls
   const [metric, setMetric] = useState<UsageMetric>('tokens')
@@ -108,6 +131,30 @@ export function UsageWorkspace({
   const overviewQ = useUsageQuery<UsageOverviewDto>(overviewPath, refreshKey)
 
   const capabilities = overviewQ.data?.capabilities ?? facetsQ.data?.capabilities ?? EMPTY_CAPABILITIES
+  const pricing = syncedPricing ?? overviewQ.data?.pricing ?? null
+  const costFormat = useMemo<UsageCostFormat>(
+    () => ({
+      currency,
+      usdToCny: pricing?.fx.usdToCny ?? DEFAULT_USD_TO_CNY,
+    }),
+    [currency, pricing?.fx.usdToCny],
+  )
+
+  const handleSyncPricing = useCallback(async () => {
+    if (syncingPricing) return
+    setSyncingPricing(true)
+    setSyncPricingError('')
+    try {
+      const next = await api.post<UsagePricingStatusDto>('/admin/usage/pricing/sync')
+      setSyncedPricing(next)
+      flashSyncPricingDone()
+      triggerRefresh()
+    } catch (e) {
+      setSyncPricingError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSyncingPricing(false)
+    }
+  }, [syncingPricing, flashSyncPricingDone, triggerRefresh])
 
   // Keep selected metric/breakdown valid against real capabilities.
   useEffect(() => {
@@ -288,6 +335,14 @@ export function UsageWorkspace({
         teams={teams}
         kpi={overviewQ.data?.kpi ?? null}
         hasCost={capabilities.hasCost}
+        costFormat={costFormat}
+        onCurrencyChange={handleCurrencyChange}
+        pricing={pricing}
+        canSyncPricing={canSyncPricing}
+        syncingPricing={syncingPricing}
+        syncPricingDone={syncPricingDone}
+        syncPricingError={syncPricingError}
+        onSyncPricing={handleSyncPricing}
         refreshSec={refreshSec}
         onRefreshSecChange={setRefreshSec}
         onManualRefresh={triggerRefresh}
@@ -331,6 +386,7 @@ export function UsageWorkspace({
               heatmapMetric={effectiveHeatmapMetric}
               onHeatmapMetricChange={setHeatmapMetric}
               onFilterJump={updateFilters}
+              costFormat={costFormat}
               stale={overviewQ.stale || timeseriesQ.stale}
             />
           ) : null}
@@ -342,6 +398,7 @@ export function UsageWorkspace({
               options={runsOpt}
               onOptionsChange={(patch) => setRunsOpt((prev) => ({ ...prev, ...patch }))}
               onFilterJump={updateFilters}
+              costFormat={costFormat}
               stale={runsQ.stale}
             />
           ) : null}
@@ -357,6 +414,7 @@ export function UsageWorkspace({
               capabilities={capabilities}
               sessionSort={sessionSort}
               onSessionSortChange={setSessionSort}
+              costFormat={costFormat}
               stale={insightsQ.stale || weekHourQ.stale}
             />
           ) : null}
@@ -365,7 +423,7 @@ export function UsageWorkspace({
 
       <p className="usage-note">
         {t(
-          '所有指标均基于真实运行记录统计 · 未上报 Token 的轮次不计入合计 · 费用与缓存仅统计适配器实际回报的数据 · 工具调用明细按 {days} 天事件保留期统计。',
+          '所有指标均基于真实运行记录统计 · 未上报 Token 的轮次不计入合计 · 费用优先采用适配器回报，未回报时按 models.dev 公开单价估算 · 缓存与工具调用明细按 {days} 天事件保留期统计。',
           { days: capabilities.retentionDays },
         )}
       </p>

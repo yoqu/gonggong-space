@@ -9,15 +9,19 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { SegmentedControl } from '../../ui'
 import {
+  DEFAULT_COST_FORMAT,
+  DEFAULT_USD_TO_CNY,
   fmtAgentKind,
   fmtCompactTokens,
-  fmtCostUsd,
+  fmtCost,
+  fmtCostAxis,
   fmtCount,
   fmtDurationMs,
   fmtEntityLabel,
   fmtRate,
   fmtTps,
   seriesColor,
+  type UsageCostFormat,
 } from './formatters'
 import type { UsageChartMode } from './types'
 
@@ -33,17 +37,17 @@ function niceTicks(max: number): number[] {
   return Array.from({ length: count + 1 }, (_, i) => i * step)
 }
 
-function fmtMetricValue(metric: UsageMetric, value: number): string {
-  if (metric === 'cost') return fmtCostUsd(value)
+function fmtMetricValue(metric: UsageMetric, value: number, costFormat: UsageCostFormat): string {
+  if (metric === 'cost') return fmtCost(value, { format: costFormat })
   if (metric === 'runs') return fmtCount(value)
   if (metric === 'duration') return fmtDurationMs(value)
   if (metric === 'throughput') return fmtTps(value)
   return fmtCompactTokens(value)
 }
 
-function fmtAxisTick(metric: UsageMetric, value: number): string {
+function fmtAxisTick(metric: UsageMetric, value: number, costFormat: UsageCostFormat): string {
   if (value === 0) return '0'
-  if (metric === 'cost') return `$${value >= 10 ? Math.round(value) : Number(value.toFixed(2))}`
+  if (metric === 'cost') return fmtCostAxis(value, costFormat)
   if (metric === 'runs') return fmtCount(value)
   if (metric === 'duration') return fmtDurationMs(value)
   if (metric === 'throughput') return `${Math.round(value)}`
@@ -59,6 +63,7 @@ export interface UsageTrendPanelProps {
   chartMode: UsageChartMode
   onChartModeChange: (m: UsageChartMode) => void
   capabilities: UsageCapabilitiesDto
+  costFormat?: UsageCostFormat
   stale?: boolean
 }
 
@@ -71,6 +76,7 @@ export function UsageTrendPanel({
   chartMode,
   onChartModeChange,
   capabilities,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: UsageTrendPanelProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -114,8 +120,16 @@ export function UsageTrendPanel({
     return Math.max(0, ...buckets.map((b) => b.total))
   }, [buckets, series, stacked, isolatedSeries, breakdown, additive])
 
-  const ticks = useMemo(() => niceTicks(maxVal), [maxVal])
-  const top = Math.max(1e-9, ticks.at(-1) ?? 1)
+  const costScale =
+    metric === 'cost' && costFormat.currency === 'cny'
+      ? costFormat.usdToCny > 0
+        ? costFormat.usdToCny
+        : DEFAULT_USD_TO_CNY
+      : 1
+  const ticks = useMemo(() => niceTicks(maxVal * costScale), [maxVal, costScale])
+  const top = Math.max(1e-9, (ticks.at(-1) ?? 1) / costScale)
+  const tickFormat: UsageCostFormat =
+    costScale === 1 ? costFormat : { currency: costFormat.currency, usdToCny: 1 }
   const plotW = Math.max(40, width - PAD.left - PAD.right)
   const base = HEIGHT - PAD.bottom
   const plotH = base - PAD.top
@@ -264,14 +278,17 @@ export function UsageTrendPanel({
             onKeyDown={onKeyDown}
           >
             <svg width={width} height={HEIGHT} aria-hidden="true">
-              {ticks.map((tk) => (
-                <g key={tk} className="usage-trend__grid">
-                  <line x1={PAD.left} x2={width - PAD.right} y1={yOf(tk)} y2={yOf(tk)} />
-                  <text x={PAD.left - 8} y={yOf(tk)} dy="0.32em" textAnchor="end">
-                    {fmtAxisTick(metric, tk)}
-                  </text>
-                </g>
-              ))}
+              {ticks.map((tk) => {
+                const y = yOf(tk / costScale)
+                return (
+                  <g key={tk} className="usage-trend__grid">
+                    <line x1={PAD.left} x2={width - PAD.right} y1={y} y2={y} />
+                    <text x={PAD.left - 8} y={y} dy="0.32em" textAnchor="end">
+                      {fmtAxisTick(metric, tk, tickFormat)}
+                    </text>
+                  </g>
+                )
+              })}
 
               {activeBucket && activeIdx !== null ? (
                 chartMode === 'bar' ? (
@@ -403,7 +420,7 @@ export function UsageTrendPanel({
               >
                 <div className="usage-tooltip__head">
                   <strong>{activeBucket.label}</strong>
-                  <span>{fmtMetricValue(metric, activeBucket.total)}</span>
+                  <span>{fmtMetricValue(metric, activeBucket.total, costFormat)}</span>
                 </div>
                 <div className="usage-tooltip__meta">
                   <span>{t('{n} 轮', { n: fmtCount(activeBucket.runs) })}</span>
@@ -411,7 +428,9 @@ export function UsageTrendPanel({
                     <span>{fmtCompactTokens(activeBucket.totalTokens)}</span>
                   ) : null}
                   {capabilities.hasCost && activeBucket.costUsd > 0 && metric !== 'cost' ? (
-                    <span className="usage-tone--green">{fmtCostUsd(activeBucket.costUsd)}</span>
+                    <span className="usage-tone--green">
+                      {fmtCost(activeBucket.costUsd, { format: costFormat })}
+                    </span>
                   ) : null}
                   {activeBucket.failedRuns > 0 ? (
                     <span className="usage-tone--red">{t('{n} 失败', { n: activeBucket.failedRuns })}</span>
@@ -428,7 +447,7 @@ export function UsageTrendPanel({
                         <div key={s.key} className="usage-tooltip__srow">
                           <span className="usage-swatch" style={{ background: colorMap.get(s.key) }} />
                           <span className="usage-tooltip__sname">{seriesDisplayName(s.key, s.name)}</span>
-                          <span className="usage-tooltip__sval">{fmtMetricValue(metric, v)}</span>
+                          <span className="usage-tooltip__sval">{fmtMetricValue(metric, v, costFormat)}</span>
                         </div>
                       ))}
                   </div>
@@ -437,7 +456,9 @@ export function UsageTrendPanel({
             ) : null}
           </div>
           <div role="status" className="ui-chart__sr">
-            {activeBucket ? `${activeBucket.label} · ${fmtMetricValue(metric, activeBucket.total)}` : ''}
+            {activeBucket
+              ? `${activeBucket.label} · ${fmtMetricValue(metric, activeBucket.total, costFormat)}`
+              : ''}
           </div>
         </div>
 
@@ -470,7 +491,9 @@ export function UsageTrendPanel({
                     <span className="usage-legend-item__name" title={label}>
                       {label}
                     </span>
-                    <span className="usage-legend-item__val">{fmtMetricValue(metric, s.total)}</span>
+                    <span className="usage-legend-item__val">
+                      {fmtMetricValue(metric, s.total, costFormat)}
+                    </span>
                   </div>
                   <div className="usage-legend-item__bar" aria-hidden="true">
                     <span style={{ transform: `scaleX(${ratio})`, background: color }} />
@@ -478,7 +501,7 @@ export function UsageTrendPanel({
                   <div className="usage-legend-item__sub">
                     <span>{t('{n} 轮', { n: fmtCount(s.runs) })}</span>
                     {capabilities.hasCost && s.costUsd > 0 ? (
-                      <span className="usage-tone--green">{fmtCostUsd(s.costUsd)}</span>
+                      <span className="usage-tone--green">{fmtCost(s.costUsd, { format: costFormat })}</span>
                     ) : null}
                     {s.avgOutputTps != null ? <span>{fmtTps(s.avgOutputTps)}</span> : null}
                     <span>{fmtRate(s.share)}</span>

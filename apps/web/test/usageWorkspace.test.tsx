@@ -5,11 +5,15 @@ import type {
   UsageHeatmapDto,
   UsageInsightsDto,
   UsageOverviewDto,
+  UsagePricingStatusDto,
   UsageRunsDto,
   UsageTimeseriesDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useSession } from '../src/app/session'
+import { CURRENCY_STORAGE_KEY, fmtCost, fmtUnitPrice } from '../src/features/usage/formatters'
+import { UsageTrendPanel } from '../src/features/usage/UsageTrendPanel'
 import { UsageWorkspace } from '../src/features/usage/UsageWorkspace'
 import { api } from '../src/lib/api'
 import { DURATION, EASE, prefersReducedMotion, STAGGER, TRANSITION } from '../src/lib/motion'
@@ -92,6 +96,8 @@ function makeFixtures(caps: UsageCapabilitiesDto) {
       successRate: 152 / 158,
       totalCostUsd: caps.hasCost ? 42.85 : 0,
       costReportedRuns: caps.hasCost ? 120 : 0,
+      reportedCostRuns: caps.hasCost ? 80 : 0,
+      estimatedCostRuns: caps.hasCost ? 40 : 0,
       cacheReadTokens: caps.hasCache ? 9_800_000 : 0,
       cacheInputTokens: caps.hasCache ? 10_200_000 : 0,
       cacheHitRate: caps.hasCache ? 9_800_000 / 10_200_000 : null,
@@ -130,6 +136,22 @@ function makeFixtures(caps: UsageCapabilitiesDto) {
       activeUsers: 4,
       activeBots: 3,
       activeGroups: 4,
+    },
+    reportedCostRuns: caps.hasCost ? 80 : 0,
+    estimatedCostRuns: caps.hasCost ? 40 : 0,
+    pricing: {
+      source: 'models.dev',
+      syncedAt: '2026-11-26T08:00:00Z',
+      providerCount: 95,
+      modelCount: 3800,
+      stale: false,
+      refreshing: false,
+      fx: {
+        usdToCny: 7.25,
+        syncedAt: '2026-11-26T08:00:00Z',
+        source: 'open.er-api.com',
+        stale: false,
+      },
     },
     capabilities: caps,
   }
@@ -225,10 +247,23 @@ function makeFixtures(caps: UsageCapabilitiesDto) {
         tokenShare: 0.74,
         runShare: 0.75,
         costShare: caps.hasCost ? 0.84 : 0,
+        modelDisplayName: by === 'model' ? 'Claude Opus 4.6' : null,
+        unitPrice:
+          by === 'model'
+            ? {
+                input: 15,
+                output: 75,
+                cacheRead: 1.5,
+                cacheWrite: 18.75,
+                provider: 'anthropic',
+                matchedId: 'anthropic/claude-opus-4-6',
+                aliasMatched: false,
+              }
+            : null,
       },
       {
-        key: by === 'agentKind' ? 'codex' : 'k2',
-        name: by === 'agentKind' ? 'codex' : by === 'model' ? 'gpt-5-codex' : '构建 Codex',
+        key: by === 'agentKind' ? 'codex' : by === 'model' ? '__default__:codex' : 'k2',
+        name: by === 'agentKind' ? 'codex' : by === 'model' ? '__default__:codex' : '构建 Codex',
         sublabel: null,
         runs: 40,
         completedRuns: 36,
@@ -324,6 +359,20 @@ function makeFixtures(caps: UsageCapabilitiesDto) {
         outputTokens: 30_000,
         totalTokens: 120_000,
         costUsd: caps.hasCost ? 1.42 : null,
+        costSource: caps.hasCost ? 'catalog' : 'unpriced',
+        modelDisplayName: caps.hasModels ? 'Claude Opus 4.6' : null,
+        modelSource: caps.hasModels ? 'recorded' : 'unknown',
+        unitPrice: caps.hasCost
+          ? {
+              input: 15,
+              output: 75,
+              cacheRead: 1.5,
+              cacheWrite: 18.75,
+              provider: 'anthropic',
+              matchedId: 'anthropic/claude-opus-4-6',
+              aliasMatched: false,
+            }
+          : null,
         outputTps: 357,
         filesChanged: 5,
         hop: 1,
@@ -502,6 +551,8 @@ describe('UsageWorkspace & unified motion tokens', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    localStorage.removeItem(CURRENCY_STORAGE_KEY)
+    useSession.setState({ user: null })
   })
 
   it('exports unified motion curves, durations, transitions, stagger cap, and reduced-motion check', () => {
@@ -514,31 +565,101 @@ describe('UsageWorkspace & unified motion tokens', () => {
     expect(typeof prefersReducedMotion()).toBe('boolean')
   })
 
-  it('renders full 3-tab analytics with real cost/cache/tools/plugins and opens the Run Inspector Drawer', async () => {
+  it('formats CNY default and USD currency with exact precision rules and unit prices', () => {
+    const cny = { currency: 'cny' as const, usdToCny: 7.2 }
+    const usd = { currency: 'usd' as const, usdToCny: 7.2 }
+    expect(fmtCost(20, { format: cny })).toBe('¥144')
+    expect(fmtCost(2, { format: cny, partial: true })).toBe('¥14.40+')
+    expect(fmtCost(0.02, { format: cny })).toBe('¥0.144')
+    expect(fmtCost(0.00005, { format: cny })).toBe('¥0.0004')
+    expect(fmtCost(42.85, { format: usd, partial: true })).toBe('$42.85+')
+    expect(fmtUnitPrice({ input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 }, cny)).toBe(
+      '¥108 / ¥540',
+    )
+    expect(fmtUnitPrice({ input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 }, usd)).toBe('$15 / $75')
+
+    // Trend chart computes nice round CNY Y-axis ticks in display currency (24.65 * 7.25 = 178.7 -> ¥50/¥100/¥150/¥200)
+    const { container } = render(
+      <UsageTrendPanel
+        data={{
+          granularity: 'day',
+          metric: 'cost',
+          breakdown: 'none',
+          buckets: [
+            {
+              ts: '2026-11-26',
+              label: '11/26',
+              total: 24.65,
+              totalTokens: 900_000,
+              inputTokens: 670_000,
+              outputTokens: 230_000,
+              costUsd: 24.65,
+              runs: 100,
+              completedRuns: 94,
+              failedRuns: 2,
+              unreportedRuns: 0,
+              avgDurationMs: 16_000,
+              avgOutputTps: 68,
+              bySeries: {},
+            },
+          ],
+          series: [],
+        }}
+        metric="cost"
+        onMetricChange={() => {}}
+        breakdown="none"
+        onBreakdownChange={() => {}}
+        chartMode="bar"
+        onChartModeChange={() => {}}
+        capabilities={FULL_CAPS}
+        costFormat={{ currency: 'cny', usdToCny: 7.25 }}
+      />,
+    )
+    const tickLabels = Array.from(container.querySelectorAll('.usage-trend__grid text')).map(
+      (el) => el.textContent,
+    )
+    expect(tickLabels).toEqual(['0', '¥50', '¥100', '¥150', '¥200'])
+  })
+
+  it('renders full 3-tab analytics with default CNY cost, model pricing provenance, and Run Inspector Drawer', async () => {
     stubUsageApi(FULL_CAPS)
     render(<UsageWorkspace base="/admin/usage" />)
 
-    // Overview KPI strip shows real tokens, runs, partial cost (+), cache hit rate bar, and latency
+    // Overview KPI strip defaults to CNY (42.85 * 7.25 = 310.6625 -> ¥311+), shows mixed provenance & cache
     const kpiStrip = await screen.findByTestId('usage-kpi-strip')
     expect(within(kpiStrip).getByTestId('usage-kpi-tokens')).toBeTruthy()
     expect(within(kpiStrip).getByTestId('usage-kpi-runs')).toBeTruthy()
-    expect(within(kpiStrip).getByTestId('usage-kpi-cost').textContent).toContain('$42.85+')
+    expect(within(kpiStrip).getByTestId('usage-kpi-cost').textContent).toContain('¥311+')
+    expect(within(kpiStrip).getByTestId('usage-kpi-cost').textContent).toContain('80 轮上报')
+    expect(within(kpiStrip).getByTestId('usage-kpi-cost').textContent).toContain('40 轮目录估算')
+    expect(within(kpiStrip).getByTestId('usage-kpi-cost').textContent).toContain('40 轮未计价')
     expect(within(kpiStrip).getByTestId('usage-kpi-cache').textContent).toContain('96.1%')
     expect(within(kpiStrip).getByTestId('usage-kpi-latency')).toBeTruthy()
+
+    // Speed table shows per-1M unit price in CNY (15*7.25=109, 75*7.25=544) and clean legacy default model label
+    const speedTable = await screen.findByTestId('usage-speed-table')
+    expect(within(speedTable).getByText('单价 (/1M)')).toBeTruthy()
+    expect(within(speedTable).getByText('¥109 / ¥544')).toBeTruthy()
+    expect(within(speedTable).getByText('默认模型 · Codex')).toBeTruthy()
 
     // Trend panel switches Bar -> Line cleanly
     const trend = screen.getByTestId('usage-trend-panel')
     fireEvent.click(within(trend).getByRole('radio', { name: '折线' }))
     expect(trend.querySelector('.usage-trend__lines')).not.toBeNull()
 
-    // Switch to Runs tab and inspect a row via the right-side Drawer
+    // Switch to Runs tab and inspect a row via the right-side Drawer (dual currency + provenance)
     fireEvent.click(screen.getByRole('tab', { name: '运行明细' }))
     const runsTab = await screen.findByTestId('usage-runs-tab')
     expect(within(runsTab).getByText('核心研发群')).toBeTruthy()
+    expect(within(runsTab).getByText('默认模型 · Codex')).toBeTruthy()
     fireEvent.mouseDown(within(runsTab).getByText('核心研发群'))
     const drawer = await screen.findByRole('dialog')
     expect(within(drawer).getByText('run-slow-1')).toBeTruthy()
     expect(within(drawer).getByText('完成用量模块重构')).toBeTruthy()
+    expect(within(drawer).getByText('¥10.29 ($1.42)')).toBeTruthy()
+    expect(within(drawer).getByText('models.dev 估算')).toBeTruthy()
+    expect(within(drawer).getByText('运行上报')).toBeTruthy()
+    expect(within(drawer).getByText('claude-opus-4-6 (Claude Opus 4.6)')).toBeTruthy()
     fireEvent.click(within(drawer).getByRole('button', { name: '关闭' }))
 
     // Switch to Sessions tab and verify heatmap, session shape, plugins, and tool usage
@@ -550,6 +671,68 @@ describe('UsageWorkspace & unified motion tokens', () => {
     expect(within(sessionsTab).getByTestId('usage-plugins-card').textContent).toContain('ego-browser')
     expect(within(sessionsTab).getByTestId('usage-tools-card').textContent).toContain('Bash')
     expect(within(sessionsTab).getByTestId('usage-tools-card').textContent).toContain('30 天保留窗')
+  })
+
+  it('switches currency in Pricing Popover (persisted to localStorage) and allows sysadmin to sync models.dev pricing', async () => {
+    useSession.setState({
+      user: {
+        id: 'u1',
+        account: 'admin',
+        name: 'Admin',
+        role: 'sysadmin',
+        mustChangePassword: false,
+        disabled: false,
+        gitProtocol: 'auto',
+        email: null,
+        avatar: null,
+      },
+    })
+    const getSpy = stubUsageApi(FULL_CAPS)
+    const syncedStatus: UsagePricingStatusDto = {
+      source: 'models.dev',
+      syncedAt: '2026-11-26T09:30:00Z',
+      providerCount: 98,
+      modelCount: 3912,
+      stale: false,
+      refreshing: false,
+      fx: {
+        usdToCny: 7.3,
+        syncedAt: '2026-11-26T09:30:00Z',
+        source: 'open.er-api.com',
+        stale: false,
+      },
+    }
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValue(syncedStatus)
+
+    render(<UsageWorkspace base="/admin/usage" />)
+    await screen.findByTestId('usage-kpi-strip')
+    await screen.findByTestId('usage-speed-table')
+
+    // Open pricing catalog pill
+    const pill = screen.getByTestId('usage-pricing-pill')
+    expect(pill.textContent).toContain('models.dev · 3,800 模型定价')
+    fireEvent.click(pill)
+
+    const pop = await screen.findByTestId('usage-pricing-popover')
+    expect(pop.textContent).toContain('95 供应商 · 3,800 模型')
+    expect(pop.textContent).toContain('汇率 1 USD = ¥7.25')
+
+    // Switch CNY -> USD and check KPI + SpeedTable + localStorage update
+    fireEvent.click(within(pop).getByRole('radio', { name: '$ 美元' }))
+    expect(localStorage.getItem(CURRENCY_STORAGE_KEY)).toBe('usd')
+    expect(screen.getByTestId('usage-kpi-cost').textContent).toContain('$42.85+')
+    expect(within(screen.getByTestId('usage-speed-table')).getByText('$15 / $75')).toBeTruthy()
+
+    // Trigger sysadmin pricing sync
+    const overviewCallsBefore = getSpy.mock.calls.filter(([p]) => p.includes('/overview?')).length
+    fireEvent.click(within(pop).getByRole('button', { name: '同步最新价格' }))
+    await waitFor(() => expect(postSpy).toHaveBeenCalledWith('/admin/usage/pricing/sync'))
+    await waitFor(() => expect(pill.textContent).toContain('models.dev · 3,912 模型定价'))
+    await waitFor(() =>
+      expect(getSpy.mock.calls.filter(([p]) => p.includes('/overview?')).length).toBeGreaterThan(
+        overviewCallsBefore,
+      ),
+    )
   })
 
   it('strictly hides unavailable dimensions (cost, cache, tools, plugins) — zero fabricated data', async () => {
@@ -599,6 +782,7 @@ describe('UsageWorkspace & unified motion tokens', () => {
 
     render(<UsageWorkspace base="/admin/usage" />)
     await screen.findByTestId('usage-kpi-strip')
+    await screen.findByTestId('usage-speed-table')
     const facetsCallsBefore = getSpy.mock.calls.filter(([p]) => p.includes('/facets?')).length
 
     // Status change must NOT trigger a redundant /facets refetch

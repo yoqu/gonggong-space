@@ -4,11 +4,13 @@ import type {
   UsageExportFormat,
   UsageFacetsDto,
   UsageKpiDto,
+  UsagePricingStatusDto,
   UsageStatusFilter,
   UsageTimePreset,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
+import { ago, localDateTime } from '../../lib/time'
 import {
   Button,
   DatePicker,
@@ -19,7 +21,15 @@ import {
   SearchField,
   SegmentedControl,
 } from '../../ui'
-import { fmtAgentKind, fmtCompactTokens, fmtCostUsd, fmtCount, fmtEntityLabel } from './formatters'
+import {
+  fmtAgentKind,
+  fmtCompactTokens,
+  fmtCost,
+  fmtCount,
+  fmtEntityLabel,
+  type UsageCostFormat,
+  type UsageCurrency,
+} from './formatters'
 import { hasActiveSecondaryFilters, type UsageFilterState, type UsageGroupKind } from './types'
 
 const TIME_PRESETS: { value: UsageTimePreset; label: string }[] = [
@@ -55,6 +65,14 @@ export interface UsageFilterBarProps {
   teams: AdminTeamDto[]
   kpi: UsageKpiDto | null
   hasCost: boolean
+  costFormat: UsageCostFormat
+  onCurrencyChange: (currency: UsageCurrency) => void
+  pricing: UsagePricingStatusDto | null
+  canSyncPricing?: boolean
+  syncingPricing?: boolean
+  syncPricingDone?: boolean
+  syncPricingError?: string
+  onSyncPricing?: () => void
   refreshSec: number
   onRefreshSecChange: (sec: number) => void
   onManualRefresh: () => void
@@ -81,6 +99,14 @@ export function UsageFilterBar({
   teams,
   kpi,
   hasCost,
+  costFormat,
+  onCurrencyChange,
+  pricing,
+  canSyncPricing = false,
+  syncingPricing = false,
+  syncPricingDone = false,
+  syncPricingError = '',
+  onSyncPricing,
   refreshSec,
   onRefreshSecChange,
   onManualRefresh,
@@ -90,6 +116,7 @@ export function UsageFilterBar({
 }: UsageFilterBarProps) {
   const [searchDraft, setSearchDraft] = useState(filters.q)
   const [customOpen, setCustomOpen] = useState(false)
+  const [pricingOpen, setPricingOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(filters.from || isoDaysAgo(7))
   const [draftTo, setDraftTo] = useState(filters.to || isoToday())
 
@@ -211,7 +238,9 @@ export function UsageFilterBar({
             <span className="usage-filterbar__readout" data-testid="usage-scope-readout">
               {hasCost && kpi.costReportedRuns > 0 ? (
                 <>
-                  <span className="usage-readout__cost">{fmtCostUsd(kpi.totalCostUsd, partialCost)}</span>
+                  <span className="usage-readout__cost">
+                    {fmtCost(kpi.totalCostUsd, { partial: partialCost, format: costFormat })}
+                  </span>
                   {partialCost ? (
                     <span className="usage-readout__muted">
                       {t('{n} 轮未计价', { n: kpi.totalRuns - kpi.costReportedRuns })}
@@ -226,6 +255,99 @@ export function UsageFilterBar({
               )}
             </span>
           ) : null}
+          <Popover
+            open={pricingOpen}
+            onOpenChange={setPricingOpen}
+            placement="bottom-end"
+            trigger={
+              <button
+                type="button"
+                className="usage-pricing-pill"
+                data-testid="usage-pricing-pill"
+                aria-label={t('模型定价目录与货币设置')}
+              >
+                {pricing?.stale || pricing?.fx.stale ? (
+                  <span className="usage-pricing-pill__dot" aria-hidden="true" />
+                ) : null}
+                <span>
+                  {pricing
+                    ? t('models.dev · {n} 模型定价', { n: fmtCount(pricing.modelCount) })
+                    : costFormat.currency === 'cny'
+                      ? '¥ CNY'
+                      : '$ USD'}
+                </span>
+              </button>
+            }
+          >
+            <div className="usage-pricing-pop" data-testid="usage-pricing-popover">
+              <div className="usage-pricing-pop__head">
+                <span className="usage-pricing-pop__title">{t('模型定价与汇率')}</span>
+                {pricing?.stale || pricing?.fx.stale ? (
+                  <span className="usage-pricing-pop__stale">{t('待更新')}</span>
+                ) : null}
+              </div>
+              <div className="usage-pricing-pop__rows">
+                {pricing ? (
+                  <>
+                    <div className="usage-pricing-pop__row">
+                      <span>{t('定价来源')}</span>
+                      <strong>models.dev</strong>
+                    </div>
+                    <div className="usage-pricing-pop__row">
+                      <span>{t('覆盖规模')}</span>
+                      <strong>
+                        {t('{p} 供应商 · {m} 模型', {
+                          p: fmtCount(pricing.providerCount),
+                          m: fmtCount(pricing.modelCount),
+                        })}
+                      </strong>
+                    </div>
+                    <div className="usage-pricing-pop__row">
+                      <span>{t('目录同步')}</span>
+                      <strong title={pricing.syncedAt ? localDateTime(pricing.syncedAt) : undefined}>
+                        {pricing.syncedAt ? ago(pricing.syncedAt) : t('内置快照')}
+                      </strong>
+                    </div>
+                  </>
+                ) : null}
+                <div className="usage-pricing-pop__row">
+                  <span>{t('参考汇率')}</span>
+                  <strong title={pricing?.fx.syncedAt ? localDateTime(pricing.fx.syncedAt) : undefined}>
+                    {t('汇率 1 USD = ¥{rate}', { rate: costFormat.usdToCny.toFixed(2) })}
+                  </strong>
+                </div>
+              </div>
+              <div className="usage-pricing-pop__currency">
+                <span className="usage-pricing-pop__label">{t('显示币种')}</span>
+                <SegmentedControl
+                  size="small"
+                  aria-label={t('显示币种')}
+                  value={costFormat.currency}
+                  onChange={onCurrencyChange}
+                  items={[
+                    { value: 'cny', label: t('¥ 人民币') },
+                    { value: 'usd', label: t('$ 美元') },
+                  ]}
+                />
+              </div>
+              {syncPricingError ? <p className="usage-pricing-pop__err">{syncPricingError}</p> : null}
+              {canSyncPricing && onSyncPricing ? (
+                <div className="usage-pricing-pop__actions">
+                  <Button
+                    size="small"
+                    variant="primary"
+                    fullWidth
+                    icon="arrow-clockwise"
+                    loading={syncingPricing}
+                    done={syncPricingDone}
+                    onClick={onSyncPricing}
+                  >
+                    {syncPricingDone ? t('已同步最新价格') : t('同步最新价格')}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </Popover>
         </div>
       </div>
 

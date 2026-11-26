@@ -24,16 +24,22 @@ import {
   Tag,
 } from '../../ui'
 import {
+  DEFAULT_COST_FORMAT,
   fmtAgentKind,
   fmtCompactTokens,
+  fmtCost,
+  fmtCostSource,
   fmtCostUsd,
   fmtCount,
   fmtDurationMs,
   fmtEntityLabel,
+  fmtModelSource,
   fmtRunStatusLabel,
   fmtShortTime,
   fmtTps,
   fmtTriggerSource,
+  fmtUnitPriceDetail,
+  type UsageCostFormat,
 } from './formatters'
 import type { UsageFilterState, UsageRunsOptions } from './types'
 
@@ -43,6 +49,7 @@ export interface UsageRequestsTabProps {
   options: UsageRunsOptions
   onOptionsChange: (patch: Partial<UsageRunsOptions>) => void
   onFilterJump: (patch: Partial<UsageFilterState>) => void
+  costFormat?: UsageCostFormat
   stale?: boolean
 }
 
@@ -54,12 +61,19 @@ const VALID_SORT = new Set<UsageRunsSortBy>([
   'outputTps',
 ])
 
+function fmtDualCurrency(usd: number, costFormat: UsageCostFormat): string {
+  const cnyStr = fmtCost(usd, { format: { currency: 'cny', usdToCny: costFormat.usdToCny } })
+  const usdStr = fmtCostUsd(usd)
+  return costFormat.currency === 'cny' ? `${cnyStr} (${usdStr})` : `${usdStr} (${cnyStr})`
+}
+
 export function UsageRequestsTab({
   data,
   capabilities,
   options,
   onOptionsChange,
   onFilterJump,
+  costFormat = DEFAULT_COST_FORMAT,
   stale = false,
 }: UsageRequestsTabProps) {
   const [selected, setSelected] = useState<UsageRunItemDto | null>(null)
@@ -100,13 +114,22 @@ export function UsageRequestsTab({
           {
             key: 'model',
             title: t('模型'),
-            width: 144,
+            width: 148,
             secondary: true,
-            render: (r: UsageRunItemDto) => (
-              <span className="usage-ellipsis" title={r.model ?? ''}>
-                {r.model ? r.model : t('默认')}
-              </span>
-            ),
+            render: (r: UsageRunItemDto) => {
+              const label = r.model
+                ? fmtEntityLabel(r.model, r.model)
+                : fmtEntityLabel(`__default__:${r.agentKind}`, '')
+              const tip =
+                r.modelDisplayName && r.modelDisplayName !== label
+                  ? `${label} (${r.modelDisplayName})`
+                  : label
+              return (
+                <span className="usage-ellipsis" title={tip}>
+                  {label}
+                </span>
+              )
+            },
           },
         ]
       : []),
@@ -154,12 +177,17 @@ export function UsageRequestsTab({
           {
             key: 'costUsd',
             title: t('费用'),
-            width: 82,
+            width: 86,
             align: 'right' as const,
             sortable: true,
             render: (r: UsageRunItemDto) =>
               r.costUsd != null ? (
-                <span className="usage-tone--green">{fmtCostUsd(r.costUsd)}</span>
+                <span
+                  className="usage-tone--green"
+                  title={r.costSource ? fmtCostSource(r.costSource) : undefined}
+                >
+                  {fmtCost(r.costUsd, { format: costFormat })}
+                </span>
               ) : (
                 <span className="usage-muted">—</span>
               ),
@@ -272,7 +300,7 @@ export function UsageRequestsTab({
               <span className="usage-source-strip__val">{fmtCount(src.runs)}</span>
               <span className="usage-source-strip__sub">
                 {fmtCompactTokens(src.totalTokens)} tokens
-                {showCost && src.costUsd > 0 ? ` · ${fmtCostUsd(src.costUsd)}` : ''}
+                {showCost && src.costUsd > 0 ? ` · ${fmtCost(src.costUsd, { format: costFormat })}` : ''}
               </span>
             </div>
           ))}
@@ -379,13 +407,36 @@ export function UsageRequestsTab({
                 />
               ) : null}
               {selected.costUsd != null ? (
-                <GroupRow label={t('费用')} value={fmtCostUsd(selected.costUsd)} />
+                <GroupRow label={t('费用')} value={fmtDualCurrency(selected.costUsd, costFormat)} wideValue />
+              ) : null}
+              {selected.costSource ? (
+                <GroupRow label={t('费用来源')} value={fmtCostSource(selected.costSource)} />
+              ) : null}
+              {selected.unitPrice ? (
+                <GroupRow
+                  label={t('参考单价 (/1M)')}
+                  value={
+                    fmtUnitPriceDetail(selected.unitPrice, costFormat) +
+                    (selected.unitPrice.aliasMatched ? ` · ${t('别名匹配')}` : '')
+                  }
+                  wideValue
+                />
               ) : null}
               <GroupRow
                 label={t('模型')}
-                value={fmtEntityLabel(selected.model ?? '__default__', selected.model ?? '')}
+                value={(() => {
+                  const base = selected.model
+                    ? fmtEntityLabel(selected.model, selected.model)
+                    : fmtEntityLabel(`__default__:${selected.agentKind}`, '')
+                  return selected.modelDisplayName && selected.modelDisplayName !== base
+                    ? `${base} (${selected.modelDisplayName})`
+                    : base
+                })()}
                 wideValue
               />
+              {selected.modelSource ? (
+                <GroupRow label={t('模型来源')} value={fmtModelSource(selected.modelSource)} />
+              ) : null}
               {selected.provider ? (
                 <GroupRow label={t('供应商')} value={selected.provider} wideValue />
               ) : null}

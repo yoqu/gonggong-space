@@ -317,6 +317,119 @@
   gap: var(--space-6);
 }
 
+/* Pricing catalog status pill & currency popover */
+.usage-pricing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 24px;
+  padding: 0 var(--space-8);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: var(--group-bg);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast),
+    border-color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+@media (hover: hover) {
+  .usage-pricing-pill:hover {
+    color: var(--label);
+    border-color: var(--control-stroke);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .usage-pricing-pill:active {
+    scale: var(--press-button);
+  }
+}
+.usage-pricing-pill:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.usage-pricing-pill__dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--radius-capsule);
+  background: var(--system-orange);
+}
+.usage-pricing-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  min-width: 248px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-pricing-pop__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.usage-pricing-pop__title {
+  font-size: var(--text-callout-size);
+  font-weight: 600;
+  color: var(--label);
+}
+.usage-pricing-pop__stale {
+  padding: 1px var(--space-6);
+  border-radius: var(--radius-capsule);
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+  font-size: var(--text-footnote-size);
+  font-weight: 500;
+}
+.usage-pricing-pop__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.usage-pricing-pop__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.usage-pricing-pop__row > strong {
+  color: var(--label);
+  font-weight: 500;
+  text-align: right;
+}
+.usage-pricing-pop__currency {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--separator);
+}
+.usage-pricing-pop__label {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.usage-pricing-pop__err {
+  margin: 0;
+  font-size: var(--text-footnote-size);
+  color: var(--tint-red-text);
+}
+.usage-pricing-pop__actions {
+  display: flex;
+}
+.usage-unit-price {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+
 /* Unified single-frame divider-separated KPI strip */
 .usage-kpi-strip {
   display: grid;
