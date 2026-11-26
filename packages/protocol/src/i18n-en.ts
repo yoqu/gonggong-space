@@ -258,12 +258,17 @@ export const protocolEn = {
   '已批准，等待 Bot 电脑重连后继续…': "Approved; waiting for the Bot's computer to reconnect…",
   '已拒绝，等待 Bot 电脑重连后继续…': "Denied; waiting for the Bot's computer to reconnect…",
   '审批超时，等待 Bot 电脑重连后继续…': "Approval timed out; waiting for the Bot's computer to reconnect…",
-  '整条链已被 {user} /stop 终止': 'The whole relay was ended by {user} with /stop',
-  '{user} 执行了 /stop': '{user} ran /stop',
+  '{user} 停止了运行': '{user} stopped the run',
+  '{user} 终止了整条接力链': '{user} ended the whole relay',
+  '{user} 停止了运行 · Bot 所在电脑 {n} 秒内未响应，已强制结束':
+    "{user} stopped the run · The Bot's computer didn't respond within {n}s; ended anyway",
   '{step} · 分区模式：已改的 {n} 个文件留在工作区，未提交':
     '{step} · partition mode: {n} changed {n:file stays|files stay} in the workspace, uncommitted',
   '{step} · 强制同步：已改的 {n} 个文件待处理，未提交':
     '{step} · force sync: {n} changed {n:file awaits|files await} a decision, not submitted',
+  // Steps of runs stopped before the wording change.
+  '整条链已被 {user} /stop 终止': 'The whole relay was ended by {user} with /stop',
+  '{user} 执行了 /stop': '{user} ran /stop',
   'Bot 离线超过 {n} 分钟，已失效并通知 {user}':
     'Bot offline for over {n} {n:minute|minutes}; expired and {user} was notified',
   'Bot 离线超过 {n} 分钟，已作废并通知 {user}':
@@ -308,7 +313,7 @@ export const protocolEn = {
     'Your request to @{bot} expired after {n} {n:minute|minutes} waiting for it to come online',
   接力链结束: 'Relay finished',
   '{n} 跳完成': '{n} {n:hop|hops} completed',
-  '{n} 跳 · 已被 /stop 中断': '{n} {n:hop|hops} · stopped by /stop',
+  '{n} 跳 · 已手动停止': '{n} {n:hop|hops} · stopped manually',
   'Bot 无法访问仓库': 'Bot cannot reach the repo',
   '{bot} 所在的电脑连不上 {repo}（{reason}），配置后在群里点「重新检查」':
     '{bot}\'s computer cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',

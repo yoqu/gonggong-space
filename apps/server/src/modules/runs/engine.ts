@@ -36,7 +36,7 @@ import { redactDeep } from './redact.js'
 import { schedule } from './scheduler.js'
 import { sealEvent } from './sealed.js'
 import { runStep } from './step.js'
-import { notifyChainDone, stoppedDone } from './stop.js'
+import { lateStoppedDone, notifyChainDone, stoppedDone } from './stop.js'
 import {
   appendStream,
   clearLiveContext,
@@ -404,7 +404,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   // Reports after run.done are checked against the row again.
   await forgetStream(done.runId)
   const owned = await liveRun(ctx, machineId, done.runId, 'unfinished')
-  if (!owned) return
+  if (!owned) return forceStoppedDone(ctx, machineId, done)
   await pushDelta(ctx, owned, tail)
   // A repeated run.done for a run that already ended: only its follow-up work is left.
   if (owned.finalizing) return finalize(ctx, owned)
@@ -415,6 +415,15 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   if (done.sync?.outcome === 'stopped') await pauseStopped(ctx, ended, done.sync.files)
   await finalize(ctx, ended)
   forgetRedactors(done.runId)
+}
+
+/** A late run.done after `forceStopped`: only the keep/discard choice (and the force-sync pause) is added. */
+async function forceStoppedDone(ctx: Ctx, machineId: string, done: RunDone) {
+  const run = await liveRun(ctx, machineId, done.runId, 'ended')
+  const row = run && (await lateStoppedDone(ctx, run, done))
+  if (!row) return
+  if (done.sync?.outcome === 'stopped') await pauseStopped(ctx, row, done.sync.files)
+  await publishRun(ctx, row)
 }
 
 /**

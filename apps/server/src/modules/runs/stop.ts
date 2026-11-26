@@ -1,11 +1,12 @@
 import {
   type ContextMessage,
+  type I18nText,
   type RunDiscarded,
   type RunDone,
   type RunSyncDone,
   TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, isNull, ne, notExists, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import {
@@ -72,7 +73,13 @@ export async function isChainStopped(ctx: Ctx, run: Pick<RunRow, 'id'>) {
 
 /** Chain hops show that the whole chain ended; other runs name who stopped them. */
 const stopStep = (name: string, run: Pick<RunRow, 'hop'>) =>
-  runStep(run.hop > 1 ? '整条链已被 {user} /stop 终止' : '{user} 执行了 /stop', { user: name })
+  runStep(run.hop > 1 ? '{user} 终止了整条接力链' : '{user} 停止了运行', { user: name })
+
+const forcedStep = (name: string) =>
+  runStep('{user} 停止了运行 · Bot 所在电脑 {n} 秒内未响应，已强制结束', {
+    user: name,
+    n: Math.ceil(stopGrace.ms / 1000),
+  })
 
 export type StopTarget =
   /** `threadRootId`: that thread's runs only. */
@@ -152,7 +159,10 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
     if (live && machineId) {
       ctx.hub.send(machineId, { t: 'run.cancel', runId: run.id })
       setTimeout(
-        () => void forceStopped(ctx, row.id, step).catch((e) => console.error('stop:', e)),
+        () =>
+          void forceStopped(ctx, row.id, edited ? step : forcedStep(by.name)).catch((e) =>
+            console.error('stop:', e),
+          ),
         stopGrace.ms,
       ).unref()
       await publishRun(ctx, row)
@@ -173,7 +183,7 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
   return stopped
 }
 
-/** A stopped run the daemon never wound down: ended here so its bot's queue goes on; a late run.done is ignored. */
+/** A stopped run the daemon never wound down: ended here so its bot's queue goes on; see `lateStoppedDone`. */
 async function forceStopped(ctx: Ctx, runId: string, step: Partial<RunRow>) {
   const [row] = await ctx.db
     .update(runs)
@@ -188,10 +198,16 @@ async function forceStopped(ctx: Ctx, runId: string, step: Partial<RunRow>) {
  * Fields for run.done of a stopped run: step and the pending keep/discard choice, for partition edits in a repo or
  * force-group changes the daemon left unsubmitted (F21).
  */
-export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise<Partial<RunRow>> {
+export async function stoppedDone(
+  ctx: Ctx,
+  run: RunRow,
+  done: RunDone,
+  base?: { stepI18n: I18nText },
+): Promise<Partial<RunRow>> {
   if (!run.stoppedBy || done.outcome === 'completed') return {}
   const [by] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, run.stoppedBy))
-  const step = (await stoppedByEdit(ctx, run)) ? runStep(EDITED_STEP) : stopStep(by?.name ?? '', run)
+  const step =
+    base ?? ((await stoppedByEdit(ctx, run)) ? runStep(EDITED_STEP) : stopStep(by?.name ?? '', run))
   if (done.sync?.outcome === 'stopped')
     return {
       ...runStep('{step} · 强制同步：已改的 {n} 个文件待处理，未提交', {
@@ -210,6 +226,27 @@ export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise
         interrupt: 'pending',
       }
     : step
+}
+
+/**
+ * run.done of a run `forceStopped` already ended: the keep/discard choice for the changes it left still opens, unless
+ * the bot's next turn already started in the tree (it settled this one as is). Returns the run when it changed.
+ */
+export async function lateStoppedDone(ctx: Ctx, run: RunRow, done: RunDone) {
+  if (!run.stoppedBy || run.status !== 'interrupted' || run.interrupt !== null || !run.startedAt) return null
+  const fields = await stoppedDone(ctx, run, done, run.stepI18n ? { stepI18n: run.stepI18n } : undefined)
+  if (!fields.interrupt) return null
+  // One statement, so a next turn the scheduler starts meanwhile either is seen here or settles this one as kept.
+  const next = ctx.db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(and(eq(runs.groupId, run.groupId), eq(runs.botId, run.botId), gt(runs.startedAt, run.startedAt)))
+  const [row] = await ctx.db
+    .update(runs)
+    .set({ ...fields, filesChanged: done.filesChanged, sync: done.sync })
+    .where(and(eq(runs.id, run.id), eq(runs.status, 'interrupted'), isNull(runs.interrupt), notExists(next)))
+    .returning()
+  return row ?? null
 }
 
 /** Its author edited the triggering message while it ran (the edit stops it, see `editMessage`). */

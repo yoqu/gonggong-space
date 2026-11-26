@@ -205,7 +205,7 @@ describe('/stop command', () => {
     expect(await w.run(second!.id)).toMatchObject({
       status: 'interrupted',
       stoppedBy: w.zhao.id,
-      step: '赵敏 执行了 /stop',
+      step: '赵敏 停止了运行',
     })
     expect(await w.run(first!.id)).toMatchObject({ status: 'running', stoppedBy: w.zhao.id })
     expect((await w.runsOf(w.codex.id))[0]!.status).toBe('running')
@@ -222,7 +222,7 @@ describe('/stop command', () => {
     )
     expect(stopped).toMatchObject({
       interrupt: 'pending',
-      step: '赵敏 执行了 /stop · 分区模式：已改的 2 个文件留在工作区，未提交',
+      step: '赵敏 停止了运行 · 分区模式：已改的 2 个文件留在工作区，未提交',
     })
   })
 
@@ -240,17 +240,74 @@ describe('/stop command', () => {
       () => w.run(first!.id),
       (r) => r.status === 'interrupted',
     )
-    expect(stopped).toMatchObject({ stoppedBy: w.zhao.id, step: '赵敏 执行了 /stop' })
+    expect(stopped).toMatchObject({
+      stoppedBy: w.zhao.id,
+      step: '赵敏 停止了运行 · Bot 所在电脑 1 秒内未响应，已强制结束',
+      stepI18n: {
+        key: '{user} 停止了运行 · Bot 所在电脑 {n} 秒内未响应，已强制结束',
+        params: { user: '赵敏', n: 1 },
+      },
+    })
+    expect(stopped.step).not.toContain('/stop')
     expect(stopped.endedAt).not.toBeNull()
     await until(
       () => w.run(second!.id),
       (r) => r.status === 'running',
     )
 
-    // A late run.done changes nothing.
+    // The next turn already works in the tree: a late run.done no longer offers keep/discard.
     w.done(first!.id)
     await new Promise((r) => setTimeout(r, 50))
     expect((await w.run(first!.id)).interrupt).toBeNull()
+  })
+
+  it('a late run.done of a force-stopped run still offers keep/discard for the files it left', async () => {
+    stopGrace.ms = 20
+    const w = await world()
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(w.li.id, (e) => seen.push(e))
+    await w.say(w.as.li, '@小王的 Claude 改退款接口')
+    const [first] = await w.runsOf(w.claude.id)
+    await stopRuns(t.ctx, { groupId: w.g.id, runId: first!.id }, { id: w.zhao.id, name: '赵敏' })
+    await until(
+      () => w.run(first!.id),
+      (r) => r.status === 'interrupted',
+    )
+
+    w.done(first!.id)
+    const late = await until(
+      () => w.run(first!.id),
+      (r) => r.interrupt === 'pending',
+    )
+    expect(late).toMatchObject({
+      status: 'interrupted',
+      filesChanged: 2,
+      step: '赵敏 停止了运行 · Bot 所在电脑 1 秒内未响应，已强制结束 · 分区模式：已改的 2 个文件留在工作区，未提交',
+    })
+    await until(
+      async () => seen,
+      (evs) =>
+        evs.some((e) => e.t === 'run.updated' && e.run.id === first!.id && e.run.interrupt === 'pending'),
+    )
+
+    // Repeated: nothing changes once the choice is open or settled.
+    await t.db.update(runs).set({ interrupt: 'kept' }).where(eq(runs.id, first!.id))
+    w.done(first!.id)
+    await new Promise((r) => setTimeout(r, 50))
+    expect((await w.run(first!.id)).interrupt).toBe('kept')
+  })
+
+  it('stop steps tell a normal stop, a relay stop and a forced end apart without /stop jargon', async () => {
+    const w = await world()
+    await w.say(w.as.li, '@小王的 Claude 开始')
+    const [root] = await w.runsOf(w.claude.id)
+    const hop2 = await relay(w, root!, w.codex.id, 'queued')
+    w.offline()
+    await stopRuns(t.ctx, { groupId: w.g.id, runId: root!.id, chain: true }, { id: w.zhao.id, name: '赵敏' })
+    const [a, b] = [await w.run(root!.id), await w.run(hop2.id)]
+    expect(a).toMatchObject({ step: '赵敏 停止了运行', stepI18n: { key: '{user} 停止了运行' } })
+    expect(b).toMatchObject({ step: '赵敏 终止了整条接力链', stepI18n: { key: '{user} 终止了整条接力链' } })
+    for (const r of [a, b]) expect(r.step).not.toContain('/stop')
   })
 
   it('stopping a run that is already stopping again is a no-op: no second cancel, no second timer', async () => {
@@ -303,7 +360,7 @@ describe('/stop command', () => {
         () => w.run(hop2.id),
         (r) => r.status === 'interrupted',
       ),
-    ).toMatchObject({ step: '整条链已被 王磊 /stop 终止', interrupt: null })
+    ).toMatchObject({ step: '王磊 终止了整条接力链', interrupt: null })
   })
 
   it('stops offline-waiting runs at once and reports when nothing runs', async () => {
@@ -328,7 +385,7 @@ describe('/stop command', () => {
     const [r] = await w.runsOf(w.claude.id)
     w.offline()
     await w.say(w.as.li, '/stop')
-    expect(await w.run(r!.id)).toMatchObject({ status: 'interrupted', step: '李建国 执行了 /stop' })
+    expect(await w.run(r!.id)).toMatchObject({ status: 'interrupted', step: '李建国 停止了运行' })
   })
 })
 

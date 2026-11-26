@@ -65,7 +65,7 @@ describe('notificationView', () => {
       ),
     ).toMatchObject({ label: '接力链结束', text: '3 跳完成', href: '/g/g1?run=r0' })
     expect(notificationView(n('chain_done', { groupId: 'g1', hops: 2, stopped: true })).text).toBe(
-      '2 跳 · 已被 /stop 中断',
+      '2 跳 · 已手动停止',
     )
     expect(notificationView(n('bot_confirm', { botName: 'B', byName: '陈晨' }))).toEqual({
       label: '待确认 Bot',

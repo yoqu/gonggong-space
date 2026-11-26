@@ -129,7 +129,7 @@ describe('/stop in a force group (F21)', () => {
     const id = await stopped()
     expect(await runRow(id)).toMatchObject({
       interrupt: 'pending',
-      step: '王磊 执行了 /stop · 强制同步：已改的 2 个文件待处理，未提交',
+      step: '王磊 停止了运行 · 强制同步：已改的 2 个文件待处理，未提交',
       sync: { outcome: 'stopped', files: 2 },
     })
     expect(await replica(w.a.id)).toMatchObject({ issue: 'drift', total: 2 })

@@ -139,9 +139,13 @@ export function RunActions({ run }: { run: RunDto }) {
           <AlertDialog
             open
             title={t('要停止 {bot} 的这轮运行吗？', { bot: botName })}
-            message={t('这是 {name} 发起的任务，当前轮次会立即中断，已产生的改动会保留在工作区。', {
-              name: origin,
-            })}
+            message={
+              run.status === 'queued'
+                ? t('这是 {name} 发起的任务，还在排队；停止后不会开始运行。', { name: origin })
+                : t('这是 {name} 发起的任务，当前轮次会在几秒内停止，已产生的改动会保留在工作区。', {
+                    name: origin,
+                  })
+            }
             onClose={() => {
               if (!busy) setConfirming(false)
             }}

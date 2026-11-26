@@ -64,7 +64,7 @@ export function InterruptBlock({ run }: { run: RunDto }) {
                 '默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 {name} 或 Bot 主人可选，无超时。',
                 { name: initiator },
               )
-            : t('下一轮上下文会告诉 Agent：上一轮被 /stop 中断，以及这些文件的当前状态。')}
+            : t('下一轮上下文会告诉 Agent：上一轮已被停止，以及这些文件的当前状态。')}
       </div>
       {pending ? (
         <div className="run-interrupt__actions">

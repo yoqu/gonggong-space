@@ -70,7 +70,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
     case 'chain_done':
       return {
         label: say('接力链结束'),
-        text: say(n.payload.stopped ? '{n} 跳 · 已被 /stop 中断' : '{n} 跳完成', { n: p('hops') }),
+        text: say(n.payload.stopped ? '{n} 跳 · 已手动停止' : '{n} 跳完成', { n: p('hops') }),
         group,
         href: at('rootRunId'),
       }

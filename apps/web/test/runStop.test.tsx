@@ -76,7 +76,7 @@ describe('run actions', () => {
     fireEvent.click(screen.getByRole('button', { name: '停止' }))
     const confirm = await screen.findByRole('alertdialog', { name: '要停止 小王的 Claude 的这轮运行吗？' })
     expect(
-      within(confirm).getByText('这是 王磊 发起的任务，当前轮次会立即中断，已产生的改动会保留在工作区。'),
+      within(confirm).getByText('这是 王磊 发起的任务，当前轮次会在几秒内停止，已产生的改动会保留在工作区。'),
     ).toBeTruthy()
     expect(calls).toEqual([])
     fireEvent.click(within(confirm).getByRole('button', { name: '停止' }))
@@ -192,7 +192,7 @@ describe('interrupt block', () => {
   })
 
   it('shows the outcome once chosen', () => {
-    const note = '下一轮上下文会告诉 Agent：上一轮被 /stop 中断，以及这些文件的当前状态。'
+    const note = '下一轮上下文会告诉 Agent：上一轮已被停止，以及这些文件的当前状态。'
     const { rerender } = render(<InterruptBlock run={stopped({ interrupt: 'kept' })} />)
     expect(screen.getByText('已保留本轮改动 · 留在工作区，未提交')).toBeTruthy()
     expect(screen.getByText(note)).toBeTruthy()
