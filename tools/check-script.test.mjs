@@ -114,12 +114,18 @@ test('light online offloads typecheck, web, server and cargo to heavy, keeping l
   assert.match(peer[0], /--jobs typecheck,web\b/)
 
   const local = f.calls()
-  assert.ok(local.some((c) => c.endsWith(' lint')), `expected local lint, got: ${local.join('; ')}`)
+  assert.ok(
+    local.some((c) => c.endsWith(' lint')),
+    `expected local lint, got: ${local.join('; ')}`,
+  )
   assert.ok(
     local.some((c) => c.includes('--filter @gonggong/desktop test') && c.includes('VITEST_MAX_WORKERS=3')),
     `expected local desktop with VITEST_MAX_WORKERS=3, got: ${local.join('; ')}`,
   )
-  assert.ok(!local.some((c) => c.endsWith(' typecheck')), `typecheck should be offloaded: ${local.join('; ')}`)
+  assert.ok(
+    !local.some((c) => c.endsWith(' typecheck')),
+    `typecheck should be offloaded: ${local.join('; ')}`,
+  )
   assert.ok(!local.some((c) => c.includes('@gonggong/web')), `web should be offloaded: ${local.join('; ')}`)
 })
 
@@ -149,7 +155,10 @@ test('light falls back to running offloaded jobs locally with VITEST_MAX_WORKERS
   assert.match(res.stdout, /gg-peer unavailable/)
 
   const local = f.calls()
-  assert.ok(local.some((c) => c.endsWith(' typecheck')), `expected fallback typecheck: ${local.join('; ')}`)
+  assert.ok(
+    local.some((c) => c.endsWith(' typecheck')),
+    `expected fallback typecheck: ${local.join('; ')}`,
+  )
   assert.ok(
     local.some((c) => c.includes('@gonggong/web test') && c.includes('VITEST_MAX_WORKERS=3')),
     `expected fallback web with VITEST_MAX_WORKERS=3: ${local.join('; ')}`,
@@ -193,4 +202,61 @@ test('peer --jobs executes typecheck cleanly without running check-size or lint'
   assert.ok(local.some((c) => c.endsWith(' typecheck')))
   assert.ok(local.some((c) => c.includes('@gonggong/web test')))
   assert.ok(!local.some((c) => c.endsWith(' lint')))
+})
+
+test('packages/protocol/src/web/* runs full TS suites without cargo, even alongside a web feature edit', () => {
+  const f = checkFixture({ role: 'heavy', slots: '2', peerExit: 0 })
+  writeFileSync(join(f.work, 'packages/protocol/src/web/messages.ts'), 'export const v = 1\n')
+  mkdirSync(join(f.work, 'apps/web/src/features/chat'), { recursive: true })
+  writeFileSync(
+    join(f.work, 'apps/web/src/features/chat/ChatView.tsx'),
+    'export const ChatView = () => null\n',
+  )
+  const res = f.execCheck()
+  assert.equal(res.status, 0, res.stderr + res.stdout)
+
+  const local = f.calls()
+  assert.ok(local.some((c) => c.includes('@gonggong/protocol test')))
+  assert.ok(local.some((c) => c.includes('@gonggong/desktop test')))
+  assert.ok(
+    local.some((c) => c.includes('@gonggong/web test')),
+    `expected full web test: ${local.join('; ')}`,
+  )
+  assert.ok(
+    local.some((c) => c.includes('@gonggong/server test')),
+    `expected full server test: ${local.join('; ')}`,
+  )
+  assert.ok(!local.some((c) => c.startsWith('cargo ')), `cargo should be skipped: ${local.join('; ')}`)
+})
+
+test('packages/protocol/src/web/* on light offloads typecheck,web,server without cargo', () => {
+  const f = checkFixture({ role: 'light', slots: '1', peerExit: 0 })
+  writeFileSync(join(f.work, 'packages/protocol/src/web/messages.ts'), 'export const v = 2\n')
+  const res = f.execCheck()
+  assert.equal(res.status, 0, res.stderr + res.stdout)
+
+  const peer = f.peerCalls()
+  assert.equal(peer.length, 1)
+  assert.match(peer[0], /--jobs typecheck,web,server\b/)
+  assert.doesNotMatch(peer[0], /--all/)
+  assert.doesNotMatch(peer[0], /\bcargo\b/)
+})
+
+test('other packages/protocol/* paths (daemon, fixtures, daemon-tools, common) still trigger all including cargo', () => {
+  for (const rel of [
+    'packages/protocol/src/daemon/d2s.ts',
+    'packages/protocol/fixtures/d2s.hello.json',
+    'packages/protocol/gonggong-daemon-tools.json',
+    'packages/protocol/src/common.ts',
+  ]) {
+    const f = checkFixture({ role: 'heavy', slots: '2', peerExit: 0 })
+    writeFileSync(join(f.work, rel), '// changed\n')
+    const res = f.execCheck()
+    assert.equal(res.status, 0, `${rel}: ${res.stderr + res.stdout}`)
+    const local = f.calls()
+    assert.ok(
+      local.some((c) => c.startsWith('cargo test --workspace')),
+      `${rel} should trigger full cargo test: ${local.join('; ')}`,
+    )
+  }
 })

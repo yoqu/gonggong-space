@@ -25,7 +25,7 @@ else
   changed="$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)"
 fi
 
-typecheck=true web=false desktop=false server=false protocol=false cargo=false tools=false vendor=false
+typecheck=true full_ts=false web=false desktop=false server=false protocol=false cargo=false tools=false vendor=false
 for f in $changed; do
   case "$f" in
     docs/* | *.md | e2e/* | videos/* | website/*) ;;
@@ -34,6 +34,7 @@ for f in $changed; do
     apps/desktop/src-tauri/*) cargo=true ;;
     apps/desktop/*) desktop=true ;;
     apps/server/*) server=true ;;
+    packages/protocol/src/web/*) full_ts=true web=true desktop=true server=true protocol=true ;;
     packages/protocol/*) all=true ;; # every side speaks the protocol, the daemon through its fixtures
     crates/* | Cargo.toml | Cargo.lock | rust-toolchain.toml | rustfmt.toml) cargo=true ;;
     tools/*.mjs) tools=true ;;
@@ -100,7 +101,7 @@ pick_tests() {
 
 vitest_suite() { # package dir, name
   local files
-  if $all || ! files="$(pick_tests "$1")" || [ -z "$files" ]; then
+  if $all || $full_ts || ! files="$(pick_tests "$1")" || [ -z "$files" ]; then
     serial pnpm --filter "$2" test
   else
     # shellcheck disable=SC2086
