@@ -15,6 +15,7 @@ import { Button, Icon, IconButton, MenuButton, Presence, SegmentedControl, Toolt
 import { openUrl } from '../previews/store'
 import { saveEdits, sendCommand, useArtifactBot } from './actions'
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
+import { useDeviceGlide } from './deviceGlide'
 import { NO_SCROLL, type PickedElement } from './elements'
 import { useTextEdit } from './inPlace'
 import { capsuleOf } from './markLayout'
@@ -62,8 +63,8 @@ const FOLLOW_MS = 1500
 
 /** Around the screen: the bezel (px at 100%). */
 const BEZEL = 10
-/** How long a click beside the hotspots shows them (prototype.css `proto-hots-flash`). */
-const FLASH_MS = 800
+/** How long a click beside the hotspots shows them (prototype.css `proto-hots-flash`, --flash). */
+const FLASH_MS = 1400
 /** Room the whole-screen change bar takes under the device while open. */
 const CHANGE_ROOM = 200
 /** Room the connect panel takes at the right while open (its 300px, 60px off the edge, and a gap). */
@@ -81,8 +82,6 @@ const EDGE = 12
 const NARROW_STAGE = 720
 /** How long a page coming back scrolled stays hidden at most, waiting to be where it was (ms). */
 const REVEAL_MS = 400
-/** How long the device glides after a layout change (prototype.css `.proto-stage--glide`, --spring-smooth). */
-const GLIDE_MS = 700
 /** What a narrow stage's guide takes of its top (prototype.css `.proto-guide--narrow`: 52 down, two lines, a gap). */
 const GUIDE_ROOM = 120
 
@@ -160,13 +159,11 @@ export function PrototypeEditor({
   const [hover, setHover] = useState<Rect | null>(null)
   /** The server's screenshot of each screen (screen id → url): the list shows these, not a page per screen. */
   const [room, setRoom] = useState({ width: 0, height: 0 })
-  /** The device glides to its new place and size while a panel or the mode changes; resizing the window does not. */
-  const [glide, setGlide] = useState(false)
   const root = useRef<HTMLElement>(null)
-  /** When the stage last resized: a layout change then is the window's, not a panel's. */
-  const resized = useRef(0)
   const stage = useRef<HTMLDivElement>(null)
   const deviceBox = useRef<HTMLDivElement>(null)
+  /** The stage resizing (the window, not a panel): the device follows at once. Set below, once the glide exists. */
+  const stageResized = useRef(() => {})
   const frames = useRef(new Map<string, HTMLIFrameElement>()).current
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
   const origin = preview?.origin ?? null
@@ -256,11 +253,7 @@ export function PrototypeEditor({
     let wasNarrow = false
     let first = true
     const measure = () => {
-      // Resizing follows the window at once: no glide meanwhile.
-      if (!first) {
-        resized.current = performance.now()
-        setGlide(false)
-      }
+      if (!first) stageResized.current()
       first = false
       setRoom({ width: el.clientWidth, height: el.clientHeight })
       const isNarrow = !!el.clientWidth && el.clientWidth < NARROW_STAGE
@@ -279,18 +272,6 @@ export function PrototypeEditor({
     const id = setTimeout(swap.reveal, REVEAL_MS)
     return () => clearTimeout(id)
   }, [swap.holding, swap.reveal])
-
-  // A panel, the list, the mode or the device changing moves the device: it glides there, briefly.
-  const layoutKey = `${marks.panelOpen}|${mode}|${listOpen}|${device}|${connect}|${change}`
-  const lastLayout = useRef(layoutKey)
-  useEffect(() => {
-    if (lastLayout.current === layoutKey) return
-    lastLayout.current = layoutKey
-    if (performance.now() - resized.current < GLIDE_MS) return
-    setGlide(true)
-    const id = setTimeout(() => setGlide(false), GLIDE_MS)
-    return () => clearTimeout(id)
-  }, [layoutKey])
 
   const bridgeMode: BridgeMode = edit ? 'edit' : 'preview'
   const textEdit = useTextEdit({
@@ -427,6 +408,11 @@ export function PrototypeEditor({
     )
   }, [marks.picked.n, marks.picked.rect?.x, marks.picked.rect?.y])
 
+  const glideResized = useDeviceGlide(
+    deviceBox,
+    `${marks.panelOpen}|${mode}|${listOpen}|${device}|${connect}|${change}`,
+  )
+  stageResized.current = glideResized
   if (!cur) return null
   const size = devices[device]
   const markFrame = {
@@ -645,7 +631,7 @@ export function PrototypeEditor({
         {/* biome-ignore lint/a11y: a click beside the marks lets a picked rule go; Esc does from the keyboard */}
         <div
           ref={stage}
-          className={cx('proto-stage', glide && 'proto-stage--glide', zoomed && 'proto-stage--zoomed')}
+          className={cx('proto-stage', zoomed && 'proto-stage--zoomed')}
           data-testid="proto-stage"
           {...stageScroll.handlers}
           onClick={(e) => {

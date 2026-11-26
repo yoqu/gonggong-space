@@ -15,6 +15,7 @@ import {
   Skeleton,
   Spinner,
   toast,
+  usePresence,
 } from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
 import { ActivityNote } from './ActivityLayer'
@@ -237,6 +238,9 @@ function PrototypeArtifactTab({
   }
 
   const rail = useRail()
+  // The narrow drawer slips back out before it goes; the wide rail gives the canvas its room at once.
+  const drawer = usePresence(rail.open && rail.narrow, { timeout: 150 })
+  const firstIn = useFirstArrival(head)
   const isSite = !!a.site
   const siteFrame = useRef<HTMLIFrameElement>(null)
   // In front, the canvas has its own composer, talking to its AI 对话 and never to the group.
@@ -532,8 +536,13 @@ function PrototypeArtifactTab({
           </div>
         )
       ) : (
-        <div className={`art-main${rail.narrow ? ' art-main--narrow' : ''}`} ref={rail.ref}>
-          {rail.open && rail.narrow ? (
+        <div
+          className={`art-main${rail.narrow ? ' art-main--narrow' : ''}`}
+          ref={rail.ref}
+          data-drawer={rail.narrow && drawer.mounted ? drawer.state : undefined}
+          data-rail-toggled={rail.toggled || undefined}
+        >
+          {rail.narrow && drawer.mounted ? (
             <div
               className="art-rail__backdrop"
               data-testid="art-rail-backdrop"
@@ -541,7 +550,7 @@ function PrototypeArtifactTab({
               onClick={() => rail.setOpen(false)}
             />
           ) : null}
-          {rail.open ? (
+          {rail.open || (rail.narrow && drawer.mounted) ? (
             <PageRail
               artifactId={a.id}
               groupId={a.groupId}
@@ -557,7 +566,7 @@ function PrototypeArtifactTab({
               onPicked={() => rail.narrow && rail.setOpen(false)}
             />
           ) : null}
-          <div className="art-stage">
+          <div className="art-stage" data-first-version={firstIn || undefined}>
             {!head && (a.running || a.queued) ? (
               <Generating />
             ) : previewError ? (
@@ -691,6 +700,25 @@ function TitleField({ title, onDone }: { title: string; onDone: (title: string |
     />
   )
 }
+
+/** On for a moment once a work opened empty gets its first version (rail.css eases its screens in). */
+function useFirstArrival(head: string | null) {
+  const had = useRef(!!head)
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    if (!head || had.current) return
+    had.current = true
+    setOn(true)
+  }, [head])
+  useEffect(() => {
+    if (!on) return
+    const id = setTimeout(() => setOn(false), FIRST_IN_MS)
+    return () => clearTimeout(id)
+  }, [on])
+  return on
+}
+/** Longer than the screens' --spring-smooth entrance. */
+const FIRST_IN_MS = 600
 
 /** Before the first version: screen-shaped placeholders on the canvas. */
 function Generating() {

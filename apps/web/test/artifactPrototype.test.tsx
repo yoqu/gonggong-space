@@ -294,7 +294,7 @@ describe('prototype editor', () => {
     fromScreen({ type: 'miss' })
     expect(hots().children).toHaveLength(2)
     expect(hots().classList.contains('proto-hots--flash')).toBe(true)
-    act(() => vi.advanceTimersByTime(800))
+    act(() => vi.advanceTimersByTime(1400))
     expect(hots().children).toHaveLength(0)
     vi.useRealTimers()
     fireEvent.click(toggle)

@@ -289,6 +289,7 @@
 .proto-device-box {
   position: relative;
   flex: none;
+  transform-origin: 0 0;
 }
 .proto-device {
   position: absolute;
@@ -601,20 +602,9 @@
 }
 
 /*
- * Moving between modes, devices and panels: the device glides to its new place and size (only then: resizing the
- * window follows at once), what a mode adds fades in, the screen list's current marker follows the screen.
+ * Moving between modes, devices and panels: the device glides to its new place and size on a transform (FLIP in
+ * PrototypeEditor, scaled from its top-left corner), what a mode adds fades in, the list's marker follows the screen.
  */
-.proto-stage--glide {
-  transition: padding var(--spring-smooth);
-}
-.proto-stage--glide .proto-device-box {
-  transition:
-    width var(--spring-smooth),
-    height var(--spring-smooth);
-}
-.proto-stage--glide .proto-device {
-  transition: transform var(--spring-smooth);
-}
 .proto-bar__nav,
 .proto-screens__foot,
 .proto-pencil,
@@ -649,7 +639,7 @@
 /* Preview: a click beside the hotspots shows where they are, for a moment (FLASH_MS in PrototypeEditor.tsx). */
 .proto-hots--flash .proto-hot {
   background: color-mix(in srgb, var(--system-blue) 10%, transparent);
-  animation: proto-hots-flash 800ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: proto-hots-flash var(--flash) both;
 }
 /* Swells into place and fades, softly. */
 @keyframes proto-hots-flash {

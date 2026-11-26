@@ -65,7 +65,12 @@ function ChatList({ group, rootId }: { group: GroupDto; rootId: string }) {
   return (
     <ActiveRunsContext.Provider value={liveRuns}>
       <ThreadScope.Provider value={rootId}>
-        <div className="art-rail__scroll art-chat" ref={scroll} onScroll={onScroll} data-testid="art-chat">
+        <div
+          className="art-rail__scroll art-chat ui-panel-swap"
+          ref={scroll}
+          onScroll={onScroll}
+          data-testid="art-chat"
+        >
           {tl.failed ? (
             <p className="art-log__empty">
               {t('对话加载失败')}{' '}

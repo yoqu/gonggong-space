@@ -50,6 +50,7 @@
   inset: 0;
   z-index: 3;
   background: rgba(0, 0, 0, 0.24);
+  animation: var(--fade-in) ui-fade-in;
 }
 .art-main--narrow .art-rail {
   position: absolute;
@@ -57,6 +58,25 @@
   z-index: 4;
   width: min(85%, 300px);
   box-shadow: var(--shadow-glass);
+  --enter-x: -100%;
+  --exit-x: -24px;
+  animation: var(--spring-smooth) ui-enter;
+}
+/* The drawer slides in from the left over a fading backdrop and slips back out (usePresence in ArtifactTab). */
+.art-main[data-drawer="closed"] .art-rail,
+.art-main[data-drawer="closed"] .art-rail__backdrop {
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
+}
+/* Shown again by hand on a wide tab: the rail eases in from its edge (opening a tab, it is just there). */
+.art-main[data-rail-toggled]:not(.art-main--narrow) .art-rail {
+  --enter-x: -8px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.art-bar__rail {
+  animation: var(--fade-in) ui-fade-in;
 }
 .art-rail__pages,
 .art-rail__log {
@@ -109,6 +129,9 @@
   font-weight: 600;
   color: var(--label-secondary);
   cursor: pointer;
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 .art-rail__tab:hover {
   color: var(--label);
@@ -140,6 +163,10 @@
   background: none;
   color: var(--label-secondary);
   cursor: pointer;
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast),
+    opacity var(--fade-fast);
 }
 .art-rail__icon:hover,
 .art-rail__more:hover {
@@ -170,6 +197,7 @@
   border-radius: var(--radius-small);
   font-size: var(--text-callout-size);
   color: var(--label);
+  transition: background-color var(--fade-fast);
 }
 .art-rail__row:hover {
   background: var(--quote-fill);
@@ -206,6 +234,13 @@
 }
 .art-rail__twisty:hover {
   color: var(--label);
+}
+/* One chevron turns to show a folder's pages instead of swapping glyphs. */
+.art-rail__twisty > svg {
+  transition: rotate var(--spring-interactive);
+}
+.art-rail__twisty[aria-expanded="true"] > svg {
+  rotate: 90deg;
 }
 .art-rail__glyph {
   flex: none;
@@ -275,6 +310,7 @@ button.art-rail__name {
   margin: var(--space-8) var(--space-12);
   font-size: var(--text-caption-size);
   color: var(--label-secondary);
+  animation: var(--fade-in) ui-fade-in;
 }
 .art-log__item {
   padding: var(--space-8) var(--space-4);
@@ -366,6 +402,17 @@ button.art-rail__name {
   color: var(--label-secondary);
   text-align: center;
   pointer-events: none;
+  animation: var(--fade-in) ui-fade-in;
+}
+/* A work's first version: the hint fades out as its screens ease onto the empty canvas (ArtifactTab). */
+.art-page-empty[data-state="closed"] {
+  animation: var(--fade-out) ui-fade-out forwards;
+}
+.art-stage[data-first-version] .art-node {
+  --enter-scale: 0.98;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
 }
 
 .art-rail__row--above {
@@ -393,6 +440,7 @@ button.art-rail__name {
   color: var(--label);
   font-size: var(--text-footnote-size);
   white-space: nowrap;
+  animation: var(--fade-in) ui-fade-in;
 }
 .art-page-pill__all {
   padding: 0;

@@ -586,13 +586,94 @@ describe('标注 round 3', () => {
     expect(screen.getByTestId('proto-leave').contains(screen.getByTestId('proto-marks-leaving'))).toBe(true)
   })
 
-  it('lets the device glide only while a panel or the mode changes', async () => {
-    mockApi(routes())
-    await openPreview()
-    const stage = screen.getByTestId('proto-stage')
-    expect(stage.className).not.toContain('proto-stage--glide')
-    press('n')
-    expect(stage.className).toContain('proto-stage--glide')
+  it('lets the device glide (on a transform) only while a panel or the mode changes', async () => {
+    const proto = HTMLElement.prototype as unknown as Record<string, unknown>
+    const animate = vi.fn()
+    proto.animate = animate
+    proto.getAnimations = () => []
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(400)
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(800)
+    vi.stubGlobal(
+      'DOMMatrixReadOnly',
+      class {
+        a = 1
+        d = 1
+        e = 0
+        f = 0
+      },
+    )
+    document.documentElement.style.setProperty('--spring-smooth', '379ms linear(0, 1)')
+    try {
+      mockApi(routes())
+      await openPreview()
+      expect(animate).not.toHaveBeenCalled()
+      press('n')
+      expect(animate).toHaveBeenCalledWith(
+        [{ transform: expect.stringMatching(/^translate\(.+\) scale\(.+\)$/) }, { transform: 'none' }],
+        { duration: 379, easing: 'linear(0, 1)' },
+      )
+    } finally {
+      delete proto.animate
+      delete proto.getAnimations
+      width.mockRestore()
+      height.mockRestore()
+      vi.unstubAllGlobals()
+      document.documentElement.style.removeProperty('--spring-smooth')
+    }
+  })
+
+  it('stops a glide under way when the window resizes, so the device follows the window at once', async () => {
+    const proto = HTMLElement.prototype as unknown as Record<string, unknown>
+    const cancel = vi.fn()
+    proto.animate = vi.fn()
+    proto.getAnimations = () => [{ cancel }]
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(400)
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(800)
+    vi.stubGlobal(
+      'DOMMatrixReadOnly',
+      class {
+        a = 1
+        d = 1
+        e = 0
+        f = 0
+      },
+    )
+    const observers: ((entries: unknown[]) => void)[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: (entries: unknown[]) => void) {
+          observers.push(cb)
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    )
+    const now = vi.spyOn(performance, 'now')
+    document.documentElement.style.setProperty('--spring-smooth', '379ms linear(0, 1)')
+    try {
+      mockApi(routes())
+      await openPreview()
+      now.mockReturnValue(10_000)
+      press('n')
+      expect(proto.animate).toHaveBeenCalled()
+      cancel.mockClear()
+      // The stage resizing with the panel change itself keeps the glide.
+      for (const cb of observers) act(() => cb([]))
+      expect(cancel).not.toHaveBeenCalled()
+      now.mockReturnValue(10_200)
+      for (const cb of observers) act(() => cb([]))
+      expect(cancel).toHaveBeenCalled()
+    } finally {
+      delete proto.animate
+      delete proto.getAnimations
+      width.mockRestore()
+      height.mockRestore()
+      now.mockRestore()
+      vi.unstubAllGlobals()
+      document.documentElement.style.removeProperty('--spring-smooth')
+    }
   })
 })
 

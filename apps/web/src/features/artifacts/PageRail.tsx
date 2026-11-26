@@ -16,7 +16,7 @@ import {
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
-import { ConfirmActionDialog, Icon, MenuButton, type MenuItem, Presence } from '../../ui'
+import { ConfirmActionDialog, Icon, MenuButton, type MenuItem, Presence, usePresenceOpen } from '../../ui'
 import { CanvasChat } from './CanvasChat'
 import { CommandLog } from './CommandLog'
 import { setArtifactPage, setCanvasScreen, useArtifactPage, useCanvasScreen } from './page'
@@ -79,6 +79,8 @@ export function useRail() {
   const [narrow, setNarrow] = useState(false)
   const [wide, setWide] = useState(() => localStorage.getItem(OPEN_KEY) !== '0')
   const [drawer, setDrawer] = useState(false)
+  /** Opened or closed by hand: only then does the rail ease in (not when the tab opens with it). */
+  const [toggled, setToggled] = useState(false)
   const observer = useRef<ResizeObserver | null>(null)
   const ref = useCallback((el: HTMLDivElement | null) => {
     observer.current?.disconnect()
@@ -89,11 +91,12 @@ export function useRail() {
   }, [])
   const open = narrow ? drawer : wide
   const setOpen = (v: boolean) => {
+    setToggled(true)
     if (narrow) return setDrawer(v)
     setWide(v)
     localStorage.setItem(OPEN_KEY, v ? '1' : '0')
   }
-  return { ref, narrow, open, setOpen }
+  return { ref, narrow, open, setOpen, toggled }
 }
 
 /** Follows a pointer drag from `e` until release, then calls `done`. */
@@ -265,7 +268,7 @@ export function PageRail({
             {log === 'chat' ? (
               <CanvasChat artifactId={artifactId} groupId={groupId} />
             ) : (
-              <div className="art-rail__scroll">
+              <div className="art-rail__scroll ui-panel-swap">
                 <CommandLog artifactId={artifactId} groupId={groupId} refreshKey={refreshKey} />
               </div>
             )}
@@ -548,7 +551,7 @@ function Pages({
               })
             }
           >
-            <Icon name={open ? 'chevron-down' : 'chevron-right'} size={11} />
+            <Icon name="chevron-right" size={11} />
           </button>
         ) : (
           <span className="art-rail__twisty" aria-hidden="true" />
@@ -753,13 +756,16 @@ function Pages({
 }
 
 /** A folder (文件夹) with no screens yet, or (`first`) a work before its first version, over the canvas. */
-export const PageEmpty = ({ first }: { first?: boolean }) => (
-  <p className="art-page-empty" data-testid="art-page-empty">
-    {first
-      ? t('在下方对话框里说要做什么，AI 会做出第一版')
-      : t('这个文件夹还没有页面：让 AI 生成，或从左侧把页面拖进来')}
-  </p>
-)
+export function PageEmpty({ first }: { first?: boolean }) {
+  const shown = usePresenceOpen()
+  return (
+    <p className="art-page-empty" data-testid="art-page-empty" data-state={shown ? 'open' : 'closed'}>
+      {first
+        ? t('在下方对话框里说要做什么，AI 会做出第一版')
+        : t('这个文件夹还没有页面：让 AI 生成，或从左侧把页面拖进来')}
+    </p>
+  )
+}
 
 /** Why the canvas's editing tools are off, if they are. */
 export const noEditReasonOf = (versionKey: string, readOnly: boolean, manifest: unknown) =>
@@ -785,8 +791,9 @@ export function PagePill({
   empty?: boolean
   first?: boolean
 }) {
-  if (first) return <PageEmpty first />
-  if (!page) return null
+  // The first version's hint fades out as the screens come in.
+  const firstHint = <Presence>{first ? <PageEmpty first /> : null}</Presence>
+  if (first || !page) return firstHint
   const folder = manifest?.groups?.find((g) => g.id === page)
   const title = folder?.title ?? manifest?.screens.find((s) => s.id === page)?.title ?? page
   return (
@@ -799,6 +806,7 @@ export function PagePill({
         </button>
       </div>
       {empty ? <PageEmpty /> : null}
+      {firstHint}
     </>
   )
 }
