@@ -10,7 +10,7 @@
 //                (default 2500) apart, report again and reply
 //   "mock:plan [ms]" report a plan of three entries three times, each followed by <ms> (default 2500): made, advanced, all done
 //   "mock:sh <command>" run the rest of the prompt (from its last "mock:sh") with sh in the session cwd (like Codex
-//                editing via shell)
+//                editing via shell), asking permission first in a mode that asks before changing files
 //   "mock:delay <ms>" wait that long first (the last one in the prompt), then behave as the rest of the prompt says
 //   "mock:say <text>" reply with the rest of the prompt (from its last "mock:say") verbatim
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
@@ -134,6 +134,8 @@ const MODES = (
           ? ['default', 'accept-edits', 'plan']
           : ['default', 'acceptEdits', ...(process.env.MOCK_AUTO ? ['auto'] : []), 'bypassPermissions']
 ).map((id) => ({ id, name: id }))
+// The read-only tiers' modes (Claude, Codex, the plugin agents'): they ask before changing files.
+const ASKING_MODES = ['default', 'read-only', 'approve']
 const MODELS = [
   { value: 'default', name: 'Default' },
   { value: 'haiku', name: 'Haiku', description: 'Fastest' },
@@ -396,7 +398,31 @@ async function prompt({ sessionId, prompt: blocks }, client) {
   }
   const sh = text.lastIndexOf('mock:sh ')
   if (sh >= 0) {
-    await say(execSync(text.slice(sh + 8), { cwd: s.cwd, encoding: 'utf8' }))
+    const command = text.slice(sh + 8)
+    // Like real agents, the modes that ask before changing files ask before running it.
+    if (ASKING_MODES.includes(s.mode)) {
+      const toolCall = {
+        toolCallId: 'sh-1',
+        title: command,
+        kind: 'execute',
+        status: 'pending',
+        rawInput: { command },
+      }
+      await update({ sessionUpdate: 'tool_call', ...toolCall })
+      const res = await client.request(acp.methods.client.session.requestPermission, {
+        sessionId,
+        toolCall,
+        options: [
+          { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+          { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+        ],
+      })
+      if (res.outcome.outcome !== 'selected' || res.outcome.optionId === 'reject') {
+        await say('denied')
+        return { stopReason: 'end_turn' }
+      }
+    }
+    await say(execSync(command, { cwd: s.cwd, encoding: 'utf8' }))
     return { stopReason: 'end_turn' }
   }
   const untitled = text.indexOf('mock:untitled ')

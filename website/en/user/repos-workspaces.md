@@ -156,7 +156,7 @@ These directories can't be chosen:
 - System directories: 「不能使用系统目录」 ("System directories can't be used").
 
 ::: tip Two Bots in the same directory
-When two Bots' workspaces point to the same real directory and both need to run at once, a question card appears in the group asking you to choose 「并行开始」 (Start in parallel) or 「排队等待」 (Queue). Running in parallel is fine when their changes don't overlap; if they edit the same file, they'll overwrite each other.
+When two Bots' workspaces point to the same real directory and both run at once, the later turn goes ahead without asking while it only reads: questions, investigations and reviews just run. Only when it is about to change files while the other turn may be changing them too does a question card appear, saying what this turn is about to change and asking you to choose 「并行修改」 (Change in parallel) or 「等它结束再改」 (Wait until it ends). If you choose to wait (or nobody answers), it pauses at that step and continues by itself once the other turn ends. Running in parallel is fine when their changes don't overlap; if they edit the same file, they'll overwrite each other. A few Agents that can't switch permission modes still ask 「并行开始」 (Start in parallel) or 「排队等待」 (Queue) before starting.
 :::
 
 ## Bot paused

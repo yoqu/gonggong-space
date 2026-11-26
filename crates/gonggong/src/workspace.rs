@@ -4,9 +4,9 @@ use crate::config::{Config, user_home};
 use crate::git::{self, git};
 use crate::layout;
 use crate::protocol::{
-    Answer, DaemonToServer, DirEntry, DirGit, DirPlace, DirPlaceKind, DirResult, GitStatus, Question, QuestionType,
-    RepoAccessReason, RepoFind, RepoFound, RepoSpec, RunStart, ServerToDaemon, WorkspaceCd, WorkspaceEnsure,
-    WorkspaceKind, WorkspaceNames, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
+    DaemonToServer, DirEntry, DirGit, DirPlace, DirPlaceKind, DirResult, GitStatus, RepoAccessReason, RepoFind,
+    RepoFound, RepoSpec, RunStart, ServerToDaemon, Tier, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceNames,
+    WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
 };
 use crate::repo::{self, normalize_remote};
 use crate::service::Outbox;
@@ -96,6 +96,10 @@ pub fn workspace_dir(home: &Path, group: &str, bot: &str, spec: &WorkspaceSpec) 
     }
 }
 
+mod gate;
+use gate::{Holder, dir_question};
+pub(crate) use gate::{WriteGate, parallel};
+
 /// Serializes clones and run cwd resolution of one (group, bot).
 type Locks = Mutex<HashMap<(String, String), Arc<tokio::sync::Mutex<()>>>>;
 type Requests = Mutex<HashMap<(String, String), watch::Sender<bool>>>;
@@ -107,35 +111,6 @@ pub struct Workspaces {
     /// Turns in each real directory, across groups and bots sharing it (plan W10): one at a time unless the group
     /// confirmed running beside the others.
     dirs: Mutex<HashMap<PathBuf, watch::Sender<Vec<Holder>>>>,
-}
-
-#[derive(Clone)]
-struct Holder {
-    run_id: String,
-    label: String,
-    /// A manual git action: turns wait for it without offering to run beside it.
-    exclusive: bool,
-}
-
-/// Whether the answer to the shared-directory confirmation chose to run in parallel.
-pub(crate) fn parallel(answers: &[Answer]) -> bool {
-    answers.first().is_some_and(|a| a.choices == [0])
-}
-
-fn dir_question(dir: &Path, others: &[Holder]) -> Question {
-    let names: Vec<_> = others.iter().map(|h| h.label.as_str()).collect();
-    Question {
-        id: "q1".into(),
-        kind: QuestionType::Single,
-        title: t!(
-            "工作区 {dir} 正在被 {holders} 使用。改动范围不重叠时可以并行；改到同一文件会互相覆盖。现在就开始吗？",
-            dir = dir.display(),
-            holders = names.join(t!("、"))
-        ),
-        options: vec![t!("并行开始").into(), t!("排队等待").into()],
-        recommended: Some(1),
-        option_meta: vec![],
-    }
 }
 
 /// The shared-directory confirmation of a waiting turn.
@@ -150,6 +125,15 @@ enum Ask {
 pub(crate) struct DirGuard {
     dir: watch::Sender<Vec<Holder>>,
     run_id: String,
+    key: PathBuf,
+    /// The turn shares the directory and asks before its first change (`WriteGate`).
+    pub(crate) guarded: bool,
+}
+
+impl DirGuard {
+    pub(crate) fn gate(&self) -> WriteGate {
+        WriteGate::new(self.dir.clone(), self.run_id.clone(), self.key.clone())
+    }
 }
 
 impl Drop for DirGuard {
@@ -186,16 +170,22 @@ impl Workspaces {
         Workspaces { home, locks: Mutex::default(), requests: Mutex::default(), dirs: Mutex::default() }
     }
 
-    /// Holds the turn's directory for its duration. A busy directory asks the group first: start beside the other
-    /// turns now, or wait until it is free (also when nobody answers). None: the turn was cancelled while waiting.
-    pub(crate) async fn occupy(&self, req: &TurnReq, shared: &Shared) -> Option<DirGuard> {
+    /// Holds the turn's directory for its duration. A turn that asks before changing files (`guardable`: its agent
+    /// can be switched to a mode that does; read-only bots always do) joins a busy directory guarded, and is asked
+    /// only before its first change (`WriteGate`). Any other turn finding one that may write asks the group first:
+    /// start beside it now, or wait until it is free (also when nobody answers). Manual git actions are waited for.
+    /// None: the turn was cancelled while waiting.
+    pub(crate) async fn occupy(&self, req: &TurnReq, shared: &Shared, guardable: bool) -> Option<DirGuard> {
         let key = req.cwd.canonicalize().unwrap_or_else(|_| req.cwd.clone());
         let dir = self.dirs.lock().unwrap().entry(key.clone()).or_insert_with(|| watch::Sender::new(vec![])).clone();
-        let me = Holder {
+        let mut me = Holder {
             run_id: req.start.run_id.clone(),
             label: t!("{bot}（群「{group}」）", bot = req.start.bot.name, group = req.start.group_name),
             exclusive: false,
+            writer: false,
         };
+        let asks = req.start.bot.tier == Tier::ReadOnly;
+        let mut guarded = false;
         let mut changed = dir.subscribe();
         let (mut ask, mut go) = (Ask::Unasked, false);
         loop {
@@ -207,10 +197,13 @@ impl Workspaces {
             }
             let mut others = vec![];
             let taken = dir.send_if_modified(|h| {
-                if !h.is_empty() && (!go || h.iter().any(|x| x.exclusive)) {
-                    others = h.clone();
+                guarded = asks || (guardable && !h.is_empty());
+                let blocked = if guarded { h.iter().any(|x| x.exclusive) } else { h.iter().any(|x| x.writer) };
+                if blocked && (!go || h.iter().any(|x| x.exclusive)) {
+                    others = h.iter().filter(|x| x.writer).cloned().collect();
                     return false;
                 }
+                me.writer = !guarded;
                 h.push(me.clone());
                 true
             });
@@ -219,7 +212,7 @@ impl Workspaces {
                     shared.withdraw(request_id, t!("工作区已空闲，开始运行"));
                 }
                 touch_used(&self.home, &req.cwd);
-                return Some(DirGuard { dir, run_id: me.run_id });
+                return Some(DirGuard { dir, run_id: me.run_id, key, guarded });
             }
             if let Ask::Unasked = ask
                 && !others.iter().any(|h| h.exclusive)
@@ -249,8 +242,11 @@ impl Workspaces {
     /// guard to drop.
     pub(crate) fn hold(&self, dir: &Path, id: &str) -> Option<DirGuard> {
         let key = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
-        let dir = self.dirs.lock().unwrap().entry(key).or_insert_with(|| watch::Sender::new(vec![])).clone();
-        let me = Holder { run_id: format!("git:{id}"), label: t!("手动 Git 操作").into(), exclusive: true };
+        let dir = self.dirs.lock().unwrap().entry(key.clone()).or_insert_with(|| watch::Sender::new(vec![])).clone();
+        let me =
+            Holder {
+                run_id: format!("git:{id}"), label: t!("手动 Git 操作").into(), exclusive: true, writer: true
+            };
         let run_id = me.run_id.clone();
         let taken = dir.send_if_modified(|h| {
             if !h.is_empty() {
@@ -259,7 +255,7 @@ impl Workspaces {
             h.push(me);
             true
         });
-        taken.then_some(DirGuard { dir, run_id })
+        taken.then_some(DirGuard { dir, run_id, key, guarded: false })
     }
 
     fn lock(&self, group: &str, bot: &str) -> Arc<tokio::sync::Mutex<()>> {

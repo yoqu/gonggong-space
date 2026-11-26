@@ -1249,3 +1249,37 @@ fn help_runs_the_read_only_queries_of_skill_scripts() {
     let c = "bash .claude/skills/sls-query/sls.sh search --env prod";
     assert_eq!(tampered.decide(Tier::Workspace, Some(c), "t", ws.path(), &[]), Decision::Ask);
 }
+
+#[test]
+fn commands_reading_anywhere_run_beside_a_writer() {
+    let cwd = Path::new("/repo");
+    for c in [
+        "git status",
+        "cat /tmp/x.log | grep err",
+        "cd src && ls",
+        "rg foo src",
+        "git log -3 && git diff",
+        "git reflog",
+        "git reflog show HEAD",
+        "git reflog -n 5 origin/main",
+        "git reflog main",
+    ] {
+        assert!(trust::reads_only(c, cwd), "{c}");
+    }
+    for c in [
+        "touch a",
+        "echo x > f",
+        "cargo test",
+        "rm -rf target",
+        "git commit -m x",
+        "cat ~/.ssh/id_rsa",
+        "sed -i s/a/b/ f",
+        "ffprobe -show_format in.mp4 -o out.json",
+        "ffprobe -report in.mp4",
+        "git reflog write HEAD old new msg",
+        "git reflog drop main",
+        "git reflog expire --all",
+    ] {
+        assert!(!trust::reads_only(c, cwd), "{c}");
+    }
+}

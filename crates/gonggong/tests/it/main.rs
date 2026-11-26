@@ -27,6 +27,7 @@ mod native_agents;
 mod net;
 mod plugins;
 mod providers_run;
+mod real_gate;
 mod secrets;
 mod service;
 mod sites;

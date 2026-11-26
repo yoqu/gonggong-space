@@ -59,7 +59,7 @@ fn follow_up(run_id: &str, text: &str, prev: &RunDone) -> RunStart {
     RunStart { resume_session_id: prev.session_id.clone(), ..start(run_id, text) }
 }
 
-fn start(run_id: &str, text: &str) -> RunStart {
+pub(super) fn start(run_id: &str, text: &str) -> RunStart {
     RunStart {
         run_id: run_id.into(),
         group_id: "g1".into(),
@@ -1579,31 +1579,96 @@ fn choose(r: &Rig, run_id: &str, request_id: &str, choice: u32) {
     answer(r, run_id, request_id, Some(vec![Answer { question_id: "q1".into(), choices: vec![choice], text: None }]));
 }
 
+fn full(mut s: RunStart) -> RunStart {
+    s.bot.tier = Tier::Full;
+    s
+}
+
 #[tokio::test]
-async fn a_busy_directory_runs_in_parallel_only_after_confirmation() {
+async fn a_turn_joining_a_busy_directory_reads_without_asking_in_the_mode_that_asks_first() {
     let mut r = rig(Duration::from_secs(60));
     let dir = tempfile::tempdir().unwrap();
     r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
     until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
 
-    r.run(in_dir("r2", "g2", "mock:echo", dir.path()));
+    // Even a full-access bot runs in the mode that asks: its reads go on without a word.
+    r.run(full(in_dir("r2", "g2", "mock:echo", dir.path())));
+    let (seen, done) = done_of(&mut r, "r2").await;
+    assert_eq!(done.outcome, RunOutcome::Completed);
+    assert_eq!(echo(&done)["mode"], "default");
+    assert!(!seen.iter().any(|m| matches!(m, DaemonToServer::QuestionAsk { .. })));
+
+    r.run(in_dir("r3", "g3", "mock:exec ls", dir.path()));
+    let (seen, done) = done_of(&mut r, "r3").await;
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "ran"));
+    assert!(!seen.iter().any(|m| matches!(m, DaemonToServer::QuestionAsk { .. })));
+
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
+}
+
+#[tokio::test]
+async fn a_turn_that_only_read_beside_a_writer_claims_none_of_its_changes() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    git(dir.path(), &["init", "-q"]);
+    git(dir.path(), &["commit", "-q", "--allow-empty", "-m", "init"]);
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+
+    r.run(in_dir("r2", "g2", "mock:delay 3000 mock:exec ls", dir.path()));
+    until_of(&mut r, "r2", |m| matches!(m, DaemonToServer::RunEvent { .. })).await;
+    // The writer's change while the reader runs: not in the reader's live changes either.
+    std::fs::write(dir.path().join("a.txt"), "a").unwrap();
+    let workspace = in_dir("r2", "g2", "", dir.path()).workspace;
+    let scope = DiffScope::Turn;
+    let request_id = "live".to_string();
+    let (group_id, bot_id, run_id) = ("g2".into(), "b1".into(), Some("r2".into()));
+    r.send(ServerToDaemon::WorkspaceDiff(WorkspaceDiff { request_id, group_id, bot_id, workspace, scope, run_id }));
+    let patch = loop {
+        if let DaemonToServer::WorkspaceDiffResult { patch, error, .. } = r.next().await {
+            assert_eq!(error, None);
+            break patch;
+        }
+    };
+    assert_eq!(patch, None);
+    let done = done_of(&mut r, "r2").await.1;
+    assert_eq!((done.outcome, done.files_changed, done.patch), (RunOutcome::Completed, 0, None));
+
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
+}
+
+#[tokio::test]
+async fn a_change_beside_a_writer_waits_for_it_unless_confirmed() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
     let (request_id, q) = dir_question(&mut r, "r2").await;
     assert!(request_id.starts_with("r2/"), "{request_id}");
     assert_eq!(
         (q.kind, q.options.as_slice(), q.recommended),
-        (QuestionType::Single, &["并行开始".to_string(), "排队等待".to_string()][..], Some(1))
+        (QuestionType::Single, &["并行修改".to_string(), "等它结束再改".to_string()][..], Some(1))
     );
-    assert!(q.title.contains("小王的 Claude（群「g1」）"), "{}", q.title);
+    assert!(
+        q.title.contains("小王的 Claude（群「g1」）") && q.title.contains("本轮要运行可能改动文件的命令"),
+        "{}",
+        q.title
+    );
+    assert!(!q.title.contains("touch"), "the command goes to the owner only: {}", q.title);
     choose(&r, "r2", &request_id, 0);
     let (seen, done) = done_of(&mut r, "r2").await;
-    assert_eq!(done.outcome, RunOutcome::Completed);
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "ran"));
     assert!(
         seen.iter()
             .any(|m| matches!(m, DaemonToServer::RunEvent { event, .. } if *event == running("王磊 确认并行运行")))
     );
 
-    // Choosing to queue waits for the directory to be free.
-    r.run(in_dir("r3", "g3", "mock:echo", dir.path()));
+    // Waiting holds the change until the writer ends.
+    r.run(full(in_dir("r3", "g3", "mock:exec touch b.txt", dir.path())));
     let (request_id, _) = dir_question(&mut r, "r3").await;
     choose(&r, "r3", &request_id, 1);
     until_of(
@@ -1616,10 +1681,76 @@ async fn a_busy_directory_runs_in_parallel_only_after_confirmation() {
     let mut order = vec![];
     while order.len() < 2 {
         if let DaemonToServer::RunDone(d) = r.next().await {
+            order.push((d.run_id, d.outcome, d.reply.ends_with("ran")));
+        }
+    }
+    assert_eq!(order, [("r1".into(), RunOutcome::Interrupted, false), ("r3".into(), RunOutcome::Completed, true)]);
+}
+
+#[tokio::test]
+async fn changes_made_while_waiting_to_write_are_not_the_turns_own() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    git(dir.path(), &["init", "-q"]);
+    git(dir.path(), &["commit", "-q", "--allow-empty", "-m", "init"]);
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
+    let (request_id, _) = dir_question(&mut r, "r2").await;
+    choose(&r, "r2", &request_id, 1);
+    // The writer's change while r2 waits.
+    std::fs::write(dir.path().join("b.txt"), "b").unwrap();
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let done = done_of(&mut r, "r2").await.1;
+    assert_eq!((done.outcome, done.files_changed, done.patch), (RunOutcome::Completed, 0, None));
+}
+
+#[tokio::test]
+async fn a_turn_that_cannot_switch_to_asking_first_waits_for_the_writer_before_it_starts() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    // The mock offers no `read-only` mode for Codex.
+    let mut s = in_dir("r2", "g2", "mock:echo", dir.path());
+    s.bot.agent_kind = AgentKind::Codex;
+    r.run(s);
+    let (request_id, q) = dir_question(&mut r, "r2").await;
+    assert_eq!(q.options, ["并行修改", "等它结束再改"]);
+    choose(&r, "r2", &request_id, 1);
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let mut order = vec![];
+    while order.len() < 2 {
+        if let DaemonToServer::RunDone(d) = r.next().await {
             order.push((d.run_id, d.outcome));
         }
     }
-    assert_eq!(order, [("r1".into(), RunOutcome::Interrupted), ("r3".into(), RunOutcome::Completed)]);
+    assert_eq!(order, [("r1".into(), RunOutcome::Interrupted), ("r2".into(), RunOutcome::Completed)]);
+}
+
+#[tokio::test]
+async fn edits_the_workspace_tier_makes_unasked_need_no_owner_once_confirmed() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    r.run(in_dir("r2", "g2", "写个文件", dir.path()));
+    let (request_id, q) = dir_question(&mut r, "r2").await;
+    assert!(q.title.contains("本轮要修改 hello.txt"), "{}", q.title);
+    choose(&r, "r2", &request_id, 0);
+    let mut seen = vec![];
+    let done = loop {
+        match r.next().await {
+            DaemonToServer::RunDone(d) if d.run_id == "r2" => break d,
+            msg => seen.push(msg),
+        }
+    };
+    assert!(done.reply.ends_with("已写入 hello.txt。"), "{}", done.reply);
+    assert!(
+        !seen.iter().any(|m| matches!(m, DaemonToServer::ApprovalRequest(_) | DaemonToServer::ApprovalAiApproved(_)))
+    );
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
 }
 
 #[tokio::test]
@@ -1628,8 +1759,8 @@ async fn a_thread_turn_runs_beside_the_main_session_of_its_group() {
     r.run(start("r1", "mock:slow"));
     until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
 
-    // Not queued behind r1 in one conversation: it reaches the shared directory and asks to start beside it.
-    r.run(RunStart { thread_root_id: Some("t1".into()), ..start("r2", "mock:echo") });
+    // Not queued behind r1 in one conversation: it shares the directory and asks only before changing it.
+    r.run(RunStart { thread_root_id: Some("t1".into()), ..full(start("r2", "mock:exec touch a.txt")) });
     let (request_id, _) = dir_question(&mut r, "r2").await;
     choose(&r, "r2", &request_id, 0);
     assert_eq!(done_of(&mut r, "r2").await.1.outcome, RunOutcome::Completed);
@@ -1639,28 +1770,46 @@ async fn a_thread_turn_runs_beside_the_main_session_of_its_group() {
 }
 
 #[tokio::test]
-async fn the_confirmation_is_withdrawn_once_the_directory_frees_up() {
+async fn the_confirmation_is_withdrawn_once_the_writer_ends() {
     let mut r = rig(Duration::from_secs(60));
     let dir = tempfile::tempdir().unwrap();
     r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
     until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
-    r.run(in_dir("r2", "g2", "mock:echo", dir.path()));
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
     let (request_id, _) = dir_question(&mut r, "r2").await;
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     let seen = until_of(&mut r, "r2", |m| matches!(m, DaemonToServer::QuestionWithdraw { .. })).await;
     assert!(matches!(seen.last(), Some(DaemonToServer::QuestionWithdraw { request_id: id, .. }) if *id == request_id));
     // A late answer to the withdrawn card changes nothing.
     choose(&r, "r2", &request_id, 0);
-    assert_eq!(done_of(&mut r, "r2").await.1.outcome, RunOutcome::Completed);
+    let done = done_of(&mut r, "r2").await.1;
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "ran"));
 }
 
 #[tokio::test]
-async fn cancelling_a_turn_asking_about_a_busy_directory_interrupts_it_at_once() {
+async fn a_second_writer_after_a_confirmed_one_is_asked_too() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    // A read-only bot asks before changing files anyway: it joins guarded, and nobody writes yet.
+    let mut first = in_dir("r1", "g1", "mock:slow", dir.path());
+    first.bot.tier = Tier::ReadOnly;
+    r.run(first);
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
+    let (seen, done) = done_of(&mut r, "r2").await;
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "ran"));
+    assert!(!seen.iter().any(|m| matches!(m, DaemonToServer::QuestionAsk { .. })));
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
+}
+
+#[tokio::test]
+async fn cancelling_a_turn_asked_about_its_change_interrupts_it_at_once() {
     let mut r = rig(Duration::from_secs(60));
     let dir = tempfile::tempdir().unwrap();
     r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
     until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
-    r.run(in_dir("r2", "g2", "mock:echo", dir.path()));
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
     let (request_id, _) = dir_question(&mut r, "r2").await;
 
     r.send(ServerToDaemon::RunCancel { run_id: "r2".into() });
@@ -1677,18 +1826,17 @@ async fn cancelling_a_turn_asking_about_a_busy_directory_interrupts_it_at_once()
         seen.iter().any(|m| matches!(m, DaemonToServer::QuestionWithdraw { request_id: id, .. } if *id == request_id))
     );
 
-    // The holder keeps the directory and is only stopped by its own cancel.
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
 }
 
 #[tokio::test]
-async fn cancelling_a_queued_turn_interrupts_it_while_the_directory_is_busy() {
+async fn cancelling_a_turn_waiting_to_change_files_interrupts_it_while_the_writer_runs() {
     let mut r = rig(Duration::from_secs(60));
     let dir = tempfile::tempdir().unwrap();
     r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
     until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
-    r.run(in_dir("r2", "g2", "mock:echo", dir.path()));
+    r.run(full(in_dir("r2", "g2", "mock:exec touch a.txt", dir.path())));
     let (request_id, _) = dir_question(&mut r, "r2").await;
     choose(&r, "r2", &request_id, 1);
     until_of(

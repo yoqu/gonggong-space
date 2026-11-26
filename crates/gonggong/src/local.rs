@@ -156,11 +156,7 @@ impl Rules {
 
     /// 帮我审批 trusts file changes inside the workspace, but not git's own files (hooks and config run code).
     pub fn writes_within(&self, paths: &[PathBuf], cwd: &Path) -> bool {
-        let roots = self.roots(cwd);
-        self.ai_review
-            && !paths.is_empty()
-            && paths.iter().all(|path| within_root(path, cwd, &roots))
-            && paths.iter().all(|p| !p.components().any(|c| c.as_os_str() == ".git"))
+        self.ai_review && trust::edits_within(self, paths, cwd)
     }
 
     /// Paths a command names that lie outside the workspace.
@@ -1100,6 +1096,7 @@ fn read_only(line: &str, words: &[String]) -> bool {
         // A second operand is the file it writes.
         "xxd" => !args.iter().any(|w| w.starts_with("-r")) && args.iter().filter(|w| !w.starts_with('-')).count() <= 1,
         "base64" => !args.iter().any(|w| matches!(unquote(w), "-o" | "--output") || w.starts_with("--output=")),
+        "ffprobe" => !args.iter().any(|w| matches!(unquote(w), "-o" | "-report")),
         "top" => args.iter().any(|w| w.starts_with("-l") || w == "-b" || w == "-bn1"),
         "find" => !args.iter().any(|w| {
             matches!(
@@ -1337,8 +1334,7 @@ fn session_rule(rule: &str, words: &[String], roots: &[&Path]) -> bool {
         }
 }
 
-/// An interpreter running a script file inside the workspace: no code given inline (`-c`, `-e`, `-m`, …), no other
-/// options.
+/// An interpreter running a workspace script file: no code given inline (`-c`, `-e`, `-m`, …), no other options.
 fn runs_script(words: &[String], roots: &[&Path]) -> bool {
     let args: Vec<&str> = words[1..].iter().map(|a| unquote(a)).collect();
     let Some((script, _)) = lead(&args, &["-u", "-B", "--no-warnings", "--enable-source-maps"], &[]) else {
@@ -1761,7 +1757,7 @@ impl LocalStore {
 mod catalogs;
 pub use catalogs::*;
 mod shell;
-mod trust;
+pub(crate) mod trust;
 
 #[cfg(test)]
 mod tests;

@@ -23,7 +23,7 @@
 - 路径校验 `unusable`：绝对、存在、是目录，不是根、主目录或 `SYSTEM_DIRS`（`workspace.rs`）；目录浏览 `dir.list` 最多 500 项（`DIR_LIST_MAX`），`GET /api/machines/:id/dirs` 仅机器主人。
 - 换主工作区开新会话并在群里说明；改自带目录 `PUT …/extra-dirs`、附加仓库本机克隆 `PUT …/repos/:repoId` 也开新会话（`newSessionReason: 'config_changed'`）。
 - 附加仓库的本机克隆存 `repo_paths`，服务端经 `dir.list` 校验 remote，不走 `workspace.cd`；下发时 `splitExtras` 拆成 `extraRepos`（托管）+ `extraDirs`（本机克隆与自带目录）（`workspaces/state.ts`、`runs/scheduler.ts`）。
-- 同一目录并发：daemon 按真实路径占用，忙时发提问卡「并行开始 / 排队等待」（`workspace.rs`）。
+- 同一目录并发（写时确认，2026-11-26）：daemon 按真实路径占用。目录空的轮次是「写者」；后来的轮次切到只读档模式（Claude `default`、Codex `read-only`、插件 readonly 模式）不提问开跑，只读照常，第一次要改文件时目录里有写者才问「并行修改 / 等它结束再改」，拿到写权后切回本档模式并照常走审批（工作区档的工作区内编辑直接放行）。没有守护模式的 agent 有写者时开跑前问「并行开始 / 排队等待」；手动 Git 操作独占。只读的轮次不认领别人的改动。见 `workspace/gate.rs`、`session/gate.rs`；真机用例 `tests/it/real_gate.rs`（Codex 运行中切模式本 prompt 不生效）。
 - 「Bot 与工作区」界面每行显示分支、↓落后 ↑领先、未提交改动（取 `GitStatus.repos` 里 `kind:'extra'`），强制同步群附加项标「不参与同步」（`apps/web/src/features/repos/BotWorkspaces.tsx`）。
 - 清理只删托管目录，永不删本机目录。
 

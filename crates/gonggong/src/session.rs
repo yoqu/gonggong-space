@@ -216,6 +216,8 @@ struct Active {
     hidden_tools: Vec<String>,
     /// The run's MCP servers (plugins' included), whose tools' own descriptions approval cards show.
     mcp: Vec<McpServer>,
+    /// Set when the turn shares its directory and asks before its first change there.
+    gate: Option<gate::Gate>,
 }
 
 /// A run the server opened for output between turns (a background task finished and the agent went on by itself).
@@ -317,6 +319,8 @@ struct State {
     adopting: Option<Adopting>,
     /// The latest `current_mode_update`: an adapter reports the mode it fell back to (Claude `auto` → `acceptEdits`).
     mode_update: Option<String>,
+    /// A gate switching the session back to the bot's mode mid-turn (`gate`).
+    restoring: Option<tokio::task::JoinHandle<Option<String>>>,
     /// What each ACP session's context is made of, as far as we saw it.
     ledgers: HashMap<String, Ledger>,
     /// A live snapshot of the active turn's context is due (`LIVE_EVERY`).
@@ -546,21 +550,7 @@ impl Shared {
 
     /// Asks the group whether the active turn may start beside the other turns in its directory (spec §4.3).
     pub(crate) fn confirm_dir(&self, question: Question) -> Option<(String, oneshot::Receiver<bool>)> {
-        let mut s = self.0.lock().unwrap();
-        s.requests += 1;
-        let n = s.requests;
-        let (run_id, out) = s.active.as_ref().map(|a| (a.run_id.clone(), a.out.clone()))?;
-        let step = t!("等待确认：同一工作区有其他会话在运行").to_string();
-        out.send(DaemonToServer::RunEvent {
-            run_id: run_id.clone(),
-            event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },
-        });
-        let request_id = format!("{run_id}/dir{n}");
-        let questions = vec![question];
-        out.send(DaemonToServer::QuestionAsk { run_id, request_id: request_id.clone(), questions: questions.clone() });
-        let (tx, rx) = oneshot::channel();
-        s.questions.insert(request_id.clone(), Asked { questions, reply: Reply::Dir(tx) });
-        Some((request_id, rx))
+        confirm_in(&mut self.0.lock().unwrap(), question)
     }
 
     /// Takes back a question nobody answered, e.g. the directory freed up first.
@@ -668,6 +658,7 @@ impl Shared {
             continuation: None,
             hidden_tools: req.start.hidden_tools.clone(),
             mcp: req.start.mcp_servers.clone(),
+            gate: None,
         });
         crate::mcp_tools::prefetch(&req.start.mcp_servers, &req.cwd);
         Some(true)
@@ -780,12 +771,13 @@ impl Shared {
             continuation: Some(Cont { session, last: Instant::now(), concluding: false }),
             hidden_tools: prev.hidden_tools,
             mcp: prev.mcp,
+            gate: None,
         });
         for held in w.held {
             match held {
                 Held::Update(n) => self.update_in(s, n),
                 Held::Ext(session, ext) => ext_in(s, &session, ext),
-                Held::Permission(req, tx) => match permission_in(s, req) {
+                Held::Permission(req, tx) => match permission_in(self, s, req) {
                     Permission::Now(choice) => {
                         let _ = tx.send(choice);
                     }
@@ -877,14 +869,10 @@ impl Shared {
     /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn, then
     /// (force group) settles the turn's changes by how it ended, so run.done reports them settled.
     async fn post_turn(&self, outcome: RunOutcome) {
-        let Some((run_id, git, sync, artifacts)) = self
-            .0
-            .lock()
-            .unwrap()
-            .active
-            .as_mut()
-            .map(|a| (a.run_id.clone(), a.git.take(), a.sync.take(), a.artifacts.take()))
-        else {
+        let Some((run_id, git, sync, artifacts, wrote)) = self.0.lock().unwrap().active.as_mut().map(|a| {
+            let wrote = a.gate.as_ref().is_none_or(|g| g.open);
+            (a.run_id.clone(), a.git.take(), a.sync.take(), a.artifacts.take(), wrote)
+        }) else {
             return;
         };
         if let Some(artifacts) = artifacts {
@@ -894,17 +882,19 @@ impl Shared {
         if let Some(g) = git {
             let (status, changed, patch) = git::turn_end(&g.cwd, &g.extras, g.kind, &g.tracked).await;
             let patch = patch.inspect_err(|e| tracing::warn!("git patch failed: {e}"));
+            // A turn that never changed files beside others claims none of their changes, nor lets them be discarded.
+            let changed = if wrote { changed } else { Ok(0) };
             let git = status.and_then(|s| Ok((s, changed?)));
             let git = git.inspect_err(|e| tracing::warn!("git post-turn failed: {e}")).ok();
             let mut s = self.0.lock().unwrap();
             if let Some(a) = s.active.as_mut() {
-                if let Some(d) = git.as_ref().and(patch.ok()) {
+                if let Some(d) = git.as_ref().and(patch.ok()).filter(|_| wrote) {
                     (a.turn.patch, a.turn.repos) = (d.patch, d.repos);
                 }
                 a.turn.git = git;
             }
             // The server offers to discard the changes of a turn that did not complete only.
-            if outcome != RunOutcome::Completed {
+            if outcome != RunOutcome::Completed && wrote {
                 s.last = Some((run_id, g));
             }
         }
@@ -918,12 +908,16 @@ impl Shared {
 
     /// What the live turn `run_id` changed so far; None when it is not this conversation's active turn.
     pub(crate) async fn live_patch(&self, run_id: &str) -> Option<Result<git::Diff, String>> {
-        let git = {
+        let (git, open) = {
             let s = self.0.lock().unwrap();
             let a = s.active.as_ref().filter(|a| a.run_id == run_id)?;
-            a.git.as_ref().map(|g| g.tracked.clone())
+            (a.git.as_ref().map(|g| g.tracked.clone()), a.gate.as_ref().is_none_or(|g| g.open))
         };
         let Some(tracked) = git else { return Some(Err(t!("本轮改动仅支持 git 工作区").into())) };
+        // Only others changed files so far.
+        if !open {
+            return Some(Ok(git::Diff { patch: None, repos: vec![] }));
+        }
         Some(git::turn_patch(&tracked).await)
     }
 
@@ -1083,7 +1077,7 @@ impl Shared {
         let mut guard = self.0.lock().unwrap();
         let s = &mut *guard;
         if s.active.is_some() {
-            return permission_in(s, req);
+            return permission_in(self, s, req);
         }
         if s.adopting.is_none() && s.prev.is_none() {
             return Permission::Now(None);
@@ -1195,136 +1189,6 @@ fn ext_in(s: &mut State, session: &str, ext: ExtUpdate) {
     t.out.send(DaemonToServer::RunEvent { run_id: t.run_id.clone(), event });
 }
 
-/// A permission request of the active turn.
-fn permission_in(s: &mut State, mut req: RequestPermissionRequest) -> Permission {
-    s.requests += 1;
-    let n = s.requests;
-    let Some(a) = s.active.as_mut() else { return Permission::Now(None) };
-    name_mcp_call(&mut req);
-    crate::adapters::own_request(&mut req.tool_call);
-    // The built-in gonggong tools only ask or read the group: never an owner decision (spec §8.8).
-    if req.tool_call.fields.title.as_deref().is_some_and(ask::is_builtin) {
-        return Permission::Now(auto_allow(&req.options));
-    }
-    // Without raw input (Gemini's), an execute call's title is its command.
-    let command = match &req.tool_call.fields.raw_input {
-        Some(raw) => command_of(Some(raw)),
-        None => req.tool_call.fields.title.clone(),
-    }
-    .map(|c| local::unwrap_quoted(&c));
-    let read_paths = read_paths(&req);
-    let raw_input = req.tool_call.fields.raw_input.clone();
-    let edits_steering = changes_steering(&SessionUpdate::ToolCallUpdate(req.tool_call.clone()), &a.cwd);
-    let release = req
-        .tool_call
-        .fields
-        .title
-        .as_deref()
-        .and_then(|title| ask::release_approval(title, req.tool_call.fields.raw_input.as_ref(), &a.cwd));
-    let Some(RunEvent::Tool { title, tool_kind, detail, mcp, .. }) =
-        a.turn.apply(&req.session_id.0, SessionUpdate::ToolCallUpdate(req.tool_call))
-    else {
-        unreachable!("tool call updates always map to tool events")
-    };
-    for event in a.turn.take_extra() {
-        a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
-    }
-    // Codex asks for MCP calls without a title of their own: the tool call's (`mcp.gonggong.<tool>`) tells.
-    if ask::is_builtin(&title) {
-        return Permission::Now(auto_allow(&req.options));
-    }
-    let command = command.filter(|_| tool_kind == "execute");
-    let read_only_tool = command.is_none()
-        && matches!(tool_kind.as_str(), "read" | "search")
-        && a.rules.reads_within(&read_paths, &a.cwd);
-    let workspace_write = command.is_none()
-        && matches!(tool_kind.as_str(), "edit" | "delete" | "move")
-        && a.rules.writes_within(&read_paths, &a.cwd);
-    let decision = a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always);
-    // What this command changes steers the build and test commands run after it.
-    if edits_steering || command.as_deref().is_some_and(local::steers) {
-        a.rules.tampered = true;
-    }
-    if decision == Decision::Full || read_only_tool {
-        return Permission::Now(auto_allow(&req.options));
-    }
-    if (decision == Decision::Local || workspace_write)
-        && let Some(allow) = auto_allow(&req.options)
-    {
-        let shown = command.clone().unwrap_or_else(|| title.clone());
-        let step = t!("已按命令审批规则自动批准：{command}", command = shown);
-        let action = command.clone().or_else(|| detail.clone()).unwrap_or(shown);
-        let event = RunEvent::Status { status: RunStatus::Running, step };
-        a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
-        a.out.send(DaemonToServer::ApprovalAiApproved(ApprovalAiApproved {
-            run_id: a.run_id.clone(),
-            title,
-            tool_kind,
-            detail: action,
-            source: AutoSource::Rule,
-        }));
-        return Permission::Now(Some(allow));
-    }
-    let request_id = format!("{}/{n}", a.run_id);
-    let remember = a.rules.remember(command.as_deref(), &title, &a.cwd);
-    let remember_session = a.rules.remember_session(command.as_deref(), &title, &a.cwd);
-    let reason = a.rules.reason(command.as_deref(), &tool_kind, &a.cwd);
-    // The whole command, not the run timeline's clipped line: the owner approves what runs.
-    let detail = match (release, &command) {
-        (Some(r), _) => r,
-        (None, Some(c)) => {
-            let note = detail.as_deref().and_then(|d| d.split_once('\n')).map(|(_, rest)| format!("\n{rest}"));
-            clip_detail(format!("$ {c}{}", note.unwrap_or_default()))
-        }
-        (None, None) => detail.unwrap_or_else(|| title.clone()),
-    };
-    let wire = ApprovalRequest {
-        run_id: a.run_id.clone(),
-        request_id: request_id.clone(),
-        detail,
-        reason,
-        title: title.clone(),
-        tool_kind,
-        options: wire_options(&req.options),
-        remember: remember.clone(),
-        remember_session: remember_session.clone(),
-        mcp: mcp.map(|m| approval_mcp(&a.mcp, m, raw_input.as_ref())),
-    };
-    let (tx, rx) = oneshot::channel();
-    s.approvals.insert(request_id, Approval { title, remember, remember_session, options: req.options, tx });
-    ask_owner(&a.out, wire);
-    Permission::Ask(rx)
-}
-
-/// An agent may title an MCP call by its tool alone and name the server in `_meta` (its manifest's
-/// `permission.mcpMeta`): named the Claude way (`mcp__<server>__<tool>`), the built-in gonggong tools are told apart
-/// and the card says which server asks.
-fn name_mcp_call(req: &mut RequestPermissionRequest) {
-    let meta = req.tool_call.meta.as_ref();
-    let mcp = meta.and_then(|m| crate::adapters::mcp_meta_keys().find_map(|k| m.get(k))).map(|g| &g["mcp"]);
-    if let Some((server, tool)) = mcp.and_then(|m| Some((m["server_name"].as_str()?, m["tool_name"].as_str()?))) {
-        req.tool_call.fields.title = Some(format!("mcp__{server}__{tool}"));
-    }
-}
-
-/// The MCP call of a request with its whole arguments (the run timeline's are clipped) and what the tool declares.
-fn approval_mcp(servers: &[McpServer], call: McpCall, raw_input: Option<&serde_json::Value>) -> ApprovalMcp {
-    let args = raw_input.map(crate::mcp_call::arguments).filter(|a| !a.is_null());
-    let input = args.map(|a| clip_detail(a.to_string())).or(call.input);
-    let info = crate::mcp_tools::lookup(servers, &call.server, &call.tool).unwrap_or_default();
-    ApprovalMcp { server: call.server, tool: call.tool, input, info }
-}
-
-/// Long enough for any command an agent writes; past it, the card says so.
-const APPROVAL_DETAIL_MAX: usize = 20_000;
-
-fn clip_detail(s: String) -> String {
-    match s.char_indices().nth(APPROVAL_DETAIL_MAX) {
-        Some((i, _)) => format!("{}…", &s[..i]),
-        None => s,
-    }
-}
-
 /// An edit, move or delete the agent made (or is making) to a file that steers build and test commands.
 fn changes_steering(update: &SessionUpdate, cwd: &std::path::Path) -> bool {
     let (kind, locations, raw) = match update {
@@ -1381,9 +1245,28 @@ async fn cut_off(shared: &Shared, run_id: &str, grace: std::time::Duration) {
 
 /// Cancels the prompt in flight. ACP: every pending permission request is then answered `cancelled`; pending
 /// questions are withdrawn with it.
+/// [`Shared::confirm_dir`] under the lock.
+fn confirm_in(s: &mut State, question: Question) -> Option<(String, oneshot::Receiver<bool>)> {
+    s.requests += 1;
+    let n = s.requests;
+    let (run_id, out) = s.active.as_ref().map(|a| (a.run_id.clone(), a.out.clone()))?;
+    let step = t!("等待确认：同一工作区有其他会话在运行").to_string();
+    out.send(DaemonToServer::RunEvent {
+        run_id: run_id.clone(),
+        event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },
+    });
+    let request_id = format!("{run_id}/dir{n}");
+    let questions = vec![question];
+    out.send(DaemonToServer::QuestionAsk { run_id, request_id: request_id.clone(), questions: questions.clone() });
+    let (tx, rx) = oneshot::channel();
+    s.questions.insert(request_id.clone(), Asked { questions, reply: Reply::Dir(tx) });
+    Some((request_id, rx))
+}
+
 fn interrupt(s: &mut State) {
     send_cancel(s);
     s.approvals.clear();
+    gate::interrupted(s);
     s.questions.clear();
 }
 
@@ -1808,13 +1691,16 @@ async fn connect(
             let cwd = first.req.cwd.clone();
             let mut turn = first;
             loop {
-                match engine.workspaces.occupy(&turn.req, shared).await {
-                    Some(_dir) => {
+                let bot = &turn.req.start.bot;
+                let guardable =
+                    mode_for(bot.agent_kind, Tier::ReadOnly).is_some() && mode_for(bot.agent_kind, bot.tier).is_some();
+                match engine.workspaces.occupy(&turn.req, shared, guardable).await {
+                    Some(dir) => {
                         conv.skills = turn.skills.clone();
                         conv.plugins = turn.plugins.clone();
                         conv.launch = turn.launch.clone();
                         conv.official = turn.official;
-                        conv.turn(turn.req, turn.removed, resume).await?;
+                        conv.turn(turn.req, turn.removed, resume, dir.guarded.then(|| dir.gate())).await?;
                     }
                     None => shared.finish(Err(String::new()), resume.as_ref(), None),
                 }
@@ -1921,6 +1807,7 @@ impl Conversation<'_> {
         req: TurnReq,
         removed: bool,
         resume: &mut Option<SessionId>,
+        gate: Option<workspace::WriteGate>,
     ) -> Result<(), agent_client_protocol::Error> {
         let s = &req.start;
         // The server owns the session id: reuse the live one only if it asks for it (/new sends none).
@@ -1996,6 +1883,12 @@ impl Conversation<'_> {
             let event = RunEvent::Status { status: RunStatus::Running, step };
             req.out.send(DaemonToServer::RunEvent { run_id: s.run_id.clone(), event });
         }
+        if let Some(gate) = gate
+            && !self.guard(&req, &session, gate).await
+        {
+            self.shared.finish(Err(String::new()), Some(&session), None);
+            return Ok(());
+        }
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
@@ -2045,6 +1938,14 @@ impl Conversation<'_> {
                 self.shared.report_context(&session, result.as_ref().ok().and_then(|r| r.usage.as_ref()));
                 self.shared.post_turn(self.shared.ending(result.as_ref().map_err(drop))).await;
                 self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
+                // Before the next turn switches modes itself; failed, the mode is unknown and the next switch is sent.
+                if let Some(restoring) = self.shared.take_restoring() {
+                    let Ok(mode) = tokio::time::timeout(self.cancel_grace, restoring).await else {
+                        // A late answer could switch the next turn's mode: the adapter goes, and with it the directory.
+                        return Err(agent_client_protocol::Error::internal_error().data("session/set_mode unanswered"));
+                    };
+                    self.mode = Some(mode.ok().flatten().unwrap_or_default());
+                }
                 // A failed prompt may mean a broken adapter: restart it for the next turn.
                 error.map_or(Ok(()), Err)
             }
@@ -2345,5 +2246,10 @@ fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer
 }
 
 mod context;
+mod gate;
+mod permission;
+#[cfg(test)]
+use permission::name_mcp_call;
+use permission::permission_in;
 #[cfg(test)]
 mod tests;

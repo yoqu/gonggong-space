@@ -13,6 +13,22 @@ use code::{NODE, PYTHON, code_ok};
 mod fetch;
 use fetch::{curl, wget};
 
+/// A command that only reads (anywhere but secrets) and writes no file: what runs beside a turn changing the
+/// workspace without asking (`workspace::WriteGate`).
+pub(crate) fn reads_only(command: &str, cwd: &Path) -> bool {
+    let trust = Trust { dev: false, help: false, protect: &[], own: 1 };
+    super::line_allowed(&[], command, &[cwd, Path::new("/")], trust, 0)
+}
+
+/// File changes inside the workspace (its additional directories included), not to git's own files (hooks and config
+/// run code): what the workspace tier's own modes make without asking.
+pub(crate) fn edits_within(rules: &super::Rules, paths: &[PathBuf], cwd: &Path) -> bool {
+    let roots = rules.roots(cwd);
+    !paths.is_empty()
+        && paths.iter().all(|path| within_root(path, cwd, &roots))
+        && paths.iter().all(|p| !p.components().any(|c| c.as_os_str() == ".git"))
+}
+
 /// The temporary directories of this machine.
 pub(super) fn temp_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = ["/tmp", "/private/tmp", "/var/tmp"].iter().map(PathBuf::from).collect();
@@ -167,7 +183,7 @@ pub(super) fn assignable(name: &str, value: &str, roots: &[&Path], exported: boo
 }
 
 /// The read-only git subcommands of `READ_ONLY` that also have writing forms: branch and tag deletion, reflog
-/// expiry, `ls-remote`'s upload program.
+/// changes, `ls-remote`'s upload program.
 pub(super) fn git_read_only(words: &[String]) -> bool {
     let args: Vec<&str> = words.iter().map(|w| unquote(w)).collect();
     match args.get(..2) {
@@ -194,7 +210,11 @@ pub(super) fn git_read_only(words: &[String]) -> bool {
             ) && !(args[1] == "branch" && *a == "-a")
                 || a.starts_with("--set-upstream-to=")
         }),
-        Some(["git", "reflog"]) => !args[2..].iter().any(|a| matches!(*a, "delete" | "expire")),
+        // Git reads any other first word as the ref to show (`git reflog main`).
+        Some(["git", "reflog"]) => args[2..]
+            .iter()
+            .find(|a| !a.starts_with('-'))
+            .is_none_or(|a| !matches!(*a, "delete" | "expire" | "write" | "drop")),
         Some(["git", "ls-remote"]) => !args[2..].iter().any(|a| *a == "-u" || a.starts_with("--upload-pack")),
         _ => true,
     }
