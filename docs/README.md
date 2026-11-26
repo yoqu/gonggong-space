@@ -30,6 +30,7 @@
 
 - `docs/plan/Agent工具与供应商-待办.md` — Agent 工具与供应商 · 待办（核对于 2026-11-15） — 进行中
 - `docs/plan/P1-开发计划.md` — 共工 P1 开发计划（地基） — 长期有效
+- `docs/plan/UX原则回归记录.md` — UX 原则定期回归审查记录（8 条原则已修与待办） — 长期有效
 - `docs/plan/UX走查记录.md` — UX 走查记录 — 进行中
 - `docs/plan/acp-capabilities.md` — ACP 适配器能力矩阵（M1 实测，2026-09-23） — 长期有效
 - `docs/plan/acp-research.md` — ACP 客户端调研（2026-09-23） — 长期有效
