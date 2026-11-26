@@ -274,8 +274,6 @@ export default {
   审查未提交的改动: 'Review uncommitted changes',
   '在 Git 面板中审查': 'Review in the Git panel',
   '描述要怎么改，发给 @{name}': 'Describe the change for @{name}',
-  '描述要怎么改，发给 @{name}，回复显示在左侧「AI 对话」':
-    'Describe the change for @{name}; replies show in the AI chat on the left',
   '描述要怎么改，AI 的回复显示在左侧「AI 对话」':
     'Describe the change; AI replies in the AI chat on the left',
   '使用了 {n} 个「我的 Skill」': 'Used {n} from My Skills',

@@ -16,6 +16,7 @@ import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
 import { Checkbox, Composer, Presence, useEscape, useOutsidePress, usePresence } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
+import { CanvasBotPicker, useCanvasBot } from '../artifacts/CanvasBotPicker'
 import { CanvasPageChips, ContextChips, ForegroundChip } from '../artifacts/ContextChips'
 import { useCanvasChat } from '../artifacts/chatRoot'
 import {
@@ -199,8 +200,10 @@ export const MessageComposer = memo(function MessageComposer({
       : null
   const canvas = selection ?? editingContext
   const canvasKey = canvas ? `${canvas.artifactId}:${canvas.items.map((i) => i.key).join(',')}` : ''
-  // …and a plain message sent with the canvas selected (or from the canvas's composer) goes to the artifact's bot.
-  const botOfCanvas = canvas ? canvas.botId : canvasChat ? canvasChat.botId : undefined
+  // …and a plain message sent with the canvas selected goes to the artifact's bot; from the canvas's composer, to the
+  // AI picked under its input.
+  const canvasPick = useCanvasBot(group, canvasChat?.artifactId ?? '', canvasChat?.botId ?? null)
+  const botOfCanvas = canvasChat ? (canvasPick.bot?.id ?? null) : canvas ? canvas.botId : undefined
   const rawCanvasBot =
     botOfCanvas !== undefined && !appending && !command && !mentioned.length && !soleDm
       ? (groupBots.find((b) => b.id === botOfCanvas) ?? null)
@@ -525,6 +528,7 @@ export const MessageComposer = memo(function MessageComposer({
       ...(thread ? { threadRootId: thread, alsoSent } : chatRoot ? { threadRootId: chatRoot } : {}),
     }
     if (Object.keys(runOptions).length) req.runOptions = runOptions
+    if (canvasChat && canvasBot) req.botId = canvasBot.id
     const sendWithCanvas = !!canvas && (!bypassCanvasBot || mentioned.length > 0)
     if (sendWithCanvas && canvas) req.artifactContext = artifactContextOf(canvas)
     else if (canvasChat && chatPage)
@@ -557,6 +561,36 @@ export const MessageComposer = memo(function MessageComposer({
   }
 
   const pageChips = !!canvasChat && (!!selection || !!soloPage)
+  const connectorTool = pluginsOn
+    ? [
+        {
+          icon: 'link' as const,
+          label: t('连接器'),
+          onClick: () => {
+            setDismissed(true)
+            setConnectorMenu((v) => !v)
+          },
+        },
+      ]
+    : []
+  // The canvas's composer: no @ or / to learn, the AI picked bottom right gets the message.
+  const canvasTools = canvasChat
+    ? [
+        { icon: 'image' as const, label: t('图片'), onClick: () => imagePicker.current?.click() },
+        { icon: 'paperclip' as const, label: t('附件'), onClick: () => filePicker.current?.click() },
+        ...connectorTool,
+        ...(canvasChat.designSystem
+          ? [
+              {
+                icon: 'palette' as const,
+                label: t('设计系统'),
+                text: t('设计系统'),
+                onClick: () => requestDesignPanel(canvasChat.artifactId),
+              },
+            ]
+          : []),
+      ]
+    : []
   const chips =
     appending || quote || (canvasChat ? pageChips : canvas) || foreground || uploads.items.length > 0
   return (
@@ -599,9 +633,7 @@ export const MessageComposer = memo(function MessageComposer({
               ? t('回复话题，直接发送即可触发 Bot')
               : t('回复话题，@ 触发 Bot')
             : chatRoot && !variations
-              ? canvasBot
-                ? t('描述要怎么改，发给 @{name}，回复显示在左侧「AI 对话」', { name: canvasBot.name })
-                : t('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
+              ? t('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
               : variations
                 ? t('描述变体方向，生成 {n} 个变体', { n: variations })
                 : canvasBot
@@ -610,77 +642,60 @@ export const MessageComposer = memo(function MessageComposer({
                     ? t('发消息，@ 触发 Bot')
                     : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
         }
-        tools={[
-          {
-            icon: 'at',
-            label: t('@ 提及'),
-            onClick: () => {
-              const c = focused()?.selectionStart ?? draft.length
-              const at = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' @' : '@'
-              change(draft.slice(0, c) + at + draft.slice(c), c + at.length)
-            },
-          },
-          { icon: 'smile', label: t('表情') },
-          {
-            icon: 'slash',
-            label: t('命令'),
-            onClick: () => {
-              if (popoverShown && token?.char === '/') {
-                setDismissed(true)
-                input.current?.focus()
-                return
-              }
-              const el = focused()
-              const c = el?.selectionStart ?? draft.length
-              const end = el?.selectionEnd ?? c
-              if (c === end && /(?:^|\s)\/$/.test(draft.slice(0, c))) {
-                pendingCaret.current = c
-                setCaret(c)
-                setDismissed(false)
-                setActive(0)
-                input.current?.focus()
-                return
-              }
-              const slash = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' /' : '/'
-              change(draft.slice(0, c) + slash + draft.slice(end), c + slash.length)
-            },
-          },
-          { icon: 'paperclip', label: t('附件'), onClick: () => filePicker.current?.click() },
-          { icon: 'image', label: t('图片'), onClick: () => imagePicker.current?.click() },
-          ...(pluginsOn
-            ? [
+        tools={
+          canvasChat
+            ? canvasTools
+            : [
                 {
-                  icon: 'link' as const,
-                  label: t('连接器'),
+                  icon: 'at',
+                  label: t('@ 提及'),
                   onClick: () => {
-                    setDismissed(true)
-                    setConnectorMenu((v) => !v)
+                    const c = focused()?.selectionStart ?? draft.length
+                    const at = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' @' : '@'
+                    change(draft.slice(0, c) + at + draft.slice(c), c + at.length)
                   },
                 },
-              ]
-            : []),
-          ...(plugins.length && !scope
-            ? [
+                { icon: 'smile', label: t('表情') },
                 {
-                  icon: <span className="composer__spark">✦</span>,
-                  label: t('创作'),
-                  text: t('创作'),
-                  accent: true,
-                  onClick: () => openCreation({ groupId: group.id }),
+                  icon: 'slash',
+                  label: t('命令'),
+                  onClick: () => {
+                    if (popoverShown && token?.char === '/') {
+                      setDismissed(true)
+                      input.current?.focus()
+                      return
+                    }
+                    const el = focused()
+                    const c = el?.selectionStart ?? draft.length
+                    const end = el?.selectionEnd ?? c
+                    if (c === end && /(?:^|\s)\/$/.test(draft.slice(0, c))) {
+                      pendingCaret.current = c
+                      setCaret(c)
+                      setDismissed(false)
+                      setActive(0)
+                      input.current?.focus()
+                      return
+                    }
+                    const slash = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' /' : '/'
+                    change(draft.slice(0, c) + slash + draft.slice(end), c + slash.length)
+                  },
                 },
+                { icon: 'paperclip', label: t('附件'), onClick: () => filePicker.current?.click() },
+                { icon: 'image', label: t('图片'), onClick: () => imagePicker.current?.click() },
+                ...connectorTool,
+                ...(plugins.length && !scope
+                  ? [
+                      {
+                        icon: <span className="composer__spark">✦</span>,
+                        label: t('创作'),
+                        text: t('创作'),
+                        accent: true,
+                        onClick: () => openCreation({ groupId: group.id }),
+                      },
+                    ]
+                  : []),
               ]
-            : []),
-          ...(canvasChat?.designSystem
-            ? [
-                {
-                  icon: 'palette' as const,
-                  label: t('设计系统'),
-                  text: t('设计系统'),
-                  onClick: () => requestDesignPanel(canvasChat.artifactId),
-                },
-              ]
-            : []),
-        ]}
+        }
         hint={
           // With the canvas selected, the chips say who the message goes to.
           mobile || thread || targets.length || soleDm || !draft.trim()
@@ -690,7 +705,14 @@ export const MessageComposer = memo(function MessageComposer({
               : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
         }
         accessory={
-          targets.length || thread ? (
+          canvasChat ? (
+            <CanvasBotPicker
+              bot={canvasPick.bot}
+              options={canvasPick.options}
+              usable={canvasPick.usable}
+              onPick={canvasPick.pick}
+            />
+          ) : targets.length || thread ? (
             <>
               {thread ? (
                 <Checkbox
@@ -700,13 +722,7 @@ export const MessageComposer = memo(function MessageComposer({
                 />
               ) : null}
               {targets.length ? (
-                <RunConfigChips
-                  group={group}
-                  bots={targets}
-                  picks={picks}
-                  onChange={setPicks}
-                  bare={!!canvasChat && targets.length === 1}
-                />
+                <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
               ) : null}
             </>
           ) : undefined

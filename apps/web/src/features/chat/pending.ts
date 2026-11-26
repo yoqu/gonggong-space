@@ -25,6 +25,7 @@ export interface SendBody {
   foregroundArtifactId?: string
   threadRootId?: string
   alsoSent?: boolean
+  botId?: string
 }
 
 /** No response at all (ApiError 0): the server may have stored the message, so only the same clientId may go again. */

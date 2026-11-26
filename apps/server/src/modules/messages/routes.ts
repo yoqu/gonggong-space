@@ -168,6 +168,7 @@ export function messageRoutes(ctx: Ctx) {
         foregroundArtifactId,
         threadRootId: asked,
         alsoSent,
+        botId: picked,
       } = input
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const bots = activeBots(ctx, group.id).execute()
@@ -200,7 +201,9 @@ export function messageRoutes(ctx: Ctx) {
           ? await agentCommand(ctx, group.id, parsed, addressed, inGroup)
           : null
       // A plain message sent with the canvas selected goes to the artifact's bot, as if it were @-ed.
-      const canvasBot = canvas && !parsed && !target ? inGroup.find((b) => b.id === canvas.botId) : undefined
+      // …or, in its 画布 AI 对话, to the AI picked under the input.
+      const canvasBotId = chat && picked ? picked : canvas?.botId
+      const canvasBot = canvas && !parsed && !target ? inGroup.find((b) => b.id === canvasBotId) : undefined
       const fallback = soleDmBot ?? canvasBot
       const mentions = agent?.botIds ?? (!explicit.length && fallback ? [fallback.id] : explicit)
       const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)

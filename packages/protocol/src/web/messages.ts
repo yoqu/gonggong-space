@@ -305,4 +305,6 @@ export const SendMessageReq = z.object({
   threadRootId: z.string().nullable().default(null),
   /** With threadRootId: also show the reply in the main timeline. */
   alsoSent: z.boolean().default(false),
+  /** In an artifact's 画布 AI 对话: the AI picked under its input, addressed instead of the artifact's bot. */
+  botId: z.string().optional(),
 })

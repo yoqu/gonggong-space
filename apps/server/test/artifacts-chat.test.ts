@@ -12,7 +12,7 @@ import type {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { runs, threadFollows } from '../src/db/schema.js'
+import { groupBots, runs, threadFollows } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
 
@@ -78,6 +78,22 @@ describe('canvas AI chat (画布 AI 对话)', () => {
     const chat = (await s.req('GET', `/api/messages/${rootId}/thread`)).json() as ThreadDto
     expect(chat.replies.map((r) => r.id)).toEqual([m.id])
     expect(chat.runs.map((r) => r.id)).toEqual([run!.id])
+  })
+
+  it("sends to the AI picked under the canvas input instead of the artifact's bot", async () => {
+    const s = await setup()
+    const second = await t.seed.bot({ ownerId: s.wang.id, name: '小王的 Codex', triggerScope: 'all' })
+    await t.db.insert(groupBots).values({ groupId: s.g.id, botId: second.id })
+    const { rootId } = (await s.req('POST', `/api/artifacts/${s.a.id}/chat`)).json() as ArtifactChatDto
+    const sent = await s.req('POST', `/api/groups/${s.g.id}/messages`, {
+      body: '首页改成深色',
+      clientId: 'canvas-chat-pick',
+      threadRootId: rootId,
+      botId: second.id,
+    })
+    expect(sent.statusCode).toBe(200)
+    const m = sent.json() as MessageDto
+    expect(m.mentions).toEqual([second.id])
   })
 
   it('puts canvas commands in the conversation too', async () => {

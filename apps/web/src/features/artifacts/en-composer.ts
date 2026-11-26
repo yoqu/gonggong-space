@@ -13,4 +13,7 @@ export default {
   在画布中查看: 'View on canvas',
   '改了 {screens}': 'Changed {screens}',
   在左侧页面列表里选中的页面: 'The page selected in the page list on the left',
+  '选择 AI': 'Choose an AI',
+  '执行的 AI': 'AI to run',
+  '不在作品所在群，暂不能使用': "Not in this work's group, can't be used yet",
 }

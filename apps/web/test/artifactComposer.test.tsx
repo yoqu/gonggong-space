@@ -70,13 +70,14 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
     const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
     useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
     render(<MessageComposer group={group} onSent={() => {}} canvasChat={chat} />)
-    expect(input().placeholder).toBe('描述要怎么改，发给 @设计助手，回复显示在左侧「AI 对话」')
+    expect(input().placeholder).toBe('描述要怎么改，AI 的回复显示在左侧「AI 对话」')
     type('首页改成深色')
     fireEvent.keyDown(input(), { key: 'Enter' })
     await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
     expect(posts(calls, '/groups/g1/messages')[0]).toMatchObject({
       body: '首页改成深色',
       threadRootId: 'root1',
+      botId: 'b1',
     })
     expect(posts(calls, '/groups/g1/messages')[0]).not.toHaveProperty('alsoSent')
 
@@ -88,6 +89,34 @@ describe("the canvas's own composer (画布 AI 对话)", () => {
       threadRootId: 'root1',
       artifactContext: { artifactId: 'a1' },
     })
+  })
+
+  it('sends to the AI picked bottom right, among the fixed ones, and remembers it; only files and links on the left', async () => {
+    const calls = mockApi({ 'POST /groups/g1/messages': (b: unknown) => ({ id: 'm1', ...(b as object) }) })
+    const fixed = [
+      { ...bots[0], id: 'gz', name: '工字君' },
+      { ...bots[0], id: 'jw', name: '姜维川的 Claude Code' },
+    ] as BotDto[]
+    const g = { ...group, botIds: ['b1', 'gz', 'jw'] } as GroupDto
+    useWorkspace.setState({ groups: [g], bots: [...bots, ...fixed] })
+    useCanvasChat.setState({ byGroup: { g1: { artifactId: 'a1', rootId: 'root1' } } })
+    const view = render(<MessageComposer group={g} onSent={() => {}} canvasChat={chat} />)
+    for (const name of ['@ 提及', '命令', '表情']) expect(screen.queryByRole('button', { name })).toBeNull()
+    expect(screen.getByRole('button', { name: '图片' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '附件' })).toBeTruthy()
+    const chip = screen.getByRole('button', { name: '执行的 AI' })
+    expect(chip.textContent).toContain('工字君')
+    fireEvent.pointerDown(chip, { button: 0, pointerType: 'mouse' })
+    fireEvent.click(chip)
+    expect(screen.queryByRole('menuitemradio', { name: '设计助手' })).toBeNull()
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: '姜维川的 Claude Code' }))
+    type('首页改成深色')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/groups/g1/messages')).toHaveLength(1))
+    expect(posts(calls, '/groups/g1/messages')[0]).toMatchObject({ body: '首页改成深色', botId: 'jw' })
+    view.unmount()
+    render(<MessageComposer group={g} onSent={() => {}} canvasChat={chat} />)
+    expect(screen.getByRole('button', { name: '执行的 AI' }).textContent).toContain('姜维川的 Claude Code')
   })
 
   it('names every selected page top left, drops the other chips, and keeps 设计系统 under the input', () => {
