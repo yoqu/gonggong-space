@@ -285,7 +285,7 @@ function PrototypeArtifactTab({
   return (
     <div className="art">
       <header className="art-bar">
-        {!isSite && head && !rail.open ? (
+        {!isSite && !rail.open ? (
           <Button
             size="small"
             variant="plain"

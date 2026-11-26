@@ -170,6 +170,20 @@ describe('artifact tab', () => {
     expect(calls.some((c) => c.path === '/artifacts/a1/preview')).toBe(false)
   })
 
+  it('an empty work can reopen a collapsed page rail', async () => {
+    localStorage.setItem('gg.art.rail', '0')
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ headVersionId: null, head: null, manifest: null, running: false }),
+        'GET /artifacts/a1/versions': [],
+      }),
+    )
+    renderTab()
+    fireEvent.click(await screen.findByRole('button', { name: '展开侧栏' }))
+    expect(localStorage.getItem('gg.art.rail')).toBe('1')
+    localStorage.removeItem('gg.art.rail')
+  })
+
   it('zooms from the menu and the keyboard', async () => {
     mockApi(routes())
     renderTab()
