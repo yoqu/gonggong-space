@@ -475,7 +475,7 @@ describe('element panel', () => {
     expect(panel.textContent).toContain('section:nth-of-type(2)')
   })
 
-  it('picks colours from the --color-* tokens only, and saves every change as one version', async () => {
+  it('picks colours from the --color-* tokens or any hex, and saves 外观 and 交互 as one version', async () => {
     const calls = mockApi(routes())
     await openPanel({ inlineStyle: 'padding: 8px' })
     fireEvent.click(screen.getByRole('button', { name: '文字颜色' }))
@@ -484,11 +484,16 @@ describe('element panel', () => {
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'primary' }))
     fireEvent.change(screen.getByRole('textbox', { name: '字号' }), { target: { value: '18px' } })
     fireEvent.change(screen.getByRole('textbox', { name: '内边距' }), { target: { value: '' } })
+    fireEvent.input(screen.getByLabelText('背景：任意颜色'), { target: { value: '#1a73e8' } })
+    fireEvent.click(screen.getByRole('button', { name: '斜体' }))
+    fireEvent.change(screen.getByRole('slider', { name: '不透明度' }), { target: { value: '50' } })
+    fireEvent.change(screen.getByRole('textbox', { name: '文字' }), { target: { value: '本月共读' } })
+    // 交互: the same draft.
+    fireEvent.click(screen.getByRole('tab', { name: '交互' }))
     fireEvent.click(screen.getByRole('button', { name: '点击跳转到' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '书籍详情' }))
     fireEvent.click(screen.getByRole('button', { name: '转场' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '推回' }))
-    fireEvent.change(screen.getByRole('textbox', { name: '文字' }), { target: { value: '本月共读' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     const at = { file: 'screens/home.html', ggId: '120' }
     await waitFor(() =>
@@ -502,7 +507,14 @@ describe('element panel', () => {
             {
               kind: 'style',
               ...at,
-              props: { color: 'var(--color-primary)', 'font-size': '18px', padding: '' },
+              props: {
+                color: 'var(--color-primary)',
+                'font-size': '18px',
+                padding: '',
+                'background-color': '#1a73e8',
+                'font-style': 'italic',
+                opacity: '0.5',
+              },
             },
           ],
         },
@@ -553,6 +565,7 @@ describe('element panel', () => {
   it('edits a link’s href and drops it with 取消', async () => {
     const calls = mockApi(routes())
     await openPanel({ tag: 'a', href: 'https://a.test' })
+    fireEvent.click(screen.getByRole('tab', { name: '交互' }))
     fireEvent.change(screen.getByRole('textbox', { name: '链接' }), {
       target: { value: 'javascript:alert(1)' },
     })
@@ -600,8 +613,10 @@ describe('element panel', () => {
     const inspector = screen.getByTestId('art-inspector')
     expect(canvas().contains(inspector)).toBe(false)
     expect(within(inspector).getByTestId('art-canvas-props')).toBeTruthy()
+    expect(within(inspector).getByRole('tab', { name: '画布' }).getAttribute('aria-selected')).toBe('true')
     fireEvent.click(node('home'))
-    expect(within(inspector).getByRole('complementary', { name: '首页' })).toBeTruthy()
+    const page = within(inspector).getByTestId('art-page-settings')
+    expect((within(page).getByRole('textbox', { name: '页面名称' }) as HTMLInputElement).value).toBe('首页')
 
     fireEvent.click(within(inspector).getByRole('tab', { name: '图层' }))
     expect(sent().filter((m) => m.type === 'layers')).toHaveLength(1)
@@ -632,7 +647,7 @@ describe('element panel', () => {
         .at(-1),
     ).toMatchObject({ ggId: '110' })
 
-    fireEvent.click(within(inspector).getByRole('tab', { name: '属性' }))
+    fireEvent.click(within(inspector).getByRole('tab', { name: '外观' }))
     expect(within(inspector).getByTestId('art-element-panel')).toBeTruthy()
     // Folded away and back: the choice is kept.
     fireEvent.click(screen.getByRole('button', { name: '收起属性面板' }))
@@ -640,6 +655,56 @@ describe('element panel', () => {
     expect(localStorage.getItem('gg.art.inspector')).toBe('off')
     fireEvent.click(screen.getByRole('button', { name: '展开属性面板' }))
     expect(screen.getByTestId('art-inspector')).toBeTruthy()
+  })
+
+  it('画布设置: the selected page’s name, size, background and 热区, and drawing a new 热区', async () => {
+    const calls = mockApi(routes())
+    await renderTab()
+    fromScreen({ type: 'ready', width: 390, height: 800 })
+    fireEvent.click(node('home'))
+    fromScreen({
+      type: 'layers',
+      items: [{ ggId: '300', tag: 'a', name: '热区', depth: 0, link: 'detail', hotspot: true }],
+      body: { ggId: '40', background: 'rgb(255, 255, 255)' },
+    })
+    const inspector = screen.getByTestId('art-inspector')
+    expect(within(inspector).getByRole('button', { name: '跳到 书籍详情' })).toBeTruthy()
+    fireEvent.input(within(inspector).getByLabelText('背景：任意颜色'), { target: { value: '#f5f5f5' } })
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits').at(-1)).toMatchObject({
+        ops: [
+          { kind: 'style', file: 'screens/home.html', ggId: '40', props: { 'background-color': '#f5f5f5' } },
+        ],
+      }),
+    )
+    const name = within(inspector).getByRole('textbox', { name: '页面名称' })
+    fireEvent.change(name, { target: { value: '首页 2' } })
+    fireEvent.blur(name)
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits').at(-1)).toMatchObject({
+        ops: [{ kind: 'manifest', op: 'rename', screenId: 'home', title: '首页 2' }],
+      }),
+    )
+
+    fireEvent.click(within(inspector).getByRole('button', { name: '添加热区' }))
+    expect(screen.getByRole('button', { name: '热区' }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(inspector).getByTestId('art-hotspot').textContent).toContain('按住拖动')
+    fromScreen({ type: 'mark-rect', rect: { x: 12.4, y: 300, w: 120, h: 48 }, ggIds: [] })
+    expect(within(inspector).getByTestId('art-hotspot').textContent).toContain('120 × 48')
+    fireEvent.click(within(inspector).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits').at(-1)).toMatchObject({
+        ops: [
+          {
+            kind: 'hotspot',
+            file: 'screens/home.html',
+            rect: { x: 12, y: 300, w: 120, h: 48 },
+            to: 'detail',
+            transition: 'push',
+          },
+        ],
+      }),
+    )
   })
 
   it('keeps only changed style props', () => {

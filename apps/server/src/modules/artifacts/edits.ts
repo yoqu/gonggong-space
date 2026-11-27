@@ -22,7 +22,7 @@ import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { screenIdOf } from './files.js'
-import { type ElementEdit, editHtml, editToken } from './html.js'
+import { addHotspot, type ElementEdit, editHtml, editToken } from './html.js'
 import { readableImage } from './images.js'
 import { designSystemFiles } from './kit.js'
 import { parseManifest } from './lint.js'
@@ -158,6 +158,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
   const linkOps: LinkOp[] = []
   const links = new Set<string>()
   const removed = new Set<string>()
+  const hotspots: Extract<ArtifactEditOp, { kind: 'hotspot' }>[] = []
   let designSystemId: string | null = null
   for (const op of req.ops) {
     switch (op.kind) {
@@ -175,6 +176,10 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         break
       case 'delete':
         element(op.file, { ggId: op.ggId, kind: 'delete' })
+        break
+      case 'hotspot':
+        links.add(op.to)
+        hotspots.push(op)
         break
       case 'asset': {
         const size = await uploaded(a, op.uploadId, true)
@@ -229,6 +234,8 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
 
   for (const [file, edits] of byFile)
     changed.set(file, Buffer.from(editHtml((await read(file)).toString('utf8'), edits)))
+  for (const h of hotspots)
+    changed.set(h.file, Buffer.from(addHotspot((await read(h.file)).toString('utf8'), h)))
 
   if (tokens.length) {
     let css = (await read(TOKENS)).toString('utf8')

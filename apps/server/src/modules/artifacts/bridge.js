@@ -17,6 +17,15 @@
     'border-radius',
     'width',
     'height',
+    'letter-spacing',
+    'text-align',
+    'font-style',
+    'text-decoration-line',
+    'border-width',
+    'border-style',
+    'border-color',
+    'opacity',
+    'box-shadow',
   ]
   const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
   // ArtifactAnchor in the contract.
@@ -63,6 +72,9 @@
     'width',
     'height',
     'opacity',
+    'box-shadow',
+    'font-style',
+    'text-decoration',
   ])
   // What the server and this script add to the stored source.
   const INJECTED = / data-gg-(?:id|selected|hover|mark|pick|editing|off)(?:="[^"]*")?/g
@@ -689,7 +701,7 @@
         location.reload()
         return
       case 'layers':
-        post({ type: 'layers', items: layers() })
+        post({ type: 'layers', items: layers(), body: bodyOf() })
         return
       case 'pick': {
         const el = picking() ? byGgId(m.ggId) : null
@@ -723,6 +735,10 @@
       ''
     return name.slice(0, 40)
   }
+  const bodyOf = () => {
+    const id = ggIdOf(document.body)
+    return id ? { ggId: id, background: getComputedStyle(document.body).backgroundColor.slice(0, 100) } : null
+  }
   const layers = () => {
     const items = []
     const walk = (el, depth, hidden) => {
@@ -735,6 +751,9 @@
         if (id) {
           const item = { ggId: id, tag: tag.slice(0, 20), name: layerName(c), depth: Math.min(depth, 50) }
           if (off) item.hidden = true
+          const to = c.getAttribute('data-gg-link')
+          if (to) item.link = to.slice(0, 100)
+          if (c.hasAttribute('data-gg-hotspot')) item.hotspot = true
           items.push(item)
         }
         walk(c, id ? depth + 1 : depth, off)

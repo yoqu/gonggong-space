@@ -125,6 +125,17 @@ const PRESET_NAME: Record<FramePreset, string> = {
   tablet: t('平板'),
   desktop: t('桌面'),
 }
+/** 画布设置 › 尺寸: the preview presets, and the one the frame is (by its width; '' for none). */
+export const pagePresets = (frame: { w: number }, device: ArtifactDevice) => {
+  const names = Object.keys(FRAME_PRESETS) as FramePreset[]
+  return {
+    preset: names.find((p) => framePreset(p, device).w === frame.w) ?? '',
+    presets: names.map((p) => {
+      const { w, h } = framePreset(p, device)
+      return { value: p, label: `${PRESET_NAME[p]} ${w}×${h}` }
+    }),
+  }
+}
 
 /** `frame`: the selected screens' framing when they share one; the phone preset is as wide as `device`'s phones. */
 export const previewItems = (

@@ -25,13 +25,15 @@
   padding: 0 var(--space-8);
   border-bottom: 1px solid var(--separator);
   background: var(--content-bg);
+  /* A narrow canvas (the chat open beside it): the bar scrolls sideways rather than squeezing its buttons. */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .art-topbar__side {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 0 auto;
   align-items: center;
   gap: 2px;
-  min-width: 0;
 }
 .art-topbar__side--end {
   justify-content: flex-end;
@@ -272,11 +274,102 @@
     box-shadow: var(--shadow-glass);
   }
 }
-@media (max-width: 700px) {
-  .art-topbar {
-    overflow-x: auto;
-  }
-  .art-topbar__side {
-    flex: none;
-  }
+
+/* 外观 / 交互 (ElementPanel) and 画布设置 rows: 墨刀's label-left, control-right sections. */
+.art-el__section {
+  display: flex;
+  flex-direction: column;
+}
+.art-el__color {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.art-el__color .ui-popup {
+  flex: 1;
+  min-width: 0;
+}
+.art-el__picker {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-control);
+  background: none;
+  cursor: pointer;
+}
+.art-el__picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+.art-el__picker::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--radius-small);
+}
+.art-el__range {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-8);
+}
+.art-el__range input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.art-el__range span {
+  width: 36px;
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.art-el__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.art-el__toggle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-weight: 600;
+}
+.art-el__toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.art-el__toggle:disabled {
+  color: var(--label-tertiary);
+}
+.art-inspector__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.art-inspector__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.art-inspector__row > span:first-child {
+  flex: none;
+  width: 56px;
+  color: var(--label-secondary);
+}
+.art-inspector__row > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+.art-inspector__section .ui-btn {
+  align-self: flex-start;
+  margin-top: var(--space-8);
 }

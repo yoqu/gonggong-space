@@ -11,6 +11,7 @@ import type {
   ArtifactVersionDetail,
   GgArtifactManifest,
 } from '@gonggong/protocol'
+import { SHADOW_PRESETS } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { artifacts, artifactVersions, messages, plugins } from '../src/db/schema.js'
@@ -393,6 +394,32 @@ describe('prototype links', () => {
         '<h1 class="t" data-gg-link="done" data-gg-transition="push-back">',
       ).replace('<a data-gg-link="done" ', '<a '),
     )
+  })
+
+  it('adds a 热区 over a rect of the page, after its content, and with a hand-picked colour beside it', async () => {
+    const s = await setup()
+    const h1 = { file: 'screens/home.html', ggId: id(HOME, '<h1') }
+    const res = await s.edit([
+      {
+        kind: 'hotspot',
+        file: 'screens/home.html',
+        rect: { x: 12, y: 300, w: 120, h: 48 },
+        to: 'done',
+        transition: 'fade',
+      },
+      { kind: 'style', ...h1, props: { color: '#1a73e8', 'box-shadow': SHADOW_PRESETS[1] } },
+    ])
+    expect(res.statusCode).toBe(200)
+    const html = await s.file('screens/home.html')
+    expect(html).toContain(`<h1 class="t" style="color: #1a73e8; box-shadow: ${SHADOW_PRESETS[1]}">`)
+    expect(html).toContain(
+      '<a data-gg-hotspot data-gg-link="done" data-gg-transition="fade" aria-label="热区" style="position: absolute; left: 12px; top: 300px; width: 120px; height: 48px; z-index: 999; display: block"></a>\n</body>',
+    )
+    // To a screen that is not there: refused like a link.
+    const bad = await s.edit([
+      { kind: 'hotspot', file: 'screens/home.html', rect: { x: 0, y: 0, w: 10, h: 10 }, to: 'nope' },
+    ])
+    expect(bad.statusCode).toBe(400)
   })
 
   it('refuses a link to a screen the manifest does not list', async () => {

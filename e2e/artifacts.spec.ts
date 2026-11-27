@@ -161,9 +161,37 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await layer.click()
         await expect(screen(page, 'home').locator('[data-gg-selected]')).toHaveText('首页直接改')
         await expect(layer).toHaveAttribute('aria-current', 'true')
-        await inspector.getByRole('tab', { name: '属性' }).click()
+        await inspector.getByRole('tab', { name: '外观' }).click()
         await expect(inspector.getByTestId('art-element-panel')).toBeVisible()
         await page.screenshot({ path: join(SHOTS, 'e2e-canvas-inspector.png') })
+        await inspector.getByRole('tab', { name: '交互' }).click()
+        await page.screenshot({ path: join(SHOTS, 'e2e-canvas-interact.png') })
+      })
+
+      await test.step('热区: dragged out on a page, it links to another page as the next version', async () => {
+        const inspector = page.getByTestId('art-inspector')
+        await inspector.getByRole('button', { name: '添加热区' }).click()
+        // Fit the page in view (F), then drag across its upper part.
+        await page.locator('[data-screen-title="home"] .art-title__name').click()
+        await page.getByRole('application', { name: '画布' }).press('f')
+        await page.waitForTimeout(300)
+        const box = (await page.getByTestId('art-node-home').boundingBox())!
+        await page.mouse.move(box.x + box.width * 0.1, box.y + box.height * 0.3)
+        await page.mouse.down()
+        await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.35, { steps: 5 })
+        await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.4, { steps: 5 })
+        await page.mouse.up()
+        const form = inspector.getByTestId('art-hotspot')
+        await expect(form).toContainText('×')
+        await page.screenshot({ path: join(SHOTS, 'e2e-canvas-hotspot.png') })
+        await form.getByRole('button', { name: '保存' }).click()
+        await expect(card.getByText('v4')).toBeVisible({ timeout: 30_000 })
+        await expect(screen(page, 'home').locator('[data-gg-hotspot][data-gg-link="detail"]')).toHaveCount(
+          1,
+          {
+            timeout: 30_000,
+          },
+        )
       })
 
       await test.step('with the bot offline the canvas still opens: the server hosts it', async () => {

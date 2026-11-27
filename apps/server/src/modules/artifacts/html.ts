@@ -266,6 +266,20 @@ export function editHtml(html: string, edits: ElementEdit[]) {
   return out
 }
 
+/** 墨刀's 热区: a transparent link over `rect` of the page (document px), the last thing in its body. */
+export function addHotspot(
+  html: string,
+  h: { rect: { x: number; y: number; w: number; h: number }; to: string; transition?: string },
+) {
+  const body = [...elementsOf(html).values()].find((el) => el.tagName === 'body')
+  const end = body?.sourceCodeLocation?.endTag ?? fail('invalid', '页面没有 </body>，不能加热区，请交给 AI')
+  const { x, y, w, h: height } = h.rect
+  const transition = h.transition ? ` data-gg-transition="${escAttr(h.transition)}"` : ''
+  const style = `position: absolute; left: ${x}px; top: ${y}px; width: ${w}px; height: ${height}px; z-index: 999; display: block`
+  const a = `<a data-gg-hotspot data-gg-link="${escAttr(h.to)}"${transition} aria-label="热区" style="${style}"></a>\n`
+  return html.slice(0, end.startOffset) + a + html.slice(end.startOffset)
+}
+
 /** Sets an existing `--name` under `:root` in tokens.css; null when there is none. */
 export function editToken(css: string, name: string, value: string) {
   const esc = name.replace(/[-]/g, '\\-')

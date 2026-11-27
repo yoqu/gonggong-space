@@ -38,6 +38,7 @@ import {
   RunStart,
   SendAnnotationsReq,
   SendMessageReq,
+  SHADOW_PRESETS,
   STYLE_PROPS,
   styleValueOk,
   tokensCssOk,
@@ -139,6 +140,39 @@ describe('style values', () => {
         props: { color: '12px' },
       }).success,
     ).toBe(false)
+  })
+  it('colours: tokens first, a hex colour picked by hand too (the design lint only warns)', () => {
+    for (const v of ['#1a73e8', '#FFF', '#1a73e880', 'var(--color-ink)', 'transparent'])
+      expect(styleValueOk(v, 'background-color')).toBe(true)
+    for (const v of ['#ggg', '#12', 'red', 'rgb(0,0,0)', '#fff;x'])
+      expect(styleValueOk(v, 'color')).toBe(false)
+    expect(styleValueOk('#fff', 'width')).toBe(false)
+  })
+  it('墨刀 appearance: shadow presets, italic, underline and strike-through', () => {
+    for (const v of SHADOW_PRESETS) expect(styleValueOk(v, 'box-shadow')).toBe(true)
+    expect(styleValueOk('none', 'box-shadow')).toBe(true)
+    expect(styleValueOk('0 0 9px red', 'box-shadow')).toBe(false)
+    expect(styleValueOk('italic', 'font-style')).toBe(true)
+    expect(styleValueOk('underline', 'text-decoration')).toBe(true)
+    expect(styleValueOk('line-through', 'text-decoration')).toBe(true)
+    expect(STYLE_PROPS).toEqual(expect.arrayContaining(['box-shadow', 'font-style', 'text-decoration']))
+  })
+  it('a hotspot: a rect of the page (document px) leading to a screen', () => {
+    const op = {
+      kind: 'hotspot',
+      file: 'screens/home.html',
+      rect: { x: 10, y: 20, w: 100, h: 44 },
+      to: 'detail',
+      transition: 'push',
+    }
+    expect(ArtifactEditOp.parse(op)).toEqual(op)
+    for (const bad of [
+      { ...op, rect: { x: -1, y: 0, w: 10, h: 10 } },
+      { ...op, rect: { x: 0, y: 0, w: 0, h: 10 } },
+      { ...op, to: '' },
+      { ...op, file: 'tokens.css' },
+    ])
+      expect(ArtifactEditOp.safeParse(bad).success).toBe(false)
   })
   it('token values allow hex and quoted font names but nothing that breaks out of the declaration', () => {
     expect(tokenValueOk('#1a73e8')).toBe(true)

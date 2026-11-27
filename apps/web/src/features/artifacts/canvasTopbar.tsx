@@ -4,7 +4,7 @@ import { IconButton, MenuButton, type MenuItem } from '../../ui'
 import { ToolButton } from './canvasControls'
 import type { CanvasNode, View } from './geometry'
 
-export type Tool = 'select' | 'hand' | 'mark' | 'edit' | 'play'
+export type Tool = 'select' | 'hand' | 'mark' | 'edit' | 'play' | 'hotspot'
 
 /** An on/off setting kept in localStorage: [value, toggle, set (for now, not kept)]. */
 export function useStoredFlag(key: string, initial: boolean) {
@@ -80,6 +80,13 @@ export function CanvasTools({
         label={t('上传到画布')}
         off={noEdit ?? (uploading ? t('正在上传…') : undefined)}
         onClick={onUpload}
+      />
+      <ToolButton
+        icon="target"
+        label={t('热区')}
+        on={tool === 'hotspot'}
+        off={noEdit}
+        onClick={() => onTool(tool === 'hotspot' ? 'select' : 'hotspot')}
       />
       <ToolButton icon="link" label={t('添加链接')} off={noEdit} onClick={onLink} />
       <ToolButton icon="arrow-clockwise" label={t('刷新')} onClick={onRefresh} />

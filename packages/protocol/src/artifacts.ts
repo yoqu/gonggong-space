@@ -12,6 +12,7 @@ import {
 import { ArtifactAnchor, ArtifactRuleFile } from './artifact-rules.js'
 import { ArtifactStateKey } from './artifact-states.js'
 import { RunStatus } from './common.js'
+import { StyleProp, styleValueOk, tokenValueOk } from './styles.js'
 import { SyncHash, SyncPath, syncRootText } from './sync.js'
 
 // ── Artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md): server-hosted, versioned design/<slug>/ folders ────
@@ -283,78 +284,6 @@ export const ArtifactCard = z.object({
 export type ArtifactCard = z.infer<typeof ArtifactCard>
 
 // ── Direct edits (3.5): spliced into the source by offset, one new version per save ──
-export const STYLE_PROPS = [
-  'color',
-  'background',
-  'background-color',
-  'border-color',
-  'font-size',
-  'font-weight',
-  'line-height',
-  'letter-spacing',
-  'text-align',
-  'margin',
-  'margin-top',
-  'margin-right',
-  'margin-bottom',
-  'margin-left',
-  'padding',
-  'padding-top',
-  'padding-right',
-  'padding-bottom',
-  'padding-left',
-  'gap',
-  'border',
-  'border-width',
-  'border-style',
-  'border-radius',
-  'width',
-  'height',
-  'opacity',
-] as const
-export const StyleProp = z.enum(STYLE_PROPS)
-export type StyleProp = z.infer<typeof StyleProp>
-/** Colours come from the tokens only, so manual edits pass the design-rule lint too. */
-const COLOR_PROPS = new Set<string>(['color', 'background', 'background-color', 'border-color'])
-const COLOR_KEYWORDS = new Set(['transparent', 'currentcolor', 'inherit', 'initial', 'unset'])
-const STYLE_KEYWORDS = new Set([
-  ...COLOR_KEYWORDS,
-  'auto',
-  'none',
-  'normal',
-  'solid',
-  'dashed',
-  'dotted',
-  'bold',
-  'bolder',
-  'lighter',
-  'left',
-  'right',
-  'center',
-  'justify',
-  'start',
-  'end',
-])
-const VAR = /^var\(--[a-z0-9-]+\)$/
-const NUMBER = /^-?(\d+|\d*\.\d+)(px|rem|em|%|vh|vw)?$/
-const UNSAFE_CSS = /url\(|expression|[;"'\\<>{}!]|\/\*/i
-
-/** An inline style value: space-separated token references (`var(--x)`), numbers with a unit, or keywords. */
-export function styleValueOk(value: string, prop?: string) {
-  if (value.length > 200 || UNSAFE_CSS.test(value)) return false
-  const parts = value.trim().split(/\s+/)
-  if (prop && COLOR_PROPS.has(prop)) return parts.every((p) => VAR.test(p) || COLOR_KEYWORDS.has(p))
-  return parts.every((p) => VAR.test(p) || NUMBER.test(p) || STYLE_KEYWORDS.has(p))
-}
-
-/** A `:root` custom property value in tokens.css: anything that cannot leave the declaration. */
-export function tokenValueOk(value: string) {
-  if (!value.trim() || value.length > 200 || /url\(|expression|[;\\<>{}]|\/\*/i.test(value)) return false
-  return (
-    [...value].filter((c) => c === '"').length % 2 === 0 &&
-    [...value].filter((c) => c === "'").length % 2 === 0
-  )
-}
 
 /** How the prototype view moves to a link's target: `push-back` slides in from the left. */
 export const ArtifactTransition = z.enum(['none', 'push', 'push-back', 'slide-up', 'fade'])
@@ -447,6 +376,22 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
     .object({ kind: z.literal('token'), name: z.string().regex(/^--[a-z0-9-]{1,64}$/), value: z.string() })
     .refine((o) => tokenValueOk(o.value), { message: '令牌值不合法', path: ['value'] }),
   z.object({ kind: z.literal('delete'), ...At }),
+  /**
+   * 墨刀's 热区: a transparent link over this rect of the page (document px, from its top left) to a screen, added at
+   * the end of its body; edited and removed like any element after that.
+   */
+  z.object({
+    kind: z.literal('hotspot'),
+    file: ArtifactHtmlFile,
+    rect: z.object({
+      x: z.number().int().min(0).max(20000),
+      y: z.number().int().min(0).max(100000),
+      w: z.number().int().min(4).max(20000),
+      h: z.number().int().min(4).max(100000),
+    }),
+    to: z.string().min(1).max(100),
+    transition: ArtifactTransition.optional(),
+  }),
   /** An uploaded image copied into `assets/`; the element's `src` points at it. */
   z.object({ kind: z.literal('asset'), ...At, uploadId: z.string() }),
   /** Replaces DESIGN.md or a rule file (stored as plain text; clients escape it) or tokens.css (see tokensCssOk). */
@@ -726,6 +671,10 @@ export const BridgeLayer = z.object({
   depth: z.number().int().min(0).max(50),
   /** Not displayed (display none, or inside something that is not). */
   hidden: z.literal(true).optional(),
+  /** Its `data-gg-link`: the screen a click opens. */
+  link: z.string().max(100).optional(),
+  /** A 热区 (`data-gg-hotspot`) added on the canvas. */
+  hotspot: z.literal(true).optional(),
 })
 export type BridgeLayer = z.infer<typeof BridgeLayer>
 const Layout = {
@@ -824,7 +773,16 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
   /** ⌘/Ctrl + wheel, a pinch or ⌘+ / ⌘- over the screen: zoom the view by `factor` about its viewport's (x, y). */
   z.object({ ...FromScreen, type: z.literal('zoom'), factor: z.number(), x: z.number(), y: z.number() }),
   /** The answer to `layers`: at most BRIDGE_LAYERS_MAX, `depth` counted in layers (0: no layer above it). */
-  z.object({ ...FromScreen, type: z.literal('layers'), items: z.array(BridgeLayer).max(BRIDGE_LAYERS_MAX) }),
+  z.object({
+    ...FromScreen,
+    type: z.literal('layers'),
+    items: z.array(BridgeLayer).max(BRIDGE_LAYERS_MAX),
+    /** The page's body (画布设置 › 背景): its `data-gg-id` and computed background colour. */
+    body: z
+      .object({ ggId: GgId, background: z.string().max(100) })
+      .nullable()
+      .optional(),
+  }),
   /** Scrolled (at most once a frame, the last always sent): `window.scrollX/Y`; viewport rects move by it. */
   z.object({ ...FromScreen, type: z.literal('scroll'), scrollX: z.number(), scrollY: z.number() }),
 ])

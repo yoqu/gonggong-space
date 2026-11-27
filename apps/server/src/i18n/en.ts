@@ -1077,6 +1077,7 @@ export const en = {
   '元素在源码里找不到：{ggId}': 'Element not found in the source: {ggId}',
   '元素包含子元素，不能直接改文字，请交给 AI':
     'The element has child elements; hand the text change to the AI',
+  '页面没有 </body>，不能加热区，请交给 AI': 'The page has no </body> to add a hotspot to; ask the AI',
   '元素没有结束标签，不能直接修改，请交给 AI':
     'The element has no end tag and cannot be edited directly; hand it to the AI',
   同一元素不能既删除又修改: 'An element cannot be both deleted and changed',

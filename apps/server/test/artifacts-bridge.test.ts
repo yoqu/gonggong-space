@@ -73,11 +73,12 @@ describe('gg-bridge', () => {
     expect(msg.items.slice(0, 4)).toEqual([
       { ggId: id('section'), tag: 'section', name: 'hero', depth: 0 },
       { ggId: id('#t'), tag: 'h1', name: '报名', depth: 1 },
-      { ggId: id('a'), tag: 'a', name: '去报名', depth: 1 },
+      { ggId: id('a'), tag: 'a', name: '去报名', depth: 1, link: 'done' },
       { ggId: id('[data-gg-back]'), tag: 'button', name: '返回', depth: 1 },
     ])
     expect(msg.items.find((l) => l.tag === 'form')).toMatchObject({ hidden: true, depth: 1 })
     expect(msg.items.find((l) => l.ggId === id('#go'))).toMatchObject({ hidden: true, depth: 2 })
+    expect(msg.body).toEqual({ ggId: s.$('body').getAttribute('data-gg-id'), background: expect.any(String) })
 
     // Picked in preview mode: nothing (clicks there work the page).
     s.send({ type: 'pick', ggId: id('#t') })
@@ -654,6 +655,15 @@ describe('gg-bridge', () => {
       'border-radius',
       'width',
       'height',
+      'letter-spacing',
+      'text-align',
+      'font-style',
+      'text-decoration-line',
+      'border-width',
+      'border-style',
+      'border-color',
+      'opacity',
+      'box-shadow',
     ])
     expect(s.$('[data-gg-link]').hasAttribute('data-gg-selected')).toBe(true)
     s.click('h1')

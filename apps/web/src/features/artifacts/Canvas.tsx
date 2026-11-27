@@ -4,6 +4,7 @@ import type {
   ArtifactCommandReq,
   ArtifactDevice,
   ArtifactEditOp,
+  ArtifactTransition,
   BridgeLayer,
   BridgeLinkRect,
   BridgeMode,
@@ -65,7 +66,8 @@ import {
 } from './actions'
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
-import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
+import { CommandMenu } from './CommandMenu'
+import { canvasCommandEntries, RUN } from './canvasCommands'
 import { ActivityLayer, CanvasTips, FloatMenu, RenameField } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
@@ -126,7 +128,15 @@ import {
   ZOOM_STEP,
   zoomAt,
 } from './geometry'
-import { CanvasInfo, Inspector, type InspectorTab, inspectorTab, LayersPanel } from './Inspector'
+import {
+  CanvasSettings,
+  HotspotForm,
+  Inspector,
+  type InspectorTab,
+  inspectorTab,
+  type LayersBody,
+  LayersPanel,
+} from './Inspector'
 import { implementationPrompt } from './implPrompt'
 import { useTextEdit } from './inPlace'
 import { Links, linkPaths } from './Links'
@@ -139,6 +149,7 @@ import {
   modifyItems,
   moreItems,
   nodeContextItems,
+  pagePresets,
   previewItems,
   refContextItems,
   screenContextItems,
@@ -178,6 +189,7 @@ type Panel =
   | 'rules'
   | 'shared'
   | 'layers'
+  | 'interact'
 
 /** What the tab's bar asks the canvas for (its 导出 button and project menu); `n` makes each ask a new one. */
 export interface CanvasRequest {
@@ -188,40 +200,6 @@ export interface CanvasRequest {
   /** Done: a canvas mounting later does not do it again. */
   handled?: boolean
 }
-
-const TOOL_IDS: Tool[] = ['select', 'mark', 'edit', 'play', 'hand']
-/** Command-menu values beyond the menus' own commands. */
-const RUN = { tool: 'tool:', zoom: 'zoom:', screen: 'screen:', panel: 'panel:' } as const
-/** Commands that take selected references as well as screens. */
-const REF_COMMANDS: string[] = [CMD.addToChat, CMD.remove, CMD.rename, CMD.download]
-
-/** Commands about the selected screens: the command menu greys them out with nothing selected. */
-const needsSelection = (v: string) =>
-  v.startsWith(CMD.generate) ||
-  v.startsWith(CMD.variations) ||
-  v.startsWith(CMD.frame) ||
-  (
-    [
-      CMD.edit,
-      CMD.details,
-      CMD.code,
-      CMD.download,
-      CMD.reload,
-      CMD.remove,
-      CMD.copy,
-      CMD.copyCode,
-      CMD.copyPng,
-      CMD.cut,
-      CMD.duplicate,
-      CMD.focus,
-      CMD.favourite,
-      CMD.rename,
-      CMD.addToChat,
-      CMD.newTab,
-      CMD.fullHeight,
-      `${RUN.zoom}${ZOOM_SELECTION}`,
-    ] as string[]
-  ).includes(v)
 
 const LINKS_KEY = 'gg.art.links'
 /** How long the canvas's own notice (copied…) stays. */
@@ -303,7 +281,8 @@ const BRIEF = 'project-brief'
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
 
-const bridgeMode = (tool: Tool): BridgeMode => (tool === 'mark' || tool === 'edit' ? tool : 'preview')
+const bridgeMode = (tool: Tool): BridgeMode =>
+  tool === 'mark' || tool === 'edit' ? tool : tool === 'hotspot' ? 'mark' : 'preview'
 
 const manifestOp = (
   op: 'rename' | 'duplicate' | 'delete' | 'reorder',
@@ -466,7 +445,8 @@ export function Canvas({
   const [panel, setPanelNow] = useState<Panel | null>(null)
   const [inspector, toggleInspector, setInspector] = useStoredFlag('gg.art.inspector', true)
   const [rulers, toggleRulers] = useStoredFlag('gg.art.rulers', false)
-  const [layers, setLayers] = useState<{ file: string; items: BridgeLayer[] } | null>(null)
+  const [layers, setLayers] = useState<{ file: string; items: BridgeLayer[]; body?: LayersBody } | null>(null)
+  const [hotspot, setHotspot] = useState<{ screenId: string; file: string; rect: Rect } | null>(null)
   /** A layer picked outside 标记 / 直接编辑: picked once the screens are in the editing mode. */
   const pendingPick = useRef<{ file: string; ggId: string } | null>(null)
   const otherNotes = useOpenElsewhere(
@@ -502,7 +482,7 @@ export function Canvas({
   const panning = tool === 'hand' || space
   const live = tool === 'mark' || tool === 'edit'
   /** The pages take the pointer: picked in 标记 / 直接编辑, worked by plain clicks in 交互. */
-  const through = live || tool === 'play'
+  const through = live || tool === 'play' || tool === 'hotspot'
   const canEdit = !readOnly && !!manifest
   const noEditReason = noEditReasonOf(versionKey, readOnly, manifest)
 
@@ -659,8 +639,8 @@ export function Canvas({
   const resetText = textEdit.reset
   const fromScreen = (m: BridgeMessage) => {
     if (rules.onBridge(m)) return
-    if (m.type === 'layers') return setLayers({ file: m.file, items: m.items })
-    if (m.type === 'ready' && panel === 'layers' && one?.file === m.file)
+    if (m.type === 'layers') return setLayers({ file: m.file, items: m.items, body: m.body ?? undefined })
+    if (m.type === 'ready' && inspector && one?.file === m.file)
       postToScreen(frameEls.get(m.file), origin, { type: 'layers' })
     if (m.type === 'ready') {
       const f = frameEls.get(m.file)
@@ -686,6 +666,12 @@ export function Canvas({
       textEdit.onMessage(m)
     } else if (m.type === 'mark-rect') {
       const s = screens.find((n) => n.file === m.file)
+      if (s && tool === 'hotspot')
+        return setHotspot({
+          screenId: s.id,
+          file: m.file,
+          rect: inDocument(m.rect, scrolls[m.file] ?? NO_SCROLL),
+        })
       if (!s || tool !== 'mark') return
       setSelected([s.id])
       setElement(null)
@@ -722,6 +708,7 @@ export function Canvas({
     for (const f of frameEls.values()) postToScreen(f, origin, { type: 'mode', mode: bridgeMode(tool) })
     setElement(null)
     setRegion(null)
+    setHotspot(null)
     resetText()
     const p = pendingPick.current
     pendingPick.current = null
@@ -1358,13 +1345,15 @@ export function Canvas({
   let dot = 24 * view.z
   while (dot < 12) dot *= 4
 
-  const layersOf = one?.file
+  // The selected page's layers: for 图层, and for 画布设置 (its body, its 热区).
+  const layersOf = inspector ? one?.file : undefined
   // biome-ignore lint/correctness/useExhaustiveDependencies: asks again for another screen, version or layout
   useEffect(() => {
-    if (panel !== 'layers' || !layersOf) return
+    if (!layersOf) return
     setLayers(null)
     postToScreen(frameEls.get(layersOf), origin, { type: 'layers' })
-  }, [panel, layersOf, versionKey, origin, layersOf ? content[layersOf] : 0])
+  }, [layersOf, versionKey, origin, layersOf ? content[layersOf] : 0])
+  const shownLayers = layers && layers.file === one?.file ? layers : null
   useEffect(() => {
     if (panel) setInspector(true)
   }, [panel, setInspector])
@@ -1378,18 +1367,74 @@ export function Canvas({
   const onTab = (next: InspectorTab) =>
     next === 'props'
       ? setPanel(null)
-      : next === 'layers' || next === 'annotations'
+      : next === 'layers' || next === 'annotations' || next === 'interact'
         ? setPanel(next)
         : next === 'rules'
           ? command(CMD.rules)
           : openDesign('theme')
-  /** 属性: what is selected — an element being edited, a screen, else the canvas. */
-  const propsTab = panel === null || panel === 'element' || panel === 'details'
+  /** 外观 / 交互 of the element being edited, else 画布设置. */
+  const propsTab = panel === null || panel === 'element' || panel === 'interact'
+  const startHotspot = () => (tool === 'hotspot' ? setHotspot(null) : setTool('hotspot'))
+  const pageSettings = one
+    ? {
+        node: one,
+        ...pagePresets(frameOf(one), device),
+        background: shownLayers?.body?.background ?? null,
+        hotspots: shownLayers?.items.filter((l) => l.hotspot) ?? [],
+        screens,
+        onRename: (next: string) => edit([manifestOp('rename', one.id, { title: next })]),
+        onPreset: (p: string) => command(`${CMD.frame}${p}`),
+        onBackground: shownLayers?.body
+          ? (color: string) =>
+              void saveOps([
+                {
+                  kind: 'style',
+                  file: one.file,
+                  ggId: shownLayers.body?.ggId ?? '',
+                  props: { 'background-color': color },
+                },
+              ])
+          : null,
+        onHotspot: startHotspot,
+        onPickHotspot: pickLayer,
+        onCode: () => setCode(one),
+      }
+    : null
 
   const sidePanel =
-    propsTab && element && tool === 'edit' ? (
+    tool === 'hotspot' ? (
+      <HotspotForm
+        key={hotspot ? `${hotspot.file}@${hotspot.rect.x},${hotspot.rect.y}` : ''}
+        drawn={
+          hotspot && {
+            screenId: hotspot.screenId,
+            w: Math.round(hotspot.rect.w),
+            h: Math.round(hotspot.rect.h),
+          }
+        }
+        screens={screens}
+        onSave={async (to, transition) => {
+          if (!hotspot) return false
+          const { x, y, w, h } = hotspot.rect
+          const rect = {
+            x: Math.max(0, Math.round(x)),
+            y: Math.max(0, Math.round(y)),
+            w: Math.round(w),
+            h: Math.round(h),
+          }
+          const ok = await saveOps([
+            { kind: 'hotspot', file: hotspot.file, rect, to, transition: transition as ArtifactTransition },
+          ])
+          if (ok) setTool('edit')
+          return ok
+        }}
+        onCancel={() => setTool('select')}
+      />
+    ) : propsTab && element && tool === 'edit' ? (
       <ElementPanel
         key={`${element.file}#${element.ggId}`}
+        view={panel === 'interact' ? 'interact' : 'look'}
+        onHotspot={canEdit ? startHotspot : undefined}
         el={element}
         artifactId={artifactId}
         screens={screens}
@@ -1438,7 +1483,7 @@ export function Canvas({
         onView={onViewVersion}
         onClose={() => setPanel(null)}
       />
-    ) : propsTab && one ? (
+    ) : panel === 'details' && one ? (
       <DetailsPanel
         artifactId={artifactId}
         versionId={versionKey}
@@ -1499,8 +1544,11 @@ export function Canvas({
           if (one) postToScreen(frameEls.get(one.file), origin, { type: 'layers' })
         }}
       />
-    ) : propsTab ? (
-      <CanvasInfo
+    ) : propsTab || panel === 'details' ? (
+      <CanvasSettings
+        page={pageSettings}
+        readOnly={!canEdit}
+        colors={(tokens?.vars ?? []).filter(([k]) => k.startsWith('--color-'))}
         screens={screens.length}
         device={device}
         systemName={tokens ? tokens.name || t('设计系统') : null}
@@ -1531,91 +1579,11 @@ export function Canvas({
   const hasThumb = !!one && screenThumbs.some((s) => s.screenId === one.id)
   const openNotes = annotations.list.filter((a) => a.status === 'open').length
 
-  const commandEntries = (): CommandEntry[] => {
-    const none = { disabled: true, title: t('先选中屏幕') }
-    const gate = (e: CommandEntry): CommandEntry =>
-      !picked.length && needsSelection(e.value) && !(pickedRefs.length && REF_COMMANDS.includes(e.value))
-        ? { ...e, ...none }
-        : e
-    const single = !!one && !!preview
-    const all: CommandEntry[] = [
-      ...screens.map((n) => ({ group: t('屏幕'), label: n.title, value: `${RUN.screen}${n.id}` })),
-      ...refs.map((r) => ({
-        group: t('参考文件'),
-        label: r.title,
-        value: `${RUN.screen}${refNodeId(r.id)}`,
-      })),
-      ...web.links.map((l) => ({
-        group: t('链接'),
-        label: l.title,
-        value: `${RUN.screen}${linkNodeId(l.id)}`,
-      })),
-      ...entriesOf(t('选择'), [
-        { label: t('全选'), value: CMD.selectAll, shortcut: '⌘A' },
-        { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
-        { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
-        { label: t('复制代码'), value: CMD.copyCode },
-        { label: t('复制选区链接'), value: CMD.copyLink },
-        copyPngItem(hasThumb),
-        { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', disabled: !canEdit },
-        { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: !canEdit || !clip },
-        { label: t('创建副本'), value: CMD.duplicate, shortcut: '⌘D', disabled: !canEdit },
-        { label: t('聚焦'), value: CMD.focus, shortcut: 'F' },
-        { label: t('收藏'), value: CMD.favourite, shortcut: '⇧F' },
-        { label: t('重命名'), value: CMD.rename, disabled: !canEdit || (!one && pickedRefs.length !== 1) },
-        { label: t('删除'), value: CMD.remove, shortcut: '⌫', disabled: !canEdit },
-      ]),
-      ...entriesOf(t('生成'), generateItems(botState, pluginCommands)),
-      ...entriesOf(t('生成'), variationItems(botState), `${t('变体')} › `),
-      ...entriesOf(t('修改#modify'), modifyItems(!canEdit)),
-      ...entriesOf(t('预览'), previewItems(single, sharedFrame, device)),
-      ...entriesOf(t('更多'), moreItems(!canEdit)),
-      ...entriesOf(
-        t('视图'),
-        zoomItems(selected.length > 0).map((it) =>
-          'value' in it ? { ...it, value: `${RUN.zoom}${it.value}` } : it,
-        ),
-      ),
-      ...entriesOf(t('视图'), [{ label: t('显示连线'), value: CMD.links, shortcut: 'X' }]),
-      ...entriesOf(
-        t('工具'),
-        TOOL_IDS.map((id) => ({
-          label: {
-            select: t('选择'),
-            mark: t('标记#mark'),
-            edit: t('直接编辑'),
-            play: t('交互'),
-            hand: t('抓手'),
-          }[id],
-          value: `${RUN.tool}${id}`,
-          shortcut: { select: 'V', mark: 'M', edit: 'E', play: 'P', hand: 'H' }[id],
-          ...(id === 'edit' && noEditReason ? { disabled: true, title: noEditReason } : {}),
-        })),
-      ),
-      ...entriesOf(t('工具'), [
-        {
-          label: t('上传到画布'),
-          value: CMD.upload,
-          ...(noEditReason ? { disabled: true, title: noEditReason } : {}),
-        },
-        {
-          label: t('添加链接'),
-          value: LINK_CMD.add,
-          ...(noEditReason ? { disabled: true, title: noEditReason } : {}),
-        },
-      ]),
-      ...entriesOf(t('面板'), [
-        { label: t('设计系统'), value: CMD.designSystem },
-        ...(designMd ? [{ label: 'DESIGN.md', value: CMD.designMd }] : []),
-        { label: t('收藏'), value: `${RUN.panel}favourites` },
-        { label: t('批注'), value: `${RUN.panel}annotations` },
-        { label: t('页面规则'), value: CMD.rules },
-        { label: t('共享规则.md'), value: CMD.sharedRules },
-        { label: t('快捷键'), value: CMD.shortcuts, shortcut: '?' },
-      ]),
-    ]
-    return all.map(gate)
-  }
+  const commandEntries = () =>
+    canvasCommandEntries({
+      ...{ picked, pickedRefs, one, preview, screens, refs, links: web.links, canEdit, clip, hasThumb },
+      ...{ botState, pluginCommands, sharedFrame, device, selected, noEditReason, designMd },
+    })
 
   const contextItems: MenuItem[] =
     ctxOn === 'link'
@@ -2229,6 +2197,15 @@ export function Canvas({
               })()
             : null}
 
+          {hotspot
+            ? (() => {
+                const n = screens.find((x) => x.id === hotspot.screenId)
+                const r = n && inFrame(n, hotspot.rect, hotspot.file)
+                return n && r ? (
+                  <div className="art-region art-region--draft" style={elementBox(n, r, view)} />
+                ) : null
+              })()
+            : null}
           {rules.marks(view, nodes)}
           {rules.banner}
           {rulers ? (
@@ -2265,10 +2242,13 @@ export function Canvas({
             </div>
           ) : null}
 
-          <CanvasTips
-            through={through ? (live ? 'pick' : 'play') : null}
-            mode={tool === 'play' || tool === 'mark' || tool === 'edit' ? tool : null}
-          />
+          {/* Beside the 属性面板 a canvas can get too narrow for a tip to read. */}
+          {room.width === 0 || room.width >= 480 ? (
+            <CanvasTips
+              through={through && tool !== 'hotspot' ? (live ? 'pick' : 'play') : null}
+              mode={tool === 'play' || tool === 'mark' || tool === 'edit' ? tool : null}
+            />
+          ) : null}
 
           <Presence>{web.dialog}</Presence>
           <Presence>{help ? <ShortcutsDialog onClose={() => setHelp(false)} /> : null}</Presence>
@@ -2347,7 +2327,7 @@ export function Canvas({
           </Presence>
         </div>
         {inspector ? (
-          <Inspector tab={tab} notes={openNotes} onTab={onTab}>
+          <Inspector tab={tab} element={!!element && tool === 'edit'} notes={openNotes} onTab={onTab}>
             {sidePanel}
           </Inspector>
         ) : null}
