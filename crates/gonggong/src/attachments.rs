@@ -88,16 +88,24 @@ async fn download(api: &Config, a: &Attachment, path: &Path) -> anyhow::Result<(
     let url = format!("{}/api/daemon/attachments/{}", api.server.trim_end_matches('/'), a.id);
     let mut res = tls::http(api)?.get(url).bearer_auth(&api.token).send().await?.error_for_status()?;
     tokio::fs::create_dir_all(path.parent().expect("attachment paths have a parent")).await?;
-    // Written aside and renamed, so a cut-off download is never taken for the file.
+    // Written aside and renamed, so a cut-off download is never taken for the file. Unique per download: bots on one
+    // machine may fetch the same attachment into one workspace at once.
     let mut part = path.as_os_str().to_owned();
-    part.push(".part");
-    let mut file = tokio::fs::File::create(&part).await?;
-    while let Some(chunk) = res.chunk().await? {
-        file.write_all(&chunk).await?;
+    part.push(format!(".{}.part", uuid::Uuid::new_v4().simple()));
+    let written = async {
+        let mut file = tokio::fs::File::create(&part).await?;
+        while let Some(chunk) = res.chunk().await? {
+            file.write_all(&chunk).await?;
+        }
+        file.flush().await?;
+        tokio::fs::rename(&part, path).await?;
+        anyhow::Ok(())
     }
-    file.flush().await?;
-    tokio::fs::rename(&part, path).await?;
-    Ok(())
+    .await;
+    if written.is_err() {
+        let _ = tokio::fs::remove_file(&part).await;
+    }
+    written
 }
 
 /// The prompt text, then the trigger's images when the agent accepts image content.

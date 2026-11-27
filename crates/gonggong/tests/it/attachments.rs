@@ -364,3 +364,43 @@ async fn gonggong_tools_reach_the_server_for_the_live_run_without_asking_the_own
         [tool, "/api/daemon/attachments/a2"]
     );
 }
+
+/// Serves every request the same body in two halves with a pause between, so concurrent downloads overlap.
+async fn slow_server(body: &'static [u8]) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        loop {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                let mut buf = vec![0; 8192];
+                let _ = sock.read(&mut buf).await.unwrap();
+                let head = format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n", body.len());
+                let (a, b) = body.split_at(body.len() / 2);
+                sock.write_all(head.as_bytes()).await.unwrap();
+                sock.write_all(a).await.unwrap();
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                sock.write_all(b).await.unwrap();
+            });
+        }
+    });
+    url
+}
+
+#[tokio::test]
+async fn bots_fetching_the_same_attachment_at_once_both_succeed() {
+    let server = slow_server(PNG).await;
+    let api =
+        Config { server, token: TOKEN.into(), machine_id: "mc1".into(), owner_name: "王磊".into(), tls_trust: None };
+    let cwd = tempfile::tempdir().unwrap();
+    let list = [att("a1", "m1", "image.png", "image/png", PNG.len())];
+    let (first, second) = tokio::join!(
+        gonggong::attachments::fetch(&api, cwd.path(), &list),
+        gonggong::attachments::fetch(&api, cwd.path(), &list)
+    );
+    assert_eq!((first, second), (Ok(()), Ok(())));
+    let dir = cwd.path().join(".gonggong/attachments/m1");
+    assert_eq!(std::fs::read(dir.join("image.png")).unwrap(), PNG);
+    let names: Vec<_> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names, ["image.png"]);
+}
