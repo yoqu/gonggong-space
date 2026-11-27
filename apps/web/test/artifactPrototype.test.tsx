@@ -106,7 +106,7 @@ const openEditor = async () => {
   await waitFor(() =>
     expect(screen.getByRole('button', { name: '预览原型' }).hasAttribute('disabled')).toBe(false),
   )
-  expect(screen.getByRole('button', { name: '预览原型' }).textContent).toBe('预览')
+  expect(screen.getByRole('button', { name: '预览原型' }).textContent).toBe('演示')
   fireEvent.click(screen.getByRole('button', { name: '预览原型' }))
   await screen.findByRole('region', { name: '原型预览' })
 }

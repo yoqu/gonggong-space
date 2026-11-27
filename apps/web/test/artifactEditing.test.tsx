@@ -590,44 +590,56 @@ describe('element panel', () => {
     for (const m of previews()) expect(BridgeToShell.safeParse(m).success).toBe(true)
   })
 
-  it('pans the element out from under the panel when the panel opens (P2-08)', async () => {
-    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
+  it('docks the 属性面板 beside the canvas, and picks elements from 图层 (墨刀 layout)', async () => {
     mockApi(routes())
     await renderTab()
-    const world = () => {
-      const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(
-        (document.querySelector('.art-world') as HTMLElement).style.transform,
-      )
-      return { x: Number(m?.[1]), z: Number(m?.[3]) }
-    }
-    const right = () => {
-      const { x, z } = world()
-      return x + (Number.parseFloat(node('detail').style.left) + 300 + 60) * z
-    }
-    key('e')
-    fromScreen(
-      {
-        type: 'select',
-        ggId: '130',
-        selector: 'body > button',
-        rect: { x: 300, y: 20, w: 60, h: 30 },
-        tag: 'button',
-        text: '加入',
-        textOnly: true,
-        computed: {},
-        inlineStyle: '',
-        src: null,
-        href: null,
-        link: null,
-        file: 'screens/detail.html',
-      },
-      '书籍详情',
-    )
-    expect(right()).toBeGreaterThan(900 - 360 - 24)
-    fireEvent.click(action(/属性/))
-    expect(screen.getByTestId('art-element-panel')).toBeTruthy()
-    expect(right()).toBeLessThanOrEqual(900 - 360 - 24 + 0.5)
+    fromScreen({ type: 'ready', width: 390, height: 800 })
+    const frame = (screen.getByTitle('首页') as HTMLIFrameElement).contentWindow as Window
+    const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
+    const sent = () => post.mock.calls.map(([m]) => m as { type: string; ggId?: string })
+    const inspector = screen.getByTestId('art-inspector')
+    expect(canvas().contains(inspector)).toBe(false)
+    expect(within(inspector).getByTestId('art-canvas-props')).toBeTruthy()
+    fireEvent.click(node('home'))
+    expect(within(inspector).getByRole('complementary', { name: '首页' })).toBeTruthy()
+
+    fireEvent.click(within(inspector).getByRole('tab', { name: '图层' }))
+    expect(sent().filter((m) => m.type === 'layers')).toHaveLength(1)
+    fromScreen({
+      type: 'layers',
+      items: [
+        { ggId: '110', tag: 'section', name: '', depth: 0 },
+        { ggId: '120', tag: 'h1', name: '本周共读', depth: 1 },
+        { ggId: '130', tag: 'img', name: '', depth: 1, hidden: true },
+      ],
+    })
+    const row = (name: RegExp) => within(screen.getByTestId('art-layers')).getByRole('button', { name })
+    expect(row(/^section$/)).toBeTruthy()
+    expect(row(/img/).classList.contains('art-layers__row--hidden')).toBe(true)
+    // Picked outside 直接编辑: it turns on, then the screen selects the element.
+    fireEvent.click(row(/本周共读/))
+    expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
+    expect(sent().filter((m) => m.type === 'pick')).toEqual([
+      expect.objectContaining({ type: 'pick', ggId: '120' }),
+    ])
+    select()
+    expect(row(/本周共读/).getAttribute('aria-current')).toBe('true')
+    // In edit mode a layer is picked at once.
+    fireEvent.click(row(/^section$/))
+    expect(
+      sent()
+        .filter((m) => m.type === 'pick')
+        .at(-1),
+    ).toMatchObject({ ggId: '110' })
+
+    fireEvent.click(within(inspector).getByRole('tab', { name: '属性' }))
+    expect(within(inspector).getByTestId('art-element-panel')).toBeTruthy()
+    // Folded away and back: the choice is kept.
+    fireEvent.click(screen.getByRole('button', { name: '收起属性面板' }))
+    expect(screen.queryByTestId('art-inspector')).toBeNull()
+    expect(localStorage.getItem('gg.art.inspector')).toBe('off')
+    fireEvent.click(screen.getByRole('button', { name: '展开属性面板' }))
+    expect(screen.getByTestId('art-inspector')).toBeTruthy()
   })
 
   it('keeps only changed style props', () => {

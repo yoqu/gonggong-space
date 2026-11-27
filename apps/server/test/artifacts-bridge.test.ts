@@ -63,6 +63,31 @@ describe('gg-bridge', () => {
     })
   })
 
+  it('lists its layers and selects one picked from them', () => {
+    const s = screen()
+    s.$('form').style.display = 'none'
+    s.send({ type: 'layers' })
+    const msg = BridgeFromShell.parse(s.last())
+    if (msg.type !== 'layers') throw new Error(String(msg.type))
+    const id = (sel: string) => s.$(sel).getAttribute('data-gg-id')
+    expect(msg.items.slice(0, 4)).toEqual([
+      { ggId: id('section'), tag: 'section', name: 'hero', depth: 0 },
+      { ggId: id('#t'), tag: 'h1', name: '报名', depth: 1 },
+      { ggId: id('a'), tag: 'a', name: '去报名', depth: 1 },
+      { ggId: id('[data-gg-back]'), tag: 'button', name: '返回', depth: 1 },
+    ])
+    expect(msg.items.find((l) => l.tag === 'form')).toMatchObject({ hidden: true, depth: 1 })
+    expect(msg.items.find((l) => l.ggId === id('#go'))).toMatchObject({ hidden: true, depth: 2 })
+
+    // Picked in preview mode: nothing (clicks there work the page).
+    s.send({ type: 'pick', ggId: id('#t') })
+    expect(s.last()?.type).toBe('layers')
+    s.send({ type: 'mode', mode: 'edit' })
+    s.send({ type: 'pick', ggId: id('#t') })
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({ type: 'select', ggId: id('#t'), tag: 'h1' })
+    expect(s.$('#t').hasAttribute('data-gg-selected')).toBe(true)
+  })
+
   it('reports where its links and back buttons are, in document coordinates', () => {
     const s = screen()
     const ready = BridgeFromShell.parse(s.posts[0]?.data)

@@ -670,6 +670,10 @@ export const BridgeToShell = z.discriminatedUnion('type', [
    */
   z.object({ type: z.literal('edit-text'), ggId: GgId }),
   z.object({ type: z.literal('reload') }),
+  /** 图层: the screen answers with `layers`, its elements with a `data-gg-id` in document order. */
+  z.object({ type: z.literal('layers') }),
+  /** Mark / edit mode, a layer picked: selects the element as a click would (posts `select`) and brings it into view. */
+  z.object({ type: z.literal('pick'), ggId: GgId }),
   /**
    * Live preview of unsaved style edits on one element: puts its own `style` back, then sets these properties (an
    * empty value removes one); `null` only puts it back. One element at a time: another `ggId` restores the previous.
@@ -713,6 +717,17 @@ export const BridgeAnchorRect = z.object({
   fixed: z.literal(true).optional(),
 })
 export type BridgeAnchorRect = z.infer<typeof BridgeAnchorRect>
+export const BRIDGE_LAYERS_MAX = 800
+/** One element of a screen's 图层: `name` its own text, alt or label, cut to 40 characters (empty when none). */
+export const BridgeLayer = z.object({
+  ggId: GgId,
+  tag: z.string().max(20),
+  name: z.string().max(40),
+  depth: z.number().int().min(0).max(50),
+  /** Not displayed (display none, or inside something that is not). */
+  hidden: z.literal(true).optional(),
+})
+export type BridgeLayer = z.infer<typeof BridgeLayer>
 const Layout = {
   width: z.number(),
   height: z.number(),
@@ -808,6 +823,8 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
   z.object({ ...FromScreen, type: z.literal('key'), key: z.string().max(20), repeat: z.boolean() }),
   /** ⌘/Ctrl + wheel, a pinch or ⌘+ / ⌘- over the screen: zoom the view by `factor` about its viewport's (x, y). */
   z.object({ ...FromScreen, type: z.literal('zoom'), factor: z.number(), x: z.number(), y: z.number() }),
+  /** The answer to `layers`: at most BRIDGE_LAYERS_MAX, `depth` counted in layers (0: no layer above it). */
+  z.object({ ...FromScreen, type: z.literal('layers'), items: z.array(BridgeLayer).max(BRIDGE_LAYERS_MAX) }),
   /** Scrolled (at most once a frame, the last always sent): `window.scrollX/Y`; viewport rects move by it. */
   z.object({ ...FromScreen, type: z.literal('scroll'), scrollX: z.number(), scrollY: z.number() }),
 ])

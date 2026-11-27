@@ -441,7 +441,7 @@ function PrototypeArtifactTab({
               disabled={!preview || !shownManifest}
               onClick={present}
             >
-              {t('预览')}
+              {t('演示')}
             </Button>
             <Button
               size="small"

@@ -80,7 +80,7 @@ export function FloatMenu({
 }
 
 /**
- * A tool of the right-hand toolbar; tools without `onClick` are not available (yet), `off` says why one is not right
+ * A tool of the top bar; tools without `onClick` are not available (yet), `off` says why one is not right
  * now. `badge`: a count on its corner (open annotations).
  */
 export function ToolButton({
@@ -113,7 +113,7 @@ export function ToolButton({
             : t('{name}（即将支持）', { name: label })
       }
       shortcut={shortcut}
-      placement="left"
+      placement="bottom"
     >
       <button
         type="button"

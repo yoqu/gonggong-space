@@ -1,6 +1,7 @@
 import composer from './en-composer'
 import design from './en-design'
 import inplace from './en-inplace'
+import inspector from './en-inspector'
 import links from './en-links'
 import preview from './en-preview'
 import proto from './en-proto'
@@ -15,6 +16,7 @@ export default {
   ...composer,
   ...design,
   ...inplace,
+  ...inspector,
   ...links,
   ...preview,
   ...proto,

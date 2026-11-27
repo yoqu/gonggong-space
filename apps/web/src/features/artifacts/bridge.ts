@@ -32,6 +32,7 @@ const TYPES = new Set([
   'text-edit',
   'key',
   'zoom',
+  'layers',
 ])
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 

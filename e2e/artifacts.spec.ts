@@ -53,7 +53,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
           .map((x) => x.body)
       const say = async (text: string) => {
         await page.getByPlaceholder(composer).fill(`@${botName} ${text}`)
-        await page.getByRole('button', { name: '发送' }).click()
+        await page.locator('#main').getByRole('button', { name: '发送' }).click()
       }
 
       await page.goto(`/g/${group.id}`)
@@ -150,6 +150,20 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         })
         const versions = await api.call<{ source: string }[]>('get', `/api/artifacts/${artifact.id}/versions`)
         expect(versions.map((v) => v.source).sort()).toEqual(['edit', 'run', 'run'])
+      })
+
+      await test.step('图层 lists the selected screen’s elements; picking one selects it in the screen', async () => {
+        await page.locator('[data-screen-title="home"] .art-title__name').click()
+        const inspector = page.getByTestId('art-inspector')
+        await inspector.getByRole('tab', { name: '图层' }).click()
+        const layer = page.getByTestId('art-layers').getByRole('button', { name: /首页直接改/ })
+        await expect(layer).toBeVisible({ timeout: 30_000 })
+        await layer.click()
+        await expect(screen(page, 'home').locator('[data-gg-selected]')).toHaveText('首页直接改')
+        await expect(layer).toHaveAttribute('aria-current', 'true')
+        await inspector.getByRole('tab', { name: '属性' }).click()
+        await expect(inspector.getByTestId('art-element-panel')).toBeVisible()
+        await page.screenshot({ path: join(SHOTS, 'e2e-canvas-inspector.png') })
       })
 
       await test.step('with the bot offline the canvas still opens: the server hosts it', async () => {

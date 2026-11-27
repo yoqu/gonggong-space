@@ -333,8 +333,8 @@ describe('nodes', () => {
     // Artifact tokens are scoped, so they never shadow the site's own --space-*.
     expect(ds.style.getPropertyValue('--a-color-primary')).toBe('#155332')
     expect(ds.style.getPropertyValue('--space-sm')).toBe('')
-    // The node's title and the toolbar's panel button.
-    expect(screen.getAllByRole('button', { name: '设计系统' })).toHaveLength(2)
+    // The node's title, the toolbar's panel button and the canvas's 属性.
+    expect(screen.getAllByRole('button', { name: '设计系统' })).toHaveLength(3)
     expect(node('@system').style.left).toBe('0px')
     expect(node('home').style.left).toBe('840px')
     expect(node('detail').style.left).toBe('1350px')
@@ -753,7 +753,6 @@ describe('Stitch round 1 fixes', () => {
   }
   const tool = (name: string) =>
     within(screen.getByRole('toolbar', { name: '画布工具' })).getByRole('button', { name })
-  const side = () => canvas().style.getPropertyValue('--art-side')
   const float = () => screen.getByRole('toolbar', { name: '所选屏幕' })
   const titleLeft = (name: string) =>
     Number.parseFloat((screen.getByRole('button', { name }).closest('.art-title') as HTMLElement).style.left)
@@ -769,32 +768,61 @@ describe('Stitch round 1 fixes', () => {
     expect(screen.getByTitle('首页')).not.toBe(before)
   })
 
-  it('puts the vertical toolbar’s tooltips on its left (T03)', async () => {
+  it('puts the tools in the top bar, their tooltips below them, undo and zoom beside them (墨刀 layout)', async () => {
     mockApi(routes())
     await renderTab()
+    const bar = screen.getByTestId('art-topbar')
     const btn = tool('设计系统')
+    expect(bar.contains(btn)).toBe(true)
+    expect(canvas().contains(bar)).toBe(false)
     const tip = document.getElementById(btn.getAttribute('aria-describedby') ?? '') as HTMLElement
-    expect(tip.classList.contains('ui-tip--left')).toBe(true)
+    expect(tip.classList.contains('ui-tip--bottom')).toBe(true)
+    expect(within(bar).getByRole('button', { name: '撤销' })).toBeTruthy()
+    expect(within(bar).getByRole('button', { name: '缩放' })).toBeTruthy()
   })
 
-  it('moves the selection toolbar off an open panel, icons only when narrow (C06)', async () => {
+  it('shows rulers along the canvas, the selection shaded on them, from the canvas’s 属性', async () => {
+    sized(1200, 800)
+    mockApi(routes())
+    await renderTab()
+    expect(screen.queryByTestId('art-rulers')).toBeNull()
+    fireEvent.click(screen.getByRole('switch', { name: '标尺' }))
+    expect(localStorage.getItem('gg.art.rulers')).toBe('on')
+    const rulers = screen.getByTestId('art-rulers')
+    expect(canvas().contains(rulers)).toBe(true)
+    expect(rulers.querySelectorAll('text').length).toBeGreaterThan(4)
+    expect(rulers.querySelector('.art-rulers__span')).toBeNull()
+    fireEvent.click(node('home'))
+    expect(rulers.querySelectorAll('.art-rulers__span')).toHaveLength(2)
+  })
+
+  it('opens panels docked in the 属性面板, the selection toolbar left in full (C06)', async () => {
     sized(700, 600)
     mockApi(routes())
     await renderTab()
     fireEvent.click(node('home'))
-    expect(side()).toBe('0px')
     expect(float().classList.contains('art-float--compact')).toBe(false)
     expect(within(float()).getByRole('button', { name: /生成/ }).textContent).toContain('生成')
+    // Panels open docked in the 属性面板, never over the canvas.
     fireEvent.click(tool('收藏'))
-    expect(side()).toBe('360px')
+    const inspector = screen.getByTestId('art-inspector')
+    expect(within(inspector).getByRole('complementary', { name: '收藏' })).toBeTruthy()
+    expect(float().classList.contains('art-float--compact')).toBe(false)
+    fireEvent.click(tool('设计系统'))
+    expect(within(inspector).getByRole('complementary', { name: '设计系统' })).toBeTruthy()
+    fireEvent.click(tool('设计系统'))
+    expect(within(inspector).queryByRole('complementary', { name: '设计系统' })).toBeNull()
+  })
+
+  it('shows the selection toolbar’s icons only on a narrow canvas (C06)', async () => {
+    sized(400, 600)
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(node('home'))
     expect(float().classList.contains('art-float--compact')).toBe(true)
     const gen = within(float()).getByRole('button', { name: '生成' })
     expect(gen.textContent).toBe('')
     expect(document.getElementById(gen.getAttribute('aria-describedby') ?? '')?.textContent).toBe('生成')
-    fireEvent.click(tool('设计系统'))
-    expect(side()).toBe('420px')
-    fireEvent.click(tool('设计系统'))
-    expect(side()).toBe('0px')
   })
 
   it('pans to a screen whose title takes the keyboard focus off screen (K03)', async () => {
@@ -940,13 +968,13 @@ describe('Stitch round 2 fixes', () => {
     expect(placed.find((n) => n.id === 's1')).toMatchObject({ x: 1350, y: 0 })
   })
 
-  it('fits leaving the tools free, and again as the layout grows until the view is moved (R02)', async () => {
+  it('fits the whole canvas (the tools are in the top bar), and again as the layout grows until the view is moved (R02)', async () => {
     sized(1200, 800)
     mockApi(routes())
     await renderTab()
-    await waitFor(() => expect(zoomText()).toBe('45%'))
+    await waitFor(() => expect(zoomText()).toBe('48%'))
     const proto = titleOf('原型 · 读书会小程序')
-    expect(Number.parseFloat(proto.style.left) + 390 * 0.448).toBeLessThanOrEqual(1200 - 64)
+    expect(Number.parseFloat(proto.style.left) + 390 * 0.48).toBeLessThanOrEqual(1200)
     post('screens/home.html', { type: 'size', width: 390, height: 1800 })
     expect(zoomText()).toBe('37%')
     key('0', { shiftKey: true, code: 'Digit0' })
@@ -1005,7 +1033,7 @@ describe('Stitch round 2 fixes', () => {
       }),
     )
     await renderTab()
-    await waitFor(() => expect(zoomText()).toBe('45%'))
+    await waitFor(() => expect(zoomText()).toBe('48%'))
     expect(screen.queryByTestId('art-state-home')).toBeNull()
     expect(titleOf('首页').classList.contains('art-title--narrow')).toBe(true)
     fireEvent.click(node('home'))

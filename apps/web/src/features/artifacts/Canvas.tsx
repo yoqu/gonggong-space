@@ -4,6 +4,7 @@ import type {
   ArtifactCommandReq,
   ArtifactDevice,
   ArtifactEditOp,
+  BridgeLayer,
   BridgeLinkRect,
   BridgeMode,
   CreateAnnotationReq,
@@ -11,7 +12,6 @@ import type {
   GgArtifactRef,
 } from '@gonggong/protocol'
 import {
-  type CSSProperties,
   Fragment,
   type KeyboardEvent,
   type PointerEvent,
@@ -35,9 +35,7 @@ import {
   ContextMenu,
   hasOpenOverlay,
   Icon,
-  IconButton,
   type IconName,
-  MenuButton,
   type MenuItem,
   overlayMark,
   Presence,
@@ -68,9 +66,10 @@ import {
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
 import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
-import { ActivityLayer, CanvasTips, FloatMenu, RenameField, ToolButton } from './canvasControls'
+import { ActivityLayer, CanvasTips, FloatMenu, RenameField } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
+import { CanvasTools, CanvasTopbar, Rulers, spanOf, type Tool, useStoredFlag } from './canvasTopbar'
 import { framePoint } from './canvasZoom'
 import {
   dropSelectionContext,
@@ -85,7 +84,7 @@ import { DesignMdNode } from './DesignMdNode'
 import { DesignSystemNode } from './DesignSystemNode'
 import type { DesignTab } from './DesignSystemPanel'
 import { ElementPanel } from './ElementPanel'
-import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
+import { EditPopover, MarkPopover } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
 import {
   elementBox,
@@ -100,7 +99,6 @@ import {
 import {
   boundsKey,
   type CanvasNode,
-  clearOfPanel,
   type Direction,
   DOC_HEIGHT,
   defaultFrame,
@@ -108,7 +106,6 @@ import {
   type FramePreset,
   fitView,
   framePreset,
-  keepZoomBeside,
   LINK_PREFIX,
   layoutNodes,
   linkNodeId,
@@ -129,6 +126,7 @@ import {
   ZOOM_STEP,
   zoomAt,
 } from './geometry'
+import { CanvasInfo, Inspector, type InspectorTab, inspectorTab, LayersPanel } from './Inspector'
 import { implementationPrompt } from './implPrompt'
 import { useTextEdit } from './inPlace'
 import { Links, linkPaths } from './Links'
@@ -170,8 +168,16 @@ import type { DesignTokens } from './tokens'
 import { VariationsDialog } from './VariationsDialog'
 import { linkIcon } from './webPage'
 
-type Tool = 'select' | 'hand' | 'mark' | 'edit' | 'play'
-type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations' | 'export' | 'rules' | 'shared'
+type Panel =
+  | 'details'
+  | 'favourites'
+  | 'design'
+  | 'element'
+  | 'annotations'
+  | 'export'
+  | 'rules'
+  | 'shared'
+  | 'layers'
 
 /** What the tab's bar asks the canvas for (its 导出 button and project menu); `n` makes each ask a new one. */
 export interface CanvasRequest {
@@ -225,9 +231,6 @@ const CROWD = 6
 /** The view counts as moving until it has been still this long. */
 const SETTLE_MS = 200
 
-/** Room (px) an open side panel takes at the right, with the tools: its width plus its 60px offset. */
-const PANEL_SIDE = 360
-const WIDE_PANEL_SIDE = 420
 /** Below this much width the selection toolbar shows icons only (labels move into tooltips). */
 const FLOAT_FULL = 380
 const FLOAT_FULL_WITH_BOT = 500
@@ -461,6 +464,11 @@ export function Canvas({
   const pluginCommands = useArtifactCommands(artifactId)
   const annotations = useAnnotations(artifactId, versionKey || null)
   const [panel, setPanelNow] = useState<Panel | null>(null)
+  const [inspector, toggleInspector, setInspector] = useStoredFlag('gg.art.inspector', true)
+  const [rulers, toggleRulers] = useStoredFlag('gg.art.rulers', false)
+  const [layers, setLayers] = useState<{ file: string; items: BridgeLayer[] } | null>(null)
+  /** A layer picked outside 标记 / 直接编辑: picked once the screens are in the editing mode. */
+  const pendingPick = useRef<{ file: string; ggId: string } | null>(null)
   const otherNotes = useOpenElsewhere(
     artifactId,
     versionKey || null,
@@ -588,15 +596,9 @@ export function Canvas({
     return () => ro.disconnect()
   }, [])
 
-  /** What the open side panel takes of the canvas's right edge (with the tools); popovers and the toolbar avoid it. */
-  const side = (panel === 'element' ? !!element && tool === 'edit' : panel === 'details' ? !!one : !!panel)
-    ? panel === 'design' || panel === 'shared'
-      ? WIDE_PANEL_SIDE
-      : PANEL_SIDE
-    : 0
   const fitTo = (only?: string[]) => {
     auto.current = false
-    const v = fitView(only ? nodes.filter((n) => only.includes(n.id)) : nodes, room, Math.max(side, TOOLS))
+    const v = fitView(only ? nodes.filter((n) => only.includes(n.id)) : nodes, room)
     if (v) setView(v)
   }
   // Fit whenever the layout's bounds or the plane's size change, until the member takes over the view.
@@ -604,9 +606,8 @@ export function Canvas({
   // biome-ignore lint/correctness/useExhaustiveDependencies: on new bounds or a new plane size only
   useEffect(() => {
     if (!auto.current || !room.width) return
-    const v = fitView(nodes, room, Math.max(side, TOOLS))
-    const next = v && keepZoomBeside(v, view, side)
-    if (next) setView(next)
+    const v = fitView(nodes, room)
+    if (v) setView(v)
   }, [bounds, room.width, room.height])
   useEffect(() => {
     if (selected.length) auto.current = false
@@ -658,6 +659,9 @@ export function Canvas({
   const resetText = textEdit.reset
   const fromScreen = (m: BridgeMessage) => {
     if (rules.onBridge(m)) return
+    if (m.type === 'layers') return setLayers({ file: m.file, items: m.items })
+    if (m.type === 'ready' && panel === 'layers' && one?.file === m.file)
+      postToScreen(frameEls.get(m.file), origin, { type: 'layers' })
     if (m.type === 'ready') {
       const f = frameEls.get(m.file)
       postToScreen(f, origin, { type: 'mode', mode: rules.modeFor(bridgeMode(tool)) })
@@ -719,6 +723,10 @@ export function Canvas({
     setElement(null)
     setRegion(null)
     resetText()
+    const p = pendingPick.current
+    pendingPick.current = null
+    if (p && bridgeMode(tool) !== 'preview')
+      postToScreen(frameEls.get(p.file), origin, { type: 'pick', ggId: p.ggId })
   }, [tool, origin, frameEls, resetText])
   // biome-ignore lint/correctness/useExhaustiveDependencies: element positions belong to one version
   useEffect(() => {
@@ -1350,8 +1358,36 @@ export function Canvas({
   let dot = 24 * view.z
   while (dot < 12) dot *= 4
 
+  const layersOf = one?.file
+  // biome-ignore lint/correctness/useExhaustiveDependencies: asks again for another screen, version or layout
+  useEffect(() => {
+    if (panel !== 'layers' || !layersOf) return
+    setLayers(null)
+    postToScreen(frameEls.get(layersOf), origin, { type: 'layers' })
+  }, [panel, layersOf, versionKey, origin, layersOf ? content[layersOf] : 0])
+  useEffect(() => {
+    if (panel) setInspector(true)
+  }, [panel, setInspector])
+  const pickLayer = (ggId: string) => {
+    if (!one) return
+    if (live) return postToScreen(frameEls.get(one.file), origin, { type: 'pick', ggId })
+    pendingPick.current = { file: one.file, ggId }
+    setTool(noEditReason ? 'mark' : 'edit')
+  }
+  const tab = inspectorTab(panel)
+  const onTab = (next: InspectorTab) =>
+    next === 'props'
+      ? setPanel(null)
+      : next === 'layers' || next === 'annotations'
+        ? setPanel(next)
+        : next === 'rules'
+          ? command(CMD.rules)
+          : openDesign('theme')
+  /** 属性: what is selected — an element being edited, a screen, else the canvas. */
+  const propsTab = panel === null || panel === 'element' || panel === 'details'
+
   const sidePanel =
-    panel === 'element' && element && tool === 'edit' ? (
+    propsTab && element && tool === 'edit' ? (
       <ElementPanel
         key={`${element.file}#${element.ggId}`}
         el={element}
@@ -1402,7 +1438,7 @@ export function Canvas({
         onView={onViewVersion}
         onClose={() => setPanel(null)}
       />
-    ) : panel === 'details' && one ? (
+    ) : propsTab && one ? (
       <DetailsPanel
         artifactId={artifactId}
         versionId={versionKey}
@@ -1411,8 +1447,8 @@ export function Canvas({
         prompt={manifest?.screens.find((s) => s.id === one.id)?.prompt}
         systemName={tokens ? tokens.name || t('设计系统') : null}
         onCode={() => setCode(one)}
-        onDesignSystem={() => setPanel('design')}
-        onClose={() => setPanel(null)}
+        onDesignSystem={() => openDesign('theme')}
+        onClose={() => setSelected([])}
       />
     ) : panel === 'favourites' ? (
       <FavouritesPanel
@@ -1452,35 +1488,45 @@ export function Canvas({
         }
         onClose={() => setPanel(null)}
       />
+    ) : panel === 'layers' ? (
+      <LayersPanel
+        screen={one}
+        items={layers && layers.file === one?.file ? layers.items : null}
+        selected={element && element.file === one?.file ? element.ggId : null}
+        onPick={pickLayer}
+        onRefresh={() => {
+          setLayers(null)
+          if (one) postToScreen(frameEls.get(one.file), origin, { type: 'layers' })
+        }}
+      />
+    ) : propsTab ? (
+      <CanvasInfo
+        screens={screens.length}
+        device={device}
+        systemName={tokens ? tokens.name || t('设计系统') : null}
+        favourites={favNodes}
+        showLinks={showLinks}
+        showBadges={rules.show}
+        rulers={rulers}
+        onDesign={() => openDesign('theme')}
+        onPick={(id) => {
+          setSelected([id])
+          fitTo([id])
+        }}
+        onLinks={() => command(CMD.links)}
+        onBadges={rules.toggle}
+        onRulers={toggleRulers}
+      />
     ) : (
       rules.panel
     )
   const compactFloat =
-    room.width > 0 && room.width - side - 24 < (bots.length > 1 ? FLOAT_FULL_WITH_BOT : FLOAT_FULL)
+    room.width > 0 && room.width - 24 < (bots.length > 1 ? FLOAT_FULL_WITH_BOT : FLOAT_FULL)
   /** Keyboard focus on an off-screen title pans the view to its node (the plane itself never scrolls). */
   const reveal = (n: CanvasNode) => {
-    const v = revealView(n, view, { width: room.width - Math.max(side, TOOLS), height: room.height })
+    const v = revealView(n, view, room)
     if (v) moveView(v)
   }
-
-  // A side panel opening over what is being edited (the element, else the one selected screen) pans it into the room
-  // left of the panel; only when the panel or the target changes, so the member can still pan it under the panel.
-  const editedBox = (() => {
-    if (!side) return null
-    const n = element ? screens.find((s) => s.id === element.screenId) : one
-    if (!n) return null
-    return element
-      ? elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)
-      : onScreen(n, view)
-  })()
-  const clearKey =
-    side && editedBox ? `${side}|${element?.file ?? ''}#${element?.ggId ?? ''}|${one?.id ?? ''}` : ''
-  // biome-ignore lint/correctness/useExhaustiveDependencies: on a new panel or target only
-  useEffect(() => {
-    if (!clearKey || !editedBox) return
-    const dx = clearOfPanel(editedBox, room.width, side)
-    if (dx) moveView((v) => ({ ...v, x: v.x - dx }))
-  }, [clearKey])
 
   const hasThumb = !!one && screenThumbs.some((s) => s.screenId === one.id)
   const openNotes = annotations.list.filter((a) => a.status === 'open').length
@@ -1594,769 +1640,718 @@ export function Canvas({
             : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showLinks })
 
   return (
-    <div
-      ref={root}
-      className="art-canvas"
-      style={{ '--art-side': `${side}px` } as CSSProperties}
-      role="application"
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable so its shortcuts work
-      tabIndex={0}
-      aria-label={t('画布')}
-      onKeyDown={keyDown}
-      onPaste={(e) => typing(e.target) || web.paste(e)}
-      onFocus={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) escapeFrom.current = overlayMark()
-      }}
-      onKeyUp={(e) => {
-        if (e.key === ' ') setSpace(false)
-        if (e.key.toLowerCase() === 'z') setZoomHold(null)
-      }}
-      onBlur={() => {
-        setSpace(false)
-        setZoomHold(null)
-      }}
-      onDragOver={(e) => {
-        if (!canEdit || !e.dataTransfer.types.includes('Files')) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-        setDropping(true)
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
-      }}
-      onDrop={(e) => {
-        if (!canEdit || !e.dataTransfer.files.length) return
-        e.preventDefault()
-        setDropping(false)
-        void upload([...e.dataTransfer.files])
-      }}
-    >
-      <PagePill id={artifactId} page={page} manifest={manifest} empty={!nodes.length} first={!versionKey} />
-      <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
-        {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: pointer panning and Esc clears selection */}
-        <div
-          ref={plane}
-          className={cx(
-            'art-plane',
-            panning && 'art-plane--hand',
-            dragging && 'art-plane--dragging',
-            zoomHold && `art-plane--zoom-${zoomHold}`,
-          )}
-          data-testid="art-plane"
-          style={{
-            backgroundPosition: `${view.x}px ${view.y}px`,
-            backgroundSize: `${dot}px ${dot}px`,
-          }}
-          {...gestures}
-          onPointerDown={pointerDown}
-          onPointerMove={pointerMove}
-          onPointerUp={pointerUp}
-          onPointerCancel={pointerUp}
-          onContextMenu={(e) => {
-            const target = e.target as Element
-            // A screen's title gets the screen's menu, as the screen itself does.
-            const titled = target.closest<HTMLElement>('[data-screen-title]')?.dataset.screenTitle
-            const refTitled = target.closest<HTMLElement>('[data-ref-title]')?.dataset.refTitle
-            // The design system, DESIGN.md and the prototype have menus of their own.
-            const other = target.closest<HTMLElement>('[data-node-kind]')
-            const kind = other?.dataset.nodeKind as 'system' | 'doc' | 'prototype' | undefined
-            const hit = titled ?? refTitled ?? other?.dataset.nodeId
-            if (hit && !selected.includes(hit)) setSelected([hit])
-            setCtxOn(
-              kind
-                ? kind
-                : refTitled?.startsWith(LINK_PREFIX) || target.closest('.art-node--link')
-                  ? 'link'
-                  : refTitled || target.closest('.art-node--ref')
-                    ? 'ref'
-                    : titled || target.closest('.art-node--screen')
-                      ? 'screen'
-                      : null,
-            )
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('art-world'))
-              clickPlane(e.shiftKey)
-          }}
-        >
-          <div
-            className="art-world"
-            style={{
-              transform: `translate(${Math.round(view.x)}px, ${Math.round(view.y)}px) scale(${view.z})`,
-            }}
-          >
-            {nodes.map((n) => (
-              // biome-ignore lint/a11y/useKeyWithClickEvents: ⌘A and the title buttons select from the keyboard
-              // biome-ignore lint/a11y/noStaticElementInteractions: a node is picked by pointer; its title is the button
-              <div
-                key={n.id}
-                className={cx(
-                  'art-node',
-                  `art-node--${n.kind}`,
-                  movable(n) &&
-                    tool === 'select' &&
-                    (n.kind !== 'screen' || selected.includes(n.id)) &&
-                    'art-node--movable',
-                )}
-                data-testid={`art-node-${n.id}`}
-                {...nodeKind(n)}
-                style={{
-                  left: n.x,
-                  top: n.y,
-                  width: n.w,
-                  height: n.kind === 'system' || n.kind === 'doc' ? undefined : n.h,
-                  ...(moving?.id === n.id
-                    ? { translate: `${moving.dx / view.z}px ${moving.dy / view.z}px`, zIndex: 1 }
-                    : {}),
-                }}
-                onClick={(e) => pick(n.id, e.shiftKey)}
-                onDoubleClick={() => open(n)}
-                onContextMenu={() => {
-                  if (!selected.includes(n.id)) setSelected([n.id])
-                }}
-                {...(movable(n)
-                  ? {
-                      onPointerDown: (e: PointerEvent<HTMLDivElement>) => bodyDown(e, n),
-                      onPointerMove: gripMove,
-                      onPointerUp: gripUp,
-                      onPointerCancel: () => setMoving(null),
-                    }
-                  : {})}
-                ref={n.kind === 'system' ? measureSystem : n.kind === 'doc' ? measureDoc : undefined}
-              >
-                {n.kind === 'link' ? (
-                  web.body(
-                    n,
-                    selected.length === 1 && selected[0] === n.id && !dragging && !viewMoving && !moving,
-                    nearView(n, view, room),
-                  )
-                ) : n.kind === 'ref' ? (
-                  (() => {
-                    const r = refOf(n)
-                    return r ? (
-                      <RefNode
-                        key={`${versionKey}:${r.file}`}
-                        value={r}
-                        src={fileUrl(r.file)}
-                        readFile={readFile}
-                        onHeight={(h) => setRefHeights((m) => (m[r.id] === h ? m : { ...m, [r.id]: h }))}
-                      />
-                    ) : null
-                  })()
-                ) : n.kind === 'system' && tokens ? (
-                  <DesignSystemNode tokens={tokens} />
-                ) : n.kind === 'rules' ? (
-                  rules.node
-                ) : n.kind === 'doc' && designMd ? (
-                  <DesignMdNode md={designMd} />
-                ) : n.kind === 'prototype' ? (
-                  <div className={cx('art-proto', entryThumb && 'art-proto--shot')}>
-                    {entryThumb ? (
-                      <img className="art-node__thumb" src={entryThumb} alt="" loading="lazy" />
-                    ) : null}
-                    <button
-                      type="button"
-                      className="art-proto__play"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onPresent()
-                      }}
-                    >
-                      <Icon name="play" size={28} />
-                      <span>{t('点击预览')}</span>
-                    </button>
-                  </div>
-                ) : src(n) ? (
-                  <>
-                    {thumbOf(n) && states.isDefault(n.id) ? (
-                      <img
-                        className="art-node__thumb"
-                        src={thumbOf(n)?.url}
-                        alt=""
-                        loading="lazy"
-                        onLoad={(e) => onThumbLoad(n, e.currentTarget)}
-                      />
-                    ) : null}
-                    <iframe
-                      key={reloads[n.id] ?? 0}
-                      ref={(el) => {
-                        if (el) frameEls.set(n.file, el)
-                        else frameEls.delete(n.file)
-                      }}
-                      className={cx(
-                        'art-node__frame',
-                        (through || rules.picking) && 'art-node__frame--live',
-                        ((swapToThumbs && covered(n)) || !nearView(n, view, room)) && 'art-node__frame--off',
-                      )}
-                      title={n.title}
-                      src={src(n) ?? undefined}
-                      tabIndex={-1}
-                    />
-                  </>
-                ) : (
-                  <Skeleton variant="block" count={1} width="100%" height="100%" />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="art-overlay">
-            <ActivityLayer artifactId={artifactId} nodes={nodes} view={view} />
-            <Links paths={paths} />
-            {marquee ? (
-              <div
-                className="art-marquee"
-                data-testid="art-marquee"
-                style={{
-                  left: marquee.rect.x,
-                  top: marquee.rect.y,
-                  width: marquee.rect.w,
-                  height: marquee.rect.h,
-                }}
-              />
-            ) : null}
-            {nodes.map((n) => {
-              const r = onScreen(n, view)
-              const on = selected.includes(n.id)
-              const fav = favourites.includes(n.id)
-              const label =
-                n.kind === 'system'
-                  ? [t('设计系统'), tokens?.name].filter(Boolean).join(' · ')
-                  : n.kind === 'prototype'
-                    ? `${t('原型')} · ${n.title}`
-                    : n.title
-              const icon: IconName =
-                n.kind === 'link'
-                  ? linkIcon(n.file)
-                  : n.kind === 'ref'
-                    ? refOf(n)?.kind === 'image'
-                      ? 'image'
-                      : 'doc-text'
-                    : n.kind === 'system'
-                      ? 'palette'
-                      : n.kind === 'doc' || n.kind === 'rules'
-                        ? 'doc-text'
-                        : n.kind === 'prototype'
-                          ? 'play'
-                          : deviceIcon(device)
-              const shift = moving?.id === n.id ? moving : { dx: 0, dy: 0 }
-              return (
-                <div key={n.id}>
-                  {renaming === n.id ? (
-                    <RenameField
-                      title={n.title}
-                      style={{ left: r.left, top: r.top - 26, width: Math.max(r.width, 160) }}
-                      onDone={(next) => {
-                        setRenaming(null)
-                        if (next && next !== n.title && n.kind === 'link') web.rename(n.id, next)
-                        else if (next && next !== n.title)
-                          edit([
-                            n.kind === 'ref'
-                              ? { kind: 'ref-rename', id: n.id.slice(REF_PREFIX.length), title: next }
-                              : manifestOp('rename', n.id, { title: next }),
-                          ])
-                        root.current?.focus({ preventScroll: true })
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className={cx(
-                        'art-title',
-                        on && 'art-title--on',
-                        canEdit && n.kind === 'screen' && 'art-title--movable',
-                        tiny && 'art-title--tiny',
-                        narrow && !on && 'art-title--narrow',
-                      )}
-                      data-screen-title={n.kind === 'screen' ? n.id : undefined}
-                      data-ref-title={n.kind === 'ref' || n.kind === 'link' ? n.id : undefined}
-                      {...nodeKind(n)}
-                      style={{
-                        left: r.left + shift.dx,
-                        top: r.top - 26 + shift.dy,
-                        maxWidth: Math.max(r.width, TITLE_MIN),
-                      }}
-                    >
-                      <span
-                        className="art-title__icon"
-                        data-testid={`art-grip-${n.id}`}
-                        onPointerDown={(e) => gripDown(e, n)}
-                        onPointerMove={gripMove}
-                        onPointerUp={gripUp}
-                        onPointerCancel={() => setMoving(null)}
-                      >
-                        <Icon name={icon} size={13} />
-                        <svg
-                          className="art-title__grip"
-                          width="13"
-                          height="13"
-                          viewBox="0 0 13 13"
-                          aria-hidden="true"
-                        >
-                          {[3, 6.5, 10].flatMap((y) => [
-                            <circle key={`a${y}`} cx="4.5" cy={y} r="1.1" />,
-                            <circle key={`b${y}`} cx="8.5" cy={y} r="1.1" />,
-                          ])}
-                        </svg>
-                      </span>
-                      <button
-                        type="button"
-                        className="art-title__name"
-                        aria-pressed={on}
-                        aria-label={label}
-                        title={tiny ? label : undefined}
-                        onFocus={() => reveal(n)}
-                        onClick={(e) => pick(n.id, e.shiftKey)}
-                        onDoubleClick={() =>
-                          ['screen', 'ref', 'link'].includes(n.kind) && canEdit ? setRenaming(n.id) : open(n)
-                        }
-                      >
-                        {tiny ? <Icon name={icon} size={13} /> : <span>{label}</span>}
-                      </button>
-                      {fav ? (
-                        <Icon name="star" size={11} className="art-title__fav" label={t('已收藏')} />
-                      ) : null}
-                      {!tiny && n.kind === 'screen' && changedScreens.includes(n.id) ? (
-                        <span className="art-title__changed">{t('本版改动')}</span>
-                      ) : null}
-                      {!tiny && n.kind === 'screen' ? rules.badge(n) : null}
-                      {!tiny && n.kind === 'screen' && (on || !narrow) ? states.picker(n.id) : null}
-                    </div>
-                  )}
-                  {on ? (
-                    <div
-                      className="art-select"
-                      data-testid={`art-select-${n.id}`}
-                      style={{
-                        left: r.left + shift.dx,
-                        top: r.top + shift.dy,
-                        width: r.width,
-                        height: r.height,
-                      }}
-                    >
-                      <i className="art-select__handle art-select__handle--nw" />
-                      <i className="art-select__handle art-select__handle--ne" />
-                      <i className="art-select__handle art-select__handle--sw" />
-                      <i className="art-select__handle art-select__handle--se" />
-                      {n.kind === 'link' ? (
-                        web.sizer(n, view.z)
-                      ) : (
-                        <span className="art-select__size">{`${n.w} x ${n.h}`}</span>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </ContextMenu>
-
-      {picked.length ? (
-        <div
-          className={cx('art-float', compactFloat && 'art-float--compact')}
-          role="toolbar"
-          aria-label={t('所选屏幕')}
-        >
-          <FloatMenu
-            icon="sparkle"
-            label={t('生成')}
-            compact={compactFloat}
-            items={generateItems(botState, pluginCommands)}
-            onSelect={command}
-          />
-          <FloatMenu
-            icon="pencil"
-            label={t('修改#modify')}
-            compact={compactFloat}
-            items={modifyItems(!canEdit)}
-            onSelect={command}
-          />
-          <FloatMenu
-            icon="eye"
-            label={t('预览')}
-            compact={compactFloat}
-            items={previewItems(!!one && !!preview, sharedFrame, device)}
-            onSelect={command}
-          />
-          <FloatMenu
-            icon="more"
-            label={t('更多')}
-            compact={compactFloat}
-            items={moreItems(!canEdit)}
-            onSelect={command}
-          />
-          {bots.length > 1 && bot ? (
-            <FloatMenu
-              icon="bot"
-              label={`@${bot.name}`}
-              compact={compactFloat}
-              items={bots.map((b) => ({ label: `@${b.name}`, value: b.id, checked: b.id === bot.id }))}
-              onSelect={pickBot}
-            />
-          ) : null}
-        </div>
-      ) : pickedRefs.length ? (
-        <div className="art-float" role="toolbar" aria-label={t('所选参考文件')}>
-          <Button size="small" variant="plain" icon="at" onClick={() => command(CMD.addToChat)}>
-            {t('添加到对话')}
-          </Button>
-          <Button
-            size="small"
-            variant="plain"
-            icon="pencil"
-            disabled={!canEdit || pickedRefs.length !== 1}
-            onClick={() => command(CMD.rename)}
-          >
-            {t('重命名')}
-          </Button>
-          <Button size="small" variant="plain" icon="download" onClick={() => command(CMD.download)}>
-            {t('下载')}
-          </Button>
-          <Button
-            size="small"
-            variant="plain"
-            icon="trash"
-            disabled={!canEdit}
-            onClick={() => command(CMD.remove)}
-          >
-            {t('删除')}
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="art-tools" role="toolbar" aria-orientation="vertical" aria-label={t('画布工具')}>
-        <ToolButton
-          icon="cursor"
-          label={t('选择')}
-          shortcut="V"
-          on={tool === 'select'}
-          onClick={() => setTool('select')}
-        />
-        <ToolButton
-          icon="marquee"
-          label={t('标记#mark')}
-          shortcut="M"
-          on={tool === 'mark'}
-          onClick={() => setTool('mark')}
-        />
-        <ToolButton
-          icon="pencil"
-          label={t('直接编辑')}
-          shortcut="E"
-          on={tool === 'edit'}
-          off={noEditReason}
-          onClick={() => setTool('edit')}
-        />
-        <ToolButton
-          icon="play"
-          label={t('交互')}
-          shortcut="P"
-          on={tool === 'play'}
-          onClick={() => setTool('play')}
-        />
-        <ToolButton
-          icon="hand"
-          label={t('抓手')}
-          shortcut="H"
-          on={tool === 'hand'}
-          onClick={() => setTool('hand')}
-        />
-        <ToolButton
-          icon="upload"
-          label={t('上传到画布')}
-          off={noEditReason ?? (uploading ? t('正在上传…') : undefined)}
-          onClick={() => command(CMD.upload)}
-        />
-        <input
-          ref={filePicker}
-          type="file"
-          multiple
-          hidden
-          accept={REF_ACCEPT}
-          data-testid="art-upload-input"
-          onChange={(e) => {
-            const files = [...(e.target.files ?? [])]
-            e.target.value = ''
-            void upload(files)
-          }}
-        />
-        <ToolButton icon="link" label={t('添加链接')} off={noEditReason} onClick={web.openAdd} />
-        <ToolButton
-          icon="arrow-clockwise"
-          label={t('刷新')}
-          onClick={() => {
+    <div className="art-editor">
+      <CanvasTopbar
+        undo={undo}
+        redo={redo}
+        zoom={view.z}
+        zoomItems={zoomItems(selected.length > 0)}
+        onZoom={zoom}
+        onHelp={() => setHelp(true)}
+        inspector={inspector}
+        onInspector={toggleInspector}
+      >
+        <CanvasTools
+          tool={tool}
+          onTool={setTool}
+          noEdit={noEditReason}
+          uploading={uploading}
+          onUpload={() => command(CMD.upload)}
+          onLink={web.openAdd}
+          onRefresh={() => {
             void loadArtifact(artifactId)
             setReloads((r) => ({
               ...r,
               ...Object.fromEntries(screens.map((n) => [n.id, (r[n.id] ?? 0) + 1])),
             }))
           }}
+          panel={panel}
+          onPanel={(p) => (panel === p ? setPanel(null) : p === 'design' ? openDesign('theme') : setPanel(p))}
+          notes={openNotes}
+          badges={rules.show}
+          onBadges={rules.toggle}
         />
-        <hr className="art-tools__sep" />
-        <ToolButton
-          icon="palette"
-          label={t('设计系统')}
-          on={panel === 'design'}
-          onClick={() => (panel === 'design' ? setPanel(null) : openDesign('theme'))}
-        />
-        <ToolButton
-          icon="star"
-          label={t('收藏')}
-          on={panel === 'favourites'}
-          onClick={() => setPanel((p) => (p === 'favourites' ? null : 'favourites'))}
-        />
-        <ToolButton
-          icon="bubble"
-          label={t('批注')}
-          badge={openNotes}
-          on={panel === 'annotations'}
-          onClick={() => setPanel((p) => (p === 'annotations' ? null : 'annotations'))}
-        />
-        <ToolButton icon="tag" label={t('显示角标')} on={rules.show} onClick={rules.toggle} />
-      </div>
-
-      {(tool === 'mark' || panel === 'annotations') && (annotations.list.length || region) ? (
-        <div className="art-bubbles">
-          {annotations.list.map((a, i) => {
-            const n = screens.find((s) => s.file === a.file)
-            const r = n && inFrame(n, a.rect, a.file)
-            if (!n || !r) return null
-            const b = elementBox(n, r, view)
-            return (
-              <Fragment key={a.id}>
-                {isRegion(a) ? (
+      </CanvasTopbar>
+      <div className="art-editor__body">
+        <div
+          ref={root}
+          className="art-canvas"
+          role="application"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable so its shortcuts work
+          tabIndex={0}
+          aria-label={t('画布')}
+          onKeyDown={keyDown}
+          onPaste={(e) => typing(e.target) || web.paste(e)}
+          onFocus={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) escapeFrom.current = overlayMark()
+          }}
+          onKeyUp={(e) => {
+            if (e.key === ' ') setSpace(false)
+            if (e.key.toLowerCase() === 'z') setZoomHold(null)
+          }}
+          onBlur={() => {
+            setSpace(false)
+            setZoomHold(null)
+          }}
+          onDragOver={(e) => {
+            if (!canEdit || !e.dataTransfer.types.includes('Files')) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+            setDropping(true)
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+          }}
+          onDrop={(e) => {
+            if (!canEdit || !e.dataTransfer.files.length) return
+            e.preventDefault()
+            setDropping(false)
+            void upload([...e.dataTransfer.files])
+          }}
+        >
+          <PagePill
+            id={artifactId}
+            page={page}
+            manifest={manifest}
+            empty={!nodes.length}
+            first={!versionKey}
+          />
+          <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
+            {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: pointer panning and Esc clears selection */}
+            <div
+              ref={plane}
+              className={cx(
+                'art-plane',
+                panning && 'art-plane--hand',
+                dragging && 'art-plane--dragging',
+                zoomHold && `art-plane--zoom-${zoomHold}`,
+              )}
+              data-testid="art-plane"
+              style={{
+                backgroundPosition: `${view.x}px ${view.y}px`,
+                backgroundSize: `${dot}px ${dot}px`,
+              }}
+              {...gestures}
+              onPointerDown={pointerDown}
+              onPointerMove={pointerMove}
+              onPointerUp={pointerUp}
+              onPointerCancel={pointerUp}
+              onContextMenu={(e) => {
+                const target = e.target as Element
+                // A screen's title gets the screen's menu, as the screen itself does.
+                const titled = target.closest<HTMLElement>('[data-screen-title]')?.dataset.screenTitle
+                const refTitled = target.closest<HTMLElement>('[data-ref-title]')?.dataset.refTitle
+                // The design system, DESIGN.md and the prototype have menus of their own.
+                const other = target.closest<HTMLElement>('[data-node-kind]')
+                const kind = other?.dataset.nodeKind as 'system' | 'doc' | 'prototype' | undefined
+                const hit = titled ?? refTitled ?? other?.dataset.nodeId
+                if (hit && !selected.includes(hit)) setSelected([hit])
+                setCtxOn(
+                  kind
+                    ? kind
+                    : refTitled?.startsWith(LINK_PREFIX) || target.closest('.art-node--link')
+                      ? 'link'
+                      : refTitled || target.closest('.art-node--ref')
+                        ? 'ref'
+                        : titled || target.closest('.art-node--screen')
+                          ? 'screen'
+                          : null,
+                )
+              }}
+              onClick={(e) => {
+                if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('art-world'))
+                  clickPlane(e.shiftKey)
+              }}
+            >
+              <div
+                className="art-world"
+                style={{
+                  transform: `translate(${Math.round(view.x)}px, ${Math.round(view.y)}px) scale(${view.z})`,
+                }}
+              >
+                {nodes.map((n) => (
+                  // biome-ignore lint/a11y/useKeyWithClickEvents: ⌘A and the title buttons select from the keyboard
+                  // biome-ignore lint/a11y/noStaticElementInteractions: a node is picked by pointer; its title is the button
                   <div
-                    className={cx('art-region', `art-region--${a.status}`)}
-                    data-testid={`art-region-${a.id}`}
-                    style={b}
+                    key={n.id}
+                    className={cx(
+                      'art-node',
+                      `art-node--${n.kind}`,
+                      movable(n) &&
+                        tool === 'select' &&
+                        (n.kind !== 'screen' || selected.includes(n.id)) &&
+                        'art-node--movable',
+                    )}
+                    data-testid={`art-node-${n.id}`}
+                    {...nodeKind(n)}
+                    style={{
+                      left: n.x,
+                      top: n.y,
+                      width: n.w,
+                      height: n.kind === 'system' || n.kind === 'doc' ? undefined : n.h,
+                      ...(moving?.id === n.id
+                        ? { translate: `${moving.dx / view.z}px ${moving.dy / view.z}px`, zIndex: 1 }
+                        : {}),
+                    }}
+                    onClick={(e) => pick(n.id, e.shiftKey)}
+                    onDoubleClick={() => open(n)}
+                    onContextMenu={() => {
+                      if (!selected.includes(n.id)) setSelected([n.id])
+                    }}
+                    {...(movable(n)
+                      ? {
+                          onPointerDown: (e: PointerEvent<HTMLDivElement>) => bodyDown(e, n),
+                          onPointerMove: gripMove,
+                          onPointerUp: gripUp,
+                          onPointerCancel: () => setMoving(null),
+                        }
+                      : {})}
+                    ref={n.kind === 'system' ? measureSystem : n.kind === 'doc' ? measureDoc : undefined}
+                  >
+                    {n.kind === 'link' ? (
+                      web.body(
+                        n,
+                        selected.length === 1 && selected[0] === n.id && !dragging && !viewMoving && !moving,
+                        nearView(n, view, room),
+                      )
+                    ) : n.kind === 'ref' ? (
+                      (() => {
+                        const r = refOf(n)
+                        return r ? (
+                          <RefNode
+                            key={`${versionKey}:${r.file}`}
+                            value={r}
+                            src={fileUrl(r.file)}
+                            readFile={readFile}
+                            onHeight={(h) => setRefHeights((m) => (m[r.id] === h ? m : { ...m, [r.id]: h }))}
+                          />
+                        ) : null
+                      })()
+                    ) : n.kind === 'system' && tokens ? (
+                      <DesignSystemNode tokens={tokens} />
+                    ) : n.kind === 'rules' ? (
+                      rules.node
+                    ) : n.kind === 'doc' && designMd ? (
+                      <DesignMdNode md={designMd} />
+                    ) : n.kind === 'prototype' ? (
+                      <div className={cx('art-proto', entryThumb && 'art-proto--shot')}>
+                        {entryThumb ? (
+                          <img className="art-node__thumb" src={entryThumb} alt="" loading="lazy" />
+                        ) : null}
+                        <button
+                          type="button"
+                          className="art-proto__play"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onPresent()
+                          }}
+                        >
+                          <Icon name="play" size={28} />
+                          <span>{t('点击预览')}</span>
+                        </button>
+                      </div>
+                    ) : src(n) ? (
+                      <>
+                        {thumbOf(n) && states.isDefault(n.id) ? (
+                          <img
+                            className="art-node__thumb"
+                            src={thumbOf(n)?.url}
+                            alt=""
+                            loading="lazy"
+                            onLoad={(e) => onThumbLoad(n, e.currentTarget)}
+                          />
+                        ) : null}
+                        <iframe
+                          key={reloads[n.id] ?? 0}
+                          ref={(el) => {
+                            if (el) frameEls.set(n.file, el)
+                            else frameEls.delete(n.file)
+                          }}
+                          className={cx(
+                            'art-node__frame',
+                            (through || rules.picking) && 'art-node__frame--live',
+                            ((swapToThumbs && covered(n)) || !nearView(n, view, room)) &&
+                              'art-node__frame--off',
+                          )}
+                          title={n.title}
+                          src={src(n) ?? undefined}
+                          tabIndex={-1}
+                        />
+                      </>
+                    ) : (
+                      <Skeleton variant="block" count={1} width="100%" height="100%" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="art-overlay">
+                <ActivityLayer artifactId={artifactId} nodes={nodes} view={view} />
+                <Links paths={paths} />
+                {marquee ? (
+                  <div
+                    className="art-marquee"
+                    data-testid="art-marquee"
+                    style={{
+                      left: marquee.rect.x,
+                      top: marquee.rect.y,
+                      width: marquee.rect.w,
+                      height: marquee.rect.h,
+                    }}
                   />
                 ) : null}
-                <button
-                  type="button"
-                  className={cx('art-bubble', `art-bubble--${a.status}`)}
-                  data-testid={`art-bubble-${a.id}`}
-                  style={{ left: b.left + b.width, top: b.top }}
-                  title={`${a.authorName}：${a.note}`}
-                  onClick={() => setPanel('annotations')}
-                >
-                  {i + 1}
-                </button>
-              </Fragment>
-            )
-          })}
-          {region
+                {nodes.map((n) => {
+                  const r = onScreen(n, view)
+                  const on = selected.includes(n.id)
+                  const fav = favourites.includes(n.id)
+                  const label =
+                    n.kind === 'system'
+                      ? [t('设计系统'), tokens?.name].filter(Boolean).join(' · ')
+                      : n.kind === 'prototype'
+                        ? `${t('原型')} · ${n.title}`
+                        : n.title
+                  const icon: IconName =
+                    n.kind === 'link'
+                      ? linkIcon(n.file)
+                      : n.kind === 'ref'
+                        ? refOf(n)?.kind === 'image'
+                          ? 'image'
+                          : 'doc-text'
+                        : n.kind === 'system'
+                          ? 'palette'
+                          : n.kind === 'doc' || n.kind === 'rules'
+                            ? 'doc-text'
+                            : n.kind === 'prototype'
+                              ? 'play'
+                              : deviceIcon(device)
+                  const shift = moving?.id === n.id ? moving : { dx: 0, dy: 0 }
+                  return (
+                    <div key={n.id}>
+                      {renaming === n.id ? (
+                        <RenameField
+                          title={n.title}
+                          style={{ left: r.left, top: r.top - 26, width: Math.max(r.width, 160) }}
+                          onDone={(next) => {
+                            setRenaming(null)
+                            if (next && next !== n.title && n.kind === 'link') web.rename(n.id, next)
+                            else if (next && next !== n.title)
+                              edit([
+                                n.kind === 'ref'
+                                  ? { kind: 'ref-rename', id: n.id.slice(REF_PREFIX.length), title: next }
+                                  : manifestOp('rename', n.id, { title: next }),
+                              ])
+                            root.current?.focus({ preventScroll: true })
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className={cx(
+                            'art-title',
+                            on && 'art-title--on',
+                            canEdit && n.kind === 'screen' && 'art-title--movable',
+                            tiny && 'art-title--tiny',
+                            narrow && !on && 'art-title--narrow',
+                          )}
+                          data-screen-title={n.kind === 'screen' ? n.id : undefined}
+                          data-ref-title={n.kind === 'ref' || n.kind === 'link' ? n.id : undefined}
+                          {...nodeKind(n)}
+                          style={{
+                            left: r.left + shift.dx,
+                            top: r.top - 26 + shift.dy,
+                            maxWidth: Math.max(r.width, TITLE_MIN),
+                          }}
+                        >
+                          <span
+                            className="art-title__icon"
+                            data-testid={`art-grip-${n.id}`}
+                            onPointerDown={(e) => gripDown(e, n)}
+                            onPointerMove={gripMove}
+                            onPointerUp={gripUp}
+                            onPointerCancel={() => setMoving(null)}
+                          >
+                            <Icon name={icon} size={13} />
+                            <svg
+                              className="art-title__grip"
+                              width="13"
+                              height="13"
+                              viewBox="0 0 13 13"
+                              aria-hidden="true"
+                            >
+                              {[3, 6.5, 10].flatMap((y) => [
+                                <circle key={`a${y}`} cx="4.5" cy={y} r="1.1" />,
+                                <circle key={`b${y}`} cx="8.5" cy={y} r="1.1" />,
+                              ])}
+                            </svg>
+                          </span>
+                          <button
+                            type="button"
+                            className="art-title__name"
+                            aria-pressed={on}
+                            aria-label={label}
+                            title={tiny ? label : undefined}
+                            onFocus={() => reveal(n)}
+                            onClick={(e) => pick(n.id, e.shiftKey)}
+                            onDoubleClick={() =>
+                              ['screen', 'ref', 'link'].includes(n.kind) && canEdit
+                                ? setRenaming(n.id)
+                                : open(n)
+                            }
+                          >
+                            {tiny ? <Icon name={icon} size={13} /> : <span>{label}</span>}
+                          </button>
+                          {fav ? (
+                            <Icon name="star" size={11} className="art-title__fav" label={t('已收藏')} />
+                          ) : null}
+                          {!tiny && n.kind === 'screen' && changedScreens.includes(n.id) ? (
+                            <span className="art-title__changed">{t('本版改动')}</span>
+                          ) : null}
+                          {!tiny && n.kind === 'screen' ? rules.badge(n) : null}
+                          {!tiny && n.kind === 'screen' && (on || !narrow) ? states.picker(n.id) : null}
+                        </div>
+                      )}
+                      {on ? (
+                        <div
+                          className="art-select"
+                          data-testid={`art-select-${n.id}`}
+                          style={{
+                            left: r.left + shift.dx,
+                            top: r.top + shift.dy,
+                            width: r.width,
+                            height: r.height,
+                          }}
+                        >
+                          <i className="art-select__handle art-select__handle--nw" />
+                          <i className="art-select__handle art-select__handle--ne" />
+                          <i className="art-select__handle art-select__handle--sw" />
+                          <i className="art-select__handle art-select__handle--se" />
+                          {n.kind === 'link' ? (
+                            web.sizer(n, view.z)
+                          ) : (
+                            <span className="art-select__size">{`${n.w} x ${n.h}`}</span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </ContextMenu>
+
+          {picked.length ? (
+            <div
+              className={cx('art-float', compactFloat && 'art-float--compact')}
+              role="toolbar"
+              aria-label={t('所选屏幕')}
+            >
+              <FloatMenu
+                icon="sparkle"
+                label={t('生成')}
+                compact={compactFloat}
+                items={generateItems(botState, pluginCommands)}
+                onSelect={command}
+              />
+              <FloatMenu
+                icon="pencil"
+                label={t('修改#modify')}
+                compact={compactFloat}
+                items={modifyItems(!canEdit)}
+                onSelect={command}
+              />
+              <FloatMenu
+                icon="eye"
+                label={t('预览')}
+                compact={compactFloat}
+                items={previewItems(!!one && !!preview, sharedFrame, device)}
+                onSelect={command}
+              />
+              <FloatMenu
+                icon="more"
+                label={t('更多')}
+                compact={compactFloat}
+                items={moreItems(!canEdit)}
+                onSelect={command}
+              />
+              {bots.length > 1 && bot ? (
+                <FloatMenu
+                  icon="bot"
+                  label={`@${bot.name}`}
+                  compact={compactFloat}
+                  items={bots.map((b) => ({ label: `@${b.name}`, value: b.id, checked: b.id === bot.id }))}
+                  onSelect={pickBot}
+                />
+              ) : null}
+            </div>
+          ) : pickedRefs.length ? (
+            <div className="art-float" role="toolbar" aria-label={t('所选参考文件')}>
+              <Button size="small" variant="plain" icon="at" onClick={() => command(CMD.addToChat)}>
+                {t('添加到对话')}
+              </Button>
+              <Button
+                size="small"
+                variant="plain"
+                icon="pencil"
+                disabled={!canEdit || pickedRefs.length !== 1}
+                onClick={() => command(CMD.rename)}
+              >
+                {t('重命名')}
+              </Button>
+              <Button size="small" variant="plain" icon="download" onClick={() => command(CMD.download)}>
+                {t('下载')}
+              </Button>
+              <Button
+                size="small"
+                variant="plain"
+                icon="trash"
+                disabled={!canEdit}
+                onClick={() => command(CMD.remove)}
+              >
+                {t('删除')}
+              </Button>
+            </div>
+          ) : null}
+
+          {(tool === 'mark' || panel === 'annotations') && (annotations.list.length || region) ? (
+            <div className="art-bubbles">
+              {annotations.list.map((a, i) => {
+                const n = screens.find((s) => s.file === a.file)
+                const r = n && inFrame(n, a.rect, a.file)
+                if (!n || !r) return null
+                const b = elementBox(n, r, view)
+                return (
+                  <Fragment key={a.id}>
+                    {isRegion(a) ? (
+                      <div
+                        className={cx('art-region', `art-region--${a.status}`)}
+                        data-testid={`art-region-${a.id}`}
+                        style={b}
+                      />
+                    ) : null}
+                    <button
+                      type="button"
+                      className={cx('art-bubble', `art-bubble--${a.status}`)}
+                      data-testid={`art-bubble-${a.id}`}
+                      style={{ left: b.left + b.width, top: b.top }}
+                      title={`${a.authorName}：${a.note}`}
+                      onClick={() => setPanel('annotations')}
+                    >
+                      {i + 1}
+                    </button>
+                  </Fragment>
+                )
+              })}
+              {region
+                ? (() => {
+                    const n = screens.find((s) => s.id === region.screenId)
+                    const r = n && inFrame(n, region.rect, region.file)
+                    return n && r ? (
+                      <div className="art-region art-region--draft" style={elementBox(n, r, view)} />
+                    ) : null
+                  })()
+                : null}
+            </div>
+          ) : null}
+
+          {region && tool === 'mark'
             ? (() => {
                 const n = screens.find((s) => s.id === region.screenId)
-                const r = n && inFrame(n, region.rect, region.file)
-                return n && r ? (
-                  <div className="art-region art-region--draft" style={elementBox(n, r, view)} />
-                ) : null
+                if (!n) return null
+                return (
+                  <MarkPopover
+                    key={`${region.file}@${region.rect.x},${region.rect.y}`}
+                    title={t('{screen} › 区域', { screen: region.screenTitle })}
+                    box={elementBox(n, scrolledBy(region.rect, scrolls[region.file] ?? NO_SCROLL), view)}
+                    room={{ ...room, right: 0 }}
+                    onSave={(note) => annotateRegion(region, note)}
+                    onClose={() => setRegion(null)}
+                  />
+                )
               })()
             : null}
-        </div>
-      ) : null}
 
-      {region && tool === 'mark'
-        ? (() => {
-            const n = screens.find((s) => s.id === region.screenId)
-            if (!n) return null
-            return (
-              <MarkPopover
-                key={`${region.file}@${region.rect.x},${region.rect.y}`}
-                title={t('{screen} › 区域', { screen: region.screenTitle })}
-                box={elementBox(n, scrolledBy(region.rect, scrolls[region.file] ?? NO_SCROLL), view)}
-                room={{ ...room, right: side }}
-                onSave={(note) => annotateRegion(region, note)}
-                onClose={() => setRegion(null)}
-              />
-            )
-          })()
-        : null}
+          {element && pop
+            ? (() => {
+                const n = screens.find((s) => s.id === element.screenId)
+                if (!n) return null
+                const box = elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)
+                return tool === 'mark' ? (
+                  <MarkPopover
+                    key={`${element.file}#${element.selector}`}
+                    title={`${element.screenTitle} › ${element.tag}`}
+                    box={box}
+                    room={{ ...room, right: 0 }}
+                    onSave={(note) => annotateElement(element, note)}
+                    onClose={dropElement}
+                  />
+                ) : (
+                  <EditPopover
+                    key={`${element.file}#${element.selector}`}
+                    el={element}
+                    box={box}
+                    room={{ ...room, right: 0 }}
+                    readOnly={!canEdit}
+                    bots={bots}
+                    bot={bot}
+                    onPickBot={pickBot}
+                    texting={textEdit.state}
+                    onEditText={() => textEdit.start(element)}
+                    artifactId={artifactId}
+                    onApply={saveOps}
+                    onAi={(text) => askAboutElement('edit-with-ai', element, text)}
+                    screens={screens.filter((x) => x.id !== element.screenId)}
+                    onLink={(to) =>
+                      element.ggId
+                        ? saveOps(
+                            connectOps(
+                              { file: element.file, ggId: element.ggId },
+                              to,
+                              element.transition ?? 'push',
+                            ),
+                          )
+                        : Promise.resolve(false)
+                    }
+                    onConnect={(text) => askAboutElement('connect-element', element, text)}
+                    onRule={() => {
+                      setPop(false)
+                      rules.addFor(element)
+                    }}
+                    onProps={() => {
+                      setPop(false)
+                      setPanel('element')
+                    }}
+                    onDelete={() => {
+                      setPop(false)
+                      setDeleting(element)
+                    }}
+                    onClose={dropElement}
+                  />
+                )
+              })()
+            : null}
 
-      {element && pop
-        ? (() => {
-            const n = screens.find((s) => s.id === element.screenId)
-            if (!n) return null
-            const box = elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)
-            return tool === 'mark' ? (
-              <MarkPopover
-                key={`${element.file}#${element.selector}`}
-                title={`${element.screenTitle} › ${element.tag}`}
-                box={box}
-                room={{ ...room, right: side }}
-                onSave={(note) => annotateElement(element, note)}
-                onClose={dropElement}
+          {rules.marks(view, nodes)}
+          {rules.banner}
+          {rulers ? (
+            <Rulers view={view} room={room} span={spanOf(nodes.filter((n) => selected.includes(n.id)))} />
+          ) : null}
+          <input
+            ref={filePicker}
+            type="file"
+            multiple
+            hidden
+            accept={REF_ACCEPT}
+            data-testid="art-upload-input"
+            onChange={(e) => {
+              const files = [...(e.target.files ?? [])]
+              e.target.value = ''
+              void upload(files)
+            }}
+          />
+
+          {dropping ? (
+            <div className="art-drop" data-testid="art-drop">
+              <div className="art-drop__card">
+                <Icon name="upload" size={28} />
+                <strong>{t('松开即可上传到画布')}</strong>
+                <span>{t('图片、PDF、文本文件，单个不超过 5 MB')}</span>
+              </div>
+            </div>
+          ) : null}
+
+          {notice ? (
+            <div key={notice.n} className="art-notice" role="status" data-testid="art-notice">
+              <Icon name="check" size={13} weight={2} />
+              {notice.text}
+            </div>
+          ) : null}
+
+          <CanvasTips
+            through={through ? (live ? 'pick' : 'play') : null}
+            mode={tool === 'play' || tool === 'mark' || tool === 'edit' ? tool : null}
+          />
+
+          <Presence>{web.dialog}</Presence>
+          <Presence>{help ? <ShortcutsDialog onClose={() => setHelp(false)} /> : null}</Presence>
+          <Presence>
+            {cmdk ? (
+              <CommandMenu
+                entries={commandEntries()}
+                onRun={command}
+                onClose={() => {
+                  setCmdk(false)
+                  root.current?.focus({ preventScroll: true })
+                }}
               />
-            ) : (
-              <EditPopover
-                key={`${element.file}#${element.selector}`}
-                el={element}
-                box={box}
-                room={{ ...room, right: side }}
-                readOnly={!canEdit}
+            ) : null}
+          </Presence>
+          <Presence>
+            {qr !== null ? (
+              <QrDialog
+                artifactId={artifactId}
+                groupId={groupId}
+                botId={botId}
+                screen={qr || undefined}
+                onClose={() => setQr(null)}
+              />
+            ) : null}
+          </Presence>
+          <Presence>
+            {deleting?.ggId ? (
+              <ConfirmActionDialog
+                title={t('删除这个元素？')}
+                message={`${deleting.screenTitle} › ${elementLabel(deleting)}`}
+                consequences={[t('元素从源码中删除，生成一个新版本'), t('可以用撤销恢复')]}
+                label={t('删除')}
+                done={t('已删除')}
+                run={() => onEdit([{ kind: 'delete', file: deleting.file, ggId: deleting.ggId as string }])}
+                onDone={() => {
+                  setDeleting(null)
+                  dropElement()
+                }}
+                onClose={() => setDeleting(null)}
+              />
+            ) : null}
+          </Presence>
+          <Presence>
+            {variations ? (
+              <VariationsDialog
+                screens={picked.map((n) => n.title)}
                 bots={bots}
                 bot={bot}
                 onPickBot={pickBot}
-                texting={textEdit.state}
-                onEditText={() => textEdit.start(element)}
-                artifactId={artifactId}
-                onApply={saveOps}
-                onAi={(text) => askAboutElement('edit-with-ai', element, text)}
-                screens={screens.filter((x) => x.id !== element.screenId)}
-                onLink={(to) =>
-                  element.ggId
-                    ? saveOps(
-                        connectOps(
-                          { file: element.file, ggId: element.ggId },
-                          to,
-                          element.transition ?? 'push',
-                        ),
-                      )
-                    : Promise.resolve(false)
-                }
-                onConnect={(text) => askAboutElement('connect-element', element, text)}
-                onRule={() => {
-                  setPop(false)
-                  rules.addFor(element)
-                }}
-                onProps={() => {
-                  setPop(false)
-                  setPanel('element')
-                }}
-                onDelete={() => {
-                  setPop(false)
-                  setDeleting(element)
-                }}
-                onClose={dropElement}
+                onSend={(text, count) => ask('variations', { count, text })}
+                onClose={() => setVariations(false)}
               />
-            )
-          })()
-        : null}
-
-      {rules.marks(view, nodes)}
-      {rules.banner}
-      {sidePanel}
-
-      {dropping ? (
-        <div className="art-drop" data-testid="art-drop">
-          <div className="art-drop__card">
-            <Icon name="upload" size={28} />
-            <strong>{t('松开即可上传到画布')}</strong>
-            <span>{t('图片、PDF、文本文件，单个不超过 5 MB')}</span>
-          </div>
+            ) : null}
+          </Presence>
+          <Presence>
+            {code ? (
+              <CodeDialog title={code.title} load={() => readFile(code.file)} onClose={() => setCode(null)} />
+            ) : null}
+          </Presence>
+          <Presence>
+            {removing ? (
+              <ConfirmActionDialog
+                title={removal(removing).title}
+                message={removing.map((id) => nodes.find((s) => s.id === id)?.title ?? id).join('、')}
+                consequences={[removal(removing).consequence, t('可以用撤销恢复')]}
+                label={t('删除')}
+                done={t('已删除')}
+                run={() => onEdit(removal(removing).ops)}
+                onClose={() => {
+                  setRemoving(null)
+                  root.current?.focus({ preventScroll: true })
+                }}
+              />
+            ) : null}
+          </Presence>
         </div>
-      ) : null}
-
-      {notice ? (
-        <div key={notice.n} className="art-notice" role="status" data-testid="art-notice">
-          <Icon name="check" size={13} weight={2} />
-          {notice.text}
-        </div>
-      ) : null}
-
-      <CanvasTips
-        through={through ? (live ? 'pick' : 'play') : null}
-        mode={tool === 'play' || tool === 'mark' || tool === 'edit' ? tool : null}
-      />
-
-      <div className="art-corner">
-        <IconButton size="regular" title={t('撤销#undo')} disabled={!undo} onClick={() => undo?.()}>
-          {'undo' as const}
-        </IconButton>
-        <IconButton size="regular" title={t('重做')} disabled={!redo} onClick={() => redo?.()}>
-          {'redo' as const}
-        </IconButton>
-        <MenuButton
-          className="ui-btn ui-btn--plain art-corner__zoom"
-          aria-label={t('缩放')}
-          title={t('缩放')}
-          items={zoomItems(selected.length > 0)}
-          onSelect={zoom}
-          align="end"
-          placement="above"
-        >
-          {`${Math.round(view.z * 100)}%`}
-        </MenuButton>
-        <IconButton size="regular" title={t('快捷键')} onClick={() => setHelp(true)}>
-          <span className="art-corner__help">?</span>
-        </IconButton>
+        {inspector ? (
+          <Inspector tab={tab} notes={openNotes} onTab={onTab}>
+            {sidePanel}
+          </Inspector>
+        ) : null}
       </div>
-
-      <Presence>{web.dialog}</Presence>
-      <Presence>{help ? <ShortcutsDialog onClose={() => setHelp(false)} /> : null}</Presence>
-      <Presence>
-        {cmdk ? (
-          <CommandMenu
-            entries={commandEntries()}
-            onRun={command}
-            onClose={() => {
-              setCmdk(false)
-              root.current?.focus({ preventScroll: true })
-            }}
-          />
-        ) : null}
-      </Presence>
-      <Presence>
-        {qr !== null ? (
-          <QrDialog
-            artifactId={artifactId}
-            groupId={groupId}
-            botId={botId}
-            screen={qr || undefined}
-            onClose={() => setQr(null)}
-          />
-        ) : null}
-      </Presence>
-      <Presence>
-        {deleting?.ggId ? (
-          <ConfirmActionDialog
-            title={t('删除这个元素？')}
-            message={`${deleting.screenTitle} › ${elementLabel(deleting)}`}
-            consequences={[t('元素从源码中删除，生成一个新版本'), t('可以用撤销恢复')]}
-            label={t('删除')}
-            done={t('已删除')}
-            run={() => onEdit([{ kind: 'delete', file: deleting.file, ggId: deleting.ggId as string }])}
-            onDone={() => {
-              setDeleting(null)
-              dropElement()
-            }}
-            onClose={() => setDeleting(null)}
-          />
-        ) : null}
-      </Presence>
-      <Presence>
-        {variations ? (
-          <VariationsDialog
-            screens={picked.map((n) => n.title)}
-            bots={bots}
-            bot={bot}
-            onPickBot={pickBot}
-            onSend={(text, count) => ask('variations', { count, text })}
-            onClose={() => setVariations(false)}
-          />
-        ) : null}
-      </Presence>
-      <Presence>
-        {code ? (
-          <CodeDialog title={code.title} load={() => readFile(code.file)} onClose={() => setCode(null)} />
-        ) : null}
-      </Presence>
-      <Presence>
-        {removing ? (
-          <ConfirmActionDialog
-            title={removal(removing).title}
-            message={removing.map((id) => nodes.find((s) => s.id === id)?.title ?? id).join('、')}
-            consequences={[removal(removing).consequence, t('可以用撤销恢复')]}
-            label={t('删除')}
-            done={t('已删除')}
-            run={() => onEdit(removal(removing).ops)}
-            onClose={() => {
-              setRemoving(null)
-              root.current?.focus({ preventScroll: true })
-            }}
-          />
-        ) : null}
-      </Presence>
     </div>
   )
 }

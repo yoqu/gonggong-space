@@ -1,0 +1,282 @@
+/* 墨刀-style editor: the top bar over the canvas, the 属性面板 docked at its right (Canvas.tsx). */
+.art-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.art-editor__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.art-editor__body > .art-canvas {
+  min-width: 0;
+}
+
+.art-topbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+  height: 44px;
+  padding: 0 var(--space-8);
+  border-bottom: 1px solid var(--separator);
+  background: var(--content-bg);
+}
+.art-topbar__side {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.art-topbar__side--end {
+  justify-content: flex-end;
+}
+.art-topbar .art-tools {
+  position: static;
+  flex: none;
+  flex-direction: row;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+.art-topbar .art-tools::before {
+  content: none;
+}
+.art-topbar .art-tools__sep {
+  width: 0;
+  height: 18px;
+  margin: 0 4px;
+  border-top: 0;
+  border-left: 1px solid var(--separator);
+}
+
+.art-inspector {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 264px;
+  min-height: 0;
+  border-left: 1px solid var(--separator);
+  background: var(--content-bg);
+}
+.art-inspector:has(.art-panel--wide) {
+  width: 360px;
+}
+.art-inspector__tabs {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 6px var(--space-8);
+  border-bottom: 1px solid var(--separator);
+}
+.art-inspector__tab {
+  position: relative;
+  flex: 1;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-footnote-size, 13px);
+  white-space: nowrap;
+}
+.art-inspector__tab:hover {
+  background: var(--selection-fill);
+}
+.art-inspector__tab[aria-selected="true"] {
+  background: var(--selection-fill);
+  color: var(--label);
+  font-weight: 600;
+}
+.art-inspector__tab:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.art-inspector__badge {
+  margin-left: 3px;
+  padding: 0 5px;
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+.art-inspector__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+/* The canvas's side panels, docked in it instead of floating over the canvas. */
+.art-inspector__body > .art-panel,
+.art-inspector__body > .art-panel.art-panel--wide {
+  position: static;
+  flex: 1;
+  width: auto;
+  min-height: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.art-inspector__page,
+.art-layers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16) var(--space-16);
+}
+.art-inspector__title {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-headline-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-inspector__section .art-panel__label {
+  margin-top: 0;
+}
+.art-inspector__switches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.art-inspector__switches .ui-switch {
+  justify-content: space-between;
+}
+.art-inspector__hint {
+  margin: 0;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size, 13px);
+}
+
+.art-layers__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.art-layers__head h3 {
+  flex: 1;
+  min-width: 0;
+}
+.art-layers__wait {
+  display: grid;
+  place-items: center;
+  padding: var(--space-24) 0;
+}
+.art-layers__list {
+  margin: 0 calc(-1 * var(--space-8));
+  padding: 0;
+  list-style: none;
+}
+.art-layers__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 28px;
+  padding-right: 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-footnote-size, 13px);
+  text-align: left;
+}
+.art-layers__row:hover {
+  background: var(--selection-fill);
+}
+.art-layers__row--on,
+.art-layers__row--on:hover {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.art-layers__row--hidden {
+  color: var(--label-tertiary);
+}
+.art-layers__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-layers__tag {
+  flex: none;
+  color: var(--label-tertiary);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+.art-layers__row--on .art-layers__tag {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* 墨刀's rulers along the top and left of the canvas. */
+.art-rulers {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.art-rulers svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: color-mix(in srgb, var(--content-bg) 92%, transparent);
+}
+.art-rulers__top {
+  border-bottom: 1px solid var(--separator);
+}
+.art-rulers__left {
+  border-right: 1px solid var(--separator);
+}
+.art-rulers line {
+  stroke: var(--label-tertiary);
+  stroke-width: 1;
+}
+.art-rulers text {
+  fill: var(--label-secondary);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+}
+.art-rulers__span {
+  fill: var(--accent);
+  opacity: 0.18;
+}
+.art-rulers__corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  background: var(--content-bg);
+}
+
+/* A narrow window: the panel floats over the canvas instead of squeezing it, the bar scrolls sideways. */
+@media (max-width: 900px) {
+  .art-inspector {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    box-shadow: var(--shadow-glass);
+  }
+}
+@media (max-width: 700px) {
+  .art-topbar {
+    overflow-x: auto;
+  }
+  .art-topbar__side {
+    flex: none;
+  }
+}

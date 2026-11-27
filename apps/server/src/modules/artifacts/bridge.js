@@ -688,8 +688,61 @@
       case 'reload':
         location.reload()
         return
+      case 'layers':
+        post({ type: 'layers', items: layers() })
+        return
+      case 'pick': {
+        const el = picking() ? byGgId(m.ggId) : null
+        if (!el) return
+        if (stopChoosing()) textPost('done')
+        endEdit(true)
+        setSelected(el)
+        bringIntoView(el, 'instant')
+        post(describe(el))
+        return
+      }
     }
   })
+
+  // 图层: the elements the member can pick, nested as in the page; a name from what it says, else its section.
+  const LAYER_SKIP = new Set(['script', 'style', 'link', 'meta', 'base', 'template', 'br', 'head', 'title'])
+  const layerName = (el) => {
+    const own = [...el.childNodes]
+      .filter((n) => n.nodeType === 3)
+      .map((n) => n.nodeValue)
+      .join(' ')
+    const text = (own.trim() ? own : el.children.length ? '' : el.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const name =
+      text ||
+      el.getAttribute('aria-label') ||
+      el.getAttribute('alt') ||
+      el.getAttribute('data-section') ||
+      el.getAttribute('placeholder') ||
+      ''
+    return name.slice(0, 40)
+  }
+  const layers = () => {
+    const items = []
+    const walk = (el, depth, hidden) => {
+      for (const c of el.children) {
+        if (items.length >= 800) return
+        const tag = c.tagName.toLowerCase()
+        if (LAYER_SKIP.has(tag)) continue
+        const id = ggIdOf(c)
+        const off = hidden || getComputedStyle(c).display === 'none'
+        if (id) {
+          const item = { ggId: id, tag: tag.slice(0, 20), name: layerName(c), depth: Math.min(depth, 50) }
+          if (off) item.hidden = true
+          items.push(item)
+        }
+        walk(c, id ? depth + 1 : depth, off)
+      }
+    }
+    walk(document.body, 0, false)
+    return items
+  }
 
   // Links and back buttons in document coordinates, for the canvas's arrows (viewport = document - scroll).
   const docRect = (el) => {
