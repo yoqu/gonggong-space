@@ -36,7 +36,14 @@ const baseName = (path: string) =>
     .replace(/[\\/]+$/, '')
     .split(/[\\/]/)
     .pop() || path
-const samePath = (a: string, b: string) => a.replace(/(.)[\\/]+$/, '$1') === b.replace(/(.)[\\/]+$/, '$1')
+export const samePath = (a: string, b: string) =>
+  a.replace(/(.)[\\/]+$/, '$1') === b.replace(/(.)[\\/]+$/, '$1')
+const isAncestor = (parent: string, child: string) => {
+  const p = parent.replace(/(.)[\\/]+$/, '$1')
+  const c = child.replace(/(.)[\\/]+$/, '$1')
+  if (p === c || c.length <= p.length) return false
+  return c.startsWith(p) && (p === '/' || /[\\/]/.test(p.slice(-1)) || /[\\/]/.test(c[p.length] ?? ''))
+}
 
 const PLACE_ICONS: Record<DirPlace['kind'], IconName> = {
   home: 'house',
@@ -82,12 +89,19 @@ const DEFAULT_FOLDER = t('未命名文件夹')
  * (anchored at the machine's home, so a project of that name elsewhere stays pickable) and, where older daemons put
  * them, `~/.gonggong/workspaces/…`.
  */
+export const isManagedRoot = (path: string) =>
+  /[\\/]\.gonggong[\\/]workspaces([\\/]|$)|[\\/]gonggong[\\/]workspaces([\\/]|$)/.test(path)
 const inManaged = (path: string, home: string | undefined) =>
   /[\\/]\.gonggong[\\/]workspaces([\\/]|$)/.test(path) ||
   (!!home && path.startsWith(home) && /^[\\/]gonggong[\\/]workspaces([\\/]|$)/.test(path.slice(home.length)))
 const MANAGED = t(
   '这是共工按群托管的工作区，原群删除 Bot 或清理空间时会被删掉。请把仓库克隆到其他目录（如 ~/code）再选择。',
 )
+
+export interface AllowedManagedDir {
+  path: string
+  bots: string[]
+}
 
 /** Browse the machine's directories (via its daemon) and pick one as a workspace; `extra` adds other choices. */
 export function DirPicker({
@@ -96,6 +110,7 @@ export function DirPicker({
   start = null,
   hidden = false,
   managed = false,
+  allowedManaged,
   hint = t('进入具体项目目录后选择'),
   extra,
   busy = false,
@@ -109,6 +124,8 @@ export function DirPicker({
   hidden?: boolean
   /** Managed workspaces can be picked (a terminal may open one; a workspace must not live in one). */
   managed?: boolean
+  /** Managed workspaces already cloned by other bots in the same group on this machine: reusable here. */
+  allowedManaged?: AllowedManagedDir[]
   /** Shown where the listed directory cannot be picked (the home it starts at). */
   hint?: string
   extra?: ReactNode
@@ -208,7 +225,12 @@ export function DirPicker({
     }
   }
 
-  const refused = dir && !managed && inManaged(dir.path, home) ? MANAGED : null
+  const managedMatch = dir ? allowedManaged?.find((m) => samePath(m.path, dir.path)) : undefined
+  const managedParent = !!dir && !managedMatch && !!allowedManaged?.some((m) => isAncestor(dir.path, m.path))
+  const refused =
+    dir && !managed && inManaged(dir.path, home) && !managedMatch && !managedParent ? MANAGED : null
+  const disabledReason =
+    dir?.unusable ?? refused ?? (managedParent ? t('进入下方已有仓库目录后即可直接复用') : undefined)
   const up = dir && parentOf(dir.path)
   const roots = dir?.roots ?? []
   const needle = query.trim().toLowerCase()
@@ -251,8 +273,8 @@ export function DirPicker({
           <Button
             variant="primary"
             loading={busy}
-            disabled={busy || !dir || !!dir.unusable || !!refused}
-            title={dir?.unusable ?? refused ?? undefined}
+            disabled={busy || !dir || !!dir.unusable || !!refused || managedParent}
+            title={disabledReason}
             onClick={() => dir && pick(dir.path)}
           >
             {t('选择此目录')}
@@ -359,6 +381,17 @@ export function DirPicker({
             ) : null}
             {/* Browsing starts at home, which is never selectable itself: guide rather than warn. */}
             {dir?.unusable ? <p className="dirpick__hint">{hint}</p> : null}
+            {managedMatch ? (
+              <Alert
+                variant="info"
+                title={t('将复用本群 {bots} 的托管工作区（免重复克隆；仍有 Bot 使用时不会被清理删除）。', {
+                  bots: managedMatch.bots.join('、'),
+                })}
+              />
+            ) : null}
+            {managedParent ? (
+              <Alert variant="info" title={t('进入下方已有仓库目录后即可直接复用（无需重新克隆）')} />
+            ) : null}
             {refused ? <Alert variant="warning" title={refused} /> : null}
             {error ? (
               <Alert variant="error" title={error} onRetry={() => setRetryTick((n) => n + 1)} />

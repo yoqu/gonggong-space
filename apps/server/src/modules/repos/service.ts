@@ -8,6 +8,13 @@ import { fail } from '../../lib/errors.js'
 const SEARCH_LIMIT = 20
 
 /**
+ * Paths under 共工's managed workspace roots (`~/gonggong/workspaces/…` or `~/.gonggong/workspaces/…`).
+ * Reused within a group must never be saved to cross-group `machineRepos` suggestions.
+ */
+export const isManagedWorkspacePath = (path: string) =>
+  /[\\/]\.gonggong[\\/]workspaces([\\/]|$)|[\\/]gonggong[\\/]workspaces([\\/]|$)/.test(path)
+
+/**
  * Remembers a remote repo in the team's history (un-hiding it), who used it and, for /cd directories, where it lives
  * on the machine. Addresses that are not remote git URLs (file://, local paths) are ignored.
  */
@@ -106,16 +113,17 @@ async function groupCounts(ctx: Ctx, teamId: string, keys: Set<string>) {
   return counts
 }
 
-/** Local directories of these repos on the user's machines. */
+/** Local directories of these repos on the user's machines (excluding managed workspace roots). */
 async function localPaths(ctx: Ctx, userId: string, repoIds: string[]) {
   if (!repoIds.length) return []
-  return ctx.db
+  const rows = await ctx.db
     .select({ repoId: machineRepos.repoId, machineId: machineRepos.machineId, path: machineRepos.path })
     .from(machineRepos)
     .innerJoin(machines, eq(machines.id, machineRepos.machineId))
     .where(
       and(inArray(machineRepos.repoId, repoIds), eq(machines.ownerId, userId), isNull(machines.revokedAt)),
     )
+  return rows.filter((r) => !isManagedWorkspacePath(r.path))
 }
 
 /** The team repo each group's primary repo is, by group id (groups without one left out). */

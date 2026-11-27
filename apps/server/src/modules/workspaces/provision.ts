@@ -14,7 +14,7 @@ import { inSharedDm } from '../bots/shares.js'
 import { onCdResult } from '../commands/cd.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
-import { forgetLocalPath, recordRepo } from '../repos/service.js'
+import { forgetLocalPath, isManagedWorkspacePath, recordRepo } from '../repos/service.js'
 import { schedule } from '../runs/scheduler.js'
 import { autoAlign } from '../sync/switch.js'
 import { botDirs, splitExtras, updateBotState } from './state.js'
@@ -423,7 +423,25 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
   }
 }
 
-/** A ready /cd directory: its remotes go to the repo history, with where they live on this machine. */
+async function isManagedOnMachine(ctx: Ctx, machineId: string, path: string) {
+  if (isManagedWorkspacePath(path)) return true
+  const [row] = await ctx.db
+    .select({ groupId: groupBots.groupId })
+    .from(groupBots)
+    .innerJoin(bots, eq(bots.id, groupBots.botId))
+    .where(
+      and(
+        eq(bots.machineId, machineId),
+        eq(groupBots.workspaceKind, 'managed'),
+        eq(groupBots.workspacePath, path),
+        isNull(groupBots.removedAt),
+      ),
+    )
+    .limit(1)
+  return !!row
+}
+
+/** A ready /cd directory: its remotes go to the repo history, and non-managed paths are remembered on this machine. */
 async function rememberDir(ctx: Ctx, req: Pending, msg: WorkspaceState) {
   if (!req.cdPath) return
   const [bot] = await ctx.db
@@ -431,13 +449,13 @@ async function rememberDir(ctx: Ctx, req: Pending, msg: WorkspaceState) {
     .from(bots)
     .where(eq(bots.id, req.botId))
   if (!bot) return
+  const managed = await isManagedOnMachine(ctx, req.machineId, req.cdPath)
   for (const url of msg.remotes)
     await recordRepo(ctx, {
       url,
       teamId: bot.teamId,
       userId: bot.ownerId,
-      machineId: req.machineId,
-      path: req.cdPath,
+      ...(managed ? {} : { machineId: req.machineId, path: req.cdPath }),
     })
 }
 

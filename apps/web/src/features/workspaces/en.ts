@@ -25,6 +25,15 @@ export default {
   显示隐藏文件夹: 'Show hidden folders',
   '这是共工按群托管的工作区，原群删除 Bot 或清理空间时会被删掉。请把仓库克隆到其他目录（如 ~/code）再选择。':
     "This is a workspace Gonggong manages for one group: it is deleted when that group's Bot is removed or storage is cleaned up. Clone the repository somewhere else (e.g. ~/code) and pick it there.",
+  '将复用本群 {bots} 的托管工作区（免重复克隆；仍有 Bot 使用时不会被清理删除）。':
+    'Will reuse the managed workspace of {bots} in this group (no re-clone; kept while any Bot uses it).',
+  '进入下方已有仓库目录后即可直接复用（无需重新克隆）':
+    'Open an existing repository folder below to reuse it directly (no re-clone needed)',
+  进入下方已有仓库目录后即可直接复用: 'Open an existing repository folder below to reuse it directly',
+  '复用群内 {bots} 的工作区': "Reuse {bots}'s workspace in this group",
+  '{path} · 只读并行不打扰，写入时确认':
+    '{path} · Read-only runs without interrupting; prompts before writing',
+  独立目录: 'Separate folder',
   文件夹名称: 'Folder name',
   '不是 git 仓库': 'not a git repo',
   '为 {bot} 选择工作区': 'Choose a workspace for {bot}',

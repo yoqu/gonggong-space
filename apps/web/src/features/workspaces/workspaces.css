@@ -276,6 +276,10 @@
   color: var(--tint-green-text);
   background: var(--tint-green);
 }
+.dirpick__badge--muted {
+  color: var(--label-secondary);
+  background: var(--fill-quaternary);
+}
 .dirpick__or {
   display: flex;
   align-items: center;

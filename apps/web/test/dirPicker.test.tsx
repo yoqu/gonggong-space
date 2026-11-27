@@ -146,6 +146,43 @@ describe('dir picker', () => {
     expect(onPick).toHaveBeenCalledWith(managed)
   })
 
+  it('allows picking an allowed same-group managed clone and guides gently on its parent folder', async () => {
+    const groupDir = '/Users/w/gonggong/workspaces/服务群'
+    const botDir = `${groupDir}/BotA`
+    const cloneDir = `${botDir}/luke-app`
+    mockApi({
+      [at(groupDir)]: listing(groupDir, { entries: [{ name: 'BotA', git: false, modified: null }] }),
+      [at(botDir)]: listing(botDir, { entries: [{ name: 'luke-app', git: true, modified: null }] }),
+      [at(cloneDir)]: listing(cloneDir, { entries: [] }),
+    })
+    const onPick = vi.fn()
+    render(
+      <DirPicker
+        machineId="m1"
+        title="选择目录"
+        start={groupDir}
+        allowedManaged={[{ path: cloneDir, bots: ['共字君'] }]}
+        onPick={onPick}
+        onClose={() => {}}
+      />,
+    )
+    expect(await screen.findByText('进入下方已有仓库目录后即可直接复用（无需重新克隆）')).toBeTruthy()
+    expect(screen.queryByText(/这是共工按群托管的工作区/)).toBeNull()
+    expect(screen.getByRole('button', { name: '选择此目录' }).hasAttribute('disabled')).toBe(true)
+
+    fireEvent.click(await screen.findByText('BotA'))
+    fireEvent.click(await screen.findByText('luke-app'))
+    expect(
+      await screen.findByText(
+        '将复用本群 共字君 的托管工作区（免重复克隆；仍有 Bot 使用时不会被清理删除）。',
+      ),
+    ).toBeTruthy()
+    const choose = screen.getByRole('button', { name: '选择此目录' })
+    expect(choose.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(choose)
+    expect(onPick).toHaveBeenCalledWith(cloneDir)
+  })
+
   it('offers the hidden folders that exist in home as shortcuts', async () => {
     const calls = mockApi({
       'GET /machines/m1/dirs': listing('/Users/w'),

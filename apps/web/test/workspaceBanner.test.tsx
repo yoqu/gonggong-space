@@ -375,4 +375,58 @@ describe('workspace banner', () => {
     act(() => useWorkspace.setState({ botStates: { g1: { b1: { ...state, state: 'confirm' } } } }))
     expect(screen.getByTestId('ws-banner-b1')).toBeTruthy()
   })
+
+  it('offers same-group ready workspaces on the same machine for reuse without re-cloning', async () => {
+    const baseState = unbound().g1.b1
+    const managedA = '/Users/w/gonggong/workspaces/仓库协作/小王的 Claude/pay'
+    useWorkspace.setState({
+      bots: [
+        bot({ id: 'b1', name: '小王的 Claude', machineId: 'm1' }),
+        bot({ id: 'b2', name: '小王的 Codex', machineId: 'm1' }),
+        bot({ id: 'b3', name: '另一台机的 Bot', machineId: 'm2' }),
+      ],
+      botStates: {
+        g1: {
+          b1: { ...baseState, botId: 'b1', workspace: 'managed', state: 'ready', path: managedA },
+          b2: { ...baseState, botId: 'b2', workspace: 'managed', state: 'confirm', path: null },
+          b3: {
+            ...baseState,
+            botId: 'b3',
+            workspace: 'managed',
+            state: 'ready',
+            path: '/Users/other/gonggong/workspaces/pay',
+          },
+        },
+      },
+    })
+    const calls = mockApi({
+      'GET /machines/m1/dirs': listing('/Users/w'),
+      'GET /groups/g1/local-paths': [{ machineId: 'm1', path: managedA }],
+      'GET /groups/g1/bots/b2/repo-candidates': {
+        managedPath: '/Users/w/gonggong/workspaces/仓库协作/小王的 Codex/pay',
+        paths: ['/Users/w/code/pay'],
+      },
+      'PUT /groups/g1/bots/b2/workspace': undefined,
+    })
+    const repo = { url: 'git@git.corp:pay/pay.git', branch: 'main' }
+    render(<WorkspaceBanner group={group({ botIds: ['b1', 'b2', 'b3'], repo })} />)
+    fireEvent.click(screen.getByText('确认工作区'))
+    expect(await screen.findByText('复用群内 小王的 Claude 的工作区')).toBeTruthy()
+    expect(screen.getByText(`${managedA} · 只读并行不打扰，写入时确认`)).toBeTruthy()
+    // Deduplicated from local-paths so the managed path is shown once; other machine's bot is excluded.
+    expect(screen.getAllByText(new RegExp(managedA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toHaveLength(1)
+    expect(screen.queryByText(/other\/gonggong/)).toBeNull()
+    // Auto-clone loses 推荐 when an existing or reusable workspace is available.
+    const autoClone = screen.getByText('自动克隆群仓库').closest('button')
+    expect(autoClone?.textContent).toContain('独立目录')
+    expect(autoClone?.textContent).not.toContain('推荐')
+    fireEvent.click(screen.getByText('复用群内 小王的 Claude 的工作区'))
+    await waitFor(() =>
+      expect(calls.at(-1)).toEqual({
+        method: 'PUT',
+        path: '/groups/g1/bots/b2/workspace',
+        body: { path: managedA },
+      }),
+    )
+  })
 })

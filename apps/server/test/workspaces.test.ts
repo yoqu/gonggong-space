@@ -853,4 +853,23 @@ describe('directory picker and default workspace', () => {
     expect((await w.asAlice.put<BotDto>(url, { path: null })).body.defaultWorkspace).toBeNull()
     expect((await w.asBob.put(url, { path: '/src' })).status).toBe(403)
   })
+
+  it('does not record a reused managed workspace into cross-group local-paths suggestions', async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const bot2 = await t.seed.bot({ ownerId: w.alice.id, name: '小王的 Codex', machineId: w.a.machine.id })
+    const g1 = await w.createGroup({ botIds: [w.bot.id, bot2.id] })
+    const managedPath = '/Users/w/gonggong/workspaces/仓库协作/小王的 Claude/pay'
+    expect(
+      (await w.asAlice.put(`/api/groups/${g1.id}/bots/${bot2.id}/workspace`, { path: managedPath })).status,
+    ).toBe(204)
+    const req = await d.next()
+    expect(req).toMatchObject({ t: 'workspace.cd', groupId: g1.id, botId: bot2.id, path: managedPath })
+    d.send(reply(req, { remotes: [w.repo.url] }))
+    await until(async () => (await w.stateOf(g1.id, bot2.id)).state === 'ready')
+
+    const g2 = await w.createGroup()
+    const res = await w.asAlice.get<{ machineId: string; path: string }[]>(`/api/groups/${g2.id}/local-paths`)
+    expect(res.body).toEqual([])
+  })
 })

@@ -6,12 +6,13 @@ import {
   repoKey,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { AlertDialog, Icon } from '../../ui'
 import { repoPath } from '../repos/RepoPicker'
-import { DirPicker } from './DirPicker'
+import { type AllowedManagedDir, DirPicker, isManagedRoot, samePath } from './DirPicker'
 
 /** Directories on the caller's machines already holding the group repo, offered before a fresh clone. */
 function useLocalPaths(group: GroupDto) {
@@ -33,10 +34,40 @@ function useCandidates(group: GroupDto, botId: string) {
   return found
 }
 
+const normPath = (p: string) => p.replace(/(.)[\\/]+$/, '$1')
+
+/** Ready workspaces already used by other bots of this group on the same machine, grouped by directory path. */
+function sameGroupWorkspaces(
+  group: GroupDto,
+  bot: BotDto & { machineId: string },
+  bots: BotDto[],
+  states: Record<string, { state: string; path: string | null; workspace: string }> | undefined,
+) {
+  if (group.mode !== 'partition' || !states) return []
+  const mine = states[bot.id]?.path
+  const byPath = new Map<string, { path: string; bots: string[]; managed: boolean }>()
+  for (const other of bots) {
+    if (other.id === bot.id || !group.botIds.includes(other.id) || other.machineId !== bot.machineId) continue
+    const s = states[other.id]
+    if (s?.state !== 'ready' || !s.path) continue
+    if (mine && samePath(s.path, mine)) continue
+    const key = normPath(s.path)
+    const managed = s.workspace === 'managed' || isManagedRoot(s.path)
+    const entry = byPath.get(key)
+    if (entry) {
+      if (!entry.bots.includes(other.name)) entry.bots.push(other.name)
+      entry.managed = entry.managed || managed
+    } else {
+      byPath.set(key, { path: s.path, bots: [other.name], managed })
+    }
+  }
+  return [...byPath.values()]
+}
+
 /**
- * Picks where one of my bots works in this group: a local clone of the repo, a managed clone or directory
- * (`path = null`), the bot's default workspace, or any directory on its machine. Shared by the workspace banner, the
- * repo settings and the bot bar's 更换工作区.
+ * Picks where one of my bots works in this group: a same-group workspace on this machine, a local clone of the repo,
+ * a managed clone or directory (`path = null`), the bot's default workspace, or any directory on its machine. Shared by
+ * the workspace banner, the repo settings and the bot bar's 更换工作区.
  */
 export function WorkspacePicker({
   group,
@@ -49,11 +80,21 @@ export function WorkspacePicker({
   onDone?: () => void
   onClose: () => void
 }) {
+  const bots = useWorkspace((s) => s.bots)
+  const states = useWorkspace((s) => s.botStates[group.id])
   const found = useCandidates(group, bot.id)
   const remembered = useLocalPaths(group)
     .filter((p) => p.machineId === bot.machineId)
     .map((p) => p.path)
-  const local = [...new Set([...(found?.paths ?? []), ...remembered])]
+  const shared = sameGroupWorkspaces(group, bot, bots, states)
+  const sharedKeys = new Set(shared.map((item) => normPath(item.path)))
+  const local = [...new Set([...(found?.paths ?? []), ...remembered])].filter(
+    (p) => !sharedKeys.has(normPath(p)),
+  )
+  const allowedManaged: AllowedManagedDir[] = shared
+    .filter((item) => item.managed)
+    .map(({ path, bots: names }) => ({ path, bots: names }))
+  const hasExisting = shared.length > 0 || local.length > 0
   const [foreign, setForeign] = useState<{ path: string; remote: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const bind = async (path: string | null, force?: boolean) => {
@@ -99,11 +140,33 @@ export function WorkspacePicker({
         machineId={bot.machineId}
         title={t('为 {bot} 选择工作区', { bot: bot.name })}
         start={bot.defaultWorkspace}
+        allowedManaged={allowedManaged}
         busy={busy}
         onPick={(path) => void pick(path)}
         onClose={onClose}
         extra={
           <div className="dirpick__choices">
+            {shared.map((item) => (
+              <button
+                key={item.path}
+                type="button"
+                className="dirpick__choice"
+                disabled={busy}
+                onClick={() => void bind(item.path)}
+              >
+                <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
+                <span className="dirpick__choice-text">
+                  <span className="dirpick__choice-title">
+                    {t('复用群内 {bots} 的工作区', { bots: item.bots.join('、') })}
+                    <span className="dirpick__badge">{t('免 clone')}</span>
+                    <span className="dirpick__badge">{t('推荐')}</span>
+                  </span>
+                  <span className="dirpick__choice-desc">
+                    {t('{path} · 只读并行不打扰，写入时确认', { path: item.path })}
+                  </span>
+                </span>
+              </button>
+            ))}
             {local.map((p) => (
               <button
                 key={p}
@@ -117,6 +180,7 @@ export function WorkspacePicker({
                   <span className="dirpick__choice-title">
                     {t('使用本机已有的仓库目录')}
                     <span className="dirpick__badge">{t('免 clone')}</span>
+                    {shared.length === 0 ? <span className="dirpick__badge">{t('推荐')}</span> : null}
                   </span>
                   <span className="dirpick__choice-desc">{p}</span>
                 </span>
@@ -133,7 +197,11 @@ export function WorkspacePicker({
                 <span className="dirpick__choice-text">
                   <span className="dirpick__choice-title">
                     {t('自动克隆群仓库')}
-                    <span className="dirpick__badge">{t('推荐')}</span>
+                    {hasExisting ? (
+                      <span className="dirpick__badge dirpick__badge--muted">{t('独立目录')}</span>
+                    ) : (
+                      <span className="dirpick__badge">{t('推荐')}</span>
+                    )}
                   </span>
                   <span className="dirpick__choice-desc">
                     {found
