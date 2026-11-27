@@ -30,6 +30,7 @@ import {
   Presence,
   Stepper,
   TabView,
+  Tag,
   TextField,
   toast,
 } from '../../ui'
@@ -206,6 +207,8 @@ function saveToastMessage(
   if (!hasLive && !hasNextRun && !hasNextSession) return t('{name} 已保存', { name: botName })
   return t('{name} 已保存 · 下一次新开会话时生效', { name: botName })
 }
+
+const scrollIntoViewRef = (el: HTMLDivElement | null) => el?.scrollIntoView?.({ block: 'nearest' })
 
 const GROUP_TIER_LABEL = (tier: Tier, aiReview: boolean, focus?: AccessFocus) =>
   tier === 'full'
@@ -520,10 +523,17 @@ export function BotDetail({
     }
   }
 
+  const groupOverride = !!groupId && groupTier !== null
+  // While this group overrides the approval mode, the override (not the global row) is what applied to the request.
+  const overrideApplies = groupOverride && focus === 'owner'
   const access = (
     <Form>
-      {groupId && groupTier !== null ? (
-        <div className="bot-settings__banner">
+      {groupOverride ? (
+        <div
+          ref={overrideApplies ? scrollIntoViewRef : undefined}
+          className="bot-settings__banner"
+          data-focus-row={overrideApplies ? 'owner' : undefined}
+        >
           <Alert
             variant="warning"
             title={
@@ -546,11 +556,14 @@ export function BotDetail({
                   )
             }
           >
-            {canEdit ? (
+            {canEdit || overrideApplies ? (
               <div className="bot-settings__banner-actions">
-                <Button size="small" loading={resettingGroupTier} onClick={() => void resetGroupTier()}>
-                  {t('恢复跟随全局')}
-                </Button>
+                {overrideApplies ? <Tag tone="blue">{t('本次请求适用')}</Tag> : null}
+                {canEdit ? (
+                  <Button size="small" loading={resettingGroupTier} onClick={() => void resetGroupTier()}>
+                    {t('恢复跟随全局')}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </Alert>
@@ -561,7 +574,7 @@ export function BotDetail({
         canEdit={canEdit}
         demo={demo}
         value={approval}
-        focus={focus}
+        focus={overrideApplies ? undefined : focus}
         outdated={
           machine?.online && !machine.features.includes('approvalGates') ? (bot.machineName ?? '') : undefined
         }

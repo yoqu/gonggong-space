@@ -100,7 +100,7 @@ test('market smoke: an author publishes past the preflight; a member finds it, i
     const mine = page.getByRole('dialog', { name: '我的 Skill' })
     await mine.getByRole('button', { name: `移除 ${name}` }).click()
     await page
-      .getByRole('alertdialog', { name: `移除 ${name}？` })
+      .getByRole('alertdialog', { name: `要移除「${name}」吗？` })
       .getByRole('button', { name: '移除' })
       .click()
     await expect(mine.getByRole('button', { name: `移除 ${name}` })).toHaveCount(0)

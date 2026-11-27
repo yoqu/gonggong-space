@@ -150,12 +150,13 @@ describe('needsOfficialLogin & AgentsPanel collapsed login CTA', () => {
     const rowBtn = await screen.findByRole('button', { name: /^CodeBuddy/ })
     const row = rowBtn.closest('.ag-agent') as HTMLElement
     expect(within(row).getByText('未登录')).toBeTruthy()
-    expect(within(row).getByRole('button', { name: '登录' })).toBeTruthy()
+    // Same words as 去登录 on the machine overview and in the expanded detail.
+    expect(within(row).getByRole('button', { name: '去登录' })).toBeTruthy()
     expect(within(row).getByRole('button', { name: '升级到 2.187.0' })).toBeTruthy()
     expect(rowBtn.getAttribute('aria-expanded')).toBe('false')
 
     // Clicking 登录 directly opens the login dialog without needing to expand the row first.
-    fireEvent.click(within(row).getByRole('button', { name: '登录' }))
+    fireEvent.click(within(row).getByRole('button', { name: '去登录' }))
     expect(await screen.findByRole('dialog', { name: /登录 CodeBuddy.*官方账号/ })).toBeTruthy()
   })
 
@@ -182,7 +183,7 @@ describe('needsOfficialLogin & AgentsPanel collapsed login CTA', () => {
     const rowBtn = await screen.findByRole('button', { name: /^CodeBuddy/ })
     const row = rowBtn.closest('.ag-agent') as HTMLElement
     expect(within(row).queryByText('未登录')).toBeNull()
-    expect(within(row).queryByRole('button', { name: '登录' })).toBeNull()
+    expect(within(row).queryByRole('button', { name: '去登录' })).toBeNull()
   })
 
   it('shows 已登录（账号登录） in expanded AgentDetail on Web without agentLocal', async () => {
@@ -337,6 +338,37 @@ describe('AgentLoginDialog flows', () => {
     expect(within(dialog).getByText('已登录账号：wanglei@corp.cn')).toBeTruthy()
     expect(onLoggedIn).toHaveBeenCalledTimes(1)
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers the API Key fallback once, in the same words, after a failed ACP login', async () => {
+    let emit: (e: AgentLoginEvent) => void = () => {}
+    const driver: AgentLoginDriver = {
+      mode: 'web',
+      supportsAcp: true,
+      startAcp: vi.fn(async () => ({ opId: 'op-7' })),
+      cancelAcp: vi.fn(async () => {}),
+      subscribeAcp: (cb) => {
+        emit = cb
+        return () => {}
+      },
+    }
+    render(
+      <AgentLoginDialog
+        machine={winMachine()}
+        agent="codebuddy"
+        agentState={agent('codebuddy', { loginState: 'logged_out', loginFlow: 'acp' })}
+        loginDriver={driver}
+        onAddProvider={() => {}}
+        onClose={() => {}}
+      />,
+    )
+    const dialog = screen.getByRole('dialog', { name: /登录 CodeBuddy.*官方账号/ })
+    fireEvent.click(within(dialog).getByRole('button', { name: '开始登录授权' }))
+    await waitFor(() => expect(driver.startAcp).toHaveBeenCalled())
+    act(() => emit({ t: 'agent.login.result', opId: 'op-7', kind: 'codebuddy', ok: false, error: '超时' }))
+    expect(await within(dialog).findByText('登录失败')).toBeTruthy()
+    expect(within(dialog).getAllByRole('button', { name: '改用 API Key 供应商' })).toHaveLength(1)
+    expect(within(dialog).queryByText('改为配置 API Key')).toBeNull()
   })
 
   it('offers Desktop terminal launcher and manual refresh for non-ACP agents (Flow B)', async () => {

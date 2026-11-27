@@ -266,7 +266,7 @@ export function InstallTargetDialog({
       setReadyTarget({
         scope: target.scope,
         scopeId: target.scopeId,
-        label: target.label,
+        label: target.scope === 'user' ? t('我的插件') : target.label,
         teamId: target.teamId,
       })
     } catch (e) {
@@ -431,7 +431,11 @@ export function InstallTargetDialog({
                 className="mkt-fade-in"
                 label={t('申请说明')}
                 aria-label={t('申请说明')}
-                placeholder={t('说一句为什么需要（选填），会发给群管理员')}
+                placeholder={
+                  ask.scope === 'group'
+                    ? t('说一句为什么需要（选填），会发给群管理员')
+                    : t('说一句为什么需要（选填），会发给团队管理员')
+                }
                 maxLength={500}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -471,7 +475,7 @@ export function InstallTargetDialog({
             ) : (
               <div className="mkt-hint">
                 <Icon name="arrow-clockwise" size={15} />
-                <span>{t('会自动保持最新版本，系统也会自动补齐所需凭据项，无需手动配置。')}</span>
+                <span>{t('会自动保持最新版本，添加后会列出还差的准备步骤。')}</span>
               </div>
             )}
           </>

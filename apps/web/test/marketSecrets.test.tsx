@@ -8,7 +8,7 @@ import type {
   TeamDto,
   UserDto,
 } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -212,13 +212,13 @@ describe('凭据准备与同名复用提示隔离', () => {
 
     const input = within(dialog).getByLabelText('数仓 Key')
     fireEvent.change(input, { target: { value: 'short' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存并验证' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
     expect(await within(dialog).findByText('数仓 Key 至少需要 8 个字符')).toBeTruthy()
 
     fireEvent.change(input, { target: { value: 'dw-secret-123456' } })
     expect(within(dialog).queryByText('数仓 Key 至少需要 8 个字符')).toBeNull()
     fireEvent.click(within(dialog).getByRole('checkbox', { name: '允许在他人的电脑上使用我的凭据' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存并验证' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
 
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/me/secrets/s1')?.body).toEqual({
@@ -307,7 +307,7 @@ describe('凭据准备与同名复用提示隔离', () => {
 
     const sharedInput = within(dialog).getByLabelText('共用 Key')
     fireEvent.change(sharedInput, { target: { value: 'shared-val-999' } })
-    const saveBtns = within(dialog).getAllByRole('button', { name: '保存并验证' })
+    const saveBtns = within(dialog).getAllByRole('button', { name: '保存' })
     fireEvent.click(saveBtns[0]!)
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH' && c.path === '/secrets/s2')?.body).toEqual({
@@ -366,7 +366,7 @@ describe('凭据准备与同名复用提示隔离', () => {
     const dlg = screen.getByRole('dialog', { name: /添加 数仓查询/ })
     expect(await within(dlg).findByText('需管理员开启「插件运行本机程序」')).toBeTruthy()
     fireEvent.change(within(dlg).getByLabelText('数仓 Key'), { target: { value: 'personal-key-1234' } })
-    fireEvent.click(within(dlg).getByRole('button', { name: '保存并验证' }))
+    fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(groupCalls.find((c) => c.path === '/groups/g1/secret-needs/personal')?.body).toEqual({
         name: 'DW_KEY',
@@ -416,7 +416,7 @@ describe('凭据准备与同名复用提示隔离', () => {
     fireEvent.change(await within(repoDlg).findByLabelText('仓库凭据'), {
       target: { value: 'repo-secret-9999' },
     })
-    fireEvent.click(within(repoDlg).getByRole('button', { name: '保存并验证' }))
+    fireEvent.click(within(repoDlg).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(
         repoCalls.find((c) => c.method === 'POST' && c.path === '/teams/t1/secrets')?.body,
@@ -461,5 +461,152 @@ describe('upgrading an install', () => {
     expect(
       await screen.findByText('r5 新增必需密钥：DW_KEY、DW_TEST_KEY，升级后需建好定义并填写'),
     ).toBeTruthy()
+  })
+})
+
+describe('两步添加文案与自动刷新（UX 回归 11-27）', () => {
+  const sharedItem = (o: Partial<MarketReadinessDto['secrets'][number]> = {}) => ({
+    name: 'SHARED_KEY',
+    title: '共用 Key',
+    description: '',
+    url: null,
+    placeholder: null,
+    mode: 'shared' as const,
+    required: true,
+    status: 'unfilled' as const,
+    reason: null,
+    defId: 's2',
+    defScope: 'team' as const,
+    action: 'fill_shared' as const,
+    reused: false,
+    viaConnector: false,
+    ...o,
+  })
+
+  it('does not promise 无需手动配置 in Step 1 when the plugin still needs credentials', () => {
+    mockApi({})
+    const d = detail()
+    render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          sourceGroupId="g1"
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    expect(within(dialog).queryByText(/无需手动配置/)).toBeNull()
+    expect(within(dialog).getByText('会自动保持最新版本，添加后会列出还差的准备步骤。')).toBeTruthy()
+  })
+
+  it('sends a team-scope request note to team admins, not group admins', () => {
+    useSession.setState({
+      tenancy: {
+        teams: [{ id: 't1', name: '支付组', role: 'member' } as TeamDto],
+        singleTeamMode: false,
+        canCreateTeam: true,
+        demoMode: false,
+        pluginsEnabled: true,
+      },
+    })
+    mockApi({ 'GET /teams/t1/repos': [] })
+    const d = detail()
+    render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    fireEvent.click(within(dialog).getByRole('button', { name: /更多范围（管理员）/ }))
+    fireEvent.click(within(dialog).getByLabelText(/^支付组/))
+    expect(within(dialog).getByPlaceholderText('说一句为什么需要（选填），会发给团队管理员')).toBeTruthy()
+  })
+
+  it('names shared team credentials and the team target plainly in Step 2', async () => {
+    mockApi({
+      'GET /market/l1/readiness?scope=team&scopeId=t1': readiness({
+        scope: 'team',
+        scopeId: 't1',
+        targetLabel: '支付组',
+        secrets: [sharedItem()],
+      }),
+    })
+    const d = detail()
+    render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          initialReadyTarget={{ scope: 'team', scopeId: 't1', label: '支付组', teamId: 't1' }}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    expect(await within(dialog).findByText('填写 共用 Key')).toBeTruthy()
+    expect(within(dialog).queryByText(/填写你的/)).toBeNull()
+    expect(within(dialog).getByText(/团队共用凭据，加密保存。/)).toBeTruthy()
+    expect(within(dialog).queryByText(/群内共用凭据/)).toBeNull()
+    expect(within(dialog).getByText('团队所有群默认可用，群管理员可单独关闭')).toBeTruthy()
+    expect(within(dialog).queryByText('群里所有 Bot 都能用')).toBeNull()
+  })
+
+  it('calls a personal add 「我的插件」 in Step 2, matching the rest of the market', async () => {
+    mockApi({
+      'PUT /me/installs/l1': {},
+      'GET /market/l1/readiness?scope=user&scopeId=u1': readiness({
+        scope: 'user',
+        scopeId: 'u1',
+        targetLabel: '',
+        ready: true,
+        pendingSteps: 0,
+        secrets: [],
+      }),
+    })
+    const d = detail()
+    render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    fireEvent.click(within(dialog).getByLabelText(/仅我使用/))
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))
+    expect(
+      await within(dialog).findByText('「数仓查询」已添加到「我的插件」，现在就可以开始使用'),
+    ).toBeTruthy()
+  })
+
+  it("re-checks readiness on its own while steps are pending, so others' approvals tick off", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const calls = mockApi({ 'GET /market/l1/readiness?scope=group&scopeId=g1': readiness() })
+      const d = detail()
+      render(
+        <MemoryRouter>
+          <InstallTargetDialog
+            listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+            initialReadyTarget={{ scope: 'group', scopeId: 'g1', label: '支付核心群' }}
+            onClose={() => {}}
+          />
+        </MemoryRouter>,
+      )
+      const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+      await within(dialog).findByText('已添加到「支付核心群」，还差 1 步就能用')
+      const gets = () => calls.filter((c) => c.path.startsWith('/market/l1/readiness')).length
+      const before = gets()
+      await act(async () => {
+        vi.advanceTimersByTime(10_000)
+      })
+      await waitFor(() => expect(gets()).toBe(before + 1))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

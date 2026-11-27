@@ -197,7 +197,7 @@ function BotCapabilitiesPanelInner({
               loading={busy}
               onClick={() => void notifyOwner(item, 'notify_connector')}
             >
-              {notified ? t('已提醒') : t('提醒机主')}
+              {notified ? t('已提醒') : t('提醒电脑主人')}
             </Button>
           )
         }
@@ -236,7 +236,7 @@ function BotCapabilitiesPanelInner({
             loading={busy}
             onClick={() => void notifyOwner(item, 'notify_trust')}
           >
-            {notified ? t('已提醒') : t('提醒机主')}
+            {notified ? t('已提醒') : t('提醒电脑主人')}
           </Button>
         )
       case 'upgrade-daemon': {

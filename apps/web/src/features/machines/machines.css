@@ -963,33 +963,3 @@
   font-size: var(--text-title-3-size);
   font-weight: 600;
 }
-
-/* Relocation guidance banner: Agent engines & model provider presets live in Machine settings. */
-.mx-reloc {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-10) var(--space-12);
-  border-radius: var(--radius-field);
-  background: var(--tint-blue);
-  color: var(--tint-blue-text);
-  font-size: var(--text-subheadline-size);
-  line-height: var(--text-subheadline-line);
-}
-.mx-reloc__icon {
-  flex: none;
-}
-.mx-reloc__text {
-  flex: 1;
-  min-width: 200px;
-}
-.mx-reloc__link {
-  flex: none;
-  color: var(--accent-text);
-  font-weight: 500;
-  text-decoration: none;
-}
-.mx-reloc__link:hover {
-  text-decoration: underline;
-}

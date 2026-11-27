@@ -10,13 +10,16 @@ import {
   PopUpButton,
   SegmentedControl,
   Skeleton,
+  Tag,
 } from '../../ui'
 import {
   CAPABILITY_META,
   CapabilityChips,
   type CardActionKind,
   capabilitiesOfListing,
+  cardActionLabel,
   cardActionOf,
+  installedText,
   type MarketCapability,
   type MarketListingView,
   type MarketScene,
@@ -228,24 +231,29 @@ export function MarketHomeView({
             const caps = capabilitiesOfListing(l)
             const ready = readinessOfListing(l)
             const action = cardActionOf(l, canInstallDirectly)
-            const ctaLabel =
-              action === 'configure'
-                ? t('去配置')
-                : action === 'installed'
-                  ? t('去使用')
-                  : action === 'request'
-                    ? t('申请添加')
-                    : t('添加')
             const ctaClass =
-              action === 'configure' ? 'mkt-btn-warn' : action === 'request' ? 'mkt-btn-soft' : undefined
+              action === 'configure'
+                ? 'mkt-btn-warn'
+                : action === 'installed'
+                  ? 'mkt-btn-done'
+                  : action === 'request'
+                    ? 'mkt-btn-soft'
+                    : undefined
             return (
               <article key={l.id} className="mkt-hero">
                 <div className="mkt-hero__copy">
                   <div className="mkt-hero__kicker">
-                    {t('{source}主推 · {scene}', {
-                      source: SOURCE_LABEL[l.source],
-                      scene: SCENE_MAP[scene].label,
-                    })}
+                    <span>
+                      {t('{source}主推 · {scene}', {
+                        source: SOURCE_LABEL[l.source],
+                        scene: SCENE_MAP[scene].label,
+                      })}
+                    </span>
+                    {action === 'installed' && l.installedIn ? (
+                      <span title={installedText(l.installedIn)}>
+                        <Tag tone="green">{t('已添加')}</Tag>
+                      </span>
+                    ) : null}
                   </div>
                   <button type="button" className="mkt-hero__title" onClick={() => onOpen(l)}>
                     {l.title}
@@ -259,15 +267,15 @@ export function MarketHomeView({
                       className={`mkt-hero__meta${action === 'configure' ? ' mkt-hero__meta--warn' : ''}`}
                     >
                       <Icon name={action === 'configure' ? 'lock' : 'person-2'} size={12} />
-                      {action === 'configure' ? t('有群待配置') : usageLabel(l)}
+                      {action === 'configure' ? (l.needsTrust ? t('待授权') : t('待配置')) : usageLabel(l)}
                     </span>
                     <Button
                       size="small"
-                      variant={action === 'add' || action === 'installed' ? 'primary' : 'default'}
+                      variant={action === 'add' ? 'primary' : 'default'}
                       className={ctaClass}
-                      onClick={() => (action === 'installed' ? onOpen(l) : onAction(l, action))}
+                      onClick={() => onAction(l, action)}
                     >
-                      {ctaLabel}
+                      {cardActionLabel(l, action)}
                     </Button>
                   </div>
                 </div>

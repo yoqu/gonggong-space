@@ -222,6 +222,10 @@
 }
 
 .mkt-hero__kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
   color: var(--accent-text);
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
@@ -593,4 +597,71 @@
   justify-content: center;
   gap: var(--space-8);
   flex-wrap: wrap;
+}
+
+/* Responsive: kept here, after the base rules, so stylesheet import order can't undo them. */
+@media (max-width: 1080px) {
+  .mkt-featured {
+    grid-template-columns: 1fr;
+  }
+  .mkt-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Phones: the sidebar becomes a sideways-scrolling category strip so the plugins start on the first screen. */
+@media (max-width: 720px) {
+  .mkt-shell {
+    flex-direction: column;
+  }
+  .mkt-side {
+    width: auto;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-12);
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--separator);
+  }
+  .mkt-side__nav {
+    flex-direction: row;
+    gap: var(--space-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .mkt-side__nav::-webkit-scrollbar {
+    display: none;
+  }
+  .mkt-side__nav .ui-sidebar__section {
+    flex-direction: row;
+    gap: var(--space-4);
+  }
+  .mkt-side__nav .ui-sidebar__title {
+    display: none;
+  }
+  .mkt-side__nav .ui-sidebar__label {
+    overflow: visible;
+  }
+  .mkt-side__foot {
+    flex-direction: row;
+    gap: var(--space-4);
+    margin-top: 0;
+    padding-top: var(--space-6);
+    overflow-x: auto;
+  }
+  .mkt-side__link {
+    flex: none;
+  }
+  .mkt-content {
+    padding: var(--space-16) var(--space-16) var(--space-24);
+  }
+  .mkt-hero {
+    grid-template-columns: 1fr;
+    padding: var(--space-16);
+  }
+  .mkt-hero__art {
+    display: none;
+  }
+  .mkt-cards {
+    grid-template-columns: 1fr;
+  }
 }

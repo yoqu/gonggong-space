@@ -702,8 +702,8 @@ describe('Workspace Concept Consolidation · Bot Details 已装配能力', () =>
     expect(within(panel).getByText('还缺少你的数仓 Key，填写后即可调用')).toBeTruthy()
     expect(within(panel).getByRole('button', { name: '去填写' })).toBeTruthy()
 
-    // Non-owner clicking 提醒机主 invokes readiness/action.
-    fireEvent.click(within(panel).getByRole('button', { name: '提醒机主' }))
+    // Non-owner clicking 提醒电脑主人 invokes readiness/action.
+    fireEvent.click(within(panel).getByRole('button', { name: '提醒电脑主人' }))
     await waitFor(() =>
       expect(
         calls.find((c) => c.method === 'POST' && c.path === '/market/p-exec/readiness/action')?.body,
@@ -771,7 +771,7 @@ describe('Workspace Concept Consolidation · Bot Details 已装配能力', () =>
       </MemoryRouter>,
     )
     const panel = await screen.findByRole('region', { name: '已装配能力' })
-    expect(await within(panel).findByRole('button', { name: '提醒机主' })).toBeTruthy()
+    expect(await within(panel).findByRole('button', { name: '提醒电脑主人' })).toBeTruthy()
     expect(within(panel).queryByRole('button', { name: '去授权' })).toBeNull()
   })
 })
@@ -812,12 +812,10 @@ describe('Workspace Concept Consolidation · Machine Settings Framing', () => {
         <MachinePage machine={machine()} bots={[]} />
       </MemoryRouter>,
     )
-    expect(
-      await screen.findByText(
-        'Agent 引擎与模型供应商预设属于电脑运行环境，统一在电脑设置中管理，不再混在插件市场中。',
-      ),
-    ).toBeTruthy()
-    expect(screen.getByText(/官方模型供应商预设由平台自动同步，无需从市场安装/)).toBeTruthy()
+    expect(await screen.findByText(/官方模型供应商预设由平台自动同步，无需从市场安装/)).toBeTruthy()
+    // A one-off relocation notice is no use on every visit to the Agent tab.
+    expect(screen.queryByText(/不再混在插件市场中/)).toBeNull()
+    expect(screen.queryByRole('link', { name: '前往插件市场' })).toBeNull()
 
     fireEvent.click(screen.getByRole('tab', { name: '插件运行授权' }))
     const trusts = await screen.findByRole('region', { name: '插件运行授权' })

@@ -729,7 +729,7 @@ describe('两步添加弹窗与原地准备（InstallTargetDialog + InstallReady
     )
     await waitFor(() => expect(within(dialog).queryByRole('button', { name: '立即允许' })).toBeNull())
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '通知陈晨连接' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '提醒 陈晨 连接' }))
     await waitFor(() =>
       expect(
         calls.some(
@@ -743,7 +743,7 @@ describe('两步添加弹窗与原地准备（InstallTargetDialog + InstallReady
       expect(useToasts.getState().items.some((x) => x.message === '已提醒 陈晨 连接账号')).toBe(true),
     )
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '通知王磊授权' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '提醒 王磊 授权' }))
     await waitFor(() =>
       expect(
         useToasts.getState().items.some((x) => x.message === '该电脑主人之前已拒绝或已收到提醒，未重复发送'),
@@ -869,7 +869,7 @@ describe('已添加集中管理（InstalledView）', () => {
     // Remove personal plugin via confirm dialog
     const mineSection = screen.getByRole('region', { name: '我的插件' })
     fireEvent.click(within(mineSection).getByRole('button', { name: '移除' }))
-    const confirm = await screen.findByRole('alertdialog')
+    const confirm = await screen.findByRole('alertdialog', { name: '要移除「代码评审助手」吗？' })
     fireEvent.click(within(confirm).getByRole('button', { name: '移除' }))
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'DELETE' && c.path === '/me/installs/l1')).toBe(true),
@@ -1205,7 +1205,7 @@ describe('上架审核工作台（MarketReviewList）', () => {
     )
 
     expect(await screen.findByRole('region', { name: '上架审核工作台' })).toBeTruthy()
-    expect(await screen.findByText('会在电脑上运行代码（需机主确认）')).toBeTruthy()
+    expect(await screen.findByText('会在电脑上运行代码（需电脑主人确认）')).toBeTruthy()
     expect(await screen.findByText('对比 r3 的变更')).toBeTruthy()
     expect(screen.getByText('二进制文件已变化')).toBeTruthy()
 
@@ -1258,5 +1258,128 @@ describe('上架审核工作台（MarketReviewList）', () => {
       </MemoryRouter>,
     )
     expect(await screen.findByText('待审核队列已清空')).toBeTruthy()
+  })
+})
+
+describe('待授权/待配置在各处同一种说法（UX 回归 11-27）', () => {
+  const trustPending: MarketInstalledDto = {
+    todoCount: 1,
+    pendingUpdates: 0,
+    mine: [],
+    groups: [
+      {
+        listing: LISTINGS[2]!,
+        scene: 'connect',
+        capabilities: ['connect'],
+        readiness: 'needs-trust',
+        source: 'official',
+        teamName: null,
+        latestRevision: 4,
+        hasUpdate: false,
+        health: 'needs-trust',
+        healthDetail: null,
+        banReason: null,
+        groups: [
+          {
+            groupId: 'g1',
+            groupName: '支付核心群',
+            canManage: true,
+            enabled: true,
+            pinVersionId: null,
+            resolvedVersionId: 'pv4',
+            resolvedRevision: 4,
+            hasUpdate: false,
+            health: 'needs-trust',
+            healthDetail: null,
+          },
+        ],
+      },
+    ],
+    team: [],
+  }
+
+  it('uses 去授权 on the featured hero, cards and 已添加 alike, never 有群待配置 or 查看授权', async () => {
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': trustPending,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+    })
+    renderPage()
+    const hero = await screen.findByRole('region', { name: '精选推荐' })
+    await waitFor(() => expect(within(hero).getByRole('button', { name: '去授权' })).toBeTruthy())
+    expect(within(hero).queryByRole('button', { name: '去配置' })).toBeNull()
+    expect(within(hero).queryByText('有群待配置')).toBeNull()
+    expect(within(hero).getByText('待授权')).toBeTruthy()
+  })
+
+  it('labels 已添加 rows with the same health words as cards', async () => {
+    const accountPending: MarketInstalledDto = {
+      ...trustPending,
+      groups: [
+        trustPending.groups[0]!,
+        {
+          ...trustPending.groups[0]!,
+          listing: LISTINGS[1]!,
+          health: 'needs-account',
+          groups: [{ ...trustPending.groups[0]!.groups[0]!, health: 'needs-account' }],
+        },
+      ],
+    }
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': accountPending,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+    })
+    renderPage('/market?tab=installed')
+    const sec = await screen.findByRole('region', { name: '我所在群的插件' })
+    expect(within(sec).getByRole('button', { name: '去授权' })).toBeTruthy()
+    expect(within(sec).queryByRole('button', { name: '查看授权' })).toBeNull()
+    expect(within(sec).getByText('支付核心群 待连接账号')).toBeTruthy()
+    expect(within(sec).queryByText(/需连账号/)).toBeNull()
+  })
+})
+
+describe('已安装插件卡片：一处标签 + 「管理」去已添加页', () => {
+  it('featured and shelf cards both tag 已添加 once and offer a secondary 管理 that opens 已添加', async () => {
+    const installedIn = [{ scope: 'group' as const, scopeId: 'g1', label: '支付核心群' }]
+    mockApi({
+      'GET /market': [LISTINGS[0]!, { ...LISTINGS[1]!, installedIn }, LISTINGS[2]!],
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+    })
+    renderPage()
+
+    const featured = await screen.findByRole('region', { name: '精选推荐' })
+    const hero = within(featured).getByRole('button', { name: '幻灯片' }).closest('article') as HTMLElement
+    expect(within(hero).getByText('已添加')).toBeTruthy()
+    const heroCta = within(hero).getByRole('button', { name: '管理' })
+    expect(heroCta.className).not.toContain('ui-btn--primary')
+    expect(within(hero).queryByRole('button', { name: '去使用' })).toBeNull()
+
+    const card = screen.getAllByRole('button', { name: '查看 幻灯片' })[0]!.closest('article') as HTMLElement
+    expect(within(card).getAllByText('已添加')).toHaveLength(1)
+    expect(within(card).getByRole('button', { name: '管理' })).toBeTruthy()
+
+    fireEvent.click(heroCta)
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market?tab=installed'))
+  })
+
+  it('keeps the phone layout rules for shell, sidebar, featured and cards in market.css after the base rules', async () => {
+    const { readFileSync } = await import('node:fs')
+    const base = readFileSync('src/features/market/market.css', 'utf8')
+    const manage = readFileSync('src/features/market/market-manage.css', 'utf8')
+    for (const sel of ['.mkt-shell', '.mkt-side', '.mkt-featured', '.mkt-hero', '.mkt-cards'])
+      expect(manage).not.toMatch(new RegExp(`^\\s*\\${sel}\\s*\\{`, 'm'))
+    const narrow = base.slice(base.indexOf('@media (max-width: 1080px)'))
+    const phone = base.slice(base.indexOf('@media (max-width: 720px)'))
+    expect(base.indexOf('@media (max-width: 1080px)')).toBeGreaterThan(base.indexOf('.mkt-cards {'))
+    expect(narrow).toMatch(/\.mkt-featured\s*\{[^}]*grid-template-columns:\s*1fr/)
+    expect(phone).toMatch(/\.mkt-hero\s*\{[^}]*grid-template-columns:\s*1fr/)
+    expect(phone).toMatch(/\.mkt-hero__art\s*\{[^}]*display:\s*none/)
+    expect(phone).toMatch(/\.mkt-side\s*\{[^}]*width:\s*auto/)
+    expect(phone).toMatch(/\.mkt-side__nav\s*\{[^}]*overflow-x:\s*auto/)
   })
 })

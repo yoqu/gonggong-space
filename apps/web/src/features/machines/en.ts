@@ -331,7 +331,7 @@ export default {
   瘦身: 'Slim down',
   '正在瘦身…': 'Slimming…',
   '已释放 {size}': 'Freed {size}',
-  '删除所选的 {n} 个工作区？': 'Delete {n} selected {n:workspace|workspaces}?',
+  '要删除所选的 {n} 个工作区吗？': 'Delete {n} selected {n:workspace|workspaces}?',
   '会删除电脑上的这些目录，不可恢复。': 'This deletes these folders on the computer and cannot be undone.',
   '这些工作区还有没推送的改动，删除后会丢失': 'These workspaces have work not pushed yet; deleting loses it',
   '正在删除…': 'Deleting…',
@@ -545,7 +545,6 @@ export default {
   在终端中手动登录: 'Sign in manually in terminal',
   '已登录账号：{user}': 'Signed in as {user}',
   登录失败: 'Sign-in failed',
-  '改为配置 API Key': 'Configure an API key instead',
   一键打开终端登录: 'Open terminal to sign in',
   '自动加载共工托管的 Node.js 与 Agent 路径': 'Preloads Gonggong-managed Node.js and Agent paths',
   打开终端登录: 'Open terminal to sign in',
@@ -556,9 +555,6 @@ export default {
   '提示：如果通过共工空间托管安装了 {agent}，工具位于 %USERPROFILE%\\.gonggong\\tools，手动运行需先确保 Node.js 在 PATH 中，或直接点上方按钮在桌面端打开。':
     'Tip: if {agent} was installed via Gonggong Space, it lives in %USERPROFILE%\\.gonggong\\tools and needs Node.js on PATH when run manually, or click the button above to open it in the Desktop app.',
   插件运行授权: 'Plugin authorization',
-  'Agent 引擎与模型供应商预设属于电脑运行环境，统一在电脑设置中管理，不再混在插件市场中。':
-    'Agent engines and model provider presets belong to the computer runtime and are managed here instead of in the Plugin Market.',
-  前往插件市场: 'Go to Plugin Market',
   '官方模型供应商预设由平台自动同步，无需从市场安装；一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商':
     'Official model provider presets sync automatically from the platform with no market install needed. A provider can serve several protocols, and each Agent picks a compatible one in its details',
   '待授权 {n}': '{n} pending',

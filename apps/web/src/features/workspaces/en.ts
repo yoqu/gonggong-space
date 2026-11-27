@@ -27,8 +27,6 @@ export default {
     "This is a workspace Gonggong manages for one group: it is deleted when that group's Bot is removed or storage is cleaned up. Clone the repository somewhere else (e.g. ~/code) and pick it there.",
   '将复用本群 {bots} 的托管工作区（免重复克隆；仍有 Bot 使用时不会被清理删除）。':
     'Will reuse the managed workspace of {bots} in this group (no re-clone; kept while any Bot uses it).',
-  '进入下方已有仓库目录后即可直接复用（无需重新克隆）':
-    'Open an existing repository folder below to reuse it directly (no re-clone needed)',
   进入下方已有仓库目录后即可直接复用: 'Open an existing repository folder below to reuse it directly',
   '复用群内 {bots} 的工作区': "Reuse {bots}'s workspace in this group",
   '{path} · 只读并行不打扰，写入时确认':
@@ -38,7 +36,7 @@ export default {
   '不是 git 仓库': 'not a git repo',
   '为 {bot} 选择工作区': 'Choose a workspace for {bot}',
   使用本机已有的仓库目录: 'Use the existing repo folder on this machine',
-  '免 clone': 'No clone',
+  免克隆: 'No clone',
   自动克隆群仓库: 'Automatic clone of the group repo',
   推荐: 'Recommended',
   '在电脑上自动克隆到独立目录，互不干扰':
@@ -54,7 +52,6 @@ export default {
   '仅影响 {bot}，群内其他 Bot 不变': 'Only affects {bot}; other Bots in the group are unchanged',
   仍然使用: 'Use anyway',
   '克隆 {url} 到 {path}': 'Clone {url} into {path}',
-  使用托管目录: 'Use a managed directory',
   '共工在电脑上为这个会话单独建的目录，不碰你已有的文件':
     'A directory Gonggong makes on your computer for this conversation alone, away from your own files',
   '要删除终端「{name}」吗？': 'Delete terminal "{name}"?',

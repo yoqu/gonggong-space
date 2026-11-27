@@ -100,7 +100,7 @@ function pluginHealth(
   }
   const blockers = p.bots.map((b) => b.blocker).filter(Boolean)
   if (blockers.includes('secret')) return { label: t('待填凭据'), tone: 'orange' }
-  if (blockers.includes('trust')) return { label: t('待机主授权'), tone: 'orange' }
+  if (blockers.includes('trust')) return { label: t('待电脑主人授权'), tone: 'orange' }
   if (blockers.includes('daemon')) return { label: t('客户端需升级'), tone: 'orange' }
   if (p.bots.length > 0 && p.bots.every((b) => b.blocker === 'agent'))
     return { label: t('当前 Bot 不支持'), tone: 'gray' }

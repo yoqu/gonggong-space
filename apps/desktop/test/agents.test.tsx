@@ -141,7 +141,7 @@ describe('Agent page', () => {
     render(<AgentsPage go={() => {}} />)
     await screen.findByRole('region', { name: 'Agent' })
     expect(row('CodeBuddy').getByText('未登录')).toBeTruthy()
-    fireEvent.click(row('CodeBuddy').getByRole('button', { name: '登录' }))
+    fireEvent.click(row('CodeBuddy').getByRole('button', { name: '去登录' }))
     const dialog = await screen.findByRole('dialog', { name: /登录 CodeBuddy.*官方账号/ })
     fireEvent.click(within(dialog).getByRole('button', { name: '开始登录授权' }))
     await waitFor(() => expect(m.agentLoginStart).toHaveBeenCalledWith('codebuddy', 'internal', false))

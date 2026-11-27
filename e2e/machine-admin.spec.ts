@@ -39,7 +39,7 @@ test('电脑详情: the daemon log and its workspaces, read and cleaned through 
     await expect(page.getByText(/已释放/)).toBeVisible({ timeout: 30_000 })
     await list.getByRole('checkbox', { name: 'gone-bot' }).locator('..').locator('.ui-check__box').click()
     await list.getByRole('button', { name: '删除所选' }).click()
-    const confirm = page.getByRole('alertdialog', { name: '删除所选的 1 个工作区？' })
+    const confirm = page.getByRole('alertdialog', { name: '要删除所选的 1 个工作区吗？' })
     await expect(confirm).toContainText('没推送的改动')
     await confirm.getByRole('button', { name: '删除' }).click()
     await expect(list).toContainText('这台电脑上还没有工作区')

@@ -126,7 +126,7 @@ function describePluginBlocker(
     case 'connector':
       return {
         action: 'connect-account',
-        reasonLabel: t('需连接账号'),
+        reasonLabel: t('待连接账号'),
         reason: machine.own
           ? t('需要在你的电脑「{machine}」上连接{title}账号', { machine: mName, title: m.title })
           : t('需要 {owner} 在「{machine}」上连接{title}账号', { owner, machine: mName, title: m.title }),
@@ -134,7 +134,7 @@ function describePluginBlocker(
     case 'trust':
       return {
         action: 'trust-machine',
-        reasonLabel: t('待机主确认'),
+        reasonLabel: t('待电脑主人确认'),
         reason: machine.own
           ? t('含本机程序，需要在你的电脑「{machine}」允许运行', { machine: mName })
           : t('含本机程序，需要 {owner} 在「{machine}」点一次允许运行', { owner, machine: mName }),

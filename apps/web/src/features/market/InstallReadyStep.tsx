@@ -22,6 +22,28 @@ import { loadConnectors, useConnectorStore } from '../connectors/store'
 import { secretsApi } from '../secrets/api'
 import { openPromptInGroup } from './meta'
 
+const READINESS_POLL_MS = 10_000
+
+function pendingStepsOf(data: MarketReadinessDto) {
+  const trusts = data.trusts
+  const trustPending =
+    !!trusts &&
+    (!trusts.codeEnabled || (!trusts.ready && trusts.machines.some((m) => m.status !== 'allowed')))
+  return (
+    (data.secrets.some((s) => s.status !== 'ok') ? 1 : 0) +
+    (trustPending ? 1 : 0) +
+    (data.connector && !data.connector.ready ? 1 : 0)
+  )
+}
+
+/** What adding here reaches, in the words Step 1 used for the same target. */
+const SCOPE_REACH: Record<InstallScope, string> = {
+  user: t('随你进入所有群生效'),
+  group: t('群里所有 Bot 都能用'),
+  team: t('团队所有群默认可用，群管理员可单独关闭'),
+  repo: t('只在这个仓库里工作的群默认可用'),
+}
+
 /**
  * Step 2 of the 2-step add modal: complete remaining setup in place (fill personal/shared secrets,
  * connect CLI account, approve own machine exec trust or notify owner), then celebrate with clickable
@@ -93,6 +115,14 @@ export function InstallReadyStep({
     if (data?.targetLabel) onTargetLabelRef.current?.(data.targetLabel)
   }, [data?.targetLabel])
 
+  const pending = !!data && !data.ready && !(data.pendingSteps === 0 && pendingStepsOf(data) === 0)
+  // Others finish their part (trusts, account logins) on their own machines: re-check so it ticks off here.
+  useEffect(() => {
+    if (!pending) return
+    const id = setInterval(reload, READINESS_POLL_MS)
+    return () => clearInterval(id)
+  }, [pending, reload])
+
   const cliConnector =
     groupId && groupConnectors
       ? groupConnectors.find(
@@ -111,11 +141,7 @@ export function InstallReadyStep({
   const pendingTrusts =
     data.trusts && !data.trusts.ready ? data.trusts.machines.filter((m) => m.status !== 'allowed') : []
   const pendingConnector = data.connector && !data.connector.ready ? data.connector : null
-  const pendingCount =
-    data.pendingSteps ||
-    (missingSecrets.length ? 1 : 0) +
-      (codeDisabled || pendingTrusts.length ? 1 : 0) +
-      (pendingConnector ? 1 : 0)
+  const pendingCount = data.pendingSteps || pendingStepsOf(data)
   const allReady = data.ready || pendingCount === 0
   if (!allReady) sawPending.current = true
   const prompts = data.tryPrompts.length ? data.tryPrompts : fallbackExamples
@@ -346,9 +372,7 @@ export function InstallReadyStep({
           </span>
           <div>
             <div className="mkt-check-title">{t('已添加到「{target}」', { target: displayTarget })}</div>
-            <div className="mkt-check-sub">
-              {scope === 'user' ? t('随你进入所有群生效') : t('群里所有 Bot 都能用')}
-            </div>
+            <div className="mkt-check-sub">{SCOPE_REACH[scope]}</div>
           </div>
         </div>
 
@@ -361,11 +385,17 @@ export function InstallReadyStep({
                 <Icon name="lock" size={13} />
               </span>
               <div>
-                <div className="mkt-check-title">{t('填写你的 {name}', { name: s.title || s.name })}</div>
+                <div className="mkt-check-title">
+                  {s.mode === 'personal'
+                    ? t('填写你的 {name}', { name: s.title || s.name })
+                    : t('填写 {name}', { name: s.title || s.name })}
+                </div>
                 <div className="mkt-check-sub">
                   {s.mode === 'personal'
                     ? t('每人填自己的，加密保存，别人看不到。')
-                    : t('群内共用凭据，加密保存。')}
+                    : scope === 'group'
+                      ? t('群内共用凭据，加密保存。')
+                      : t('团队共用凭据，加密保存。')}
                   {s.url ? (
                     <>
                       {' '}
@@ -395,7 +425,7 @@ export function InstallReadyStep({
                         disabled={savingSecret !== null}
                         onClick={() => void saveSecret(s)}
                       >
-                        {t('保存并验证')}
+                        {t('保存')}
                       </Button>
                     </div>
                     {s.mode === 'personal' ? (
@@ -427,7 +457,7 @@ export function InstallReadyStep({
               <div className="mkt-check-title">{t('连接你的外部账号')}</div>
               <div className="mkt-check-sub">
                 {pendingConnector.loginPrompt ||
-                  t('每台电脑使用机主本人的账号登录，授权仅保存在你的电脑本地，不会上传服务器。')}
+                  t('每台电脑使用电脑主人本人的账号登录，授权仅保存在你的电脑本地，不会上传服务器。')}
               </div>
               {groupId && cliConnector?.cli ? (
                 <div style={{ marginTop: 'var(--space-10)' }}>
@@ -457,7 +487,7 @@ export function InstallReadyStep({
                                 : t('已就绪')
                               : m.own
                                 ? t('待连接账号')
-                                : t('需由机主 {owner} 连接', { owner: m.ownerName })}
+                                : t('需电脑主人 {owner} 连接', { owner: m.ownerName })}
                           </span>
                         </span>
                       </span>
@@ -492,7 +522,7 @@ export function InstallReadyStep({
                         >
                           {notified[notifyKey]
                             ? t('已提醒')
-                            : t('通知{owner}连接', { owner: m.ownerName || t('机主') })}
+                            : t('提醒 {owner} 连接', { owner: m.ownerName || t('电脑主人') })}
                         </Button>
                       )}
                     </div>
@@ -568,7 +598,7 @@ export function InstallReadyStep({
                       >
                         {notified[notifyKey]
                           ? t('已提醒')
-                          : t('通知{owner}授权', { owner: m.ownerName || t('机主') })}
+                          : t('提醒 {owner} 授权', { owner: m.ownerName || t('电脑主人') })}
                       </Button>
                     )}
                   </div>

@@ -316,7 +316,7 @@ function AgentRow({
         <span className="ag-row__actions">
           {needsLogin && onLogin ? (
             <Button size="small" variant="primary" onClick={onLogin}>
-              {t('登录')}
+              {t('去登录')}
             </Button>
           ) : null}
           <MainAction

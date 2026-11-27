@@ -35,6 +35,7 @@ import {
   byline,
   CapabilityChips,
   capabilitiesOfListing,
+  HEALTH_LABEL,
   installedText,
   isSystemPreset,
   ListingIcon,
@@ -220,17 +221,7 @@ export function ListingDetail({
                   target.health === 'needs-secret' ||
                   target.health === 'needs-account' ||
                   target.health === 'needs-trust'
-                const statusText =
-                  target.healthDetail ||
-                  (target.health === 'needs-secret'
-                    ? t('待填凭据')
-                    : target.health === 'needs-account'
-                      ? t('需连账号')
-                      : target.health === 'needs-trust'
-                        ? t('待机主授权')
-                        : target.health === 'disabled'
-                          ? t('已停用')
-                          : t('已就绪'))
+                const statusText = target.healthDetail || HEALTH_LABEL[target.health]
                 return (
                   <button
                     key={`${target.scope}:${target.scopeId}`}
@@ -449,7 +440,7 @@ export function ListingDetail({
                     <Icon name="laptop" size={14} />
                   </span>
                   <div>
-                    {t('需机主授权')}
+                    {t('需电脑主人授权')}
                     <small className="mkt-info-row__sub">{t('电脑主人首次确认允许运行后即可使用')}</small>
                   </div>
                 </div>
@@ -478,7 +469,7 @@ export function ListingDetail({
                   <span className="mkt-info-row__ic">
                     <Icon name="shield-warning" size={14} />
                   </span>
-                  <div>{t('会在电脑上运行本地程序，需机主确认')}</div>
+                  <div>{t('会在电脑上运行本地程序，需电脑主人确认')}</div>
                 </div>
               ) : (
                 <div className="mkt-info-row mkt-info-row--safe">

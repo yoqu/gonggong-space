@@ -191,7 +191,7 @@ export function InstallList({
           />
         ) : removing ? (
           <ConfirmActionDialog
-            title={t('移除 {name}？', { name: removing.listing.title })}
+            title={t('要移除「{name}」吗？', { name: removing.listing.title })}
             message={t('只移除在这里的引入，条目本身保留，可随时再引入。')}
             consequences={[t('相关 Bot 下一轮起不再加载它')]}
             label={t('移除')}

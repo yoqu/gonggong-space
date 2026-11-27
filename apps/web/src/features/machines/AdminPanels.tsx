@@ -547,7 +547,7 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
         {confirm ? (
           <AlertDialog
             open
-            title={t('删除所选的 {n} 个工作区？', { n: selected.length })}
+            title={t('要删除所选的 {n} 个工作区吗？', { n: selected.length })}
             message={t('会删除电脑上的这些目录，不可恢复。')}
             onClose={() => {
               if (!deleting) setConfirm(false)

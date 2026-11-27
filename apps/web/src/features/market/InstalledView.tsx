@@ -26,19 +26,9 @@ import {
   Tag,
 } from '../../ui'
 import type { InstallableListingInput } from './InstallTargetDialog'
-import { ListingIcon } from './meta'
+import { HEALTH_LABEL, ListingIcon } from './meta'
 import { useRowLocks } from './rowLocks'
 import './market-manage.css'
-
-const HEALTH_LABEL: Record<InstalledHealth, string> = {
-  ready: t('已就绪'),
-  'needs-secret': t('待填凭据'),
-  'needs-account': t('需连账号'),
-  'needs-trust': t('待机主授权'),
-  'update-available': t('有新版本'),
-  disabled: t('已停用'),
-  banned: t('已封禁'),
-}
 
 const HEALTH_TONE: Record<InstalledHealth, 'green' | 'orange' | 'blue' | 'gray' | 'red'> = {
   ready: 'green',
@@ -324,7 +314,7 @@ export function InstalledView({
                               })
                             }
                           >
-                            {item.health === 'needs-trust' ? t('查看授权') : t('去配置')}
+                            {item.health === 'needs-trust' ? t('去授权') : t('去配置')}
                           </Button>
                         ) : null}
                         {item.hasUpdate ? (
@@ -456,7 +446,7 @@ export function InstalledView({
                               })
                             }
                           >
-                            {pendingTarget.health === 'needs-trust' ? t('查看授权') : t('去配置')}
+                            {pendingTarget.health === 'needs-trust' ? t('去授权') : t('去配置')}
                           </Button>
                         ) : item.groups.length > 1 && first ? (
                           <Button size="small" onClick={() => navigate(`/g/${first.groupId}`)}>
@@ -566,7 +556,7 @@ export function InstalledView({
                               })
                             }
                           >
-                            {item.health === 'needs-trust' ? t('查看授权') : t('去配置')}
+                            {item.health === 'needs-trust' ? t('去授权') : t('去配置')}
                           </Button>
                         ) : null}
                         {item.canManage ? (
@@ -632,7 +622,7 @@ export function InstalledView({
       <Presence>
         {removing ? (
           <ConfirmActionDialog
-            title={t('移除 {name}？', { name: removing.listing.title })}
+            title={t('要移除「{name}」吗？', { name: removing.listing.title })}
             message={t('只移除在「{target}」的添加，插件本身保留，可随时重新添加。', {
               target: removing.label,
             })}

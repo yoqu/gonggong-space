@@ -1,4 +1,5 @@
 import {
+  type InstalledHealth,
   type InstalledTarget,
   isMarketHiddenCategory,
   type ListingSummary,
@@ -90,7 +91,18 @@ export const READINESS_LABEL: Record<MarketReadiness, string> = {
   ready: t('开箱即用'),
   'needs-account': t('需连账号'),
   'needs-secret': t('需填凭据'),
-  'needs-trust': t('需机主授权'),
+  'needs-trust': t('需电脑主人授权'),
+}
+
+/** Live state of an install, worded the same on cards, 已添加 and the detail header. */
+export const HEALTH_LABEL: Record<InstalledHealth, string> = {
+  ready: t('已就绪'),
+  'needs-secret': t('待填凭据'),
+  'needs-account': t('待连接账号'),
+  'needs-trust': t('待电脑主人授权'),
+  'update-available': t('有新版本'),
+  disabled: t('已停用'),
+  banned: t('已封禁'),
 }
 
 /** Agent engines and provider presets belong in Machine settings, never in Plugin Market. */
@@ -244,6 +256,12 @@ export function usageLabel(l: Pick<MarketListingView, 'teamGroupsCount' | 'insta
 
 export type CardActionKind = 'add' | 'request' | 'configure' | 'installed'
 
+export function cardActionLabel(l: MarketListingView, action: CardActionKind) {
+  if (action === 'configure') return l.needsTrust ? t('去授权') : t('去配置')
+  if (action === 'installed') return t('管理#manage')
+  return action === 'request' ? t('申请添加') : t('添加')
+}
+
 export function cardActionOf(l: MarketListingView, canInstallDirectly: boolean): CardActionKind {
   if (l.needsConfig || l.needsTrust) return 'configure'
   if (l.installedIn?.length) return 'installed'
@@ -278,16 +296,7 @@ export function PluginCard({
     <Tag tone="blue">{t('新上架')}</Tag>
   ) : null
 
-  const ctaLabel =
-    action === 'configure'
-      ? l.needsTrust
-        ? t('去授权')
-        : t('去配置')
-      : action === 'installed'
-        ? t('已添加')
-        : action === 'request'
-          ? t('申请添加')
-          : t('添加')
+  const ctaLabel = cardActionLabel(l, action)
 
   const ctaVariant = action === 'add' ? 'primary' : 'default'
   const ctaClass =

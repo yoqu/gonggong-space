@@ -413,6 +413,9 @@ describe('workspace banner', () => {
     fireEvent.click(screen.getByText('确认工作区'))
     expect(await screen.findByText('复用群内 小王的 Claude 的工作区')).toBeTruthy()
     expect(screen.getByText(`${managedA} · 只读并行不打扰，写入时确认`)).toBeTruthy()
+    // Badges say it in the interface language, not half in English.
+    expect(screen.getAllByText('免克隆').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/免 clone/)).toBeNull()
     // Deduplicated from local-paths so the managed path is shown once; other machine's bot is excluded.
     expect(screen.getAllByText(new RegExp(managedA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toHaveLength(1)
     expect(screen.queryByText(/other\/gonggong/)).toBeNull()

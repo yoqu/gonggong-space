@@ -258,6 +258,11 @@ describe('ApprovalBlock permission guide & shortcut', () => {
     fireEvent.click(screen.getByRole('button', { name: /本群：只读/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Bot 详情' })
     expect(within(dialog).getByText(/当前群「支付群」已单独设为「只读」/)).toBeTruthy()
+    // The group override is what applies to this request: the tag sits on its banner, not the global row.
+    const focusRows = () => dialog.querySelectorAll('[data-focus-row="owner"]')
+    expect(within(dialog).getAllByText('本次请求适用')).toHaveLength(1)
+    expect(focusRows()).toHaveLength(1)
+    expect(focusRows()[0]!.textContent).toContain('已单独设为')
 
     fireEvent.click(within(dialog).getByRole('button', { name: '恢复跟随全局' }))
     await waitFor(() =>
@@ -267,6 +272,10 @@ describe('ApprovalBlock permission guide & shortcut', () => {
     )
     await waitFor(() => expect(within(dialog).queryByText(/已单独设为/)).toBeNull())
     expect(screen.getByRole('button', { name: /当前：帮我审批/ })).toBeTruthy()
+    // Back to following global: the global 审批方式 row is the one that applies again.
+    expect(within(dialog).getAllByText('本次请求适用')).toHaveLength(1)
+    expect(focusRows()).toHaveLength(1)
+    expect(focusRows()[0]!.textContent).not.toContain('已单独设为')
 
     // The reset applies at once, so its toast can take it back.
     fireEvent.click(await screen.findByRole('button', { name: '撤销' }))

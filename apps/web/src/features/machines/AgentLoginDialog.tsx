@@ -479,11 +479,6 @@ export function AgentLoginDialog({
                   </span>
                   <span className="ag-login__error-body">{errorMsg}</span>
                   <div className="ag-login__alt-links">
-                    {onAddProvider ? (
-                      <button type="button" className="mx-link" onClick={switchToProvider}>
-                        {t('改为配置 API Key')}
-                      </button>
-                    ) : null}
                     {isDesktop && loginDriver?.launchTerminal ? (
                       <button type="button" className="mx-link" onClick={() => setManualFallback(true)}>
                         {t('在终端中手动登录')}

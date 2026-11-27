@@ -2077,7 +2077,7 @@ describe('machine admin tabs', () => {
 
     for (const box of within(list).getAllByRole('checkbox', { name: '已删除的 Bot' })) fireEvent.click(box)
     fireEvent.click(within(list).getByRole('button', { name: '删除所选' }))
-    const confirm = await screen.findByRole('alertdialog', { name: '删除所选的 2 个工作区？' })
+    const confirm = await screen.findByRole('alertdialog', { name: '要删除所选的 2 个工作区吗？' })
     expect(
       within(confirm).getByText('/h/.gonggong/workspaces/g0/b1/refund（2 个未提交 · 1 个未推送）'),
     ).toBeTruthy()

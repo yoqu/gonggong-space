@@ -251,7 +251,7 @@ export default {
   待连接账号: 'Account needed',
   待填你的凭据: 'Your credentials needed',
   待填凭据: 'Needs credentials',
-  待机主授权: 'Awaiting machine owner approval',
+  待电脑主人授权: 'Awaiting computer owner approval',
   '当前 Bot 不支持': 'Unsupported by current Bots',
   '连接外部系统，让 Bot 替你查询和操作': 'Connect external systems so Bots can query and act for you',
   去填写: 'Fill in',

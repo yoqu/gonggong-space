@@ -456,6 +456,7 @@ describe('aggregated installed view, readiness actions, and exec install request
       hasUpdate: true,
       canManage: false,
       health: 'update-available',
+      healthDetail: '有更新 r2',
     })
 
     // Readiness for oa-helper: eve owns m1 (can allow_trust), bob owns m2 (can notify_trust)

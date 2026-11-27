@@ -232,7 +232,7 @@ export async function evaluateGroupHealth(
                 owner: pending.ownerName,
                 machine: pending.machineName,
               })
-            : t('需连接账号'),
+            : t('待连接账号'),
           pendingOwnerName: pending?.ownerName ?? null,
           pendingMachineName: pending?.machineName ?? null,
         }
@@ -251,7 +251,7 @@ export async function evaluateGroupHealth(
       if (st?.status !== 'ok') {
         return {
           health: 'needs-account',
-          healthDetail: t('需连接账号'),
+          healthDetail: t('待连接账号'),
           pendingOwnerName: null,
           pendingMachineName: null,
         }
@@ -293,7 +293,7 @@ export async function evaluateGroupHealth(
   if (params.hasUpdate) {
     return {
       health: 'update-available',
-      healthDetail: t('有更新 v{n}', { n: params.latestRevision }),
+      healthDetail: t('有更新 r{n}', { n: params.latestRevision }),
       pendingOwnerName: null,
       pendingMachineName: null,
     }
@@ -435,7 +435,7 @@ export async function marketInstalled(ctx: Ctx, me: Me): Promise<MarketInstalled
       }
       if (health === 'ready' && hasUpdate) {
         health = 'update-available'
-        healthDetail = t('有更新 v{n}', { n: r.current.revision })
+        healthDetail = t('有更新 r{n}', { n: r.current.revision })
       }
       mine.push({
         listing: summary,
@@ -517,7 +517,7 @@ export async function marketInstalled(ctx: Ctx, me: Me): Promise<MarketInstalled
       healthDetail = t('待填凭据')
     } else if (hasUpdate) {
       health = 'update-available'
-      healthDetail = t('有更新 v{n}', { n: r.current.revision })
+      healthDetail = t('有更新 r{n}', { n: r.current.revision })
     }
     team.push({
       listing: summary,
@@ -652,7 +652,7 @@ export async function listingInstalledHealth(
         healthDetail = t('待填凭据')
       } else if (hasUpdate) {
         health = 'update-available'
-        healthDetail = t('有更新 v{n}', { n: latestRevision })
+        healthDetail = t('有更新 r{n}', { n: latestRevision })
       }
       out.push({ ...target, enabled: row.install.enabled, health, healthDetail })
     } else {
@@ -670,7 +670,7 @@ export async function listingInstalledHealth(
           : health === 'disabled'
             ? t('已停用')
             : health === 'update-available'
-              ? t('有更新 v{n}', { n: latestRevision })
+              ? t('有更新 r{n}', { n: latestRevision })
               : t('已就绪')
       out.push({ ...target, enabled: row.install.enabled, health, healthDetail })
     }

@@ -157,8 +157,8 @@ export function WorkspacePicker({
                 <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
                 <span className="dirpick__choice-text">
                   <span className="dirpick__choice-title">
-                    {t('复用群内 {bots} 的工作区', { bots: item.bots.join('、') })}
-                    <span className="dirpick__badge">{t('免 clone')}</span>
+                    {t('复用群内 {bots} 的工作区', { bots: item.bots.join(t('、')) })}
+                    <span className="dirpick__badge">{t('免克隆')}</span>
                     <span className="dirpick__badge">{t('推荐')}</span>
                   </span>
                   <span className="dirpick__choice-desc">
@@ -179,7 +179,7 @@ export function WorkspacePicker({
                 <span className="dirpick__choice-text">
                   <span className="dirpick__choice-title">
                     {t('使用本机已有的仓库目录')}
-                    <span className="dirpick__badge">{t('免 clone')}</span>
+                    <span className="dirpick__badge">{t('免克隆')}</span>
                     {shared.length === 0 ? <span className="dirpick__badge">{t('推荐')}</span> : null}
                   </span>
                   <span className="dirpick__choice-desc">{p}</span>

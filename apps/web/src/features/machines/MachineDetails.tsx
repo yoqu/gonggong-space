@@ -291,25 +291,12 @@ export function MachineDetails({
             description={t('当前客户端版本不支持在网页端管理，升级后即可使用。')}
           />
         ) : current === 'agents' ? (
-          <div className="mx">
-            <div className="mx-reloc">
-              <Icon name="info" size={14} className="mx-reloc__icon" />
-              <span className="mx-reloc__text">
-                {t('Agent 引擎与模型供应商预设属于电脑运行环境，统一在电脑设置中管理，不再混在插件市场中。')}
-              </span>
-              {plugins ? (
-                <Link to="/market" className="mx-reloc__link" onClick={onLeave}>
-                  {t('前往插件市场')}
-                </Link>
-              ) : null}
-            </div>
-            <MachineAgentsPanel
-              machine={machine}
-              initialOpen={pendingLogin}
-              initialLogin={pendingLogin}
-              onInitialLoginHandled={() => setPendingLogin(null)}
-            />
-          </div>
+          <MachineAgentsPanel
+            machine={machine}
+            initialOpen={pendingLogin}
+            initialLogin={pendingLogin}
+            onInitialLoginHandled={() => setPendingLogin(null)}
+          />
         ) : current === 'workspaces' ? (
           <WorkspacesPanel machine={machine} />
         ) : current === 'git' ? (

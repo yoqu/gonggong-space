@@ -385,13 +385,11 @@ export function DirPicker({
               <Alert
                 variant="info"
                 title={t('将复用本群 {bots} 的托管工作区（免重复克隆；仍有 Bot 使用时不会被清理删除）。', {
-                  bots: managedMatch.bots.join('、'),
+                  bots: managedMatch.bots.join(t('、')),
                 })}
               />
             ) : null}
-            {managedParent ? (
-              <Alert variant="info" title={t('进入下方已有仓库目录后即可直接复用（无需重新克隆）')} />
-            ) : null}
+            {managedParent ? <Alert variant="info" title={t('进入下方已有仓库目录后即可直接复用')} /> : null}
             {refused ? <Alert variant="warning" title={refused} /> : null}
             {error ? (
               <Alert variant="error" title={error} onRetry={() => setRetryTick((n) => n + 1)} />

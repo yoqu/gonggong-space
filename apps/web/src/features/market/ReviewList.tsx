@@ -172,7 +172,7 @@ function ReviewWorkbenchPane({ item, onDone }: { item: ReviewItemDto; onDone: ()
           <div className="mkt-audit-box">
             <small>{t('本机程序权限')}</small>
             <strong className="mkt-row__name">
-              {hasExec ? t('会在电脑上运行代码（需机主确认）') : t('无（不会运行本机程序）')}
+              {hasExec ? t('会在电脑上运行代码（需电脑主人确认）') : t('无（不会运行本机程序）')}
             </strong>
           </div>
           <div className="mkt-audit-box">

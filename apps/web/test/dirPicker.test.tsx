@@ -166,7 +166,7 @@ describe('dir picker', () => {
         onClose={() => {}}
       />,
     )
-    expect(await screen.findByText('进入下方已有仓库目录后即可直接复用（无需重新克隆）')).toBeTruthy()
+    expect(await screen.findByText('进入下方已有仓库目录后即可直接复用')).toBeTruthy()
     expect(screen.queryByText(/这是共工按群托管的工作区/)).toBeNull()
     expect(screen.getByRole('button', { name: '选择此目录' }).hasAttribute('disabled')).toBe(true)
 
