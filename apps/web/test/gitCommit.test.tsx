@@ -42,6 +42,9 @@ async function openGit(git = status()) {
   render(<Bench />)
   return within(await screen.findByTestId('git-tab'))
 }
+// The loading spinner is a status too; wait for the ongoing banner itself.
+const ongoing = async (tab: ReturnType<typeof within>) =>
+  within(await tab.findByRole('status', { name: (name: string) => name !== '加载中' }))
 const dialog = async (name: string | RegExp) => within(await screen.findByRole('dialog', { name }))
 const box = (tab: ReturnType<typeof within>) =>
   tab.getByRole('textbox', { name: '提交说明' }) as HTMLTextAreaElement
@@ -289,7 +292,7 @@ describe('merge or rebase in progress', () => {
   it('bannered with the conflicts left; they head the change list and open the merge tool', async () => {
     mockApi(routes({ [`GET ${BASE}/changes`]: MERGING }))
     const tab = await openGit(status({ ongoing: 'merge', conflicts: 2 }))
-    const banner = within(await tab.findByRole('status'))
+    const banner = await ongoing(tab)
     expect(banner.getByText('正在合并 feat/fee')).toBeTruthy()
     const tree = within(tab.getByRole('region', { name: '要提交的文件' }))
     expect(tree.getByRole('button', { name: /^合并冲突/ })).toBeTruthy()
@@ -352,7 +355,7 @@ describe('merge or rebase in progress', () => {
       routes({ [`GET ${BASE}/changes`]: { ...MERGING, conflicts: [] }, [`POST ${BASE}/actions`]: done }),
     )
     const tab = await openGit(status({ ongoing: 'merge', conflicts: 0 }))
-    const banner = within(await tab.findByRole('status'))
+    const banner = await ongoing(tab)
     fireEvent.click(banner.getByRole('button', { name: '提交合并…' }))
     const d = await dialog('完成合并')
     expect((d.getByRole('textbox', { name: '合并提交说明' }) as HTMLTextAreaElement).value).toBe(
@@ -375,7 +378,7 @@ describe('merge or rebase in progress', () => {
       }),
     )
     const tab = await openGit(status({ ongoing: 'rebase', branch: null }))
-    const banner = within(await tab.findByRole('status'))
+    const banner = await ongoing(tab)
     expect(banner.getByText('正在变基 feat/refund-v2（第 2 / 5 个提交）')).toBeTruthy()
     fireEvent.click(banner.getByRole('button', { name: '跳过此提交' }))
     await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'skip' }]))
