@@ -1,59 +1,59 @@
-import {
-  type InstallRequestDto,
-  type ListingSummary,
-  type MarketListingDto,
-  type MarketSource,
-  type PluginShelf,
-  shelfOf,
+import type {
+  InstallRequestDto,
+  InstallScope,
+  MarketInstalledDto,
+  ReusedSecretDto,
+  ReviewItemDto,
 } from '@gonggong/protocol'
-import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router'
+import { useIsBuilder } from '../../app/builder'
 import { useSession } from '../../app/session'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
-import {
-  Button,
-  ComingSoonArt,
-  Drawer,
-  EmptyState,
-  Icon,
-  NoResultsArt,
-  PopUpButton,
-  Presence,
-  SearchField,
-  SegmentedControl,
-  Skeleton,
-  Tabs,
-  Tag,
-} from '../../ui'
+import { Icon, Presence, SearchField, Sidebar, type SidebarItem } from '../../ui'
+import { isGroupAdmin } from '../groups/GroupNotice'
+import { InstalledView } from './InstalledView'
 import { InstallRequests } from './InstallRequests'
-import { InstallTargetDialog } from './InstallTargetDialog'
-import { byline, installedText, ListingDetail, ListingIcon, SOURCE_LABEL } from './ListingDetail'
+import { type InstallableListingInput, InstallTargetDialog } from './InstallTargetDialog'
+import { type DetailTab, ListingDetail } from './ListingDetail'
+import {
+  type CapabilityFilter,
+  MarketCatalogView,
+  MarketHomeView,
+  type SortMode,
+  type SourceFilter,
+} from './MarketExplore'
 import { MyListings } from './MyListings'
+import {
+  type CardActionKind,
+  capabilitiesOfListing,
+  isSystemPreset,
+  type MarketListingView,
+  type MarketScene,
+  SCENES,
+  sceneOfListing,
+} from './meta'
 import { MarketReviewList } from './ReviewList'
-import { TYPE_LABEL } from './status'
-import '../works/works.css'
 import './market.css'
+import './market-detail.css'
+import './market-manage.css'
 
-const TABS = ['market', 'requests', 'mine', 'reviews'] as const
-type Tab = (typeof TABS)[number]
-/** Skills, or plugins by what they are for (PluginShelf). */
-type TypeFilter = 'all' | 'skill' | PluginShelf
-type SourceFilter = 'all' | MarketSource
+type MarketView = 'home' | 'catalog' | 'installed' | 'requests' | 'mine' | 'reviews'
 
-const marketPath = (q: string, type: TypeFilter, source: SourceFilter) => {
-  const params = new URLSearchParams()
-  if (q.trim()) params.set('q', q.trim())
-  if (type === 'skill') params.set('type', type)
-  else if (type !== 'all') params.set('shelf', type)
-  if (source !== 'all') params.set('source', source)
-  const s = params.toString()
-  return s ? `/market?${s}` : '/market'
+const SCENE_IDS = new Set<MarketScene>(['connect', 'create', 'office', 'dev', 'tools'])
+
+function parseScene(params: URLSearchParams): 'all' | MarketScene | null {
+  const s = params.get('scene')
+  if (s === 'all') return 'all'
+  if (s && SCENE_IDS.has(s as MarketScene)) return s as MarketScene
+  const shelf = params.get('shelf')
+  if (shelf === 'connector') return 'connect'
+  if (shelf === 'creation') return 'create'
+  return null
 }
 
-type Sort = 'recent' | 'installs'
-
-/** The search box settles before it asks the server, so typing doesn't fire a request per key. */
 function useSettled<T>(value: T, ms = 250) {
   const [settled, setSettled] = useState(value)
   useEffect(() => {
@@ -76,283 +76,511 @@ function useReviewQueues() {
 }
 
 /**
- * 市场: listings with an approved version I may see, their details and 引入到…; 引入申请 to decide or follow;
- * 我的发布 for authors; 待审核 for reviewers. `?tab=` opens one and `?listing=` a listing's detail (notifications link
- * to them).
+ * 插件市场 (Pane shell):
+ * Flush 224px sidebar (Discovery / 5 Scenarios / My / bottom shortcuts) + main view
+ * (Featured Home, Catalog/Scene, 880px Plugin Detail, Installed, Requests, My Listings/Publish, Reviews).
  */
-/** Agent and provider-preset plugins apply to machines, never to a group, team or repo. */
-const machineOnly = (d: Pick<ListingSummary, 'category'>) => {
-  const shelf = d.category ? shelfOf(d.category) : null
-  return shelf === 'agent' || shelf === 'provider'
-}
-
 export function MarketPage() {
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  const me = useSession((s) => s.user?.id)
+  const sysadmin = useSession((s) => s.user?.role === 'sysadmin')
+  const teams = useSession((s) => s.tenancy?.teams) ?? []
+  const rawGroups = useWorkspace((s) => s.groups)
+  const groups = useMemo(() => rawGroups.filter((g) => g.kind === 'group'), [rawGroups])
+  const isBuilder = useIsBuilder()
   const queues = useReviewQueues()
-  const tab = TABS.find((x) => x === params.get('tab') && (x !== 'reviews' || queues.length)) ?? 'market'
-  const setTab = (next: Tab) => setParams(next === 'market' ? {} : { tab: next }, { replace: true })
+
+  const sourceGroupId = params.get('fromGroup') || params.get('groupId') || undefined
+  const sourceGroup = sourceGroupId ? groups.find((g) => g.id === sourceGroupId) : undefined
+  const backGroup = sourceGroup ?? groups[0]
+
+  const canInstallDirectly = useMemo(() => {
+    if (sourceGroup) return isGroupAdmin(sourceGroup, me)
+    if (sysadmin) return true
+    if (teams.some((x) => x.role !== 'member')) return true
+    return groups.some((g) => isGroupAdmin(g, me))
+  }, [sourceGroup, me, sysadmin, teams, groups])
+
+  // Derive active view & scene from URL params (supporting legacy ?tab= and ?shelf= links).
   const openId = params.get('listing')
-  // Keyed by id: a `?listing=` changed from outside must not keep the last one's title.
-  const [openTitle, setOpenTitle] = useState<{ id: string; title: string } | null>(null)
-  // Bumped after an install or request so the open detail shows where it now is.
-  const [installedAt, setInstalledAt] = useState(0)
-  const setOpen = (l: { id: string; title: string } | null) => {
-    setOpenTitle(l ? { id: l.id, title: l.title } : null)
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (l) next.set('listing', l.id)
-        else next.delete('listing')
-        return next
-      },
-      { replace: true },
-    )
-  }
+  const detailTabParam = params.get('detailTab')
+  const detailTab: DetailTab =
+    detailTabParam === 'changelog' || detailTabParam === 'dev' ? detailTabParam : 'overview'
+  const urlScene = parseScene(params)
+  const rawTab = params.get('tab')
+  const view: MarketView =
+    rawTab === 'installed' || rawTab === 'requests' || rawTab === 'mine'
+      ? rawTab
+      : rawTab === 'reviews' && queues.length > 0
+        ? 'reviews'
+        : rawTab === 'catalog' || urlScene !== null
+          ? 'catalog'
+          : 'home'
+  const activeScene: 'all' | MarketScene = urlScene ?? 'all'
+  const publishMode: 'list' | 'create' = params.get('publish') === '1' ? 'create' : 'list'
+
   const [query, setQuery] = useState('')
-  // `?shelf=connector` opens on that shelf (the composer's 管理连接器).
-  const [type, setType] = useState<TypeFilter>(() =>
-    params.get('shelf') === 'connector' ? 'connector' : 'all',
-  )
   const [source, setSource] = useState<SourceFilter>('all')
-  const [sort, setSort] = useState<Sort>('recent')
-  const [installing, setInstalling] = useState<ComponentProps<typeof InstallTargetDialog>['listing'] | null>(
-    null,
-  )
+  const [capability, setCapability] = useState<CapabilityFilter>('all')
+  const [sort, setSort] = useState<SortMode>('team')
+  const [modal, setModal] = useState<{
+    listing: InstallableListingInput
+    readyTarget?: { scope: InstallScope; scopeId: string; label: string }
+  } | null>(null)
+  const [reusedByListing, setReusedByListing] = useState<Record<string, ReusedSecretDto[]>>({})
+  const [detailTick, setDetailTick] = useState(0)
+
   const q = useSettled(query)
-  const { data, error, reload } = useGet<MarketListingDto[]>(
-    tab === 'market' ? marketPath(q, type, source) : null,
-  )
-  // Keep the last results on screen while the next filter loads, instead of flashing a spinner.
-  const last = useRef<MarketListingDto[] | null>(null)
-  if (data) last.current = data
-  const shown = data ?? last.current
+
+  // Fetch all market listings once (default endpoint excludes agent/provider; we also filter defensively).
+  const marketGet = useGet<MarketListingView[]>('/market')
+  const lastAll = useRef<MarketListingView[] | null>(null)
+  if (marketGet.data) lastAll.current = marketGet.data
+
+  // Sidebar live counts & badges
+  const installedGet = useGet<MarketInstalledDto>('/market/installed')
+  const installedCount = installedGet.data
+    ? installedGet.data.mine.length + installedGet.data.groups.length + installedGet.data.team.length
+    : 0
+
+  // Enrich market cards with live health & pending target from /market/installed so cards show 待配置/去配置 or 待授权/去授权.
+  const pendingTargetByListing = useMemo(() => {
+    const map = new Map<
+      string,
+      { scope: InstallScope; scopeId: string; label: string; needsTrust: boolean }
+    >()
+    const isTodo = (h: string) => h === 'needs-secret' || h === 'needs-account' || h === 'needs-trust'
+    for (const item of installedGet.data?.mine ?? []) {
+      if (isTodo(item.health)) {
+        map.set(item.listing.id, {
+          scope: 'user',
+          scopeId: me ?? '',
+          label: t('我的插件'),
+          needsTrust: item.health === 'needs-trust',
+        })
+      }
+    }
+    for (const item of installedGet.data?.groups ?? []) {
+      const g = item.groups.find((x) => isTodo(x.health))
+      if (g) {
+        map.set(item.listing.id, {
+          scope: 'group',
+          scopeId: g.groupId,
+          label: g.groupName,
+          needsTrust: g.health === 'needs-trust',
+        })
+      }
+    }
+    for (const item of installedGet.data?.team ?? []) {
+      if (isTodo(item.health) && !map.has(item.listing.id)) {
+        map.set(item.listing.id, {
+          scope: item.scope,
+          scopeId: item.scopeId,
+          label: item.targetLabel,
+          needsTrust: item.health === 'needs-trust',
+        })
+      }
+    }
+    return map
+  }, [installedGet.data, me])
+
+  const allListings = useMemo(() => {
+    const raw = marketGet.data ?? lastAll.current
+    if (!raw) return null
+    return raw
+      .filter((l) => !isSystemPreset(l))
+      .map((l) => {
+        const pending = pendingTargetByListing.get(l.id)
+        return pending ? { ...l, needsConfig: !pending.needsTrust, needsTrust: pending.needsTrust } : l
+      })
+  }, [marketGet.data, pendingTargetByListing])
   const todoList = useGet<InstallRequestDto[]>('/install-requests?view=todo')
-  const todo = todoList.data?.length ?? 0
-  const filtered = type !== 'all' || source !== 'all' || !!query.trim()
-  const clear = () => {
-    setType('all')
-    setSource('all')
-    setQuery('')
+  const todoCount = todoList.data?.length ?? 0
+  const primaryReviewQueue = useGet<ReviewItemDto[]>(queues[0]?.path ?? null)
+  const reviewCount = primaryReviewQueue.data?.length ?? 0
+
+  // Filtered + sorted catalog listings
+  const catalogListings = useMemo(() => {
+    if (!allListings) return null
+    const needle = q.trim().toLowerCase()
+    const filtered = allListings.filter((l) => {
+      if (activeScene !== 'all' && sceneOfListing(l) !== activeScene) return false
+      if (source !== 'all' && l.source !== source) return false
+      if (capability !== 'all' && !capabilitiesOfListing(l).includes(capability)) return false
+      if (needle) {
+        const hay = `${l.title} ${l.name} ${l.description} ${l.teamName ?? ''}`.toLowerCase()
+        if (!hay.includes(needle)) return false
+      }
+      return true
+    })
+    return [...filtered].sort((a, b) => {
+      if (sort === 'installs') return b.installs - a.installs
+      if (sort === 'latest') return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+      return (b.teamGroupsCount ?? b.installs) - (a.teamGroupsCount ?? a.installs)
+    })
+  }, [allListings, activeScene, source, capability, q, sort])
+
+  const sceneCounts = useMemo(() => {
+    const counts: Record<MarketScene, number> = { connect: 0, create: 0, office: 0, dev: 0, tools: 0 }
+    for (const l of allListings ?? []) {
+      counts[sceneOfListing(l)] += 1
+    }
+    return counts
+  }, [allListings])
+
+  // URL navigation helpers (preserve fromGroup when browsing market).
+  const keepGroup = (next: URLSearchParams) => {
+    if (sourceGroupId) next.set('fromGroup', sourceGroupId)
+    return next
   }
-  const sorted = shown && sort === 'installs' ? [...shown].sort((a, b) => b.installs - a.installs) : shown
-  const openName =
-    (openTitle?.id === openId && openTitle.title) ||
-    shown?.find((l) => l.id === openId)?.title ||
-    t('条目详情')
+  const goHome = () => setParams(keepGroup(new URLSearchParams()), { replace: true })
+  const goScene = (sc: 'all' | MarketScene) => {
+    const next = keepGroup(new URLSearchParams())
+    next.set('tab', 'catalog')
+    next.set('scene', sc)
+    setParams(next, { replace: true })
+  }
+  const goTab = (tab: 'installed' | 'requests' | 'mine' | 'reviews', publish = false) => {
+    const next = keepGroup(new URLSearchParams())
+    next.set('tab', tab)
+    if (tab === 'mine' && publish) next.set('publish', '1')
+    setParams(next, { replace: true })
+  }
+  const openDetail = (id: string, tab?: DetailTab) => {
+    const next = new URLSearchParams(params)
+    next.set('listing', id)
+    if (tab && tab !== 'overview') next.set('detailTab', tab)
+    else next.delete('detailTab')
+    setParams(next, { replace: true })
+  }
+  const closeDetail = () => {
+    const next = new URLSearchParams(params)
+    next.delete('listing')
+    next.delete('detailTab')
+    setParams(next, { replace: true })
+  }
+
+  // Deep-link ?configure=<listingId>&scope=<scope>&scopeId=<scopeId> into Step 2 directly.
+  const configureId = params.get('configure')
+  const configureScope = params.get('scope') as InstallScope | null
+  const configureScopeId = params.get('scopeId')
+  useEffect(() => {
+    if (!configureId || !configureScope || !configureScopeId || !allListings) return
+    const found = allListings.find((l) => l.id === configureId)
+    if (!found) return
+    const label =
+      groups.find((g) => g.id === configureScopeId)?.name ??
+      teams.find((x) => x.id === configureScopeId)?.name ??
+      configureScopeId
+    setModal({
+      listing: found,
+      readyTarget: { scope: configureScope, scopeId: configureScopeId, label },
+    })
+    const next = new URLSearchParams(params)
+    next.delete('configure')
+    next.delete('scope')
+    next.delete('scopeId')
+    setParams(next, { replace: true })
+  }, [configureId, configureScope, configureScopeId, allListings, groups, teams, params, setParams])
+
+  const handleCardAction = (l: MarketListingView, action: CardActionKind) => {
+    if (action === 'installed') {
+      goTab('installed')
+      return
+    }
+    if (action === 'configure') {
+      const pending = pendingTargetByListing.get(l.id)
+      if (pending) {
+        setModal({
+          listing: l,
+          readyTarget: { scope: pending.scope, scopeId: pending.scopeId, label: pending.label },
+        })
+        return
+      }
+      const target = l.installedIn?.find((x) => x.scope === 'group') ?? l.installedIn?.[0]
+      if (target) {
+        setModal({
+          listing: l,
+          readyTarget: {
+            scope: target.scope,
+            scopeId: target.scopeId,
+            label: target.scope === 'user' ? t('我的插件') : target.label,
+          },
+        })
+        return
+      }
+      if (l.needsTrust) {
+        navigate('/machines')
+        return
+      }
+    }
+    setModal({ listing: l })
+  }
+
+  const sidebarSelected = openId
+    ? undefined
+    : view === 'home'
+      ? 'home'
+      : view === 'catalog'
+        ? activeScene === 'all'
+          ? 'all'
+          : `scene:${activeScene}`
+        : view
+
+  const handleSidebarSelect = (id: string) => {
+    if (id === 'home') goHome()
+    else if (id === 'all') goScene('all')
+    else if (id.startsWith('scene:')) goScene(id.slice(6) as MarketScene)
+    else if (id === 'installed' || id === 'requests' || id === 'mine' || id === 'reviews') goTab(id)
+  }
+
+  const myItems: SidebarItem[] = [
+    {
+      id: 'installed',
+      label: t('已添加'),
+      icon: 'archive',
+      color: 'var(--system-blue)',
+      badge: installedCount > 0 ? installedCount : undefined,
+    },
+    {
+      id: 'requests',
+      label: t('申请与审批'),
+      icon: 'tray',
+      color: 'var(--system-orange)',
+      badge: todoCount > 0 ? <span className="mkt-side__badge">{todoCount}</span> : undefined,
+    },
+    {
+      id: 'mine',
+      label: t('我的发布'),
+      icon: 'upload',
+      color: 'var(--system-purple)',
+    },
+    ...(queues.length > 0
+      ? [
+          {
+            id: 'reviews',
+            label: t('上架审核'),
+            icon: 'shield-check' as const,
+            color: 'var(--system-green)',
+            badge: reviewCount > 0 ? <span className="mkt-side__badge">{reviewCount}</span> : undefined,
+          },
+        ]
+      : []),
+  ]
+
+  const refreshAll = () => {
+    marketGet.reload()
+    installedGet.reload()
+    todoList.reload()
+    if (queues.length) primaryReviewQueue.reload()
+  }
 
   return (
-    <section className="works" aria-label={t('市场')}>
-      <header className="works__head mkt-head">
-        <h1 className="works__title">{t('市场')}</h1>
-        <span className="spacer" />
-        <Tabs
-          aria-label={t('市场')}
-          size="sm"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { value: 'market', label: t('全部条目') },
+    <section className="mkt-shell" aria-label={t('插件市场')}>
+      <aside className="mkt-side" aria-label={t('市场导航')}>
+        <SearchField
+          className="mkt-side__search"
+          placeholder={t('搜索插件或你想做的事')}
+          aria-label={t('搜索插件')}
+          value={query}
+          onChange={(v) => {
+            setQuery(v)
+            if (v.trim() && (view !== 'catalog' || openId)) {
+              goScene(view === 'catalog' ? activeScene : 'all')
+            }
+          }}
+        />
+
+        <Sidebar
+          className="mkt-side__nav"
+          aria-label={t('插件分类')}
+          selected={sidebarSelected}
+          onSelect={handleSidebarSelect}
+          sections={[
             {
-              value: 'requests',
-              label: (
-                <>
-                  {t('引入申请#tab')}
-                  {todo ? (
-                    <span className="mkt-tab-count" aria-hidden="true">
-                      {todo}
-                    </span>
-                  ) : null}
-                </>
-              ),
+              id: 'discover',
+              title: t('发现'),
+              items: [
+                { id: 'home', label: t('精选推荐'), icon: 'star', color: 'var(--system-orange)' },
+                {
+                  id: 'all',
+                  label: t('全部插件'),
+                  icon: 'grid',
+                  color: 'var(--system-blue)',
+                  badge: allListings ? allListings.length : undefined,
+                },
+              ],
             },
-            { value: 'mine', label: t('我的发布') },
-            ...(queues.length ? [{ value: 'reviews' as const, label: t('待审核#tab') }] : []),
+            {
+              id: 'scenes',
+              title: t('场景分类'),
+              items: SCENES.map((s) => ({
+                id: `scene:${s.id}`,
+                label: s.label,
+                icon: s.icon,
+                color: s.color,
+                badge: allListings ? sceneCounts[s.id] : undefined,
+              })),
+            },
+            {
+              id: 'my',
+              title: t('我的'),
+              items: myItems,
+            },
           ]}
         />
-      </header>
-      {tab === 'reviews' ? (
-        <div className="mkt-body">
-          <div className="mkt-body__inner">
-            {queues.map((x) => (
-              <section key={x.path} className="mkt-queue" aria-label={x.label}>
-                {queues.length > 1 ? <div className="cfg__eyebrow">{x.label}</div> : null}
-                <MarketReviewList path={x.path} />
-              </section>
-            ))}
+
+        {backGroup || isBuilder ? (
+          <div className="mkt-side__foot">
+            {backGroup ? (
+              <button type="button" className="mkt-side__link" onClick={() => navigate(`/g/${backGroup.id}`)}>
+                <span className="mkt-side__link-icon" aria-hidden="true">
+                  <Icon name="message" size={15} />
+                </span>
+                <span className="mkt-side__link-text">{t('回到 {name}', { name: backGroup.name })}</span>
+              </button>
+            ) : null}
+            {isBuilder ? (
+              <button type="button" className="mkt-side__link" onClick={() => navigate('/machines')}>
+                <span className="mkt-side__link-icon" aria-hidden="true">
+                  <Icon name="laptop" size={15} />
+                </span>
+                <span className="mkt-side__link-text">{t('电脑引擎与模型')}</span>
+              </button>
+            ) : null}
           </div>
-        </div>
-      ) : tab === 'mine' ? (
-        <div className="mkt-body">
-          <div className="mkt-body__inner">
-            <MyListings onOpen={(l) => setOpen(l)} />
-          </div>
-        </div>
-      ) : tab === 'requests' ? (
-        <div className="mkt-body">
-          <div className="mkt-body__inner">
-            <InstallRequests todo={todoList} />
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="works__bar mkt-bar">
-            <SegmentedControl<TypeFilter>
-              aria-label={t('类型')}
-              size="small"
-              value={type}
-              onChange={setType}
-              items={[
-                { value: 'all', label: t('全部') },
-                { value: 'skill', label: 'Skill' },
-                { value: 'creation', label: t('创作#shelf') },
-                { value: 'tool', label: t('工具') },
-                { value: 'agent', label: 'Agent' },
-                { value: 'provider', label: t('供应商预设') },
-                { value: 'connector', label: t('连接器') },
-              ]}
-            />
-            <SegmentedControl<SourceFilter>
-              aria-label={t('来源')}
-              size="small"
-              value={source}
-              onChange={setSource}
-              items={[
-                { value: 'all', label: t('全部') },
-                { value: 'official', label: SOURCE_LABEL.official },
-                { value: 'team', label: SOURCE_LABEL.team },
-                { value: 'public', label: SOURCE_LABEL.public },
-              ]}
-            />
-            <PopUpButton<Sort>
-              aria-label={t('排序')}
-              size="small"
-              value={sort}
-              onChange={setSort}
-              options={[
-                { value: 'recent', label: t('最近更新') },
-                { value: 'installs', label: t('引入最多') },
-              ]}
-            />
-            <span className="spacer" />
-            <SearchField
-              className="works__search"
-              placeholder={t('搜索名称或描述')}
-              aria-label={t('搜索市场')}
-              value={query}
-              onChange={setQuery}
-            />
-          </div>
-          {error && !data ? (
-            <div className="works__center">
-              <EmptyState
-                icon="warning"
-                title={error}
-                action={
-                  <Button size="small" onClick={reload}>
-                    {t('重试')}
-                  </Button>
-                }
-              />
-            </div>
-          ) : !sorted ? (
-            <Skeleton variant="block" count={6} height={148} className="works__grid mkt-grid" />
-          ) : sorted.length ? (
-            <ul className="works__grid mkt-grid" aria-label={t('市场')} aria-busy={!data}>
-              {sorted.map((l, i) => (
-                <li key={l.id} className="works__card" style={{ '--i': i } as CSSProperties}>
-                  <button
-                    type="button"
-                    className="mkt-card"
-                    aria-label={t('查看 {name}', { name: l.title })}
-                    onClick={() => setOpen(l)}
-                  >
-                    <span className="mkt-card__head">
-                      <ListingIcon type={l.type} listing={l} />
-                      <span className="mkt-card__titles">
-                        <strong className="works__name" title={l.title}>
-                          {l.title}
-                        </strong>
-                        <span className="works__meta">
-                          {l.source === 'official' ? (
-                            <Icon name="shield-check" size={12} className="mkt-official" />
-                          ) : null}
-                          {byline(l)}
-                        </span>
-                      </span>
-                      {l.installedIn?.length ? (
-                        <span title={installedText(l.installedIn)}>
-                          <Tag tone="green">{t('已引入')}</Tag>
-                        </span>
-                      ) : null}
-                      <Tag tone="blue">{l.category === 'connector' ? t('连接器') : TYPE_LABEL[l.type]}</Tag>
-                    </span>
-                    <span className="mkt-card__desc">{l.description || t('（没有描述）')}</span>
-                    <span className="mkt-card__foot">
-                      {/* A connector works with any agent: its card leaves the agent list out, as the 连接器 menu does. */}
-                      {l.category === 'connector' ? null : l.agents.map((a) => <Tag key={a}>{a}</Tag>)}
-                      <span className="mkt-card__count" title={t('{n} 次引入', { n: l.installs })}>
-                        <Icon name="download" size={12} />
-                        {t('{n} 次引入', { n: l.installs })}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="works__center">
-              <EmptyState
-                illustration={filtered ? <NoResultsArt /> : <ComingSoonArt />}
-                title={filtered ? t('没有符合条件的条目') : t('市场里还没有条目')}
-                description={
-                  filtered ? undefined : t('在「我的发布」里发布 Skill 或插件，审核通过后会出现在这里')
-                }
-                action={
-                  filtered ? (
-                    <Button size="small" onClick={clear}>
-                      {t('清除筛选')}
-                    </Button>
-                  ) : (
-                    <Button size="small" onClick={() => setTab('mine')}>
-                      {t('去发布')}
-                    </Button>
-                  )
-                }
-              />
-            </div>
-          )}
-        </>
-      )}
-      <Drawer open={!!openId} title={openName} width={600} onClose={() => setOpen(null)}>
+        ) : null}
+      </aside>
+
+      <main className={`mkt-main${openId ? ' mkt-main--detail' : ''}`}>
         {openId ? (
           <ListingDetail
-            key={installedAt}
+            key={`${openId}:${detailTick}`}
             id={openId}
-            onData={(d) => setOpenTitle({ id: d.id, title: d.title })}
-            onChanged={reload}
-            actions={({ listedVersionId, listedRevision, ...d }) =>
-              d.status === 'listed' && listedVersionId && listedRevision !== null && !machineOnly(d) ? (
-                <Button
-                  size="small"
-                  variant="primary"
-                  icon="download"
-                  onClick={() => setInstalling({ ...d, listedVersionId, listedRevision })}
-                >
-                  {t('引入到…')}
-                </Button>
-              ) : null
-            }
+            initialTab={detailTab}
+            standalone
+            canInstallDirectly={canInstallDirectly}
+            reusedSecrets={reusedByListing[openId]}
+            onBack={closeDetail}
+            onChanged={refreshAll}
+            onManageInstalled={() => goTab('installed')}
+            onAdd={(d) => {
+              if (d.listedVersionId && d.listedRevision !== null) {
+                setModal({
+                  listing: {
+                    ...d,
+                    listedVersionId: d.listedVersionId,
+                    listedRevision: d.listedRevision,
+                  },
+                })
+              }
+            }}
+            onConfigure={(d, target) => {
+              if (d.listedVersionId && d.listedRevision !== null) {
+                setModal({
+                  listing: {
+                    ...d,
+                    listedVersionId: d.listedVersionId,
+                    listedRevision: d.listedRevision,
+                  },
+                  readyTarget: target,
+                })
+              }
+            }}
           />
-        ) : null}
-      </Drawer>
+        ) : view === 'installed' ? (
+          <InstalledView
+            onBrowseMarket={goHome}
+            onOpenDetail={(id, tab) => openDetail(id, tab)}
+            onConfigure={(listing, readyTarget) => setModal({ listing, readyTarget })}
+            onChanged={refreshAll}
+          />
+        ) : view === 'requests' ? (
+          <InstallRequests todo={todoList} onOpenListing={(id) => openDetail(id)} onBackMarket={goHome} />
+        ) : view === 'mine' ? (
+          <MyListings
+            initialMode={publishMode}
+            onModeChange={(m) => goTab('mine', m === 'create')}
+            onOpen={(l) => openDetail(l.id)}
+          />
+        ) : view === 'reviews' ? (
+          <div className="mkt-content">
+            <section className="mkt-head">
+              <div className="mkt-head__titles">
+                <h1 className="mkt-head__title">{t('上架审核')}</h1>
+                <p className="mkt-head__sub">
+                  {t('团队内可见条目由团队管理员审核，公开条目由系统管理员审核。')}
+                </p>
+              </div>
+            </section>
+            {queues.map((x) => (
+              <MarketReviewList
+                key={x.path}
+                path={x.path}
+                queueLabel={x.label}
+                onReviewed={refreshAll}
+                onBackMarket={goHome}
+              />
+            ))}
+          </div>
+        ) : view === 'catalog' ? (
+          <MarketCatalogView
+            scene={activeScene}
+            query={query}
+            source={source}
+            capability={capability}
+            sort={sort}
+            listings={catalogListings}
+            loading={marketGet.loading}
+            error={marketGet.error}
+            canInstallDirectly={canInstallDirectly}
+            onSource={setSource}
+            onCapability={setCapability}
+            onSort={setSort}
+            onClear={() => {
+              setQuery('')
+              setSource('all')
+              setCapability('all')
+              goScene('all')
+            }}
+            onRetry={marketGet.reload}
+            onOpen={(l) => openDetail(l.id)}
+            onAction={handleCardAction}
+            onPublish={() => goTab('mine', true)}
+          />
+        ) : (
+          <MarketHomeView
+            listings={allListings}
+            loading={marketGet.loading}
+            error={marketGet.error}
+            canInstallDirectly={canInstallDirectly}
+            onRetry={marketGet.reload}
+            onOpen={(l) => openDetail(l.id)}
+            onAction={handleCardAction}
+            onViewScene={goScene}
+            onPublish={() => goTab('mine', true)}
+          />
+        )}
+      </main>
+
       <Presence>
-        {installing ? (
+        {modal ? (
           <InstallTargetDialog
-            listing={installing}
-            onClose={() => setInstalling(null)}
+            listing={modal.listing}
+            sourceGroupId={sourceGroupId}
+            initialReadyTarget={modal.readyTarget}
+            onClose={() => setModal(null)}
+            onGoInstalled={() => goTab('installed')}
+            onReusedSecrets={(reusedSecrets) => {
+              setReusedByListing((prev) => ({
+                ...prev,
+                [modal.listing.id]: reusedSecrets,
+              }))
+            }}
             onChanged={() => {
-              setInstalledAt(Date.now())
-              reload()
+              setDetailTick((n) => n + 1)
+              refreshAll()
             }}
           />
         ) : null}

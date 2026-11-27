@@ -1,48 +1,55 @@
 import type {
-  ListingSummary,
-  ListingType,
+  InstalledTargetHealthDto,
+  InstallScope,
   ListingVersionDto,
   MarketListingDetailDto,
-  MarketListingDto,
-  PluginConnector,
+  ReusedSecretDto,
   ReviewStatus,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
-import { localDate } from '../../lib/time'
+import { ago, localDate } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
   Dialog,
-  Disclosure,
-  GroupBox,
-  GroupRow,
   Icon,
   Link,
   Presence,
   PullDownButton,
   Spinner,
+  Tabs,
   Tag,
   toast,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
-import { mcpTarget, permissionsText } from '../plugins/model'
+import { mcpTarget } from '../plugins/model'
+import { MODE_LABEL } from '../secrets/api'
 import { ListingFiles } from './ListingFiles'
+import {
+  byline,
+  CapabilityChips,
+  capabilitiesOfListing,
+  installedText,
+  isSystemPreset,
+  ListingIcon,
+  openPromptInGroup,
+  readinessOfListing,
+  SOURCE_LABEL,
+} from './meta'
 import { ReasonDialog } from './ReasonDialog'
-import { SecretSpecList } from './SecretSpecs'
-import { TYPE_LABEL, targetLabels } from './status'
 import { VersionDiff } from './VersionDiff'
 import '../config/config.css'
 import './market.css'
+import './market-detail.css'
 
-export const SOURCE_LABEL: Record<MarketListingDto['source'], string> = {
-  official: t('官方'),
-  team: t('本团队'),
-  public: t('公开'),
-}
+export { byline, installedText, ListingIcon, SOURCE_LABEL }
+
+export type DetailTab = 'overview' | 'changelog' | 'dev'
 
 const REVIEW_LABEL: Record<ReviewStatus, string> = {
   draft: t('草稿'),
@@ -56,67 +63,59 @@ export const ReviewTag = ({ status }: { status: ReviewStatus }) => (
   <Tag tone={REVIEW_TONE[status]}>{REVIEW_LABEL[status]}</Tag>
 )
 
-/** A listing's glyph: Skill and 插件 read apart at a glance; a plugin with `manifest.icon` shows its own tile. */
-export function ListingIcon({
-  type,
-  size = 36,
-  listing,
-}: {
-  type: ListingType
-  size?: number
-  /** Its own tile, from the shown version. */
-  listing?: Pick<ListingSummary, 'id' | 'versionId' | 'icon'>
-}) {
-  if (type === 'plugin' && listing?.icon)
-    return (
-      <img
-        className="mkt-icon mkt-icon--img"
-        src={`/api/market/${listing.id}/files/raw?${new URLSearchParams({ path: listing.icon, versionId: listing.versionId })}`}
-        alt=""
-        width={size}
-        height={size}
-        aria-hidden="true"
-      />
-    )
-  return (
-    <span className="mkt-icon" data-type={type} style={{ width: size, height: size }} aria-hidden="true">
-      <Icon name={type === 'plugin' ? 'plug' : 'sparkle'} size={Math.round(size * 0.5)} />
-    </span>
-  )
-}
-
 /** SKILL.md's YAML header is metadata already shown above; rendered as Markdown it reads as a stray heading. */
 const stripFrontMatter = (md: string) => md.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
 
-/** `作者 · 团队`, or 官方 for platform listings. */
-export const byline = (l: Pick<MarketListingDto, 'author' | 'teamName' | 'source'>) =>
-  [l.author, l.teamName].filter(Boolean).join(' · ') || SOURCE_LABEL[l.source]
-
-/** 已引入到：我的 Skill、支付核心群 */
-export const installedText = (where: NonNullable<MarketListingDto['installedIn']>) =>
-  t('已引入到：{targets}', { targets: targetLabels(where) })
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
 
 /**
- * One listing: meta, README, files, version history and the GitHub source. `versionId` asks for that version's
- * content (a reviewer looking at a pending one). `onData` hears each load (the drawer's title), `onChanged` a ban or
- * unban made here (lists showing the listing).
+ * Plugin detail view (880px centered on `--window-bg` when standalone, or embedded in a review pane/dialog).
+ * Plain-language Overview & Changelog; all technical MCP / Skill / env / files and secret reuse notices live
+ * strictly inside the 开发者信息 tab.
  */
 export function ListingDetail({
   id,
   versionId,
+  initialTab = 'overview',
+  standalone = false,
+  canInstallDirectly = true,
+  reusedSecrets: extraReused,
   actions,
+  onBack,
+  onAdd,
+  onManageInstalled,
+  onConfigure,
   onData,
   onChanged,
 }: {
   id: string
   versionId?: string
+  initialTab?: DetailTab
+  standalone?: boolean
+  canInstallDirectly?: boolean
+  reusedSecrets?: ReusedSecretDto[]
   actions?: (d: MarketListingDetailDto) => ReactNode
+  onBack?: () => void
+  onAdd?: (d: MarketListingDetailDto) => void
+  onManageInstalled?: () => void
+  onConfigure?: (
+    d: MarketListingDetailDto,
+    target: { scope: InstallScope; scopeId: string; label: string },
+  ) => void
   onData?: (d: MarketListingDetailDto) => void
   onChanged?: () => void
 }) {
+  const navigate = useNavigate()
   const { data, error, loading, reload } = useGet<MarketListingDetailDto>(
     `/market/${id}${versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''}`,
   )
+  const [tab, setTab] = useState<DetailTab>(initialTab)
   const [banning, setBanning] = useState(false)
   const [unbanning, setUnbanning] = useState(false)
   const [diffOf, setDiffOf] = useState<ListingVersionDto | null>(null)
@@ -125,10 +124,46 @@ export function ListingDetail({
   useEffect(() => {
     if (data) onDataRef.current?.(data)
   }, [data])
+  useEffect(() => {
+    setTab(initialTab)
+  }, [initialTab])
+
   if (!data)
-    return error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : <Spinner />
+    return (
+      <div className={`mkt-detail-page${standalone ? '' : ' mkt-detail-page--embedded'}`}>
+        {standalone && onBack ? (
+          <button type="button" className="mkt-back" onClick={onBack}>
+            <Icon name="chevron-left" size={15} />
+            {t('插件市场')}
+          </button>
+        ) : null}
+        {error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : <Spinner />}
+      </div>
+    )
+
   const gh = data.ghSource
   const banned = data.status === 'banned'
+  const caps = capabilitiesOfListing(data)
+  const readiness = readinessOfListing(data)
+  const hasExec = data.permissions.includes('exec')
+  const hasNetwork = data.permissions.includes('network') || data.mcp.length > 0 || !!data.connector
+  const examples = data.examples?.length ? data.examples : (data.connector?.examples ?? [])
+  const reusedMap = new Map<string, ReusedSecretDto>()
+  for (const r of [...(data.reusedSecrets ?? []), ...(extraReused ?? [])]) {
+    reusedMap.set(`${r.name}:${r.existingScope}`, r)
+  }
+  const reused = [...reusedMap.values()]
+  const installedGroup = data.installedIn?.find((x) => x.scope === 'group')
+  const headerTargets: InstalledTargetHealthDto[] =
+    data.installedHealth ??
+    (data.installedIn ?? []).map((x) => ({
+      ...x,
+      enabled: true,
+      health: 'ready',
+      healthDetail: null,
+    }))
+  const readme = stripFrontMatter(data.readme)
+
   const unban = async () => {
     if (unbanning) return
     setUnbanning(true)
@@ -143,160 +178,475 @@ export function ListingDetail({
       setUnbanning(false)
     }
   }
-  const readme = stripFrontMatter(data.readme)
-  const readmeView = readme.trim() ? (
-    <Markdown text={readme} />
-  ) : (
-    <span className="gs-note">{t('（没有说明）')}</span>
-  )
-  const action = actions?.(data)
+
+  const customAction = actions?.(data)
+  const canAdd =
+    data.status === 'listed' &&
+    !!data.listedVersionId &&
+    data.listedRevision !== null &&
+    !isSystemPreset(data)
+
   return (
-    <div className="mkt-detail">
-      {error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : null}
-      <div className="mkt-detail__hero">
-        <ListingIcon type={data.type} size={44} listing={data} />
-        <div className="mkt-detail__summary">
-          <div className="mkt-detail__meta">
-            <Tag tone="blue">{TYPE_LABEL[data.type]}</Tag>
-            <Tag tone={data.source === 'official' ? 'green' : 'gray'}>{SOURCE_LABEL[data.source]}</Tag>
-            {banned ? <Tag tone="red">{t('已封禁')}</Tag> : null}
-            {data.agents.map((a) => (
-              <Tag key={a}>{a}</Tag>
-            ))}
-          </div>
-          <span className="mkt-detail__by">
-            {data.listedRevision === null
-              ? t('{by} · {n} 次引入', { by: byline(data), n: data.installs })
-              : t('{by} · {n} 次引入 · r{rev}', {
-                  by: byline(data),
-                  n: data.installs,
-                  rev: data.listedRevision,
-                })}
-          </span>
-        </div>
-      </div>
-      {data.description ? <p className="mkt-detail__desc">{data.description}</p> : null}
-      {data.installedIn?.length ? (
-        <div className="mkt-detail__installed">
-          <Icon name="check" size={14} />
-          <span>{installedText(data.installedIn)}</span>
-        </div>
+    <div className={`mkt-detail-page${standalone ? '' : ' mkt-detail-page--embedded'}`}>
+      {standalone && onBack ? (
+        <button type="button" className="mkt-back" onClick={onBack}>
+          <Icon name="chevron-left" size={15} />
+          {t('插件市场')}
+        </button>
       ) : null}
-      {action || data.canReview ? (
-        <div className="mkt-detail__actions">
-          {action}
-          <span className="spacer" />
-          {data.canReview ? (
-            banned ? (
-              <Button size="small" loading={unbanning} disabled={unbanning} onClick={() => void unban()}>
-                {t('解封')}
-              </Button>
-            ) : (
-              <PullDownButton
-                variant="ghost"
-                size="small"
-                icon="more"
-                indicator={false}
-                aria-label={t('管理 {name}', { name: data.name })}
-                align="end"
-                portal
-                items={[{ label: t('封禁'), value: 'ban', destructive: true }]}
-                onSelect={() => setBanning(true)}
-              />
-            )
+
+      {error ? <Alert variant="error" title={error} retrying={loading} onRetry={reload} /> : null}
+
+      <section className="mkt-detail-top" aria-label={t('插件概览')}>
+        <ListingIcon type={data.type} size={56} listing={data} />
+        <div className="mkt-detail-who">
+          <h1 className="mkt-detail-title">
+            {data.title}
+            <Tag tone={data.source === 'official' ? 'green' : data.source === 'team' ? 'blue' : 'gray'}>
+              {SOURCE_LABEL[data.source]}
+            </Tag>
+            {banned ? <Tag tone="red">{t('已封禁')}</Tag> : null}
+          </h1>
+          {data.description ? <p className="mkt-detail-desc">{data.description}</p> : null}
+          {headerTargets.length ? (
+            <div className="mkt-detail-where">
+              <span>{t('已在 {n} 处启用：', { n: headerTargets.length })}</span>
+              {headerTargets.map((target) => {
+                const label = target.scope === 'user' ? t('我的插件') : target.label
+                const todo =
+                  target.health === 'needs-secret' ||
+                  target.health === 'needs-account' ||
+                  target.health === 'needs-trust'
+                const statusText =
+                  target.healthDetail ||
+                  (target.health === 'needs-secret'
+                    ? t('待填凭据')
+                    : target.health === 'needs-account'
+                      ? t('需连账号')
+                      : target.health === 'needs-trust'
+                        ? t('待机主授权')
+                        : target.health === 'disabled'
+                          ? t('已停用')
+                          : t('已就绪'))
+                return (
+                  <button
+                    key={`${target.scope}:${target.scopeId}`}
+                    type="button"
+                    className={`mkt-where-pill ${todo ? 'mkt-where-pill--todo' : 'mkt-where-pill--ok'}`}
+                    onClick={() => {
+                      if (todo && onConfigure)
+                        onConfigure(data, { scope: target.scope, scopeId: target.scopeId, label })
+                      else if (target.scope === 'group') navigate(`/g/${target.scopeId}`)
+                      else onManageInstalled?.()
+                    }}
+                  >
+                    <Icon name={todo ? 'lock' : 'check'} size={12} />
+                    {`${label} · ${statusText}`}
+                  </button>
+                )
+              })}
+            </div>
           ) : null}
         </div>
-      ) : null}
+
+        <div className="mkt-detail-acts">
+          {customAction ? (
+            customAction
+          ) : canAdd && onAdd ? (
+            <Button variant="primary" onClick={() => onAdd(data)}>
+              {canInstallDirectly ? t('添加到…') : t('申请添加')}
+            </Button>
+          ) : null}
+          {data.installedIn?.length && onManageInstalled ? (
+            <Button onClick={onManageInstalled}>{t('管理已添加')}</Button>
+          ) : null}
+          {data.canReview ? (
+            <div className="mkt-detail-acts__row">
+              {banned ? (
+                <Button size="small" loading={unbanning} disabled={unbanning} onClick={() => void unban()}>
+                  {t('解封')}
+                </Button>
+              ) : (
+                <PullDownButton
+                  variant="ghost"
+                  size="small"
+                  icon="more"
+                  indicator={false}
+                  aria-label={t('管理 {name}', { name: data.name })}
+                  align="end"
+                  portal
+                  items={[{ label: t('封禁'), value: 'ban', destructive: true }]}
+                  onSelect={() => setBanning(true)}
+                />
+              )}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
       {banned && data.banReason ? (
         <Alert
           variant="error"
           title={t('封禁原因：{reason}', { reason: data.banReason })}
           description={
-            data.installedIn?.length
-              ? t('已引入的地方下一轮起停止加载，可在对应设置的 Skill · 已引入 里移除')
-              : undefined
+            data.installedIn?.length ? t('已添加的地方下一轮起停止加载，可在「已添加」里移除') : undefined
           }
         />
       ) : null}
-      {gh ? (
-        <div className="mkt-detail__gh">
-          <Icon name="github" size={14} />
-          <Link external href={gh.url}>
-            {[gh.url, gh.ref, gh.path].filter(Boolean).join(' · ')}
-          </Link>
-          <code className="gs-mono">@{gh.commit.slice(0, 7)}</code>
-        </div>
-      ) : null}
-      {data.permissions.length || data.mcp.length ? (
-        <section className="mkt-detail__section" aria-label={t('权限#plugin')}>
-          <div className="cfg__eyebrow">{t('权限#plugin')}</div>
-          <div className="gs-note">{permissionsText(data)}</div>
-          {data.mcp.length ? (
-            <>
-              <div className="cfg__eyebrow">{t('MCP 服务')}</div>
-              <ul className="mkt-detail__mcp">
-                {data.mcp.map((c) => (
-                  <li key={c.name}>
-                    <b>{`${data.name}-${c.name}`}</b> <code className="gs-mono">{mcpTarget(c)}</code>
-                  </li>
-                ))}
-              </ul>
-            </>
+
+      <Tabs<DetailTab>
+        aria-label={t('插件详情标签')}
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: 'overview', label: t('概览') },
+          {
+            value: 'changelog',
+            label: data.versions.length ? `${t('更新记录')} ${data.versions.length}` : t('更新记录'),
+          },
+          { value: 'dev', label: t('开发者信息') },
+        ]}
+      />
+
+      {tab === 'overview' ? (
+        <section className="mkt-detail-cols" aria-label={t('概览')}>
+          <div className="mkt-detail-main">
+            {examples.length ? (
+              <section className="mkt-panel" aria-label={t('试试这样问 Bot')}>
+                <h2 className="mkt-panel__h">
+                  <Icon name="bubble" size={15} />
+                  {t('试试这样问 Bot')}
+                </h2>
+                <div className="mkt-try-list">
+                  {examples.map((prompt) => (
+                    <div key={prompt} className="mkt-try-row">
+                      <span>“{prompt}”</span>
+                      <Button
+                        variant="plain"
+                        size="small"
+                        onClick={() => openPromptInGroup(prompt, installedGroup?.scopeId, navigate)}
+                      >
+                        {t('去试试')}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="mkt-panel" aria-label={t('介绍#market')}>
+              <h2 className="mkt-panel__h">
+                <Icon name="doc-text" size={15} />
+                {t('介绍#market')}
+              </h2>
+              <div className="mkt-detail-prose">
+                {readme.trim() ? <Markdown text={readme} /> : <p>{data.description || t('（没有说明）')}</p>}
+              </div>
+            </section>
+          </div>
+
+          <aside className="mkt-panel mkt-detail-side">
+            <section>
+              <h3 className="mkt-detail-side__h">{t('包含能力')}</h3>
+              <CapabilityChips capabilities={caps} />
+              {caps.includes('connect') ? (
+                <div className="mkt-info-row">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="link" size={14} />
+                  </span>
+                  <div>{t('连接外部系统数据与操作')}</div>
+                </div>
+              ) : null}
+              {caps.includes('create') ? (
+                <div className="mkt-info-row">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="palette" size={14} />
+                  </span>
+                  <div>{t('内置创作模板与交互画布')}</div>
+                </div>
+              ) : null}
+              {caps.includes('do') ? (
+                <div className="mkt-info-row">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="sparkle" size={14} />
+                  </span>
+                  <div>
+                    {data.commands?.length
+                      ? t('{n} 个快捷指令', { n: data.commands.length })
+                      : t('提供专项能力指南与快捷指令')}
+                    {data.commands?.length ? (
+                      <small className="mkt-info-row__sub">
+                        {data.commands.map((c) => `/${c.name}`).join(' · ')}
+                      </small>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section>
+              <h3 className="mkt-detail-side__h">{t('使用前准备')}</h3>
+              {data.secretSpecs.length ? (
+                data.secretSpecs.map((spec) => (
+                  <div key={spec.name} className="mkt-info-row">
+                    <span className="mkt-info-row__ic">
+                      <Icon name="lock" size={14} />
+                    </span>
+                    <div>
+                      {t('填写{name}', { name: spec.title || spec.name })}
+                      <small className="mkt-info-row__sub">
+                        {spec.mode === 'personal'
+                          ? t('每人填自己的，加密保存')
+                          : t('管理员统一配置，加密保存')}
+                      </small>
+                      {spec.url ? (
+                        <Link external href={spec.url}>
+                          {t('如何获取')}
+                        </Link>
+                      ) : null}
+                      {installedGroup && onConfigure ? (
+                        <div>
+                          <Button
+                            variant="plain"
+                            size="small"
+                            onClick={() => onConfigure(data, installedGroup)}
+                          >
+                            {t('立即填写')}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              ) : readiness === 'needs-account' ? (
+                <div className="mkt-info-row">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="link" size={14} />
+                  </span>
+                  <div>
+                    {t('需连接外部账号')}
+                    <small className="mkt-info-row__sub">{t('由电脑主人扫码或授权登录')}</small>
+                    {data.connector?.docs ? (
+                      <Link external href={data.connector.docs}>
+                        {t('如何获取')}
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+              ) : readiness === 'needs-trust' ? (
+                <div className="mkt-info-row mkt-info-row--warn">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="laptop" size={14} />
+                  </span>
+                  <div>
+                    {t('需机主授权')}
+                    <small className="mkt-info-row__sub">{t('电脑主人首次确认允许运行后即可使用')}</small>
+                  </div>
+                </div>
+              ) : (
+                <div className="mkt-info-row mkt-info-row--safe">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="check" size={14} />
+                  </span>
+                  <div>{t('开箱即用，无需额外配置')}</div>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h3 className="mkt-detail-side__h">{t('安全与权限')}</h3>
+              {hasNetwork ? (
+                <div className="mkt-info-row">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="globe" size={14} />
+                  </span>
+                  <div>{t('会向外部服务地址发送请求')}</div>
+                </div>
+              ) : null}
+              {hasExec ? (
+                <div className="mkt-info-row mkt-info-row--warn">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="shield-warning" size={14} />
+                  </span>
+                  <div>{t('会在电脑上运行本地程序，需机主确认')}</div>
+                </div>
+              ) : (
+                <div className="mkt-info-row mkt-info-row--safe">
+                  <span className="mkt-info-row__ic">
+                    <Icon name="shield-check" size={14} />
+                  </span>
+                  <div>{t('不会在你的电脑上运行程序')}</div>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h3 className="mkt-detail-side__h">{t('可以添加到')}</h3>
+              <div className="mkt-info-row">
+                <span className="mkt-info-row__ic">
+                  <Icon name="check" size={14} />
+                </span>
+                <div>{data.type === 'skill' ? t('仅我使用、群、整个团队') : t('群、整个团队')}</div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="mkt-detail-side__h">{t('基本信息')}</h3>
+              <div className="mkt-info-row">
+                <span className="mkt-info-row__ic">
+                  <Icon name="info" size={14} />
+                </span>
+                <div>
+                  {byline(data)}
+                  <small className="mkt-info-row__sub">
+                    {data.listedRevision === null
+                      ? t('{n} 次添加 · 更新于 {time}', { n: data.installs, time: ago(data.updatedAt) })
+                      : t('r{rev} · {n} 次添加 · 更新于 {time}', {
+                          rev: data.listedRevision,
+                          n: data.installs,
+                          time: ago(data.updatedAt),
+                        })}
+                  </small>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </section>
+      ) : tab === 'changelog' ? (
+        <section className="mkt-panel" aria-label={t('更新记录')}>
+          {data.versions.length ? (
+            data.versions.map((v) => (
+              <div key={v.id} className="mkt-log-row">
+                <div className="mkt-log-rev">
+                  <strong>r{v.revision}</strong>
+                  <ReviewTag status={v.reviewStatus} />
+                  <span className="mkt-log-time">{localDate(v.createdAt)}</span>
+                </div>
+                <div>
+                  <div>{v.changelog || t('（无更新说明）')}</div>
+                  {v.createdBy ? <div className="mkt-log-time">{v.createdBy}</div> : null}
+                  {v.reviewNote ? (
+                    <div className="mkt-row__warn">{t('审核意见：{note}', { note: v.reviewNote })}</div>
+                  ) : null}
+                </div>
+                {data.canReview || data.canEdit ? (
+                  <Button size="small" variant="plain" onClick={() => setDiffOf(v)}>
+                    {t('查看变更')}
+                  </Button>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <div className="gs-note">{t('暂无更新记录')}</div>
+          )}
+        </section>
+      ) : (
+        <section className="mkt-panel" aria-label={t('开发者信息')}>
+          {reused.length ? (
+            <div className="mkt-reuse-note" role="status">
+              <Icon name="info" size={15} />
+              <span>
+                {t('已有同名凭据 {names}，添加时沿用已有定义，没有覆盖。', {
+                  names: reused.map((r) => `${r.name}（${r.existingScopeLabel}）`).join(t('、')),
+                })}
+              </span>
+            </div>
+          ) : null}
+          <dl className="mkt-kv">
+            <dt>{t('包形态')}</dt>
+            <dd>
+              <span>
+                {data.type === 'skill' ? 'Skill' : t('插件#type')}
+                {data.mcp.length ? ` · ${t('{n} 个 MCP 服务', { n: data.mcp.length })}` : ''}
+                {data.files.length ? ` · ${t('{n} 个文件', { n: data.files.length })}` : ''}
+              </span>
+            </dd>
+            {data.mcp.length ? (
+              <>
+                <dt>{t('外部服务')}</dt>
+                <dd>
+                  {data.mcp.map((c) => (
+                    <div key={c.name}>
+                      <code className="mkt-code">{c.transport}</code>{' '}
+                      <strong>{`${data.name}-${c.name}`}</strong>{' '}
+                      <code className="mkt-code">{mcpTarget(c)}</code>
+                    </div>
+                  ))}
+                </dd>
+              </>
+            ) : null}
+            {data.secretSpecs.length ? (
+              <>
+                <dt>{t('环境变量')}</dt>
+                <dd>
+                  {data.secretSpecs.map((s) => (
+                    <div key={s.name}>
+                      <code className="mkt-code">{s.name}</code>{' '}
+                      <span>
+                        {s.title ? `${s.title} · ` : ''}
+                        {MODE_LABEL[s.mode]} · {s.required ? t('必需') : t('可选')}
+                      </span>
+                      {s.url ? (
+                        <>
+                          {' '}
+                          <Link external href={s.url}>
+                            {t('前往 {host} 申请', { host: hostOf(s.url) })}
+                          </Link>
+                        </>
+                      ) : null}
+                    </div>
+                  ))}
+                </dd>
+              </>
+            ) : null}
+            <dt>{t('权限声明')}</dt>
+            <dd>
+              {data.permissions.length ? (
+                <div>
+                  {data.permissions.map((p) => (
+                    <code key={p} className="mkt-code">
+                      {p}
+                    </code>
+                  ))}
+                </div>
+              ) : (
+                <span>{t('无特殊权限')}</span>
+              )}
+            </dd>
+            {data.agents.length ? (
+              <>
+                <dt>{t('兼容引擎')}</dt>
+                <dd>
+                  <span>{data.agents.join(' · ')}</span>
+                </dd>
+              </>
+            ) : null}
+            {gh ? (
+              <>
+                <dt>{t('来源')}</dt>
+                <dd>
+                  <div>
+                    <Link external href={gh.url}>
+                      {[gh.url, gh.ref, gh.path].filter(Boolean).join(' · ')}
+                    </Link>{' '}
+                    <code className="mkt-code">@{gh.commit.slice(0, 7)}</code>
+                  </div>
+                </dd>
+              </>
+            ) : null}
+          </dl>
+
+          {data.files.length ? (
+            <div className="mkt-dev-files">
+              <div className="cfg__eyebrow">
+                {t('文件')} <span className="mkt-detail__n">{data.files.length}</span>
+              </div>
+              <ListingFiles listingId={data.id} versionId={data.versionId} files={data.files} />
+            </div>
           ) : null}
         </section>
-      ) : null}
-      {data.connector ? <ConnectorTries connector={data.connector} /> : null}
-      {data.secretSpecs.length ? <SecretSpecList specs={data.secretSpecs} /> : null}
-      {data.connector ? (
-        // A connector's SKILL.md tells the bot how to drive it: the person only needs the tries above.
-        <Disclosure title={t('技术说明')} className="mkt-detail__section">
-          <div className="mkt-detail__readme">{readmeView}</div>
-        </Disclosure>
-      ) : (
-        <section className="mkt-detail__section" aria-label={t('说明')}>
-          <div className="cfg__eyebrow">{t('说明')}</div>
-          <div className="mkt-detail__readme">{readmeView}</div>
-        </section>
       )}
-      <section className="mkt-detail__section" aria-label={t('文件')}>
-        <div className="cfg__eyebrow">
-          {t('文件')} <span className="mkt-detail__n">{data.files.length}</span>
-        </div>
-        <ListingFiles listingId={data.id} versionId={data.versionId} files={data.files} />
-      </section>
-      <section className="mkt-detail__section" aria-label={t('版本历史')}>
-        <div className="cfg__eyebrow">
-          {t('版本历史')} <span className="mkt-detail__n">{data.versions.length}</span>
-        </div>
-        <GroupBox>
-          {data.versions.map((v) => (
-            <GroupRow
-              key={v.id}
-              label={
-                <span className="cfg__name-line">
-                  <span className="cfg__name">r{v.revision}</span>
-                  <ReviewTag status={v.reviewStatus} />
-                  <span className="mkt-detail__by">
-                    {[v.createdBy, localDate(v.createdAt)].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-              }
-              description={
-                <>
-                  {v.changelog || t('（无更新说明）')}
-                  {v.reviewNote ? <div>{t('审核意见：{note}', { note: v.reviewNote })}</div> : null}
-                </>
-              }
-            >
-              {data.canReview || data.canEdit ? (
-                <Button size="small" variant="plain" onClick={() => setDiffOf(v)}>
-                  {t('查看变更')}
-                </Button>
-              ) : null}
-            </GroupRow>
-          ))}
-        </GroupBox>
-      </section>
+
       <Presence>
         {banning ? (
           <ReasonDialog
@@ -326,26 +676,5 @@ export function ListingDetail({
         ) : null}
       </Presence>
     </div>
-  )
-}
-
-/** A connector's 试试这样用 and 如何获取 (its key). */
-function ConnectorTries({ connector }: { connector: PluginConnector }) {
-  return (
-    <section className="mkt-detail__section" aria-label={t('试试这样用')}>
-      <div className="cfg__eyebrow">{t('试试这样用')}</div>
-      {connector.examples.length ? (
-        <ul className="mkt-detail__tries">
-          {connector.examples.map((x) => (
-            <li key={x}>{x}</li>
-          ))}
-        </ul>
-      ) : null}
-      {connector.docs ? (
-        <Link external href={connector.docs}>
-          {t('如何获取')}
-        </Link>
-      ) : null}
-    </section>
   )
 }

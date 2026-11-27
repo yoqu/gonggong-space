@@ -13,7 +13,8 @@ import { alertCount, useWorkspace } from './workspace'
 
 /**
  * Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 市场 / 机器与 Bot / 通知 / 管理后台 (sysadmin)
- * and the account menu. 市场 and 机器与 Bot are builder tools, hidden from people who only @ bots (their routes stay open).
+ * and the account menu. 市场 is visible to all signed-in members; 机器与 Bot is a builder tool hidden from people
+ * who only @ bots (its route stays open).
  */
 export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const navigate = useNavigate()
@@ -48,7 +49,7 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
     },
     // A hidden entry still shows, selected, while its page is opened directly.
     ...(worksShown || works ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
-    ...(builder || market ? [{ id: 'market', label: t('市场'), icon: 'tag' as const }] : []),
+    { id: 'market', label: t('市场'), icon: 'tag' as const },
     ...(builder || machines ? [{ id: 'machines', label: t('电脑与 Bot#nav'), icon: 'server' as const }] : []),
     { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]

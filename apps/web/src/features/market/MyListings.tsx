@@ -22,9 +22,9 @@ import {
   ConfirmActionDialog,
   Dialog,
   EmptyState,
-  GroupBox,
-  GroupRow,
+  Icon,
   NoPluginsArt,
+  PopUpButton,
   Presence,
   RadioGroup,
   SegmentedControl,
@@ -37,14 +37,20 @@ import {
 import { FolderInput } from '../config/SkillLayer'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
 import { ListingIcon, ReviewTag } from './ListingDetail'
+import { CapabilityChips, type MarketScene, SCENES } from './meta'
 import { useRowLocks } from './rowLocks'
-import { TYPE_LABEL } from './status'
 import '../config/config.css'
 import '../groups/groups.css'
+import './market-manage.css'
 
-const VISIBILITY_LABEL: Record<ListingVisibility, string> = { public: t('公开'), team: t('仅本团队') }
+const VISIBILITY_LABEL: Record<ListingVisibility, string> = {
+  public: t('公开社区'),
+  team: t('仅本团队'),
+}
 
 type Filter = 'all' | 'listed' | 'pending' | 'todo'
+type PublishTrack = 'light' | 'package'
+type PackageSource = 'folder' | 'zip' | 'github'
 
 /** Draft, rejected or banned: waits for the author to act. */
 const needsMe = (l: MyListingDto) =>
@@ -58,21 +64,74 @@ const matches = (l: MyListingDto, f: Filter) =>
       ? l.latest.reviewStatus === 'pending'
       : needsMe(l))
 
-/** 我的发布: the listings I maintain, their latest version's review, and publishing new ones. */
-export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
+/** Build a valid SKILL.md with YAML frontmatter from guided form fields. */
+function buildGuidedSkillMd(opts: {
+  title: string
+  description: string
+  scene: MarketScene
+  example: string
+  body: string
+}): string | null {
+  const title = opts.title.trim()
+  const desc = opts.description.trim()
+  if (!title || !desc) return null
+  const asciiSlug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const slug =
+    asciiSlug ||
+    `plugin-${Array.from(title)
+      .reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0)
+      .toString(36)}`
+  const lines = [
+    '---',
+    `name: ${slug}`,
+    `title: ${JSON.stringify(title)}`,
+    `description: ${JSON.stringify(desc)}`,
+    `scene: ${opts.scene}`,
+  ]
+  if (opts.example.trim()) lines.push(`examples: [${JSON.stringify(opts.example.trim())}]`)
+  lines.push('---', '', opts.body.trim() || `# ${title}\n\n${desc}`)
+  return lines.join('\n')
+}
+
+/**
+ * 我的发布与上架: switches between listing management and the dual-track publish wizard
+ * with live store card preview & pre-publish checklist.
+ */
+export function MyListings({
+  onOpen,
+  initialMode = 'list',
+  onModeChange,
+}: {
+  onOpen?: (l: MyListingDto) => void
+  initialMode?: 'list' | 'create'
+  onModeChange?: (mode: 'list' | 'create') => void
+}) {
   const { data, error, reload } = useGet<MyListingDto[]>('/market/mine')
-  // A hint only: when GitHub can't be asked, rows keep the plain 检查上游更新.
   const upstream = useGet<UpstreamMovedDto[]>(data?.some((l) => l.ghSource) ? '/market/mine/upstream' : null)
-  const [publishing, setPublishing] = useState(false)
+  const [mode, setMode] = useState<'list' | 'create'>(initialMode)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
   const [unlisting, setUnlisting] = useState<MyListingDto | null>(null)
   const patching = useRowLocks()
   const checking = useRowLocks()
   const [filter, setFilter] = useState<Filter>('all')
+
+  useEffect(() => {
+    setMode(initialMode)
+  }, [initialMode])
+
+  const switchMode = (next: 'list' | 'create') => {
+    setMode(next)
+    onModeChange?.(next)
+  }
+
   const patch = async (l: MyListingDto, body: UpdateListingReq) => {
     const ok = await patching.run(l.id, () => attempt(() => api.patch(`/market/${l.id}`, body)))
     if (ok) reload()
   }
+
   const checkUpstream = async (l: MyListingDto) => {
     const res = await checking.run(l.id, () =>
       api.post<CheckUpstreamRes>(`/market/${l.id}/check-upstream`).catch((e) => {
@@ -95,14 +154,49 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
       upstream.reload()
     }
   }
+
   const movedOf = (l: MyListingDto) => upstream.data?.find((u) => u.listingId === l.id)
   const count = (f: Filter) => data?.filter((l) => matches(l, f)).length ?? 0
   const shown = data?.filter((l) => matches(l, filter)) ?? []
 
+  if (mode === 'create') {
+    return (
+      <div className="mkt-content">
+        <section className="mkt-head">
+          <div className="mkt-head__titles">
+            <h1 className="mkt-head__title">{t('发布插件到市场')}</h1>
+            <p className="mkt-head__sub">
+              {t('一段工作方法或一个完整工具包都可以发布；右侧可实时预览上架后的卡片效果。')}
+            </p>
+          </div>
+          <Button onClick={() => switchMode('list')}>{t('返回我的发布')}</Button>
+        </section>
+        <PublishWizard
+          onDone={() => {
+            reload()
+            switchMode('list')
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="mkt-mine">
-      <div className="mkt-section-head">
-        {data?.length ? (
+    <div className="mkt-content mkt-content--narrow">
+      <section className="mkt-head">
+        <div className="mkt-head__titles">
+          <h1 className="mkt-head__title">{t('我的发布')}</h1>
+          <p className="mkt-head__sub">
+            {t('你维护的团队插件和草稿都在这里，发布后先存草稿，审核通过即上架。')}
+          </p>
+        </div>
+        <Button variant="primary" icon="plus" onClick={() => switchMode('create')}>
+          {t('发布新插件')}
+        </Button>
+      </section>
+
+      {data?.length ? (
+        <div className="mkt-section-head">
           <SegmentedControl<Filter>
             aria-label={t('状态')}
             size="small"
@@ -117,80 +211,66 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
               ] as const
             ).map(([value, label]) => ({ value, label: `${label} ${count(value)}` }))}
           />
-        ) : (
-          <span className="gs-note">{t('发布后先存为草稿，提交审核通过后才会出现在市场。')}</span>
-        )}
-        <span className="spacer" />
-        <Button variant="primary" size="small" icon="plus" onClick={() => setPublishing(true)}>
-          {t('发布…')}
-        </Button>
-      </div>
+        </div>
+      ) : null}
+
       {error ? <Alert variant="error" title={error} onRetry={reload} /> : null}
+
       {!data ? (
         error ? null : (
           <Spinner />
         )
       ) : data.length ? (
         shown.length ? (
-          <GroupBox>
+          <div className="mkt-group-box">
             {shown.map((l) => (
-              <GroupRow
-                key={l.id}
-                className="cfg__item mkt-row"
-                label={
-                  <span className="mkt-row__head">
-                    <ListingIcon type={l.type} size={28} listing={l} />
-                    <span className="mkt-row__titles">
-                      <span className="cfg__name-line">
-                        <strong className="mkt-row__name">{l.title}</strong>
-                        <Tag tone="gray">r{l.latest.revision}</Tag>
-                        <ReviewTag status={l.latest.reviewStatus} />
-                        {l.status === 'banned' ? (
-                          <Tag tone="red">{t('已封禁')}</Tag>
-                        ) : !l.listedVersionId ? (
-                          <Tag tone="gray">{t('未上架')}</Tag>
-                        ) : l.status === 'listed' ? (
-                          <Tag tone="green">{t('已上架')}</Tag>
-                        ) : (
-                          <Tag tone="orange">{t('已下架')}</Tag>
-                        )}
-                        {movedOf(l) ? (
-                          <span
-                            title={t('GitHub 上有新提交 {commit}', {
-                              commit: movedOf(l)?.commit.slice(0, 7) ?? '',
-                            })}
-                          >
-                            <Tag tone="blue">{t('上游有更新')}</Tag>
-                          </span>
-                        ) : null}
+              <div key={l.id} className="mkt-req-row">
+                <ListingIcon type={l.type} size={38} listing={l} />
+                <div>
+                  <div className="cfg__name-line">
+                    <strong className="mkt-row__name">{l.title}</strong>
+                    <Tag tone="gray">r{l.latest.revision}</Tag>
+                    <ReviewTag status={l.latest.reviewStatus} />
+                    {l.status === 'banned' ? (
+                      <Tag tone="red">{t('已封禁')}</Tag>
+                    ) : !l.listedVersionId ? (
+                      <Tag tone="gray">{t('未上架')}</Tag>
+                    ) : l.status === 'listed' ? (
+                      <Tag tone="green">{t('已上架')}</Tag>
+                    ) : (
+                      <Tag tone="orange">{t('已下架')}</Tag>
+                    )}
+                    {movedOf(l) ? (
+                      <span
+                        title={t('GitHub 上有新提交 {commit}', {
+                          commit: movedOf(l)?.commit.slice(0, 7) ?? '',
+                        })}
+                      >
+                        <Tag tone="blue">{t('上游有更新')}</Tag>
                       </span>
-                      <span className="mkt-row__meta">
-                        {[
-                          TYPE_LABEL[l.type],
-                          VISIBILITY_LABEL[l.visibility],
-                          t('更新于 {time}', { time: ago(l.latest.createdAt) }),
-                        ].join(' · ')}
-                      </span>
-                    </span>
-                  </span>
-                }
-                description={
-                  l.status === 'banned' && l.banReason ? (
-                    <span className="mkt-row__warn">{t('封禁原因：{reason}', { reason: l.banReason })}</span>
+                    ) : null}
+                  </div>
+                  <div className="mkt-row__meta">
+                    {[
+                      VISIBILITY_LABEL[l.visibility],
+                      t('更新于 {time}', { time: ago(l.latest.createdAt) }),
+                    ].join(' · ')}
+                  </div>
+                  {l.status === 'banned' && l.banReason ? (
+                    <div className="mkt-row__warn">{t('封禁原因：{reason}', { reason: l.banReason })}</div>
                   ) : l.latest.reviewStatus === 'rejected' && l.latest.reviewNote ? (
-                    <span className="mkt-row__warn">
+                    <div className="mkt-row__warn">
                       {t('驳回原因：{note}', { note: l.latest.reviewNote })}
-                    </span>
-                  ) : (
-                    l.description
-                  )
-                }
-              >
-                <span className="cfg__controls mkt-row__controls">
+                    </div>
+                  ) : l.description ? (
+                    <div className="mkt-row__meta">{l.description}</div>
+                  ) : null}
+                </div>
+                <div className="mkt-row__controls">
                   {l.ghSource ? (
                     <Button
                       size="small"
-                      variant="plain"
+                      className={movedOf(l) ? 'mkt-btn-soft' : undefined}
                       loading={checking.busy.has(l.id)}
                       disabled={checking.busy.has(l.id)}
                       onClick={() => void checkUpstream(l)}
@@ -201,7 +281,6 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                   {l.listedVersionId && l.status !== 'banned' ? (
                     <Button
                       size="small"
-                      variant="plain"
                       loading={l.status !== 'listed' && patching.busy.has(l.id)}
                       disabled={patching.busy.has(l.id)}
                       onClick={() =>
@@ -225,7 +304,7 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                     </Button>
                   )}
                   {onOpen ? (
-                    <Button size="small" variant="plain" onClick={() => onOpen(l)}>
+                    <Button size="small" onClick={() => onOpen(l)}>
                       {t('详情')}
                     </Button>
                   ) : null}
@@ -234,34 +313,32 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                       {t('提交审核')}
                     </Button>
                   ) : null}
-                </span>
-              </GroupRow>
+                </div>
+              </div>
             ))}
-          </GroupBox>
+          </div>
         ) : (
           <EmptyState compact icon="tag" title={t('没有这个状态的条目')} />
         )
       ) : (
-        <EmptyState
-          illustration={<NoPluginsArt />}
-          title={t('还没有发布过 Skill 或插件')}
-          description={t('支持文件夹、ZIP、粘贴 SKILL.md 或 GitHub 链接；同团队同名即发布新版本。')}
-          action={
-            <Button size="small" variant="primary" onClick={() => setPublishing(true)}>
-              {t('发布…')}
-            </Button>
-          }
-        />
-      )}
-      <Presence>
-        {publishing ? (
-          <PublishDialog
-            onClose={() => {
-              setPublishing(false)
-              reload()
-            }}
+        <div className="mkt-empty-box">
+          <EmptyState
+            illustration={<NoPluginsArt />}
+            title={t('还没有发布过插件')}
+            description={t(
+              '支持写一段能力说明、上传文件夹或 ZIP，或导入 GitHub 仓库；同团队同名即发布新版本。',
+            )}
+            action={
+              <Button variant="primary" onClick={() => switchMode('create')}>
+                {t('发布新插件')}
+              </Button>
+            }
           />
-        ) : submitting ? (
+        </div>
+      )}
+
+      <Presence>
+        {submitting ? (
           <SubmitDialog
             listing={submitting}
             onClose={() => setSubmitting(null)}
@@ -290,16 +367,408 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
   )
 }
 
-/** The changelog and 提交审核 of a listing's latest version (none yet: `listing` null), for a dialog to lay out. */
-function useSubmit(listing: MyListingDto | null, onDone: () => void) {
-  const [changelog, setChangelog] = useState(listing?.latest.changelog ?? '')
+/** Dual-track publish wizard with live store card preview & pre-publish checklist. */
+function PublishWizard({ onDone }: { onDone: () => void }) {
+  const teams = useSession((s) => s.tenancy?.teams) ?? []
+  const [teamId, setTeamId] = useState(teams.find((x) => x.id === storedTeam())?.id ?? teams[0]?.id ?? '')
+  const [visibility, setVisibility] = useState<ListingVisibility>('team')
+  const [track, setTrack] = useState<PublishTrack>('light')
+  const [rawPaste, setRawPaste] = useState(false)
+
+  // Track 1: Guided light plugin fields
+  const [title, setTitle] = useState('')
+  const [scene, setScene] = useState<MarketScene>('office')
+  const [description, setDescription] = useState('')
+  const [example, setExample] = useState('')
+  const [body, setBody] = useState('')
+  const [rawMd, setRawMd] = useState('')
+
+  // Track 2: Package / GitHub
+  const [pkgSource, setPkgSource] = useState<PackageSource>('folder')
+  const [files, setFiles] = useState<SkillFile[] | null>(null)
+  const [url, setUrl] = useState('')
+  const [changelog, setChangelog] = useState('')
+  const [busy, setBusy] = useState<'draft' | 'submit' | null>(null)
+  const [error, setError] = useState('')
+
+  const folder = useRef<HTMLInputElement>(null)
+  const zip = useRef<HTMLInputElement>(null)
+  const readSeq = useRef(0)
+
+  const readFiles = async (load: Promise<SkillFile[]>) => {
+    const mine = ++readSeq.current
+    try {
+      const next = await load
+      if (mine !== readSeq.current) return
+      setFiles(next.length ? next : null)
+      setError(next.length ? '' : t('没有读到文件'))
+    } catch (e) {
+      if (mine !== readSeq.current) return
+      setFiles(null)
+      setError(t('无法读取：{e}', { e: errorText(e) }))
+    }
+  }
+
+  const lightMd = rawPaste ? rawMd.trim() : buildGuidedSkillMd({ title, description, scene, example, body })
+  const upload: SkillFile[] | null =
+    track === 'light'
+      ? lightMd
+        ? [{ path: 'SKILL.md', content: lightMd, encoding: 'utf8' }]
+        : null
+      : pkgSource === 'github'
+        ? null
+        : files
+
+  const check = usePreflight(teamId, visibility, upload)
+  const isGithub = track === 'package' && pkgSource === 'github'
+  const ready = !!teamId && (isGithub ? !!url.trim() : !!check.result && check.result.kind !== 'unchanged')
+
+  const save = async (andSubmit: boolean) => {
+    if (busy || !ready) return
+    setBusy(andSubmit ? 'submit' : 'draft')
+    setError('')
+    try {
+      const saved = isGithub
+        ? await api.post<PublishRes>('/market/import/github', { teamId, visibility, url: url.trim() })
+        : await api.post<PublishRes>('/market', { teamId, visibility, files: upload })
+
+      if (andSubmit && !saved.unchanged && saved.listing.latest.reviewStatus === 'draft') {
+        await api.post(`/market/${saved.listing.id}/versions/${saved.listing.latest.id}/submit`, {
+          changelog: changelog.trim(),
+        })
+        toast({
+          type: 'success',
+          message: t('已保存并提交审核「{name}」', { name: saved.listing.title }),
+        })
+      } else if (saved.unchanged) {
+        toast({
+          type: 'info',
+          message: t('和最新上传的 r{n} 完全一样，没有生成新版本', { n: saved.listing.latest.revision }),
+        })
+      } else {
+        toast({
+          type: 'success',
+          message: t('已保存「{name}」草稿 r{n}', {
+            name: saved.listing.title,
+            n: saved.listing.latest.revision,
+          }),
+        })
+      }
+      onDone()
+    } catch (e) {
+      setError(errorText(e))
+      setBusy(null)
+    }
+  }
+
+  const teamName = teams.find((x) => x.id === teamId)?.name ?? t('本团队')
+  const previewTitle = check.result?.title || title.trim() || t('未命名插件')
+  const previewDesc =
+    check.result?.description || description.trim() || t('填写一句话简介，让同事一眼看懂它能帮什么忙。')
+  const hasGoodMeta = Boolean(
+    (check.result?.title || title.trim()) && (check.result?.description || description.trim()),
+  )
+  const hasWarnings = (check.result?.warnings.length ?? 0) > 0
+
+  return (
+    <div className="mkt-create-grid">
+      <div className="mkt-create-panel">
+        {error ? <Alert variant="error" title={error} /> : null}
+
+        <div className="mkt-tracks" role="radiogroup" aria-label={t('发布方式')}>
+          <label className={`mkt-track${track === 'light' ? ' mkt-track--on' : ''}`}>
+            <input
+              type="radio"
+              name="mkt-publish-track"
+              checked={track === 'light'}
+              disabled={!!busy}
+              onChange={() => {
+                setTrack('light')
+                setError('')
+              }}
+            />
+            <strong className="mkt-row__name">{t('轻量能力（粘贴即可）')}</strong>
+            <p className="mkt-track__desc">{t('把工作规范、写作模板或审查要点写成说明，1 分钟发布。')}</p>
+          </label>
+          <label className={`mkt-track${track === 'package' ? ' mkt-track--on' : ''}`}>
+            <input
+              type="radio"
+              name="mkt-publish-track"
+              checked={track === 'package'}
+              disabled={!!busy}
+              onChange={() => {
+                setTrack('package')
+                setError('')
+              }}
+            />
+            <strong className="mkt-row__name">{t('完整插件包 / GitHub')}</strong>
+            <p className="mkt-track__desc">{t('上传含外部服务、快捷指令或创作模板的目录、ZIP 或仓库。')}</p>
+          </label>
+        </div>
+
+        {track === 'light' ? (
+          <>
+            <div className="mkt-section-head">
+              <span className="cfg__eyebrow">{rawPaste ? t('粘贴说明原文') : t('插件说明')}</span>
+              <span className="spacer" />
+              <Button size="small" variant="plain" onClick={() => setRawPaste((v) => !v)}>
+                {rawPaste ? t('切回表单填写') : t('直接粘贴原文')}
+              </Button>
+            </div>
+            {rawPaste ? (
+              <TextArea
+                aria-label={t('插件说明原文')}
+                placeholder={'---\nname: my-plugin\ndescription: …\n---\n'}
+                rows={10}
+                disabled={!!busy}
+                value={rawMd}
+                onChange={(e) => setRawMd(e.target.value)}
+              />
+            ) : (
+              <>
+                <div className="mkt-row2">
+                  <TextField
+                    label={t('插件名称')}
+                    placeholder={t('例如：合同风险初审')}
+                    disabled={!!busy}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                  <div className="ui-field">
+                    <span className="ui-field__label">{t('场景分类')}</span>
+                    <PopUpButton<MarketScene>
+                      aria-label={t('场景分类')}
+                      value={scene}
+                      disabled={!!busy}
+                      onChange={setScene}
+                      options={SCENES.map((s) => ({ value: s.id, label: s.label }))}
+                    />
+                  </div>
+                </div>
+                <TextField
+                  label={t('一句话简介（展示在市场卡片）')}
+                  placeholder={t('例如：上传采购或合作协议，按法务清单标出付款与违约风险。')}
+                  disabled={!!busy}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <TextField
+                  label={t('试试这样问（选填，让同事一看就会用）')}
+                  placeholder={t('例如：帮我按公司标准审一下这份供应商合同的违约条款')}
+                  disabled={!!busy}
+                  value={example}
+                  onChange={(e) => setExample(e.target.value)}
+                />
+                <TextArea
+                  label={t('具体规则与工作步骤')}
+                  placeholder={t('告诉 Bot 遇到什么问题该按哪些步骤做、输出什么格式…')}
+                  rows={6}
+                  disabled={!!busy}
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                />
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <SegmentedControl<PackageSource>
+              aria-label={t('来源')}
+              value={pkgSource}
+              onChange={(s) => {
+                readSeq.current++
+                setPkgSource(s)
+                setFiles(null)
+                setError('')
+              }}
+              items={[
+                { value: 'folder', label: t('文件夹'), disabled: !!busy },
+                { value: 'zip', label: 'ZIP', disabled: !!busy },
+                { value: 'github', label: t('GitHub 链接'), disabled: !!busy },
+              ]}
+            />
+            {pkgSource === 'folder' ? (
+              <div className="mkt-upload-zone">
+                <Icon name="upload" size={20} />
+                <div className="mkt-source">
+                  <Button size="small" disabled={!!busy} onClick={() => folder.current?.click()}>
+                    {t('选择文件夹…')}
+                  </Button>
+                  <FolderInput inputRef={folder} onFiles={(fs) => void readFiles(folderSkillFiles(fs))} />
+                  {files ? <span>{t('已读取 {n} 个文件', { n: files.length })}</span> : null}
+                </div>
+                <span className="mkt-row__meta">
+                  {t('支持选择包含插件清单或说明文件的目录；同团队同名即发布新版本。')}
+                </span>
+              </div>
+            ) : pkgSource === 'zip' ? (
+              <div className="mkt-upload-zone">
+                <Icon name="upload" size={20} />
+                <div className="mkt-source">
+                  <Button size="small" disabled={!!busy} onClick={() => zip.current?.click()}>
+                    {t('选择 zip…')}
+                  </Button>
+                  <input
+                    ref={zip}
+                    type="file"
+                    accept=".zip,application/zip"
+                    hidden
+                    aria-label={t('导入 zip')}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void readFiles(zipSkillFiles(f))
+                      e.target.value = ''
+                    }}
+                  />
+                  {files ? <span>{t('已读取 {n} 个文件', { n: files.length })}</span> : null}
+                </div>
+                <span className="mkt-row__meta">
+                  {t('上传打包好的 ZIP 压缩包；同团队同名即发布新版本。')}
+                </span>
+              </div>
+            ) : (
+              <TextField
+                label={t('GitHub 链接')}
+                placeholder="https://github.com/<owner>/<repo>/tree/<ref>/<path>"
+                disabled={!!busy}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+            )}
+          </>
+        )}
+
+        {teams.length > 1 ? (
+          <div>
+            <div className="cfg__eyebrow">{t('归属团队')}</div>
+            <RadioGroup
+              aria-label={t('团队')}
+              direction="row"
+              disabled={!!busy}
+              value={teamId}
+              onChange={setTeamId}
+              options={teams.map((x) => ({ value: x.id, label: x.name }))}
+            />
+          </div>
+        ) : null}
+
+        <div>
+          <div className="cfg__eyebrow">{t('可见范围')}</div>
+          <RadioGroup<ListingVisibility>
+            aria-label={t('可见范围')}
+            direction="row"
+            disabled={!!busy}
+            value={visibility}
+            onChange={setVisibility}
+            options={[
+              { value: 'team', label: t('仅本团队（团队管理员审核）') },
+              { value: 'public', label: t('公开到全平台（系统管理员审核）') },
+            ]}
+          />
+        </div>
+
+        <TextField
+          label={t('更新说明（选填）')}
+          placeholder={t('这个版本改了什么，审核人和同事都会看到')}
+          disabled={!!busy}
+          value={changelog}
+          onChange={(e) => setChangelog(e.target.value)}
+        />
+
+        {check.error ? (
+          <Alert variant="error" title={check.error} retrying={check.loading} onRetry={check.retry} />
+        ) : null}
+        {check.result ? <Preflight result={check.result} visibility={visibility} /> : null}
+
+        <div className="mkt-create-foot">
+          <Button disabled={!ready || !!busy} loading={busy === 'draft'} onClick={() => void save(false)}>
+            {t('存为草稿')}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!ready || !!busy}
+            loading={busy === 'submit'}
+            onClick={() => void save(true)}
+          >
+            {t('保存并提交审核')}
+          </Button>
+        </div>
+      </div>
+
+      <aside className="mkt-preview-box" aria-label={t('商店卡片预览')}>
+        <div className="mkt-preview-box__h">{t('上架后在市场里的样子')}</div>
+        <article className="mkt-pcard">
+          <div className="mkt-pcard__top">
+            <ListingIcon type={check.result?.type ?? 'skill'} size={38} />
+            <div className="mkt-pcard__who">
+              <strong className="mkt-row__name">{previewTitle}</strong>
+              <span className="mkt-pcard__src mkt-pcard__src--team">
+                <Icon name="person-2" size={12} />
+                {visibility === 'public' ? t('公开社区') : `${t('本团队')} · ${teamName}`}
+              </span>
+            </div>
+          </div>
+          <p className="mkt-pcard__desc">{previewDesc}</p>
+          <CapabilityChips capabilities={['do']} readiness="ready" />
+        </article>
+
+        <div className="mkt-preview-box__h">{t('上架前自动体检')}</div>
+        <ul className="mkt-check-list">
+          <li>
+            <span className={hasGoodMeta ? 'mkt-check-list__ok' : 'mkt-check-list__warn'}>
+              <Icon name={hasGoodMeta ? 'check' : 'info'} size={14} />
+            </span>
+            <span>{t('清晰的中文名称与一句话简介')}</span>
+          </li>
+          <li>
+            <span className={example.trim() ? 'mkt-check-list__ok' : 'mkt-check-list__warn'}>
+              <Icon name={example.trim() ? 'check' : 'info'} size={14} />
+            </span>
+            <span>
+              {example.trim() ? t('已提供「试试这样问」示例') : t('建议补充 1 条「试试这样问」示例')}
+            </span>
+          </li>
+          <li>
+            <span className={hasWarnings ? 'mkt-check-list__warn' : 'mkt-check-list__ok'}>
+              <Icon name={hasWarnings ? 'warning' : 'check'} size={14} />
+            </span>
+            <span>
+              {hasWarnings ? t('检测到潜在密钥或本机路径，请核查') : t('未检测到硬编码密钥或本机绝对路径')}
+            </span>
+          </li>
+          <li>
+            <span className="mkt-check-list__ok">
+              <Icon name="shield-check" size={14} />
+            </span>
+            <span>
+              {check.result?.type === 'plugin'
+                ? t('完整插件包，将按权限自动检查')
+                : t('纯说明型插件，无需电脑运行授权')}
+            </span>
+          </li>
+        </ul>
+      </aside>
+    </div>
+  )
+}
+
+function SubmitDialog({
+  listing,
+  onClose,
+  onDone,
+}: {
+  listing: MyListingDto
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [changelog, setChangelog] = useState(listing.latest.changelog ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const versionId = listing?.latest.id
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new version starts from its own changelog
-  useEffect(() => setChangelog(listing?.latest.changelog ?? ''), [versionId])
+  const close = () => {
+    if (!busy) onClose()
+  }
   const submit = async () => {
-    if (busy || !listing) return
+    if (busy) return
     setBusy(true)
     setError('')
     try {
@@ -313,8 +782,24 @@ function useSubmit(listing: MyListingDto | null, onDone: () => void) {
       setBusy(false)
     }
   }
-  const body = (
-    <>
+  return (
+    <Dialog
+      open
+      title={t('提交审核 {name}', { name: listing.title })}
+      width={480}
+      closeOnScrim={false}
+      onClose={close}
+      actions={[
+        { label: t('取消'), disabled: busy, onClick: close },
+        {
+          label: t('提交审核'),
+          variant: 'primary',
+          disabled: busy,
+          loading: busy,
+          onClick: () => void submit(),
+        },
+      ]}
+    >
       {error ? <Alert variant="error" title={error} /> : null}
       <TextArea
         label={t('更新说明')}
@@ -325,272 +810,13 @@ function useSubmit(listing: MyListingDto | null, onDone: () => void) {
         value={changelog}
         onChange={(e) => setChangelog(e.target.value)}
       />
-    </>
-  )
-  const action = {
-    label: t('提交审核'),
-    variant: 'primary' as const,
-    disabled: busy,
-    loading: busy,
-    onClick: () => void submit(),
-  }
-  return { busy, body, action }
-}
-
-function SubmitDialog({
-  listing,
-  onClose,
-  onDone,
-}: {
-  listing: MyListingDto
-  onClose: () => void
-  onDone: () => void
-}) {
-  const form = useSubmit(listing, onDone)
-  const close = form.busy ? () => {} : onClose
-  return (
-    <Dialog
-      open
-      title={t('提交审核 {name}', { name: listing.title })}
-      width={480}
-      closeOnScrim={false}
-      onClose={close}
-      actions={[{ label: t('取消'), disabled: form.busy, onClick: close }, form.action]}
-    >
-      {form.body}
     </Dialog>
   )
 }
 
-type Source = 'folder' | 'zip' | 'paste' | 'github'
-
-/** 发布到市场: pick a team and visibility, read the files from one of four sources, save a draft, then submit it. */
-function PublishDialog({ onClose }: { onClose: () => void }) {
-  const teams = useSession((s) => s.tenancy?.teams) ?? []
-  const [teamId, setTeamId] = useState(teams.find((x) => x.id === storedTeam())?.id ?? teams[0]?.id ?? '')
-  const [visibility, setVisibility] = useState<ListingVisibility>('team')
-  const [source, setSource] = useState<Source>('folder')
-  const [files, setFiles] = useState<SkillFile[] | null>(null)
-  const [skillMd, setSkillMd] = useState('')
-  const [url, setUrl] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [saved, setSaved] = useState<PublishRes | null>(null)
-  const folder = useRef<HTMLInputElement>(null)
-  const zip = useRef<HTMLInputElement>(null)
-  // A slow read that a newer pick or a source switch superseded must not land.
-  const readSeq = useRef(0)
-  const submitting = useSubmit(
-    saved &&
-      (saved.listing.latest.reviewStatus === 'draft' || saved.listing.latest.reviewStatus === 'rejected')
-      ? saved.listing
-      : null,
-    onClose,
-  )
-  const locked = busy || submitting.busy
-  const close = () => {
-    if (!locked) onClose()
-  }
-
-  const read = async (load: Promise<SkillFile[]>) => {
-    const mine = ++readSeq.current
-    try {
-      const next = await load
-      if (mine !== readSeq.current) return
-      setFiles(next.length ? next : null)
-      setError(next.length ? '' : t('没有读到文件'))
-    } catch (e) {
-      if (mine !== readSeq.current) return
-      setFiles(null)
-      setError(t('无法读取：{e}', { e: errorText(e) }))
-    }
-  }
-  const pasted: SkillFile[] | null = skillMd.trim()
-    ? [{ path: 'SKILL.md', content: skillMd, encoding: 'utf8' }]
-    : null
-  const upload = source === 'paste' ? pasted : source === 'github' ? null : files
-  const check = usePreflight(teamId, visibility, upload)
-  const ready =
-    !!teamId && (source === 'github' ? !!url.trim() : !!check.result && check.result.kind !== 'unchanged')
-  const save = async () => {
-    if (busy) return
-    setBusy(true)
-    setError('')
-    try {
-      setSaved(
-        source === 'github'
-          ? await api.post<PublishRes>('/market/import/github', { teamId, visibility, url: url.trim() })
-          : await api.post<PublishRes>('/market', { teamId, visibility, files: upload }),
-      )
-    } catch (e) {
-      setError(errorText(e))
-    }
-    setBusy(false)
-  }
-
-  return (
-    <Dialog
-      open
-      title={t('发布到市场')}
-      width={600}
-      closeOnScrim={false}
-      onClose={locked ? () => {} : onClose}
-      actions={
-        saved
-          ? saved.listing.latest.reviewStatus === 'draft' || saved.listing.latest.reviewStatus === 'rejected'
-            ? [{ label: t('稍后提交'), disabled: locked, onClick: close }, submitting.action]
-            : [{ label: t('关闭'), onClick: close }]
-          : [
-              { label: t('取消'), disabled: busy, onClick: close },
-              {
-                label: t('保存草稿'),
-                variant: 'primary',
-                disabled: !ready || busy,
-                loading: busy,
-                onClick: () => void save(),
-              },
-            ]
-      }
-    >
-      {error ? <Alert variant="error" title={error} /> : null}
-      {saved ? (
-        <>
-          {saved.unchanged ? (
-            <Alert
-              variant="info"
-              title={t('和最新上传的 r{n} 完全一样，没有生成新版本', { n: saved.listing.latest.revision })}
-            />
-          ) : (
-            <Alert
-              variant="success"
-              title={t('已保存「{name}」草稿 r{n}', {
-                name: saved.listing.title,
-                n: saved.listing.latest.revision,
-              })}
-            />
-          )}
-          <Warnings items={saved.warnings} />
-          {saved.listing.latest.reviewStatus === 'draft' || saved.listing.latest.reviewStatus === 'rejected'
-            ? submitting.body
-            : null}
-        </>
-      ) : (
-        <>
-          {teams.length > 1 ? (
-            <>
-              <div className="cfg__eyebrow">{t('团队')}</div>
-              <RadioGroup
-                aria-label={t('团队')}
-                direction="row"
-                disabled={busy}
-                value={teamId}
-                onChange={setTeamId}
-                options={teams.map((x) => ({ value: x.id, label: x.name }))}
-              />
-            </>
-          ) : null}
-          <div className="cfg__eyebrow">{t('可见范围')}</div>
-          <RadioGroup<ListingVisibility>
-            aria-label={t('可见范围')}
-            direction="row"
-            disabled={busy}
-            value={visibility}
-            onChange={setVisibility}
-            options={[
-              { value: 'team', label: t('仅本团队') },
-              { value: 'public', label: t('公开') },
-            ]}
-          />
-          <div className="gs-note">
-            {visibility === 'public' ? t('公开条目由系统管理员审核。') : t('仅本团队条目由团队管理员审核。')}
-          </div>
-          <div className="cfg__eyebrow">{t('来源')}</div>
-          <SegmentedControl<Source>
-            aria-label={t('来源')}
-            value={source}
-            onChange={(s) => {
-              readSeq.current++
-              setSource(s)
-              setFiles(null)
-              setError('')
-            }}
-            items={(
-              [
-                ['folder', t('文件夹')],
-                ['zip', 'ZIP'],
-                ['paste', t('粘贴 SKILL.md')],
-                ['github', t('GitHub 链接')],
-              ] as const
-            ).map(([value, label]) => ({ value, label, disabled: busy }))}
-          />
-          {source === 'folder' ? (
-            <div className="mkt-source">
-              <Button size="small" disabled={busy} onClick={() => folder.current?.click()}>
-                {t('选择文件夹…')}
-              </Button>
-              <FolderInput inputRef={folder} onFiles={(fs) => void read(folderSkillFiles(fs))} />
-              {files ? <span className="gs-note">{t('已读取 {n} 个文件', { n: files.length })}</span> : null}
-            </div>
-          ) : source === 'zip' ? (
-            <div className="mkt-source">
-              <Button size="small" disabled={busy} onClick={() => zip.current?.click()}>
-                {t('选择 zip…')}
-              </Button>
-              <input
-                ref={zip}
-                type="file"
-                accept=".zip,application/zip"
-                hidden
-                aria-label={t('导入 zip')}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) void read(zipSkillFiles(f))
-                  e.target.value = ''
-                }}
-              />
-              {files ? <span className="gs-note">{t('已读取 {n} 个文件', { n: files.length })}</span> : null}
-            </div>
-          ) : source === 'paste' ? (
-            <TextArea
-              aria-label="SKILL.md"
-              placeholder={'---\nname: my-skill\ndescription: …\n---\n'}
-              rows={10}
-              disabled={busy}
-              value={skillMd}
-              onChange={(e) => setSkillMd(e.target.value)}
-            />
-          ) : (
-            <TextField
-              aria-label={t('GitHub 链接')}
-              placeholder="https://github.com/<owner>/<repo>/tree/<ref>/<path>"
-              disabled={busy}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-          )}
-          <div className="gs-note">
-            {t(
-              '文件夹或 ZIP 的根目录要有 SKILL.md（Skill）或 gonggong-plugin.json（插件）；同团队同名即发布新版本。',
-            )}
-          </div>
-          {check.error ? (
-            <Alert variant="error" title={check.error} retrying={check.loading} onRetry={check.retry} />
-          ) : null}
-          {check.result ? <Preflight result={check.result} visibility={visibility} /> : null}
-        </>
-      )}
-    </Dialog>
-  )
-}
-
-/** POST /market/preflight for the files as they are picked or typed; null while there is nothing to check. */
 function usePreflight(teamId: string, visibility: ListingVisibility, files: SkillFile[] | null) {
   const [state, setState] = useState<{ result: PublishPreflightRes | null; error: string; loading: boolean }>(
-    {
-      result: null,
-      error: '',
-      loading: false,
-    },
+    { result: null, error: '', loading: false },
   )
   const [tick, setTick] = useState(0)
   const retried = useRef(false)
@@ -602,7 +828,6 @@ function usePreflight(teamId: string, visibility: ListingVisibility, files: Skil
     setState((s) => ({ result: null, error: retry ? s.error : '', loading: !!body }))
     if (!body) return
     let live = true
-    // Typing in 粘贴 SKILL.md settles before it asks; a retry asks at once.
     const id = setTimeout(
       () => {
         api.post<PublishPreflightRes>('/market/preflight', JSON.parse(body)).then(
@@ -626,7 +851,6 @@ function usePreflight(teamId: string, visibility: ListingVisibility, files: Skil
   }
 }
 
-/** What saving the picked files will do, before saving them. */
 function Preflight({
   result: r,
   visibility,
@@ -634,14 +858,13 @@ function Preflight({
   result: PublishPreflightRes
   visibility: ListingVisibility
 }) {
-  const what = TYPE_LABEL[r.type]
   return (
     <>
       <Alert
         variant={r.kind === 'unchanged' ? 'warning' : 'info'}
         title={
           r.kind === 'new'
-            ? t('将新建 {type}「{name}」，保存为草稿 r{n}', { type: what, name: r.title, n: r.revision })
+            ? t('将新建插件「{name}」，保存为草稿 r{n}', { name: r.title, n: r.revision })
             : r.kind === 'version'
               ? t('你已发布过「{name}」，将保存为新版本 r{n}', { name: r.title, n: r.revision })
               : t('和最新上传的 r{n} 完全一样，不会生成新版本', { n: r.revision })
@@ -654,23 +877,19 @@ function Preflight({
           </p>
         ) : null}
       </Alert>
-      <Warnings items={r.warnings} />
+      {r.warnings.length ? (
+        <Alert
+          variant="warning"
+          title={t('请确认没有泄露密钥或本机路径')}
+          description={
+            <ul className="mkt-warnings">
+              {r.warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          }
+        />
+      ) : null}
     </>
   )
-}
-
-function Warnings({ items }: { items: string[] }) {
-  return items.length ? (
-    <Alert
-      variant="warning"
-      title={t('请确认没有泄露密钥或本机路径')}
-      description={
-        <ul className="mkt-warnings">
-          {items.map((w) => (
-            <li key={w}>{w}</li>
-          ))}
-        </ul>
-      }
-    />
-  ) : null
 }

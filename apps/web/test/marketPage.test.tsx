@@ -1,8 +1,10 @@
 import type {
   GroupDto,
   InstallRequestDto,
+  MarketInstalledDto,
   MarketListingDetailDto,
   MarketListingDto,
+  MarketReadinessDto,
   MyListingDto,
   PublishPreflightRes,
   PublishRes,
@@ -13,19 +15,21 @@ import type {
   VersionDiffDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRail } from '../src/app/AppRail'
 import { AppShell } from '../src/app/AppShell'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { draftKey } from '../src/features/chat/MessageComposer'
 import { MarketPage } from '../src/features/market/MarketPage'
+import type { MarketListingView } from '../src/features/market/meta'
 import { MarketReviewList } from '../src/features/market/ReviewList'
 import { useToasts } from '../src/ui'
 import { apiError, mockApi } from './mockApi'
 
 const me = { id: 'u1', name: '姜维川', role: 'member' } as UserDto
-const team = (o: Partial<TeamDto>): TeamDto => ({
+const team = (o: Partial<TeamDto> = {}): TeamDto => ({
   id: 't1',
   name: '支付组',
   avatar: null,
@@ -35,7 +39,7 @@ const team = (o: Partial<TeamDto>): TeamDto => ({
   unread: 0,
   ...o,
 })
-const TEAMS = [team({}), team({ id: 't2', name: '运营组', role: 'member' })]
+const TEAMS = [team(), team({ id: 't2', name: '运营组', role: 'member' })]
 const group = (id: string, name: string, admin: boolean) =>
   ({
     id,
@@ -45,11 +49,11 @@ const group = (id: string, name: string, admin: boolean) =>
     members: [{ userId: 'u1', name: '姜维川', avatar: null, isAdmin: admin }],
   }) as unknown as GroupDto
 
-const listing = (o: Partial<MarketListingDto> = {}): MarketListingDto => ({
+const listing = (o: Partial<MarketListingView> = {}): MarketListingView => ({
   id: 'l1',
   type: 'skill',
   name: 'review-pr',
-  title: 'review-pr',
+  title: '代码评审助手',
   description: '按团队规范审查 diff',
   layer: 'team',
   status: 'listed',
@@ -64,10 +68,15 @@ const listing = (o: Partial<MarketListingDto> = {}): MarketListingDto => ({
   listedVersionId: 'pv3',
   listedRevision: 3,
   installs: 12,
+  scene: 'dev',
+  capabilities: ['do'],
+  readiness: 'ready',
+  teamGroupsCount: 4,
   updatedAt: '2026-11-01T00:00:00Z',
   ...o,
 })
-const LISTINGS = [
+
+const LISTINGS: MarketListingView[] = [
   listing(),
   listing({
     id: 'l2',
@@ -82,14 +91,42 @@ const LISTINGS = [
     author: null,
     agents: ['claude'],
     installs: 40,
+    teamGroupsCount: 10,
     icon: 'assets/icon.svg',
+    category: 'deck',
+    scene: 'create',
+    capabilities: ['create'],
+    readiness: 'ready',
+    featured: true,
+    updatedAt: '2026-11-05T00:00:00Z',
+  }),
+  listing({
+    id: 'l3',
+    type: 'plugin',
+    name: 'feishu',
+    title: '飞书协同',
+    description: '查云文档、约日程、发任务',
+    source: 'official',
+    layer: 'platform',
+    teamId: null,
+    teamName: null,
+    author: null,
+    installs: 28,
+    teamGroupsCount: 7,
+    category: 'connector',
+    scene: 'connect',
+    capabilities: ['connect', 'do'],
+    readiness: 'needs-account',
+    featured: true,
+    updatedAt: '2026-11-04T00:00:00Z',
   }),
 ]
+
 const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto => ({
   ...listing(),
-  readme: '# 审查 PR\n\n按规范逐条检查。',
+  readme: '---\nname: review-pr\ndescription: 审查\n---\n\n# 审查规范\n\n按规范逐条检查。',
   permissions: [],
-  mcp: [],
+  mcp: [{ name: 'git', transport: 'http', url: 'https://git.example.com/mcp', headers: {} }],
   secretSpecs: [],
   files: [
     { path: 'SKILL.md', size: 320 },
@@ -120,391 +157,37 @@ const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto
   ...o,
 })
 
-function Where() {
-  const l = useLocation()
-  return <div data-testid="where">{l.pathname}</div>
+const emptyInstalled: MarketInstalledDto = {
+  todoCount: 0,
+  pendingUpdates: 0,
+  mine: [],
+  groups: [],
+  team: [],
 }
 
-const renderPage = (url = '/market') =>
-  render(
-    <MemoryRouter initialEntries={[url]}>
-      <MarketPage />
-    </MemoryRouter>,
-  )
-
-beforeEach(() => {
-  localStorage.setItem('gg.locale', 'zh')
-  useSession.setState({
-    user: me,
-    status: 'ready',
-    tenancy: {
-      teams: TEAMS,
-      singleTeamMode: false,
-      canCreateTeam: true,
-      demoMode: false,
-      pluginsEnabled: true,
-    },
-  })
-  useWorkspace.setState({
-    notifCount: 0,
-    groups: [group('g1', '支付核心群', true), group('g2', '闲聊群', false)],
-  })
-  useToasts.setState({ items: [] })
-})
-afterEach(() => vi.unstubAllGlobals())
-
-describe('市场 in the app rail', () => {
-  it('opens the market page', async () => {
-    mockApi({ 'GET /works/groups': [], 'GET /works': [] })
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="*" element={<AppRail />} />
-          </Route>
-        </Routes>
-        <Where />
-      </MemoryRouter>,
-    )
-    fireEvent.click(screen.getByRole('button', { name: '市场' }))
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market'))
-  })
-})
-
-describe('市场 page', () => {
-  it('lists listings as cards and filters by search, shelf and source', async () => {
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market?q=review': [LISTINGS[0]],
-      'GET /market?shelf=creation': [LISTINGS[1]],
-      'GET /market?shelf=creation&source=official': [LISTINGS[1]],
-      'GET /market?shelf=agent': [],
-      'GET /market?type=skill': [LISTINGS[0]],
-    })
-    renderPage()
-    const grid = await screen.findByRole('list', { name: '市场' })
-    const card = within(grid).getByText('review-pr').closest('li') as HTMLElement
-    expect(card.textContent).toContain('Skill')
-    expect(card.textContent).toContain('陈晨 · 支付组')
-    expect(card.textContent).toContain('按团队规范审查 diff')
-    expect(card.textContent).toContain('claude')
-    expect(card.textContent).toContain('codex')
-    expect(card.textContent).toContain('12 次引入')
-    const slides = within(grid).getByText('幻灯片').closest('li') as HTMLElement
-    expect(slides.textContent).toContain('官方')
-    // A plugin's own icon, read from the version shown; a Skill keeps its glyph.
-    expect(slides.querySelector('img.mkt-icon')?.getAttribute('src')).toBe(
-      `/api/market/l2/files/raw?path=assets%2Ficon.svg&versionId=${LISTINGS[1]!.versionId}`,
-    )
-    expect(card.querySelector('img')).toBeNull()
-
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索市场' }), { target: { value: 'review' } })
-    await waitFor(() => expect(calls.some((c) => c.path === '/market?q=review')).toBe(true))
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索市场' }), { target: { value: '' } })
-    const types = within(screen.getByRole('radiogroup', { name: '类型' }))
-    expect(types.getAllByRole('radio').map((r) => r.textContent)).toEqual([
-      '全部',
-      'Skill',
-      '创作',
-      '工具',
-      'Agent',
-      '供应商预设',
-      '连接器',
-    ])
-    fireEvent.click(types.getByRole('radio', { name: 'Skill' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/market?type=skill')).toBe(true))
-    fireEvent.click(types.getByRole('radio', { name: 'Agent' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/market?shelf=agent')).toBe(true))
-    fireEvent.click(types.getByRole('radio', { name: '创作' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/market?shelf=creation')).toBe(true))
-    fireEvent.click(
-      within(screen.getByRole('radiogroup', { name: '来源' })).getByRole('radio', { name: '官方' }),
-    )
-    await waitFor(() =>
-      expect(calls.some((c) => c.path === '/market?shelf=creation&source=official')).toBe(true),
-    )
-  })
-
-  it('opens a listing: readme, files, version history with changelogs and the GitHub source', async () => {
-    mockApi({ 'GET /market': LISTINGS, 'GET /market/l1': detail() })
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
-    expect(within(drawer).getByRole('treeitem', { name: /run\.sh/ })).toBeTruthy()
-    expect(within(drawer).getByText('支持 monorepo')).toBeTruthy()
-    expect(within(drawer).getByText('首个版本')).toBeTruthy()
-    expect(within(drawer).getByText('待审核')).toBeTruthy()
-    expect(within(drawer).getByText('已通过')).toBeTruthy()
-    const gh = within(drawer).getByRole('link', { name: /github\.com\/acme\/skills/ })
-    expect(gh.getAttribute('href')).toBe('https://github.com/acme/skills')
-    expect(within(drawer).getByText(/abc1234/)).toBeTruthy()
-  })
-
-  it('shows its files as a tree and opens one beside it', async () => {
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /market/l1/files/text?path=scripts%2Frun.sh&versionId=pv4': {
-        path: 'scripts/run.sh',
-        size: 10,
-        binary: false,
-        mime: 'application/x-sh',
-        text: 'echo hello',
-      },
-    })
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    const tree = await within(drawer).findByRole('tree', { name: '文件' })
-    expect(
-      within(tree)
-        .getAllByRole('treeitem')
-        .map((x) => x.textContent),
-    ).toEqual([
-      expect.stringContaining('scripts'),
-      expect.stringContaining('run.sh'),
-      expect.stringContaining('SKILL.md'),
-    ])
-    fireEvent.click(within(tree).getByRole('treeitem', { name: /run\.sh/ }))
-    expect(await within(drawer).findByText(/echo hello/)).toBeTruthy()
-    expect(calls.some((c) => c.path === '/market/l1/files/text?path=scripts%2Frun.sh&versionId=pv4')).toBe(
-      true,
-    )
-    fireEvent.click(within(tree).getByRole('treeitem', { name: /scripts/ }))
-    expect(within(tree).queryByRole('treeitem', { name: /run\.sh/ })).toBeNull()
-  })
-
-  it("hides SKILL.md's front matter in the readme", async () => {
-    mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail({ readme: '---\nname: review-pr\ndescription: 审查\n---\n\n# 审查 PR\n' }),
-    })
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
-    expect(within(drawer).queryByText(/name: review-pr/)).toBeNull()
-  })
-
-  it("opens on the 连接器 shelf from ?shelf=connector and shows a connector's examples and where to get a key", async () => {
-    const dw = listing({
-      id: 'l3',
-      type: 'plugin',
-      name: 'dw',
-      title: '数仓',
-      description: '查询线上数据',
-      category: 'connector',
-    })
-    const calls = mockApi({
-      'GET /market?shelf=connector': [dw],
-      'GET /market/l3': detail({
-        ...dw,
-        connector: {
-          examples: ['查一下昨天的订单量', '近 7 天新增用户趋势'],
-          docs: 'https://dw.example.com/keys',
-        },
-      }),
-    })
-    renderPage('/market?shelf=connector')
-    const grid = await screen.findByRole('list', { name: '市场' })
-    expect(calls.some((c) => c.path === '/market?shelf=connector')).toBe(true)
-    const shelf = within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', {
-      name: '连接器',
-    })
-    expect(shelf.getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(within(grid).getByRole('button', { name: '查看 数仓' }))
-    const drawer = await screen.findByRole('dialog', { name: '数仓' })
-    const tries = await within(drawer).findByRole('region', { name: '试试这样用' })
-    expect(within(tries).getByText('查一下昨天的订单量')).toBeTruthy()
-    expect(within(tries).getByText('近 7 天新增用户趋势')).toBeTruthy()
-    expect(
-      within(drawer)
-        .getByRole('link', { name: /^如何获取/ })
-        .getAttribute('href'),
-    ).toBe('https://dw.example.com/keys')
-    // Its SKILL.md is for the bot: folded under 技术说明.
-    expect(within(drawer).queryByText('审查 PR')).toBeNull()
-    fireEvent.click(within(drawer).getByRole('button', { name: '技术说明' }))
-    expect(within(drawer).getByText('审查 PR')).toBeTruthy()
-  })
-
-  it('sorts by installs and clears filters from the empty state', async () => {
-    mockApi({ 'GET /market': LISTINGS, 'GET /market?shelf=tool&source=team': [] })
-    renderPage()
-    const grid = await screen.findByRole('list', { name: '市场' })
-    expect(within(grid).getAllByRole('listitem')[0]!.textContent).toContain('review-pr')
-    fireEvent.click(screen.getByRole('button', { name: '排序' }))
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '引入最多' }))
-    expect(within(grid).getAllByRole('listitem')[0]!.textContent).toContain('幻灯片')
-
-    fireEvent.click(
-      within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', { name: '工具' }),
-    )
-    fireEvent.click(
-      within(screen.getByRole('radiogroup', { name: '来源' })).getByRole('radio', { name: '本团队' }),
-    )
-    fireEvent.click(await screen.findByRole('button', { name: '清除筛选' }))
-    expect(await screen.findByRole('list', { name: '市场' })).toBeTruthy()
-  })
-})
-
-describe('引入到… dialog', () => {
-  const repo = { id: 'r1', name: 'core', key: 'git.example.com/pay/core' } as RepoDto
-  const open = async () => {
-    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
-    return screen.findByRole('dialog', { name: '引入「review-pr」' })
-  }
-
-  it('installs into groups and teams I administer and their repos; follows latest or pins the listed version', async () => {
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /teams/t1/repos': [repo],
-      'GET /teams/t2/repos': [],
-      'PUT /groups/g1/installs/l1': {},
-      'PUT /teams/t1/installs/l1': {},
-      'PUT /teams/t1/repos/r1/installs/l1': {},
-    })
-    renderPage()
-    let dialog = await open()
-    expect(within(dialog).getByRole('radio', { name: '支付核心群' })).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/groups/g1/installs/l1')?.body).toEqual({
-        enabled: true,
-        pinVersionId: null,
-      }),
-    )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '引入「review-pr」' })).toBeNull())
-
-    dialog = await open()
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '团队' }),
-    )
-    expect(within(dialog).getByRole('radio', { name: '支付组' })).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付组' }))
-    fireEvent.click(within(dialog).getByRole('radio', { name: '锁定当前版本 r3' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/teams/t1/installs/l1')?.body).toEqual({
-        enabled: true,
-        pinVersionId: 'pv3',
-      }),
-    )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '引入「review-pr」' })).toBeNull())
-
-    dialog = await open()
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '仓库' }),
-    )
-    fireEvent.click(await within(dialog).findByRole('radio', { name: '支付组 / core' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/teams/t1/repos/r1/installs/l1')).toBe(true))
-  })
-
-  it('installs into my personal layer, open to anyone', async () => {
-    useWorkspace.setState({ groups: [] })
-    useSession.setState({
-      tenancy: { ...useSession.getState().tenancy!, teams: [team({ role: 'member' })] },
-    })
-    const calls = mockApi({ 'GET /market': LISTINGS, 'GET /market/l1': detail(), 'PUT /me/installs/l1': {} })
-    renderPage()
-    const dialog = await open()
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-        name: '我的 Skill',
-      }),
-    )
-    fireEvent.click(within(dialog).getByRole('radio', { name: '锁定当前版本 r3' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/me/installs/l1')?.body).toEqual({
-        enabled: true,
-        pinVersionId: 'pv3',
-      }),
-    )
-  })
-
-  it('disables the personal target for a plugin', async () => {
-    mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l2': detail({ id: 'l2', type: 'plugin', name: 'slides', title: '幻灯片' }),
-      'GET /teams/t1/repos': [],
-    })
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: '查看 幻灯片' }))
-    const drawer = await screen.findByRole('dialog', { name: '幻灯片' })
-    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
-    const dialog = await screen.findByRole('dialog', { name: '引入「幻灯片」' })
-    const personal = within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-      name: '我的 Skill',
-    }) as HTMLButtonElement
-    expect(personal.disabled).toBe(true)
-    expect(within(dialog).getByText('插件不能引入到「我的 Skill」')).toBeTruthy()
-  })
-
-  it('blocks targets with a same-named skill or a request already waiting, and says what to do', async () => {
-    mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail({
-        requestedIn: [{ scope: 'group', scopeId: 'g2', requester: '米娅', mine: false }],
-        nameTakenIn: [
-          { scope: 'user', scopeId: 'u1' },
-          { scope: 'group', scopeId: 'g1' },
-        ],
-      }),
-      'GET /teams/t1/repos': [],
-      'GET /teams/t2/repos': [],
-    })
-    renderPage()
-    const dialog = await open()
-    const radio = (name: string) => within(dialog).getByRole('radio', { name }) as HTMLButtonElement
-    expect(radio('支付核心群').disabled).toBe(true)
-    expect(radio('闲聊群').disabled).toBe(true)
-    expect(within(dialog).getByText('同名冲突')).toBeTruthy()
-    expect(within(dialog).getByText('已申请')).toBeTruthy()
-    expect(within(dialog).getByTitle('米娅 已申请，等管理员处理')).toBeTruthy()
-    expect(
-      within(dialog).getByText(
-        '标「同名冲突」的目标里已有同名的 Skill「review-pr」，先在那里的设置中移除它再引入。',
-      ),
-    ).toBeTruthy()
-    expect(within(dialog).getByText(/标「已申请」的目标已有待处理的申请/)).toBeTruthy()
-
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-        name: '我的 Skill',
-      }),
-    )
-    expect(within(dialog).getByText(/「我的 Skill」里已有同名的「review-pr」/)).toBeTruthy()
-    expect((within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('shows the server message on a 409 conflict', async () => {
-    mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /teams/t1/repos': [],
-      'PUT /groups/g1/installs/l1': apiError(409, 'conflict', '同名 Skill 已存在'),
-    })
-    renderPage()
-    const dialog = await open()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    expect(await within(dialog).findByText('同名 Skill 已存在')).toBeTruthy()
-  })
+const readyRes = (o: Partial<MarketReadinessDto> = {}): MarketReadinessDto => ({
+  listingId: 'l1',
+  title: '代码评审助手',
+  versionId: 'pv3',
+  scope: 'group',
+  scopeId: 'g1',
+  targetLabel: '支付核心群',
+  ready: true,
+  pendingSteps: 0,
+  secrets: [],
+  reusedSecrets: [],
+  connector: null,
+  trusts: null,
+  tryPrompts: ['帮我审查一下最近的提交'],
+  ...o,
 })
 
 const mine = (o: Partial<MyListingDto> = {}): MyListingDto => ({
   id: 'l9',
   type: 'skill',
   name: 'deploy-check',
-  title: 'deploy-check',
-  description: '发布前检查',
+  title: '发布前检查',
+  description: '上线前自动核查清单',
   layer: 'team',
   status: 'listed',
   versionId: 'v9',
@@ -526,534 +209,6 @@ const mine = (o: Partial<MyListingDto> = {}): MyListingDto => ({
   ...o,
 })
 
-describe('我的发布', () => {
-  const openMine = async () => {
-    renderPage()
-    fireEvent.click(screen.getByRole('tab', { name: '我的发布' }))
-  }
-
-  it('lists my listings with the latest version status and rejection reason', async () => {
-    mockApi({
-      'GET /market': [],
-      'GET /market/mine': [
-        mine(),
-        mine({
-          id: 'l8',
-          name: 'lint-fix',
-          title: 'lint-fix',
-          listedVersionId: 'v7',
-          latest: { ...mine().latest, id: 'v8', reviewStatus: 'rejected', reviewNote: '缺少使用说明' },
-        }),
-      ],
-    })
-    await openMine()
-    const draft = (await screen.findByText('deploy-check')).closest('.cfg__item') as HTMLElement
-    expect(draft.textContent).toContain('草稿')
-    expect(draft.textContent).toContain('未上架')
-    const rejected = screen.getByText('lint-fix').closest('.cfg__item') as HTMLElement
-    expect(rejected.textContent).toContain('已驳回')
-    expect(rejected.textContent).toContain('驳回原因：缺少使用说明')
-    expect(rejected.textContent).toContain('已上架')
-  })
-
-  it('publishes from a GitHub link, shows warnings, then submits for review with a changelog', async () => {
-    const res: PublishRes = {
-      listing: mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
-      warnings: ['SKILL.md 第 3 行疑似密钥 sk-…'],
-      unchanged: false,
-    }
-    const calls = mockApi({
-      'GET /market': [],
-      'GET /market/mine': [],
-      'POST /market/import/github': res,
-      'POST /market/l9/versions/v9/submit': {},
-    })
-    await openMine()
-    fireEvent.click(await screen.findByRole('button', { name: '发布…' }))
-    const dialog = await screen.findByRole('dialog', { name: '发布到市场' })
-    fireEvent.click(within(dialog).getByRole('radio', { name: '公开' }))
-    fireEvent.click(within(dialog).getByRole('radio', { name: 'GitHub 链接' }))
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'GitHub 链接' }), {
-      target: { value: 'https://github.com/acme/s' },
-    })
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存草稿' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/market/import/github')?.body).toEqual({
-        teamId: 't1',
-        visibility: 'public',
-        url: 'https://github.com/acme/s',
-      }),
-    )
-    expect(await within(dialog).findByText('SKILL.md 第 3 行疑似密钥 sk-…')).toBeTruthy()
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '更新说明' }), { target: { value: '首发' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '提交审核' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/market/l9/versions/v9/submit')?.body).toEqual({
-        changelog: '首发',
-      }),
-    )
-  })
-
-  it('publishes a pasted SKILL.md to a chosen team', async () => {
-    const calls = mockApi({
-      'GET /market': [],
-      'GET /market/mine': [],
-      'POST /market/preflight': pre(),
-      'POST /market': { listing: mine(), warnings: [], unchanged: false },
-    })
-    await openMine()
-    fireEvent.click(await screen.findByRole('button', { name: '发布…' }))
-    const dialog = await screen.findByRole('dialog', { name: '发布到市场' })
-    fireEvent.click(within(dialog).getByRole('radio', { name: '运营组' }))
-    fireEvent.click(within(dialog).getByRole('radio', { name: '粘贴 SKILL.md' }))
-    const text = '---\nname: x\ndescription: y\n---\n正文'
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'SKILL.md' }), { target: { value: text } })
-    await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存草稿' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'POST' && c.path === '/market')?.body).toEqual({
-        teamId: 't2',
-        visibility: 'team',
-        files: [{ path: 'SKILL.md', content: text, encoding: 'utf8' }],
-      }),
-    )
-    expect(await within(dialog).findByRole('button', { name: '提交审核' })).toBeTruthy()
-  })
-
-  const openPublish = async (routes: Record<string, unknown>) => {
-    const calls = mockApi({ 'GET /market': [], 'GET /market/mine': [], ...routes })
-    await openMine()
-    fireEvent.click(await screen.findByRole('button', { name: '发布…' }))
-    const dialog = await screen.findByRole('dialog', { name: '发布到市场' })
-    fireEvent.click(within(dialog).getByRole('radio', { name: '粘贴 SKILL.md' }))
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'SKILL.md' }), {
-      target: { value: '---\nname: deploy-check\ndescription: 发布前检查\n---\n' },
-    })
-    return { calls, dialog }
-  }
-  const pre = (o: Partial<PublishPreflightRes> = {}): PublishPreflightRes => ({
-    type: 'skill',
-    name: 'deploy-check',
-    title: 'deploy-check',
-    description: '发布前检查',
-    kind: 'new',
-    revision: 1,
-    visibility: 'team',
-    warnings: [],
-    ...o,
-  })
-
-  it('preflights the files before saving: what it becomes, its description and warnings', async () => {
-    const { calls, dialog } = await openPublish({
-      'POST /market/preflight': pre({ warnings: ['SKILL.md 可能包含密钥：sk-abc…'] }),
-    })
-    expect(await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')).toBeTruthy()
-    expect(within(dialog).getByText('发布前检查')).toBeTruthy()
-    expect(within(dialog).getByText('SKILL.md 可能包含密钥：sk-abc…')).toBeTruthy()
-    expect(calls.find((c) => c.path === '/market/preflight')?.body).toMatchObject({
-      teamId: 't1',
-      visibility: 'team',
-    })
-    expect(within(dialog).getByRole('button', { name: '保存草稿' })).toHaveProperty('disabled', false)
-  })
-
-  it('preflight: a new version keeps the listing visibility', async () => {
-    const { dialog } = await openPublish({
-      'POST /market/preflight': pre({ kind: 'version', revision: 3, visibility: 'public' }),
-    })
-    expect(await within(dialog).findByText('你已发布过「deploy-check」，将保存为新版本 r3')).toBeTruthy()
-    expect(within(dialog).getByText('可见范围沿用已有条目的「公开」')).toBeTruthy()
-  })
-
-  it('preflight: an unchanged upload cannot be saved', async () => {
-    const { dialog } = await openPublish({
-      'POST /market/preflight': pre({ kind: 'unchanged', revision: 2 }),
-    })
-    expect(await within(dialog).findByText('和最新上传的 r2 完全一样，不会生成新版本')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '保存草稿' })).toHaveProperty('disabled', true)
-  })
-
-  it('preflight: shows why the files cannot be published and blocks saving', async () => {
-    const { dialog } = await openPublish({
-      'POST /market/preflight': apiError(400, 'invalid', 'SKILL.md 缺少 description（最长 1024 个字符）'),
-    })
-    expect(await within(dialog).findByText('SKILL.md 缺少 description（最长 1024 个字符）')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '保存草稿' })).toHaveProperty('disabled', true)
-  })
-
-  it('says a saved upload changed nothing instead of offering to submit it again', async () => {
-    const { dialog } = await openPublish({
-      'POST /market/preflight': pre(),
-      'POST /market': {
-        listing: mine({ latest: { ...mine().latest, reviewStatus: 'pending' } }),
-        warnings: [],
-        unchanged: true,
-      },
-    })
-    await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存草稿' }))
-    expect(await within(dialog).findByText('和最新上传的 r2 完全一样，没有生成新版本')).toBeTruthy()
-    expect(within(dialog).queryByRole('button', { name: '提交审核' })).toBeNull()
-  })
-
-  it('reminds of a moved upstream on the row and syncs it', async () => {
-    const calls = mockApi({
-      'GET /market': [],
-      'GET /market/mine': [
-        mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
-      ],
-      'GET /market/mine/upstream': [{ listingId: 'l9', commit: 'c2abcdef' }],
-      'POST /market/l9/check-upstream': { changed: true, drafted: false, commit: 'c2abcdef' },
-    })
-    await openMine()
-    const row = (await screen.findByText('deploy-check')).closest('.cfg__item') as HTMLElement
-    expect(await within(row).findByText('上游有更新')).toBeTruthy()
-    fireEvent.click(within(row).getByRole('button', { name: '同步上游更新' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/market/l9/check-upstream')).toBe(true))
-    await waitFor(() =>
-      expect(
-        useToasts
-          .getState()
-          .items.some((i) => String(i.message).includes('上游有新提交（c2abcde），但这个目录的文件没有变化')),
-      ).toBe(true),
-    )
-  })
-
-  it('submits a draft, checks upstream, unlists, and locks the visibility once listed', async () => {
-    const gh = mine({
-      listedVersionId: 'v8',
-      ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' },
-    })
-    const calls = mockApi({
-      'GET /market': [],
-      'GET /market/mine': [gh],
-      'POST /market/l9/versions/v9/submit': {},
-      'POST /market/l9/check-upstream': { changed: false, drafted: false, commit: 'c1' },
-      'PATCH /market/l9': {},
-    })
-    await openMine()
-    const row = (await screen.findByText('deploy-check')).closest('.cfg__item') as HTMLElement
-    fireEvent.click(within(row).getByRole('button', { name: '提交审核' }))
-    const dialog = await screen.findByRole('dialog', { name: '提交审核 deploy-check' })
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '更新说明' }), { target: { value: '修复' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '提交审核' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/market/l9/versions/v9/submit')?.body).toEqual({
-        changelog: '修复',
-      }),
-    )
-
-    fireEvent.click(within(row).getByRole('button', { name: '检查上游更新' }))
-    await waitFor(() =>
-      expect(useToasts.getState().items.some((i) => String(i.message).includes('上游没有变化'))).toBe(true),
-    )
-
-    fireEvent.click(within(row).getByRole('button', { name: '下架' }))
-    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
-    const confirm = await screen.findByRole('alertdialog')
-    expect(confirm.textContent).toContain('下架后市场里不再显示这个条目')
-    expect(confirm.textContent).toContain('已引入的地方会保留当前版本并继续使用')
-    fireEvent.click(within(confirm).getByRole('button', { name: '下架' }))
-    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ status: 'unlisted' }))
-    await waitFor(() =>
-      expect(
-        useToasts.getState().items.some((i) => String(i.message).includes('已下架「deploy-check」')),
-      ).toBe(true),
-    )
-    expect(within(row).queryByRole('button', { name: '设为公开' })).toBeNull()
-  })
-
-  it('filters by status and opens a listing from its row', async () => {
-    mockApi({
-      'GET /market': [],
-      'GET /market/mine': [
-        mine(),
-        mine({
-          id: 'l8',
-          name: 'lint-fix',
-          title: 'lint-fix',
-          latest: { ...mine().latest, reviewStatus: 'pending' },
-        }),
-      ],
-      'GET /market/l9': detail({ id: 'l9', title: 'deploy-check' }),
-    })
-    await openMine()
-    await screen.findByText('lint-fix')
-    fireEvent.click(screen.getByRole('radio', { name: '待审核 1' }))
-    expect(screen.queryByText('deploy-check')).toBeNull()
-    fireEvent.click(screen.getByRole('radio', { name: '待处理 1' }))
-    const row = screen.getByText('deploy-check').closest('.cfg__item') as HTMLElement
-    fireEvent.click(within(row).getByRole('button', { name: '详情' }))
-    expect(await screen.findByRole('dialog', { name: 'deploy-check' })).toBeTruthy()
-  })
-
-  it('reports a changed upstream as a new draft', async () => {
-    mockApi({
-      'GET /market': [],
-      'GET /market/mine': [
-        mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
-      ],
-      'POST /market/l9/check-upstream': { changed: true, drafted: true, commit: 'c2abcdef' },
-    })
-    await openMine()
-    fireEvent.click(await screen.findByRole('button', { name: '检查上游更新' }))
-    await waitFor(() =>
-      expect(useToasts.getState().items.some((i) => String(i.message).includes('已生成新草稿'))).toBe(true),
-    )
-  })
-})
-
-describe('审核', () => {
-  const item: ReviewItemDto = {
-    listing: { ...listing(), listedVersionId: null, listedRevision: null },
-    version: detail().versions[0]!,
-  }
-
-  it('approves a pending version after viewing it', async () => {
-    const calls = mockApi({
-      'GET /market/reviews?teamId=t1': [item],
-      'GET /market/l1?versionId=pv4': detail(),
-      'POST /market/l1/versions/pv4/review': {},
-    })
-    render(<MarketReviewList path="/market/reviews?teamId=t1" />)
-    const row = (await screen.findByText('review-pr')).closest('.cfg__item') as HTMLElement
-    expect(row.textContent).toContain('支持 monorepo')
-    fireEvent.click(within(row).getByRole('button', { name: '审核' }))
-    const dialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
-    expect(await within(dialog).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: '通过' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/market/l1/versions/pv4/review')?.body).toEqual({
-        approve: true,
-        note: '',
-      }),
-    )
-  })
-
-  it('rejects only with a reason', async () => {
-    const calls = mockApi({
-      'GET /market/reviews': [item],
-      'GET /market/l1?versionId=pv4': detail(),
-      'POST /market/l1/versions/pv4/review': {},
-    })
-    render(<MarketReviewList path="/market/reviews" />)
-    fireEvent.click(await screen.findByRole('button', { name: '审核' }))
-    const dialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
-    const reject = within(dialog).getByRole('button', { name: '驳回' }) as HTMLButtonElement
-    expect(reject.disabled).toBe(true)
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '审核意见' }), {
-      target: { value: '缺少说明' },
-    })
-    expect(reject.disabled).toBe(false)
-    fireEvent.click(reject)
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/market/l1/versions/pv4/review')?.body).toEqual({
-        approve: false,
-        note: '缺少说明',
-      }),
-    )
-  })
-
-  it('says when nothing waits for review', async () => {
-    mockApi({ 'GET /market/reviews': [] })
-    render(<MarketReviewList path="/market/reviews" />)
-    expect(await screen.findByText('没有待审核的版本')).toBeTruthy()
-  })
-})
-
-describe('M4 审核 diff', () => {
-  const item: ReviewItemDto = {
-    listing: { ...listing(), listedVersionId: null, listedRevision: null },
-    version: detail().versions[0]!,
-  }
-  const diff: VersionDiffDto = {
-    base: { versionId: 'pv3', revision: 3 },
-    files: [
-      {
-        path: 'SKILL.md',
-        status: 'modified',
-        binary: false,
-        before: '标题\n旧的一行\n',
-        after: '标题\n新的一行\n',
-      },
-      { path: 'assets/logo.png', status: 'modified', binary: true, before: null, after: null },
-    ],
-  }
-
-  it('shows the version against the last approved one, file by file, binaries as changed only', async () => {
-    mockApi({
-      'GET /market/reviews': [item],
-      'GET /market/l1?versionId=pv4': detail(),
-      'GET /market/l1/versions/pv4/diff': diff,
-    })
-    render(<MarketReviewList path="/market/reviews" />)
-    fireEvent.click(await screen.findByRole('button', { name: '审核' }))
-    const dialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
-    expect(await within(dialog).findByText('对比 r3 的变更')).toBeTruthy()
-    // Word marks split the edited line into spans.
-    expect(dialog.textContent).toContain('旧的一行')
-    expect(dialog.textContent).toContain('新的一行')
-    expect(within(dialog).getByText('assets/logo.png')).toBeTruthy()
-    expect(within(dialog).getByText('二进制文件已变化')).toBeTruthy()
-  })
-
-  it('says a first version adds every file', async () => {
-    mockApi({
-      'GET /market/reviews': [item],
-      'GET /market/l1?versionId=pv4': detail(),
-      'GET /market/l1/versions/pv4/diff': {
-        base: null,
-        files: [{ path: 'SKILL.md', status: 'added', binary: false, before: null, after: '全新\n' }],
-      },
-    })
-    render(<MarketReviewList path="/market/reviews" />)
-    fireEvent.click(await screen.findByRole('button', { name: '审核' }))
-    const dialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
-    expect(await within(dialog).findByText('首个版本，全部为新增')).toBeTruthy()
-    expect(dialog.textContent).toContain('全新')
-  })
-})
-
-describe('M4 封禁', () => {
-  const openDetail = async () => {
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
-    return screen.findByRole('dialog', { name: 'review-pr' })
-  }
-
-  it('lets a reviewer ban a listing with a reason', async () => {
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail({ canReview: true }),
-      'POST /market/l1/ban': {},
-    })
-    const drawer = await openDetail()
-    fireEvent.click(await within(drawer).findByRole('button', { name: '管理 review-pr' }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: '封禁' }))
-    const dialog = await screen.findByRole('dialog', { name: '封禁「review-pr」' })
-    const ban = within(dialog).getByRole('button', { name: '封禁' }) as HTMLButtonElement
-    expect(ban.disabled).toBe(true)
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '封禁原因' }), {
-      target: { value: '含恶意脚本' },
-    })
-    expect(ban.disabled).toBe(false)
-    fireEvent.click(ban)
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/market/l1/ban')?.body).toEqual({ reason: '含恶意脚本' }),
-    )
-  })
-
-  it('shows the ban reason and unbans', async () => {
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail({ canReview: true, status: 'banned', banReason: '含恶意脚本' }),
-      'DELETE /market/l1/ban': {},
-    })
-    const drawer = await openDetail()
-    expect(await within(drawer).findByText('封禁原因：含恶意脚本')).toBeTruthy()
-    expect(within(drawer).queryByRole('button', { name: '引入到…' })).toBeNull()
-    fireEvent.click(within(drawer).getByRole('button', { name: '解封' }))
-    await waitFor(() =>
-      expect(calls.some((c) => c.method === 'DELETE' && c.path === '/market/l1/ban')).toBe(true),
-    )
-  })
-
-  it('has no ban for a non-reviewer', async () => {
-    mockApi({ 'GET /market': LISTINGS, 'GET /market/l1': detail() })
-    const drawer = await openDetail()
-    await within(drawer).findByRole('button', { name: '引入到…' })
-    expect(within(drawer).queryByRole('button', { name: '封禁' })).toBeNull()
-  })
-
-  it('shows the ban reason in 我的发布', async () => {
-    mockApi({
-      'GET /market/mine': [{ ...mine({ status: 'banned', listedVersionId: 'v8' }), banReason: '违规内容' }],
-    })
-    renderPage('/market?tab=mine')
-    const row = (await screen.findByText('deploy-check')).closest('.cfg__item') as HTMLElement
-    expect(row.textContent).toContain('已封禁')
-    expect(row.textContent).toContain('封禁原因：违规内容')
-  })
-})
-
-describe('M4 申请引入', () => {
-  const open = async () => {
-    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
-    return screen.findByRole('dialog', { name: '引入「review-pr」' })
-  }
-
-  it('asks the admins of a group I am only a member of, with a note', async () => {
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /teams/t1/repos': [],
-      'GET /teams/t2/repos': [],
-      'POST /install-requests': {},
-    })
-    renderPage()
-    const dialog = await open()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '闲聊群' }))
-    expect(within(dialog).queryByRole('button', { name: '引入' })).toBeNull()
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '申请说明' }), {
-      target: { value: '群里要用' },
-    })
-    fireEvent.click(within(dialog).getByRole('button', { name: '申请引入' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/install-requests')?.body).toEqual({
-        listingId: 'l1',
-        scope: 'group',
-        scopeId: 'g2',
-        pinVersionId: null,
-        note: '群里要用',
-      }),
-    )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '引入「review-pr」' })).toBeNull())
-  })
-
-  it('asks for a team and a repo of a team I am a member of', async () => {
-    const repo = { id: 'r2', name: 'ops', key: 'git.example.com/ops' } as RepoDto
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /teams/t1/repos': [],
-      'GET /teams/t2/repos': [repo],
-      'POST /install-requests': {},
-    })
-    renderPage()
-    let dialog = await open()
-    const kinds = within(dialog).getByRole('radiogroup', { name: '引入到' })
-    fireEvent.click(within(kinds).getByRole('radio', { name: '团队' }))
-    fireEvent.click(within(dialog).getByRole('radio', { name: '运营组' }))
-    fireEvent.click(within(dialog).getByRole('radio', { name: '锁定当前版本 r3' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '申请引入' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.path === '/install-requests')?.body).toEqual({
-        listingId: 'l1',
-        scope: 'team',
-        scopeId: 't2',
-        pinVersionId: 'pv3',
-        note: '',
-      }),
-    )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '引入「review-pr」' })).toBeNull())
-
-    dialog = await open()
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '仓库' }),
-    )
-    fireEvent.click(await within(dialog).findByRole('radio', { name: '运营组 / ops' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '申请引入' }))
-    await waitFor(() =>
-      expect(calls.filter((c) => c.path === '/install-requests').at(-1)?.body).toMatchObject({
-        scope: 'repo',
-        scopeId: 'r2',
-      }),
-    )
-  })
-})
-
 const request = (o: Partial<InstallRequestDto> = {}): InstallRequestDto => ({
   id: 'q1',
   listing: listing(),
@@ -1061,7 +216,7 @@ const request = (o: Partial<InstallRequestDto> = {}): InstallRequestDto => ({
   scopeId: 'g1',
   targetLabel: '支付核心群',
   pinVersionId: null,
-  note: '想在群里审 PR',
+  note: '想在群里审代码',
   status: 'pending',
   requester: '陈晨',
   decidedBy: null,
@@ -1071,22 +226,646 @@ const request = (o: Partial<InstallRequestDto> = {}): InstallRequestDto => ({
   ...o,
 })
 
-describe('M4 引入申请 tab', () => {
-  it('opens from ?tab=requests: approves or rejects (with a reason) what waits for me', async () => {
+function Where() {
+  const l = useLocation()
+  return <div data-testid="where">{`${l.pathname}${l.search}`}</div>
+}
+
+const renderPage = (url = '/market') =>
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <MarketPage />
+      <Where />
+    </MemoryRouter>,
+  )
+
+beforeEach(() => {
+  localStorage.setItem('gg.locale', 'zh')
+  sessionStorage.clear()
+  useSession.setState({
+    user: me,
+    status: 'ready',
+    tenancy: {
+      teams: TEAMS,
+      singleTeamMode: false,
+      canCreateTeam: true,
+      demoMode: false,
+      pluginsEnabled: true,
+    },
+  })
+  useWorkspace.setState({
+    notifCount: 0,
+    groups: [group('g1', '支付核心群', true), group('g2', '闲聊群', false)],
+  })
+  useToasts.setState({ items: [] })
+})
+afterEach(() => vi.unstubAllGlobals())
+
+describe('市场导航与权限可见性', () => {
+  it('shows 市场 in AppRail to regular non-builder members and navigates to /market', async () => {
+    useSession.setState({
+      tenancy: { ...useSession.getState().tenancy!, teams: [team({ role: 'member' })] },
+    })
+    useWorkspace.setState({ groups: [group('g2', '闲聊群', false)] })
+    mockApi({ 'GET /works/groups': [], 'GET /works': [] })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="*" element={<AppRail />} />
+          </Route>
+        </Routes>
+        <Where />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '市场' }))
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market'))
+  })
+
+  it('renders Discovery, 5 Scenarios, and My sections in sidebar; hides 上架审核 from non-reviewers', async () => {
+    useSession.setState({
+      tenancy: { ...useSession.getState().tenancy!, teams: [team({ role: 'member' })] },
+    })
+    useWorkspace.setState({ groups: [group('g2', '闲聊群', false)] })
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+    })
+    renderPage()
+    const nav = await screen.findByRole('navigation', { name: '插件分类' })
+    for (const label of [
+      '精选推荐',
+      '全部插件',
+      '连接外部系统',
+      '专业创作',
+      '办公与协作',
+      '研发与数据',
+      '效率工具',
+      '已添加',
+      '申请与审批',
+      '我的发布',
+    ]) {
+      expect(within(nav).getByText(label)).toBeTruthy()
+    }
+    expect(within(nav).queryByText('上架审核')).toBeNull()
+    // Non-admin member sees 申请添加 on plugin cards instead of 添加.
+    expect((await screen.findAllByRole('button', { name: '申请添加' })).length).toBeGreaterThan(0)
+  })
+})
+
+describe('市场首页与分类浏览（无术语、无系统预设）', () => {
+  it('renders featured hero cards and 3 shelves without MCP/Skill/ACP jargon, hiding agent/provider presets', async () => {
+    const withPresets: MarketListingView[] = [
+      ...LISTINGS,
+      listing({ id: 'a1', type: 'plugin', name: 'claude-agent', title: 'Claude 引擎', category: 'agent' }),
+      listing({
+        id: 'p1',
+        type: 'plugin',
+        name: 'openai-preset',
+        title: 'OpenAI 预设',
+        category: 'provider',
+      }),
+    ]
+    mockApi({
+      'GET /market': withPresets,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+    })
+    renderPage()
+
+    expect(await screen.findByRole('region', { name: '连接你的常用工具' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: '本团队正在用' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: '最新上架' })).toBeTruthy()
+
+    // System presets must never appear in Plugin Market.
+    expect(screen.queryByText('Claude 引擎')).toBeNull()
+    expect(screen.queryByText('OpenAI 预设')).toBeNull()
+
+    // Zero MCP / Skill / ACP jargon outside 开发者信息.
+    const text = document.body.textContent ?? ''
+    expect(text).not.toMatch(/\b(MCP|Skill|ACP)\b/)
+
+    // Custom plugin icon uses the version raw URL; skill uses icon glyph.
+    const slidesImg = document.querySelector('img.mkt-icon')
+    expect(slidesImg?.getAttribute('src')).toBe(
+      '/api/market/l2/files/raw?path=assets%2Ficon.svg&versionId=pv4',
+    )
+  })
+
+  it('filters catalog by scene, legacy ?shelf=connector, search, source, capability, sort, and clears empty search', async () => {
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+    })
+    renderPage('/market?shelf=connector')
+
+    const list = await screen.findByRole('list', { name: '插件列表' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(list).getByText('飞书协同')).toBeTruthy()
+
+    // Switch to 全部插件 and filter by capability & source
+    fireEvent.click(screen.getByText('全部插件'))
+    await waitFor(() =>
+      expect(within(screen.getByRole('list', { name: '插件列表' })).getAllByRole('listitem')).toHaveLength(3),
+    )
+
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '来源筛选' })).getByRole('radio', { name: '本团队' }),
+    )
+    expect(within(screen.getByRole('list', { name: '插件列表' })).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(screen.getByRole('list', { name: '插件列表' })).getByText('代码评审助手')).toBeTruthy()
+
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '来源筛选' })).getByRole('radio', { name: '全部来源' }),
+    )
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '能力筛选' })).getByRole('radio', { name: '能创作' }),
+    )
+    expect(within(screen.getByRole('list', { name: '插件列表' })).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(screen.getByRole('list', { name: '插件列表' })).getByText('幻灯片')).toBeTruthy()
+
+    // Sort by installs after clearing capability filter
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '能力筛选' })).getByRole('radio', { name: '全部能力' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: '排序' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '最多添加' }))
+    expect(
+      within(screen.getByRole('list', { name: '插件列表' })).getAllByRole('listitem')[0]!.textContent,
+    ).toContain('幻灯片')
+
+    // Search with no results shows empty state + 清除筛选看全部
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索插件' }), {
+      target: { value: '不存在的插件xyz' },
+    })
+    expect(await screen.findByText('没有找到与「不存在的插件xyz」匹配的插件')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '清除筛选看全部' }))
+    await waitFor(() =>
+      expect(within(screen.getByRole('list', { name: '插件列表' })).getAllByRole('listitem')).toHaveLength(3),
+    )
+  })
+
+  it('shows error state and retries loading /market', async () => {
+    let fail = true
+    mockApi({
+      'GET /market': () => (fail ? apiError(500, 'internal', '服务暂时不可用') : LISTINGS),
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+    })
+    renderPage()
+    expect(await screen.findByText('服务暂时不可用')).toBeTruthy()
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByRole('region', { name: '本团队正在用' })).toBeTruthy()
+  })
+})
+
+describe('插件详情（概览 / 更新记录 / 开发者信息）与封禁', () => {
+  it('renders plain-language overview, try-prompt jump, changelog diff, and isolates MCP/Skill/files in 开发者信息', async () => {
     const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l1': detail({
+        canReview: true,
+        installedIn: [{ scope: 'group', scopeId: 'g1', label: '支付核心群' }],
+        connector: { examples: ['帮我审一下今天的 PR'], docs: 'https://docs.example.com' },
+      }),
+      'GET /market/l1/files/text?path=scripts%2Frun.sh&versionId=pv4': {
+        path: 'scripts/run.sh',
+        size: 10,
+        binary: false,
+        mime: 'application/x-sh',
+        text: 'echo hello',
+      },
+      'GET /market/l1/versions/pv4/diff': {
+        base: { versionId: 'pv3', revision: 3 },
+        files: [{ path: 'SKILL.md', status: 'modified', binary: false, before: '旧行\n', after: '新行\n' }],
+      } satisfies VersionDiffDto,
+    })
+
+    renderPage('/market?listing=l1')
+    expect(await screen.findByRole('heading', { name: '审查规范' })).toBeTruthy()
+    // Frontmatter hidden & zero MCP/Skill jargon on Overview tab
+    expect(screen.queryByText(/name: review-pr/)).toBeNull()
+    expect(document.body.textContent ?? '').not.toMatch(/\b(MCP|Skill|ACP)\b/)
+
+    // Changelog tab shows versions & file diff dialog
+    fireEvent.click(screen.getByRole('tab', { name: /更新记录/ }))
+    const log = await screen.findByRole('region', { name: '更新记录' })
+    expect(within(log).getByText('支持 monorepo')).toBeTruthy()
+    expect(within(log).getByText('首个版本')).toBeTruthy()
+    fireEvent.click(within(log).getAllByRole('button', { name: '查看变更' })[0]!)
+    const diffDialog = await screen.findByRole('dialog', { name: '代码评审助手 r4 的变更' })
+    expect(await within(diffDialog).findByText('对比 r3 的变更')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    // Developer info tab shows Skill / MCP / GitHub / interactive file tree
+    fireEvent.click(screen.getByRole('tab', { name: '开发者信息' }))
+    const dev = await screen.findByRole('region', { name: '开发者信息' })
+    expect(within(dev).getByText(/1 个 MCP 服务/)).toBeTruthy()
+    expect(
+      within(dev)
+        .getByRole('link', { name: /github\.com\/acme\/skills/ })
+        .getAttribute('href'),
+    ).toBe('https://github.com/acme/skills')
+    const tree = within(dev).getByRole('tree', { name: '文件' })
+    fireEvent.click(within(tree).getByRole('treeitem', { name: /run\.sh/ }))
+    expect(await within(dev).findByText(/echo hello/)).toBeTruthy()
+    expect(calls.some((c) => c.path === '/market/l1/files/text?path=scripts%2Frun.sh&versionId=pv4')).toBe(
+      true,
+    )
+
+    // Back to Overview and click 去试试 -> seeds draft and navigates to installed group
+    fireEvent.click(screen.getByRole('tab', { name: '概览' }))
+    fireEvent.click(await screen.findByRole('button', { name: '去试试' }))
+    expect(sessionStorage.getItem(draftKey('g1'))).toBe('帮我审一下今天的 PR')
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g1'))
+  })
+
+  it('allows reviewer to ban with reason and unban a listing', async () => {
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l1': detail({ canReview: true }),
+      'POST /market/l1/ban': {},
+    })
+    const { unmount } = renderPage('/market?listing=l1')
+    fireEvent.click(await screen.findByRole('button', { name: '管理 review-pr' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '封禁' }))
+    const dlg = await screen.findByRole('dialog', { name: '封禁「代码评审助手」' })
+    const banBtn = within(dlg).getByRole('button', { name: '封禁' }) as HTMLButtonElement
+    expect(banBtn.disabled).toBe(true)
+    fireEvent.change(within(dlg).getByRole('textbox', { name: '封禁原因' }), {
+      target: { value: '含恶意脚本' },
+    })
+    fireEvent.click(banBtn)
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/market/l1/ban')?.body).toEqual({ reason: '含恶意脚本' }),
+    )
+    unmount()
+
+    const unbanCalls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l1': detail({ canReview: true, status: 'banned', banReason: '含恶意脚本' }),
+      'DELETE /market/l1/ban': {},
+    })
+    renderPage('/market?listing=l1')
+    expect(await screen.findByText('封禁原因：含恶意脚本')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '添加到…' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '解封' }))
+    await waitFor(() =>
+      expect(unbanCalls.some((c) => c.method === 'DELETE' && c.path === '/market/l1/ban')).toBe(true),
+    )
+  })
+})
+
+describe('两步添加弹窗与原地准备（InstallTargetDialog + InstallReadyStep）', () => {
+  const repo = { id: 'r1', name: 'core', key: 'git.example.com/pay/core' } as RepoDto
+
+  it('defaults to fromGroup, hides 仅我使用 for plugins, auto-pins exec plugins, and submits non-admin request', async () => {
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l2': detail({
+        ...LISTINGS[1]!,
+        type: 'plugin',
+        permissions: ['exec'],
+        listedVersionId: 'pv4',
+        listedRevision: 4,
+      }),
+      'GET /teams/t1/repos': [repo],
+      'GET /teams/t2/repos': [],
+      'PUT /groups/g1/installs/l2': {},
+      'GET /market/l2/readiness?scope=group&scopeId=g1': readyRes({
+        listingId: 'l2',
+        title: '幻灯片',
+        versionId: 'pv4',
+      }),
+      'POST /install-requests': {},
+    })
+
+    renderPage('/market?listing=l2&fromGroup=g1')
+    fireEvent.click(await screen.findByRole('button', { name: '添加到…' }))
+    const dialog = await screen.findByRole('dialog', { name: /添加 幻灯片/ })
+
+    // Plugins do NOT show 仅我使用; g1 is pre-selected with 当前群 tag; auto-pin notice shown (no manual pin control).
+    expect(within(dialog).queryByText('仅我使用')).toBeNull()
+    expect(within(dialog).getByText('当前群')).toBeTruthy()
+    expect(within(dialog).getByText(/系统将自动固定在当前已审核版本 r4/)).toBeTruthy()
+
+    // Selecting non-admin group switches CTA to 提交申请 + shows optional reason.
+    fireEvent.click(within(dialog).getByLabelText(/闲聊群/))
+    expect(within(dialog).queryByRole('button', { name: '添加' })).toBeNull()
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '申请说明' }), {
+      target: { value: '周会要做汇报' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: '提交申请' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/install-requests')?.body).toEqual({
+        listingId: 'l2',
+        scope: 'group',
+        scopeId: 'g2',
+        pinVersionId: 'pv4',
+        note: '周会要做汇报',
+      }),
+    )
+
+    // Re-open and install into g1 (admin) -> auto-pins pv4 and transitions to Step 2 ready state.
+    fireEvent.click(await screen.findByRole('button', { name: '添加到…' }))
+    const dlg2 = await screen.findByRole('dialog', { name: /添加 幻灯片/ })
+    fireEvent.click(within(dlg2).getByRole('button', { name: '添加' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/groups/g1/installs/l2')?.body).toEqual({
+        enabled: true,
+        pinVersionId: 'pv4',
+      }),
+    )
+    expect(await within(dlg2).findByText('已就绪，可以用了')).toBeTruthy()
+  })
+
+  it('shows 仅我使用 for skills, disables installed/conflict/requested targets, expands admin scopes, and handles 409', async () => {
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l1': detail({
+        installedIn: [{ scope: 'group', scopeId: 'g1', label: '支付核心群' }],
+        requestedIn: [{ scope: 'group', scopeId: 'g2', requester: '米娅', mine: false }],
+        nameTakenIn: [{ scope: 'user', scopeId: 'u1' }],
+      }),
+      'GET /teams/t1/repos': [repo],
+      'GET /teams/t2/repos': [],
+      'PUT /teams/t1/repos/r1/installs/l1': apiError(409, 'conflict', '同名插件已存在'),
+    })
+
+    renderPage('/market?listing=l1')
+    fireEvent.click(await screen.findByRole('button', { name: '添加到…' }))
+    const dialog = await screen.findByRole('dialog', { name: /添加 代码评审助手/ })
+    expect((within(dialog).getByLabelText(/仅我使用/) as HTMLInputElement).disabled).toBe(true)
+    expect((within(dialog).getByLabelText(/支付核心群/) as HTMLInputElement).disabled).toBe(true)
+    expect((within(dialog).getByLabelText(/闲聊群/) as HTMLInputElement).disabled).toBe(true)
+    expect(within(dialog).getByText('同名冲突')).toBeTruthy()
+    expect(within(dialog).getByText('已申请')).toBeTruthy()
+
+    // Expand admin scopes -> select repo -> 409 error displayed cleanly
+    fireEvent.click(within(dialog).getByRole('button', { name: /更多范围（管理员）/ }))
+    fireEvent.click(await within(dialog).findByLabelText(/支付组 \/ core/))
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))
+    expect(await within(dialog).findByText('同名插件已存在')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/teams/t1/repos/r1/installs/l1')).toBe(true)
+  })
+
+  it('deep-links ?configure=l3&scope=group&scopeId=g1 straight into Step 2 for trust & connector actions', async () => {
+    let trusted = false
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l3/readiness?scope=group&scopeId=g1': () =>
+        readyRes({
+          listingId: 'l3',
+          title: '飞书协同',
+          ready: false,
+          pendingSteps: 2,
+          connector: {
+            kind: 'login',
+            driver: null,
+            loginPrompt: '请由电脑主人登录飞书账号',
+            ready: false,
+            groupId: 'g1',
+            machines: [
+              {
+                machineId: 'm2',
+                machineName: '陈晨的 Mac',
+                ownerId: 'u2',
+                ownerName: '陈晨',
+                own: false,
+                online: true,
+                hasConnectorsFeature: true,
+                state: 'needs_login',
+                account: null,
+                botIds: ['b2'],
+                botNames: ['飞书助手'],
+              },
+            ],
+          },
+          trusts: {
+            codeEnabled: true,
+            ready: trusted,
+            machines: [
+              {
+                machineId: 'm1',
+                machineName: '我的 MacBook',
+                ownerId: 'u1',
+                ownerName: '姜维川',
+                own: true,
+                online: true,
+                trustId: null,
+                status: trusted ? 'allowed' : 'unrequested',
+                botIds: ['b1'],
+                botNames: ['研效 Bot'],
+              },
+            ],
+          },
+        }),
+      'POST /market/l3/readiness/action': (body: unknown) => {
+        if ((body as { action?: string })?.action === 'allow_trust') trusted = true
+        return { ok: true }
+      },
+    })
+
+    renderPage('/market?configure=l3&scope=group&scopeId=g1')
+    const dialog = await screen.findByRole('dialog', { name: /添加 飞书协同/ })
+    expect(await within(dialog).findByText('允许 Bot 所在的电脑使用这个插件')).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '立即允许' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/market/l3/readiness/action')?.body).toMatchObject({
+        action: 'allow_trust',
+        machineId: 'm1',
+        scope: 'group',
+        scopeId: 'g1',
+      }),
+    )
+    await waitFor(() => expect(within(dialog).queryByRole('button', { name: '立即允许' })).toBeNull())
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '通知陈晨连接' }))
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.path === '/market/l3/readiness/action' &&
+            (c.body as { action?: string })?.action === 'notify_connector',
+        ),
+      ).toBe(true),
+    )
+    expect(await within(dialog).findByRole('button', { name: '已提醒' })).toBeTruthy()
+  })
+})
+
+describe('已添加集中管理（InstalledView）', () => {
+  it('renders pending banner + 3 groups (我的插件 / 我所在群的插件 / 团队统一插件) with toggle, upgrade, remove & configure', async () => {
+    const installedData: MarketInstalledDto = {
+      todoCount: 1,
+      pendingUpdates: 1,
+      mine: [
+        {
+          listing: listing({ revision: 5 }),
+          scene: 'dev',
+          capabilities: ['do'],
+          readiness: 'ready',
+          source: 'team',
+          teamName: '支付组',
+          author: '陈晨',
+          enabled: true,
+          pinVersionId: 'pv3',
+          resolvedVersionId: 'pv3',
+          resolvedRevision: 3,
+          latestRevision: 5,
+          hasUpdate: true,
+          health: 'update-available',
+          healthDetail: null,
+          banReason: null,
+          updatedAt: '2026-11-01T00:00:00Z',
+        },
+      ],
+      groups: [
+        {
+          listing: LISTINGS[2]!,
+          scene: 'connect',
+          capabilities: ['connect'],
+          readiness: 'needs-account',
+          source: 'official',
+          teamName: null,
+          latestRevision: 4,
+          hasUpdate: false,
+          health: 'needs-account',
+          healthDetail: '待连接飞书账号',
+          banReason: null,
+          groups: [
+            {
+              groupId: 'g1',
+              groupName: '支付核心群',
+              canManage: true,
+              enabled: true,
+              pinVersionId: null,
+              resolvedVersionId: 'pv4',
+              resolvedRevision: 4,
+              hasUpdate: false,
+              health: 'needs-account',
+              healthDetail: '待连接飞书账号',
+            },
+          ],
+        },
+      ],
+      team: [
+        {
+          listing: LISTINGS[1]!,
+          scene: 'create',
+          capabilities: ['create'],
+          readiness: 'ready',
+          source: 'official',
+          scope: 'team',
+          scopeId: 't1',
+          teamId: 't1',
+          targetLabel: '支付组',
+          groupsCount: 5,
+          canManage: true,
+          enabled: true,
+          pinVersionId: null,
+          resolvedVersionId: 'pv4',
+          resolvedRevision: 4,
+          latestRevision: 4,
+          hasUpdate: false,
+          health: 'ready',
+          healthDetail: null,
+          banReason: null,
+          updatedAt: '2026-11-05T00:00:00Z',
+        },
+      ],
+    }
+
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': installedData,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'PUT /me/installs/l1': {},
+      'DELETE /me/installs/l1': undefined,
+      'GET /market/l3/readiness?scope=group&scopeId=g1': readyRes({ listingId: 'l3', title: '飞书协同' }),
+    })
+
+    renderPage('/market?tab=installed')
+    expect(await screen.findByText('1 个插件还要配置')).toBeTruthy()
+    expect(screen.getByText('1 个插件有新版本')).toBeTruthy()
+    expect(screen.getByRole('region', { name: '我的插件' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: '我所在群的插件' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: '团队统一插件' })).toBeTruthy()
+
+    // Upgrade personal plugin
+    fireEvent.click(screen.getByRole('button', { name: '升级' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT' && c.path === '/me/installs/l1')?.body).toEqual({
+        enabled: true,
+        pinVersionId: 'pv4',
+      }),
+    )
+
+    // Click 去配置 -> opens Step 2 modal for g1
+    fireEvent.click(screen.getByRole('button', { name: '去配置' }))
+    expect(await screen.findByRole('dialog', { name: /添加 飞书协同/ })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    // Remove personal plugin via confirm dialog
+    const mineSection = screen.getByRole('region', { name: '我的插件' })
+    fireEvent.click(within(mineSection).getByRole('button', { name: '移除' }))
+    const confirm = await screen.findByRole('alertdialog')
+    fireEvent.click(within(confirm).getByRole('button', { name: '移除' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'DELETE' && c.path === '/me/installs/l1')).toBe(true),
+    )
+  })
+})
+
+describe('申请与审批（InstallRequests）', () => {
+  it('fetches todo once, approves/rejects requests with reason, and withdraws my own pending request', async () => {
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': emptyInstalled,
+      'GET /market/reviews?teamId=t1': [],
       'GET /install-requests?view=todo': [request(), request({ id: 'q2', requester: '王磊' })],
-      'GET /install-requests?view=mine': [],
+      'GET /install-requests?view=mine': [
+        request({ id: 'q8' }),
+        request({ id: 'q9', targetLabel: '闲聊群', status: 'rejected', decisionNote: '已有同类' }),
+      ],
       'POST /install-requests/q1/decide': {},
       'POST /install-requests/q2/decide': {},
+      'DELETE /install-requests/q8': undefined,
     })
+
     renderPage('/market?tab=requests')
-    expect(screen.getByRole('tab', { name: '引入申请' }).getAttribute('aria-selected')).toBe('true')
-    const todo = await screen.findByRole('region', { name: '待我处理' })
-    const first = (await within(todo).findByText(/陈晨/)).closest('.cfg__item') as HTMLElement
-    expect(first.textContent).toContain('review-pr')
-    expect(first.textContent).toContain('支付核心群')
-    expect(first.textContent).toContain('想在群里审 PR')
-    fireEvent.click(within(first).getByRole('button', { name: '通过' }))
+    const todo = await screen.findByRole('region', { name: '待我审批' })
+    expect(await within(todo).findByText(/陈晨/)).toBeTruthy()
+    // P1-2: single todo fetch shared between sidebar badge and InstallRequests view
+    expect(calls.filter((c) => c.path === '/install-requests?view=todo')).toHaveLength(1)
+
+    fireEvent.click(within(todo).getAllByRole('button', { name: '同意并添加' })[0]!)
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/install-requests/q1/decide')?.body).toEqual({
         approve: true,
@@ -1094,758 +873,231 @@ describe('M4 引入申请 tab', () => {
       }),
     )
 
-    const second = within(todo).getByText(/王磊/).closest('.cfg__item') as HTMLElement
-    fireEvent.click(within(second).getByRole('button', { name: '拒绝' }))
-    const dialog = await screen.findByRole('dialog', { name: '拒绝引入申请' })
-    const reject = within(dialog).getByRole('button', { name: '拒绝' }) as HTMLButtonElement
-    expect(reject.disabled).toBe(true)
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '拒绝原因' }), {
+    fireEvent.click(within(todo).getAllByRole('button', { name: '拒绝' })[1]!)
+    const rejDlg = await screen.findByRole('dialog', { name: '拒绝添加申请' })
+    const confirmRej = within(rejDlg).getByRole('button', { name: '拒绝' }) as HTMLButtonElement
+    expect(confirmRej.disabled).toBe(true)
+    fireEvent.change(within(rejDlg).getByRole('textbox', { name: '拒绝原因' }), {
       target: { value: '已有同类' },
     })
-    fireEvent.click(reject)
+    fireEvent.click(confirmRej)
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/install-requests/q2/decide')?.body).toEqual({
         approve: false,
         note: '已有同类',
       }),
     )
-  })
 
-  it('lists my requests with status and result, and withdraws a pending one', async () => {
+    const mineSec = await screen.findByRole('region', { name: '我的申请' })
+    expect(within(mineSec).getByText(/已有同类/)).toBeTruthy()
+    fireEvent.click(within(mineSec).getByRole('button', { name: '撤回申请' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'DELETE' && c.path === '/install-requests/q8')).toBe(true),
+    )
+  })
+})
+
+describe('我的发布与双轨发布（MyListings）', () => {
+  it('lists published items with filter, upstream check, submit draft, and unlist confirm', async () => {
+    const gh = mine({
+      listedVersionId: 'v8',
+      ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' },
+    })
     const calls = mockApi({
+      'GET /market': [],
+      'GET /market/installed': emptyInstalled,
       'GET /install-requests?view=todo': [],
-      'GET /install-requests?view=mine': [
-        request(),
-        request({ id: 'q3', targetLabel: '闲聊群', status: 'rejected', decisionNote: '已有同类' }),
-      ],
-      'DELETE /install-requests/q1': undefined,
-    })
-    renderPage('/market?tab=requests')
-    expect(await screen.findByText('没有待你处理的申请')).toBeTruthy()
-    const mineList = await screen.findByRole('region', { name: '我的申请' })
-    const rejected = within(mineList)
-      .getByText(/闲聊群/)
-      .closest('.cfg__item') as HTMLElement
-    expect(rejected.textContent).toContain('已拒绝')
-    expect(rejected.textContent).toContain('已有同类')
-    expect(within(rejected).queryByRole('button', { name: '撤回' })).toBeNull()
-    const pending = within(mineList)
-      .getByText(/支付核心群/)
-      .closest('.cfg__item') as HTMLElement
-    expect(pending.textContent).toContain('待处理')
-    fireEvent.click(within(pending).getByRole('button', { name: '撤回' }))
-    await waitFor(() =>
-      expect(calls.some((c) => c.method === 'DELETE' && c.path === '/install-requests/q1')).toBe(true),
-    )
-  })
-
-  it('opens 我的发布 from ?tab=mine', async () => {
-    const calls = mockApi({ 'GET /market/mine': [] })
-    renderPage('/market?tab=mine')
-    const empty = (await screen.findByText('还没有发布过 Skill 或插件')).closest('.ui-empty') as HTMLElement
-    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
-    expect(calls.some((c) => c.path === '/market')).toBe(false)
-  })
-
-  it('draws 共字君 on an empty shelf, with a way to publish', async () => {
-    mockApi({ 'GET /market': [], 'GET /market/mine': [] })
-    renderPage()
-    const empty = (await screen.findByText('市场里还没有条目')).closest('.ui-empty') as HTMLElement
-    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
-    expect(within(empty).getByRole('button', { name: '去发布' })).toBeTruthy()
-  })
-})
-
-describe('体验迭代第 1 轮', () => {
-  const installedIn: MarketListingDto['installedIn'] = [
-    { scope: 'user', scopeId: 'u1', label: '' },
-    { scope: 'group', scopeId: 'g1', label: '支付核心群' },
-  ]
-
-  it('marks listings I see installed, says where, and keeps those targets out of 引入到…', async () => {
-    mockApi({
-      'GET /market': [listing({ installedIn }), LISTINGS[1]!],
-      'GET /market/l1': detail({ installedIn }),
-      'GET /teams/t1/repos': [],
-      'GET /teams/t2/repos': [],
-    })
-    renderPage()
-    const grid = await screen.findByRole('list', { name: '市场' })
-    expect((within(grid).getByText('review-pr').closest('li') as HTMLElement).textContent).toContain('已引入')
-    expect((within(grid).getByText('幻灯片').closest('li') as HTMLElement).textContent).not.toContain(
-      '已引入',
-    )
-    fireEvent.click(screen.getByRole('button', { name: '查看 review-pr' }))
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    expect(await within(drawer).findByText('已引入到：我的 Skill、支付核心群')).toBeTruthy()
-    fireEvent.click(within(drawer).getByRole('button', { name: '引入到…' }))
-    const dialog = await screen.findByRole('dialog', { name: '引入「review-pr」' })
-    expect((within(dialog).getByRole('radio', { name: '支付核心群' }) as HTMLInputElement).disabled).toBe(
-      true,
-    )
-    expect((within(dialog).getByRole('radio', { name: '闲聊群' }) as HTMLInputElement).disabled).toBe(false)
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-        name: '我的 Skill',
-      }),
-    )
-    expect(within(dialog).getByText('已经引入到这里了')).toBeTruthy()
-    expect((within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('opens a listing straight from a link', async () => {
-    mockApi({ 'GET /market': LISTINGS, 'GET /market/l1': detail() })
-    renderPage('/market?listing=l1')
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
-  })
-
-  it('shows an installer why a banned listing stopped and where to remove it', async () => {
-    mockApi({
-      'GET /market': [],
-      'GET /market/l1': detail({
-        status: 'banned',
-        banReason: '含恶意脚本',
-        installedIn: [{ scope: 'group', scopeId: 'g1', label: '支付核心群' }],
-      }),
-    })
-    renderPage('/market?listing=l1')
-    const drawer = await screen.findByRole('dialog')
-    expect(await within(drawer).findByText('封禁原因：含恶意脚本')).toBeTruthy()
-    expect(
-      within(drawer).getByText('已引入的地方下一轮起停止加载，可在对应设置的 Skill · 已引入 里移除'),
-    ).toBeTruthy()
-    expect(within(drawer).queryByRole('button', { name: '引入到…' })).toBeNull()
-  })
-
-  it('gives reviewers a 待审核 tab with the queues they review', async () => {
-    const item: ReviewItemDto = {
-      listing: { ...listing(), listedVersionId: null, listedRevision: null },
-      version: detail().versions[0]!,
-    }
-    mockApi({ 'GET /market/reviews?teamId=t1': [item], 'GET /install-requests?view=todo': [] })
-    renderPage('/market?tab=reviews')
-    expect(screen.getByRole('tab', { name: '待审核' })).toBeTruthy()
-    const row = (await screen.findByText('review-pr')).closest('.cfg__item') as HTMLElement
-    expect(within(row).getByRole('button', { name: '审核' })).toBeTruthy()
-  })
-
-  it('hides 待审核 from members who review nothing', async () => {
-    useSession.setState({
-      tenancy: { ...useSession.getState().tenancy!, teams: [team({ role: 'member' })] },
-    })
-    mockApi({ 'GET /market': LISTINGS, 'GET /install-requests?view=todo': [] })
-    renderPage()
-    await screen.findByRole('list', { name: '市场' })
-    expect(screen.queryByRole('tab', { name: '待审核' })).toBeNull()
-  })
-})
-
-describe('市场 page loading', () => {
-  it('holds the grid shape with placeholder cards, staggers the cards in, and retries a failed load', async () => {
-    let fail = true
-    let release = () => {}
-    const held = new Promise<void>((r) => {
-      release = r
-    })
-    mockApi({
-      'GET /market': async () => {
-        await held
-        return fail ? apiError(500, 'internal', '服务暂时不可用') : LISTINGS
-      },
-    })
-    renderPage()
-    const skeleton = screen.getByRole('status', { name: '加载中' })
-    expect(skeleton.classList.contains('works__grid')).toBe(true)
-    release()
-    expect(await screen.findByText('服务暂时不可用')).toBeTruthy()
-    fail = false
-    fireEvent.click(screen.getByRole('button', { name: '重试' }))
-    const grid = await screen.findByRole('list', { name: '市场' })
-    expect(
-      within(grid)
-        .getAllByRole('listitem')
-        .map((li) => li.style.getPropertyValue('--i')),
-    ).toEqual(['0', '1'])
-  })
-})
-
-describe('UX 走查 11-23 市场交互与容错', () => {
-  it('retries failed loads in ListingDetail, MyListings, InstallRequests, and MarketReviewList', async () => {
-    let failDetail = true
-    mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': () => (failDetail ? apiError(500, 'internal', '详情加载失败') : detail()),
-    })
-    renderPage('/market?listing=l1')
-    const drawer = await screen.findByRole('dialog')
-    expect(await within(drawer).findByText('详情加载失败')).toBeTruthy()
-    failDetail = false
-    fireEvent.click(within(drawer).getByRole('button', { name: '重试' }))
-    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
-  })
-
-  it('retries failed loads in MyListings, InstallRequests, and MarketReviewList', async () => {
-    let failMine = true
-    mockApi({
-      'GET /market/mine': () => (failMine ? apiError(500, 'internal', '我的发布加载失败') : [mine()]),
-    })
-    const { unmount } = renderPage('/market?tab=mine')
-    expect(await screen.findByText('我的发布加载失败')).toBeTruthy()
-    failMine = false
-    fireEvent.click(screen.getByRole('button', { name: '重试' }))
-    expect(await screen.findByText('deploy-check')).toBeTruthy()
-    unmount()
-
-    let failTodo = true
-    let failReqMine = true
-    mockApi({
-      'GET /install-requests?view=todo': () =>
-        failTodo ? apiError(500, 'internal', '待处理加载失败') : [request()],
-      'GET /install-requests?view=mine': () =>
-        failReqMine ? apiError(500, 'internal', '我的申请加载失败') : [request({ id: 'q9' })],
-    })
-    const reqView = renderPage('/market?tab=requests')
-    const todoSec = await screen.findByRole('region', { name: '待我处理' })
-    const mineSec = await screen.findByRole('region', { name: '我的申请' })
-    expect(await within(todoSec).findByText('待处理加载失败')).toBeTruthy()
-    expect(await within(mineSec).findByText('我的申请加载失败')).toBeTruthy()
-    failTodo = false
-    failReqMine = false
-    fireEvent.click(within(todoSec).getByRole('button', { name: '重试' }))
-    fireEvent.click(within(mineSec).getByRole('button', { name: '重试' }))
-    expect(await within(todoSec).findByText(/陈晨/)).toBeTruthy()
-    expect(await within(mineSec).findByText(/支付核心群/)).toBeTruthy()
-    reqView.unmount()
-
-    let failReview = true
-    mockApi({
-      'GET /market/reviews': () => (failReview ? apiError(500, 'internal', '审核列表加载失败') : []),
-    })
-    render(<MarketReviewList path="/market/reviews" />)
-    expect(await screen.findByText('审核列表加载失败')).toBeTruthy()
-    failReview = false
-    fireEvent.click(screen.getByRole('button', { name: '重试' }))
-    expect(await screen.findByText('没有待审核的版本')).toBeTruthy()
-  })
-
-  it('uses ghost variant on manage button, guards unban with toast, and locks BanDialog while submitting', async () => {
-    let releaseBan = () => {}
-    const banHeld = new Promise<void>((r) => {
-      releaseBan = r
-    })
-    const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail({ canReview: true }),
-      'POST /market/l1/ban': async () => {
-        await banHeld
-        return {}
-      },
-    })
-    const { unmount } = renderPage('/market?listing=l1')
-    const drawer = await screen.findByRole('dialog')
-    const manageBtn = await within(drawer).findByRole('button', { name: '管理 review-pr' })
-    expect(manageBtn.classList.contains('ui-btn--ghost')).toBe(true)
-
-    fireEvent.click(manageBtn)
-    fireEvent.click(await screen.findByRole('menuitem', { name: '封禁' }))
-    const dialog = await screen.findByRole('dialog', { name: '封禁「review-pr」' })
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '封禁原因' }), {
-      target: { value: '恶意脚本' },
-    })
-    const confirmBtn = within(dialog).getByRole('button', { name: '封禁' }) as HTMLButtonElement
-    const cancelBtn = within(dialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
-    fireEvent.click(confirmBtn)
-    expect(confirmBtn.disabled).toBe(true)
-    expect(confirmBtn.getAttribute('aria-busy')).toBe('true')
-    expect(cancelBtn.disabled).toBe(true)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.getByRole('dialog', { name: '封禁「review-pr」' })).toBeTruthy()
-    releaseBan()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '封禁「review-pr」' })).toBeNull())
-    expect(calls.filter((c) => c.path === '/market/l1/ban')).toHaveLength(1)
-    unmount()
-
-    let releaseUnban = () => {}
-    const unbanHeld = new Promise<void>((r) => {
-      releaseUnban = r
-    })
-    const unbanCalls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail({ canReview: true, status: 'banned', banReason: '违规' }),
-      'DELETE /market/l1/ban': async () => {
-        await unbanHeld
-        return {}
-      },
-    })
-    renderPage('/market?listing=l1')
-    const bannedDrawer = await screen.findByRole('dialog')
-    const unbanBtn = (await within(bannedDrawer).findByRole('button', { name: '解封' })) as HTMLButtonElement
-    fireEvent.click(unbanBtn)
-    fireEvent.click(unbanBtn)
-    expect(unbanBtn.disabled).toBe(true)
-    expect(unbanBtn.getAttribute('aria-busy')).toBe('true')
-    releaseUnban()
-    await waitFor(() =>
-      expect(useToasts.getState().items.some((i) => String(i.message).includes('已解封「review-pr」'))).toBe(
-        true,
-      ),
-    )
-    expect(unbanCalls.filter((c) => c.method === 'DELETE' && c.path === '/market/l1/ban')).toHaveLength(1)
-  })
-
-  it('guards checkUpstream, SubmitForm, PublishDialog, InstallRequests, ReviewDialog and InstallTargetDialog against re-entry', async () => {
-    let releaseUpstream = () => {}
-    const upstreamHeld = new Promise<void>((r) => {
-      releaseUpstream = r
-    })
-    let releaseSubmit = () => {}
-    const submitHeld = new Promise<void>((r) => {
-      releaseSubmit = r
-    })
-    const mineCalls = mockApi({
+      'GET /market/reviews?teamId=t1': [],
       'GET /market/mine': [
-        mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
+        gh,
+        mine({
+          id: 'l8',
+          title: 'lint-fix',
+          latest: { ...mine().latest, id: 'v8', reviewStatus: 'pending' },
+        }),
       ],
-      'POST /market/l9/check-upstream': async () => {
-        await upstreamHeld
-        return { changed: false, drafted: false, commit: 'c1' }
-      },
-      'POST /market/l9/versions/v9/submit': async () => {
-        await submitHeld
-        return {}
-      },
+      'GET /market/mine/upstream': [{ listingId: 'l9', commit: 'c2abcdef' }],
+      'POST /market/l9/check-upstream': { changed: true, drafted: true, commit: 'c2abcdef' },
+      'POST /market/l9/versions/v9/submit': {},
+      'PATCH /market/l9': {},
     })
-    const mineView = renderPage('/market?tab=mine')
-    const checkBtn = (await screen.findByRole('button', { name: '检查上游更新' })) as HTMLButtonElement
-    fireEvent.click(checkBtn)
-    fireEvent.click(checkBtn)
-    expect(checkBtn.disabled).toBe(true)
-    expect(checkBtn.getAttribute('aria-busy')).toBe('true')
-    releaseUpstream()
-    await waitFor(() => expect(checkBtn.disabled).toBe(false))
-    expect(mineCalls.filter((c) => c.path === '/market/l9/check-upstream')).toHaveLength(1)
 
+    renderPage('/market?tab=mine')
+    expect(await screen.findByText('发布前检查')).toBeTruthy()
+    expect(await screen.findByText('上游有更新')).toBeTruthy()
+
+    // Filter by status
+    fireEvent.click(screen.getByRole('radio', { name: '待审核 1' }))
+    expect(screen.queryByText('发布前检查')).toBeNull()
+    expect(screen.getByText('lint-fix')).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: '全部 2' }))
+
+    // Sync upstream
+    fireEvent.click(screen.getByRole('button', { name: '同步上游更新' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/market/l9/check-upstream')).toBe(true))
+
+    // Submit draft
     fireEvent.click(screen.getByRole('button', { name: '提交审核' }))
-    const submitDialog = await screen.findByRole('dialog', { name: '提交审核 deploy-check' })
-    const submitConfirm = within(submitDialog).getByRole('button', { name: '提交审核' }) as HTMLButtonElement
-    const submitCancel = within(submitDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
-    fireEvent.click(submitConfirm)
-    expect(submitConfirm.getAttribute('aria-busy')).toBe('true')
-    expect(submitCancel.disabled).toBe(true)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.getByRole('dialog', { name: '提交审核 deploy-check' })).toBeTruthy()
-    releaseSubmit()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '提交审核 deploy-check' })).toBeNull())
-    mineView.unmount()
-
-    let releaseCancel = () => {}
-    const cancelHeld = new Promise<void>((r) => {
-      releaseCancel = r
+    const subDlg = await screen.findByRole('dialog', { name: '提交审核 发布前检查' })
+    fireEvent.change(within(subDlg).getByRole('textbox', { name: '更新说明' }), {
+      target: { value: '修复问题' },
     })
-    let releaseReject = () => {}
-    const rejectHeld = new Promise<void>((r) => {
-      releaseReject = r
-    })
-    const reqCalls = mockApi({
-      'GET /install-requests?view=todo': [request()],
-      'GET /install-requests?view=mine': [request({ id: 'q8' })],
-      'DELETE /install-requests/q8': async () => {
-        await cancelHeld
-        return undefined
-      },
-      'POST /install-requests/q1/decide': async () => {
-        await rejectHeld
-        return {}
-      },
-    })
-    const reqView = renderPage('/market?tab=requests')
-    const mineSec = await screen.findByRole('region', { name: '我的申请' })
-    const withdrawBtn = (await within(mineSec).findByRole('button', { name: '撤回' })) as HTMLButtonElement
-    fireEvent.click(withdrawBtn)
-    fireEvent.click(withdrawBtn)
-    expect(withdrawBtn.disabled).toBe(true)
-    expect(withdrawBtn.getAttribute('aria-busy')).toBe('true')
-    releaseCancel()
+    fireEvent.click(within(subDlg).getByRole('button', { name: '提交审核' }))
     await waitFor(() =>
-      expect(useToasts.getState().items.some((i) => String(i.message).includes('已撤回'))).toBe(true),
+      expect(calls.find((c) => c.path === '/market/l9/versions/v9/submit')?.body).toEqual({
+        changelog: '修复问题',
+      }),
     )
-    expect(reqCalls.filter((c) => c.method === 'DELETE' && c.path === '/install-requests/q8')).toHaveLength(1)
 
-    const todoSec = await screen.findByRole('region', { name: '待我处理' })
-    fireEvent.click(within(todoSec).getByRole('button', { name: '拒绝' }))
-    const rejectDialog = await screen.findByRole('dialog', { name: '拒绝引入申请' })
-    fireEvent.change(within(rejectDialog).getByRole('textbox', { name: '拒绝原因' }), {
-      target: { value: '不需要' },
-    })
-    const rejectConfirm = within(rejectDialog).getByRole('button', { name: '拒绝' }) as HTMLButtonElement
-    const rejectCancel = within(rejectDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
-    fireEvent.click(rejectConfirm)
-    expect(rejectConfirm.getAttribute('aria-busy')).toBe('true')
-    expect(rejectCancel.disabled).toBe(true)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.getByRole('dialog', { name: '拒绝引入申请' })).toBeTruthy()
-    releaseReject()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '拒绝引入申请' })).toBeNull())
-    reqView.unmount()
+    // Unlist confirmation
+    fireEvent.click(screen.getByRole('button', { name: '下架' }))
+    const confirm = await screen.findByRole('alertdialog')
+    fireEvent.click(within(confirm).getByRole('button', { name: '下架' }))
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ status: 'unlisted' }))
+  })
 
-    let releaseInstall = () => {}
-    const installHeld = new Promise<void>((r) => {
-      releaseInstall = r
-    })
-    mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /teams/t1/repos': [],
-      'GET /teams/t2/repos': [],
-      'PUT /groups/g1/installs/l1': async () => {
-        await installHeld
-        return {}
-      },
-    })
-    const installView = renderPage('/market?listing=l1')
-    const drawer = await screen.findByRole('dialog')
-    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
-    const installDialog = await screen.findByRole('dialog', { name: '引入「review-pr」' })
-    fireEvent.click(within(installDialog).getByRole('radio', { name: '支付核心群' }))
-    const installConfirm = within(installDialog).getByRole('button', { name: '引入' }) as HTMLButtonElement
-    const installCancel = within(installDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
-    fireEvent.click(installConfirm)
-    expect(installConfirm.getAttribute('aria-busy')).toBe('true')
-    expect(installCancel.disabled).toBe(true)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.getByRole('dialog', { name: '引入「review-pr」' })).toBeTruthy()
-    releaseInstall()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '引入「review-pr」' })).toBeNull())
-    installView.unmount()
-
-    let releaseReview = () => {}
-    const reviewHeld = new Promise<void>((r) => {
-      releaseReview = r
-    })
-    const item: ReviewItemDto = {
-      listing: { ...listing(), listedVersionId: null, listedRevision: null },
-      version: detail().versions[0]!,
+  it('publishes via guided lightweight wizard with live store card preview & preflight, and supports GitHub track', async () => {
+    const pre: PublishPreflightRes = {
+      type: 'skill',
+      name: 'contract-review',
+      title: '合同风险初审',
+      description: '按法务清单标出违约风险',
+      kind: 'new',
+      revision: 1,
+      visibility: 'team',
+      warnings: [],
     }
-    mockApi({
-      'GET /market/reviews': [item],
-      'GET /market/l1?versionId=pv4': detail(),
-      'POST /market/l1/versions/pv4/review': async () => {
-        await reviewHeld
-        return {}
-      },
+    const pubRes: PublishRes = { listing: mine({ title: '合同风险初审' }), warnings: [], unchanged: false }
+    const calls = mockApi({
+      'GET /market': [],
+      'GET /market/installed': emptyInstalled,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/mine': [],
+      'POST /market/preflight': pre,
+      'POST /market': pubRes,
+      'POST /market/l9/versions/v9/submit': {},
+      'POST /market/import/github': pubRes,
     })
-    render(<MarketReviewList path="/market/reviews" />)
-    fireEvent.click(await screen.findByRole('button', { name: '审核' }))
-    const reviewDialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
-    const approveBtn = within(reviewDialog).getByRole('button', { name: '通过' }) as HTMLButtonElement
-    const reviewCancel = within(reviewDialog).getByRole('button', { name: '取消' }) as HTMLButtonElement
-    fireEvent.click(approveBtn)
-    expect(approveBtn.getAttribute('aria-busy')).toBe('true')
-    expect(reviewCancel.disabled).toBe(true)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.getByRole('dialog', { name: '审核 review-pr r4' })).toBeTruthy()
-    releaseReview()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '审核 review-pr r4' })).toBeNull())
+
+    renderPage('/market?tab=mine&publish=1')
+    const preview = await screen.findByRole('complementary', { name: '商店卡片预览' })
+
+    fireEvent.change(screen.getByLabelText('插件名称'), { target: { value: '合同风险初审' } })
+    fireEvent.change(screen.getByLabelText('一句话简介（展示在市场卡片）'), {
+      target: { value: '按法务清单标出违约风险' },
+    })
+    fireEvent.change(screen.getByLabelText('试试这样问（选填，让同事一看就会用）'), {
+      target: { value: '帮我审一下这份合同' },
+    })
+
+    expect(within(preview).getByText('合同风险初审')).toBeTruthy()
+    expect(within(preview).getByText('按法务清单标出违约风险')).toBeTruthy()
+    expect(within(preview).getByText('已提供「试试这样问」示例')).toBeTruthy()
+
+    await screen.findByText('将新建插件「合同风险初审」，保存为草稿 r1')
+    fireEvent.click(screen.getByRole('button', { name: '保存并提交审核' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/market')).toBe(true))
+    await waitFor(() => expect(calls.some((c) => c.path === '/market/l9/versions/v9/submit')).toBe(true))
+
+    // Track 2: GitHub import
+    fireEvent.click((await screen.findAllByRole('button', { name: '发布新插件' }))[0]!)
+    fireEvent.click(screen.getByRole('radio', { name: /完整插件包 \/ GitHub/ }))
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '来源' })).getByRole('radio', { name: 'GitHub 链接' }),
+    )
+    fireEvent.change(screen.getByLabelText('GitHub 链接'), { target: { value: 'https://github.com/acme/s' } })
+    fireEvent.click(screen.getByRole('button', { name: '存为草稿' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/market/import/github')?.body).toEqual({
+        teamId: 't1',
+        visibility: 'team',
+        url: 'https://github.com/acme/s',
+      }),
+    )
   })
 })
 
-describe('Round 6 市场加固与去重', () => {
-  it('P0-6: refreshes ListingDetail after POST /install-requests succeeds', async () => {
+describe('上架审核工作台（MarketReviewList）', () => {
+  const item: ReviewItemDto = {
+    listing: { ...(listing() as MarketListingDto), listedVersionId: null, listedRevision: null },
+    version: detail().versions[0]!,
+  }
+  const diff: VersionDiffDto = {
+    base: { versionId: 'pv3', revision: 3 },
+    files: [
+      { path: 'SKILL.md', status: 'modified', binary: false, before: '旧行\n', after: '新行\n' },
+      { path: 'assets/logo.png', status: 'modified', binary: true, before: null, after: null },
+    ],
+  }
+
+  it('shows 2-pane workbench with audit cards, file diff, required reject reason, and approve action', async () => {
     const calls = mockApi({
-      'GET /market': LISTINGS,
-      'GET /market/l1': detail(),
-      'GET /teams/t1/repos': [],
-      'GET /teams/t2/repos': [],
-      'POST /install-requests': {},
+      'GET /market/reviews?teamId=t1': [item],
+      'GET /market/l1?versionId=pv4': detail({ permissions: ['exec'] }),
+      'GET /market/l1/versions/pv4/diff': diff,
+      'POST /market/l1/versions/pv4/review': {},
     })
-    renderPage('/market?listing=l1')
-    const drawer = await screen.findByRole('dialog')
-    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
-    const dialog = await screen.findByRole('dialog', { name: '引入「review-pr」' })
-    const before = calls.filter((c) => c.path === '/market/l1').length
-    fireEvent.click(within(dialog).getByRole('radio', { name: '闲聊群' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '申请引入' }))
-    await waitFor(() => expect(calls.filter((c) => c.path === '/market/l1').length).toBe(before + 1))
-  })
 
-  it('P0-7: PublishDialog clears files on read error, guards readSeq races, disables inputs while busy, retries preflight, and omits header close on submit dialogs', async () => {
-    let failPreflight = true
-    let releaseSave = () => {}
-    const saveGate = new Promise<void>((r) => {
-      releaseSave = r
-    })
-    const calls = mockApi({
-      'GET /market': [],
-      'GET /market/mine': [mine()],
-      'POST /market/preflight': () =>
-        failPreflight
-          ? apiError(500, 'internal', '预检超时')
-          : {
-              type: 'skill',
-              name: 'deploy-check',
-              title: 'deploy-check',
-              description: '发布前检查',
-              kind: 'new',
-              revision: 1,
-              visibility: 'team',
-              warnings: [],
-            },
-      'POST /market/import/github': async () => {
-        await saveGate
-        return { listing: mine(), warnings: [], unchanged: false }
-      },
-    })
-    renderPage('/market?tab=mine')
-    fireEvent.click(await screen.findByRole('button', { name: '提交审核' }))
-    const standalone = await screen.findByRole('dialog', { name: '提交审核 deploy-check' })
-    expect(within(standalone).queryByRole('button', { name: '关闭' })).toBeNull()
-    fireEvent.click(within(standalone).getByRole('button', { name: '取消' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '提交审核 deploy-check' })).toBeNull())
-
-    fireEvent.click(screen.getByRole('button', { name: '发布…' }))
-    const dialog = await screen.findByRole('dialog', { name: '发布到市场' })
-    const folderInput = within(dialog).getByLabelText('导入文件夹')
-
-    // Read a valid file, then a failing file: catch must clear files (no stale 已读取 count).
-    const good = new File(['---\nname: a\ndescription: b\n---\n'], 'SKILL.md')
-    Object.defineProperty(good, 'webkitRelativePath', { value: 'a/SKILL.md' })
-    fireEvent.change(folderInput, { target: { files: [good] } })
-    expect(await within(dialog).findByText('已读取 1 个文件')).toBeTruthy()
-
-    const bad = new File(['x'], 'SKILL.md')
-    Object.defineProperty(bad, 'webkitRelativePath', { value: 'a/SKILL.md' })
-    bad.arrayBuffer = () => Promise.reject(new Error('磁盘不可读'))
-    fireEvent.change(folderInput, { target: { files: [bad] } })
-    expect(await within(dialog).findByText(/磁盘不可读/)).toBeTruthy()
-    expect(within(dialog).queryByText('已读取 1 个文件')).toBeNull()
-
-    // Slow read superseded by switching source must be ignored.
-    let resolveSlow!: (buf: ArrayBuffer) => void
-    const slow = new File(['slow'], 'SKILL.md')
-    Object.defineProperty(slow, 'webkitRelativePath', { value: 'a/SKILL.md' })
-    slow.arrayBuffer = () =>
-      new Promise<ArrayBuffer>((r) => {
-        resolveSlow = r
-      })
-    fireEvent.change(folderInput, { target: { files: [slow] } })
-    fireEvent.click(within(dialog).getByRole('radio', { name: '粘贴 SKILL.md' }))
-    resolveSlow(new TextEncoder().encode('---\nname: old\n---\n').buffer)
-
-    // Preflight error offers Retry and recovers.
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'SKILL.md' }), {
-      target: { value: '---\nname: deploy-check\ndescription: 发布前检查\n---\n' },
-    })
-    expect(await within(dialog).findByText('预检超时')).toBeTruthy()
-    failPreflight = false
-    fireEvent.click(within(dialog).getByRole('button', { name: '重试' }))
-    expect(await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')).toBeTruthy()
-    expect(calls.filter((c) => c.path === '/market/preflight')).toHaveLength(2)
-
-    // Switch to GitHub and save: inputs must disable while busy, and post-save submit dialog has no header ×.
-    fireEvent.click(within(dialog).getByRole('radio', { name: 'GitHub 链接' }))
-    const urlInput = within(dialog).getByRole('textbox', { name: 'GitHub 链接' }) as HTMLInputElement
-    fireEvent.change(urlInput, { target: { value: 'https://github.com/acme/s' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存草稿' }))
-    expect(urlInput.disabled).toBe(true)
-    expect((within(dialog).getByRole('radio', { name: '公开' }) as HTMLInputElement).disabled).toBe(true)
-    expect((within(dialog).getByRole('radio', { name: '文件夹' }) as HTMLButtonElement).disabled).toBe(true)
-    releaseSave()
-    expect(await within(dialog).findByRole('button', { name: '提交审核' })).toBeTruthy()
-    expect(within(dialog).queryByRole('button', { name: '关闭' })).toBeNull()
-  })
-
-  it('P0-7: keeps per-row locks independent across concurrent rows in MyListings and InstallRequests', async () => {
-    let releaseFirst = () => {}
-    const firstGate = new Promise<void>((r) => {
-      releaseFirst = r
-    })
-    let releaseSecond = () => {}
-    const secondGate = new Promise<void>((r) => {
-      releaseSecond = r
-    })
-    mockApi({
-      'GET /market/mine': [
-        mine({
-          id: 'l9',
-          title: 'first-skill',
-          ghSource: { url: 'https://github.com/a/1', ref: null, path: '', commit: 'c1' },
-        }),
-        mine({
-          id: 'l10',
-          title: 'second-skill',
-          ghSource: { url: 'https://github.com/a/2', ref: null, path: '', commit: 'c2' },
-        }),
-      ],
-      'POST /market/l9/check-upstream': async () => {
-        await firstGate
-        return { changed: false, drafted: false, commit: 'c1' }
-      },
-      'POST /market/l10/check-upstream': async () => {
-        await secondGate
-        return { changed: false, drafted: false, commit: 'c2' }
-      },
-    })
-    const mineView = renderPage('/market?tab=mine')
-    const r1 = (await screen.findByText('first-skill')).closest('.cfg__item') as HTMLElement
-    const r2 = screen.getByText('second-skill').closest('.cfg__item') as HTMLElement
-    const btn1 = within(r1).getByRole('button', { name: '检查上游更新' }) as HTMLButtonElement
-    const btn2 = within(r2).getByRole('button', { name: '检查上游更新' }) as HTMLButtonElement
-    fireEvent.click(btn1)
-    fireEvent.click(btn2)
-    expect(btn1.disabled).toBe(true)
-    expect(btn2.disabled).toBe(true)
-    releaseFirst()
-    await waitFor(() => expect(btn1.disabled).toBe(false))
-    expect(btn2.disabled).toBe(true)
-    expect(btn2.getAttribute('aria-busy')).toBe('true')
-    releaseSecond()
-    await waitFor(() => expect(btn2.disabled).toBe(false))
-    mineView.unmount()
-
-    let releaseQ1 = () => {}
-    const q1Gate = new Promise<void>((r) => {
-      releaseQ1 = r
-    })
-    let releaseQ2 = () => {}
-    const q2Gate = new Promise<void>((r) => {
-      releaseQ2 = r
-    })
-    mockApi({
-      'GET /install-requests?view=todo': [
-        request({ id: 'q1', requester: '陈晨' }),
-        request({ id: 'q2', requester: '王磊' }),
-      ],
-      'GET /install-requests?view=mine': [],
-      'POST /install-requests/q1/decide': async () => {
-        await q1Gate
-        return {}
-      },
-      'POST /install-requests/q2/decide': async () => {
-        await q2Gate
-        return {}
-      },
-    })
-    renderPage('/market?tab=requests')
-    const todoSec = await screen.findByRole('region', { name: '待我处理' })
-    const q1Btn = within(
-      (await within(todoSec).findByText(/陈晨/)).closest('.cfg__item') as HTMLElement,
-    ).getByRole('button', { name: '通过' }) as HTMLButtonElement
-    const q2Btn = within(within(todoSec).getByText(/王磊/).closest('.cfg__item') as HTMLElement).getByRole(
-      'button',
-      { name: '通过' },
-    ) as HTMLButtonElement
-    fireEvent.click(q1Btn)
-    fireEvent.click(q2Btn)
-    expect(q1Btn.disabled).toBe(true)
-    expect(q2Btn.disabled).toBe(true)
-    releaseQ1()
-    await waitFor(() => expect(q1Btn.disabled).toBe(false))
-    expect(q2Btn.disabled).toBe(true)
-    expect(q2Btn.getAttribute('aria-busy')).toBe('true')
-    releaseQ2()
-    await waitFor(() => expect(q2Btn.disabled).toBe(false))
-  })
-
-  it('P0-8: syncs Drawer title on deep-link & URL switch, reloads market on ban, closes ReviewDialog on ban, retries VersionDiff, and shows reload error above existing data', async () => {
-    let failDetailReload = false
-    let detailCalls = 0
-    const calls = mockApi({
-      'GET /market': [],
-      'GET /market/l1': () => {
-        detailCalls++
-        if (failDetailReload && detailCalls > 1) return apiError(500, 'internal', '刷新详情失败')
-        return detail({ canReview: true, status: 'banned', banReason: '违规' })
-      },
-      'GET /market/l2': detail({ id: 'l2', title: '幻灯片', name: 'slides' }),
-      'DELETE /market/l1/ban': {},
-    })
-    function Switcher() {
-      const nav = useNavigate()
-      return (
-        <button type="button" onClick={() => nav('/market?listing=l2')}>
-          跳到 l2
-        </button>
-      )
-    }
     const { unmount } = render(
-      <MemoryRouter initialEntries={['/market?listing=l1']}>
-        <MarketPage />
-        <Switcher />
+      <MemoryRouter>
+        <MarketReviewList path="/market/reviews?teamId=t1" queueLabel="支付组" />
       </MemoryRouter>,
     )
-    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    expect(drawer).toBeTruthy()
 
-    // Unban reloads /market AND if detail reload fails, shows error Alert above existing data.
-    failDetailReload = true
-    const marketCallsBefore = calls.filter((c) => c.path === '/market').length
-    fireEvent.click(within(drawer).getByRole('button', { name: '解封' }))
-    await waitFor(() => expect(calls.filter((c) => c.path === '/market').length).toBe(marketCallsBefore + 1))
-    expect(await within(drawer).findByText('刷新详情失败')).toBeTruthy()
-    expect(within(drawer).getByRole('heading', { name: '审查 PR' })).toBeTruthy()
+    expect(await screen.findByRole('region', { name: '上架审核工作台' })).toBeTruthy()
+    expect(await screen.findByText('会在电脑上运行代码（需机主确认）')).toBeTruthy()
+    expect(await screen.findByText('对比 r3 的变更')).toBeTruthy()
+    expect(screen.getByText('二进制文件已变化')).toBeTruthy()
 
-    // Switching ?listing=l2 updates Drawer title without keeping stale review-pr title.
-    fireEvent.click(screen.getByRole('button', { name: '跳到 l2' }))
-    expect(await screen.findByRole('dialog', { name: '幻灯片' })).toBeTruthy()
+    const rejectBtn = screen.getByRole('button', { name: '驳回' }) as HTMLButtonElement
+    expect(rejectBtn.disabled).toBe(true)
+    fireEvent.change(screen.getByRole('textbox', { name: '审核意见' }), { target: { value: '缺少说明' } })
+    expect(rejectBtn.disabled).toBe(false)
+    fireEvent.click(rejectBtn)
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/market/l1/versions/pv4/review')?.body).toEqual({
+        approve: false,
+        note: '缺少说明',
+      }),
+    )
     unmount()
 
-    // ReviewDialog: VersionDiff retries on failure, and banning closes ReviewDialog and reloads queue.
-    let failDiff = true
-    const item: ReviewItemDto = {
-      listing: { ...listing(), listedVersionId: null, listedRevision: null },
-      version: detail().versions[0]!,
-    }
-    const revCalls = mockApi({
+    const approveCalls = mockApi({
       'GET /market/reviews': [item],
-      'GET /market/l1?versionId=pv4': detail({ canReview: true }),
-      'GET /market/l1/versions/pv4/diff': () =>
-        failDiff
-          ? apiError(500, 'internal', '差异加载失败')
-          : { base: { versionId: 'pv3', revision: 3 }, files: [] },
-      'POST /market/l1/ban': {},
+      'GET /market/l1?versionId=pv4': detail(),
+      'GET /market/l1/versions/pv4/diff': diff,
+      'POST /market/l1/versions/pv4/review': {},
     })
-    render(<MarketReviewList path="/market/reviews" />)
-    fireEvent.click(await screen.findByRole('button', { name: '审核' }))
-    const reviewDialog = await screen.findByRole('dialog', { name: '审核 review-pr r4' })
-    expect(await within(reviewDialog).findByText('差异加载失败')).toBeTruthy()
-    failDiff = false
-    fireEvent.click(within(reviewDialog).getByRole('button', { name: '重试' }))
-    expect(await within(reviewDialog).findByText('对比 r3 的变更')).toBeTruthy()
-
-    fireEvent.click(await within(reviewDialog).findByRole('button', { name: '管理 review-pr' }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: '封禁' }))
-    const banDialog = await screen.findByRole('dialog', { name: '封禁「review-pr」' })
-    fireEvent.change(within(banDialog).getByRole('textbox', { name: '封禁原因' }), {
-      target: { value: '风险脚本' },
-    })
-    fireEvent.click(within(banDialog).getByRole('button', { name: '封禁' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '审核 review-pr r4' })).toBeNull())
-    await waitFor(() => expect(revCalls.filter((c) => c.path === '/market/reviews')).toHaveLength(2))
+    render(
+      <MemoryRouter>
+        <MarketReviewList path="/market/reviews" />
+      </MemoryRouter>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '通过并上架' }))
+    await waitFor(() =>
+      expect(approveCalls.find((c) => c.path === '/market/l1/versions/pv4/review')?.body).toEqual({
+        approve: true,
+        note: '',
+      }),
+    )
   })
 
-  it('P1-2: fetches GET /install-requests?view=todo once on /market?tab=requests and reloads once after decision', async () => {
-    let failReload = false
-    let todoCount = 0
-    const calls = mockApi({
-      'GET /install-requests?view=todo': () => {
-        todoCount++
-        if (failReload && todoCount > 1) return apiError(500, 'internal', '待办刷新失败')
-        return [request()]
-      },
-      'GET /install-requests?view=mine': [],
-      'POST /install-requests/q1/decide': {},
-    })
-    renderPage('/market?tab=requests')
-    const todoSec = await screen.findByRole('region', { name: '待我处理' })
-    await within(todoSec).findByText(/陈晨/)
-    expect(calls.filter((c) => c.path === '/install-requests?view=todo')).toHaveLength(1)
+  it('shows empty review message for standalone vs market queue', async () => {
+    mockApi({ 'GET /market/reviews': [] })
+    const { unmount } = render(
+      <MemoryRouter>
+        <MarketReviewList path="/market/reviews" />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('没有待审核的版本')).toBeTruthy()
+    unmount()
 
-    failReload = true
-    fireEvent.click(within(todoSec).getByRole('button', { name: '通过' }))
-    await waitFor(() => expect(calls.filter((c) => c.path === '/install-requests?view=todo')).toHaveLength(2))
-    // Post-load reload failure shows Alert above existing todo list.
-    expect(await within(todoSec).findByText('待办刷新失败')).toBeTruthy()
-    expect(within(todoSec).getByText(/陈晨/)).toBeTruthy()
+    render(
+      <MemoryRouter>
+        <MarketReviewList path="/market/reviews" onBackMarket={() => {}} />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('待审核队列已清空')).toBeTruthy()
   })
 })

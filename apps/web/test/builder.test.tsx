@@ -70,7 +70,7 @@ afterEach(() => {
 })
 
 describe('使用者 / 搭建者', () => {
-  it('shows a member owning nothing only 消息 and 通知, and the 使用者 welcome', async () => {
+  it('shows a member owning nothing 消息, 市场 and 通知 (not 电脑与 Bot), and the 使用者 welcome', async () => {
     mockApi(routes())
     renderAt('/')
     const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
@@ -79,7 +79,7 @@ describe('使用者 / 搭建者', () => {
     expect(within(welcome).queryByText('@Bot 帮我查一下上个月的销售额')).toBeNull()
     expect(within(welcome).queryByRole('button', { name: '开始绑定' })).toBeNull()
     expect(within(welcome).queryByRole('button', { name: '播放演示' })).toBeNull()
-    expect(within(rail()).queryByRole('button', { name: '市场' })).toBeNull()
+    expect(within(rail()).getByRole('button', { name: '市场' })).toBeTruthy()
     expect(within(rail()).queryByRole('button', { name: '电脑与 Bot' })).toBeNull()
     expect(within(rail()).getByRole('button', { name: /^消息/ })).toBeTruthy()
     expect(within(rail()).getByRole('button', { name: /^通知/ })).toBeTruthy()
@@ -132,7 +132,7 @@ describe('使用者 / 搭建者', () => {
     expect(within(rail()).getByRole('button', { name: '电脑与 Bot' }).getAttribute('aria-current')).toBe(
       'page',
     )
-    expect(within(rail()).queryByRole('button', { name: '市场' })).toBeNull()
+    expect(within(rail()).getByRole('button', { name: '市场' })).toBeTruthy()
   })
 
   it('counts owning a machine, a group admin seat, a team role or sysadmin as a builder', async () => {

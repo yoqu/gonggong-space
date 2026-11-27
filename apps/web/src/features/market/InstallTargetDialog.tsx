@@ -1,9 +1,15 @@
 import {
+  type InstallDto,
   type InstalledTarget,
   type InstallRequestReq,
+  type InstallScope,
+  type MarketSource,
   PERSONAL_BASE,
+  type PluginCategory,
+  type PluginPermission,
   type RepoDto,
   type RequestedTarget,
+  type ReusedSecretDto,
   type SecretRequirement,
   type TargetRef,
 } from '@gonggong/protocol'
@@ -12,43 +18,45 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { Alert, Dialog, RadioGroup, SegmentedControl, Spinner, Tag, TextArea, toast } from '../../ui'
+import { Alert, Dialog, Disclosure, Icon, paletteColor, Spinner, Tag, TextArea, toast } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
-import { type Policy, VersionPolicy } from './InstallList'
-import { InstallSecrets, secretsBaseOf, useSecretPlan } from './SecretSpecs'
+import { InstallReadyStep } from './InstallReadyStep'
+import { ListingIcon, SOURCE_LABEL } from './meta'
+import './market-detail.css'
 
-type Kind = 'me' | 'group' | 'team' | 'repo'
-interface Target {
-  /** The install scope's API base, e.g. `/groups/:id`. */
+interface ScopeOption {
+  scope: InstallScope
   base: string
-  /** The install scope's id, to tell where the listing already is. */
   scopeId: string
-  /** The team it belongs to: per-member secret definitions go there. */
-  teamId: string | null
   label: string
-  /** Set where I am not an admin: 申请引入 asks the admins of this scope instead. */
+  description: string
+  isCurrentGroup?: boolean
   ask?: Pick<InstallRequestReq, 'scope' | 'scopeId'>
 }
 
-/** Repos of every team I belong to, fetched once the dialog opens. */
-function useRepos(teams: { id: string; name: string; role: string }[]) {
-  const [repos, setRepos] = useState<Target[] | null>(null)
+function useTeamRepos(teams: { id: string; name: string; role: string }[], enabled: boolean) {
+  const [repos, setRepos] = useState<ScopeOption[] | null>(null)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [tick, setTick] = useState(0)
   const key = teams.map((x) => x.id).join(',')
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the team list, `tick` retries
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for team list, `tick` retries
   useEffect(() => {
+    if (!enabled) return
     let live = true
     setLoading(true)
     Promise.all(
       teams.map(async (team) =>
         (await api.get<RepoDto[]>(`/teams/${team.id}/repos`)).map(
-          (r): Target => ({
+          (r): ScopeOption => ({
+            scope: 'repo',
             base: `/teams/${team.id}/repos/${r.id}`,
             scopeId: r.id,
-            teamId: team.id,
             label: `${team.name} / ${r.name}`,
+            description:
+              team.role === 'member'
+                ? t('你是普通成员，需要团队管理员同意')
+                : t('只在这个仓库里工作的群默认可用'),
             ask: team.role === 'member' ? { scope: 'repo', scopeId: r.id } : undefined,
           }),
         ),
@@ -66,250 +74,375 @@ function useRepos(teams: { id: string; name: string; role: string }[]) {
     return () => {
       live = false
     }
-  }, [key, tick])
+  }, [enabled, key, tick])
   return { repos, error, loading, reload: () => setTick((n) => n + 1) }
 }
 
+export interface InstallableListingInput {
+  id: string
+  type: 'plugin' | 'skill'
+  name: string
+  title: string
+  versionId?: string
+  icon?: string | null
+  category?: PluginCategory | null
+  source?: MarketSource
+  teamName?: string | null
+  listedVersionId: string
+  listedRevision: number
+  installedIn?: InstalledTarget[]
+  requestedIn?: RequestedTarget[]
+  nameTakenIn?: TargetRef[]
+  secretSpecs?: SecretRequirement[]
+  permissions?: PluginPermission[]
+  examples?: string[]
+}
+
 /**
- * 引入到…: install a market listing into my personal layer (skills only) or a group, team or repo I administer,
- * following or pinning its version; for one I am only a member of, ask its admins (申请引入).
+ * 2-step Add & Readiness Modal:
+ * Step 1: smart scope list (personal only when supported, default source group, collapsed admin scopes,
+ * auto-pin exec plugins with plain explanation, switch CTA to 提交申请 for non-admin scopes).
+ * Step 2: in-place readiness checklist (secrets, CLI connector auth, local machine exec trust, try prompts).
  */
 export function InstallTargetDialog({
   listing,
+  sourceGroupId,
+  initialReadyTarget,
   onClose,
   onChanged,
+  onReusedSecrets,
+  onGoInstalled,
 }: {
-  listing: {
-    id: string
-    type: 'plugin' | 'skill'
-    name: string
-    title: string
-    listedVersionId: string
-    listedRevision: number
-    installedIn?: InstalledTarget[]
-    requestedIn?: RequestedTarget[]
-    nameTakenIn?: TargetRef[]
-    /** What the listed version declares (plan Skill密钥声明 §5). */
-    secretSpecs: SecretRequirement[]
-  }
+  listing: InstallableListingInput
+  sourceGroupId?: string
+  /** Open straight into Step 2 for an already-installed target (from 去配置). */
+  initialReadyTarget?: { scope: InstallScope; scopeId: string; label: string }
   onClose: () => void
-  /** An install or a request went through: the listing's 已引入 / 已申请 changed. */
   onChanged?: () => void
+  onReusedSecrets?: (items: ReusedSecretDto[]) => void
+  onGoInstalled?: () => void
 }) {
   const me = useSession((s) => s.user?.id)
   const teams = useSession((s) => s.tenancy?.teams) ?? []
   const groups = useWorkspace((s) => s.groups).filter((g) => g.kind === 'group')
-  const { repos, error: reposError, loading: reposLoading, reload: reloadRepos } = useRepos(teams)
-  const [kind, setKind] = useState<Kind>('group')
-  const [picked, setPicked] = useState<string | null>(null)
-  const [policy, setPolicy] = useState<Policy>('follow')
+
+  const [moreOpen, setMoreOpen] = useState(false)
+  const {
+    repos,
+    error: reposError,
+    loading: reposLoading,
+    reload: reloadRepos,
+  } = useTeamRepos(teams, moreOpen)
+
+  const keyOf = (scope: InstallScope, scopeId: string) => `${scope}:${scopeId}`
+  const installed = new Set(listing.installedIn?.map((x) => keyOf(x.scope, x.scopeId)))
+  const taken = new Set(listing.nameTakenIn?.map((x) => keyOf(x.scope, x.scopeId)))
+  const requested = new Map(listing.requestedIn?.map((x) => [keyOf(x.scope, x.scopeId), x]))
+
+  const isBlocked = (x: ScopeOption) => {
+    const k = keyOf(x.scope, x.scopeId)
+    return installed.has(k) || taken.has(k) || (!!x.ask && requested.has(k))
+  }
+
+  const supportsPersonal = listing.type === 'skill'
+  const personalOption: ScopeOption | null = supportsPersonal
+    ? {
+        scope: 'user',
+        base: PERSONAL_BASE,
+        scopeId: me ?? '',
+        label: t('仅我使用'),
+        description: installed.has(keyOf('user', me ?? ''))
+          ? t('已经添加过')
+          : taken.has(keyOf('user', me ?? ''))
+            ? t('已有同名插件，请先在设置中移除')
+            : t('随你进入所有群，免审批，仅你 @ Bot 时生效'),
+      }
+    : null
+
+  const groupOptions: ScopeOption[] = groups
+    .map((g): ScopeOption => {
+      const admin = isGroupAdmin(g, me)
+      const k = keyOf('group', g.id)
+      return {
+        scope: 'group',
+        base: `/groups/${g.id}`,
+        scopeId: g.id,
+        label: g.name,
+        description: installed.has(k)
+          ? t('已经添加过')
+          : taken.has(k)
+            ? t('已有同名插件，请先在设置中移除')
+            : !admin
+              ? t('你是普通成员，需要群管理员同意')
+              : t('群里所有 Bot 都能用'),
+        isCurrentGroup: g.id === sourceGroupId,
+        ask: admin ? undefined : { scope: 'group', scopeId: g.id },
+      }
+    })
+    .sort((a, b) => Number(!!b.isCurrentGroup) - Number(!!a.isCurrentGroup))
+
+  const teamOptions: ScopeOption[] = teams.map((x) => ({
+    scope: 'team',
+    base: `/teams/${x.id}`,
+    scopeId: x.id,
+    label: x.name,
+    description:
+      x.role === 'member'
+        ? t('你是普通成员，需要团队管理员同意')
+        : t('团队所有群默认可用，群管理员可单独关闭'),
+    ask: x.role === 'member' ? { scope: 'team', scopeId: x.id } : undefined,
+  }))
+
+  const primaryOptions: ScopeOption[] = [...(personalOption ? [personalOption] : []), ...groupOptions]
+  const allOptions: ScopeOption[] = [...primaryOptions, ...teamOptions, ...(repos ?? [])]
+
+  const defaultPick = (): string | null => {
+    if (sourceGroupId) {
+      const src = groupOptions.find((g) => g.scopeId === sourceGroupId && !isBlocked(g))
+      if (src) return src.base
+    }
+    const first = primaryOptions.find((o) => !isBlocked(o))
+    return first?.base ?? null
+  }
+
+  const [picked, setPicked] = useState<string | null>(() => defaultPick())
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const targets: Target[] | null =
-    kind === 'me'
-      ? [{ base: PERSONAL_BASE, scopeId: me ?? '', teamId: null, label: t('我的 Skill') }]
-      : kind === 'group'
-        ? groups.map((g) => ({
-            base: `/groups/${g.id}`,
-            scopeId: g.id,
-            teamId: g.teamId,
-            label: g.name,
-            ask: isGroupAdmin(g, me) ? undefined : { scope: 'group', scopeId: g.id },
-          }))
-        : kind === 'team'
-          ? teams.map((x) => ({
-              base: `/teams/${x.id}`,
-              scopeId: x.id,
-              teamId: x.id,
-              label: x.name,
-              ask: x.role === 'member' ? { scope: 'team', scopeId: x.id } : undefined,
-            }))
-          : repos
-  const installed = new Set(listing.installedIn?.map((x) => x.scopeId))
-  const taken = new Set(listing.nameTakenIn?.map((x) => x.scopeId))
-  const requested = new Map(listing.requestedIn?.map((x) => [x.scopeId, x]))
-  /** Why the target can't take it: installed, a same-named skill, or a request already waiting there. */
-  const blocked = (x: Target) =>
-    installed.has(x.scopeId) || taken.has(x.scopeId) || (!!x.ask && requested.has(x.scopeId))
-  const target = targets?.find((x) => x.base === picked)
-  const there = !!target && blocked(target)
+  const [readyTarget, setReadyTarget] = useState<{
+    scope: InstallScope
+    scopeId: string
+    label: string
+  } | null>(initialReadyTarget ?? null)
+
+  const target = allOptions.find((x) => x.base === picked) ?? null
+  const blocked = !!target && isBlocked(target)
   const ask = target?.ask
-  const pinVersionId = policy === 'pin' ? listing.listedVersionId : null
-  // Only who installs directly makes definitions: they administer the layer.
-  const secrets = useSecretPlan(
-    listing.secretSpecs,
-    target && !ask ? secretsBaseOf(target.base) : null,
-    target?.teamId ?? null,
-  )
+  const isExec = !!listing.permissions?.includes('exec')
+  const pinVersionId = isExec ? listing.listedVersionId : null
+
   const submit = async () => {
-    if (!target || busy) return
-    if (!ask && secrets.invalid) return setError(secrets.invalid)
+    if (!target || blocked || busy) return
     setBusy(true)
     setError('')
     try {
       if (ask) {
-        const req: InstallRequestReq = { listingId: listing.id, ...ask, pinVersionId, note: note.trim() }
+        const req: InstallRequestReq = {
+          listingId: listing.id,
+          ...ask,
+          pinVersionId,
+          note: note.trim(),
+        }
         await api.post('/install-requests', req)
-        toast({ type: 'success', message: t('已向「{name}」的管理员提交引入申请', { name: target.label }) })
+        toast({ type: 'success', message: t('已向「{name}」的管理员提交添加申请', { name: target.label }) })
         onChanged?.()
-      } else {
-        await api.put(`${target.base}/installs/${listing.id}`, { enabled: true, pinVersionId })
-        const failed = await secrets.apply()
-        if (failed.length)
-          toast({
-            type: 'error',
-            title: t('已引入到「{name}」，但有密钥定义没建好', { name: target.label }),
-            message: failed.join('；'),
-          })
-        else toast({ type: 'success', message: t('已引入到「{name}」', { name: target.label }) })
-        onChanged?.()
+        onClose()
+        return
       }
-      onClose()
+      const res = await api.put<InstallDto>(`${target.base}/installs/${listing.id}`, {
+        enabled: true,
+        pinVersionId,
+      })
+      if (res?.reusedSecrets?.length) onReusedSecrets?.(res.reusedSecrets)
+      onChanged?.()
+      setBusy(false)
+      setReadyTarget({ scope: target.scope, scopeId: target.scopeId, label: target.label })
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
     }
   }
+
   const close = () => {
     if (!busy) onClose()
   }
+
+  const step = readyTarget ? 2 : 1
+  const sourceText = listing.teamName || (listing.source ? SOURCE_LABEL[listing.source] : '')
+
+  const renderOption = (x: ScopeOption) => {
+    const k = keyOf(x.scope, x.scopeId)
+    const dis = isBlocked(x)
+    const checked = picked === x.base
+    const req = requested.get(k)
+    const iconName =
+      x.scope === 'user'
+        ? 'person'
+        : x.scope === 'group'
+          ? 'hashtag'
+          : x.scope === 'team'
+            ? 'person-2'
+            : 'folder-git'
+    return (
+      <label
+        key={x.base}
+        className={`mkt-scope-opt${checked ? ' mkt-scope-opt--selected' : ''}${dis ? ' mkt-scope-opt--disabled' : ''}`}
+      >
+        <input
+          type="radio"
+          name="mkt-install-target"
+          checked={checked}
+          disabled={dis || busy}
+          onChange={() => {
+            setPicked(x.base)
+            setError('')
+          }}
+        />
+        <span className="mkt-scope-opt__av" style={{ background: paletteColor(x.label) }} aria-hidden="true">
+          <Icon name={iconName} size={14} />
+        </span>
+        <span className="mkt-scope-opt__text">
+          <span className="mkt-scope-opt__title">{x.label}</span>
+          <small className="mkt-scope-opt__sub">{x.description}</small>
+        </span>
+        {installed.has(k) ? (
+          <Tag tone="green">{t('已添加')}</Tag>
+        ) : taken.has(k) ? (
+          <Tag tone="red">{t('同名冲突')}</Tag>
+        ) : req ? (
+          <Tag tone="blue">{req.mine ? t('你已申请') : t('已申请')}</Tag>
+        ) : x.isCurrentGroup ? (
+          <Tag tone="blue">{t('当前群')}</Tag>
+        ) : x.ask ? (
+          <Tag tone="gray">{t('需申请')}</Tag>
+        ) : null}
+      </label>
+    )
+  }
+
   return (
     <Dialog
       open
-      title={t('引入「{name}」', { name: listing.title })}
+      aria-label={t('添加「{name}」', { name: listing.title })}
+      title={
+        <div className="mkt-modal-head">
+          <ListingIcon
+            type={listing.type}
+            size={36}
+            listing={{
+              id: listing.id,
+              versionId: listing.versionId ?? listing.listedVersionId,
+              icon: listing.icon,
+              name: listing.name,
+              category: listing.category,
+            }}
+          />
+          <div>
+            <div>{t('添加 {name}', { name: listing.title })}</div>
+            <div className="mkt-modal-head__sub">
+              {readyTarget
+                ? readyTarget.label
+                : [sourceText, `r${listing.listedRevision}`].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+        </div>
+      }
       width={520}
       closeOnScrim={false}
       onClose={busy ? () => {} : onClose}
-      actions={[
-        { label: t('取消'), disabled: busy, onClick: close },
-        {
-          label: ask ? t('申请引入') : t('引入'),
-          variant: 'primary',
-          disabled:
-            !target || there || busy || (!ask && (secrets.loading || !!secrets.error || secrets.cancelled)),
-          loading: busy,
-          onClick: () => void submit(),
-        },
-      ]}
+      actions={
+        step === 1
+          ? [
+              { label: t('取消'), disabled: busy, onClick: close },
+              {
+                label: ask ? t('提交申请') : t('添加'),
+                variant: 'primary',
+                disabled: !target || blocked || busy,
+                loading: busy,
+                onClick: () => void submit(),
+              },
+            ]
+          : undefined
+      }
     >
-      {error ? <Alert variant="error" title={error} /> : null}
-      <SegmentedControl<Kind>
-        aria-label={t('引入到')}
-        value={kind}
-        onChange={(k) => {
-          setKind(k)
-          setPicked(k === 'me' ? PERSONAL_BASE : null)
-        }}
-        items={[
-          { value: 'me', label: t('我的 Skill'), disabled: listing.type === 'plugin' },
-          { value: 'group', label: t('群') },
-          { value: 'team', label: t('团队') },
-          { value: 'repo', label: t('仓库') },
-        ]}
-      />
-      {listing.type === 'plugin' ? <div className="gs-note">{t('插件不能引入到「我的 Skill」')}</div> : null}
-      {kind === 'me' ? (
-        <div className="gs-note">
-          {installed.has(me ?? '')
-            ? t('已经引入到这里了')
-            : taken.has(me ?? '')
-              ? t('「我的 Skill」里已有同名的「{name}」，先在「设置 · 我的 Skill」里移除它', {
-                  name: listing.name,
-                })
-              : t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
-        </div>
-      ) : kind === 'repo' && reposError ? (
-        <Alert variant="error" title={reposError} retrying={reposLoading} onRetry={reloadRepos} />
-      ) : !targets ? (
-        <Spinner />
-      ) : targets.length ? (
-        <>
-          <div className="cfg__eyebrow">{t('目标')}</div>
-          <div className="mkt-targets">
-            <RadioGroup
-              aria-label={t('目标')}
-              value={picked ?? undefined}
-              onChange={setPicked}
-              options={targets.map((x) => ({
-                value: x.base,
-                disabled: blocked(x),
-                label: (
-                  <>
-                    {x.label}
-                    <TargetTag
-                      installed={installed.has(x.scopeId)}
-                      taken={taken.has(x.scopeId)}
-                      request={requested.get(x.scopeId)}
-                      ask={!!x.ask}
-                    />
-                  </>
-                ),
-              }))}
-            />
-          </div>
-          {targets.some((x) => taken.has(x.scopeId)) ? (
-            <div className="gs-note">
-              {t('标「同名冲突」的目标里已有同名的 Skill「{name}」，先在那里的设置中移除它再引入。', {
-                name: listing.name,
-              })}
-            </div>
-          ) : null}
-          {targets.some((x) => x.ask && requested.has(x.scopeId)) ? (
-            <div className="gs-note">
-              {t('标「已申请」的目标已有待处理的申请，等管理员处理即可；你的申请可在「引入申请」里撤回。')}
-            </div>
-          ) : null}
-          {targets.some((x) => x.ask && !blocked(x)) ? (
-            <div className="gs-note">{t('标「需申请」的目标你不是管理员，引入会先提交给管理员审批。')}</div>
-          ) : null}
-        </>
-      ) : (
-        <div className="gs-note">{t('没有可引入的目标')}</div>
-      )}
-      <VersionPolicy value={policy} onChange={setPolicy} revision={listing.listedRevision} />
-      {target && !ask && !there ? <InstallSecrets plan={secrets} onEdit={() => setError('')} /> : null}
-      {ask ? (
-        <TextArea
-          label={t('申请说明')}
-          aria-label={t('申请说明')}
-          placeholder={t('为什么需要它（选填），管理员会看到')}
-          maxLength={500}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
+      <nav className="mkt-steps" aria-label={t('添加步骤')}>
+        <span className={`mkt-steps__step ${step === 1 ? 'mkt-steps__step--on' : 'mkt-steps__step--done'}`}>
+          <span className="mkt-steps__num">
+            {step > 1 ? <Icon name="check" size={12} weight={2} /> : '1'}
+          </span>
+          {t('添加到哪里')}
+        </span>
+        <span className="mkt-steps__line" aria-hidden="true" />
+        <span className={`mkt-steps__step ${step === 2 ? 'mkt-steps__step--on' : ''}`}>
+          <span className="mkt-steps__num">2</span>
+          {t('完成准备')}
+        </span>
+      </nav>
+
+      {readyTarget ? (
+        <InstallReadyStep
+          listingId={listing.id}
+          listingTitle={listing.title}
+          scope={readyTarget.scope}
+          scopeId={readyTarget.scopeId}
+          targetLabel={readyTarget.label}
+          fallbackExamples={listing.examples}
+          onDone={onClose}
+          onGoInstalled={onGoInstalled}
+          onChanged={onChanged}
+          onReusedSecrets={onReusedSecrets}
         />
-      ) : null}
+      ) : (
+        <>
+          {error ? <Alert variant="error" title={error} /> : null}
+          <div className="cfg__eyebrow">{t('给谁用？')}</div>
+          {primaryOptions.length ? (
+            <div className="mkt-scope-group" role="radiogroup" aria-label={t('添加位置')}>
+              {primaryOptions.map(renderOption)}
+            </div>
+          ) : (
+            <div className="gs-note">{t('你还没有加入群聊，可在下方展开团队范围。')}</div>
+          )}
+
+          {ask ? (
+            <TextArea
+              label={t('申请说明')}
+              aria-label={t('申请说明')}
+              placeholder={t('说一句为什么需要（选填），会发给群管理员')}
+              maxLength={500}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          ) : null}
+
+          {teams.length ? (
+            <Disclosure
+              variant="group"
+              title={t('更多范围（管理员）')}
+              open={moreOpen}
+              onToggle={setMoreOpen}
+            >
+              <div className="mkt-scope-group">
+                {teamOptions.map(renderOption)}
+                {reposError ? (
+                  <Alert variant="error" title={reposError} retrying={reposLoading} onRetry={reloadRepos} />
+                ) : reposLoading && !repos ? (
+                  <Spinner />
+                ) : (
+                  (repos ?? []).map(renderOption)
+                )}
+              </div>
+            </Disclosure>
+          ) : null}
+
+          {isExec ? (
+            <div className="mkt-hint mkt-hint--lock">
+              <Icon name="shield-check" size={15} />
+              <span>
+                {t(
+                  '该插件会在电脑上运行本地检查程序，为确保安全，系统将自动固定在当前已审核版本 r{n}，后续升级需重新确认。',
+                  { n: listing.listedRevision },
+                )}
+              </span>
+            </div>
+          ) : (
+            <div className="mkt-hint">
+              <Icon name="arrow-clockwise" size={15} />
+              <span>{t('会自动保持最新版本，系统也会自动补齐所需凭据项，无需手动配置。')}</span>
+            </div>
+          )}
+        </>
+      )}
     </Dialog>
   )
-}
-
-function TargetTag({
-  installed,
-  taken,
-  request,
-  ask,
-}: {
-  installed: boolean
-  taken: boolean
-  request?: RequestedTarget
-  ask: boolean
-}) {
-  const tag = installed ? (
-    <Tag tone="green">{t('已引入')}</Tag>
-  ) : taken ? (
-    <Tag tone="red">{t('同名冲突')}</Tag>
-  ) : request ? (
-    <span title={t('{name} 已申请，等管理员处理', { name: request.requester })}>
-      <Tag tone="blue">
-        {request.mine ? t('你已申请') : ask ? t('已申请') : t('{name} 申请中', { name: request.requester })}
-      </Tag>
-    </span>
-  ) : ask ? (
-    <Tag tone="orange">{t('需申请')}</Tag>
-  ) : null
-  return tag ? (
-    <span className="mkt-targets__ask" aria-hidden="true">
-      {tag}
-    </span>
-  ) : null
 }

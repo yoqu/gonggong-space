@@ -2,12 +2,14 @@ import type {
   GroupDto,
   InstallDto,
   MarketListingDetailDto,
-  SecretDto,
+  MarketReadinessDto,
+  ReusedSecretDto,
   SecretRequirement,
   TeamDto,
   UserDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
@@ -15,7 +17,7 @@ import { InstallList } from '../src/features/market/InstallList'
 import { InstallTargetDialog } from '../src/features/market/InstallTargetDialog'
 import { ListingDetail } from '../src/features/market/ListingDetail'
 import { useToasts } from '../src/ui/toast'
-import { apiError, mockApi } from './mockApi'
+import { mockApi } from './mockApi'
 
 const KEY: SecretRequirement = {
   name: 'DW_KEY',
@@ -25,13 +27,19 @@ const KEY: SecretRequirement = {
   mode: 'personal',
   required: true,
 }
-const TEST_KEY: SecretRequirement = { name: 'DW_TEST_KEY', description: '', mode: 'shared', required: false }
+const TEST_KEY: SecretRequirement = {
+  name: 'DW_TEST_KEY',
+  title: '测试库 Key',
+  description: '群内共用凭据',
+  mode: 'shared',
+  required: false,
+}
 
 const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto => ({
   id: 'l1',
   type: 'skill',
   name: 'dw-query',
-  title: 'dw-query',
+  title: '数仓查询',
   description: '查数仓',
   layer: 'team',
   status: 'listed',
@@ -42,36 +50,53 @@ const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto
   teamId: 't1',
   teamName: '支付组',
   author: '陈晨',
-  agents: [],
+  agents: ['claude'],
   listedVersionId: 'pv3',
   listedRevision: 3,
   installs: 0,
   updatedAt: '2026-11-01T00:00:00Z',
-  readme: '',
+  readme: '按规范查询数仓表。',
   permissions: [],
   mcp: [],
   secretSpecs: [KEY, TEST_KEY],
-  files: [],
+  files: [{ path: 'SKILL.md', size: 120 }],
   versions: [],
   ghSource: null,
   canEdit: false,
   ...o,
 })
 
-const def = (o: Partial<SecretDto>): SecretDto => ({
-  id: 's1',
-  scope: 'team',
-  teamId: 't1',
-  groupId: null,
-  name: 'DW_KEY',
-  description: '数仓 Key：个人中心签发',
-  mode: 'personal',
-  botIds: null,
-  enabled: true,
-  expiresAt: null,
-  value: null,
-  personalFilled: [],
-  updatedAt: '2026-11-01T00:00:00Z',
+const readiness = (o: Partial<MarketReadinessDto> = {}): MarketReadinessDto => ({
+  listingId: 'l1',
+  title: '数仓查询',
+  versionId: 'pv3',
+  scope: 'group',
+  scopeId: 'g1',
+  targetLabel: '支付核心群',
+  ready: false,
+  pendingSteps: 1,
+  secrets: [
+    {
+      name: 'DW_KEY',
+      title: '数仓 Key',
+      description: '个人中心签发',
+      url: 'https://manager.example.com/keys',
+      placeholder: null,
+      mode: 'personal',
+      required: true,
+      status: 'unfilled',
+      reason: null,
+      defId: 's1',
+      defScope: 'team',
+      action: 'fill_personal',
+      reused: false,
+      viaConnector: false,
+    },
+  ],
+  reusedSecrets: [],
+  connector: null,
+  trusts: null,
+  tryPrompts: ['查一下昨天的支付订单量'],
   ...o,
 })
 
@@ -99,225 +124,207 @@ beforeEach(() => {
       } as unknown as GroupDto,
     ],
   })
+  useToasts.setState({ items: [] })
 })
 afterEach(() => vi.unstubAllGlobals())
 
-const openDialog = () => {
-  const d = detail()
-  render(
-    <InstallTargetDialog listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }} onClose={() => {}} />,
-  )
-  return screen.getByRole('dialog', { name: '引入「dw-query」' })
-}
+describe('凭据准备与同名复用提示隔离', () => {
+  it('shows plain preparation hints in 概览 and isolates env names + reused-secret notice strictly inside 开发者信息', async () => {
+    const reused: ReusedSecretDto[] = [
+      { name: 'DW_KEY', existingScope: 'team', existingScopeLabel: '支付组' },
+    ]
+    mockApi({ 'GET /market/l1': { ...detail(), reusedSecrets: reused } })
+    render(
+      <MemoryRouter>
+        <ListingDetail id="l1" standalone />
+      </MemoryRouter>,
+    )
 
-describe('需要的密钥', () => {
-  it('lists the declared secrets in the listing detail', async () => {
-    mockApi({ 'GET /market/l1': detail() })
-    render(<ListingDetail id="l1" />)
-    const section = await screen.findByRole('region', { name: '需要的密钥' })
-    expect(within(section).getByText('数仓 Key')).toBeTruthy()
-    expect(within(section).getByText('DW_KEY')).toBeTruthy()
-    expect(within(section).getByText('必需')).toBeTruthy()
-    expect(within(section).getByText('可选')).toBeTruthy()
-    expect(within(section).getByText('建议：每人自填')).toBeTruthy()
-    expect(within(section).getByText('个人中心签发')).toBeTruthy()
-    const link = within(section).getByRole('link', { name: /前往 manager\.example\.com 申请/ })
-    expect(link.getAttribute('href')).toBe('https://manager.example.com/keys')
+    // Overview tab: plain language only — NO env var name and NO secret conflict reuse notice!
+    expect(await screen.findByText('填写数仓 Key')).toBeTruthy()
+    expect(screen.getByText('每人填自己的，加密保存')).toBeTruthy()
+    expect(screen.queryByText('DW_KEY')).toBeNull()
+    expect(screen.queryByText(/沿用已有定义/)).toBeNull()
+    const howLink = screen.getByRole('link', { name: /^如何获取/ })
+    expect(howLink.getAttribute('href')).toBe('https://manager.example.com/keys')
+
+    // Developer info tab: env var details AND silent reuse notice appear here ONLY.
+    fireEvent.click(screen.getByRole('tab', { name: '开发者信息' }))
+    const devPanel = await screen.findByRole('region', { name: '开发者信息' })
+    expect(within(devPanel).getByText('DW_KEY')).toBeTruthy()
+    expect(within(devPanel).getByText('DW_TEST_KEY')).toBeTruthy()
+    expect(
+      within(devPanel).getByText('已有同名凭据 DW_KEY（支付组），添加时沿用已有定义，没有覆盖。'),
+    ).toBeTruthy()
+    expect(
+      within(devPanel)
+        .getByRole('link', { name: /前往 manager\.example\.com 申请/ })
+        .getAttribute('href'),
+    ).toBe('https://manager.example.com/keys')
   })
 
-  it('creates the missing definitions after installing: per-member ones in the team, shared ones in the group', async () => {
+  it('installs silently without conflict dialog, forwards reusedSecrets metadata, and lets user fill personal secret in Step 2', async () => {
+    let filled = false
+    const reused: ReusedSecretDto[] = [
+      { name: 'DW_KEY', existingScope: 'team', existingScopeLabel: '支付组' },
+    ]
     const calls = mockApi({
-      'GET /teams/t1/repos': [],
-      'GET /groups/g1/secrets': [],
-      'PUT /groups/g1/installs/l1': {},
-      'POST /teams/t1/secrets': apiError(409, 'conflict'),
-      'POST /groups/g1/secrets': {},
-    })
-    const dialog = openDialog()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    const team = (await within(dialog).findByRole('checkbox', {
-      name: '在本团队创建定义',
-    })) as HTMLInputElement
-    const group = within(dialog).getByRole('checkbox', { name: '在本群创建定义' }) as HTMLInputElement
-    expect([team.checked, group.checked]).toEqual([true, true])
-    fireEvent.click(group)
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
-    const posts = calls.filter((c) => c.method === 'POST')
-    expect(posts.map((c) => c.path)).toEqual(['/teams/t1/secrets'])
-    expect(posts[0]!.body).toEqual({
-      name: 'DW_KEY',
-      description: '数仓 Key：个人中心签发',
-      mode: 'personal',
-      botIds: null,
-      enabled: true,
-      expiresAt: null,
-    })
-    const put = calls.findIndex((c) => c.method === 'PUT')
-    expect(put).toBeGreaterThan(-1)
-    expect(put).toBeLessThan(calls.findIndex((c) => c.method === 'POST'))
-  })
-
-  it('offers reusing a team definition, flagging a different purpose', async () => {
-    const calls = mockApi({
-      'GET /teams/t1/repos': [],
-      'GET /groups/g1/secrets': [def({ name: 'DW_TEST_KEY', description: '别的用途', mode: 'shared' })],
-      'PUT /groups/g1/installs/l1': {},
-      'POST /groups/g1/secrets': {},
-    })
-    const dialog = openDialog()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    const reuse = (await within(dialog).findByRole('radio', {
-      name: '复用团队层现有定义',
-    })) as HTMLInputElement
-    expect(within(dialog).getByText('用途可能不一致')).toBeTruthy()
-    expect(within(dialog).getByText('别的用途')).toBeTruthy()
-    expect(reuse.getAttribute('aria-checked') ?? String(reuse.checked)).toBe('true')
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: '在本团队创建定义' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.some((c) => c.method === 'POST')).toBe(false)
-  })
-
-  it('leaves per-member definitions to team admins when I only run the group', async () => {
-    useSession.setState({
-      tenancy: {
-        ...useSession.getState().tenancy!,
-        teams: [{ id: 't1', name: '支付组', role: 'member' } as TeamDto],
+      'PUT /groups/g1/installs/l1': { reusedSecrets: reused },
+      'GET /market/l1/readiness?scope=group&scopeId=g1': () =>
+        filled
+          ? readiness({ ready: true, pendingSteps: 0, secrets: [] })
+          : readiness({ reusedSecrets: reused }),
+      'PUT /me/secrets/s1': () => {
+        filled = true
+        return {}
       },
     })
-    const calls = mockApi({
-      'GET /teams/t1/repos': [],
-      'GET /groups/g1/secrets': [],
-      'PUT /groups/g1/installs/l1': {},
-      'POST /groups/g1/secrets': {},
-    })
-    const dialog = openDialog()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    expect((await within(dialog).findAllByText(/每人自填的密钥建在团队层，一个团队只建一次/)).length).toBe(2)
-    expect(within(dialog).queryByRole('checkbox', { name: '在本团队创建定义' })).toBeNull()
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
-    expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/groups/g1/secrets'])
-  })
-
-  it('keeps a group admin who does not run the team from switching a group definition to 每人自填', async () => {
-    useSession.setState({
-      tenancy: {
-        ...useSession.getState().tenancy!,
-        teams: [{ id: 't1', name: '支付组', role: 'member' } as TeamDto],
-      },
-    })
-    mockApi({ 'GET /teams/t1/repos': [], 'GET /groups/g1/secrets': [] })
-    const dialog = openDialog()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    const modes = await within(dialog).findByRole('radiogroup', { name: 'DW_TEST_KEY 的模式' })
-    const personal = within(modes).getByRole('radio', { name: '每人自填' }) as HTMLInputElement
-    expect(personal.disabled).toBe(true)
-    expect(within(modes).getByRole('radio', { name: '统一值' })).toBeTruthy()
-    expect(within(dialog).getAllByText(/每人自填的密钥建在团队层/).length).toBe(2)
-  })
-
-  it('does not report full success when a definition could not be made', async () => {
-    useToasts.setState({ items: [] })
-    let closed = false
-    mockApi({
-      'GET /teams/t1/repos': [],
-      'GET /groups/g1/secrets': [],
-      'PUT /groups/g1/installs/l1': {},
-      'POST /teams/t1/secrets': apiError(403, 'forbidden', '仅团队管理员可操作'),
-      'POST /groups/g1/secrets': {},
-    })
+    const reported: ReusedSecretDto[][] = []
     const d = detail()
     render(
-      <InstallTargetDialog
-        listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
-        onClose={() => {
-          closed = true
-        }}
-      />,
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          sourceGroupId="g1"
+          onReusedSecrets={(items) => reported.push(items)}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
     )
-    const dialog = screen.getByRole('dialog', { name: '引入「dw-query」' })
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    await within(dialog).findByRole('checkbox', { name: '在本团队创建定义' })
-    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
-    await waitFor(() => expect(closed).toBe(true))
-    const items = useToasts.getState().items
-    expect(items.some((x) => x.type === 'success')).toBe(false)
-    const err = items.find((x) => x.type === 'error')
-    expect(err?.title).toBe('已引入到「支付核心群」，但有密钥定义没建好')
-    expect(err?.message).toBe('DW_KEY：仅团队管理员可操作')
+
+    const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    // Step 1 never asks user to resolve secret conflicts manually.
+    expect(within(dialog).queryByText(/取消引入/)).toBeNull()
+    expect(within(dialog).queryByText(/沿用已有定义/)).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/groups/g1/installs/l1')?.body).toEqual({
+        enabled: true,
+        pinVersionId: null,
+      }),
+    )
+    expect(reported).toEqual([reused])
+
+    // Step 2: in-place readiness checklist — STILL does NOT show reused-secret notice!
+    expect(await within(dialog).findByText('已添加到「支付核心群」，还差 1 步就能用')).toBeTruthy()
+    expect(within(dialog).queryByText(/沿用已有定义/)).toBeNull()
+
+    const input = within(dialog).getByLabelText('数仓 Key')
+    fireEvent.change(input, { target: { value: 'short' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存并验证' }))
+    expect(await within(dialog).findByText('数仓 Key 至少需要 8 个字符')).toBeTruthy()
+
+    fireEvent.change(input, { target: { value: 'dw-secret-123456' } })
+    expect(within(dialog).queryByText('数仓 Key 至少需要 8 个字符')).toBeNull()
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: '允许在他人的电脑上使用我的凭据' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存并验证' }))
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/me/secrets/s1')?.body).toEqual({
+        value: 'dw-secret-123456',
+        allowForeignMachines: true,
+      }),
+    )
+
+    // Celebratory ready state with clickable prompt
+    expect(await within(dialog).findByText('已就绪，可以用了')).toBeTruthy()
+    expect(within(dialog).getByText('“查一下昨天的支付订单量”')).toBeTruthy()
   })
 
-  it('disables installing when the same-layer definition is answered with 取消引入', async () => {
-    mockApi({
-      'GET /teams/t1/repos': [],
-      'GET /teams/t1/secrets': [def({})],
+  it('supports fill_shared, create_and_fill, and ask_admin readiness actions in Step 2', async () => {
+    const calls = mockApi({
+      'GET /market/l1/readiness?scope=group&scopeId=g1': readiness({
+        pendingSteps: 3,
+        secrets: [
+          {
+            name: 'SHARED_KEY',
+            title: '共用 Key',
+            description: '',
+            url: null,
+            placeholder: null,
+            mode: 'shared',
+            required: true,
+            status: 'unfilled',
+            reason: null,
+            defId: 's2',
+            defScope: 'group',
+            action: 'fill_shared',
+            reused: false,
+            viaConnector: false,
+          },
+          {
+            name: 'NEW_SHARED',
+            title: '新建共用凭据',
+            description: '自动创建并填写',
+            url: null,
+            placeholder: null,
+            mode: 'shared',
+            required: true,
+            status: 'missing_def',
+            reason: null,
+            defId: null,
+            defScope: null,
+            action: 'create_and_fill',
+            reused: false,
+            viaConnector: false,
+          },
+          {
+            name: 'ADMIN_KEY',
+            title: '团队凭据',
+            description: '',
+            url: null,
+            placeholder: null,
+            mode: 'personal',
+            required: true,
+            status: 'blocked',
+            reason: '需团队管理员先定义这项凭据',
+            defId: null,
+            defScope: null,
+            action: 'ask_admin',
+            reused: false,
+            viaConnector: false,
+          },
+        ],
+      }),
+      'PATCH /secrets/s2': {},
+      'POST /groups/g1/secrets': { id: 's3' },
     })
-    const dialog = openDialog()
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '团队' }),
+
+    const d = detail()
+    render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          initialReadyTarget={{ scope: 'group', scopeId: 'g1', label: '支付核心群' }}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
     )
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付组' }))
-    await within(dialog).findByRole('radio', { name: '共用现有定义（说明和模式不变）' })
-    const install = within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement
-    expect(install.disabled).toBe(false)
-    fireEvent.click(within(dialog).getByRole('radio', { name: '取消引入' }))
-    expect(install.disabled).toBe(true)
-  })
 
-  it('blocks install on secret load failure with retry, retries failed repo loads, clears errors on edits, and disables personal over team secret', async () => {
-    let failSecrets = true
-    let failRepos = true
-    mockApi({
-      'GET /teams/t1/repos': () =>
-        failRepos
-          ? apiError(500, 'internal', '仓库列表失败')
-          : [{ id: 'r1', name: 'core', key: 'git.example.com/pay/core' }],
-      'GET /groups/g1/secrets': () =>
-        failSecrets
-          ? apiError(500, 'internal', '密钥接口挂了')
-          : [def({ name: 'DW_TEST_KEY', description: '别的用途', mode: 'shared', scope: 'team' })],
-    })
-    const dialog = openDialog()
+    const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    expect(await within(dialog).findByText('需团队管理员先定义这项凭据')).toBeTruthy()
 
-    // Repos error shows retry button and recovers on click.
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '仓库' }),
+    const sharedInput = within(dialog).getByLabelText('共用 Key')
+    fireEvent.change(sharedInput, { target: { value: 'shared-val-999' } })
+    const saveBtns = within(dialog).getAllByRole('button', { name: '保存并验证' })
+    fireEvent.click(saveBtns[0]!)
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH' && c.path === '/secrets/s2')?.body).toEqual({
+        value: 'shared-val-999',
+      }),
     )
-    expect(await within(dialog).findByText('仓库列表失败')).toBeTruthy()
-    failRepos = false
-    fireEvent.click(within(dialog).getByRole('button', { name: '重试' }))
-    expect(await within(dialog).findByRole('radio', { name: '支付组 / core' })).toBeTruthy()
 
-    // Switch to group: secrets fail → blocks 引入 and offers Retry.
-    fireEvent.click(
-      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', { name: '群' }),
+    const createInput = within(dialog).getByLabelText('新建共用凭据')
+    fireEvent.change(createInput, { target: { value: 'created-val-888' } })
+    fireEvent.click(saveBtns[1]!)
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST' && c.path === '/groups/g1/secrets')?.body).toMatchObject({
+        name: 'NEW_SHARED',
+        mode: 'shared',
+        value: 'created-val-888',
+      }),
     )
-    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    expect(await within(dialog).findByText('密钥接口挂了')).toBeTruthy()
-    const installBtn = within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement
-    expect(installBtn.disabled).toBe(true)
-
-    // Retry loads secrets: install becomes enabled; overriding team-level secret disables 每人自填.
-    failSecrets = false
-    const secretsRegion = within(dialog).getByRole('region', { name: '需要的密钥' })
-    fireEvent.click(within(secretsRegion).getByRole('button', { name: '重试' }))
-    const override = await within(secretsRegion).findByRole('radio', {
-      name: '在本群新建同名定义（仅本群生效，覆盖团队层）',
-    })
-    expect(installBtn.disabled).toBe(false)
-    fireEvent.click(override)
-    const modes = within(secretsRegion).getByRole('radiogroup', { name: 'DW_TEST_KEY 的模式' })
-    expect((within(modes).getByRole('radio', { name: '每人自填' }) as HTMLInputElement).disabled).toBe(true)
-
-    // Validation error clears when editing secret input.
-    const valInput = within(secretsRegion).getByLabelText('DW_TEST_KEY 的统一值')
-    fireEvent.change(valInput, { target: { value: 'short' } })
-    fireEvent.click(installBtn)
-    expect(await within(dialog).findByText('DW_TEST_KEY 的统一值至少 8 个字符')).toBeTruthy()
-    fireEvent.change(valInput, { target: { value: '12345678' } })
-    expect(within(dialog).queryByText('DW_TEST_KEY 的统一值至少 8 个字符')).toBeNull()
   })
 })
 
