@@ -1,6 +1,8 @@
 import {
   compareVersions,
   createsArtifacts,
+  extractFrontmatterExamples,
+  extractFrontmatterScene,
   type GroupPluginDto,
   type McpServer,
   PLUGIN_MANIFEST,
@@ -131,7 +133,16 @@ export function listingSnapshot(files: SkillFile[]) {
   }
   if (has(files, PLUGIN_MANIFEST)) return pluginSnapshot(files)
   const { name, description, secretSpecs, ...checked } = snapshot(files)
-  const manifest: SkillListingManifest = { name, description, ...(secretSpecs.length && { secretSpecs }) }
+  const mainMd = checked.files.find((f) => f.path === 'SKILL.md' && f.encoding === 'utf8')?.content ?? ''
+  const scene = extractFrontmatterScene(mainMd)
+  const examples = extractFrontmatterExamples(mainMd)
+  const manifest: SkillListingManifest = {
+    name,
+    description,
+    ...(secretSpecs.length && { secretSpecs }),
+    ...(scene && { scene }),
+    ...(examples.length && { examples }),
+  }
   return { ...checked, manifest, type: 'skill' as const }
 }
 export type ListingSnapshot = ReturnType<typeof listingSnapshot>

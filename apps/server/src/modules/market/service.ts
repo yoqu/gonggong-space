@@ -51,6 +51,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import type { Layer } from '../mcp/service.js'
 import { groupRepoIds } from '../repos/service.js'
+import { ensureInstallSecrets, manifestSecretSpecs } from './meta.js'
 
 type Read = Pick<Db, 'select'>
 type ListingRow = typeof plugins.$inferSelect
@@ -364,13 +365,15 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
       )
     if (!v) fail('not_found', '版本不存在')
   }
+  const [targetVersion] = await ctx.db
+    .select({ manifest: pluginVersions.manifest })
+    .from(pluginVersions)
+    .where(eq(pluginVersions.id, pin || follow))
   if (listing.type === 'plugin') {
-    const [v] = await ctx.db
-      .select({ manifest: pluginVersions.manifest })
-      .from(pluginVersions)
-      .where(eq(pluginVersions.id, pin || follow))
-    if (v && !inScopes(v.manifest)) fail('invalid', 'Agent 与供应商预设插件作用于电脑，不能引入')
-    if (v && !pin && pluginRunsCode(v.manifest)) fail('invalid', '会运行代码的插件必须固定版本引入')
+    if (targetVersion && !inScopes(targetVersion.manifest))
+      fail('invalid', 'Agent 与供应商预设插件作用于电脑，不能引入')
+    if (targetVersion && !pin && pluginRunsCode(targetVersion.manifest))
+      fail('invalid', '会运行代码的插件必须固定版本引入')
   }
   if (listing.type === 'skill') await skillNameFree(ctx.db, t, listing.name, listing.id)
   const set = {
@@ -384,13 +387,18 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
     .insert(installs)
     .values({ listingId: listing.id, scope: t.scope, scopeId: t.scopeId, ...set })
     .onConflictDoUpdate({ target: [installs.listingId, installs.scope, installs.scopeId], set })
+  const specs = targetVersion ? manifestSecretSpecs(targetVersion.manifest) : []
+  const reusedSecrets =
+    req.enabled && specs.length ? await ensureInstallSecrets(ctx, t, listing, specs, actorId, !!existing) : []
   await log(ctx, actorId, t, 'install.put', {
     listingId: listing.id,
     name: listing.name,
     enabled: set.enabled,
     pinVersionId: set.pinVersionId,
+    ...(reusedSecrets.length && { reusedSecrets }),
   })
-  return (await listInstalls(ctx.db, t, eq(installs.listingId, listing.id)))[0]!
+  const dto = (await listInstalls(ctx.db, t, eq(installs.listingId, listing.id)))[0]!
+  return reusedSecrets.length ? { ...dto, reusedSecrets } : dto
 }
 
 export async function deleteInstall(ctx: Ctx, t: Target, listingId: string, actorId: string) {

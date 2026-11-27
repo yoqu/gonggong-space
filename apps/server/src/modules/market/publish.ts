@@ -6,9 +6,12 @@ import type {
   ListingVisibility,
   MarketListingDetailDto,
   MarketListingDto,
+  MarketSort,
   MarketSource,
   MyListingDto,
+  PluginCapability,
   PluginManifest,
+  PluginScene,
   PublishPreflightRes,
   PublishReq,
   ReviewItemDto,
@@ -56,6 +59,8 @@ import { idParam, isUuid } from '../../lib/ids.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { type ListingSnapshot, listingSnapshot, presetsOnPlatformOnly } from '../plugins/service.js'
 import { fetchGithubSkill, upstreamCommit } from './github.js'
+import { listingInstalledHealth } from './installed.js'
+import { deriveListingMeta, isSystemListing, recordedReusedSecrets, teamGroupsCounts } from './meta.js'
 import { requestedIn } from './requests.js'
 import { ADMIN_ROLES, byScope, listingSummary, listVersion, maintainedBy, nameTakenIn } from './service.js'
 
@@ -250,19 +255,30 @@ const versionDto = (c: Pick<Card, 'shown' | 'creator'>): ListingVersionDto => ({
 const sourceOf = (l: ListingRow, mine: Set<string>): MarketSource =>
   l.scope === 'platform' ? 'official' : l.teamId && mine.has(l.teamId) ? 'team' : 'public'
 
-const cardDto = (c: Card, mine: Set<string>): ReviewItemDto['listing'] => ({
-  ...listingSummary(c.listing, c.shown),
-  source: sourceOf(c.listing, mine),
-  visibility: c.listing.visibility as ListingVisibility | null,
-  teamId: c.listing.teamId,
-  teamName: c.teamName,
-  author: c.author,
-  agents: 'agents' in c.shown.manifest ? c.shown.manifest.agents : [],
-  listedVersionId: c.listing.listedVersionId,
-  listedRevision: c.listedRevision,
-  installs: c.installs,
-  updatedAt: c.listing.updatedAt.toISOString(),
-})
+const cardDto = (c: Card, mine: Set<string>, teamGroupsCount?: number): ReviewItemDto['listing'] => {
+  const source = sourceOf(c.listing, mine)
+  const meta = deriveListingMeta(c.listing, c.shown.manifest, source)
+  return {
+    ...listingSummary(c.listing, c.shown),
+    source,
+    visibility: c.listing.visibility as ListingVisibility | null,
+    teamId: c.listing.teamId,
+    teamName: c.teamName,
+    author: c.author,
+    agents: 'agents' in c.shown.manifest ? c.shown.manifest.agents : [],
+    listedVersionId: c.listing.listedVersionId,
+    listedRevision: c.listedRevision,
+    installs: c.installs,
+    scene: meta.scene,
+    capabilities: meta.capabilities,
+    readiness: meta.readiness,
+    featured: meta.featured,
+    examples: meta.examples,
+    permissions: meta.permissions,
+    ...(teamGroupsCount !== undefined && { teamGroupsCount }),
+    updatedAt: c.listing.updatedAt.toISOString(),
+  }
+}
 
 const myDto = (c: Card): MyListingDto => ({
   ...listingSummary(c.listing, c.shown),
@@ -349,7 +365,16 @@ async function installedIn(db: Read, userId: string, listingIds: string[]) {
 export async function marketList(
   ctx: Ctx,
   me: Me,
-  f: { q?: string; type?: ListingType; source?: MarketSource; shelf?: PluginShelf },
+  f: {
+    q?: string
+    type?: ListingType
+    source?: MarketSource
+    shelf?: PluginShelf
+    scene?: PluginScene
+    capability?: PluginCapability
+    sort?: MarketSort
+    includeSystem?: boolean
+  },
 ): Promise<MarketListingDto[]> {
   const mine = await myTeamIds(ctx.db, me.id)
   const scope = marketScope(mine)
@@ -376,14 +401,32 @@ export async function marketList(
         : undefined,
     ),
   ).orderBy(desc(plugins.updatedAt))
-  const where = await installedIn(
-    ctx.db,
-    me.id,
-    rows.map((c) => c.listing.id),
+  const allowSystem = f.includeSystem === true || f.shelf === 'agent' || f.shelf === 'provider'
+  const visible = allowSystem ? rows : rows.filter((c) => !isSystemListing(c.listing, c.shown.manifest))
+  const ids = visible.map((c) => c.listing.id)
+  const [where, counts] = await Promise.all([
+    installedIn(ctx.db, me.id, ids),
+    teamGroupsCounts(ctx.db, mine, ids),
+  ])
+  let items = visible.map(
+    (c) =>
+      ({
+        ...cardDto(c, mine, counts.get(c.listing.id) ?? 0),
+        installedIn: where.get(c.listing.id) ?? [],
+      }) as MarketListingDto,
   )
-  return rows.map(
-    (c) => ({ ...cardDto(c, mine), installedIn: where.get(c.listing.id) ?? [] }) as MarketListingDto,
-  )
+  if (f.scene) items = items.filter((i) => i.scene === f.scene)
+  if (f.capability) items = items.filter((i) => i.capabilities?.includes(f.capability!))
+  if (f.sort === 'team')
+    items.sort(
+      (a, b) =>
+        (b.teamGroupsCount ?? 0) - (a.teamGroupsCount ?? 0) ||
+        b.installs - a.installs ||
+        b.updatedAt.localeCompare(a.updatedAt),
+    )
+  else if (f.sort === 'installs')
+    items.sort((a, b) => b.installs - a.installs || b.updatedAt.localeCompare(a.updatedAt))
+  return items
 }
 
 /** One listing at its listed version, or `versionId`; unapproved versions only for its maintainers and reviewers. */
@@ -435,20 +478,37 @@ export async function marketDetail(
   const readmePath = !plugin ? 'SKILL.md' : plugin.entry ? `skills/${plugin.entry}/SKILL.md` : 'README.md'
   const readme = files.find((f) => f.path === readmePath && f.encoding === 'utf8')?.content ?? ''
   const where = await installedIn(ctx.db, me.id, [listing.id])
+  const targets = where.get(listing.id) ?? []
+  const secretSpecs = plugin
+    ? secretSpecsOf(plugin)
+    : ((card!.shown.manifest as SkillListingManifest).secretSpecs ?? [])
+  const source = sourceOf(listing, mine)
+  const meta = deriveListingMeta(listing, card!.shown.manifest, source, readme)
+  const [counts, reqIn, takenIn, instHealth, reused] = await Promise.all([
+    teamGroupsCounts(ctx.db, mine, [listing.id]),
+    requestedIn(ctx.db, me.id, listing.id),
+    nameTakenIn(ctx.db, me.id, listing),
+    listingInstalledHealth(ctx, me.id, listing, targets, card!.listedRevision ?? card!.shown.revision),
+    recordedReusedSecrets(ctx.db, listing.id, secretSpecs, targets),
+  ])
   return {
-    ...cardDto(card!, mine),
-    installedIn: where.get(listing.id) ?? [],
-    requestedIn: await requestedIn(ctx.db, me.id, listing.id),
-    nameTakenIn: await nameTakenIn(ctx.db, me.id, listing),
+    ...cardDto(card!, mine, counts.get(listing.id) ?? 0),
+    examples: meta.examples,
+    installedIn: targets,
+    installedHealth: instHealth,
+    requestedIn: reqIn,
+    nameTakenIn: takenIn,
+    reusedSecrets: reused,
     canReview,
     banReason: listing.banReason,
     readme,
     permissions: plugin?.permissions ?? [],
     mcp: plugin?.contributes.mcp ?? [],
+    commands: plugin?.contributes.commands ?? [],
+    templatesCount: plugin?.templates.length ?? 0,
+    hasEntry: !plugin || !!plugin.entry,
     ...(plugin?.connector && { connector: plugin.connector }),
-    secretSpecs: plugin
-      ? secretSpecsOf(plugin)
-      : ((card!.shown.manifest as SkillListingManifest).secretSpecs ?? []),
+    secretSpecs,
     files: files.map((f) => ({
       path: f.path,
       size: f.encoding === 'base64' ? Buffer.from(f.content, 'base64').length : Buffer.byteLength(f.content),

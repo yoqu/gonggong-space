@@ -35,11 +35,31 @@ export const PluginCategory = z.enum([
   'connector',
 ])
 export type PluginCategory = z.infer<typeof PluginCategory>
-/** The market's four shelves, by what a plugin is for. */
+/** The market's legacy shelves, by what a plugin is for. */
 export const PluginShelf = z.enum(['creation', 'tool', 'agent', 'provider', 'connector'])
 export type PluginShelf = z.infer<typeof PluginShelf>
 export const shelfOf = (c: PluginCategory): PluginShelf =>
   c === 'tool' || c === 'agent' || c === 'provider' || c === 'connector' ? c : 'creation'
+
+/** Categories managed under Machine settings rather than the user-facing Plugin Market. */
+export const MARKET_HIDDEN_CATEGORIES = ['agent', 'provider'] as const
+export const isMarketHiddenCategory = (c: PluginCategory | null | undefined): boolean =>
+  c === 'agent' || c === 'provider'
+
+/** The 5 user-facing scenario categories in the Plugin Market. */
+export const PluginScene = z.enum(['connect', 'create', 'office', 'dev', 'tools'])
+export type PluginScene = z.infer<typeof PluginScene>
+
+/** Plain-language capability badges shown on Plugin Market cards and detail views. */
+export const PluginCapability = z.enum(['do', 'connect', 'create'])
+export type PluginCapability = z.infer<typeof PluginCapability>
+
+/** Static pre-use readiness hint shown on Plugin Market cards. */
+export const PluginReadiness = z.enum(['ready', 'needs-account', 'needs-secret', 'needs-trust'])
+export type PluginReadiness = z.infer<typeof PluginReadiness>
+
+/** Built-in official plugins highlighted as featured when no manifest override is set. */
+export const DEFAULT_FEATURED_PLUGINS = ['web-prototype', 'feishu', 'lark', 'slides'] as const
 
 /**
  * A connector (plan 连接器-方案): an outside system a person connects once (its required secrets) and then just
@@ -416,11 +436,13 @@ export const requiredPermissions = (c: PluginContributes): PluginPermission[] =>
 
 /** Runs code on the executing machine (§9): needs 插件代码 on, the machine owner's consent and a pinned install. */
 export const pluginRunsCode = (m: { permissions: PluginPermission[] }) => m.permissions.includes('exec')
-/** Groups use a plugin only for its entry skill, MCP or commands; one bringing just agents or provider presets applies to machines. */
+/** Groups use a plugin for its entry skill, connector, MCP or commands; one bringing just agents or provider presets applies to machines. */
 export const pluginInGroups = (m: {
   entry: string | null
+  category?: PluginCategory
   contributes: { mcp: unknown[]; commands: unknown[] }
-}) => !!m.entry || m.contributes.mcp.length > 0 || m.contributes.commands.length > 0
+}) =>
+  !!m.entry || m.category === 'connector' || m.contributes.mcp.length > 0 || m.contributes.commands.length > 0
 
 export const PluginManifest = z
   .object({
@@ -451,6 +473,14 @@ export const PluginManifest = z
     secretSpecs: SecretRequirements.optional(),
     /** Present exactly when the category is `connector` (absent in older snapshots). */
     connector: PluginConnector.optional(),
+    /** Optional Plugin Market scenario override; derived automatically when omitted. */
+    scene: PluginScene.optional(),
+    /** Optional capability badges override; derived automatically when omitted. */
+    capabilities: z.array(PluginCapability).max(3).optional(),
+    /** Optional 「试试这样问」 sample prompts shown on market detail and post-install readiness. */
+    examples: z.array(z.string().min(1).max(200)).max(6).optional(),
+    /** Optional featured flag for Plugin Market home hero placement. */
+    featured: z.boolean().optional(),
     /** Optional (plan Skill市场 D11): left out rather than made up. */
     license: z.string().min(1).max(40).optional(),
     /**
@@ -535,6 +565,170 @@ export const secretSpecsOf = (m: {
 }): SecretRequirement[] =>
   m.secretSpecs ??
   (m.secrets ?? []).map((name) => ({ name, description: '', mode: 'shared', required: true }))
+
+/** Minimal metadata used to derive Plugin Market scene, capabilities, readiness, examples and featured flags. */
+export type PluginDerivationInput = {
+  type?: 'plugin' | 'skill'
+  name?: string
+  title?: string
+  description?: string
+  category?: PluginCategory | null
+  entry?: string | null
+  scene?: PluginScene
+  capabilities?: PluginCapability[]
+  permissions?: PluginPermission[]
+  contributes?: {
+    mcp?: readonly unknown[]
+    commands?: readonly { where?: string }[]
+    providers?: readonly unknown[]
+    agents?: readonly unknown[]
+  }
+  secrets?: string[]
+  secretSpecs?: SecretRequirement[]
+  connector?: PluginConnector
+  templates?: readonly unknown[]
+  artifact?: unknown
+  examples?: string[]
+  featured?: boolean
+  layer?: string
+  source?: string
+}
+
+const CREATION_CATEGORIES = new Set<PluginCategory>(['web', 'deck', 'poster', 'dashboard', 'video'])
+const CONNECT_KW =
+  /(?:feishu|lark|meegle|jira|slack|dingtalk|notion|connector|webhook|oauth|飞书|钉钉|连接器|数仓|审批系统|对接外部|\boa\b)/i
+const CREATE_KW =
+  /(?:prototype|slide|deck|poster|dashboard|video|canvas|design-system|原型|幻灯片|海报|看板|视频|设计系统|视觉创作)/i
+const DEV_KW =
+  /(?:code|review|sql|api|debug|test|git|ci\/cd|deploy|schema|lint|refactor|query|database|代码|研发|接口|排障|测试|数据库|构建|架构|取数)/i
+const OFFICE_KW =
+  /(?:weekly|report|meeting|minutes|doc|wiki|calendar|task|todo|mail|email|translate|summary|approval|周报|日报|月报|纪要|会议|文档|日程|待办|翻译|总结|审批|汇报|办公|协作)/i
+
+/** Deterministic scenario category for a plugin or skill listing; explicit `scene` always wins. */
+export function derivePluginScene(input: PluginDerivationInput): PluginScene {
+  if (input.scene) return input.scene
+  if (input.category === 'connector' || input.connector) return 'connect'
+  if (input.category && CREATION_CATEGORIES.has(input.category)) return 'create'
+  if ((input.contributes?.mcp?.length ?? 0) > 0) return 'connect'
+  const haystack = `${input.name ?? ''} ${input.title ?? ''} ${input.description ?? ''}`
+  if (CONNECT_KW.test(haystack)) return 'connect'
+  if (CREATE_KW.test(haystack)) return 'create'
+  if (DEV_KW.test(haystack)) return 'dev'
+  if (OFFICE_KW.test(haystack)) return 'office'
+  return 'tools'
+}
+
+/** Deterministic capability badges (能连 / 能创作 / 会做); explicit `capabilities` always wins. */
+export function derivePluginCapabilities(input: PluginDerivationInput): PluginCapability[] {
+  if (input.capabilities?.length) {
+    const seen = new Set<PluginCapability>()
+    for (const c of input.capabilities) seen.add(c)
+    return [...seen]
+  }
+  const isConnect =
+    input.category === 'connector' || !!input.connector || (input.contributes?.mcp?.length ?? 0) > 0
+  const isCreate =
+    !!input.category &&
+    CREATION_CATEGORIES.has(input.category) &&
+    (input.entry !== null || (input.templates?.length ?? 0) > 0 || !!input.artifact)
+  const hasChatCommands = (input.contributes?.commands ?? []).some((c) => c.where !== 'artifact')
+  const hasDoEntry = !!input.entry && !isCreate && input.category !== 'connector'
+  const isDo = input.type === 'skill' || hasChatCommands || hasDoEntry || (!isConnect && !isCreate)
+  const out: PluginCapability[] = []
+  if (isConnect) out.push('connect')
+  if (isCreate) out.push('create')
+  if (isDo) out.push('do')
+  return out.length ? out : ['do']
+}
+
+/** Deterministic static pre-use readiness hint (`needs-account` > `needs-secret` > `needs-trust` > `ready`). */
+export function derivePluginReadiness(input: PluginDerivationInput): PluginReadiness {
+  if (input.connector?.cli || input.connector?.login) return 'needs-account'
+  const specs = secretSpecsOf({ secrets: input.secrets, secretSpecs: input.secretSpecs })
+  if (specs.some((s) => s.required)) return 'needs-secret'
+  if ((input.permissions ?? []).includes('exec')) return 'needs-trust'
+  return 'ready'
+}
+
+const unquoteYaml = (raw: string) => {
+  const s = raw.trim()
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))
+    return s.slice(1, -1).trim()
+  return s
+}
+
+const frontMatter = (md: string) => /^---\r?\n([\s\S]*?)\r?\n---/.exec(md)?.[1] ?? ''
+
+/** Reads optional `scene: <value>` from SKILL.md YAML frontmatter without needing a full YAML parser. */
+export function extractFrontmatterScene(md: string): PluginScene | undefined {
+  const fm = frontMatter(md)
+  if (!fm) return undefined
+  const m = /^scene:\s*(.+?)\s*$/m.exec(fm)
+  if (!m) return undefined
+  const parsed = PluginScene.safeParse(unquoteYaml(m[1]!))
+  return parsed.success ? parsed.data : undefined
+}
+
+/** Reads optional `examples` list (inline `[...]` or YAML `- item` block) from SKILL.md frontmatter. */
+export function extractFrontmatterExamples(md: string): string[] {
+  const fm = frontMatter(md)
+  if (!fm) return []
+  const lines = fm.split(/\r?\n/)
+  const out: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const head = /^examples:\s*(.*)$/.exec(line)
+    if (!head) continue
+    const inline = head[1]!.trim()
+    if (inline.startsWith('[') && inline.endsWith(']')) {
+      for (const part of inline.slice(1, -1).split(',')) {
+        const v = unquoteYaml(part)
+        if (v && v.length <= 200) out.push(v)
+      }
+      break
+    }
+    for (let j = i + 1; j < lines.length; j++) {
+      const item = /^\s+-\s+(.+)$/.exec(lines[j]!)
+      if (!item) {
+        if (/^\s*$/.test(lines[j]!)) continue
+        break
+      }
+      const v = unquoteYaml(item[1]!)
+      if (v && v.length <= 200) out.push(v)
+    }
+    break
+  }
+  return out.slice(0, 6)
+}
+
+/** Sample 「试试这样问」 prompts from manifest `examples`, `connector.examples`, or SKILL.md frontmatter. */
+export function derivePluginExamples(
+  input: { connector?: PluginConnector; examples?: string[] },
+  readme?: string,
+): string[] {
+  const raw = input.examples?.length
+    ? input.examples
+    : input.connector?.examples?.length
+      ? input.connector.examples
+      : readme
+        ? extractFrontmatterExamples(readme)
+        : []
+  return [...new Set(raw.map((s) => s.trim()).filter(Boolean))].slice(0, 6)
+}
+
+/** Whether a listing is highlighted on the Plugin Market home page. */
+export function derivePluginFeatured(input: {
+  featured?: boolean
+  name?: string
+  layer?: string
+  source?: string
+  category?: PluginCategory | null
+}): boolean {
+  if (input.featured !== undefined) return input.featured
+  if (isMarketHiddenCategory(input.category)) return false
+  const official = input.source === 'official' || input.layer === 'platform'
+  return official && (DEFAULT_FEATURED_PLUGINS as readonly string[]).includes(input.name ?? '')
+}
 
 /** The inputs a creation from `tpl` asks for, in manifest order. */
 export const templateInputs = (m: PluginManifest, tpl: PluginTemplate | null | undefined) => {
@@ -634,7 +828,6 @@ export const groupDesignSystemKey = (id: string) => `${GROUP_DS}${id}`
 export const groupDesignSystemId = (key: string | null) =>
   key?.startsWith(GROUP_DS) ? key.slice(GROUP_DS.length) : null
 
-const frontMatter = (md: string) => /^---\r?\n([\s\S]*?)\r?\n---/.exec(md)?.[1] ?? ''
 /** A DESIGN.md's name: the front matter `name`, else its first `#` heading. */
 export function designMdTitle(md: string) {
   const name = /^name:\s*["']?(.+?)["']?\s*$/m.exec(frontMatter(md))?.[1]

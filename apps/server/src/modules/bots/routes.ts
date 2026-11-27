@@ -50,6 +50,7 @@ import { currentTeam, requireTeam } from '../teams/service.js'
 import { splitExtras, updateBotState } from '../workspaces/state.js'
 import { normalizeAllowlist } from './allowlist.js'
 import { confirmBot } from './binding.js'
+import { botCapabilities } from './capabilities.js'
 import {
   assertBotAgentSettings,
   assertCanConfigure,
@@ -193,6 +194,14 @@ export function botRoutes(ctx: Ctx) {
       await requireTeam(ctx, user.id, bot.teamId)
       return botDto(ctx, bot)
     })
+
+    app.get<{ Params: { id: string }; Querystring: { groupId?: string } }>(
+      '/api/bots/:id/capabilities',
+      async (req) => {
+        const user = await requireUser(ctx, req)
+        return botCapabilities(ctx, user, req.params.id, req.query.groupId)
+      },
+    )
 
     app.get<IdParams>('/api/bots/:id/activity', async (req): Promise<BotPlaceDto[]> => {
       const user = await requireUser(ctx, req)

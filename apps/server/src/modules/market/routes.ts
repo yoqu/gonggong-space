@@ -5,8 +5,13 @@ import {
   GithubImportReq,
   INLINE_FILE_MIMES,
   InstallReq,
+  InstallScope,
   ListingType,
+  MarketReadinessActionReq,
+  MarketSort,
   MarketSource,
+  PluginCapability,
+  PluginScene,
   PluginShelf,
   PublishReq,
   type RepoDto,
@@ -27,6 +32,7 @@ import { requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
 import { searchRepos } from '../repos/service.js'
 import { requireTeam } from '../teams/service.js'
+import { marketInstalled } from './installed.js'
 import {
   checkUpstream,
   importGithub,
@@ -44,6 +50,7 @@ import {
   upstreamMoved,
   versionDiff,
 } from './publish.js'
+import { marketReadiness, marketReadinessAction } from './readiness.js'
 import { requestRoutes } from './requests.js'
 import { deleteInstall, installable, listInstalls, putInstall, type Target } from './service.js'
 
@@ -123,6 +130,19 @@ const MarketQuery = z.object({
   type: ListingType.optional(),
   source: MarketSource.optional(),
   shelf: PluginShelf.optional(),
+  scene: PluginScene.optional(),
+  capability: PluginCapability.optional(),
+  sort: MarketSort.optional(),
+  includeSystem: z
+    .enum(['true', 'false', '1', '0'])
+    .transform((v) => v === 'true' || v === '1')
+    .optional(),
+})
+
+const ReadinessQuery = z.object({
+  scope: InstallScope.optional(),
+  scopeId: z.string().optional(),
+  versionId: z.string().optional(),
 })
 
 /** Up to 8 MB of base64 in the JSON body, as plugin uploads; the decoded files are capped at 5 MB. */
@@ -153,12 +173,27 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
     return listInstalls(ctx.db, { scope: 'user', scopeId: me.id, teamId: null, groupId: null })
   })
 
+  app.get('/api/market/installed', async (req) => marketInstalled(ctx, await requireUser(ctx, req)))
+
   app.get('/api/market/mine', async (req) => myListings(ctx.db, await requireUser(ctx, req)))
 
   app.get('/api/market/mine/upstream', async (req) => upstreamMoved(ctx, await requireUser(ctx, req)))
 
   app.get<{ Querystring: { teamId?: string } }>('/api/market/reviews', async (req) =>
     reviewQueue(ctx, await requireUser(ctx, req), req.query.teamId),
+  )
+
+  app.get<{ Params: { id: string } }>('/api/market/:id/readiness', async (req) =>
+    marketReadiness(ctx, await requireUser(ctx, req), req.params.id, ReadinessQuery.parse(req.query)),
+  )
+
+  app.post<{ Params: { id: string } }>('/api/market/:id/readiness/action', async (req) =>
+    marketReadinessAction(
+      ctx,
+      await requireUser(ctx, req),
+      req.params.id,
+      MarketReadinessActionReq.parse(req.body),
+    ),
   )
 
   app.get<{ Params: { id: string }; Querystring: { versionId?: string } }>('/api/market/:id', async (req) =>

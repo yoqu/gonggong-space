@@ -3,6 +3,7 @@ import {
   type InstallRequestDto,
   InstallRequestReq,
   type InstallRequestStatus,
+  pluginRunsCode,
   type RequestedTarget,
 } from '@gonggong/protocol'
 import { and, desc, eq, exists, inArray, or, type SQL, sql } from 'drizzle-orm'
@@ -29,6 +30,7 @@ import { requireUser, type SessionUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { requireTeam } from '../teams/service.js'
+import { deriveListingMeta, isPluginManifest } from './meta.js'
 import {
   ADMIN_ROLES,
   byScope,
@@ -155,8 +157,9 @@ const decidableBy = (db: Read, userId: string) =>
 
 async function requestDtos(db: Read, where: SQL | undefined) {
   const rows = await requestRows(db, where)
-  return rows.map(
-    (x): InstallRequestDto => ({
+  return rows.map((x): InstallRequestDto => {
+    const meta = deriveListingMeta(x.listing, x.current.manifest)
+    return {
       id: x.r.id,
       listing: listingSummary(x.listing, x.current),
       scope: x.r.scope as InstallRequestDto['scope'],
@@ -175,8 +178,13 @@ async function requestDtos(db: Read, where: SQL | undefined) {
       decisionNote: x.r.decisionNote,
       createdAt: x.r.createdAt.toISOString(),
       decidedAt: x.r.decidedAt?.toISOString() ?? null,
-    }),
-  )
+      scene: meta.scene,
+      capabilities: meta.capabilities,
+      readiness: meta.readiness,
+      permissions: meta.permissions,
+      secretSpecs: meta.secretSpecs,
+    }
+  })
 }
 
 const requestDto = async (db: Read, id: string) => (await requestDtos(db, eq(installRequests.id, id)))[0]!
@@ -225,7 +233,7 @@ export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallReque
   if (installed) fail('conflict', '该条目已经引入')
   const [listing] = await installable(ctx.db, target, eq(plugins.id, listingId))
   if (!listing) return fail('not_found', '条目不存在')
-  const pin = req.pinVersionId && idParam(req.pinVersionId, '版本不存在')
+  let pin = req.pinVersionId && idParam(req.pinVersionId, '版本不存在')
   if (pin) {
     const [v] = await ctx.db
       .select({ id: pluginVersions.id })
@@ -238,6 +246,12 @@ export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallReque
         ),
       )
     if (!v) fail('not_found', '版本不存在')
+  } else if (listing.type === 'plugin') {
+    const [v] = await ctx.db
+      .select({ manifest: pluginVersions.manifest })
+      .from(pluginVersions)
+      .where(eq(pluginVersions.id, listing.versionId))
+    if (v && isPluginManifest(v.manifest) && pluginRunsCode(v.manifest)) pin = listing.versionId
   }
   const [row] = await ctx.db
     .insert(installRequests)

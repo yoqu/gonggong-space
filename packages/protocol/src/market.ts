@@ -1,6 +1,16 @@
 import { z } from 'zod'
-import { PluginCategory, PluginConnector, PluginMcp, PluginPermission } from './plugins.js'
-import { SecretRequirement } from './secrets.js'
+import { ConnectorCliState, ConnectorDriver } from './daemon/connectors.js'
+import {
+  PluginCapability,
+  PluginCategory,
+  PluginCommand,
+  PluginConnector,
+  PluginMcp,
+  PluginPermission,
+  PluginReadiness,
+  PluginScene,
+} from './plugins.js'
+import { SecretMode, SecretRequirement, SecretScope } from './secrets.js'
 
 // ── Skill 市场 (plan Skill市场-PRD): listings (the `plugins` table) installed into a scope ────
 /** `plugin`: a creation plugin with gonggong-plugin.json; `skill`: a bare skill folder (SKILL.md at its root). */
@@ -19,6 +29,10 @@ export const SkillListingManifest = z.object({
   description: z.string(),
   /** Its frontmatter `secrets` (plan Skill密钥声明); absent in snapshots stored before declarations. */
   secretSpecs: z.array(SecretRequirement).optional(),
+  /** Optional Plugin Market scenario override from SKILL.md frontmatter `scene`. */
+  scene: PluginScene.optional(),
+  /** Optional sample prompts from SKILL.md frontmatter `examples`. */
+  examples: z.array(z.string().min(1).max(200)).max(6).optional(),
 })
 export type SkillListingManifest = z.infer<typeof SkillListingManifest>
 
@@ -43,6 +57,34 @@ export const ListingSummary = z.object({
 })
 export type ListingSummary = z.infer<typeof ListingSummary>
 
+/** Live health state of an installed plugin in a target scope. */
+export const InstalledHealth = z.enum([
+  'ready',
+  'needs-secret',
+  'needs-account',
+  'needs-trust',
+  'update-available',
+  'disabled',
+  'banned',
+])
+export type InstalledHealth = z.infer<typeof InstalledHealth>
+
+/**
+ * A declared secret whose name already had an existing definition in the target or an inherited scope;
+ * silently reused without overwriting or failing, surfaced ONLY inside 「开发者信息」.
+ */
+export const ReusedSecretDto = z.object({
+  name: z.string(),
+  existingScope: SecretScope,
+  existingScopeLabel: z.string(),
+  targetLabel: z.string().optional(),
+})
+export type ReusedSecretDto = z.infer<typeof ReusedSecretDto>
+
+/** Sort modes for GET /api/market. */
+export const MarketSort = z.enum(['team', 'installs', 'latest'])
+export type MarketSort = z.infer<typeof MarketSort>
+
 /**
  * GET /api/{groups/:id|teams/:id|teams/:id/repos/:repoId}/installs — the scope's own installs.
  * PUT  …/installs/:listingId (InstallReq) creates or updates one; DELETE …/installs/:listingId removes it.
@@ -61,6 +103,8 @@ export const InstallDto = z.object({
   banReason: z.string().nullable(),
   updatedBy: z.string().nullable(),
   updatedAt: z.string(),
+  /** Present on PUT install when declared secret names already existed and were silently reused. */
+  reusedSecrets: z.array(ReusedSecretDto).optional(),
 })
 export type InstallDto = z.infer<typeof InstallDto>
 export const InstallReq = z.object({
@@ -111,9 +155,18 @@ export type TargetRef = z.infer<typeof TargetRef>
 export const RequestedTarget = TargetRef.extend({ requester: z.string(), mine: z.boolean() })
 export type RequestedTarget = z.infer<typeof RequestedTarget>
 
+/** Per-target live health for a listing's installed scopes (shown in Plugin Detail header pills). */
+export const InstalledTargetHealthDto = InstalledTarget.extend({
+  enabled: z.boolean(),
+  health: InstalledHealth,
+  healthDetail: z.string().nullable(),
+})
+export type InstalledTargetHealthDto = z.infer<typeof InstalledTargetHealthDto>
+
 /**
- * GET /api/market?q=&type=&source= — listings with an approved version the caller may see, newest first.
- * Installs follow `listedVersionId` (latest approved), not the author's latest upload.
+ * GET /api/market?q=&scene=&capability=&source=&sort= — listings with an approved version the caller may see.
+ * Agent engines and provider presets are excluded by default (pass `shelf=agent|provider` or `includeSystem=true`
+ * for internal/settings callers). Installs follow `listedVersionId` (latest approved).
  */
 export const MarketListingDto = ListingSummary.extend({
   source: MarketSource,
@@ -128,6 +181,20 @@ export const MarketListingDto = ListingSummary.extend({
   installs: z.number().int(),
   /** Where the caller sees it installed (market list and detail; empty elsewhere), user → group → team → repo. */
   installedIn: z.array(InstalledTarget).optional(),
+  /** Scenario category for left-rail browsing (connect | create | office | dev | tools). */
+  scene: PluginScene.optional(),
+  /** Plain-language capability badges (do | connect | create). */
+  capabilities: z.array(PluginCapability).optional(),
+  /** Static pre-use readiness hint (ready | needs-account | needs-secret | needs-trust). */
+  readiness: PluginReadiness.optional(),
+  /** Highlighted on the Plugin Market home hero. */
+  featured: z.boolean().optional(),
+  /** Sample 「试试这样问」 prompts derived from connector/manifest/SKILL frontmatter. */
+  examples: z.array(z.string()).optional(),
+  /** Number of active groups in the caller's teams currently using this plugin. */
+  teamGroupsCount: z.number().int().optional(),
+  /** Declared plugin permissions (e.g. `exec` requires pinned version); empty for bare skills. */
+  permissions: z.array(PluginPermission).optional(),
   updatedAt: z.string(),
 })
 export type MarketListingDto = z.infer<typeof MarketListingDto>
@@ -155,10 +222,20 @@ export const MarketListingDetailDto = MarketListingDto.extend({
   requestedIn: z.array(RequestedTarget).optional(),
   /** Targets the caller belongs to where another skill already has this skill's name (installing there is a 409). */
   nameTakenIn: z.array(TargetRef).optional(),
+  /** Live health per installed target (parallel to `installedIn`, used for header pills). */
+  installedHealth: z.array(InstalledTargetHealthDto).optional(),
+  /** Secret definitions silently reused on install (surfaced ONLY in 「开发者信息」). */
+  reusedSecrets: z.array(ReusedSecretDto).optional(),
   readme: z.string(),
   /** A plugin's permissions and MCP servers (plan 插件扩展点 §9), shown before installing; empty for skills. */
   permissions: z.array(PluginPermission).default([]),
   mcp: z.array(PluginMcp).default([]),
+  /** Chat / artifact commands contributed by this plugin; empty for skills. */
+  commands: z.array(PluginCommand).default([]),
+  /** Number of creation templates shipped by this plugin. */
+  templatesCount: z.number().int().optional(),
+  /** Whether this listing ships a skill/guide entry. */
+  hasEntry: z.boolean().optional(),
   /** The shown version's declared secrets (plan Skill密钥声明 §4), shown before installing. */
   secretSpecs: z.array(SecretRequirement).default([]),
   /** A connector plugin's 试试这样用 and 如何获取 (plan 连接器 §3.2); absent for other listings. */
@@ -331,7 +408,210 @@ export const InstallRequestDto = z.object({
   decisionNote: z.string().nullable(),
   createdAt: z.string(),
   decidedAt: z.string().nullable(),
+  /** Optional capability & security summary for the approval card. */
+  scene: PluginScene.optional(),
+  capabilities: z.array(PluginCapability).optional(),
+  readiness: PluginReadiness.optional(),
+  permissions: z.array(PluginPermission).optional(),
+  secretSpecs: z.array(SecretRequirement).optional(),
 })
 export type InstallRequestDto = z.infer<typeof InstallRequestDto>
 export const DecideInstallRequestReq = ReviewReq
 export type DecideInstallRequestReq = z.infer<typeof DecideInstallRequestReq>
+
+// ── Plugin Market Redesign: aggregated installed view & post-install readiness ────
+
+/** A personal-scope installed plugin in GET /api/market/installed. */
+export const InstalledPersonalItemDto = z.object({
+  listing: ListingSummary,
+  scene: PluginScene,
+  capabilities: z.array(PluginCapability),
+  readiness: PluginReadiness,
+  source: MarketSource,
+  teamName: z.string().nullable(),
+  author: z.string().nullable(),
+  enabled: z.boolean(),
+  pinVersionId: z.string().nullable(),
+  resolvedVersionId: z.string(),
+  resolvedRevision: z.number().int(),
+  latestRevision: z.number().int(),
+  hasUpdate: z.boolean(),
+  health: InstalledHealth,
+  healthDetail: z.string().nullable(),
+  banReason: z.string().nullable(),
+  updatedAt: z.string(),
+})
+export type InstalledPersonalItemDto = z.infer<typeof InstalledPersonalItemDto>
+
+/** Per-group status row inside an aggregated group-installed plugin. */
+export const InstalledGroupTargetDto = z.object({
+  groupId: z.string(),
+  groupName: z.string(),
+  enabled: z.boolean(),
+  canManage: z.boolean(),
+  pinVersionId: z.string().nullable(),
+  resolvedVersionId: z.string(),
+  resolvedRevision: z.number().int(),
+  hasUpdate: z.boolean(),
+  health: InstalledHealth,
+  healthDetail: z.string().nullable(),
+  pendingOwnerName: z.string().nullable().optional(),
+  pendingMachineName: z.string().nullable().optional(),
+})
+export type InstalledGroupTargetDto = z.infer<typeof InstalledGroupTargetDto>
+
+/** A plugin installed across one or more groups the caller belongs to. */
+export const InstalledGroupPluginDto = z.object({
+  listing: ListingSummary,
+  scene: PluginScene,
+  capabilities: z.array(PluginCapability),
+  readiness: PluginReadiness,
+  source: MarketSource,
+  teamName: z.string().nullable(),
+  latestRevision: z.number().int(),
+  hasUpdate: z.boolean(),
+  /** Highest-priority health across `groups` (needs-* > update-available > disabled > ready). */
+  health: InstalledHealth,
+  healthDetail: z.string().nullable(),
+  banReason: z.string().nullable(),
+  groups: z.array(InstalledGroupTargetDto),
+})
+export type InstalledGroupPluginDto = z.infer<typeof InstalledGroupPluginDto>
+
+/** A team- or repo-scoped plugin visible to the caller. */
+export const InstalledTeamPluginDto = z.object({
+  listing: ListingSummary,
+  scene: PluginScene,
+  capabilities: z.array(PluginCapability),
+  readiness: PluginReadiness,
+  source: MarketSource,
+  scope: z.enum(['team', 'repo']),
+  scopeId: z.string(),
+  teamId: z.string(),
+  targetLabel: z.string(),
+  groupsCount: z.number().int(),
+  enabled: z.boolean(),
+  canManage: z.boolean(),
+  pinVersionId: z.string().nullable(),
+  resolvedVersionId: z.string(),
+  resolvedRevision: z.number().int(),
+  latestRevision: z.number().int(),
+  hasUpdate: z.boolean(),
+  health: InstalledHealth,
+  healthDetail: z.string().nullable(),
+  banReason: z.string().nullable(),
+  updatedAt: z.string(),
+})
+export type InstalledTeamPluginDto = z.infer<typeof InstalledTeamPluginDto>
+
+/** GET /api/market/installed — aggregated view powering the 「已添加」 management page. */
+export const MarketInstalledDto = z.object({
+  todoCount: z.number().int(),
+  pendingUpdates: z.number().int(),
+  mine: z.array(InstalledPersonalItemDto),
+  groups: z.array(InstalledGroupPluginDto),
+  team: z.array(InstalledTeamPluginDto),
+})
+export type MarketInstalledDto = z.infer<typeof MarketInstalledDto>
+
+/** One declared secret row in the post-install readiness checklist. */
+export const ReadinessSecretItemDto = z.object({
+  name: z.string(),
+  title: z.string().nullable(),
+  description: z.string(),
+  url: z.string().nullable(),
+  placeholder: z.string().nullable(),
+  mode: SecretMode,
+  required: z.boolean(),
+  status: z.enum(['ok', 'unfilled', 'missing_def', 'blocked']),
+  reason: z.string().nullable(),
+  defId: z.string().nullable(),
+  defScope: SecretScope.nullable(),
+  action: z.enum(['fill_personal', 'fill_shared', 'create_and_fill', 'ask_admin', 'none']),
+  reused: z.boolean(),
+  viaConnector: z.boolean(),
+})
+export type ReadinessSecretItemDto = z.infer<typeof ReadinessSecretItemDto>
+
+/** One bot-hosting machine's status for a CLI connector in the post-install readiness checklist. */
+export const ReadinessConnectorMachineDto = z.object({
+  machineId: z.string(),
+  machineName: z.string(),
+  ownerId: z.string(),
+  ownerName: z.string(),
+  own: z.boolean(),
+  online: z.boolean(),
+  hasConnectorsFeature: z.boolean(),
+  state: ConnectorCliState,
+  account: z.string().nullable(),
+  botIds: z.array(z.string()),
+  botNames: z.array(z.string()),
+})
+export type ReadinessConnectorMachineDto = z.infer<typeof ReadinessConnectorMachineDto>
+
+export const ReadinessConnectorDto = z.object({
+  kind: z.enum(['cli', 'login']),
+  driver: ConnectorDriver.nullable(),
+  loginPrompt: z.string().nullable(),
+  ready: z.boolean(),
+  groupId: z.string().nullable(),
+  machines: z.array(ReadinessConnectorMachineDto),
+})
+export type ReadinessConnectorDto = z.infer<typeof ReadinessConnectorDto>
+
+/** One bot-hosting machine's execution trust status for an `exec` plugin in the post-install readiness checklist. */
+export const ReadinessTrustMachineDto = z.object({
+  machineId: z.string(),
+  machineName: z.string(),
+  ownerId: z.string(),
+  ownerName: z.string(),
+  own: z.boolean(),
+  online: z.boolean(),
+  trustId: z.string().nullable(),
+  status: z.enum(['unrequested', 'pending', 'allowed', 'denied']),
+  botIds: z.array(z.string()),
+  botNames: z.array(z.string()),
+})
+export type ReadinessTrustMachineDto = z.infer<typeof ReadinessTrustMachineDto>
+
+export const ReadinessTrustDto = z.object({
+  codeEnabled: z.boolean(),
+  ready: z.boolean(),
+  machines: z.array(ReadinessTrustMachineDto),
+})
+export type ReadinessTrustDto = z.infer<typeof ReadinessTrustDto>
+
+/** GET /api/market/:id/readiness?scope=&scopeId= — in-place checklist after installing a plugin. */
+export const MarketReadinessDto = z.object({
+  listingId: z.string(),
+  title: z.string(),
+  versionId: z.string(),
+  scope: InstallScope,
+  scopeId: z.string(),
+  targetLabel: z.string(),
+  ready: z.boolean(),
+  pendingSteps: z.number().int(),
+  secrets: z.array(ReadinessSecretItemDto),
+  reusedSecrets: z.array(ReusedSecretDto),
+  connector: ReadinessConnectorDto.nullable(),
+  trusts: ReadinessTrustDto.nullable(),
+  tryPrompts: z.array(z.string()),
+})
+export type MarketReadinessDto = z.infer<typeof MarketReadinessDto>
+
+/** POST /api/market/:id/readiness/action — in-place approve own machine trust or notify another machine's owner. */
+export const MarketReadinessActionReq = z.object({
+  action: z.enum(['allow_trust', 'notify_trust', 'notify_connector']),
+  machineId: z.string(),
+  scope: InstallScope.optional(),
+  scopeId: z.string().optional(),
+  versionId: z.string().optional(),
+})
+export type MarketReadinessActionReq = z.infer<typeof MarketReadinessActionReq>
+
+export const MarketReadinessActionRes = z.object({
+  ok: z.literal(true),
+  trustId: z.string().optional(),
+  notified: z.boolean().optional(),
+})
+export type MarketReadinessActionRes = z.infer<typeof MarketReadinessActionRes>
