@@ -78,7 +78,7 @@
 - 按人群分档（`modules/bots/access.ts`）：运行按链头真人的 `runs.audience`（owner / trusted / others，建运行时定，后台继续沿用）取档。主人用 `bots.tier` + `aiReview`（群覆盖直接替换）；触发名单成员（含共享私聊的人）和其他成员用 `bots.access` 的 full / auto / ask / read-only，换成 tier + aiReview，群覆盖对他们是上限。「不可触发」仍是 `triggerScope`（list = 其他成员不可触发，self = 两类都不可）；full 不再强制只许名单触发。
 - 别人的运行在 auto 档时，daemon 发来的审批请求服务端立即选拒绝，不通知主人；ask / read-only 仍问主人。改 `access` 或 `tier` 时在跑的轮次按各自人群重算，升到 full 的自动批准挂起请求。
 - 档位改动对运行中的轮次立即生效（`run.tier`）；升到 full 时自动批准待审请求。
-- ACP 模式映射（`turn.rs` `mode_for`）：Claude bypassPermissions / acceptEdits / default；Codex agent-full-access / workspace-write / read-only（不用 `agent`，它把审批交给 Codex 自己的审查模型）。codex-acp 把 workspace-write 与 agent 两个模式的沙箱写死成断网（上游 issue #406，修复 PR 未合并），daemon 装好适配器后给 `dist/index.js` 打补丁让这两个模式可联网、写入仍限工作区（`engine/codex_net.rs`；补丁对不上就报错，升级 codex-acp 时先看上游是否已修）。
+- ACP 模式映射（`turn.rs` `mode_for`）：Claude bypassPermissions / acceptEdits / default；Codex agent-full-access / workspace-write / read-only（不用 `agent`，它把审批交给 Codex 自己的审查模型）。codex-acp 把 workspace-write 与 agent 两个模式的沙箱写死成断网（上游 issue #406，修复 PR 未合并），daemon 启动 Codex 时从原版 `dist/index.js` 生成打过补丁的 `dist/index.gonggong-net.js` 并运行它（原版不动，回滚到旧 daemon 即恢复断网），让这两个模式可联网、写入仍限工作区（`engine/codex_net.rs`；补丁对不上就报错，升级 codex-acp 时先看上游是否已修）。
 - 插件 Agent 取清单 `tiers`：Gemini yolo / autoEdit / default；CodeBuddy 同 Claude；Antigravity auto / accept-edits / default（auto 才让子 agent 跑安全命令：agy 不把子 agent 的审批发到 ACP）；DeepSeek 用 `DSH_PERMISSION_MODE` 环境变量且改档重启；pi 无档位。
 - 「帮我审批」（`aiReview`）且 workspace 档、官方服务时，Claude 用 `auto`、Codex 用 `agent`（`builtin_mode`），否则由共工规则处理（AI 预审已移除）。
 - `bots.approval`/`allowlist` 为遗留列，恒为 `ask`（迁移 0106 起审批方式 = 档位 + aiReview），仍随 `RunStart.bot` 下发。

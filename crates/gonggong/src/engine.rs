@@ -1026,6 +1026,7 @@ impl Inner {
                 Some(a) => self.manifest_command(a, cli.as_deref(), process, env).await?,
                 None => {
                     let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
+                    let script = codex_net::entry(bot.agent_kind, script).await?;
                     // The agent CLIs npm installs are node scripts: they must find this Node too.
                     AcpAgentConfig::new(&node.path)
                         .arg(script.to_string_lossy())
@@ -1300,8 +1301,8 @@ impl Inner {
                 .envs(settings.child_env());
             tools::run(npm, &log).await.context(t!("安装 ACP 适配器失败"))?;
         }
-        let (h, c) = (home.clone(), modules.join(ADAPTERS[1].1));
-        let key = tokio::task::spawn_blocking(move || codex_net::apply(&c).map(|()| tools::runtime_bin(&h))).await??;
+        let h = home.clone();
+        let key = tokio::task::spawn_blocking(move || tools::runtime_bin(&h)).await?;
         *self.adapter_node.lock().unwrap() = Some((key, node.clone()));
         Ok((node, script))
     }
@@ -1344,13 +1345,3 @@ mod codex_net;
 mod launch;
 mod probe;
 pub(crate) use launch::Process;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pins_the_codex_adapter_its_network_patch_was_written_for() {
-        assert_eq!((ADAPTERS[1].0, ADAPTERS[1].2), (AgentKind::Codex, "2.12.0"));
-    }
-}

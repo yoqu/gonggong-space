@@ -6,7 +6,7 @@
   "apps/web/src/features/chat/ChatView.tsx": 1031,
   "apps/web/src/features/files/FileViewer.tsx": 1184,
   "crates/gonggong/src/ask.rs": 1713,
-  "crates/gonggong/src/engine.rs": 1363,
+  "crates/gonggong/src/engine.rs": 1354,
   "crates/gonggong/src/git.rs": 1632,
   "crates/gonggong/src/git_write.rs": 1408,
   "crates/gonggong/src/html_render.rs": 1155,
