@@ -142,7 +142,7 @@ function ReviewWorkbenchPane({ item, onDone }: { item: ReviewItemDto; onDone: ()
   const isFirst = item.listing.listedVersionId === null
 
   return (
-    <div className="mkt-review-pane">
+    <div className="mkt-review-pane ui-panel-swap">
       {error ? <Alert variant="error" title={error} /> : null}
 
       <div className="mkt-review-top">

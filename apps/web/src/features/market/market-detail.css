@@ -10,6 +10,11 @@
   gap: var(--space-16);
 }
 
+/* Whatever replaces the spinner (or shows up later, like a ban notice) fades in; zero specificity so tab swaps win. */
+:where(.mkt-detail-page > :not(.mkt-back)) {
+  animation: var(--fade-in) ui-fade-in;
+}
+
 .mkt-detail-page--embedded {
   max-width: none;
   padding: 0;
@@ -26,6 +31,15 @@
   color: var(--label-secondary);
   font: inherit;
   cursor: pointer;
+  transition:
+    color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mkt-back:active {
+    scale: var(--press-button);
+  }
 }
 
 .mkt-back:hover {
@@ -87,6 +101,16 @@
   font-size: var(--text-caption-size);
   font-weight: 500;
   cursor: pointer;
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mkt-where-pill:active {
+    scale: var(--press-button);
+  }
 }
 
 .mkt-where-pill--ok {
@@ -354,6 +378,9 @@
 }
 
 .mkt-steps__num {
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
   width: 20px;
   height: 20px;
   border-radius: var(--radius-capsule);
@@ -378,6 +405,52 @@
   flex: 1;
   height: 1px;
   background: var(--separator);
+  transition: background-color var(--motion-data);
+}
+
+.mkt-steps__line--done {
+  background: color-mix(in srgb, var(--system-green) 55%, var(--separator));
+}
+
+.mkt-steps__check {
+  display: grid;
+  place-items: center;
+}
+
+/* Step content: keyed per step. Forward comes from the right, back from the left; the body never scrolls sideways. */
+.mkt-step-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: 0 -4px;
+  padding: 0 4px;
+  overflow-x: clip;
+}
+
+.mkt-step-pane--fwd,
+.mkt-step-pane--back {
+  --enter-x: 8px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+
+.mkt-step-pane--back {
+  --enter-x: -8px;
+}
+
+.mkt-step-pane > .ui-alert,
+.mkt-done-hero,
+.mkt-ready-banner,
+.mkt-checklist {
+  animation: var(--fade-in) ui-fade-in;
+}
+
+.mkt-rise-in {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 
 .mkt-scope-group {
@@ -396,6 +469,14 @@
   padding: var(--space-10) var(--space-12);
   border-bottom: 1px solid var(--separator);
   cursor: pointer;
+  transition:
+    background-color var(--fade-fast),
+    opacity var(--fade-fast);
+}
+
+/* Admin scopes: the Disclosure body already slides; repos that load later fade in on their own. */
+.mkt-scope-group--more > .mkt-scope-opt {
+  animation: var(--fade-in) ui-fade-in;
 }
 
 .mkt-scope-opt:last-child {
@@ -595,6 +676,9 @@
 }
 
 .mkt-try-btn {
+  transition:
+    background-color var(--fade-fast),
+    scale var(--spring-interactive);
   width: 100%;
   display: flex;
   align-items: center;
@@ -616,6 +700,12 @@
 
 .mkt-try-btn:hover {
   background: var(--group-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mkt-try-btn:active {
+    scale: var(--press-card);
+  }
 }
 
 .mkt-try-btn__arrow {

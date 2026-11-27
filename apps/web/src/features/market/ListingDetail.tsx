@@ -10,6 +10,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
 import { ago, localDate } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
@@ -116,6 +117,8 @@ export function ListingDetail({
     `/market/${id}${versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''}`,
   )
   const [tab, setTab] = useState<DetailTab>(initialTab)
+  // The first panel fades in with the page; only later tab switches get the panel swap.
+  const [tabSwapped, setTabSwapped] = useState(false)
   const [banning, setBanning] = useState(false)
   const [unbanning, setUnbanning] = useState(false)
   const [diffOf, setDiffOf] = useState<ListingVersionDto | null>(null)
@@ -297,7 +300,10 @@ export function ListingDetail({
       <Tabs<DetailTab>
         aria-label={t('插件详情标签')}
         value={tab}
-        onChange={setTab}
+        onChange={(next) => {
+          setTab(next)
+          setTabSwapped(true)
+        }}
         items={[
           { value: 'overview', label: t('概览') },
           {
@@ -309,7 +315,11 @@ export function ListingDetail({
       />
 
       {tab === 'overview' ? (
-        <section className="mkt-detail-cols" aria-label={t('概览')}>
+        <section
+          key={tab}
+          className={cx('mkt-detail-cols', tabSwapped && 'ui-panel-swap')}
+          aria-label={t('概览')}
+        >
           <div className="mkt-detail-main">
             {examples.length ? (
               <section className="mkt-panel" aria-label={t('试试这样问 Bot')}>
@@ -513,7 +523,11 @@ export function ListingDetail({
           </aside>
         </section>
       ) : tab === 'changelog' ? (
-        <section className="mkt-panel" aria-label={t('更新记录')}>
+        <section
+          key={tab}
+          className={cx('mkt-panel', tabSwapped && 'ui-panel-swap')}
+          aria-label={t('更新记录')}
+        >
           {data.versions.length ? (
             data.versions.map((v) => (
               <div key={v.id} className="mkt-log-row">
@@ -541,7 +555,11 @@ export function ListingDetail({
           )}
         </section>
       ) : (
-        <section className="mkt-panel" aria-label={t('开发者信息')}>
+        <section
+          key={tab}
+          className={cx('mkt-panel', tabSwapped && 'ui-panel-swap')}
+          aria-label={t('开发者信息')}
+        >
           {reused.length ? (
             <div className="mkt-reuse-note" role="status">
               <Icon name="info" size={15} />

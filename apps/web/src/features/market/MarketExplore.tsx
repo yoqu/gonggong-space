@@ -1,5 +1,6 @@
 import type { MarketSort, MarketSource } from '@gonggong/protocol'
 import { t } from '../../i18n'
+import { cx } from '../../lib/cx'
 import {
   Button,
   ComingSoonArt,
@@ -108,6 +109,7 @@ export function MarketHomeView({
   loading,
   error,
   canInstallDirectly,
+  intro = false,
   onRetry,
   onOpen,
   onAction,
@@ -118,6 +120,8 @@ export function MarketHomeView({
   loading: boolean
   error: string
   canInstallDirectly: boolean
+  /** Listings just arrived: cards stagger in once. */
+  intro?: boolean
   onRetry: () => void
   onOpen: (l: MarketListingView) => void
   onAction: (l: MarketListingView, action: CardActionKind) => void
@@ -218,7 +222,7 @@ export function MarketHomeView({
       </section>
 
       {heroPicks.length ? (
-        <section className="mkt-featured" aria-label={t('精选推荐')}>
+        <section className={cx('mkt-featured', intro && 'mkt-cards--intro')} aria-label={t('精选推荐')}>
           {heroPicks.map((l, idx) => {
             const scene = sceneOfListing(l)
             const caps = capabilitiesOfListing(l)
@@ -285,7 +289,7 @@ export function MarketHomeView({
               {t('查看全部')}
             </Button>
           </div>
-          <ul className="mkt-cards">
+          <ul className={cx('mkt-cards', intro && 'mkt-cards--intro')}>
             {connectShelf.map((l) => (
               <PluginCard
                 key={l.id}
@@ -309,7 +313,7 @@ export function MarketHomeView({
             {t('查看全部')}
           </Button>
         </div>
-        <ul className="mkt-cards">
+        <ul className={cx('mkt-cards', intro && 'mkt-cards--intro')}>
           {teamShelf.map((l) => (
             <PluginCard
               key={l.id}
@@ -329,7 +333,7 @@ export function MarketHomeView({
             {t('查看全部')}
           </Button>
         </div>
-        <ul className="mkt-cards">
+        <ul className={cx('mkt-cards', intro && 'mkt-cards--intro')}>
           {latestShelf.map((l) => (
             <PluginCard
               key={l.id}
@@ -356,6 +360,7 @@ export function MarketCatalogView({
   loading,
   error,
   canInstallDirectly,
+  intro = false,
   onSource,
   onCapability,
   onSort,
@@ -374,6 +379,8 @@ export function MarketCatalogView({
   loading: boolean
   error: string
   canInstallDirectly: boolean
+  /** Listings just arrived: cards stagger in once. */
+  intro?: boolean
   onSource: (v: SourceFilter) => void
   onCapability: (v: CapabilityFilter) => void
   onSort: (v: SortMode) => void
@@ -461,7 +468,11 @@ export function MarketCatalogView({
       ) : !listings ? (
         <Skeleton variant="block" count={6} height={156} className="mkt-cards" />
       ) : listings.length ? (
-        <ul className="mkt-cards" aria-label={t('插件列表')} aria-busy={loading || undefined}>
+        <ul
+          className={cx('mkt-cards', intro ? 'mkt-cards--intro' : 'mkt-cards--fade')}
+          aria-label={t('插件列表')}
+          aria-busy={loading || undefined}
+        >
           {listings.map((l) => (
             <PluginCard
               key={l.id}

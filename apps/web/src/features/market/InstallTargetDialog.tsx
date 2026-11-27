@@ -18,11 +18,21 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { Alert, Dialog, Disclosure, Icon, paletteColor, Spinner, Tag, TextArea, toast } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
 import { InstallReadyStep } from './InstallReadyStep'
 import { ListingIcon, SOURCE_LABEL } from './meta'
 import './market-detail.css'
+
+/** Direction of the last step change in this dialog; empty when it opened on the current step (no slide). */
+function useStepMotion(step: number): '' | 'fwd' | 'back' {
+  const [seen, setSeen] = useState<{ step: number; motion: '' | 'fwd' | 'back' }>({ step, motion: '' })
+  if (seen.step === step) return seen.motion
+  const motion = step > seen.step ? 'fwd' : 'back'
+  setSeen({ step, motion })
+  return motion
+}
 
 interface ScopeOption {
   scope: InstallScope
@@ -270,6 +280,7 @@ export function InstallTargetDialog({
   }
 
   const step = readyTarget ? 2 : 1
+  const stepMotion = useStepMotion(step)
   const sourceText = listing.teamName || (listing.source ? SOURCE_LABEL[listing.source] : '')
 
   const renderOption = (x: ScopeOption) => {
@@ -370,93 +381,102 @@ export function InstallTargetDialog({
       <nav className="mkt-steps" aria-label={t('添加步骤')}>
         <span className={`mkt-steps__step ${step === 1 ? 'mkt-steps__step--on' : 'mkt-steps__step--done'}`}>
           <span className="mkt-steps__num">
-            {step > 1 ? <Icon name="check" size={12} weight={2} /> : '1'}
+            {step > 1 ? (
+              <span className={cx('mkt-steps__check', stepMotion === 'fwd' && 'ui-check-pop')}>
+                <Icon name="check" size={12} weight={2} />
+              </span>
+            ) : (
+              '1'
+            )}
           </span>
           {t('添加到哪里')}
         </span>
-        <span className="mkt-steps__line" aria-hidden="true" />
+        <span className={cx('mkt-steps__line', step > 1 && 'mkt-steps__line--done')} aria-hidden="true" />
         <span className={`mkt-steps__step ${step === 2 ? 'mkt-steps__step--on' : ''}`}>
           <span className="mkt-steps__num">2</span>
           {t('完成准备')}
         </span>
       </nav>
 
-      {readyTarget ? (
-        <InstallReadyStep
-          listingId={listing.id}
-          listingTitle={listing.title}
-          scope={readyTarget.scope}
-          scopeId={readyTarget.scopeId}
-          targetLabel={readyTarget.label}
-          teamId={readyTarget.teamId}
-          fallbackExamples={listing.examples}
-          onDone={onClose}
-          onGoInstalled={onGoInstalled}
-          onChanged={onChanged}
-          onReusedSecrets={onReusedSecrets}
-          onTargetLabel={setResolvedTargetLabel}
-        />
-      ) : (
-        <>
-          {error ? <Alert variant="error" title={error} /> : null}
-          <div className="cfg__eyebrow">{t('给谁用？')}</div>
-          {primaryOptions.length ? (
-            <div className="mkt-scope-group" role="radiogroup" aria-label={t('添加位置')}>
-              {primaryOptions.map(renderOption)}
-            </div>
-          ) : (
-            <div className="gs-note">{t('你还没有加入群聊，可在下方展开团队范围。')}</div>
-          )}
-
-          {ask ? (
-            <TextArea
-              label={t('申请说明')}
-              aria-label={t('申请说明')}
-              placeholder={t('说一句为什么需要（选填），会发给群管理员')}
-              maxLength={500}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          ) : null}
-
-          {teams.length ? (
-            <Disclosure
-              variant="group"
-              title={t('更多范围（管理员）')}
-              open={moreOpen}
-              onToggle={setMoreOpen}
-            >
-              <div className="mkt-scope-group">
-                {teamOptions.map(renderOption)}
-                {reposError ? (
-                  <Alert variant="error" title={reposError} retrying={reposLoading} onRetry={reloadRepos} />
-                ) : reposLoading && !repos ? (
-                  <Spinner />
-                ) : (
-                  (repos ?? []).map(renderOption)
-                )}
+      <div key={step} className={cx('mkt-step-pane', stepMotion && `mkt-step-pane--${stepMotion}`)}>
+        {readyTarget ? (
+          <InstallReadyStep
+            listingId={listing.id}
+            listingTitle={listing.title}
+            scope={readyTarget.scope}
+            scopeId={readyTarget.scopeId}
+            targetLabel={readyTarget.label}
+            teamId={readyTarget.teamId}
+            fallbackExamples={listing.examples}
+            onDone={onClose}
+            onGoInstalled={onGoInstalled}
+            onChanged={onChanged}
+            onReusedSecrets={onReusedSecrets}
+            onTargetLabel={setResolvedTargetLabel}
+          />
+        ) : (
+          <>
+            {error ? <Alert variant="error" title={error} /> : null}
+            <div className="cfg__eyebrow">{t('给谁用？')}</div>
+            {primaryOptions.length ? (
+              <div className="mkt-scope-group" role="radiogroup" aria-label={t('添加位置')}>
+                {primaryOptions.map(renderOption)}
               </div>
-            </Disclosure>
-          ) : null}
+            ) : (
+              <div className="gs-note">{t('你还没有加入群聊，可在下方展开团队范围。')}</div>
+            )}
 
-          {isExec ? (
-            <div className="mkt-hint mkt-hint--lock">
-              <Icon name="shield-check" size={15} />
-              <span>
-                {t(
-                  '该插件会在电脑上运行本地检查程序，为确保安全，系统将自动固定在当前已审核版本 r{n}，后续升级需重新确认。',
-                  { n: listing.listedRevision },
-                )}
-              </span>
-            </div>
-          ) : (
-            <div className="mkt-hint">
-              <Icon name="arrow-clockwise" size={15} />
-              <span>{t('会自动保持最新版本，系统也会自动补齐所需凭据项，无需手动配置。')}</span>
-            </div>
-          )}
-        </>
-      )}
+            {ask ? (
+              <TextArea
+                className="mkt-fade-in"
+                label={t('申请说明')}
+                aria-label={t('申请说明')}
+                placeholder={t('说一句为什么需要（选填），会发给群管理员')}
+                maxLength={500}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            ) : null}
+
+            {teams.length ? (
+              <Disclosure
+                variant="group"
+                title={t('更多范围（管理员）')}
+                open={moreOpen}
+                onToggle={setMoreOpen}
+              >
+                <div className="mkt-scope-group mkt-scope-group--more">
+                  {teamOptions.map(renderOption)}
+                  {reposError ? (
+                    <Alert variant="error" title={reposError} retrying={reposLoading} onRetry={reloadRepos} />
+                  ) : reposLoading && !repos ? (
+                    <Spinner />
+                  ) : (
+                    (repos ?? []).map(renderOption)
+                  )}
+                </div>
+              </Disclosure>
+            ) : null}
+
+            {isExec ? (
+              <div className="mkt-hint mkt-hint--lock">
+                <Icon name="shield-check" size={15} />
+                <span>
+                  {t(
+                    '该插件会在电脑上运行本地检查程序，为确保安全，系统将自动固定在当前已审核版本 r{n}，后续升级需重新确认。',
+                    { n: listing.listedRevision },
+                  )}
+                </span>
+              </div>
+            ) : (
+              <div className="mkt-hint">
+                <Icon name="arrow-clockwise" size={15} />
+                <span>{t('会自动保持最新版本，系统也会自动补齐所需凭据项，无需手动配置。')}</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </Dialog>
   )
 }

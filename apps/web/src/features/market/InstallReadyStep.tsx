@@ -13,6 +13,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import { Alert, Button, Checkbox, Icon, Link, SecureField, Spinner, toast } from '../../ui'
@@ -65,6 +66,8 @@ export function InstallReadyStep({
   const [actionBusy, setActionBusy] = useState<string | null>(null)
   const [notified, setNotified] = useState<Record<string, boolean>>({})
   const [inlineErr, setInlineErr] = useState('')
+  // The ready check only celebrates when this dialog saw a pending step get finished, not when it opened ready.
+  const sawPending = useRef(false)
 
   const groupId = data?.connector?.groupId ?? (scope === 'group' ? scopeId : undefined)
   const groupConnectors = useConnectorStore((s) => (groupId ? s.lists[groupId] : undefined))
@@ -114,6 +117,7 @@ export function InstallReadyStep({
       (codeDisabled || pendingTrusts.length ? 1 : 0) +
       (pendingConnector ? 1 : 0)
   const allReady = data.ready || pendingCount === 0
+  if (!allReady) sawPending.current = true
   const prompts = data.tryPrompts.length ? data.tryPrompts : fallbackExamples
   const displayTarget = data.targetLabel || targetLabel
 
@@ -260,7 +264,9 @@ export function InstallReadyStep({
       <>
         <div className="mkt-done-hero">
           <div className="mkt-done-hero__icon" aria-hidden="true">
-            <Icon name="check" size={26} weight={2} />
+            <span className={cx('mkt-steps__check', sawPending.current && 'ui-check-pop')}>
+              <Icon name="check" size={26} weight={2} />
+            </span>
           </div>
           <h3 className="mkt-done-hero__title">{t('已就绪，可以用了')}</h3>
           <p className="mkt-done-hero__sub">
@@ -274,7 +280,7 @@ export function InstallReadyStep({
         </div>
 
         {prompts.length ? (
-          <div>
+          <div className="mkt-rise-in">
             <div className="cfg__eyebrow">{t('点一句，直接带回群里试一试')}</div>
             <div className="mkt-try-box">
               {prompts.map((prompt) => (

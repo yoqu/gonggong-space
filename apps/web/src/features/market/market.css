@@ -60,6 +60,9 @@
 }
 
 .mkt-side__link {
+  transition:
+    background-color var(--fade-fast),
+    scale var(--spring-interactive);
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -78,6 +81,12 @@
   background: var(--group-bg);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .mkt-side__link:active {
+    scale: var(--press-button);
+  }
+}
+
 .mkt-side__link-icon {
   flex: none;
   color: var(--label-secondary);
@@ -94,7 +103,23 @@
   white-space: nowrap;
 }
 
-/* Main pane */
+/* Main pane. `.mkt-view` is keyed per view; clip keeps the entrance shift from flashing a scrollbar. */
+.mkt-view {
+  overflow: clip;
+}
+
+.mkt-view--swap > *,
+.mkt-view--detail > * {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+
+.mkt-view--fade > * {
+  animation: var(--fade-in) ui-fade-in;
+}
+
 .mkt-main {
   flex: 1;
   min-width: 0;
@@ -179,6 +204,15 @@
   border-radius: var(--radius-window);
   background: var(--window-bg);
   box-shadow: inset 0 0 0 1px var(--separator);
+  transition: scale var(--spring-interactive);
+}
+
+/* The card gives a little under the press that opens it (title or primary action). */
+@media (prefers-reduced-motion: no-preference) {
+  .mkt-hero:has(.mkt-hero__title:active),
+  .mkt-pcard:has(.mkt-pcard__name:active) {
+    scale: var(--press-card);
+  }
 }
 
 .mkt-hero__copy {
@@ -205,6 +239,7 @@
   font-weight: 600;
   text-align: start;
   cursor: pointer;
+  transition: color var(--fade-fast);
 }
 
 .mkt-hero__title:hover {
@@ -329,6 +364,44 @@
   list-style: none;
 }
 
+/* First arrival only: cards rise 6px in a capped stagger; later mounts just fade (.mkt-cards--fade) or appear. */
+.mkt-cards--intro > * {
+  --enter-y: 6px;
+  animation:
+    var(--fade-in) ui-fade-in both,
+    var(--spring-smooth) ui-enter both;
+}
+
+.mkt-cards--intro > :nth-child(2) {
+  animation-delay: var(--stagger-step);
+}
+
+.mkt-cards--intro > :nth-child(3) {
+  animation-delay: calc(2 * var(--stagger-step));
+}
+
+.mkt-cards--intro > :nth-child(4) {
+  animation-delay: calc(3 * var(--stagger-step));
+}
+
+.mkt-cards--intro > :nth-child(5) {
+  animation-delay: calc(4 * var(--stagger-step));
+}
+
+.mkt-cards--intro > :nth-child(6) {
+  animation-delay: calc(5 * var(--stagger-step));
+}
+
+.mkt-cards--intro > :nth-child(n + 7) {
+  animation-delay: calc(6 * var(--stagger-step));
+}
+
+.mkt-cards--fade,
+.mkt-empty-box,
+.mkt-fade-in {
+  animation: var(--fade-in) ui-fade-in;
+}
+
 .mkt-cards[aria-busy="true"] {
   opacity: 0.6;
   transition: opacity var(--fade-in);
@@ -349,7 +422,9 @@
   border-radius: var(--radius-menu);
   background: var(--content-bg);
   box-shadow: inset 0 0 0 1px var(--separator);
-  transition: box-shadow var(--fade-in);
+  transition:
+    box-shadow var(--fade-fast),
+    scale var(--spring-interactive);
 }
 
 @media (hover: hover) {
@@ -388,6 +463,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  transition: color var(--fade-fast);
 }
 
 .mkt-pcard__name:hover {
@@ -414,6 +490,12 @@
 .mkt-pcard__status {
   align-self: flex-start;
   flex: none;
+}
+
+.mkt-pcard__status .ui-tag {
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 
 .mkt-pcard__desc {

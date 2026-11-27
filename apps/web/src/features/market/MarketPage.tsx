@@ -11,6 +11,7 @@ import { useIsBuilder } from '../../app/builder'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { cx } from '../../lib/cx'
 import { useGet } from '../../lib/useGet'
 import { Icon, Presence, SearchField, Sidebar, type SidebarItem } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
@@ -52,6 +53,31 @@ function parseScene(params: URLSearchParams): 'all' | MarketScene | null {
   if (shelf === 'connector') return 'connect'
   if (shelf === 'creation') return 'create'
   return null
+}
+
+type ViewMotion = '' | 'swap' | 'detail' | 'fade'
+
+/** How the main pane's content arrives on each view change: none on first paint, quick fade back from a detail or between scenes. */
+function useViewMotion(viewKey: string): ViewMotion {
+  const [seen, setSeen] = useState<{ key: string; motion: ViewMotion }>({ key: viewKey, motion: '' })
+  if (seen.key === viewKey) return seen.motion
+  const [prevKind, prevSub] = seen.key.split(':')
+  const [kind] = viewKey.split(':')
+  const motion: ViewMotion =
+    kind === 'detail' ? 'detail' : prevKind === 'detail' || (kind === prevKind && prevSub) ? 'fade' : 'swap'
+  setSeen({ key: viewKey, motion })
+  return motion
+}
+
+/** Cards stagger in only while the listings first arrive; later remounts (back from detail, view switches) skip it. */
+function useFirstArrival(arrived: boolean, ms = 600) {
+  const [intro, setIntro] = useState(true)
+  useEffect(() => {
+    if (!arrived || !intro) return
+    const id = setTimeout(() => setIntro(false), ms)
+    return () => clearTimeout(id)
+  }, [arrived, intro, ms])
+  return intro
 }
 
 function useSettled<T>(value: T, ms = 250) {
@@ -196,6 +222,7 @@ export function MarketPage() {
         return pending ? { ...l, needsConfig: !pending.needsTrust, needsTrust: pending.needsTrust } : l
       })
   }, [marketGet.data, pendingTargetByListing])
+  const intro = useFirstArrival(allListings !== null)
   const todoList = useGet<InstallRequestDto[]>('/install-requests?view=todo')
   const todoCount = todoList.data?.length ?? 0
   const primaryReviewQueue = useGet<ReviewItemDto[]>(queues[0]?.path ?? null)
@@ -325,6 +352,9 @@ export function MarketPage() {
     }
     setModal({ listing: l })
   }
+
+  const viewKey = openId ? `detail:${openId}` : view === 'catalog' ? `catalog:${activeScene}` : view
+  const viewMotion = useViewMotion(viewKey)
 
   const sidebarSelected = openId
     ? undefined
@@ -462,114 +492,118 @@ export function MarketPage() {
       </aside>
 
       <main className={`mkt-main${openId ? ' mkt-main--detail' : ''}`}>
-        {openId ? (
-          <ListingDetail
-            key={`${openId}:${detailTick}`}
-            id={openId}
-            initialTab={detailTab}
-            standalone
-            canInstallDirectly={canInstallDirectly}
-            reusedSecrets={reusedByListing[openId]}
-            onBack={closeDetail}
-            onChanged={refreshAll}
-            onManageInstalled={() => goTab('installed')}
-            onAdd={(d) => {
-              if (d.listedVersionId && d.listedRevision !== null) {
-                setModal({
-                  listing: {
-                    ...d,
-                    listedVersionId: d.listedVersionId,
-                    listedRevision: d.listedRevision,
-                  },
-                })
-              }
-            }}
-            onConfigure={(d, target) => {
-              if (d.listedVersionId && d.listedRevision !== null) {
-                setModal({
-                  listing: {
-                    ...d,
-                    listedVersionId: d.listedVersionId,
-                    listedRevision: d.listedRevision,
-                  },
-                  readyTarget: target,
-                })
-              }
-            }}
-          />
-        ) : view === 'installed' ? (
-          <InstalledView
-            onBrowseMarket={goHome}
-            onOpenDetail={(id, tab) => openDetail(id, tab)}
-            onConfigure={(listing, readyTarget) => setModal({ listing, readyTarget })}
-            onChanged={refreshAll}
-          />
-        ) : view === 'requests' ? (
-          <InstallRequests todo={todoList} onOpenListing={(id) => openDetail(id)} onBackMarket={goHome} />
-        ) : view === 'mine' ? (
-          <MyListings
-            initialMode={publishMode}
-            onModeChange={(m) => goTab('mine', m === 'create')}
-            onOpen={(l) => openDetail(l.id)}
-          />
-        ) : view === 'reviews' ? (
-          <div className="mkt-content">
-            <section className="mkt-head">
-              <div className="mkt-head__titles">
-                <h1 className="mkt-head__title">{t('上架审核')}</h1>
-                <p className="mkt-head__sub">
-                  {t('团队内可见条目由团队管理员审核，公开条目由系统管理员审核。')}
-                </p>
-              </div>
-            </section>
-            {queues.map((x) => (
-              <MarketReviewList
-                key={x.path}
-                path={x.path}
-                queueLabel={x.label}
-                onReviewed={refreshAll}
-                onBackMarket={goHome}
-              />
-            ))}
-          </div>
-        ) : view === 'catalog' ? (
-          <MarketCatalogView
-            scene={activeScene}
-            query={query}
-            source={source}
-            capability={capability}
-            sort={sort}
-            listings={catalogListings}
-            loading={marketGet.loading}
-            error={marketGet.error}
-            canInstallDirectly={canInstallDirectly}
-            onSource={setSource}
-            onCapability={setCapability}
-            onSort={setSort}
-            onClear={() => {
-              setQuery('')
-              setSource('all')
-              setCapability('all')
-              goScene('all')
-            }}
-            onRetry={marketGet.reload}
-            onOpen={(l) => openDetail(l.id)}
-            onAction={handleCardAction}
-            onPublish={() => goTab('mine', true)}
-          />
-        ) : (
-          <MarketHomeView
-            listings={allListings}
-            loading={marketGet.loading}
-            error={marketGet.error}
-            canInstallDirectly={canInstallDirectly}
-            onRetry={marketGet.reload}
-            onOpen={(l) => openDetail(l.id)}
-            onAction={handleCardAction}
-            onViewScene={goScene}
-            onPublish={() => goTab('mine', true)}
-          />
-        )}
+        <div key={viewKey} className={cx('mkt-view', viewMotion && `mkt-view--${viewMotion}`)}>
+          {openId ? (
+            <ListingDetail
+              key={`${openId}:${detailTick}`}
+              id={openId}
+              initialTab={detailTab}
+              standalone
+              canInstallDirectly={canInstallDirectly}
+              reusedSecrets={reusedByListing[openId]}
+              onBack={closeDetail}
+              onChanged={refreshAll}
+              onManageInstalled={() => goTab('installed')}
+              onAdd={(d) => {
+                if (d.listedVersionId && d.listedRevision !== null) {
+                  setModal({
+                    listing: {
+                      ...d,
+                      listedVersionId: d.listedVersionId,
+                      listedRevision: d.listedRevision,
+                    },
+                  })
+                }
+              }}
+              onConfigure={(d, target) => {
+                if (d.listedVersionId && d.listedRevision !== null) {
+                  setModal({
+                    listing: {
+                      ...d,
+                      listedVersionId: d.listedVersionId,
+                      listedRevision: d.listedRevision,
+                    },
+                    readyTarget: target,
+                  })
+                }
+              }}
+            />
+          ) : view === 'installed' ? (
+            <InstalledView
+              onBrowseMarket={goHome}
+              onOpenDetail={(id, tab) => openDetail(id, tab)}
+              onConfigure={(listing, readyTarget) => setModal({ listing, readyTarget })}
+              onChanged={refreshAll}
+            />
+          ) : view === 'requests' ? (
+            <InstallRequests todo={todoList} onOpenListing={(id) => openDetail(id)} onBackMarket={goHome} />
+          ) : view === 'mine' ? (
+            <MyListings
+              initialMode={publishMode}
+              onModeChange={(m) => goTab('mine', m === 'create')}
+              onOpen={(l) => openDetail(l.id)}
+            />
+          ) : view === 'reviews' ? (
+            <div className="mkt-content">
+              <section className="mkt-head">
+                <div className="mkt-head__titles">
+                  <h1 className="mkt-head__title">{t('上架审核')}</h1>
+                  <p className="mkt-head__sub">
+                    {t('团队内可见条目由团队管理员审核，公开条目由系统管理员审核。')}
+                  </p>
+                </div>
+              </section>
+              {queues.map((x) => (
+                <MarketReviewList
+                  key={x.path}
+                  path={x.path}
+                  queueLabel={x.label}
+                  onReviewed={refreshAll}
+                  onBackMarket={goHome}
+                />
+              ))}
+            </div>
+          ) : view === 'catalog' ? (
+            <MarketCatalogView
+              scene={activeScene}
+              query={query}
+              source={source}
+              capability={capability}
+              sort={sort}
+              listings={catalogListings}
+              loading={marketGet.loading}
+              error={marketGet.error}
+              canInstallDirectly={canInstallDirectly}
+              intro={intro}
+              onSource={setSource}
+              onCapability={setCapability}
+              onSort={setSort}
+              onClear={() => {
+                setQuery('')
+                setSource('all')
+                setCapability('all')
+                goScene('all')
+              }}
+              onRetry={marketGet.reload}
+              onOpen={(l) => openDetail(l.id)}
+              onAction={handleCardAction}
+              onPublish={() => goTab('mine', true)}
+            />
+          ) : (
+            <MarketHomeView
+              listings={allListings}
+              loading={marketGet.loading}
+              error={marketGet.error}
+              canInstallDirectly={canInstallDirectly}
+              intro={intro}
+              onRetry={marketGet.reload}
+              onOpen={(l) => openDetail(l.id)}
+              onAction={handleCardAction}
+              onViewScene={goScene}
+              onPublish={() => goTab('mine', true)}
+            />
+          )}
+        </div>
       </main>
 
       <Presence>

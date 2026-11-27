@@ -1,5 +1,21 @@
 /* 插件市场: Installed, Requests, Publish Wizard, Review Workbench & Responsive rules */
 
+/* Lists that replace a spinner/skeleton fade in; they stay mounted across reloads, so this plays once. */
+.mkt-todo-banner,
+.mkt-group-box,
+.mkt-req-stack,
+.mkt-review-queue {
+  animation: var(--fade-in) ui-fade-in;
+}
+
+.mkt-inst-row__status .ui-tag,
+.mkt-req-row .ui-tag,
+.mkt-req-card .ui-tag {
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
+}
+
 .mkt-todo-banner {
   display: flex;
   flex-direction: column;
@@ -193,6 +209,17 @@
   flex-direction: column;
   gap: var(--space-4);
   cursor: pointer;
+  transition:
+    box-shadow var(--fade-fast),
+    background-color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mkt-track:active,
+  .mkt-q-item:active {
+    scale: var(--press-card);
+  }
 }
 
 .mkt-track > input[type="radio"] {
@@ -321,6 +348,9 @@
   font: inherit;
   text-align: start;
   cursor: pointer;
+  transition:
+    box-shadow var(--fade-fast),
+    scale var(--spring-interactive);
 }
 
 .mkt-q-item--on {

@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
 import { storedTeam } from '../../lib/team'
 import { ago } from '../../lib/time'
@@ -117,6 +118,9 @@ export function MyListings({
   const patching = useRowLocks()
   const checking = useRowLocks()
   const [filter, setFilter] = useState<Filter>('all')
+  const [modeSeen, setModeSeen] = useState({ mode, swapped: false })
+  if (modeSeen.mode !== mode) setModeSeen({ mode, swapped: true })
+  const modeSwap = modeSeen.swapped ? 'ui-panel-swap' : undefined
 
   useEffect(() => {
     setMode(initialMode)
@@ -161,7 +165,7 @@ export function MyListings({
 
   if (mode === 'create') {
     return (
-      <div className="mkt-content">
+      <div key={mode} className={cx('mkt-content', modeSwap)}>
         <section className="mkt-head">
           <div className="mkt-head__titles">
             <h1 className="mkt-head__title">{t('发布插件到市场')}</h1>
@@ -182,7 +186,7 @@ export function MyListings({
   }
 
   return (
-    <div className="mkt-content mkt-content--narrow">
+    <div key={mode} className={cx('mkt-content mkt-content--narrow', modeSwap)}>
       <section className="mkt-head">
         <div className="mkt-head__titles">
           <h1 className="mkt-head__title">{t('我的发布')}</h1>
