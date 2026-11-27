@@ -60,19 +60,23 @@ describe('输入框 · 连接器菜单', () => {
     expect(rows.map((r) => r.textContent)).toEqual(['数仓未连接连接', '墨刀待管理员配置', '飞书项目已连接'])
     expect(within(rows[0]!).getByRole('button', { name: '连接' })).toBeTruthy()
 
-    fireEvent.change(within(menu).getByRole('searchbox', { name: '搜索连接器' }), { target: { value: '墨' } })
+    fireEvent.change(within(menu).getByRole('searchbox', { name: '搜索外部连接' }), {
+      target: { value: '墨' },
+    })
     expect(
       within(menu)
         .getAllByRole('listitem')
         .map((r) => r.textContent),
     ).toEqual(['墨刀待管理员配置'])
-    fireEvent.change(within(menu).getByRole('searchbox', { name: '搜索连接器' }), {
+    fireEvent.change(within(menu).getByRole('searchbox', { name: '搜索外部连接' }), {
       target: { value: 'xyz' },
     })
-    expect(within(menu).getByText('没有匹配的连接器')).toBeTruthy()
+    expect(within(menu).getByText('没有匹配的外部连接')).toBeTruthy()
 
-    fireEvent.click(within(menu).getByRole('button', { name: '管理连接器' }))
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market?shelf=connector'))
+    fireEvent.click(within(menu).getByRole('button', { name: '添加更多外部连接插件' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('where').textContent).toBe('/market?scene=connect&fromGroup=g1'),
+    )
   })
 
   it('shows each connection’s status; my switch turns one off for this group, an expired one asks to reconnect', async () => {
@@ -104,9 +108,11 @@ describe('输入框 · 连接器菜单', () => {
     mockApi(routes([off]))
     renderChat()
     const menu = await openMenu()
-    expect(await within(menu).findByText('还没有可用的连接器')).toBeTruthy()
-    fireEvent.click(within(menu).getByRole('button', { name: '去市场看看' }))
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market?shelf=connector'))
+    expect(await within(menu).findByText('还没有可用的外部连接插件')).toBeTruthy()
+    fireEvent.click(within(menu).getByRole('button', { name: '去插件市场添加' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('where').textContent).toBe('/market?scene=connect&fromGroup=g1'),
+    )
   })
 })
 

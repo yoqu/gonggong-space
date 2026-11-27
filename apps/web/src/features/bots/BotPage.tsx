@@ -10,6 +10,7 @@ import {
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { fmtTokens } from '../../lib/format'
@@ -27,6 +28,7 @@ import { agentLabel } from './AgentConfig'
 import { approvalText } from './ApprovalFields'
 import { AUDIENCE_LEVEL_LABEL, audienceValue } from './AudienceFields'
 import { BotAvatar, botRole, roleOf } from './avatars'
+import { BotCapabilitiesPanel } from './BotCapabilitiesPanel'
 import { useMachineProviders } from './BotProvider'
 import { type BotTab, BotWarning } from './BotSettings'
 import { agentCliVersion, agentLine, PRESENCE } from './model'
@@ -352,6 +354,7 @@ export function BotPage({
   const owner = me.id === bot.ownerId
   const canView = owner || me.role === 'sysadmin'
   const shared = bot.sharedWith.includes(me.id)
+  const pluginsOn = useSession((s) => !!s.tenancy?.pluginsEnabled)
   const places = usePlaces(bot.id, canView)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
   const openDm = useDm(bot)
@@ -405,6 +408,8 @@ export function BotPage({
         </div>
 
         <BotWarning bot={bot} users={users} owner={owner} />
+
+        {pluginsOn ? <BotCapabilitiesPanel bot={bot} me={me} /> : null}
 
         <div className={canView || shared ? 'bot-page__columns' : 'bot-page__cards'}>
           {canView || shared ? (

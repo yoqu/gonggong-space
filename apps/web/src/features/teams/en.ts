@@ -160,4 +160,7 @@ export default {
   '你是唯一的所有者，需先在「成员」里转让所有权':
     'You are the only owner; transfer ownership under Members first',
   请粘贴有效的团队邀请链接: 'Paste a valid team invite link',
+  团队统一插件: 'Team-wide plugins',
+  '对本团队所有群生效；群管理员可在群设置中按需开关或覆盖。':
+    'Applies to all groups in this team; group admins can toggle or override per group.',
 }

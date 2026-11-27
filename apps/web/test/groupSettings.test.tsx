@@ -235,9 +235,8 @@ describe('group settings inspector', () => {
       /^成员\s*所有成员可拉人/,
       /仓库与同步/,
       /群级参数/,
-      /^MCP/,
-      /^Skill/,
-      /^密钥/,
+      /^插件与能力/,
+      /^凭据与授权/,
     ])
       expect(within(d).getByRole('button', { name }).hasAttribute('disabled')).toBe(false)
     expect(within(d).queryByRole('button', { name: /^飞书/ })).toBeNull()
@@ -304,13 +303,14 @@ describe('group settings inspector', () => {
       ),
     )
     renderAt('/g/g1')
-    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /^密钥/ }))
-    const dlg = await screen.findByRole('dialog', { name: '密钥 · 支付服务重构' })
+    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /^凭据与授权/ }))
+    const dlg = await screen.findByRole('dialog', { name: '凭据与授权 · 支付服务重构' })
+    fireEvent.click(within(dlg).getByRole('button', { name: /高级：底层环境变量明细/ }))
     expect(await within(dlg).findByRole('button', { name: '填写我的值…' })).toBeTruthy()
     expect(within(dlg).queryByRole('button', { name: '新建密钥…' })).toBeNull()
   })
 
-  it('shows plain members the MCP and Skill lists read-only', async () => {
+  it('shows plain members the MCP and Skill lists read-only inside 开发者高级配置', async () => {
     const http = (name: string) => ({ transport: 'http', name, url: '', headers: {} })
     mockApi(
       routes(
@@ -344,20 +344,21 @@ describe('group settings inspector', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^MCP/ }))
-    const dlg = await screen.findByRole('dialog', { name: 'MCP · 支付服务重构' })
+    fireEvent.click(within(d).getByRole('button', { name: /^插件与能力/ }))
+    const dlg = await screen.findByRole('dialog', { name: '插件与能力 · 支付服务重构' })
+    fireEvent.click(within(dlg).getByRole('button', { name: /开发者高级配置（只读）/ }))
     expect(await within(dlg).findByText('jira')).toBeTruthy()
     expect(within(dlg).getAllByText('仅群管理员可修改').length).toBeGreaterThan(0)
-    const row = (name: string) => within(dlg).getByText(name).closest('.ui-group__row') as HTMLElement
+    const row = (name: string) =>
+      within(dlg).getAllByText(name).at(-1)!.closest('.ui-group__row') as HTMLElement
     expect(within(row('jira')).getByText('本群')).toBeTruthy()
     expect(within(row('jira')).getByText('已关闭')).toBeTruthy()
     expect(within(row('wiki')).getByText('团队')).toBeTruthy()
     expect(within(row('wiki')).getByText('已开启')).toBeTruthy()
     expect(within(dlg).queryByRole('switch', { name: /jira|wiki/ })).toBeNull()
-    expect(within(dlg).queryByRole('button', { name: /添加/ })).toBeNull()
+    expect(within(dlg).queryByRole('button', { name: /添加 MCP/ })).toBeNull()
 
-    fireEvent.click(within(dlg).getByRole('button', { name: 'Skill' }))
-    expect(await within(dlg).findByText('review')).toBeTruthy()
+    expect((await within(dlg).findAllByText('review')).length).toBeGreaterThan(0)
     expect(within(row('review')).getByText('平台')).toBeTruthy()
     expect(within(row('review')).getByText('已关闭')).toBeTruthy()
     expect(within(dlg).queryByRole('switch', { name: /review/ })).toBeNull()
@@ -1356,10 +1357,15 @@ describe('group MCP', () => {
     )
     renderAt('/g/g1')
     fireEvent.click(await within(await openDrawer()).findByRole('button', { name: /仓库与同步/ }))
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'MCP' }))
-    const dlg = await screen.findByRole('dialog', { name: 'MCP · 支付服务重构' })
-    expect(within(dlg).getByText('只对本群生效；与团队层、平台层同名时以群层为准。')).toBeTruthy()
-    fireEvent.click(within(dlg).getByRole('button', { name: '添加 MCP…' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '插件与能力' }))
+    const dlg = await screen.findByRole('dialog', { name: '插件与能力 · 支付服务重构' })
+    fireEvent.click(within(dlg).getByRole('button', { name: /开发者高级配置（自定义 MCP 服务与本地上传）/ }))
+    expect(
+      within(dlg).getAllByText('只对本群生效；与团队层、平台层同名时以群层为准。').length,
+    ).toBeGreaterThan(0)
+    const addBtn = within(dlg).getByRole('button', { name: '添加 MCP…' }) as HTMLButtonElement
+    await waitFor(() => expect(addBtn.disabled).toBe(false))
+    fireEvent.click(addBtn)
     const add = await screen.findByRole('dialog', { name: '添加 MCP' })
     fireEvent.click(within(add).getByRole('radio', { name: 'HTTP' }))
     fireEvent.change(within(add).getByLabelText('名称'), { target: { value: 'jira' } })

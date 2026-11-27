@@ -598,7 +598,7 @@ export const MessageComposer = memo(function MessageComposer({
     ? [
         {
           icon: 'link' as const,
-          label: t('连接器'),
+          label: t('外部连接'),
           onClick: () => {
             setDismissed(true)
             setConnectorMenu((v) => !v)

@@ -1059,15 +1059,21 @@ describe('chat view', () => {
 
     fireEvent.change(box, { target: { value: '@小王的 Claude /', selectionStart: 14 } })
     const list = await screen.findByRole('listbox', { name: '/ 命令' })
-    const agent = await within(list).findByRole('group', { name: 'AGENT 命令' })
-    expect(agent.textContent).toContain('ACP 上报')
+    const sys = await within(list).findByRole('group', { name: '系统命令' })
+    expect(list.textContent).not.toContain('ACP 上报')
+    await waitFor(() => expect(within(sys).getByText('/compact')).toBeTruthy())
     expect(
-      within(agent)
+      within(sys)
         .getAllByRole('option')
         .map((o) => o.textContent),
-    ).toEqual(['/compactCompact the conversation', '/小王的Claude:new与系统命令重名'])
+    ).toContain('/compactCompact the conversation')
+    expect(
+      within(sys)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toContain('/小王的Claude:new与系统命令重名')
     // Long names may still be cut on narrow screens: the full name stays available on hover.
-    expect(within(agent).getByText('/compact').getAttribute('title')).toBe('/compact')
+    expect(within(sys).getByText('/compact').getAttribute('title')).toBe('/compact')
     expect(calls.map((c) => c.path)).toContain('/groups/g1/candidates/commands?botId=b1')
     fireEvent.change(box, { target: { value: '@小王的 Claude /com', selectionStart: 17 } })
     expect(
@@ -1079,7 +1085,7 @@ describe('chat view', () => {
     expect(box.value).toBe('@小王的 Claude /compact ')
   })
 
-  it('lists team skills between system and agent commands', async () => {
+  it('lists shortcuts ahead of system commands without technical Skill or ACP headings', async () => {
     mockApi({
       ...baseRoutes([group()]),
       'GET /groups/g1/candidates/commands': () =>
@@ -1095,32 +1101,32 @@ describe('chat view', () => {
     ) as HTMLTextAreaElement
     fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
     const list = await screen.findByRole('listbox', { name: '/ 命令' })
-    const skills = await within(list).findByRole('group', { name: '团队 Skill' })
-    expect(skills.textContent).toContain('配置中心')
+    const shortcuts = await within(list).findByRole('group', { name: '快捷指令' })
+    expect(list.textContent).not.toContain('配置中心')
     expect(
       within(list)
         .getAllByRole('group')
         .map((g) => g.getAttribute('aria-label')),
-    ).toEqual(['系统命令', '团队 Skill', 'AGENT 命令'])
+    ).toEqual(['快捷指令', '系统命令'])
     // Shown without the plugin prefix the agents need; picking it still inserts the full name.
-    expect(within(skills).getByRole('option').textContent).toBe('/review-pr按团队规范审查 diff')
+    expect(within(shortcuts).getByRole('option').textContent).toBe('/review-pr按团队规范审查 diff')
     fireEvent.change(box, { target: { value: '/review', selectionStart: 7 } })
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('/gonggong-team:review-pr ')
 
-    // A skill picked mid-sentence stays where it was typed (agents read skill mentions anywhere).
+    // A shortcut picked mid-sentence stays where it was typed (agents read skill mentions anywhere).
     fireEvent.change(box, { target: { value: '@小王的 Claude 先 /rev', selectionStart: 19 } })
     await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0))
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('@小王的 Claude 先 /gonggong-team:review-pr ')
-    // Codex mentions skills as $name.
+    // Codex mentions shortcuts as $name.
     fireEvent.change(box, { target: { value: '@老李的 Codex 先 /rev', selectionStart: 18 } })
     await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0))
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('@老李的 Codex 先 $gonggong-team:review-pr ')
   })
 
-  it('lists my personal skills in their own section above the team ones', async () => {
+  it('lists my personal shortcuts before team shortcuts inside 快捷指令', async () => {
     mockApi({
       ...baseRoutes([group()]),
       'GET /groups/g1/candidates/commands': () =>
@@ -1137,23 +1143,23 @@ describe('chat view', () => {
     const box = screen.getByPlaceholderText(
       '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '', selectionStart: 0 } })
     fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
     const list = await screen.findByRole('listbox', { name: '/ 命令' })
-    const personal = await within(list).findByRole('group', { name: '我的 Skill' })
-    expect(personal.textContent).toContain('个人引入')
+    const shortcuts = await within(list).findByRole('group', { name: '快捷指令' })
     expect(
-      within(personal)
+      within(shortcuts)
         .getAllByRole('option')
         .map((o) => o.textContent),
-    ).toEqual(['/notes整理我的笔记'])
+    ).toEqual(['/notes整理我的笔记', '/review-pr按团队规范审查 diff'])
     expect(
       within(list)
         .getAllByRole('group')
         .map((g) => g.getAttribute('aria-label')),
-    ).toEqual(['系统命令', '我的 Skill', '团队 Skill'])
+    ).toEqual(['快捷指令', '系统命令'])
   })
 
-  it("lists the enabled plugins' chat commands under 插件, between system commands and skills", async () => {
+  it("lists the enabled plugins' chat commands under 创作与插件, ahead of shortcuts and system commands", async () => {
     mockApi({
       ...baseRoutes([group()]),
       'GET /groups/g1/candidates/commands': () =>
@@ -1172,13 +1178,13 @@ describe('chat view', () => {
     fireEvent.change(box, { target: { value: '', selectionStart: 0 } })
     fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
     const list = await screen.findByRole('listbox', { name: '/ 命令' })
-    const plugin = await within(list).findByRole('group', { name: '插件' })
+    const plugin = await within(list).findByRole('group', { name: '创作与插件' })
     expect(within(plugin).getByRole('option').textContent).toBe('/standup按今天的消息写站会小结 · 团队工具')
     expect(
       within(list)
         .getAllByRole('group')
         .map((g) => g.getAttribute('aria-label')),
-    ).toEqual(['系统命令', '插件', '团队 Skill'])
+    ).toEqual(['创作与插件', '快捷指令', '系统命令'])
     fireEvent.change(box, { target: { value: '/stand', selectionStart: 6 } })
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('/standup ')

@@ -1,8 +1,23 @@
-/* The composer's 连接器 menu: the candidate popover's glass panel. */
+/* The composer's 外部连接 menu: the candidate popover's glass panel. */
 .cn-menu {
   width: min(340px, 100%);
   gap: var(--space-4);
   background: var(--glass-fill-thick);
+}
+.cn-menu__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4) var(--space-6) var(--space-2);
+}
+.cn-menu__title {
+  font-size: var(--text-callout-size);
+  font-weight: 600;
+  color: var(--label);
+}
+.cn-menu__sub {
+  font-size: var(--text-caption-size);
+  color: var(--label-secondary);
 }
 .cn-menu__search {
   flex: none;
@@ -239,11 +254,14 @@
 }
 .cn-status--bad .cn-status__dot {
   background: var(--system-red);
-  box-shadow: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--system-red) 18%, transparent);
+}
+.cn-status--warn {
+  color: var(--tint-orange-text, var(--system-orange));
 }
 .cn-status--warn .cn-status__dot {
   background: var(--system-orange);
-  box-shadow: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--system-orange) 18%, transparent);
 }
 .cn-row__text {
   min-width: 0;

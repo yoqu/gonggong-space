@@ -555,4 +555,13 @@ export default {
   在共工桌面端打开登录: 'Open in Gonggong Desktop',
   '提示：如果通过共工空间托管安装了 {agent}，工具位于 %USERPROFILE%\\.gonggong\\tools，手动运行需先确保 Node.js 在 PATH 中，或直接点上方按钮在桌面端打开。':
     'Tip: if {agent} was installed via Gonggong Space, it lives in %USERPROFILE%\\.gonggong\\tools and needs Node.js on PATH when run manually, or click the button above to open it in the Desktop app.',
+  插件运行授权: 'Plugin authorization',
+  'Agent 引擎与模型供应商预设属于电脑运行环境，统一在电脑设置中管理，不再混在插件市场中。':
+    'Agent engines and model provider presets belong to the computer runtime and are managed here instead of in the Plugin Market.',
+  前往插件市场: 'Go to Plugin Market',
+  '官方模型供应商预设由平台自动同步，无需从市场安装；一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商':
+    'Official model provider presets sync automatically from the platform with no market install needed. A provider can serve several protocols, and each Agent picks a compatible one in its details',
+  '待授权 {n}': '{n} pending',
+  '含本机程序的插件首次在这台电脑运行时需你确认，插件出新版本后会重新请你确认。':
+    'Plugins with local programs ask for your confirmation the first time they run on this computer, and again after each version update.',
 } satisfies Record<string, string>

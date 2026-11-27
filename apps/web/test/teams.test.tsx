@@ -446,7 +446,7 @@ describe('team settings', () => {
 })
 
 describe('team management tabs', () => {
-  const TABS = ['群', 'MCP', '参数', '会话统计', '用量', '审计']
+  const TABS = ['群', '凭据与授权', '参数', '会话统计', '用量', '审计']
 
   it('are only for admins', () => {
     mockApi({ 'GET /teams/t1/members': members })
@@ -614,7 +614,8 @@ describe('team management tabs', () => {
       'PATCH /teams/t1/mcp/m1': (b: unknown) => b,
     })
     render(<TeamSettingsDialog team={team({ role: 'owner' })} onClose={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: 'MCP' }))
+    fireEvent.click(screen.getByRole('button', { name: '插件与能力' }))
+    fireEvent.click(screen.getByRole('button', { name: /开发者高级配置（自定义 MCP 服务与本地上传）/ }))
     expect(await screen.findByText('wiki')).toBeTruthy()
     expect(screen.getByText('团队层')).toBeTruthy()
     fireEvent.click(screen.getByRole('switch', { name: '启用 wiki' }))
@@ -634,7 +635,8 @@ describe('single-team mode', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '账户菜单' })[0] as HTMLElement)
     fireEvent.click(within(screen.getByRole('menu')).getByText('团队设置'))
     const dialog = await screen.findByRole('dialog', { name: '概览 · 支付组' })
-    expect(within(dialog).getByRole('button', { name: 'MCP' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '插件与能力' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '凭据与授权' })).toBeTruthy()
     expect(within(dialog).queryByText('新建团队')).toBeNull()
   })
 

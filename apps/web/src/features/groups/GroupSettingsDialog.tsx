@@ -1,11 +1,10 @@
-import { type GroupDto, GroupParams, type JoinRequestDto, type SecretNeedDto } from '@gonggong/protocol'
+import { type GroupDto, GroupParams, type JoinRequestDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
-import { useGet } from '../../lib/useGet'
 import {
   Alert,
   AvatarEditor,
@@ -17,7 +16,6 @@ import {
   Icon,
   type IconName,
   PopUpButton,
-  Presence,
   SegmentedControl,
   Spinner,
   Stepper,
@@ -27,19 +25,14 @@ import {
   useFlash,
   useLeaving,
 } from '../../ui'
-import { InheritedMcpList, McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
-import { GroupConfigView } from '../config/GroupConfigView'
-import { InheritedSkillList, SkillLayerList } from '../config/SkillLayer'
 import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
-import { InstalledSection } from '../market/InstallList'
-import { GroupPluginsTab } from '../plugins/PluginLayer'
 import { RepoSettings } from '../repos/RepoSettings'
-import { GroupSecrets } from '../secrets/GroupSecrets'
-import { NeedsDialog } from '../secrets/SecretNeeds'
 import { WebhooksView } from '../webhooks/WebhooksView'
 import { groupsApi } from './api'
 import { GroupAvatar } from './GroupAvatar'
+import { GroupCredentialsPanel } from './GroupCredentialsPanel'
 import { BotsView, MembersView, type SettingsTab } from './GroupInfo'
+import { GroupPluginsPanel } from './GroupPluginsPanel'
 import { teamSectionsApi, useTeamSections } from './sections'
 
 /** Only the P1 params are adjustable (spec §10). */
@@ -50,7 +43,20 @@ const PARAMS: { key: keyof GroupParams; label: string; max: number }[] = [
 ]
 
 type Draft = Record<keyof GroupParams, number | null>
-type PendingAction = { kind: 'close' } | { kind: 'tab'; tab: SettingsTab }
+type ActiveTab =
+  | 'basic'
+  | 'members'
+  | 'bots'
+  | 'repo'
+  | 'params'
+  | 'plugins'
+  | 'credentials'
+  | 'webhooks'
+  | 'feishu'
+type PendingAction = { kind: 'close' } | { kind: 'tab'; tab: ActiveTab }
+
+const normalizeTab = (x: SettingsTab): ActiveTab =>
+  x === 'mcp' || x === 'skill' ? 'plugins' : x === 'secrets' ? 'credentials' : x
 
 const parseDraft = (d: Draft) => GroupParams.safeParse(d)
 
@@ -68,7 +74,9 @@ export function GroupSettingsDialog({
   tab: SettingsTab
   onClose: () => void
 }) {
-  const [tab, setTab] = useState(initial)
+  const [tab, setTab] = useState<ActiveTab>(() => normalizeTab(initial))
+  const [initialAdvanced, setInitialAdvanced] = useState(() => initial === 'mcp' || initial === 'skill')
+  const [initialRawSecrets, setInitialRawSecrets] = useState(() => initial === 'secrets')
   const [tabDirty, setTabDirty] = useState(false)
   const [tabSaving, setTabSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
@@ -77,7 +85,9 @@ export function GroupSettingsDialog({
   const [shownInitial, setShownInitial] = useState(initial)
   if (shownInitial !== initial) {
     setShownInitial(initial)
-    setTab(initial)
+    setTab(normalizeTab(initial))
+    setInitialAdvanced(initial === 'mcp' || initial === 'skill')
+    setInitialRawSecrets(initial === 'secrets')
     setTabDirty(false)
     setTabSaving(false)
     setPendingAction(null)
@@ -92,25 +102,25 @@ export function GroupSettingsDialog({
   const meId = useSession((s) => s.user?.id)
   const readOnly = !group.members.some((m) => m.userId === meId && m.isAdmin)
   const pluginsOn = useSession((s) => !!s.tenancy?.pluginsEnabled)
-  const tabs: { value: SettingsTab; label: string; icon: IconName }[] = [
+  const tabs: { value: ActiveTab; label: string; icon: IconName }[] = [
     { value: 'basic', label: t('基本信息'), icon: 'info' },
     ...(dm ? [] : [{ value: 'members' as const, label: t('成员'), icon: 'person-2' as const }]),
     { value: 'bots', label: 'Bot', icon: 'bot' },
     { value: 'repo', label: t('仓库与同步'), icon: 'git-branch' },
     { value: 'params', label: dm ? t('参数#settings') : t('群级参数'), icon: 'slider-horizontal' },
     ...(dm
-      ? []
+      ? pluginsOn
+        ? [{ value: 'plugins' as const, label: t('插件与能力'), icon: 'apps' as const }]
+        : []
       : [
-          { value: 'mcp' as const, label: 'MCP', icon: 'plug' as const },
-          { value: 'skill' as const, label: 'Skill', icon: 'star' as const },
-          { value: 'secrets' as const, label: t('密钥'), icon: 'lock' as const },
+          { value: 'plugins' as const, label: t('插件与能力'), icon: 'apps' as const },
+          { value: 'credentials' as const, label: t('凭据与授权'), icon: 'lock' as const },
           { value: 'webhooks' as const, label: 'Webhook', icon: 'link' as const },
           // Its view carries the chat binding and app ids, so the server serves it to admins only.
           ...(readOnly ? [] : [{ value: 'feishu' as const, label: t('飞书'), icon: 'message' as const }]),
         ]),
-    ...(pluginsOn ? [{ value: 'plugins' as const, label: t('插件'), icon: 'apps' as const }] : []),
   ]
-  const activeTab: SettingsTab = tabs.some((x) => x.value === tab) ? tab : 'basic'
+  const activeTab: ActiveTab = tabs.some((x) => x.value === tab) ? tab : 'basic'
   useEffect(() => {
     if (activeTab !== tab) setTab(activeTab)
   }, [activeTab, tab])
@@ -152,10 +162,14 @@ export function GroupSettingsDialog({
     if (hasDirty) setPendingAction({ kind: 'close' })
     else onClose()
   }
-  const selectTab = (next: SettingsTab) => {
+  const selectTab = (next: ActiveTab) => {
     if (anySaving || next === activeTab) return
     if (hasDirty) setPendingAction({ kind: 'tab', tab: next })
-    else setTab(next)
+    else {
+      setInitialAdvanced(false)
+      setInitialRawSecrets(false)
+      setTab(next)
+    }
   }
   const confirmDiscard = () => {
     if (anySaving) return
@@ -165,7 +179,11 @@ export function GroupSettingsDialog({
     if (activeTab === 'params' && savedParams) setParams(savedParams)
     if (!action) return
     if (action.kind === 'close') onClose()
-    else setTab(action.tab)
+    else {
+      setInitialAdvanced(false)
+      setInitialRawSecrets(false)
+      setTab(action.tab)
+    }
   }
 
   const save = async () => {
@@ -236,6 +254,11 @@ export function GroupSettingsDialog({
                 {x.label}
               </button>
             ))}
+            {dm ? null : (
+              <div className="gs-settings__note">
+                {t('本群所有外部连接、创作工具和快捷指令都在这里统一管理。')}
+              </div>
+            )}
           </nav>
           <div key={activeTab} className="gs-settings__body">
             {activeTab === 'basic' ? (
@@ -251,18 +274,25 @@ export function GroupSettingsDialog({
               <BotsView group={group} isAdmin={!readOnly} member />
             ) : activeTab === 'repo' ? (
               <RepoSettings group={group} isAdmin={!readOnly} />
-            ) : readOnly && activeTab === 'mcp' ? (
-              <GroupConfigView groupId={group.id} kind="mcp" />
-            ) : activeTab === 'mcp' ? (
-              <GroupMcpTab group={group} onDirtyChange={setTabDirty} onSavingChange={setTabSaving} />
-            ) : activeTab === 'skill' ? (
-              <GroupSkillTab group={group} readOnly={readOnly} onClose={onClose} />
-            ) : activeTab === 'secrets' ? (
-              <GroupSecrets group={group} editable={!readOnly} />
+            ) : activeTab === 'plugins' ? (
+              <GroupPluginsPanel
+                group={group}
+                readOnly={readOnly}
+                initialAdvanced={initialAdvanced}
+                onDirtyChange={setTabDirty}
+                onSavingChange={setTabSaving}
+                onOpenCredentials={() => selectTab('credentials')}
+                onOpenBots={() => selectTab('bots')}
+                onClose={onClose}
+              />
+            ) : activeTab === 'credentials' ? (
+              <GroupCredentialsPanel
+                group={group}
+                readOnly={readOnly}
+                initialRawSecrets={initialRawSecrets}
+              />
             ) : activeTab === 'webhooks' ? (
               <WebhooksView group={group} readOnly={readOnly} />
-            ) : activeTab === 'plugins' ? (
-              <GroupPluginsTab group={group} readOnly={readOnly} />
             ) : !readOnly && activeTab === 'feishu' ? (
               <GroupFeishuTab group={group} />
             ) : params ? (
@@ -542,87 +572,6 @@ function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean })
         canInvite={!readOnly || !group.adminOnlyInvite}
         initialAdding={false}
       />
-    </>
-  )
-}
-
-/** 群设置 · MCP: the group layer, overriding same-named team and platform servers (plan D8). */
-function GroupMcpTab({
-  group,
-  onDirtyChange,
-  onSavingChange,
-}: {
-  group: GroupDto
-  onDirtyChange?: (dirty: boolean) => void
-  onSavingChange?: (saving: boolean) => void
-}) {
-  const layer = useMcpLayer(`/groups/${group.id}/mcp`)
-  useEffect(() => {
-    onSavingChange?.(layer.busy)
-  }, [layer.busy, onSavingChange])
-  useEffect(() => () => onSavingChange?.(false), [onSavingChange])
-  return (
-    <>
-      <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
-      <McpLayerList layer={layer} tag={t('群层')} onDirtyChange={onDirtyChange} />
-      <McpSaved force={layer.savedForce} />
-      <InheritedMcpList groupId={group.id} />
-    </>
-  )
-}
-
-function GroupSkillTab({
-  group,
-  readOnly,
-  onClose,
-}: {
-  group: GroupDto
-  readOnly: boolean
-  onClose: () => void
-}) {
-  const needs = useGet<SecretNeedDto[]>(`/groups/${group.id}/secret-needs`)
-  const skills = useGet<unknown[]>(readOnly ? null : `/groups/${group.id}/skills`)
-  const installs = useGet<unknown[]>(readOnly ? null : `/groups/${group.id}/installs`)
-  const [openSecrets, setOpenSecrets] = useState(false)
-  const compactEmpty = !readOnly && skills.data?.length === 0 && (installs.data?.length ?? 0) > 0
-  return (
-    <>
-      {needs.data?.length ? (
-        <div className="gs-note">
-          {t('本群的 Skill 声明了 {n} 个密钥', { n: new Set(needs.data.map((n) => n.spec.name)).size })}{' '}
-          <Button size="small" onClick={() => setOpenSecrets(true)}>
-            {t('配置密钥')}
-          </Button>
-        </div>
-      ) : null}
-      {readOnly ? (
-        <>
-          <GroupConfigView groupId={group.id} kind="skill" />
-          <InstalledSection base={`/groups/${group.id}`} readOnly />
-        </>
-      ) : (
-        <>
-          <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
-          <div className={cx(compactEmpty && 'gs-skill--compact')}>
-            <SkillLayerList base={`/groups/${group.id}/skills`} tag={t('群层')} />
-          </div>
-          <InheritedSkillList groupId={group.id} />
-          <InstalledSection base={`/groups/${group.id}`} onLeave={onClose} />
-        </>
-      )}
-      <Presence>
-        {openSecrets && needs.data ? (
-          <NeedsDialog
-            groupId={group.id}
-            needs={needs.data}
-            onClose={() => setOpenSecrets(false)}
-            onDone={() => {
-              setOpenSecrets(false)
-              needs.reload()
-            }}
-          />
-        ) : null}
-      </Presence>
     </>
   )
 }

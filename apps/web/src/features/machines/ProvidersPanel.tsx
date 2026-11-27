@@ -116,7 +116,9 @@ export function ProvidersPanel({
           <span className="mx-strong">{t('供应商#nav')}</span>
           <span className="mx-sub">
             {source.features.includes('protocolProviders')
-              ? t('一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商')
+              ? t(
+                  '官方模型供应商预设由平台自动同步，无需从市场安装；一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商',
+                )
               : t('这台电脑的客户端版本较旧，一个供应商只能登记一种协议；升级客户端后可登记多种')}
           </span>
         </span>

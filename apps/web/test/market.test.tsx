@@ -420,8 +420,8 @@ describe('team settings · repos', () => {
         <Where />
       </MemoryRouter>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Skill' }))
-    expect(await screen.findByText('已引入')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '插件与能力' }))
+    expect(await screen.findByText('团队统一插件')).toBeTruthy()
     expect(await screen.findByText('review-pr')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '打开市场' }))
     expect(screen.getByTestId('where').textContent).toBe('/market')
@@ -470,8 +470,9 @@ describe('team settings · a member', () => {
       unread: 0,
     }
     render(<TeamSettingsDialog team={team} onClose={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Skill' }))
+    fireEvent.click(screen.getByRole('button', { name: '插件与能力' }))
     expect(await screen.findByText('review-pr')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /开发者高级配置（只读）/ }))
     const wiki = (await screen.findByText('team-wiki')).closest('.cfg__item') as HTMLElement
     expect(within(wiki).getByText('查团队知识库')).toBeTruthy()
     expect(within(wiki).getByText('v2')).toBeTruthy()

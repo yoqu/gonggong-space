@@ -34,14 +34,19 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
     }
   }
 
+  const pendingCount = data?.filter((r) => r.status === 'pending').length ?? 0
+
   return (
     <div className="mx">
-      <section aria-label={t('插件授权')} className="mx-section">
+      <section aria-label={t('插件运行授权')} className="mx-section">
         <div className="mx-section__head">
           <span className="mx-row__main">
-            <span className="mx-strong">{t('插件授权')}</span>
+            <span className="mx-row__title">
+              <span className="mx-strong">{t('插件运行授权')}</span>
+              {pendingCount > 0 ? <Tag tone="orange">{t('待授权 {n}', { n: pendingCount })}</Tag> : null}
+            </span>
             <span className="mx-sub">
-              {t('会运行代码的插件第一次在这台电脑上使用时请你确认；插件出新版本要重新确认。')}
+              {t('含本机程序的插件首次在这台电脑运行时需你确认，插件出新版本后会重新请你确认。')}
             </span>
           </span>
         </div>

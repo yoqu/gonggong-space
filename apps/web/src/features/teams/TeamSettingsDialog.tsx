@@ -1,5 +1,6 @@
 import type { TeamDto, TeamInviteDto, TeamMemberDto, TeamRole } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useInRouterContext } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { copyText, copyWithToast } from '../../lib/clipboard'
@@ -16,6 +17,7 @@ import {
   ConfirmActionDialog,
   Dialog,
   DiscardChangesDialog,
+  Disclosure,
   GroupBox,
   GroupRow,
   Icon,
@@ -28,12 +30,13 @@ import {
   TextField,
   toast,
 } from '../../ui'
+import { SkillLayerList, SkillLayerView } from '../config/SkillLayer'
+import { InstallList } from '../market/InstallList'
 import { inviteLink, ROLE_LABEL, teamsApi } from './store'
 import {
   TeamAuditTab,
   TeamConversationStatsTab,
   TeamGroupsTab,
-  TeamInstallsView,
   TeamMcpTab,
   TeamOnboardingTab,
   TeamParamsTab,
@@ -41,19 +44,16 @@ import {
   TeamReposTab,
   TeamReviewsTab,
   TeamSecretsTab,
-  TeamSkillTab,
   TeamUsageTab,
 } from './TeamAdminTabs'
 import { TeamAvatar, teamImage } from './TeamAvatar'
 import '../groups/groups.css'
 import './teams.css'
 
-type Tab =
+type ActiveTab =
   | 'overview'
   | 'members'
   | 'invites'
-  | 'mcp'
-  | 'skill'
   | 'plugins'
   | 'repos'
   | 'reviews'
@@ -65,7 +65,11 @@ type Tab =
   | 'usage'
   | 'audit'
 
-type PendingAction = { kind: 'close' } | { kind: 'tab'; tab: Tab }
+type Tab = ActiveTab | 'mcp' | 'skill'
+
+type PendingAction = { kind: 'close' } | { kind: 'tab'; tab: ActiveTab }
+
+const normalizeTeamTab = (x: Tab): ActiveTab => (x === 'mcp' || x === 'skill' ? 'plugins' : x)
 
 /** 团队设置 (plan §5): everyone reads the overview and members; admins edit, owners archive and transfer. */
 export function TeamSettingsDialog({
@@ -77,13 +81,15 @@ export function TeamSettingsDialog({
   tab?: Tab
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<Tab>(initial)
+  const [tab, setTab] = useState<ActiveTab>(() => normalizeTeamTab(initial))
+  const [initialAdvanced, setInitialAdvanced] = useState(() => initial === 'mcp' || initial === 'skill')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   // Reopened on another tab while still closing, the dialog is reused rather than remounted.
   useEffect(() => {
-    setTab(initial)
+    setTab(normalizeTeamTab(initial))
+    setInitialAdvanced(initial === 'mcp' || initial === 'skill')
     setDirty(false)
     setSaving(false)
     setPendingAction(null)
@@ -94,10 +100,13 @@ export function TeamSettingsDialog({
     if (dirty) setPendingAction({ kind: 'close' })
     else onClose()
   }
-  const selectTab = (next: Tab) => {
+  const selectTab = (next: ActiveTab) => {
     if (saving || next === tab) return
     if (dirty) setPendingAction({ kind: 'tab', tab: next })
-    else setTab(next)
+    else {
+      setInitialAdvanced(false)
+      setTab(next)
+    }
   }
   const confirmDiscard = () => {
     if (saving) return
@@ -106,9 +115,12 @@ export function TeamSettingsDialog({
     setDirty(false)
     if (!action) return
     if (action.kind === 'close') onClose()
-    else setTab(action.tab)
+    else {
+      setInitialAdvanced(false)
+      setTab(action.tab)
+    }
   }
-  const tabs: { value: Tab; label: string; icon: IconName; body: ReactNode }[] = [
+  const tabs: { value: ActiveTab; label: string; icon: IconName; body: ReactNode }[] = [
     {
       value: 'overview',
       label: t('概览'),
@@ -132,21 +144,23 @@ export function TeamSettingsDialog({
             body: <TeamOnboardingTab team={team} onDirtyChange={setDirty} onSavingChange={setSaving} />,
           },
           {
-            value: 'mcp',
-            label: 'MCP',
-            icon: 'plug',
-            body: <TeamMcpTab team={team} onDirtyChange={setDirty} onSavingChange={setSaving} />,
+            value: 'plugins',
+            label: t('插件与能力'),
+            icon: 'apps',
+            body: (
+              <TeamCapabilitiesTab
+                team={team}
+                admin
+                initialAdvanced={initialAdvanced}
+                onDirtyChange={setDirty}
+                onSavingChange={setSaving}
+                onClose={onClose}
+              />
+            ),
           },
-          {
-            value: 'skill',
-            label: 'Skill',
-            icon: 'star',
-            body: <TeamSkillTab team={team} onClose={onClose} />,
-          },
-          { value: 'plugins', label: t('插件'), icon: 'apps', body: <TeamPluginsTab team={team} /> },
           { value: 'repos', label: t('仓库'), icon: 'folder-git', body: <TeamReposTab team={team} /> },
           { value: 'reviews', label: t('待审核'), icon: 'checklist', body: <TeamReviewsTab team={team} /> },
-          { value: 'secrets', label: t('密钥'), icon: 'lock', body: <TeamSecretsTab team={team} /> },
+          { value: 'secrets', label: t('凭据与授权'), icon: 'lock', body: <TeamSecretsTab team={team} /> },
           {
             value: 'params',
             label: t('参数#settings'),
@@ -163,7 +177,19 @@ export function TeamSettingsDialog({
           { value: 'audit', label: t('审计'), icon: 'doc-text', body: <TeamAuditTab team={team} /> },
         ] as const)
       : ([
-          { value: 'skill', label: 'Skill', icon: 'star', body: <TeamInstallsView team={team} /> },
+          {
+            value: 'plugins',
+            label: t('插件与能力'),
+            icon: 'apps',
+            body: (
+              <TeamCapabilitiesTab
+                team={team}
+                admin={false}
+                initialAdvanced={initialAdvanced}
+                onClose={onClose}
+              />
+            ),
+          },
           {
             value: 'repos',
             label: t('仓库'),
@@ -211,6 +237,71 @@ export function TeamSettingsDialog({
         onDiscard={confirmDiscard}
       />
     </>
+  )
+}
+
+/** 团队设置 · 插件与能力: unified team plugins view with collapsed developer MCP / local Skill / local upload. */
+function TeamCapabilitiesTab({
+  team,
+  admin,
+  initialAdvanced,
+  onDirtyChange,
+  onSavingChange,
+  onClose,
+}: {
+  team: TeamDto
+  admin: boolean
+  initialAdvanced: boolean
+  onDirtyChange?: (dirty: boolean) => void
+  onSavingChange?: (saving: boolean) => void
+  onClose: () => void
+}) {
+  const inRouter = useInRouterContext()
+  return (
+    <div className="gs-cap">
+      <div className="gs-note">
+        {admin
+          ? t('对本团队所有群生效；群管理员可在群设置中按需开关或覆盖。')
+          : t('对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。')}
+      </div>
+      <section className="gs-cap-sec" aria-label={t('团队统一插件')}>
+        <h3 className="gs-section-title">{t('团队统一插件')}</h3>
+        <InstallList
+          base={`/teams/${team.id}`}
+          readOnly={!admin}
+          onLeave={admin && inRouter ? onClose : undefined}
+        />
+      </section>
+      <Disclosure
+        variant="group"
+        defaultOpen={initialAdvanced}
+        title={admin ? t('开发者高级配置（自定义 MCP 服务与本地上传）') : t('开发者高级配置（只读）')}
+      >
+        <div className="gs-adv">
+          {admin ? (
+            <>
+              <div className="gs-adv__block">
+                <div className="gs-adv__title">{t('自定义外部服务（MCP）')}</div>
+                <TeamMcpTab team={team} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />
+              </div>
+              <div className="gs-adv__block">
+                <div className="gs-adv__title">{t('本地指令包（Skill）')}</div>
+                <SkillLayerList base={`/teams/${team.id}/skills`} tag={t('团队层')} />
+              </div>
+              <div className="gs-adv__block">
+                <div className="gs-adv__title">{t('本地上传插件包（不走市场）')}</div>
+                <TeamPluginsTab team={team} />
+              </div>
+            </>
+          ) : (
+            <div className="gs-adv__block">
+              <div className="gs-adv__title">{t('本地指令包（Skill）')}</div>
+              <SkillLayerView base={`/teams/${team.id}/skills`} />
+            </div>
+          )}
+        </div>
+      </Disclosure>
+    </div>
   )
 }
 

@@ -81,7 +81,7 @@ describe('插件授权', () => {
       },
     })
     open()
-    const section = await screen.findByRole('region', { name: '插件授权' })
+    const section = await screen.findByRole('region', { name: '插件运行授权' })
     expect(await within(section).findByText('缺陷跟踪 1.0.0')).toBeTruthy()
     expect(within(section).getByText('待授权')).toBeTruthy()
     expect(within(section).getByText('权限：运行代码、访问网络')).toBeTruthy()
@@ -103,6 +103,6 @@ describe('插件授权', () => {
     useSession.setState({ tenancy: { pluginsEnabled: false } as never })
     mockApi({})
     open()
-    expect(screen.queryByRole('tab', { name: '插件授权' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: '插件运行授权' })).toBeNull()
   })
 })

@@ -72,12 +72,13 @@ export type SettingsTab =
   | 'bots'
   | 'repo'
   | 'params'
+  | 'plugins'
+  | 'credentials'
+  | 'webhooks'
+  | 'feishu'
   | 'mcp'
   | 'skill'
   | 'secrets'
-  | 'webhooks'
-  | 'feishu'
-  | 'plugins'
 export type InfoView =
   | 'main'
   | 'members'
@@ -484,9 +485,8 @@ function MainView({
               ...(dm
                 ? []
                 : [
-                    manage('MCP', undefined, 'mcp'),
-                    manage('Skill', undefined, 'skill'),
-                    manage(t('密钥'), undefined, 'secrets'),
+                    manage(t('插件与能力'), undefined, 'plugins'),
+                    manage(t('凭据与授权'), undefined, 'credentials'),
                     manage('Webhook', undefined, 'webhooks'),
                     ...(isAdmin ? [manage(t('飞书'), undefined, 'feishu')] : []),
                   ]),

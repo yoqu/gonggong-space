@@ -217,17 +217,17 @@ describe('Slice B Chat, UI, Shell & Schedules TDD', () => {
         <MessageComposer group={group} onSent={() => {}} />
       </MemoryRouter>,
     )
-    fireEvent.click(screen.getByRole('button', { name: '连接器' }))
-    expect(await screen.findByRole('dialog', { name: '连接器' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '外部连接' }))
+    expect(await screen.findByRole('dialog', { name: '外部连接' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '表情' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '连接器' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '外部连接' })).toBeNull())
     expect(screen.getByRole('button', { name: '表情' }).getAttribute('aria-pressed')).toBe('true')
 
-    fireEvent.click(screen.getByRole('button', { name: '连接器' }))
-    expect(await screen.findByRole('dialog', { name: '连接器' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '外部连接' }))
+    expect(await screen.findByRole('dialog', { name: '外部连接' })).toBeTruthy()
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '@', selectionStart: 1 } })
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '连接器' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '外部连接' })).toBeNull())
   })
 
   it('U-28: ThreadView shows older-replies retry UI on failure and missing-root empty state instead of infinite spinner', async () => {

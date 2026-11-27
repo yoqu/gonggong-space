@@ -265,7 +265,7 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
     })
     const onClose = vi.fn()
     render(<GroupSettingsDialog group={group()} tab="mcp" onClose={onClose} />)
-    const dlg = screen.getByRole('dialog', { name: 'MCP · 支付服务重构' })
+    const dlg = screen.getByRole('dialog', { name: '插件与能力 · 支付服务重构' })
     await within(dlg).findByText('wiki-search')
 
     fireEvent.click(within(dlg).getByRole('switch', { name: '启用 wiki-search' }))
@@ -274,12 +274,12 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
     fireEvent.click(screen.getByTestId('dialog-overlay'))
     expect(onClose).not.toHaveBeenCalled()
 
-    // Switching tabs asks to confirm; 继续编辑 stays on MCP.
+    // Switching tabs asks to confirm; 继续编辑 stays on 插件与能力.
     fireEvent.click(within(dlg).getByRole('button', { name: '基本信息' }))
     const alert1 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert1).getByRole('button', { name: '继续编辑' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    expect(screen.getByRole('dialog', { name: 'MCP · 支付服务重构' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: '插件与能力 · 支付服务重构' })).toBeTruthy()
 
     // Closing prompts and confirming 放弃更改 closes the dialog.
     fireEvent.click(within(dlg).getByRole('button', { name: '关闭' }))
@@ -491,14 +491,16 @@ describe('R3B P1-7: GroupSettingsDialog activeTab fallback when current tab disa
     expect(within(fallback).getByText('仅群管理员可修改')).toBeTruthy()
   })
 
-  it('falls back from 插件 to 基本信息 when the plugins master switch turns off', async () => {
+  it('falls back from 插件与能力 to 基本信息 in a DM when the plugins master switch turns off', async () => {
     mockApi({
       'GET /groups/g1/params': params,
       'GET /groups/g1/plugins': [],
+      'GET /groups/g1/connectors': { connectors: [] },
+      'GET /groups/g1/secret-needs': [],
     })
 
-    render(<GroupSettingsDialog group={group()} tab="plugins" onClose={vi.fn()} />)
-    const dlg = screen.getByRole('dialog', { name: '插件 · 支付服务重构' })
+    render(<GroupSettingsDialog group={group({ kind: 'dm' })} tab="plugins" onClose={vi.fn()} />)
+    const dlg = screen.getByRole('dialog', { name: '插件与能力 · 支付服务重构' })
     expect(await within(dlg).findByText('还没有可用插件')).toBeTruthy()
 
     act(() => {
@@ -509,7 +511,7 @@ describe('R3B P1-7: GroupSettingsDialog activeTab fallback when current tab disa
     expect(within(fallback).getByRole('button', { name: '基本信息' }).getAttribute('aria-current')).toBe(
       'page',
     )
-    expect(within(fallback).queryByRole('button', { name: '插件' })).toBeNull()
-    expect(within(fallback).queryByText('本群插件')).toBeNull()
+    expect(within(fallback).queryByRole('button', { name: '插件与能力' })).toBeNull()
+    expect(within(fallback).queryByText('还没有可用插件')).toBeNull()
   })
 })

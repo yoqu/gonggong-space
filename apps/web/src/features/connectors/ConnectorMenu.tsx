@@ -10,15 +10,19 @@ import { ConnectorStatusLine, needsConnect } from './ConnectorStatus'
 import { checkConnector, loadConnectors, needsCheck, switchConnector, useConnectorStore } from './store'
 import './connectors.css'
 
-/** The market on its 连接器 shelf. */
-export const CONNECTOR_MARKET = '/market?shelf=connector'
+/** The market on its 连接外部系统 scene. */
+export const CONNECTOR_MARKET = '/market?scene=connect'
+
+/** Market link preserving the originating group so the user can install directly for it. */
+export const connectorMarketPath = (groupId?: string) =>
+  groupId ? `${CONNECTOR_MARKET}&fromGroup=${encodeURIComponent(groupId)}` : CONNECTOR_MARKET
 
 const matches = (c: ConnectorDto, q: string) =>
   [c.manifest.title, c.manifest.name, c.manifest.description].some((s) => s.toLowerCase().includes(q))
 
 /**
- * The composer's 连接器 menu: the group's connectors with my connection's status; connected ones carry my own switch
- * for this group, the others a 连接 / 重新连接 button.
+ * The composer's 外部连接 menu: the group's external connection plugins with traffic-light status; ready ones
+ * carry my own switch for this group, actionable ones a 连接 / 重新连接 button.
  */
 export function ConnectorMenu({
   groupId,
@@ -75,15 +79,19 @@ export function ConnectorMenu({
   const shown = enabled?.filter((c) => !q || matches(c, q))
   const market = () => {
     onClose()
-    navigate(CONNECTOR_MARKET)
+    navigate(connectorMarketPath(groupId))
   }
   return (
-    <div className="pn-mentionpicker mention-pop cn-menu" role="dialog" aria-label={t('连接器')}>
+    <div className="pn-mentionpicker mention-pop cn-menu" role="dialog" aria-label={t('外部连接')}>
+      <div className="cn-menu__head">
+        <span className="cn-menu__title">{t('本群外部连接插件')}</span>
+        <span className="cn-menu__sub">{t('开启后 Bot 可替你查数据与办事')}</span>
+      </div>
       {enabled?.length ? (
         <SearchField
           className="cn-menu__search"
-          placeholder={t('搜索连接器')}
-          aria-label={t('搜索连接器')}
+          placeholder={t('搜索外部连接')}
+          aria-label={t('搜索外部连接')}
           value={query}
           onChange={setQuery}
         />
@@ -104,12 +112,12 @@ export function ConnectorMenu({
         )
       ) : !enabled.length ? (
         <div className="cn-menu__empty">
-          <strong>{t('还没有可用的连接器')}</strong>
+          <strong>{t('还没有可用的外部连接插件')}</strong>
           <span className="gs-note">
-            {t('在市场安装数仓、飞书等连接器后，所有群都能直接使用，Bot 就能替你查询和操作')}
+            {t('在插件市场添加飞书、数仓等外部连接后，Bot 就能替你查数据、办事情')}
           </span>
           <Button size="small" onClick={market}>
-            {t('去市场看看')}
+            {t('去插件市场添加')}
           </Button>
         </div>
       ) : shown.length ? (
@@ -146,11 +154,11 @@ export function ConnectorMenu({
           ))}
         </ul>
       ) : (
-        <div className="mention-pop__empty">{t('没有匹配的连接器')}</div>
+        <div className="mention-pop__empty">{t('没有匹配的外部连接')}</div>
       )}
       <button type="button" className="cn-menu__manage" onClick={market}>
-        <Icon name="gear" size={14} />
-        {t('管理连接器')}
+        <Icon name="plus" size={14} />
+        {t('添加更多外部连接插件')}
       </button>
     </div>
   )

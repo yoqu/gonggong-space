@@ -1,4 +1,14 @@
 export default {
+  外部连接: 'External connections',
+  本群外部连接插件: 'External connections in this group',
+  '开启后 Bot 可替你查数据与办事': 'Once enabled, Bots can query data and take actions for you',
+  搜索外部连接: 'Search external connections',
+  没有匹配的外部连接: 'No matching external connections',
+  还没有可用的外部连接插件: 'No external connection plugins yet',
+  '在插件市场添加飞书、数仓等外部连接后，Bot 就能替你查数据、办事情':
+    'Add Feishu, data warehouse, or other external connections from the Plugin Market so Bots can query data and act for you',
+  去插件市场添加: 'Add from Plugin Market',
+  添加更多外部连接插件: 'Add more external connection plugins',
   搜索连接器: 'Search connectors',
   去市场看看: 'Browse the market',
   待管理员配置: 'Awaiting admin setup',

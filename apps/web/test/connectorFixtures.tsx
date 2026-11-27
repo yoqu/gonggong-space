@@ -188,8 +188,8 @@ export const box = () =>
   screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
 
 export async function openMenu() {
-  fireEvent.click(await screen.findByRole('button', { name: '连接器' }))
-  return screen.findByRole('dialog', { name: '连接器' })
+  fireEvent.click(await screen.findByRole('button', { name: '外部连接' }))
+  return screen.findByRole('dialog', { name: '外部连接' })
 }
 
 beforeEach(() => {

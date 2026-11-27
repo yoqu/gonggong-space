@@ -239,21 +239,7 @@ export function useCandidates(
               items: artifact.filter((c) => has(c.label) || has(c.key)),
             },
             {
-              label: t('系统命令'),
-              src: '',
-              items: (commands?.value.system ?? [])
-                .filter((c) => has(c.name))
-                .map((c) => ({
-                  key: `cmd:${c.name}`,
-                  icon: 'terminal',
-                  label: `/${c.name}`,
-                  mono: true,
-                  hint: c.hint,
-                  insert: `/${c.name}`,
-                })),
-            },
-            {
-              label: t('插件'),
+              label: t('创作与插件'),
               src: '',
               items: plugins
                 .filter((p) => has(p.manifest.title) || has(p.manifest.name))
@@ -284,41 +270,71 @@ export function useCandidates(
                     ),
                 ),
             },
-            ...(
-              [
-                [t('我的 Skill'), t('个人引入'), true],
-                [t('团队 Skill'), t('配置中心'), false],
-              ] as const
-            ).map(([label, src, personal]) => ({
-              label,
-              src,
-              items: (commands?.value.skill ?? [])
-                .filter((c) => !!c.personal === personal && has(c.name))
-                .map((c) => ({
-                  key: `skill:${c.name}`,
-                  icon: 'star' as const,
-                  // The agents need the plugin prefix (inserted below); people read the skill's own name.
-                  label: `/${c.name.replace(`${SKILL_PLUGIN}:`, '')}`,
-                  mono: true,
-                  hint: c.hint,
-                  insert: `${sigil}${c.name}`,
-                  skill: true,
-                })),
-            })),
             {
-              label: t('AGENT 命令'),
-              src: t('ACP 上报'),
-              items: (commands?.value.agent ?? [])
+              label: t('快捷指令'),
+              src: '',
+              items: [
+                ...(commands?.value.skill ?? []).filter((c) => !!c.personal && has(c.name)),
+                ...(commands?.value.skill ?? []).filter((c) => !c.personal && has(c.name)),
+              ]
+                .map(
+                  (c): Candidate => ({
+                    key: `skill:${c.name}`,
+                    icon: 'star' as const,
+                    // The agents need the plugin prefix (inserted below); people read the shortcut's own name.
+                    label: `/${c.name.replace(`${SKILL_PLUGIN}:`, '')}`,
+                    mono: true,
+                    hint: c.hint,
+                    insert: `${sigil}${c.name}`,
+                    skill: true,
+                  }),
+                )
+                .concat(
+                  // Codex reports its shortcuts as `$name`.
+                  (commands?.value.agent ?? [])
+                    .filter((c) => c.name.startsWith('$') && has(c.name))
+                    .map(
+                      (c): Candidate => ({
+                        key: `agent:${c.botId}:${c.name}`,
+                        icon: 'star' as const,
+                        label: c.name,
+                        mono: true,
+                        hint: c.hint,
+                        insert: c.name,
+                        skill: true,
+                      }),
+                    ),
+                ),
+            },
+            {
+              label: t('系统命令'),
+              src: '',
+              items: (commands?.value.system ?? [])
                 .filter((c) => has(c.name))
-                .map((c) => ({
-                  key: `agent:${c.botId}:${c.name}`,
-                  icon: 'cpu',
-                  label: c.name.startsWith('$') ? c.name : `/${c.name}`,
-                  mono: true,
-                  hint: c.hint,
-                  // Codex reports its skills as `$name`.
-                  ...(c.name.startsWith('$') ? { insert: c.name, skill: true } : { insert: `/${c.name}` }),
-                })),
+                .map(
+                  (c): Candidate => ({
+                    key: `cmd:${c.name}`,
+                    icon: 'terminal',
+                    label: `/${c.name}`,
+                    mono: true,
+                    hint: c.hint,
+                    insert: `/${c.name}`,
+                  }),
+                )
+                .concat(
+                  (commands?.value.agent ?? [])
+                    .filter((c) => !c.name.startsWith('$') && has(c.name))
+                    .map(
+                      (c): Candidate => ({
+                        key: `agent:${c.botId}:${c.name}`,
+                        icon: 'terminal',
+                        label: `/${c.name}`,
+                        mono: true,
+                        hint: c.hint,
+                        insert: `/${c.name}`,
+                      }),
+                    ),
+                ),
             },
           ]
   const shown = sections.filter((s) => s.items.length)

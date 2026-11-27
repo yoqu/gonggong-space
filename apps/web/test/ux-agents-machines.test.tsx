@@ -280,7 +280,7 @@ describe('U-11 & A-6 ProviderEditor, OfficialEditor, ProvidersPanel & ProviderIm
         <ProvidersPanel source={source} view={VIEW} onView={() => {}} editor={null} onEditor={() => {}} />
       </MemoryRouter>,
     )
-    expect(screen.getByText('一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商')).toBeTruthy()
+    expect(screen.getByText(/一个供应商可提供多种协议，各 Agent 可在详情里选用匹配的供应商/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '删除' }))
     const dlg = await screen.findByRole('alertdialog')
     fireEvent.click(within(dlg).getByRole('button', { name: '删除' }))
