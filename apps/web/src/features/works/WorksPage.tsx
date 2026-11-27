@@ -165,7 +165,7 @@ export function WorksPage() {
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
-  const [section, setSection] = useState<Section>('all')
+  const [picked, setSection] = useState<Section>('all')
   const [layout, setLayoutState] = useState<Layout>(storedLayout)
   const setLayout = (v: Layout) => {
     localStorage.setItem(LAYOUT_KEY, v)
@@ -219,6 +219,9 @@ export function WorksPage() {
   const q = query.trim().toLowerCase()
   const counts = new Map<WorkType, number>()
   for (const w of all) counts.set(w.type, (counts.get(w.type) ?? 0) + 1)
+  const navTypes = TYPES.filter((x) => x.always || counts.get(x.value))
+  // A type only listed while it has works falls back to 全部 once its last one is gone.
+  const section: Section = picked === 'all' || navTypes.some((x) => x.value === picked) ? picked : 'all'
   const shown = all
     .filter(
       (w) =>
@@ -302,7 +305,7 @@ export function WorksPage() {
               {
                 items: [
                   { id: 'all', label: t('全部作品'), icon: 'apps', badge: all.length },
-                  ...TYPES.filter((x) => x.always || counts.get(x.value)).map((x) => ({
+                  ...navTypes.map((x) => ({
                     id: x.value,
                     label: x.label,
                     icon: x.icon,
