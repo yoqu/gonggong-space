@@ -7,6 +7,7 @@ import {
   type MessageDto,
   PROTOCOL_VERSION,
   type WorkDto,
+  type WorkStarterDto,
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -139,5 +140,39 @@ describe('作品 新建 with an AI, no group', () => {
     })
     expect(off.status).toBe(200)
     expect(off.body.enabled).toBe(false)
+  })
+  it('offers prototypes and slides with their templates, and starts a slides work from the picked one', async () => {
+    const w = await world()
+    const starters = (await w.me.get<WorkStarterDto[]>('/api/works/starters')).body
+    expect(starters.map((s) => s.type)).toEqual(['prototype', 'slides'])
+    const slides = starters.find((s) => s.type === 'slides')!
+    expect(slides.pluginTitle).toBe('幻灯片')
+    const picked = slides.templates[1]!
+    expect(picked).toMatchObject({ id: expect.any(String), title: expect.any(String) })
+
+    const res = await w.me.post<{ artifactId: string }>('/api/works', {
+      botId: w.gz.id,
+      type: 'slides',
+      templateId: picked.id,
+    })
+    expect(res.status).toBe(200)
+    const [a] = await t.db.select().from(artifacts).where(eq(artifacts.id, res.body.artifactId))
+    expect(a).toMatchObject({ title: '未命名幻灯片', pluginId: slides.pluginId })
+    const chat = await w.me.post<ArtifactChatDto>(`/api/artifacts/${a!.id}/chat`)
+    const [root] = await t.db.select().from(messages).where(eq(messages.id, chat.body.rootId))
+    expect(root!.body).toContain(picked.title)
+
+    await w.me.post('/api/works', { botId: w.gz.id })
+    const works = (await w.me.get<WorkDto[]>('/api/works')).body
+    expect(works.map((x) => x.type).sort()).toEqual(['prototype', 'slides'])
+    expect(works.every((x) => !Number.isNaN(Date.parse(x.createdAt)))).toBe(true)
+
+    const bad = await w.me.post<{ message: string }>('/api/works', {
+      botId: w.gz.id,
+      type: 'slides',
+      templateId: 'no-such',
+    })
+    expect(bad.status).toBe(400)
+    expect(bad.body.message).toBe('模板不存在')
   })
 })

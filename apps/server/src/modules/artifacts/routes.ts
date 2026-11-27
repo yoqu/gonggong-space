@@ -54,6 +54,7 @@ import {
   UpdateArtifactThreadReq,
   type WorkDto,
   type WorkGroupDto,
+  type WorkStarterDto,
 } from '@gonggong/protocol'
 import { and, eq, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -81,7 +82,7 @@ import { artifactHistory } from './history.js'
 import { pluginCommands, pluginDesignSystems } from './kit.js'
 import { artifactLinkMeta } from './link-meta.js'
 import { moveArtifact } from './move.js'
-import { newWork } from './new-work.js'
+import { newWork, workStarters } from './new-work.js'
 import {
   ASSET_UPLOAD_MAX_BYTES,
   diffVersionFile,
@@ -400,7 +401,11 @@ export function artifactRoutes(ctx: Ctx) {
     })
     app.post('/api/works', async (req): Promise<NewWorkRes> => {
       const me = await requireUser(ctx, req)
-      return newWork(ctx, me, await currentTeam(ctx, req, me.id), NewWorkReq.parse(req.body).botId)
+      return newWork(ctx, me, await currentTeam(ctx, req, me.id), NewWorkReq.parse(req.body))
+    })
+    app.get('/api/works/starters', async (req): Promise<WorkStarterDto[]> => {
+      const me = await requireUser(ctx, req)
+      return workStarters(ctx, me, await currentTeam(ctx, req, me.id))
     })
     app.get('/api/works/groups', async (req): Promise<WorkGroupDto[]> => {
       const me = await requireUser(ctx, req)

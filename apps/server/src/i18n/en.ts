@@ -662,6 +662,7 @@ export const en = {
   '这个 Bot 暂不支持创作作品，请从列表里选择可用的 Bot':
     "This Bot can't create works yet; choose an available Bot from the list",
   没有可用的产品原型插件: 'No product prototype plugin is available',
+  没有可用的幻灯片插件: 'No slides plugin is available',
   只有电脑主人能授权插件在这台电脑上运行: "Only the computer's owner can allow plugins to run on it",
   授权不存在: 'Authorization not found',
   会运行代码的插件必须固定版本引入: 'A plugin that runs code must be installed at a pinned version',

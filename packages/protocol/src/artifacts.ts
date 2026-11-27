@@ -851,39 +851,6 @@ export const ArtifactHistoryItem = z.object({
 })
 export type ArtifactHistoryItem = z.infer<typeof ArtifactHistoryItem>
 
-/** GET /api/works — every artifact the caller may open in the current team (作品), latest first. */
-export const WorkDto = z.object({
-  id: z.string(),
-  groupId: z.string(),
-  /** Empty for another member's DM shared with the team (shown as 私聊). */
-  groupTitle: z.string(),
-  groupKind: z.enum(['group', 'dm', 'works']),
-  groupVisibility: z.enum(['public', 'private']),
-  title: z.string(),
-  /** The plugin's title (产品原型, 幻灯片…). */
-  pluginTitle: z.string().nullable(),
-  /** A hosted site (托管网页) rather than a design. */
-  site: z.boolean(),
-  visibility: ArtifactVisibility,
-  createdBy: z.string().nullable(),
-  creatorName: z.string().nullable(),
-  thumbnailUrl: z.string().nullable(),
-  updatedAt: z.string(),
-  access: ArtifactAccess,
-})
-export type WorkDto = z.infer<typeof WorkDto>
-/** POST /api/works — 作品 新建 with one of ARTIFACT_BOT_NAMES, no group: answers the empty work to open on its canvas. */
-export const NewWorkReq = z.object({ botId: z.string() })
-export type NewWorkReq = z.infer<typeof NewWorkReq>
-export const NewWorkRes = z.object({ artifactId: z.string() })
-export type NewWorkRes = z.infer<typeof NewWorkRes>
-/**
- * GET /api/works/groups — where the caller can create (作品 shows when there is one): their groups with a creation
- * plugin on, then their private chats with bots (`dm`, creation plugins on there by default), which need no group.
- */
-export const WorkGroupDto = z.object({ id: z.string(), title: z.string(), kind: z.enum(['group', 'dm']) })
-export type WorkGroupDto = z.infer<typeof WorkGroupDto>
-
 /**
  * `follow`: true makes the link show the latest version, false pins it to the head now; absent keeps it as it is.
  * `locked`: true asks visitors for a fresh 4-digit password, false drops it; absent keeps it as it is.

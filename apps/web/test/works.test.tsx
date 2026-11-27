@@ -67,6 +67,8 @@ const work = (o: Partial<WorkDto>): WorkDto => ({
   title: '湖畔露营地预约',
   pluginTitle: '产品原型',
   site: false,
+  type: 'prototype',
+  createdAt: '2026-10-30T05:28:00.000Z',
   visibility: 'group',
   createdBy: 'u1',
   creatorName: '姜维川',
@@ -253,6 +255,54 @@ describe('作品 page', () => {
     fireEvent.click(screen.getByRole('radio', { name: '团队共享' }))
     expect(screen.getByText('还没有团队共享的作品')).toBeTruthy()
     expect(screen.getByText('团队内设为「团队可见」的作品会出现在这里')).toBeTruthy()
+  })
+
+  it('splits works by type in the sidebar, sorts by creation and shows a list layout', async () => {
+    localStorage.removeItem('gg.works.layout')
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [
+        work({
+          id: 'a1',
+          title: '露营原型',
+          updatedAt: '2026-10-31T05:00:00.000Z',
+          createdAt: '2026-10-01T00:00:00.000Z',
+        }),
+        work({
+          id: 'a2',
+          title: '季度汇报',
+          type: 'slides',
+          updatedAt: '2026-10-30T05:00:00.000Z',
+          createdAt: '2026-10-20T00:00:00.000Z',
+        }),
+        work({ id: 'a3', title: '官网', type: 'site', site: true, createdAt: '2026-10-10T00:00:00.000Z' }),
+        work({ id: 'a4', title: '流程白板', type: 'whiteboard', createdAt: '2026-10-05T00:00:00.000Z' }),
+      ],
+    })
+    renderAt('/works')
+    const nav = await screen.findByRole('navigation', { name: '作品分类' })
+    const rows = () =>
+      within(screen.getByRole('list', { name: '作品' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent)
+    expect(within(nav).getByText('白板')).toBeTruthy()
+    expect(within(nav).queryByText('动效')).toBeNull()
+    fireEvent.click(within(nav).getByText('幻灯片'))
+    expect(rows()).toHaveLength(1)
+    expect(rows()[0]).toContain('季度汇报')
+    fireEvent.click(within(nav).getByText('全部作品'))
+    fireEvent.click(screen.getByRole('button', { name: '排序' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '最近创建' }))
+    expect(rows().map((r) => r?.match(/露营原型|季度汇报|官网|流程白板/)?.[0])).toEqual([
+      '季度汇报',
+      '官网',
+      '流程白板',
+      '露营原型',
+    ])
+    fireEvent.click(screen.getByRole('radio', { name: '列表' }))
+    expect(document.querySelector('.works__list')).toBeTruthy()
+    expect(localStorage.getItem('gg.works.layout')).toBe('list')
+    localStorage.removeItem('gg.works.layout')
   })
 
   it('tags a hosted site as such', async () => {
@@ -479,7 +529,20 @@ describe('作品 page', () => {
     expect(localStorage.getItem('gg.team')).toBe('t2')
   })
 
-  it('新建 opens an empty work on its canvas straight away, no dialog, with the last AI picked there', async () => {
+  const STARTERS = [
+    { type: 'prototype', pluginId: 'p1', pluginTitle: '产品原型', templates: [] },
+    {
+      type: 'slides',
+      pluginId: 'p2',
+      pluginTitle: '幻灯片',
+      templates: [
+        { id: 'html-ppt', title: '演示工作室', description: '', group: '通用', preview: null },
+        { id: 'weekly', title: '数据周报', description: '', group: '汇报', preview: null },
+      ],
+    },
+  ]
+
+  it('新建 asks the type, then opens an empty prototype on its canvas with the last AI picked there', async () => {
     const bot = (id: string, name: string) => ({ id, name }) as BotDto
     useWorkspace.setState({
       bots: [bot('b1', '蒋庆的 Codex'), bot('b2', '姜维川的 Claude Code'), bot('b3', '共字君')],
@@ -488,35 +551,65 @@ describe('作品 page', () => {
     const calls = mockApi({
       'GET /works/groups': GROUPS,
       'GET /works': [],
+      'GET /works/starters': STARTERS,
       'POST /works': { artifactId: 'a9' },
     })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    expect(
+      within(dialog)
+        .getByRole('radio', { name: /产品原型/ })
+        .getAttribute('aria-checked'),
+    ).toBe('true')
+    fireEvent.click(await within(dialog).findByRole('button', { name: '创建' }))
     await waitFor(() => expect(where()).toContain('/works/a9'))
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(calls.find((c) => c.method === 'POST')).toMatchObject({ path: '/works', body: { botId: 'b2' } })
+    expect(calls.find((c) => c.method === 'POST')).toMatchObject({
+      path: '/works',
+      body: { botId: 'b2', type: 'prototype' },
+    })
     expect(localStorage.getItem('gg.canvasBot.a9')).toBe('b2')
   })
 
-  it('新建 defaults to the first AI open for works', async () => {
+  it('新建 幻灯片 starts from the picked template, with the first AI open for works', async () => {
     const bot = (id: string, name: string) => ({ id, name }) as BotDto
     useWorkspace.setState({ bots: [bot('b1', '蒋庆的 Codex'), bot('b3', '共字君')] })
     const calls = mockApi({
       'GET /works/groups': GROUPS,
       'GET /works': [],
+      'GET /works/starters': STARTERS,
       'POST /works': { artifactId: 'a9' },
     })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    fireEvent.click(within(dialog).getByRole('radio', { name: /幻灯片/ }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '数据周报' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
     await waitFor(() => expect(where()).toContain('/works/a9'))
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ botId: 'b3' })
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
+      botId: 'b3',
+      type: 'slides',
+      templateId: 'weekly',
+    })
+  })
+
+  it('新建 网页 explains hosting from a preview instead of creating', async () => {
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [], 'GET /works/starters': STARTERS })
+    renderAt('/works')
+    fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    fireEvent.click(within(dialog).getByRole('radio', { name: /网页/ }))
+    expect(within(dialog).getByText('点预览卡上的「托管到服务器」')).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: '创建' })).toBeNull()
   })
 
   it('says so when neither AI is in the team', async () => {
     useWorkspace.setState({ bots: [] })
-    const calls = mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
+    const calls = mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [], 'GET /works/starters': STARTERS })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    fireEvent.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: '创建' }))
     expect(await screen.findByText('当前团队暂无可用于创作作品的 Bot')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })

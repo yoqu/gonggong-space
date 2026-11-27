@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { AUTO_DESIGN_SYSTEM, createsArtifacts, usesDesignSystem } from '@gonggong/protocol'
+import {
+  AUTO_DESIGN_SYSTEM,
+  createsArtifacts,
+  type NewWorkReq,
+  NewWorkType,
+  usesDesignSystem,
+  type WorkStarterDto,
+} from '@gonggong/protocol'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { artifacts, groups, messages } from '../../db/schema.js'
@@ -31,28 +38,72 @@ async function worksSpace(ctx: Ctx, userId: string, teamId: string) {
   })
 }
 
+type PluginRow = Awaited<ReturnType<typeof groupPluginList>>[number]
+
+const STARTERS: Record<
+  NewWorkType,
+  { plugin: string; fits: (m: PluginRow['version']['manifest']) => boolean }
+> = {
+  prototype: {
+    plugin: 'web-prototype',
+    fits: (m) => (m.artifact?.kind ?? 'prototype') === 'prototype' && m.category === 'web',
+  },
+  slides: { plugin: 'slides', fits: (m) => m.artifact?.kind === 'slides' || m.category === 'deck' },
+}
+
+/** The plugin 作品 新建 starts `type` from in the space: the official one when on, else the first that fits. */
+function starterPlugin(list: PluginRow[], type: NewWorkType) {
+  const { plugin, fits } = STARTERS[type]
+  const on = list.filter(
+    (r) => r.enabledInGroup && createsArtifacts(r.version.manifest) && fits(r.version.manifest),
+  )
+  return on.find((r) => r.plugin.name === plugin) ?? on[0] ?? null
+}
+
+/** GET /api/works/starters: the types 作品 新建 offers the caller, each with the templates it can start from. */
+export async function workStarters(ctx: Ctx, me: { id: string }, teamId: string): Promise<WorkStarterDto[]> {
+  await requirePluginsOn(ctx.db)
+  const list = await groupPluginList(ctx.db, (await worksSpace(ctx, me.id, teamId)).id)
+  return NewWorkType.options.flatMap((type) => {
+    const found = starterPlugin(list, type)
+    if (!found) return []
+    const m = found.version.manifest
+    return [
+      {
+        type,
+        pluginId: found.plugin.id,
+        pluginTitle: m.title,
+        templates: m.templates.map((tp) => ({
+          id: tp.id,
+          title: tp.title,
+          description: tp.description,
+          group: tp.group,
+          preview: tp.preview,
+        })),
+      },
+    ]
+  })
+}
+
 /**
- * POST /api/works: 作品 新建 with one of the AIs open for works, no group needed. An empty prototype in the caller's
- * 作品空间, the AI a guest there; its 画布 AI 对话 opens with how to create it, and the first message there says what.
+ * POST /api/works: 作品 新建 with one of the AIs open for works, no group needed. An empty work of `type` in the
+ * caller's 作品空间, the AI a guest there; its 画布 AI 对话 opens with how to create it, and the first message there says
+ * what.
  */
-export async function newWork(ctx: Ctx, me: { id: string }, teamId: string, botId: string) {
+export async function newWork(ctx: Ctx, me: { id: string }, teamId: string, req: NewWorkReq) {
   await requirePluginsOn(ctx.db)
   const space = await worksSpace(ctx, me.id, teamId)
   const bot =
-    (await artifactGuestBot(ctx, space, botId)) ??
+    (await artifactGuestBot(ctx, space, req.botId)) ??
     fail('invalid', '这个 Bot 暂不支持创作作品，请从列表里选择可用的 Bot')
-  const prototypes = (await groupPluginList(ctx.db, space.id)).filter(
-    (r) =>
-      r.enabledInGroup &&
-      createsArtifacts(r.version.manifest) &&
-      (r.version.manifest.artifact?.kind ?? 'prototype') === 'prototype',
-  )
   const found =
-    prototypes.find((r) => r.plugin.name === 'web-prototype') ??
-    prototypes[0] ??
-    fail('conflict', '没有可用的产品原型插件')
+    starterPlugin(await groupPluginList(ctx.db, space.id), req.type) ??
+    fail('conflict', req.type === 'slides' ? '没有可用的幻灯片插件' : '没有可用的产品原型插件')
   const m = found.version.manifest
-  const template = m.templates[0] ?? null
+  const template = req.templateId
+    ? (m.templates.find((tp) => tp.id === req.templateId) ?? fail('invalid', '模板不存在'))
+    : (m.templates[0] ?? null)
+  const kind = m.artifact?.kind ?? 'prototype'
   const { card, design, versionId } = await resolve(
     ctx,
     space.id,
@@ -75,9 +126,9 @@ export async function newWork(ctx: Ctx, me: { id: string }, teamId: string, botI
         groupId: space.id,
         pluginId: found.plugin.id,
         pluginVersionId: versionId,
-        kind: 'prototype',
-        editorVersion: editorVersionFor('prototype'),
-        title: '未命名作品',
+        kind,
+        editorVersion: editorVersionFor(kind),
+        title: req.type === 'slides' ? '未命名幻灯片' : '未命名作品',
         dir: newArtifactDir(template?.id ?? m.name),
         botId: bot.id,
         visibility: 'private',

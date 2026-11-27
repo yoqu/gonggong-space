@@ -1,5 +1,6 @@
 import {
   type ArtifactAccess,
+  type ArtifactKind,
   type ArtifactMemberDto,
   type ArtifactVisibility,
   createsArtifacts,
@@ -7,6 +8,7 @@ import {
   type ProtocolKey,
   type WorkDto,
   type WorkGroupDto,
+  type WorkType,
 } from '@gonggong/protocol'
 import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -117,6 +119,13 @@ export async function postWork(ctx: Ctx, me: { id: string; name: string }, a: Ar
   )
 }
 
+export function workType(kind: ArtifactKind, site: boolean, m: PluginManifest | null): WorkType {
+  if (site || kind === 'site') return 'site'
+  if (kind !== 'prototype') return kind
+  const category = m?.category ?? 'web'
+  return category === 'web' ? 'prototype' : category === 'deck' ? 'slides' : 'other'
+}
+
 /** Every artifact `userId` may open in `teamId` (作品): their groups' works plus those shared with the team. */
 export async function listWorks(ctx: Ctx, userId: string, teamId: string): Promise<WorkDto[]> {
   const rows = await ctx.db
@@ -189,10 +198,12 @@ export async function listWorks(ctx: Ctx, userId: string, teamId: string): Promi
         title: r.a.title,
         pluginTitle: (r.manifest as PluginManifest | null)?.title ?? null,
         site: r.a.siteDir !== null,
+        type: workType(r.a.kind as ArtifactKind, r.a.siteDir !== null, r.manifest as PluginManifest | null),
         visibility: r.a.visibility as ArtifactVisibility,
         createdBy: r.a.createdBy,
         creatorName: r.creatorName,
         thumbnailUrl: r.head ? thumbnailUrl(r.head) : null,
+        createdAt: r.a.createdAt.toISOString(),
         updatedAt: r.a.updatedAt.toISOString(),
         access,
       },

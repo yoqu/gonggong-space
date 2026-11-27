@@ -84,6 +84,8 @@ const work = (o: Partial<WorkDto> = {}): WorkDto => ({
   title: '独立原型',
   pluginTitle: '产品原型',
   site: false,
+  type: 'prototype',
+  createdAt: '2026-10-30T05:28:00.000Z',
   visibility: 'private',
   createdBy: 'u1',
   creatorName: '姜维川',
