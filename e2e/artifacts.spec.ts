@@ -134,6 +134,8 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
 
       await test.step('direct edit: a heading’s new text is saved as the next version, on the card and the canvas', async () => {
         // Who may edit points at a block and edits it: no tool to pick first (墨刀).
+        // The page the undo brought back has taken the old one's place (until then clicks go to the old one).
+        await expect(page.getByTestId('art-node-home').locator('iframe')).toHaveCount(1)
         await screen(page, 'home').getByRole('heading', { name: '首页第一版' }).click()
         const pop = page.getByTestId('art-inspector').getByRole('region', { name: '模块操作' })
         await pop.getByRole('button', { name: '编辑文字' }).click()
@@ -228,6 +230,15 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await expect(doc.getByRole('listitem').filter({ hasText: '报名入口在顶部' })).toBeVisible({
           timeout: 30_000,
         })
+        // Its corner drags it bigger.
+        const node = page.getByTestId('art-node-pagedoc:home')
+        const before = (await node.boundingBox())!
+        const grip = (await page.getByTestId('art-pagedoc-grip-se').boundingBox())!
+        await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+        await page.mouse.down()
+        await page.mouse.move(grip.x + 40, grip.y + 30, { steps: 5 })
+        await page.mouse.up()
+        await expect.poll(async () => (await node.boundingBox())!.width).toBeGreaterThan(before.width + 20)
         await page.waitForTimeout(400)
         await page.screenshot({ path: join(SHOTS, 'e2e-canvas-pagedoc.png') })
       })

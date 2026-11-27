@@ -706,7 +706,8 @@ function TitleField({ title, onDone }: { title: string; onDone: (title: string |
           finish(null)
         }
       }}
-      onBlur={() => finish(null)}
+      // Leaving the field is done renaming (蒋庆 2026-11-27): no Enter needed.
+      onBlur={() => finish(value.trim() || null)}
     />
   )
 }

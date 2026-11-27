@@ -269,7 +269,7 @@ const select = (o: Record<string, unknown> = {}) =>
     snippet: '<textarea>',
     ...o,
   })
-const panel = () => screen.getByRole('complementary', { name: '页面规则' })
+const doc = () => screen.getByTestId('art-pagedoc-home')
 
 class NoopSocket {
   close() {}
@@ -294,20 +294,21 @@ afterEach(() => {
 })
 
 describe('page rules on the canvas', () => {
-  it('badges a screen with its rules, opens them, and the marks toggle hides badges', async () => {
+  it('shows a page’s rules in its 页面文档, numbered as its marks; the marks toggle hides badges', async () => {
     mockApi(routes())
     await renderTab()
     const badge = await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     expect(screen.queryByTestId('art-rules-badge-detail')).toBeNull()
+    expect(screen.queryByRole('tab', { name: '规则' })).toBeNull()
     fireEvent.click(badge)
-    const p = panel()
-    expect(within(p).getByText('2 条 · 待确认 1')).toBeTruthy()
-    expect(within(p).getByText('本周共读')).toBeTruthy()
-    expect(within(p).getByText('整页')).toBeTruthy()
-    expect(within(p).getByText('未登录时点击先去登录。')).toBeTruthy()
-    // The Markdown view is the file itself.
-    fireEvent.click(within(p).getByRole('radio', { name: 'Markdown' }))
-    expect((within(p).getByRole('textbox', { name: 'Markdown' }) as HTMLTextAreaElement).value).toBe(
+    const d = doc()
+    expect(within(d).getByText('页面规则（2）')).toBeTruthy()
+    expect(within(d).getByText('本周共读')).toBeTruthy()
+    expect(within(d).getByText('整页')).toBeTruthy()
+    expect(within(d).getByText('未登录时点击先去登录。')).toBeTruthy()
+    // The rules' Markdown is the file itself, editable.
+    fireEvent.click(within(d).getByRole('button', { name: '编辑' }))
+    expect((within(d).getByRole('textbox', { name: '页面规则' }) as HTMLTextAreaElement).value).toBe(
       HOME_RULES,
     )
 
@@ -316,7 +317,7 @@ describe('page rules on the canvas', () => {
     expect(localStorage.getItem('gg.art.ruleMarks')).toBe('off')
   })
 
-  it('marks the elements the screen reports by anchor; a mark opens its rule and a rule highlights its element', async () => {
+  it('marks the elements the screen reports by anchor; a mark picks its rule in the document and a rule outlines its element', async () => {
     mockApi(routes())
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
@@ -330,12 +331,11 @@ describe('page rules on the canvas', () => {
     const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
     const mark = screen.getByTestId('art-rule-mark-home-1')
     expect(mark.textContent).toBe('1')
-    // The whole-page rule hangs at the screen's top left, pending.
     expect(screen.getByTestId('art-rule-mark-home-2').className).toContain('art-rule-mark--pending')
     fireEvent.click(mark)
-    expect(within(panel()).getByTestId('art-rule-1').className).toContain('art-rule--on')
-    fireEvent.click(within(panel()).getByText('未登录时点击先去登录。'))
-    // In the rule's tone, like the preview's marks.
+    expect(within(doc()).getByTestId('art-pagedoc-rule-1').className).toContain('art-pagedoc__rule--on')
+    expect(screen.getByTestId('art-rule-mark-home-1').className).toContain('art-rule-mark--on')
+    fireEvent.click(within(doc()).getByRole('button', { name: '第 1 条规则' }))
     expect(post.mock.calls.map(([m]) => m)).toContainEqual({
       source: 'gg-host',
       type: 'highlight',
@@ -357,28 +357,26 @@ describe('page rules on the canvas', () => {
       ],
     })
     expect(screen.queryByTestId('art-rule-mark-home-1')).toBeNull()
-    // The whole-page rule keeps its mark.
     expect(screen.getByTestId('art-rule-mark-home-2')).toBeTruthy()
   })
 
-  it('an anchor gone from the screen draws no mark and is flagged in the panel', async () => {
+  it('an anchor gone from the screen draws no mark and is flagged in the document', async () => {
     mockApi(routes())
     await renderTab()
-    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
-    // Before the screen reports its anchors nothing is known to be gone.
-    expect(within(panel()).queryByText('元素已不存在')).toBeNull()
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
+    expect(within(doc()).queryByText('元素已不存在')).toBeNull()
     fromScreen({ type: 'ready', width: 390, height: 800, anchors: [] })
     expect(screen.queryByTestId('art-rule-mark-home-1')).toBeNull()
     expect(screen.getByTestId('art-rule-mark-home-2').className).toContain('art-rule-mark--page')
-    expect(within(within(panel()).getByTestId('art-rule-1')).getByText('元素已不存在')).toBeTruthy()
-    expect(within(within(panel()).getByTestId('art-rule-2')).queryByText('元素已不存在')).toBeNull()
+    expect(within(within(doc()).getByTestId('art-pagedoc-rule-1')).getByText('元素已不存在')).toBeTruthy()
+    expect(within(within(doc()).getByTestId('art-pagedoc-rule-2')).queryByText('元素已不存在')).toBeNull()
   })
 
   it('puts a new whole-page rule’s draft mark in the page row', async () => {
     mockApi(routes())
     await renderTab()
-    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
-    fireEvent.click(within(panel()).getByRole('button', { name: '添加规则' }))
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
+    fireEvent.click(within(doc()).getByRole('button', { name: '添加规则' }))
     fireEvent.click(screen.getByRole('button', { name: '挂到整页' }))
     expect(screen.getByTestId('art-rule-draft').className).toContain('art-rule-mark--page')
   })
@@ -404,64 +402,43 @@ describe('page rules on the canvas', () => {
     expect(Number.parseFloat(b.left) - Number.parseFloat(a.left)).toBe(16)
   })
 
-  it('edits and deletes a rule as one file save each', async () => {
+  it('edits the rules (an AI’s too) in the document: one file save', async () => {
     const calls = mockApi(routes())
     await renderTab()
-    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
-    const rule = within(panel()).getByTestId('art-rule-2')
-    fireEvent.click(within(rule).getByRole('button', { name: '编辑' }))
-    fireEvent.change(within(rule).getByRole('textbox'), { target: { value: '家庭成员不能申请退款。' } })
-    fireEvent.click(within(rule).getByRole('checkbox'))
-    fireEvent.click(within(rule).getByRole('button', { name: '保存' }))
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
+    fireEvent.click(within(doc()).getByRole('button', { name: '编辑' }))
+    const box = within(doc()).getByRole('textbox', { name: '页面规则' })
+    const next = '# 首页 · 页面规则\n\n1. **整页**：家庭成员不能申请退款。\n'
+    fireEvent.change(box, { target: { value: next } })
+    fireEvent.blur(box)
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
-        {
-          baseVersionId: 'v2',
-          ops: [
-            {
-              kind: 'file',
-              path: 'rules/home.md',
-              content:
-                '# 首页 · 页面规则\n\n1. **本周共读** `#ben-zhou-gong-du`：未登录时点击先去登录。\n2. **整页**：家庭成员不能申请退款。\n',
-            },
-          ],
-        },
+        { baseVersionId: 'v2', ops: [{ kind: 'file', path: 'rules/home.md', content: next }] },
       ]),
     )
-    fireEvent.click(within(within(panel()).getByTestId('art-rule-1')).getByRole('button', { name: '删除' }))
-    await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toHaveLength(2))
-    expect(bodies(calls, 'POST', '/artifacts/a1/edits')[1]).toMatchObject({
-      ops: [
-        {
-          kind: 'file',
-          path: 'rules/home.md',
-          content: '# 首页 · 页面规则\n\n1. **整页** [待确认]：家庭成员能否看到书单？（见 S1）\n',
-        },
-      ],
-    })
   })
 
   it('adds a rule by picking an element: its anchor and the rule in one version', async () => {
     const calls = mockApi(routes())
     await renderTab()
-    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     fromScreen({ type: 'ready', width: 390, height: 800 })
     const frame = frameOf('首页').contentWindow as Window
     const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
-    fireEvent.click(within(panel()).getByRole('button', { name: '添加规则' }))
+    fireEvent.click(within(doc()).getByRole('button', { name: '添加规则' }))
     expect(screen.getByRole('status', { name: '选取元素' }).textContent).toContain('点击页面元素挂规则')
     expect(post.mock.calls.map(([m]) => m)).toContainEqual({ source: 'gg-host', type: 'mode', mode: 'mark' })
     select({ text: 'Remark box', tag: 'textarea' })
-    const card = within(panel()).getByRole('group', { name: '新规则 3' })
-    expect((within(card).getByRole('textbox', { name: '挂载元素名' }) as HTMLInputElement).value).toBe(
+    const card = within(doc()).getByTestId('art-pagedoc-add-rule')
+    expect((within(card).getByRole('textbox', { name: '规则挂在' }) as HTMLInputElement).value).toBe(
       'Remark box',
     )
     expect(screen.getByTestId('art-rule-draft').textContent).toBe('3')
-    fireEvent.change(within(card).getByRole('textbox', { name: '规则' }), {
+    fireEvent.change(within(card).getByRole('textbox', { name: '规则说明' }), {
       target: { value: '超过 200 字时禁止继续输入。' },
     })
-    fireEvent.click(within(card).getByRole('checkbox', { name: '标记为待确认' }))
-    fireEvent.keyDown(within(card).getByRole('textbox', { name: '规则' }), { key: 'Enter', metaKey: true })
+    fireEvent.click(within(card).getByRole('checkbox', { name: '待确认' }))
+    fireEvent.click(within(card).getByRole('button', { name: '添加' }))
     await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toHaveLength(1))
     expect(bodies(calls, 'POST', '/artifacts/a1/edits')[0]).toMatchObject({
       ops: [
@@ -481,20 +458,20 @@ describe('page rules on the canvas', () => {
   it('a script-made element can only take a whole-page rule; Esc cancels picking', async () => {
     mockApi(routes())
     await renderTab()
-    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
-    fireEvent.click(within(panel()).getByRole('button', { name: '添加规则' }))
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
+    fireEvent.click(within(doc()).getByRole('button', { name: '添加规则' }))
     select({ ggId: null, text: '动态' })
-    expect(within(panel()).getByText('脚本生成的元素只能挂整页')).toBeTruthy()
+    expect(within(doc()).getByText('脚本生成的元素只能挂整页')).toBeTruthy()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('status', { name: '选取元素' })).toBeNull()
-    expect(within(panel()).queryByRole('group', { name: '新规则 3' })).toBeNull()
+    expect(within(doc()).queryByTestId('art-pagedoc-add-rule')).toBeNull()
   })
 
   it('AI 补全 hands the screen to the artifact’s bot', async () => {
     const calls = mockApi(routes())
     await renderTab()
-    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
-    fireEvent.click(within(panel()).getByRole('button', { name: 'AI 补全' }))
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
+    fireEvent.click(within(doc()).getByRole('button', { name: 'AI 补全' }))
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toEqual([
         { command: 'complete-rules', botId: 'b1', screenIds: ['home'] },
@@ -516,9 +493,9 @@ describe('shared rules', () => {
     expect(refs.textContent).toBe('引用：首页 #2')
     expect(within(view).queryByTestId('art-shared-refs-S2')).toBeNull()
     fireEvent.click(within(refs).getByRole('button', { name: '首页 #2' }))
-    expect(within(panel()).getByTestId('art-rule-2').className).toContain('art-rule--on')
+    expect(within(doc()).getByTestId('art-pagedoc-rule-2').className).toContain('art-pagedoc__rule--on')
     // S1 in a page rule opens the shared rules.
-    fireEvent.click(within(panel()).getByRole('button', { name: 'S1' }))
+    fireEvent.click(within(doc()).getByRole('button', { name: 'S1' }))
     expect(screen.getByRole('complementary', { name: '共享规则.md' })).toBeTruthy()
   })
 

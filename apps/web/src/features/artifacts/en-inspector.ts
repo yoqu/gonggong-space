@@ -87,4 +87,12 @@ export default {
   '页面文档 · {title}': 'Page doc · {title}',
   页面文档: 'Page doc',
   旧版本上的: 'on an earlier version',
+  '例如：库存为 0 时置灰并提示已售罄': 'e.g. greyed out with "sold out" when stock is 0',
+  '在页面上点选这条规则挂的模块，或在上方提示条里选「挂到整页」':
+    'Click the block this rule is about on the page, or choose "whole page" in the bar above',
+  规则挂在: 'Rule on',
+  规则说明: 'Rule',
+  '还没有规则。点「添加规则」后在页面上点选模块': 'No rules yet. Click "Add rule", then a block on the page',
+  '页面规则（{n}）': 'Page rules ({n})',
+  '第 {n} 条规则': 'Rule {n}',
 }

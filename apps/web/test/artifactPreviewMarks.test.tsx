@@ -511,15 +511,15 @@ describe('标注 round 3', () => {
     expect(within(panel()).getByTestId('proto-note-5').className).toContain('proto-note--pending')
   })
 
-  it('sends a screen without rules back to the canvas, on its page rules', async () => {
+  it('sends a screen without rules back to the canvas, to its 页面文档', async () => {
     mockApi(routes())
     await openPreview()
     ready()
     press('n')
     fromScreen({ type: 'nav', screen: 'detail' })
     fireEvent.click(within(panel()).getByRole('button', { name: '回画布添加规则' }))
-    const rulesPanel = await screen.findByRole('complementary', { name: '页面规则' })
-    expect(within(rulesPanel).getByText('还没有规则')).toBeTruthy()
+    const doc = await screen.findByTestId('art-pagedoc-detail')
+    expect(within(doc).getByText(/还没有规则/)).toBeTruthy()
   })
 
   it('opens the rule in a bubble by its mark, also with the panel closed', async () => {

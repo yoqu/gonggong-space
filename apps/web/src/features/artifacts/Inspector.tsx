@@ -64,7 +64,6 @@ export function Inspector({
         ]
       : [{ id: 'props' as const, label: t('画布') }]),
     { id: 'layers', label: t('图层') },
-    { id: 'rules', label: t('规则') },
   ]
   return (
     <aside className="art-inspector" aria-label={t('属性面板')} data-testid="art-inspector">

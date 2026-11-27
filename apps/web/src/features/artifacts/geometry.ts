@@ -151,7 +151,7 @@ export interface LayoutInput {
   /** Web pages on the canvas. */
   links?: GgArtifactLink[]
   /** Pages whose 页面文档 shows beside them (in the room right of the page; the pages after it make way). */
-  pageDocs?: ReadonlySet<string>
+  pageDocs?: ReadonlyMap<string, { w: number; h: number } | null>
 }
 
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
@@ -250,7 +250,8 @@ function layoutAll({
       x += c.w + NODE_GAP
       tallest = Math.max(tallest, c.h)
       if (c.kind !== 'screen' || !pageDocs?.has(c.id)) continue
-      tallest = Math.max(tallest, PAGE_DOC_MIN_H)
+      const size = pageDocs.get(c.id) ?? { w: PAGE_DOC_WIDTH, h: Math.max(c.h, PAGE_DOC_MIN_H) }
+      tallest = Math.max(tallest, size.h)
       nodes.push({
         id: pageDocId(c.id),
         kind: 'pagedoc',
@@ -258,10 +259,10 @@ function layoutAll({
         file: c.file,
         x: at.x + c.w + PAGE_DOC_GAP,
         y: at.y,
-        w: PAGE_DOC_WIDTH,
-        h: Math.max(c.h, PAGE_DOC_MIN_H),
+        w: size.w,
+        h: size.h,
       })
-      if (!placed.has(c.id)) x += PAGE_DOC_GAP + PAGE_DOC_WIDTH
+      if (!placed.has(c.id)) x += PAGE_DOC_GAP + size.w
     }
     y += tallest + NODE_GAP + TITLE_ROOM
   }

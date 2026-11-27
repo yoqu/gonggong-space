@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Button, IconButton, Textarea } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import { type PageRulesProps, PageRulesSection } from './pageRules'
 
 /** Every page's document (docs/<id>.md) of the shown version, read once per version. */
 export function usePageDocs(
@@ -58,6 +59,9 @@ export function PageDocNode({
   onDelete,
   onSendNotes,
   onFocusNote,
+  rules,
+  zoom,
+  onResize,
 }: {
   screenId: string
   title: string
@@ -75,6 +79,12 @@ export function PageDocNode({
   onDelete: (id: string) => void
   onSendNotes: (ids: string[]) => void
   onFocusNote: (note: AnnotationDto) => void
+  /** The page's rules (numbered as its marks); absent without the rules layer. */
+  rules?: PageRulesProps
+  /** The canvas's zoom: a drag of the edges is that many times its size on the canvas. */
+  zoom: number
+  /** Dragged to this size (canvas px), as it goes; `done` on letting go. */
+  onResize: (size: { w: number; h: number }, done: boolean) => void
 }) {
   const me = useSession((s) => s.user?.id ?? null)
   /** A note's 删除 asks once more, in place. */
@@ -145,6 +155,7 @@ export function PageDocNode({
             {canEdit ? t('还没有文档。点右上角铅笔开始写，或让 AI 帮你写') : t('还没有文档')}
           </p>
         )}
+        {rules ? <PageRulesSection rules={rules} canEdit={canEdit} /> : null}
         {notes.length ? (
           <section className="art-pagedoc__notes" aria-label={t('批注')}>
             <header>
@@ -205,6 +216,32 @@ export function PageDocNode({
           </section>
         ) : null}
       </div>
+      {(['e', 's', 'se'] as const).map((edge) => (
+        <span
+          key={edge}
+          className={`art-pagedoc__grip art-pagedoc__grip--${edge}`}
+          data-testid={`art-pagedoc-grip-${edge}`}
+          aria-hidden="true"
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
+            const start = { x: e.clientX, y: e.clientY, w: box.width / zoom, h: box.height / zoom }
+            const size = (ev: PointerEvent) => ({
+              w: Math.round(Math.max(280, edge === 's' ? start.w : start.w + (ev.clientX - start.x) / zoom)),
+              h: Math.round(Math.max(240, edge === 'e' ? start.h : start.h + (ev.clientY - start.y) / zoom)),
+            })
+            const move = (ev: PointerEvent) => onResize(size(ev), false)
+            const up = (ev: PointerEvent) => {
+              window.removeEventListener('pointermove', move)
+              window.removeEventListener('pointerup', up)
+              onResize(size(ev), true)
+            }
+            window.addEventListener('pointermove', move)
+            window.addEventListener('pointerup', up)
+          }}
+        />
+      ))}
     </section>
   )
 }
@@ -230,18 +267,34 @@ export function usePageDocLayer(o: {
   focus: (note: AnnotationDto) => void
   /** Brings a page and its new document into view, once laid out. */
   reveal: (screenId: string) => void
+  /** A page's rules, for its document; pages with rules show one. */
+  rulesOf: (screenId: string) => PageRulesProps
+  artifactId: string
+  zoom: number
 }) {
   const docs = usePageDocs(o.files, o.readFile)
   const [started, setStarted] = useState<ReadonlySet<string>>(new Set())
+  const [sizes, setSizes] = useDocSizes(o.artifactId)
   const shown = new Set(
     o.screens
-      .filter((s) => docs[s.id] !== undefined || started.has(s.id) || o.notes.some((n) => n.file === s.file))
+      .filter(
+        (s) =>
+          docs[s.id] !== undefined ||
+          started.has(s.id) ||
+          !!o.rulesOf(s.id).page ||
+          o.notes.some((n) => n.file === s.file),
+      )
       .map((s) => s.id),
   )
-  const key = [...shown].sort().join(',')
+  const key = [...shown]
+    .sort()
+    .map((id) => `${id}=${sizes[id] ? `${sizes[id].w}x${sizes[id].h}` : ''}`)
+    .join(',')
   return {
-    /** Stable while the same pages show one, for the layout's memo. */
-    pageDocs: useMemoSet(key),
+    /** Shows a page's document (empty if it has none yet), as 编写页面文档 does. */
+    start: (screenId: string) => setStarted((s) => (s.has(screenId) ? s : new Set(s).add(screenId))),
+    /** Stable while the same pages show one at the same sizes, for the layout's memo. */
+    pageDocs: useMemoSizes(key),
     node: (screenId: string, title: string, file: string) => (
       <PageDocNode
         screenId={screenId}
@@ -258,6 +311,9 @@ export function usePageDocLayer(o: {
         onDelete={o.remove}
         onSendNotes={o.send}
         onFocusNote={o.focus}
+        rules={o.rulesOf(screenId)}
+        zoom={o.zoom}
+        onResize={(size, done) => setSizes(screenId, size, done)}
       />
     ),
     /** 编写页面文档, right of a page's name, while it has none showing. */
@@ -279,8 +335,40 @@ export function usePageDocLayer(o: {
   }
 }
 
-function useMemoSet(key: string) {
-  const ref = useRef<{ key: string; set: ReadonlySet<string> }>({ key: '', set: new Set() })
-  if (ref.current.key !== key) ref.current = { key, set: new Set(key ? key.split(',') : []) }
-  return ref.current.set
+/** Each page doc's size, dragged by its edges (canvas px; absent: the default), kept per artifact on this device. */
+function useDocSizes(artifactId: string) {
+  const storeKey = `gg.art.docSizes.${artifactId}`
+  const [sizes, set] = useState<Record<string, { w: number; h: number }>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(storeKey) ?? '{}') as Record<string, { w: number; h: number }>
+    } catch {
+      return {}
+    }
+  })
+  const setSize = (id: string, size: { w: number; h: number }, done: boolean) =>
+    set((m) => {
+      const next = { ...m, [id]: size }
+      if (done) localStorage.setItem(storeKey, JSON.stringify(next))
+      return next
+    })
+  return [sizes, setSize] as const
+}
+
+function useMemoSizes(key: string) {
+  const ref = useRef<{ key: string; map: ReadonlyMap<string, { w: number; h: number } | null> }>({
+    key: '',
+    map: new Map(),
+  })
+  if (ref.current.key !== key)
+    ref.current = {
+      key,
+      map: new Map(
+        (key ? key.split(',') : []).map((part) => {
+          const [id = '', size = ''] = part.split('=')
+          const [w, h] = size.split('x').map(Number)
+          return [id, size && w && h ? { w, h } : null]
+        }),
+      ),
+    }
+  return ref.current.map
 }

@@ -13,13 +13,12 @@ import { offlineHint } from './actions'
 import { type BridgeMessage, postToScreen } from './bridge'
 import { elementBox, inDocument, NO_SCROLL, type Scroll, scrolledBy } from './elements'
 import type { CanvasNode, Rect, View } from './geometry'
-import { type RulesAdding, RulesBadge, RulesPanel } from './RulesPanel'
+import { type RulesAdding, RulesBadge } from './RulesPanel'
 import {
   addRuleOps,
   anchorSpots,
   defaultLabel,
   loadRomanizer,
-  ruleFileOp,
   type SharedRef,
   sharedRefs,
   useRuleFiles,
@@ -60,6 +59,8 @@ export function useCanvasRules(o: {
   bot: BotDto | null
   /** Selects the screen and brings it into view. */
   focus: (screenId: string) => void
+  /** A page's rules are asked for (its badge, a mark, 页面规则): its 页面文档 shows them, in view. */
+  reveal: (screenId: string) => void
 }) {
   const data = useRuleFiles(o.files, o.readFile, o.versionKey)
   const [show, setShow] = useState(() => localStorage.getItem(MARKS_KEY) !== 'off')
@@ -104,13 +105,12 @@ export function useCanvasRules(o: {
     if (s && r) highlight(s.file, spotOf(s.file, r.anchor)?.ggId ?? null, r.pending)
   }
   const open = (sid: string, i?: number) => {
-    if (o.panel !== 'rules' || sid !== screenId) o.focus(sid)
     if (sid !== screenId) {
       setSelected(null)
       setAdding(null)
     }
     setScreenId(sid)
-    o.setPanel('rules')
+    o.reveal(sid)
     if (i !== undefined) selectRule(sid, i)
   }
   const openShared = (id: string | null = null) => {
@@ -122,12 +122,8 @@ export function useCanvasRules(o: {
     openShared()
   }
 
-  // Leaving the panel ends adding and the element's outline.
   // biome-ignore lint/correctness/useExhaustiveDependencies: on the panel only
   useEffect(() => {
-    if (o.panel === 'rules') return
-    setAdding(null)
-    highlight(null, null)
     if (o.panel !== 'shared') setSharedEditing(false)
   }, [o.panel])
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a version change only
@@ -160,8 +156,6 @@ export function useCanvasRules(o: {
     return () => window.removeEventListener('keydown', key, true)
   }, [picking])
 
-  const startAdding = () =>
-    screenId && setAdding({ screenId, picked: false, target: null, scriptMade: false, rect: null })
   const wholePage = () =>
     adding && setAdding({ ...adding, picked: true, target: null, scriptMade: false, rect: null })
 
@@ -279,7 +273,7 @@ export function useCanvasRules(o: {
               'art-rule-mark',
               !spot && 'art-rule-mark--page',
               r.pending && 'art-rule-mark--pending',
-              o.panel === 'rules' && screenId === n.id && selected === i && 'art-rule-mark--on',
+              screenId === n.id && selected === i && 'art-rule-mark--on',
             )}
             data-testid={`art-rule-mark-${n.id}-${i + 1}`}
             title={r.text}
@@ -325,33 +319,7 @@ export function useCanvasRules(o: {
   pagesRef.current = data.pages
   const hint = o.bot ? offlineHint(o.bot) : t('暂无可用 Bot')
   const panel =
-    o.panel === 'rules' && screen ? (
-      <RulesPanel
-        screens={o.screens}
-        screenId={screen.id}
-        onScreen={(id) => open(id)}
-        data={page}
-        gone={(r) => !!r.anchor && !!anchors[screen.file] && !spotOf(screen.file, r.anchor)}
-        canEdit={o.canEdit}
-        selected={selected}
-        onSelect={(i) => selectRule(screen.id, i)}
-        onSaveRules={(rules) =>
-          saveRef.current([ruleFileOp(screen.id, pagesRef.current[screen.id]?.title ?? null, rules)])
-        }
-        onRestoreRules={(id, rules) =>
-          saveRef.current([ruleFileOp(id, pagesRef.current[id]?.title ?? null, rules)])
-        }
-        onSaveSource={(md) => o.save([{ kind: 'file', path: `rules/${screen.id}.md`, content: md }])}
-        adding={adding?.screenId === screen.id ? adding : null}
-        onAdd={startAdding}
-        onCreate={create}
-        onCancelAdd={() => setAdding(null)}
-        onShared={(id) => openShared(id)}
-        ai={{ disabled: !o.bot, hint }}
-        onComplete={() => void o.complete(screen.id)}
-        onClose={() => o.setPanel(null)}
-      />
-    ) : o.panel === 'shared' ? (
+    o.panel === 'shared' ? (
       <SharedRulesPanel
         md={data.shared}
         refs={refs}
@@ -374,8 +342,36 @@ export function useCanvasRules(o: {
     />
   )
 
+  /** One page's rules for its 页面文档: the list as the marks number it, editing, adding and AI 补全. */
+  const pageRules = (sid: string) => ({
+    page: data.pages[sid] ?? null,
+    selected: screenId === sid ? selected : null,
+    select: (i: number) => {
+      setScreenId(sid)
+      selectRule(sid, i)
+    },
+    adding: adding?.screenId === sid ? adding : null,
+    add: () => {
+      setScreenId(sid)
+      setSelected(null)
+      setAdding({ screenId: sid, picked: false, target: null, scriptMade: false, rect: null })
+    },
+    create,
+    cancelAdd: () => setAdding(null),
+    saveMd: (md: string) => o.save([{ kind: 'file', path: `rules/${sid}.md`, content: md }]),
+    complete: () => void o.complete(sid),
+    ai: o.bot ? (offlineHint(o.bot) ?? null) : hint,
+    gone: (i: number) => {
+      const file = o.screens.find((x) => x.id === sid)?.file
+      const r = data.pages[sid]?.rules[i]
+      return !!file && !!r?.anchor && !!anchors[file] && !spotOf(file, r.anchor)
+    },
+    openShared: (id: string) => openShared(id),
+  })
+
   return {
     data,
+    pageRules,
     show,
     toggle,
     picking,

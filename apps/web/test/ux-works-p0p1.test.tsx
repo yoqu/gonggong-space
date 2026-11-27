@@ -8,7 +8,6 @@ import type {
   WorkDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -18,11 +17,8 @@ import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { useArtifactBot } from '../src/features/artifacts/actions'
 import { CanvasBotPicker, useCanvasBot } from '../src/features/artifacts/CanvasBotPicker'
 import { CanvasPageChips } from '../src/features/artifacts/ContextChips'
-import { useCanvasRules } from '../src/features/artifacts/canvasRules'
 import { ArtifactPage } from '../src/features/artifacts/host'
 import { PageRail } from '../src/features/artifacts/PageRail'
-import { RulesPanel } from '../src/features/artifacts/RulesPanel'
-import { ruleFileOp } from '../src/features/artifacts/rules'
 import { resetShares, ShareDialog, useShareAccess } from '../src/features/artifacts/share'
 import { ArtifactShell } from '../src/features/artifacts/shell/ArtifactShell'
 import { SiteStage } from '../src/features/artifacts/shell/SiteStage'
@@ -316,89 +312,6 @@ describe('U-15 & L-1: Works standalone copy, single toolbar, and empty head shar
   })
 })
 
-describe('U-16: Destructive confirmation & RulesPanel undo toast', () => {
-  it('RulesPanel deletes rule immediately and provides 撤销 toast restoring rules', async () => {
-    const onSave = vi.fn().mockResolvedValue(true)
-    render(
-      <>
-        <Toaster />
-        <RulesPanel
-          screens={[{ id: 's1', title: '首页' }]}
-          screenId="s1"
-          onScreen={() => {}}
-          data={{
-            title: null,
-            rules: [{ anchor: 'btn', label: '按钮', text: '点击登录', pending: false }],
-            md: '',
-          }}
-          gone={() => false}
-          canEdit
-          selected={null}
-          onSelect={() => {}}
-          onSaveRules={onSave}
-          onSaveSource={async () => true}
-          adding={null}
-          onAdd={() => {}}
-          onCreate={async () => true}
-          onCancelAdd={() => {}}
-          onShared={() => {}}
-          ai={{ disabled: false, hint: null }}
-          onComplete={() => {}}
-          onClose={() => {}}
-        />
-      </>,
-    )
-    fireEvent.click(screen.getByRole('button', { name: '删除' }))
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith([]))
-    const undoBtn = await screen.findByRole('button', { name: '撤销' })
-    fireEvent.click(undoBtn)
-    await waitFor(() =>
-      expect(onSave).toHaveBeenCalledWith([
-        { anchor: 'btn', label: '按钮', text: '点击登录', pending: false },
-      ]),
-    )
-  })
-
-  it('ThreadsSidebar requires confirmation before deleting own thread', async () => {
-    const onDelete = vi.fn().mockResolvedValue(undefined)
-    render(
-      <ThreadsSidebar
-        threads={[
-          {
-            id: 'th1',
-            artifactId: 'a1',
-            versionId: 'v1',
-            anchor: { kind: 'site', path: '/', point: { x: 10, y: 20 } },
-            status: 'open',
-            createdBy: 'u1',
-            createdByName: '姜维川',
-            messages: [
-              { id: 'm1', authorId: 'u1', authorName: '姜维川', text: '改颜色', at: '2026-11-26T00:00:00Z' },
-            ],
-            createdAt: '2026-11-26T00:00:00Z',
-            updatedAt: '2026-11-26T00:00:00Z',
-          } as unknown as ArtifactThreadDto,
-        ]}
-        activeId={null}
-        bots={[bot({})]}
-        bot={bot({})}
-        meId="u1"
-        readOnly={false}
-        onPickBot={() => {}}
-        onSelect={() => {}}
-        onReply={async () => true}
-        onStatus={async () => {}}
-        onDelete={onDelete}
-        onSend={async () => true}
-        onClose={() => {}}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: '删除' }))
-    expect(onDelete).not.toHaveBeenCalled()
-    expect(await screen.findByRole('alertdialog')).toBeTruthy()
-  })
-})
-
 describe('U-17: ArtifactMembers loading, error retry, and 0-candidate role disable', () => {
   it('shows error alert with retry when members load fails, and disables 权限 select when no candidates', async () => {
     mockApi({
@@ -573,67 +486,44 @@ describe('U-21: Error recovery retry in DiffPane', () => {
   })
 })
 
-describe('Codex #1: RulesPanel undo toast submits against post-delete head', () => {
-  it('uses latest head (v2) via canvasRules/RulesPanel refs when undoing a rule deletion', async () => {
-    const rule = { anchor: 'btn', label: '按钮', text: '点击登录', pending: false }
-    const calls: { head: string; ops: unknown[] }[] = []
-
-    function Harness() {
-      const [head, setHead] = useState('v1')
-      const [panel, setPanel] = useState<'rules' | null>('rules')
-      const [content, setContent] = useState(() => {
-        const op = ruleFileOp('s1', '首页', [rule])
-        return 'content' in op ? op.content : ''
-      })
-      const cr = useCanvasRules({
-        screens: [{ id: 's1', title: '首页', file: 's1.html' }],
-        files: [{ path: 'rules/s1.md', hash: head }],
-        readFile: async () => content,
-        versionKey: head,
-        canEdit: true,
-        frames: new Map(),
-        scrolls: {},
-        origin: null,
-        mode: 'preview',
-        panel,
-        setPanel: (next) => setPanel(next === 'rules' ? 'rules' : null),
-        bot: bot({}),
-        save: async (ops) => {
-          calls.push({ head, ops })
-          const fileOp = ops.find((op) => op.kind === 'file')
-          if (fileOp && 'content' in fileOp) setContent(fileOp.content)
-          setHead((cur) => (cur === 'v1' ? 'v2' : 'v3'))
-          return true
-        },
-        complete: async () => true,
-        focus: () => {},
-      })
-      return (
-        <>
-          <Toaster />
-          <button type="button" onClick={() => cr.open('s1')}>
-            open-rules
-          </button>
-          {cr.panel}
-        </>
-      )
-    }
-
-    render(<Harness />)
-    fireEvent.click(screen.getByRole('button', { name: 'open-rules' }))
-    expect(await screen.findByText('点击登录')).toBeTruthy()
-
-    // Delete on v1 -> advances head to v2
+describe('U-16: Destructive confirmation', () => {
+  it('ThreadsSidebar requires confirmation before deleting own thread', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    render(
+      <ThreadsSidebar
+        threads={[
+          {
+            id: 'th1',
+            artifactId: 'a1',
+            versionId: 'v1',
+            anchor: { kind: 'site', path: '/', point: { x: 10, y: 20 } },
+            status: 'open',
+            createdBy: 'u1',
+            createdByName: '姜维川',
+            messages: [
+              { id: 'm1', authorId: 'u1', authorName: '姜维川', text: '改颜色', at: '2026-11-26T00:00:00Z' },
+            ],
+            createdAt: '2026-11-26T00:00:00Z',
+            updatedAt: '2026-11-26T00:00:00Z',
+          } as unknown as ArtifactThreadDto,
+        ]}
+        activeId={null}
+        bots={[bot({})]}
+        bot={bot({})}
+        meId="u1"
+        readOnly={false}
+        onPickBot={() => {}}
+        onSelect={() => {}}
+        onReply={async () => true}
+        onStatus={async () => {}}
+        onDelete={onDelete}
+        onSend={async () => true}
+        onClose={() => {}}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: '删除' }))
-    await waitFor(() => expect(calls).toHaveLength(1))
-    expect(calls[0]!.head).toBe('v1')
-
-    // Click undo toast -> MUST submit against post-delete head v2 and restore rule text
-    const undoBtn = await screen.findByRole('button', { name: '撤销' })
-    fireEvent.click(undoBtn)
-    await waitFor(() => expect(calls).toHaveLength(2))
-    expect(calls[1]!.head).toBe('v2')
-    expect(JSON.stringify(calls[1]!.ops)).toContain(rule.text)
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(await screen.findByRole('alertdialog')).toBeTruthy()
   })
 })
 

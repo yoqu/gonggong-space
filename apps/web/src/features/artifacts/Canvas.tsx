@@ -434,6 +434,8 @@ export function Canvas({
   const pluginCommands = useArtifactCommands(artifactId)
   const annotations = useAnnotations(artifactId, versionKey || null)
   const [panel, setPanelNow] = useState<Panel | null>(null)
+  /** A page whose 页面文档 is to come into view (with the page), once laid out. */
+  const [revealDoc, setRevealDoc] = useState<{ id: string } | null>(null)
   const [inspector, toggleInspector, setInspector] = useStoredFlag('gg.art.inspector', true)
   const [rulers, toggleRulers] = useStoredFlag('gg.art.rulers', false)
   const [layers, setLayers] = useState<{ file: string; items: BridgeLayer[]; body?: LayersBody } | null>(null)
@@ -499,6 +501,10 @@ export function Canvas({
       setSelected([id])
       fitTo([id])
     },
+    reveal: (id) => {
+      docLayer.start(id)
+      setRevealDoc({ id })
+    },
   })
   const page = useShownPage(artifactId, manifest)
   const allNotes = useAllAnnotations(artifactId, annotations.tick)
@@ -520,11 +526,11 @@ export function Canvas({
     focus: (a) => {
       if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
     },
-    reveal: (id) => {
-      revealDoc.current = id
-    },
+    reveal: (id) => setRevealDoc({ id }),
+    rulesOf: rules.pageRules,
+    artifactId,
+    zoom: view.z,
   })
-  const revealDoc = useRef<string | null>(null)
   const { device, nodes } = useMemo(
     () =>
       layoutNodes({
@@ -592,11 +598,11 @@ export function Canvas({
   // A page doc just started: the page and it, in view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: once its node is laid out
   useEffect(() => {
-    const id = revealDoc.current
+    const id = revealDoc?.id
     if (!id || !nodes.some((n) => n.id === pageDocId(id))) return
-    revealDoc.current = null
+    setRevealDoc(null)
     fitTo([id, pageDocId(id)])
-  }, [nodes])
+  }, [nodes, revealDoc])
   // Fit whenever the layout's bounds or the plane's size change, until the member takes over the view.
   const bounds = boundsKey(nodes)
   // biome-ignore lint/correctness/useExhaustiveDependencies: on new bounds or a new plane size only
