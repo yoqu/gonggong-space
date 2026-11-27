@@ -1821,7 +1821,7 @@ describe('Round 6 市场加固与去重', () => {
     })
     fireEvent.click(within(banDialog).getByRole('button', { name: '封禁' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '审核 review-pr r4' })).toBeNull())
-    expect(revCalls.filter((c) => c.path === '/market/reviews')).toHaveLength(2)
+    await waitFor(() => expect(revCalls.filter((c) => c.path === '/market/reviews')).toHaveLength(2))
   })
 
   it('P1-2: fetches GET /install-requests?view=todo once on /market?tab=requests and reloads once after decision', async () => {
