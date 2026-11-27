@@ -117,7 +117,13 @@ export function AudienceFields({
         highlighted={highlighted}
         focusTag={highlighted ? who : undefined}
         badge={highlighted ? <Tag tone="blue">{t('本次请求适用')}</Tag> : undefined}
-        hint={<div>{canEdit ? hint : LEVEL_HINT[value[who]]}</div>}
+        hint={
+          <>
+            <div>{canEdit ? hint : LEVEL_HINT[value[who]]}</div>
+            {/* The card's audience was fixed at trigger time; closing the row later does not unmake that run. */}
+            {highlighted && value[who] === 'deny' ? <div>{t('本次请求发起时仍可触发')}</div> : null}
+          </>
+        }
       >
         {canEdit ? (
           <Select<AudienceLevel>

@@ -231,6 +231,8 @@ export const Question = z.object({
       }),
     )
     .optional(),
+  /** Only the listed options count: no 「其他，我来补充」 and no attachments (the daemon's own confirmations). */
+  noOther: z.boolean().optional(),
 })
 export type Question = z.infer<typeof Question>
 export const MAX_QUESTIONS = 4

@@ -130,6 +130,42 @@ describe('QuestionBlock', () => {
     expect(button('附图片或附件…')).toBeTruthy()
   })
 
+  it('a confirmation without 「其他」 offers only its options, no text or attachments, and names what a timeout picks', async () => {
+    const confirm = set({
+      questions: [
+        {
+          id: 'q1',
+          type: 'single',
+          title: '现在就改吗？',
+          options: ['现在就改', '等运行结束再改'],
+          recommended: 1,
+          noOther: true,
+        },
+      ],
+    })
+    const calls = mockApi({ 'POST /runs/r1/questions/qs1/answers': set({ status: 'answered' }) })
+    const { rerender } = render(<QuestionBlock run={run({ questions: [confirm] })} />)
+    expect(screen.queryByPlaceholderText('其他，我来补充')).toBeNull()
+    expect(screen.queryByRole('button', { name: '附图片或附件…' })).toBeNull()
+    expect(screen.getByText('27:02 后超时，自动选「等运行结束再改」')).toBeTruthy()
+    // It is the system asking, not the Bot's question tool.
+    expect(screen.getByText('需要确认')).toBeTruthy()
+    expect(screen.queryByText(/向群成员提问/)).toBeNull()
+    fireEvent.click(button('现在就改'))
+    fireEvent.click(button('确认'))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]?.body).toEqual({
+      answers: [{ questionId: 'q1', choices: [0], text: null }],
+      attachmentIds: [],
+    })
+
+    rerender(<QuestionBlock run={run({ questions: [{ ...confirm, status: 'expired' }] })} />)
+    expect(screen.getByText('无人回答，已自动选「等运行结束再改」 · 10:48')).toBeTruthy()
+    rerender(<QuestionBlock run={run({ questions: [{ ...confirm, status: 'answered' }] })} />)
+    expect(screen.getByText('已确认')).toBeTruthy()
+    expect(screen.getByText('需要确认')).toBeTruthy()
+  })
+
   it('lets the trigger user answer every type and submit once all are answered', async () => {
     const calls = mockApi({ 'POST /runs/r1/questions/qs1/answers': set({ status: 'answered' }) })
     render(<QuestionBlock run={run()} />)

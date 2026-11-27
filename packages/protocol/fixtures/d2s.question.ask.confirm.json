@@ -1,0 +1,15 @@
+{
+  "t": "question.ask",
+  "runId": "r1",
+  "requestId": "q1",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "single",
+      "title": "Bot A 也在工作区 my-app 运行，可能正在修改文件；本轮要修改 README.md。改到同一文件会互相覆盖，现在就改吗？",
+      "options": ["现在就改", "等运行结束再改"],
+      "recommended": 1,
+      "noOther": true
+    }
+  ]
+}

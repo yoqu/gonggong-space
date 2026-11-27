@@ -261,6 +261,59 @@ describe('/stop command', () => {
     expect((await w.run(first!.id)).interrupt).toBeNull()
   })
 
+  it('a stopping live run says so on its card at once, keeps saying it over agent steps, then shows the forced end', async () => {
+    stopGrace.ms = 80
+    const w = await world()
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(w.li.id, (e) => seen.push(e))
+    await w.say(w.as.li, '@小王的 Claude 改退款接口')
+    const [first] = await w.runsOf(w.claude.id)
+    await stopRuns(t.ctx, { groupId: w.g.id, runId: first!.id }, { id: w.zhao.id, name: '赵敏' })
+    expect(await w.run(first!.id)).toMatchObject({
+      status: 'running',
+      step: '正在停止，等待电脑响应…',
+      stepI18n: { key: '正在停止，等待电脑响应…' },
+    })
+    expect(
+      seen.some(
+        (e) => e.t === 'run.updated' && e.run.id === first!.id && e.run.step === '正在停止，等待电脑响应…',
+      ),
+    ).toBe(true)
+
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'run.event',
+      runId: first!.id,
+      event: {
+        kind: 'tool',
+        toolCallId: 'c1',
+        title: 'Write a.txt',
+        toolKind: 'edit',
+        status: 'in_progress',
+      },
+    } as never)
+    await new Promise((r) => setTimeout(r, 30))
+    expect((await w.run(first!.id)).step).toBe('正在停止，等待电脑响应…')
+
+    const stopped = await until(
+      () => w.run(first!.id),
+      (r) => r.status === 'interrupted',
+    )
+    expect(stopped.step).toBe('赵敏 停止了运行 · Bot 所在电脑 1 秒内未响应，已强制结束')
+  })
+
+  it('a stopping run that its daemon ends in time shows who stopped it', async () => {
+    const w = await world()
+    await w.say(w.as.li, '@小王的 Claude 改退款接口')
+    const [first] = await w.runsOf(w.claude.id)
+    await stopRuns(t.ctx, { groupId: w.g.id, runId: first!.id }, { id: w.zhao.id, name: '赵敏' })
+    w.done(first!.id, { filesChanged: 0, git: null })
+    const stopped = await until(
+      () => w.run(first!.id),
+      (r) => r.status === 'interrupted',
+    )
+    expect(stopped).toMatchObject({ step: '赵敏 停止了运行', stepI18n: { key: '{user} 停止了运行' } })
+  })
+
   it('a late run.done of a force-stopped run still offers keep/discard for the files it left', async () => {
     stopGrace.ms = 20
     const w = await world()

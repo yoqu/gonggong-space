@@ -28,8 +28,10 @@ import { messageSnippet } from './snippet'
 
 const REFRESH_MS = 300
 const NEAR_END_PX = 80
+/** A group's search while one of its results is open: back from the thread finds it again. */
+const keptQuery = new Map<string, string>()
 
-function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
+function Row({ item, live, onOpen }: { item: GroupThreadItemDto; live: boolean; onOpen: () => void }) {
   const { root, state } = item
   const people = useThreadPeople(root.groupId, root.thread?.participants)
   const mentioned = state.mentioned
@@ -40,7 +42,10 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
       data-testid="group-thread"
       data-unread={state.unread > 0 || undefined}
       style={{ '--thread-hue': paletteColor(root.id) } as CSSProperties}
-      onClick={() => openThread(root.id, true)}
+      onClick={() => {
+        onOpen()
+        openThread(root.id, true)
+      }}
     >
       <span className="group-threads__top">
         {mentioned ? <span className="group-threads__at">{t('[有人@我] ')}</span> : null}
@@ -78,7 +83,18 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
   const loadingMore = useRef(false)
   const shown = useRef(new Set<string>())
   const liveRoots = useThreadLive((s) => s.roots)
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(() => keptQuery.get(group.id) ?? '')
+  const qRef = useRef(q)
+  qRef.current = q
+  const keep = useRef(false)
+  useEffect(() => {
+    keptQuery.delete(group.id)
+    return () => {
+      if (keep.current) keptQuery.set(group.id, qRef.current)
+    }
+  }, [group.id])
+  // Esc clears a search before it closes the panel.
+  useEscape(() => setQ(''), q !== '')
   const query = q.trim()
   const url = `/groups/${group.id}/threads${query ? `?q=${encodeURIComponent(query)}` : ''}`
   const urlRef = useRef(url)
@@ -231,7 +247,14 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
           }}
         >
           {shownRows.map((x) => (
-            <Row key={x.root.id} item={x} live={isLive(x)} />
+            <Row
+              key={x.root.id}
+              item={x}
+              live={isLive(x)}
+              onOpen={() => {
+                keep.current = true
+              }}
+            />
           ))}
           {moreFailed ? (
             <div className="group-threads__more-err">

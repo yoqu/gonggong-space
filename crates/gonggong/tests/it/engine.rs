@@ -838,6 +838,7 @@ async fn the_injected_ask_tool_waits_for_the_answer_without_an_approval() {
             options: vec!["Python".into(), "Go".into()],
             recommended: Some(0),
             option_meta: vec![],
+            no_other: false,
         }]
     );
     // Answers for other runs or requests are ignored.

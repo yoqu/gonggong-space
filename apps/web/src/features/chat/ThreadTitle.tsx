@@ -26,12 +26,15 @@ export function ThreadTitle({ root, readOnly }: { root: MessageDto | undefined; 
     if (settled.current || draft === null) return
     settled.current = true
     const title = draft.trim()
-    if (title !== name)
-      await attempt(async () => {
+    const saved =
+      title === name ||
+      (await attempt(async () => {
         const renamed = await api.put<MessageDto>(`/messages/${root.id}/thread/title`, { title })
         applyLocal({ t: 'message.edited', message: renamed })
-      })
-    setDraft(null)
+      }))
+    // A failed save keeps the typed name in the field to retry (Enter or leaving it again).
+    if (saved) setDraft(null)
+    else settled.current = false
   }
   return draft === null ? (
     <button

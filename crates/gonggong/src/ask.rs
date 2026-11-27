@@ -852,7 +852,8 @@ pub fn parse(args: &Value) -> Result<Vec<Question>, String> {
                 let mut metas = q.option_meta.into_iter();
                 (1..=options.len()).map(|o| option_meta(n, o, metas.next())).collect::<Result<_, _>>()?
             };
-            Ok(Question { id: format!("q{n}"), kind: q.kind, title: q.title, options, recommended, option_meta })
+            let (id, kind, title, no_other) = (format!("q{n}"), q.kind, q.title, false);
+            Ok(Question { id, kind, title, options, recommended, option_meta, no_other })
         })
         .collect()
 }
@@ -937,14 +938,9 @@ mod tests {
     use super::*;
 
     fn q(kind: QuestionType, options: &[&str], recommended: Option<u32>) -> Question {
-        Question {
-            id: "q1".into(),
-            kind,
-            title: "用哪种语言？".into(),
-            options: options.iter().map(|s| s.to_string()).collect(),
-            recommended,
-            option_meta: vec![],
-        }
+        let (id, title, options) =
+            ("q1".into(), "用哪种语言？".into(), options.iter().map(|s| s.to_string()).collect());
+        Question { id, kind, title, options, recommended, option_meta: vec![], no_other: false }
     }
 
     #[test]

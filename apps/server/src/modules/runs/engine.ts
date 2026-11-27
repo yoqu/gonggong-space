@@ -218,7 +218,7 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   const at = ctx.now()
   await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: sealEvent(event), createdAt: at })
   // Updates of one tool call repeat its title: only a changed step is pushed.
-  const setChanged = (set: Partial<RunRow>, changed: SQL) =>
+  const setChanged = (set: Partial<RunRow>, changed: SQL | undefined) =>
     ctx.db
       .update(runs)
       .set(set)
@@ -227,7 +227,8 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   const step = event.kind === 'tool' ? event.title : event.kind === 'status' ? event.step : undefined
   const updated =
     step !== undefined
-      ? setChanged({ step }, sql`${runs.step} is distinct from ${step}`)
+      ? // A stopping run keeps its stop step while the agent winds down.
+        setChanged({ step }, and(sql`${runs.step} is distinct from ${step}`, isNull(runs.stoppedBy)))
       : event.kind === 'compaction'
         ? event.status === 'running'
           ? setChanged(COMPACTING, sql`${runs.step} is distinct from ${COMPACTING.step}`)

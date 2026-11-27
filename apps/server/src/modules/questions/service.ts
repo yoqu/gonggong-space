@@ -75,7 +75,7 @@ export async function onQuestionAsk(ctx: Ctx, machineId: string, ask: QuestionAs
     await notify(ctx, userId, 'question', payload)
 }
 
-/** Answers must match the card: every question once, choices in range, one choice for single / yes-no. */
+/** Answers must match the card: every question once, choices in range, one choice for single / yes-no, no text where 「其他」 is off. */
 function validAnswers(questions: Question[], answers: Answer[]) {
   if (answers.length !== questions.length) return false
   return questions.every((q) => {
@@ -85,6 +85,7 @@ function validAnswers(questions: Question[], answers: Answer[]) {
     const text = a.text?.trim() ?? ''
     const inRange = a.choices.every((c) => c >= 0 && c < q.options.length)
     const distinct = new Set(a.choices).size === a.choices.length
+    if (q.noOther && text) return false
     switch (q.type) {
       case 'text':
         return a.choices.length === 0 && text !== ''
@@ -115,6 +116,8 @@ export async function answerQuestions(
     return fail('forbidden', '仅触发人、Bot 主人或被 @ 的成员可以回答')
   if (row.q.status !== 'pending') return fail('conflict', '该提问已处理')
   if (!validAnswers(row.q.questions as Question[], answers)) return fail('invalid', '回答与问题不匹配')
+  if (attachmentIds.length && (row.q.questions as Question[]).some((q) => q.noOther))
+    return fail('invalid', '这个确认只能选给出的选项，不收附件')
   // The card id is the attachments' "message": the daemon writes them to .gonggong/attachments/<card id>/.
   const { settled, files } = await ctx.db.transaction(async (tx) => {
     const files = await claimAttachments(tx, attachmentIds, {

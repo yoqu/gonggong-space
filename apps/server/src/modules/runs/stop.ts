@@ -86,6 +86,9 @@ export type StopTarget =
   | { groupId: string; botIds?: string[]; threadRootId?: string }
   | { groupId: string; runId: string; chain?: boolean; edited?: boolean }
 
+/** A live run between run.cancel and the daemon's run.done (or the forced end). */
+const STOPPING_STEP = runStep('正在停止，等待电脑响应…')
+
 /** A run stopped because its author edited the triggering message (plan F8); a fresh run follows. */
 const EDITED_STEP = '消息已编辑，已重新运行'
 
@@ -150,7 +153,7 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
       .update(runs)
       .set(
         live
-          ? { stoppedBy: by.id, ...(edited && step) }
+          ? { stoppedBy: by.id, ...(edited ? step : STOPPING_STEP) }
           : { stoppedBy: by.id, status: 'interrupted', ...step, endedAt: ctx.now() },
       )
       .where(and(eq(runs.id, run.id), inArray(runs.status, UNFINISHED)))

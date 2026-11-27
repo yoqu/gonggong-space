@@ -181,6 +181,79 @@ describe('ThreadInbox & GroupThreads UX', () => {
     expect(getSpy).toHaveBeenLastCalledWith('/groups/g1/threads')
   })
 
+  it('keeps the list on screen while a search loads, and Esc clears the search before it closes the panel', async () => {
+    const item = (id: string, body: string) => ({
+      root: msg(id, body, 1),
+      state: { rootId: id, groupId: 'g1', following: false, lastReadSeq: 0, unread: 0, mentioned: false },
+      live: false,
+    })
+    let answer: (page: GroupThreadsDto) => void = () => {}
+    vi.spyOn(api, 'get').mockImplementation(async (path: string) =>
+      path.includes('q=')
+        ? new Promise<GroupThreadsDto>((r) => {
+            answer = r
+          })
+        : { threads: [item('m1', '架构讨论'), item('m2', '发布计划')], next: null },
+    )
+    const onClose = vi.fn()
+    const { container } = render(
+      <MemoryRouter>
+        <GroupThreads group={GROUP} onClose={onClose} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByText('架构讨论')).toBeTruthy())
+    const box = screen.getByRole('searchbox', { name: '搜索话题' }) as HTMLInputElement
+    fireEvent.change(box, { target: { value: '发布' } })
+    expect(screen.getByText('架构讨论')).toBeTruthy()
+    expect(screen.queryByLabelText('加载中')).toBeNull()
+    expect(container.querySelector('.group-threads__list')?.getAttribute('aria-busy')).toBe('true')
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(`/groups/g1/threads?q=${encodeURIComponent('发布')}`),
+    )
+    answer({ threads: [item('m2', '发布计划')], next: null })
+    await waitFor(() => expect(screen.queryByText('架构讨论')).toBeNull())
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(box.value).toBe('')
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the search when coming back from a thread opened in its results, not after closing', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async () => ({
+      threads: [
+        {
+          root: msg('m2', '发布计划', 1),
+          state: {
+            rootId: 'm2',
+            groupId: 'g1',
+            following: false,
+            lastReadSeq: 0,
+            unread: 0,
+            mentioned: false,
+          },
+          live: false,
+        },
+      ],
+      next: null,
+    }))
+    const panel = () => (
+      <MemoryRouter>
+        <GroupThreads group={GROUP} onClose={() => {}} />
+      </MemoryRouter>
+    )
+    const first = render(panel())
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索话题' }), { target: { value: '发布' } })
+    fireEvent.click(await screen.findByTestId('group-thread'))
+    first.unmount()
+    const back = render(panel())
+    expect((screen.getByRole('searchbox', { name: '搜索话题' }) as HTMLInputElement).value).toBe('发布')
+    back.unmount()
+    render(panel())
+    expect((screen.getByRole('searchbox', { name: '搜索话题' }) as HTMLInputElement).value).toBe('')
+  })
+
   it('says so when no thread matches', async () => {
     vi.spyOn(api, 'get').mockImplementation(async (path: string) =>
       path.includes('q=')

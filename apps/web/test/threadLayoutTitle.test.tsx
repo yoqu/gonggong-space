@@ -7,7 +7,7 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { threadTitle } from '../src/features/chat/snippet'
 import { ThreadView } from '../src/features/chat/ThreadView'
-import { mockApi } from './mockApi'
+import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
   id: 'u1',
@@ -144,6 +144,22 @@ describe('thread title in the thread header', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(await screen.findByRole('button', { name: '话题名称：冻结主干安排，点击修改' })).toBeTruthy()
     expect(calls.find((c) => c.method === 'PUT')).toMatchObject({ body: { title: '冻结主干安排' } })
+  })
+
+  it('keeps the typed name in the field when saving fails, so it can be retried', async () => {
+    const calls = mockApi({
+      'GET /messages/m1/thread?limit=50': threadDto(),
+      'PUT /messages/m1/thread/title': () => apiError(500, 'internal', '服务器开小差了'),
+    })
+    view()
+    fireEvent.click(await screen.findByRole('button', { name: /^话题名称/ }))
+    const input = screen.getByRole('textbox', { name: '话题名称' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '冻结主干安排' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    await new Promise((r) => setTimeout(r, 0))
+    const kept = screen.getByRole('textbox', { name: '话题名称' }) as HTMLInputElement
+    expect(kept.value).toBe('冻结主干安排')
   })
 
   it('cancels with Esc without closing the thread', async () => {

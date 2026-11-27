@@ -41,6 +41,7 @@ pub(super) fn dir_question(dir: &Path, others: &[Holder]) -> Question {
         options: vec![t!("现在就开始").into(), t!("等运行结束再开始").into()],
         recommended: Some(1),
         option_meta: vec![],
+        no_other: true,
     }
 }
 
@@ -59,6 +60,7 @@ fn write_question(dir: &Path, others: &[String], target: &str) -> Question {
         options: vec![t!("现在就改").into(), t!("等运行结束再改").into()],
         recommended: Some(1),
         option_meta: vec![],
+        no_other: true,
     }
 }
 
@@ -116,6 +118,7 @@ mod tests {
         assert!(!q.title.contains("/Users/alice"), "leaked owner path: {}", q.title);
         assert!(q.title.contains("my-app"), "missing folder name: {}", q.title);
         assert_eq!(q.options, ["现在就改", "等运行结束再改"]);
+        assert!(q.no_other, "a write confirmation takes no 「其他」 text");
     }
 
     #[test]
@@ -126,5 +129,6 @@ mod tests {
         assert!(!q.title.contains("/Users/alice"), "leaked owner path: {}", q.title);
         assert!(q.title.contains("my-app"), "missing folder name: {}", q.title);
         assert_eq!(q.options, ["现在就开始", "等运行结束再开始"]);
+        assert!(q.no_other, "a directory confirmation takes no 「其他」 text");
     }
 }

@@ -269,6 +269,40 @@ describe('questions', () => {
     ])
   })
 
+  it('a confirmation without 「其他」 takes one listed option only, never the free text it would drop', async () => {
+    const w = await world()
+    const runId = await w.start()
+    const confirm = {
+      id: 'q1',
+      type: 'single' as const,
+      title: '现在就改吗？',
+      options: ['现在就改', '等运行结束再改'],
+      recommended: 1,
+      noOther: true,
+    }
+    const q = await w.ask(runId, 'r/c1', [confirm])
+    expect(q.questions).toEqual([confirm])
+    const textOnly = [{ questionId: 'q1', choices: [], text: '先等等' }]
+    expect((await w.answer(w.triggers, q, textOnly)).status).toBe(400)
+    const withText = [{ questionId: 'q1', choices: [1], text: '先等等' }]
+    expect((await w.answer(w.triggers, q, withText)).status).toBe(400)
+    const choice = [{ questionId: 'q1', choices: [1], text: null }]
+    const [file] = await t.db
+      .insert(attachments)
+      .values({
+        uploaderId: w.trigger.id,
+        groupId: w.group.id,
+        name: 'a.png',
+        size: 1,
+        mime: 'image/png',
+        storageKey: 'x',
+      })
+      .returning()
+    expect((await w.answer(w.triggers, q, choice, [file!.id])).status).toBe(400)
+    const ok = await w.answer(w.triggers, q, [{ questionId: 'q1', choices: [1], text: null }])
+    expect(ok.status).toBe(200)
+  })
+
   it('lets the group members a question @s answer too and notifies them; others still may not', async () => {
     const w = await world()
     await t.seed.user({ name: '韩梅梅' })

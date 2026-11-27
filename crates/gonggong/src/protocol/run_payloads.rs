@@ -171,6 +171,9 @@ pub struct Question {
     /// Aligned with `options` by index; empty = plain options (left off the wire).
     #[serde(rename = "optionMeta", default, skip_serializing_if = "Vec::is_empty")]
     pub option_meta: Vec<OptionMeta>,
+    /// Only the listed options count: no 「其他，我来补充」 (the daemon's own confirmations); left off the wire when false.
+    #[serde(rename = "noOther", default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_other: bool,
 }
 
 /// A design-enhanced option: a short description, colour swatches (`#rrggbb`), an image (workspace-relative path).

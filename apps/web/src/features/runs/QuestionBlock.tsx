@@ -40,6 +40,14 @@ const answered = (q: Question, d: Draft) => {
   }
 }
 
+/** A card of the daemon's own confirmation: only its listed options count, a timeout picks the recommended one. */
+const fixedPick = (q: QuestionSetDto) => {
+  const [only] = q.questions
+  return q.questions.length === 1 && only?.noOther && only.recommended !== null
+    ? only.options[only.recommended]
+    : undefined
+}
+
 function outcome(q: QuestionSetDto, run: RunDto) {
   switch (q.status) {
     case 'answered':
@@ -47,8 +55,12 @@ function outcome(q: QuestionSetDto, run: RunDto) {
         name: q.answeredByName ?? '',
         at: q.answeredAt ? hm(q.answeredAt) : '',
       })
-    case 'expired':
-      return t('无人回答，Agent 已按推荐项继续 · {at}', { at: hm(q.expiresAt) })
+    case 'expired': {
+      const option = fixedPick(q)
+      return option
+        ? t('无人回答，已自动选「{option}」 · {at}', { option, at: hm(q.expiresAt) })
+        : t('无人回答，Agent 已按推荐项继续 · {at}', { at: hm(q.expiresAt) })
+    }
     case 'void':
       if (LIVE.includes(run.status)) return t('提问已失效，Agent 不再等待回答')
       return run.status === 'interrupted' ? t('运行已停止，提问已失效') : t('运行已结束，提问已失效')
@@ -148,6 +160,11 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
   const imageUrl = (path: string) =>
     `/api/groups/${run.groupId}/bots/${run.botId}/files/raw?path=${encodeURIComponent(path)}`
   const anyRich = set.questions.some(rich)
+  const timeoutPick = fixedPick(set)
+  const takesFiles = set.questions.some((question) => !question.noOther)
+  // The daemon's own confirmation is the system asking, not the Bot's question tool.
+  const confirm = timeoutPick !== undefined
+  const title = confirm ? t('需要确认') : t('向群成员提问 · {n} 个问题', { n: set.questions.length })
 
   const owner = bot?.ownerName ?? ''
   const who =
@@ -162,14 +179,16 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
     <div className="question__done">
       <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
         {set.status === 'answered'
-          ? t('已回答')
+          ? confirm
+            ? t('已确认')
+            : t('已回答')
           : set.status === 'expired'
             ? t('已超时')
             : t('已失效#status')}
       </Tag>
       <span>{outcome(set, run)}</span>
       <button type="button" className="question__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? t('收起') : t('查看提问')}
+        {open ? t('收起') : confirm ? t('查看详情') : t('查看提问')}
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={10} />
       </button>
     </div>
@@ -181,7 +200,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
       <div className="question question--brief">
         <div className="question__title">
           <Icon name="bubble-question" size={14} />
-          <span>{t('向群成员提问 · {n} 个问题', { n: set.questions.length })}</span>
+          <span>{title}</span>
         </div>
         {set.status === 'answered' ? (
           <ul className="question__answers">
@@ -204,7 +223,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
       <div className="question__head">
         <div className="question__title">
           <Icon name="bubble-question" size={14} />
-          <span>{t('向群成员提问 · {n} 个问题', { n: set.questions.length })}</span>
+          <span>{title}</span>
         </div>
         <div className="question__meta">
           <span>{who}</span>
@@ -213,8 +232,16 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
           ) : null}
           {pending && anyRich ? <span>{t('其他人的倾向仅供参考，不算投票')}</span> : null}
           {pending ? (
-            <span className="question__timeout" title={t('超时后 Agent 按推荐项继续，并在最终回复列出假设')}>
-              {t('{time} 后超时，按推荐项继续', { time: countdown(Date.parse(set.expiresAt) - now) })}
+            <span
+              className="question__timeout"
+              title={timeoutPick ? undefined : t('超时后 Agent 按推荐项继续，并在最终回复列出假设')}
+            >
+              {timeoutPick
+                ? t('{time} 后超时，自动选「{option}」', {
+                    time: countdown(Date.parse(set.expiresAt) - now),
+                    option: timeoutPick,
+                  })
+                : t('{time} 后超时，按推荐项继续', { time: countdown(Date.parse(set.expiresAt) - now) })}
             </span>
           ) : null}
         </div>
@@ -330,7 +357,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
                 onChange={(e) => edit(question, { choices: [], text: e.target.value })}
               />
             ) : null}
-            {question.type === 'single' || question.type === 'multi' ? (
+            {(question.type === 'single' || question.type === 'multi') && !question.noOther ? (
               <Textarea
                 rows={1}
                 className="question__other"
@@ -352,7 +379,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
           ))}
         </div>
       ) : null}
-      {pending && canAnswer ? <AttachmentChips uploads={uploads} /> : null}
+      {pending && canAnswer && takesFiles ? <AttachmentChips uploads={uploads} /> : null}
       {pending && canAnswer ? (
         <div className="question__actions">
           <input
@@ -365,9 +392,16 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
               e.target.value = ''
             }}
           />
-          <Button size="small" icon="paperclip" disabled={locked} onClick={() => fileInput.current?.click()}>
-            {t('附图片或附件…')}
-          </Button>
+          {takesFiles ? (
+            <Button
+              size="small"
+              icon="paperclip"
+              disabled={locked}
+              onClick={() => fileInput.current?.click()}
+            >
+              {t('附图片或附件…')}
+            </Button>
+          ) : null}
           <Button
             variant="primary"
             size="small"
@@ -377,7 +411,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
             loading={busy}
             onClick={() => void submit()}
           >
-            {t('提交回答')}
+            {confirm ? t('确认') : t('提交回答')}
           </Button>
         </div>
       ) : !pending ? (
