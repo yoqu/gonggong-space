@@ -142,7 +142,7 @@ const select = (o: Record<string, unknown> = {}) =>
     link: null,
     ...o,
   })
-const popover = () => screen.getByRole('dialog', { name: '编辑元素' })
+const popover = () => screen.getByRole('region', { name: '模块操作' })
 const action = (name: RegExp) => within(popover()).getByRole('button', { name })
 
 class NoopSocket {
@@ -165,53 +165,24 @@ afterEach(() => {
 })
 
 describe('direct edit (E)', () => {
-  it('hides the popover while its element is panned out of view, and brings it back (T07)', async () => {
-    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
+  it('puts the element’s actions in the 属性面板, by tab, not over the canvas', async () => {
     mockApi(routes())
     await renderTab()
     key('e')
     select()
-    expect(popover()).toBeTruthy()
-    for (let i = 0; i < 4; i++) key('ArrowLeft', { shiftKey: true })
     expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull()
-    for (let i = 0; i < 4; i++) key('ArrowRight', { shiftKey: true })
+    const inspector = screen.getByTestId('art-inspector')
+    expect(inspector.contains(popover())).toBe(true)
+    const names = () =>
+      within(popover())
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    expect(names()).toEqual(['编辑文字', '用 AI 修改', '删除'])
+    fireEvent.click(within(inspector).getByRole('tab', { name: '交互' }))
+    expect(names()).toEqual(['构想新屏', '添加规则'])
+    // Panning the canvas leaves them where they are.
+    for (let i = 0; i < 4; i++) key('ArrowLeft', { shiftKey: true })
     expect(popover()).toBeTruthy()
-  })
-
-  it('keeps the popover inside the free canvas at every step of a pan, or hides it (T07)', async () => {
-    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
-    mockApi(routes())
-    await renderTab()
-    key('e')
-    select()
-    const inside = () => {
-      const pop = screen.queryByRole('dialog', { name: '编辑元素' })
-      if (!pop) return 'hidden'
-      const left = Number.parseFloat(pop.style.left)
-      const top = Number.parseFloat(pop.style.top)
-      // Clear of the tools (64px) at the right, under the selection toolbar (56px), and above the bottom edge.
-      expect(left).toBeGreaterThanOrEqual(12)
-      expect(left + 272).toBeLessThanOrEqual(900 - 64)
-      expect(top).toBeGreaterThanOrEqual(56)
-      expect(top).toBeLessThanOrEqual(700 - 240)
-      return 'shown'
-    }
-    const seen = new Set<string>()
-    for (const [dir, n] of [
-      ['ArrowLeft', 8],
-      ['ArrowRight', 16],
-      ['ArrowLeft', 8],
-      ['ArrowUp', 8],
-      ['ArrowDown', 16],
-    ] as const)
-      for (let i = 0; i < n; i++) {
-        key(dir, { shiftKey: true })
-        seen.add(inside())
-      }
-    // The walk took it both off screen and back.
-    expect([...seen].sort()).toEqual(['hidden', 'shown'])
   })
 
   it('edits text in the screen itself: 编辑文字 asks the screen, what it posts back is one text op', async () => {
@@ -240,7 +211,7 @@ describe('direct edit (E)', () => {
         },
       ]),
     )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('region', { name: '模块操作' })).toBeNull())
   })
 
   it('an element with children has its texts picked in the screen; unchanged or cancelled text saves nothing', async () => {
@@ -290,7 +261,6 @@ describe('direct edit (E)', () => {
     await renderTab()
     key('e')
     select({ tag: 'img', text: '', src: '../assets/cover.png' })
-    expect(screen.getByRole('dialog', { name: '编辑元素' }).textContent).toContain('编辑图片')
     expect(within(popover()).queryByRole('button', { name: /编辑文字/ })).toBeNull()
     fireEvent.click(action(/输入图片地址/))
     const url = within(popover()).getByRole('textbox', { name: '图片地址' }) as HTMLInputElement
@@ -318,7 +288,7 @@ describe('direct edit (E)', () => {
         },
       ]),
     )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull())
+    await waitFor(() => expect(within(popover()).queryByRole('textbox', { name: '图片地址' })).toBeNull())
 
     select({ tag: 'img', text: '', src: '../assets/cover.png' })
     fireEvent.change(screen.getByTestId('art-pop-image'), {
@@ -337,7 +307,7 @@ describe('direct edit (E)', () => {
     await renderTab()
     key('e')
     select({ ggId: null })
-    for (const name of [/编辑文字/, /用 AI 修改/, /属性/, /删除/])
+    for (const name of [/编辑文字/, /用 AI 修改/, /删除/])
       expect(action(name).hasAttribute('disabled')).toBe(true)
   })
 
@@ -380,35 +350,26 @@ describe('direct edit (E)', () => {
     expect(useToasts.getState().items.map((x) => x.message)).toContain('已交给 @设计助手')
   })
 
-  it('connects the element to a screen picked by hand: link ops, no AI', async () => {
+  it('connects the element to a screen picked by hand under 交互: a link op, no AI', async () => {
     const calls = mockApi(routes())
     await renderTab()
     key('e')
     select()
-    fireEvent.click(action(/^连到屏幕/))
-    fireEvent.click(within(popover()).getByRole('button', { name: '连到屏幕' }))
+    fireEvent.click(screen.getByRole('tab', { name: '交互' }))
+    fireEvent.click(screen.getByRole('button', { name: '点击跳转到' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '书籍详情' }))
-    fireEvent.click(within(popover()).getByRole('button', { name: '应用连接' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
         {
           baseVersionId: 'v2',
           ops: [
             { kind: 'attr', file: 'screens/home.html', ggId: '120', name: 'data-gg-link', value: 'detail' },
-            {
-              kind: 'attr',
-              file: 'screens/home.html',
-              ggId: '120',
-              name: 'data-gg-transition',
-              value: 'push',
-            },
           ],
         },
       ]),
     )
     expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toEqual([])
-    select({ link: 'detail' })
-    expect(action(/编辑连接/).hasAttribute('disabled')).toBe(false)
   })
 
   it('asks for a new screen linked from the element, with the bot picked among several', async () => {
@@ -417,6 +378,7 @@ describe('direct edit (E)', () => {
     await renderTab()
     key('e')
     select()
+    fireEvent.click(screen.getByRole('tab', { name: '交互' }))
     fireEvent.click(action(/构想新屏/))
     fireEvent.change(within(popover()).getByRole('textbox', { name: '新屏描述' }), {
       target: { value: '书评列表' },
@@ -463,7 +425,6 @@ describe('element panel', () => {
     await renderTab()
     key('e')
     select(o)
-    fireEvent.click(action(/属性/))
     return screen.getByTestId('art-element-panel')
   }
 
@@ -583,7 +544,6 @@ describe('element panel', () => {
     const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
     key('e')
     select({ inlineStyle: 'padding: 8px' })
-    fireEvent.click(action(/属性/))
     const previews = () =>
       post.mock.calls
         .map(([m]) => m as { type: string; ggId: string; props: unknown })

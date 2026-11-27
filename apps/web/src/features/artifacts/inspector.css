@@ -373,3 +373,14 @@
   align-self: flex-start;
   margin-top: var(--space-8);
 }
+
+/* The selected element's actions (编辑文字, 用 AI 修改…) at the top of 外观 / 交互. */
+.art-el__actions {
+  margin: 0 calc(-1 * var(--space-8));
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--separator);
+}
+.art-el__actions .art-pop__actions,
+.art-el__actions .art-pop__form {
+  padding: 0;
+}

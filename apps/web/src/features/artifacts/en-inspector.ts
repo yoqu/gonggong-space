@@ -48,4 +48,5 @@ export default {
   斜体: 'Italic',
   下划线: 'Underline',
   删除线: 'Strike-through',
+  模块操作: 'Element actions',
 }

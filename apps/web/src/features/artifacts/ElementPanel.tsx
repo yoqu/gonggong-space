@@ -94,6 +94,7 @@ export function ElementPanel({
   onSave,
   onPreview,
   onHotspot,
+  actions,
   onClose,
 }: {
   /** 外观 or 交互 (the inspector's tabs); one draft for both, saved together. */
@@ -108,6 +109,8 @@ export function ElementPanel({
   onPreview?: (props: Partial<Record<StyleProp, string>> | null) => void
   /** 交互 › 热区: start drawing one on the element's screen. */
   onHotspot?: () => void
+  /** The tab's own actions (编辑文字, 用 AI 修改…), above its fields. */
+  actions?: ReactNode
   onClose: () => void
 }) {
   const inline = useMemo(() => parseInlineStyle(el.inlineStyle), [el.inlineStyle])
@@ -479,6 +482,7 @@ export function ElementPanel({
             {t('仅在状态 {when} 时显示', { when: el.when })}
           </p>
         ) : null}
+        {actions}
         {view === 'look' ? look : interact}
         {error ? <Alert variant="error" description={error} /> : null}
       </div>

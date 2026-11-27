@@ -148,14 +148,14 @@ function Action({
 }
 
 /**
- * Stitch's Edit Element (Direct Edit, capability list §4): edit the text in place in the screen (or pick a text inside
- * the element), replace an image by its address or a file, have the AI change the element, or delete it; 属性 opens
- * the element panel.
+ * Stitch's Edit Element (Direct Edit, capability list §4), in the 属性面板 under the tab it belongs to: 外观 edits the
+ * text in place in the screen (or picks a text inside the element), replaces an image by its address or a file, has
+ * the AI change the element, or deletes it; 交互 has the AI imagine the screen it opens, or adds a page rule on it.
+ * Where it leads (连到屏幕) is the 交互 tab's own 点击跳转到.
  */
-export function EditPopover({
+export function ElementActions({
+  group,
   el,
-  box,
-  room,
   readOnly,
   bots,
   bot,
@@ -165,17 +165,12 @@ export function EditPopover({
   artifactId,
   onApply,
   onAi,
-  screens,
-  onLink,
   onConnect,
   onRule,
-  onProps,
   onDelete,
-  onClose,
 }: {
+  group: 'look' | 'interact'
   el: PickedElement
-  box: Box
-  room: PopRoom
   readOnly: boolean
   bots: BotDto[]
   bot: BotDto | null
@@ -186,20 +181,13 @@ export function EditPopover({
   artifactId: string
   onApply: (ops: ArtifactEditOp[]) => Promise<boolean>
   onAi: (text: string) => Promise<boolean>
-  /** The screens a link can open, besides the element's own. */
-  screens: { id: string; title: string }[]
-  /** Connect to screen: by hand, no AI. */
-  onLink: (to: string) => Promise<boolean>
   /** Imagine new screen: a screen the AI makes from `text`, linked from this element. */
   onConnect: (text: string) => Promise<boolean>
   /** 添加规则: a page rule on this element. */
   onRule: () => void
-  onProps: () => void
   onDelete: () => void
-  onClose: () => void
 }) {
-  const [step, setStep] = useState<'menu' | 'image' | 'link' | 'ai' | 'connect'>('menu')
-  const [to, setTo] = useState<string | null>(el.link)
+  const [step, setStep] = useState<'menu' | 'image' | 'ai' | 'connect'>('menu')
   const [ask, setAsk] = useState('')
   const [busy, setBusy] = useState(false)
   const located = el.ggId !== null
@@ -207,7 +195,10 @@ export function EditPopover({
     setBusy(true)
     const ok = await f()
     setBusy(false)
-    if (ok) onClose()
+    if (ok) {
+      setAsk('')
+      setStep('menu')
+    }
   }
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
   const ro = readOnly ? t('历史版本只读') : undefined
@@ -217,85 +208,72 @@ export function EditPopover({
   const status = textEditingHint(texting)
 
   return (
-    <Floating
-      box={box}
-      room={room}
-      title={image ? t('编辑图片') : t('编辑元素')}
-      label={t('编辑元素')}
-      onClose={onClose}
-    >
+    <section className="art-el__actions" aria-label={t('模块操作')}>
       {step === 'menu' ? (
         <div className="art-pop__actions">
-          {image ? (
+          {group === 'look' ? (
             <>
+              {image ? (
+                <>
+                  <Action
+                    icon="globe"
+                    label={t('输入图片地址')}
+                    hint={ro ?? noSource}
+                    disabled={readOnly || !located}
+                    onClick={() => setStep('image')}
+                  />
+                  <Action
+                    icon="upload"
+                    label={t('上传图片')}
+                    hint={ro ?? noSource ?? (upload.busy ? t('上传中…') : undefined)}
+                    disabled={readOnly || !located || upload.busy}
+                    onClick={upload.open}
+                  />
+                  {upload.input}
+                </>
+              ) : (
+                <Action
+                  icon="textformat"
+                  label={t('编辑文字')}
+                  hint={ro ?? noSource}
+                  active={texting !== null}
+                  disabled={readOnly || !located}
+                  onClick={onEditText}
+                />
+              )}
+              {status ? (
+                <p className="art-pop__status" role="status">
+                  {status}
+                </p>
+              ) : null}
               <Action
-                icon="globe"
-                label={t('输入图片地址')}
+                icon="sparkle"
+                label={t('用 AI 修改')}
+                hint={aiHint}
+                disabled={!located || !bot}
+                onClick={() => setStep('ai')}
+              />
+              <Action
+                icon="trash"
+                label={t('删除')}
+                destructive
                 hint={ro ?? noSource}
                 disabled={readOnly || !located}
-                onClick={() => setStep('image')}
+                onClick={onDelete}
               />
-              <Action
-                icon="upload"
-                label={t('上传图片')}
-                hint={ro ?? noSource ?? (upload.busy ? t('上传中…') : undefined)}
-                disabled={readOnly || !located || upload.busy}
-                onClick={upload.open}
-              />
-              {upload.input}
             </>
           ) : (
-            <Action
-              icon="textformat"
-              label={t('编辑文字')}
-              hint={ro ?? noSource}
-              active={texting !== null}
-              disabled={readOnly || !located}
-              onClick={onEditText}
-            />
+            <>
+              <Action
+                icon="plus"
+                label={t('构想新屏')}
+                hint={aiHint}
+                disabled={!located || !bot}
+                onClick={() => setStep('connect')}
+              />
+              <Action icon="checklist" label={t('添加规则')} hint={ro} disabled={readOnly} onClick={onRule} />
+            </>
           )}
-          {status ? (
-            <p className="art-pop__status" role="status">
-              {status}
-            </p>
-          ) : null}
-          <Action
-            icon="link"
-            label={el.link ? t('编辑连接') : t('连到屏幕')}
-            hint={ro ?? noSource}
-            disabled={readOnly || !located}
-            onClick={() => setStep('link')}
-          />
-          <Action
-            icon="sparkle"
-            label={t('用 AI 修改')}
-            hint={aiHint}
-            disabled={!located || !bot}
-            onClick={() => setStep('ai')}
-          />
-          <Action
-            icon="plus"
-            label={t('构想新屏')}
-            hint={aiHint}
-            disabled={!located || !bot}
-            onClick={() => setStep('connect')}
-          />
-          <Action icon="checklist" label={t('添加规则')} hint={ro} disabled={readOnly} onClick={onRule} />
-          <Action
-            icon="slider-horizontal"
-            label={t('属性')}
-            hint={ro ?? noSource}
-            disabled={readOnly || !located}
-            onClick={onProps}
-          />
-          <Action
-            icon="trash"
-            label={t('删除')}
-            destructive
-            hint={ro ?? noSource}
-            disabled={readOnly || !located}
-            onClick={onDelete}
-          />
         </div>
       ) : step === 'image' ? (
         <ImageUrlForm
@@ -304,30 +282,6 @@ export function EditPopover({
           onApply={(ops) => run(() => onApply(ops))}
           onBack={() => setStep('menu')}
         />
-      ) : step === 'link' ? (
-        <form
-          className="art-pop__form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (to && to !== el.link) void run(() => onLink(to))
-          }}
-        >
-          <Select
-            label={t('连到屏幕')}
-            placeholder={t('选择屏幕')}
-            value={to}
-            onChange={setTo}
-            options={screens.map((x) => ({ value: x.id, label: x.title }))}
-          />
-          <div className="art-pop__row">
-            <Button size="small" variant="plain" onClick={() => setStep('menu')}>
-              {t('返回')}
-            </Button>
-            <Button size="small" variant="primary" type="submit" disabled={busy || !to || to === el.link}>
-              {t('应用连接')}
-            </Button>
-          </div>
-        </form>
       ) : (
         <form
           className="art-pop__form"
@@ -359,7 +313,7 @@ export function EditPopover({
           </div>
         </form>
       )}
-    </Floating>
+    </section>
   )
 }
 

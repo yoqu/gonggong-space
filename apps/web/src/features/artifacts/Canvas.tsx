@@ -86,7 +86,7 @@ import { DesignMdNode } from './DesignMdNode'
 import { DesignSystemNode } from './DesignSystemNode'
 import type { DesignTab } from './DesignSystemPanel'
 import { ElementPanel } from './ElementPanel'
-import { EditPopover, MarkPopover } from './ElementPopover'
+import { ElementActions, MarkPopover } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
 import {
   elementBox,
@@ -167,7 +167,7 @@ import { noEditReasonOf, PagePill } from './PageRail'
 import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
-import { connectOps, typing } from './prototype'
+import { typing } from './prototype'
 import { RefNode } from './RefNode'
 import { removal } from './removal'
 import { ShortcutsDialog } from './ShortcutsDialog'
@@ -699,8 +699,11 @@ export function Canvas({
         screenId: s.id,
         screenTitle: s.title,
       })
-      // With the element panel open, a click just moves the panel to the new element.
-      setPop(!(panel === 'element' && tool === 'edit'))
+      setPop(true)
+      // Its 外观 / 交互 show in the 属性面板 (图层 stays, to pick on from there).
+      if (tool !== 'edit') return
+      setInspector(true)
+      if (panel && panel !== 'element' && panel !== 'interact' && panel !== 'layers') setPanel(null)
     }
   }
   useBridge(origin, frameEls, fromScreen)
@@ -1434,6 +1437,25 @@ export function Canvas({
       <ElementPanel
         key={`${element.file}#${element.ggId}`}
         view={panel === 'interact' ? 'interact' : 'look'}
+        actions={
+          <ElementActions
+            key={panel === 'interact' ? 'interact' : 'look'}
+            group={panel === 'interact' ? 'interact' : 'look'}
+            el={element}
+            readOnly={!canEdit}
+            bots={bots}
+            bot={bot}
+            onPickBot={pickBot}
+            texting={textEdit.state}
+            onEditText={() => textEdit.start(element)}
+            artifactId={artifactId}
+            onApply={saveOps}
+            onAi={(text) => askAboutElement('edit-with-ai', element, text)}
+            onConnect={(text) => askAboutElement('connect-element', element, text)}
+            onRule={() => rules.addFor(element)}
+            onDelete={() => setDeleting(element)}
+          />
+        }
         onHotspot={canEdit ? startHotspot : undefined}
         el={element}
         artifactId={artifactId}
@@ -2137,63 +2159,19 @@ export function Canvas({
               })()
             : null}
 
-          {element && pop
+          {element && pop && tool === 'mark'
             ? (() => {
                 const n = screens.find((s) => s.id === element.screenId)
-                if (!n) return null
-                const box = elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)
-                return tool === 'mark' ? (
+                return n ? (
                   <MarkPopover
                     key={`${element.file}#${element.selector}`}
                     title={`${element.screenTitle} › ${element.tag}`}
-                    box={box}
+                    box={elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)}
                     room={{ ...room, right: 0 }}
                     onSave={(note) => annotateElement(element, note)}
                     onClose={dropElement}
                   />
-                ) : (
-                  <EditPopover
-                    key={`${element.file}#${element.selector}`}
-                    el={element}
-                    box={box}
-                    room={{ ...room, right: 0 }}
-                    readOnly={!canEdit}
-                    bots={bots}
-                    bot={bot}
-                    onPickBot={pickBot}
-                    texting={textEdit.state}
-                    onEditText={() => textEdit.start(element)}
-                    artifactId={artifactId}
-                    onApply={saveOps}
-                    onAi={(text) => askAboutElement('edit-with-ai', element, text)}
-                    screens={screens.filter((x) => x.id !== element.screenId)}
-                    onLink={(to) =>
-                      element.ggId
-                        ? saveOps(
-                            connectOps(
-                              { file: element.file, ggId: element.ggId },
-                              to,
-                              element.transition ?? 'push',
-                            ),
-                          )
-                        : Promise.resolve(false)
-                    }
-                    onConnect={(text) => askAboutElement('connect-element', element, text)}
-                    onRule={() => {
-                      setPop(false)
-                      rules.addFor(element)
-                    }}
-                    onProps={() => {
-                      setPop(false)
-                      setPanel('element')
-                    }}
-                    onDelete={() => {
-                      setPop(false)
-                      setDeleting(element)
-                    }}
-                    onClose={dropElement}
-                  />
-                )
+                ) : null
               })()
             : null}
 

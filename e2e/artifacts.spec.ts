@@ -134,7 +134,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
           .getByRole('button', { name: '直接编辑' })
           .click()
         await screen(page, 'home').getByRole('heading', { name: '首页第一版' }).click()
-        const pop = page.getByRole('dialog', { name: '编辑元素' })
+        const pop = page.getByTestId('art-inspector').getByRole('region', { name: '模块操作' })
         await pop.getByRole('button', { name: '编辑文字' }).click()
         // Typed in the screen itself, all of the old text selected first (Stitch's Edit Text).
         const typing = screen(page, 'home').locator('[data-gg-editing]')
