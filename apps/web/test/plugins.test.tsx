@@ -368,13 +368,13 @@ describe('插件 · 没有启用时界面不变', () => {
       fireEvent.change(box(), { target: { value: '/', selectionStart: 1 } })
       const pop = await screen.findByRole('listbox', { name: '/ 命令' })
       await within(pop).findByText('/stop')
-      expect(within(pop).queryByRole('group', { name: '插件' })).toBeNull()
+      expect(within(pop).queryByRole('group', { name: '创作与插件' })).toBeNull()
     })
   }
 })
 
 describe('插件 · 创作入口', () => {
-  it('shows 创作 in the composer, 插件 · N in the header and a 插件 group among / candidates', async () => {
+  it('shows 创作 in the composer, 插件 · N in the header and a 创作与插件 group among / candidates', async () => {
     mockApi(chatRoutes([plugin(), poster]))
     renderAt('/g/g1')
     expect(await screen.findByRole('button', { name: '创作' })).toBeTruthy()
@@ -382,7 +382,7 @@ describe('插件 · 创作入口', () => {
 
     fireEvent.change(box(), { target: { value: '/网页', selectionStart: 3 } })
     const pop = await screen.findByRole('listbox', { name: '/ 命令' })
-    const group = await within(pop).findByRole('group', { name: '插件' })
+    const group = await within(pop).findByRole('group', { name: '创作与插件' })
     // Only plugins enabled in the group.
     expect(
       within(group)
@@ -1067,7 +1067,7 @@ describe('插件 · 创作请求卡片', () => {
 })
 
 describe('插件 · 管理', () => {
-  it('群设置 · 插件: switches per group and shows per-bot availability', async () => {
+  it('群设置 · 插件与能力: switches per group and shows per-bot availability inside 开发者高级配置', async () => {
     const calls = mockApi({
       ...chatRoutes([plugin(), poster]),
       'PUT /groups/g1/plugins/p2': { ...poster, enabledInGroup: true },
@@ -1075,8 +1075,12 @@ describe('插件 · 管理', () => {
     renderAt('/g/g1')
     fireEvent.click(await screen.findByRole('button', { name: '打开群设置' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(await within(dialog).findByRole('button', { name: '插件' }))
-    const row = (await within(dialog).findByText('海报与社媒图')).closest('.cfg__item') as HTMLElement
+    fireEvent.click(await within(dialog).findByRole('button', { name: '插件与能力' }))
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: /开发者高级配置（自定义 MCP 服务与本地上传）/ }),
+    )
+    const rows = await within(dialog).findAllByText('海报与社媒图')
+    const row = rows.at(-1)!.closest('.cfg__item') as HTMLElement
     expect(row.textContent).toContain('poster-kit 1.2.0')
     expect(row.textContent).toContain('团队层')
     expect(row.textContent).toContain('支持：Claude Code')
@@ -1094,13 +1098,13 @@ describe('插件 · 管理', () => {
     await waitFor(() => expect(screen.getByText('插件 · 2')).toBeTruthy())
   })
 
-  it("群设置 · 插件: a plugin's own icon replaces its category glyph", async () => {
+  it("群设置 · 插件与能力: a plugin's own icon replaces its category glyph", async () => {
     const withIcon = plugin({ manifest: manifest({ icon: 'assets/icon.svg' }) })
     mockApi(chatRoutes([withIcon, poster]))
     renderAt('/g/g1')
     fireEvent.click(await screen.findByRole('button', { name: '打开群设置' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(await within(dialog).findByRole('button', { name: '插件' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '插件与能力' }))
     const row = (name: string) => within(dialog).getByText(name).closest('.cfg__item') as HTMLElement
     await within(dialog).findByText('海报与社媒图')
     expect(row('网页原型').querySelector('img.plg-tile')?.getAttribute('src')).toBe(
@@ -1109,22 +1113,30 @@ describe('插件 · 管理', () => {
     expect(row('海报与社媒图').querySelector('img')).toBeNull()
   })
 
-  it('群设置 has no 插件 tab while the master switch is off', async () => {
+  it('群设置 hides local plugin upload inside 插件与能力 while the master switch is off', async () => {
     setPluginsOn(false)
     mockApi(chatRoutes([]))
     renderAt('/g/g1')
     fireEvent.click(await screen.findByRole('button', { name: '打开群设置' }))
     const dialog = await screen.findByRole('dialog')
-    await within(dialog).findByRole('button', { name: 'Skill' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: '插件与能力' }))
     expect(within(dialog).queryByRole('button', { name: '插件' })).toBeNull()
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: /开发者高级配置（自定义 MCP 服务与本地上传）/ }),
+    )
+    expect(within(dialog).queryByText('本地上传插件包（不走市场）')).toBeNull()
+    expect(within(dialog).queryByText('本群插件')).toBeNull()
   })
 
-  it('群设置 shows the 插件 tab with its upload while the switch is on and no plugin exists yet', async () => {
+  it('群设置 shows local plugin upload inside 开发者高级配置 while the switch is on and no plugin exists yet', async () => {
     mockApi(chatRoutes([]))
     renderAt('/g/g1')
     fireEvent.click(await screen.findByRole('button', { name: '打开群设置' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(await within(dialog).findByRole('button', { name: '插件' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '插件与能力' }))
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: /开发者高级配置（自定义 MCP 服务与本地上传）/ }),
+    )
     expect(await within(dialog).findByText('本群插件')).toBeTruthy()
   })
 
