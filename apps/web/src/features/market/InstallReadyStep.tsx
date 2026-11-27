@@ -38,6 +38,7 @@ export function InstallReadyStep({
   onGoInstalled,
   onChanged,
   onReusedSecrets,
+  onTargetLabel,
 }: {
   listingId: string
   listingTitle: string
@@ -50,6 +51,7 @@ export function InstallReadyStep({
   onGoInstalled?: () => void
   onChanged?: () => void
   onReusedSecrets?: (items: ReusedSecretDto[]) => void
+  onTargetLabel?: (label: string) => void
 }) {
   const navigate = useNavigate()
   const groups = useWorkspace((s) => s.groups)
@@ -73,6 +75,8 @@ export function InstallReadyStep({
 
   const onReusedRef = useRef(onReusedSecrets)
   onReusedRef.current = onReusedSecrets
+  const onTargetLabelRef = useRef(onTargetLabel)
+  onTargetLabelRef.current = onTargetLabel
   const reportedKeyRef = useRef('')
   useEffect(() => {
     const list = data?.reusedSecrets
@@ -82,6 +86,9 @@ export function InstallReadyStep({
     reportedKeyRef.current = key
     onReusedRef.current?.(list)
   }, [data?.reusedSecrets])
+  useEffect(() => {
+    if (data?.targetLabel) onTargetLabelRef.current?.(data.targetLabel)
+  }, [data?.targetLabel])
 
   const cliConnector =
     groupId && groupConnectors
@@ -108,6 +115,7 @@ export function InstallReadyStep({
       (pendingConnector ? 1 : 0)
   const allReady = data.ready || pendingCount === 0
   const prompts = data.tryPrompts.length ? data.tryPrompts : fallbackExamples
+  const displayTarget = data.targetLabel || targetLabel
 
   const resolvedTeamId =
     teamId ||
@@ -257,10 +265,10 @@ export function InstallReadyStep({
           <h3 className="mkt-done-hero__title">{t('已就绪，可以用了')}</h3>
           <p className="mkt-done-hero__sub">
             {scope === 'group'
-              ? t('「{target}」里的 Bot 现在可以直接帮你干活了', { target: targetLabel })
+              ? t('「{target}」里的 Bot 现在可以直接帮你干活了', { target: displayTarget })
               : t('「{name}」已添加到「{target}」，现在就可以开始使用', {
                   name: listingTitle,
-                  target: targetLabel,
+                  target: displayTarget,
                 })}
           </p>
         </div>
@@ -319,7 +327,9 @@ export function InstallReadyStep({
       {inlineErr ? <Alert variant="error" title={inlineErr} /> : null}
       <div className="mkt-ready-banner">
         <Icon name="check" size={15} />
-        <span>{t('已添加到「{target}」，还差 {n} 步就能用', { target: targetLabel, n: pendingCount })}</span>
+        <span>
+          {t('已添加到「{target}」，还差 {n} 步就能用', { target: displayTarget, n: pendingCount })}
+        </span>
       </div>
       <div className="mkt-row__meta">{t('只列出还没做的步骤，做完会自动打勾')}</div>
 
@@ -329,7 +339,7 @@ export function InstallReadyStep({
             <Icon name="check" size={13} weight={2} />
           </span>
           <div>
-            <div className="mkt-check-title">{t('已添加到「{target}」', { target: targetLabel })}</div>
+            <div className="mkt-check-title">{t('已添加到「{target}」', { target: displayTarget })}</div>
             <div className="mkt-check-sub">
               {scope === 'user' ? t('随你进入所有群生效') : t('群里所有 Bot 都能用')}
             </div>

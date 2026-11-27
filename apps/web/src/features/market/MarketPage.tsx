@@ -271,9 +271,11 @@ export function MarketPage() {
     const found = allListings.find((l) => l.id === configureId)
     if (!found) return
     const label =
-      groups.find((g) => g.id === configureScopeId)?.name ??
-      teams.find((x) => x.id === configureScopeId)?.name ??
-      configureScopeId
+      configureScope === 'user'
+        ? t('我的插件')
+        : (groups.find((g) => g.id === configureScopeId)?.name ??
+          teams.find((x) => x.id === configureScopeId)?.name ??
+          configureScopeId)
     setModal({
       listing: found,
       readyTarget: { scope: configureScope, scopeId: configureScopeId, label },

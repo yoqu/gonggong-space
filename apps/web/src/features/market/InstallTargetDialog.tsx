@@ -219,6 +219,7 @@ export function InstallTargetDialog({
     label: string
     teamId?: string
   } | null>(initialReadyTarget ?? null)
+  const [resolvedTargetLabel, setResolvedTargetLabel] = useState<string | null>(null)
 
   const target = allOptions.find((x) => x.base === picked) ?? null
   const blocked = !!target && isBlocked(target)
@@ -251,6 +252,7 @@ export function InstallTargetDialog({
       if (res?.reusedSecrets?.length) onReusedSecrets?.(res.reusedSecrets)
       onChanged?.()
       setBusy(false)
+      setResolvedTargetLabel(null)
       setReadyTarget({
         scope: target.scope,
         scopeId: target.scopeId,
@@ -341,7 +343,7 @@ export function InstallTargetDialog({
             <div>{t('添加 {name}', { name: listing.title })}</div>
             <div className="mkt-modal-head__sub">
               {readyTarget
-                ? readyTarget.label
+                ? resolvedTargetLabel || readyTarget.label
                 : [sourceText, `r${listing.listedRevision}`].filter(Boolean).join(' · ')}
             </div>
           </div>
@@ -392,6 +394,7 @@ export function InstallTargetDialog({
           onGoInstalled={onGoInstalled}
           onChanged={onChanged}
           onReusedSecrets={onReusedSecrets}
+          onTargetLabel={setResolvedTargetLabel}
         />
       ) : (
         <>
