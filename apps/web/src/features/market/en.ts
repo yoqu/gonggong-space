@@ -241,7 +241,7 @@ export default {
   精选推荐: 'Featured',
   全部插件: 'All plugins',
   场景分类: 'Scenarios',
-  连接外部系统: 'Connect external systems',
+  连接外部系统: 'External connections',
   '连上飞书、数仓和外部业务系统，让 Bot 替你查数据、建任务。':
     'Connect Feishu, data warehouses, and external systems so bots can look up data and run tasks.',
   专业创作: 'Creative studio',
@@ -389,10 +389,10 @@ export default {
   '每台电脑使用机主本人的账号登录，授权仅保存在你的电脑本地，不会上传服务器。':
     "Each computer signs in with its owner's account; credentials stay local.",
   '已连接 · {account}': 'Connected · {account}',
-  待连接账号: 'Account login needed',
+  待连接账号: 'Account needed',
   '需由机主 {owner} 连接': 'Requires {owner} to connect',
   去连接: 'Connect',
-  已提醒: 'Reminded',
+  已提醒: 'Notified',
   '通知{owner}连接': 'Notify {owner} to connect',
   机主: 'owner',
   '允许 Bot 所在的电脑使用这个插件': "Allow the bot's computer to run this plugin",
