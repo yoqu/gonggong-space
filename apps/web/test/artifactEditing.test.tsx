@@ -12,6 +12,7 @@ import { artifactContextOf, clearContext, useCanvasContext } from '../src/featur
 import { elementBox, styleChanges } from '../src/features/artifacts/elements'
 import { linkPaths } from '../src/features/artifacts/Links'
 import { screenSection } from '../src/features/artifacts/notes'
+import { setArtifactPage } from '../src/features/artifacts/page'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { MessageComposer } from '../src/features/chat/MessageComposer'
 import { UserMessage } from '../src/features/chat/TimelineItems'
@@ -471,7 +472,7 @@ describe('element panel', () => {
                 color: 'var(--color-primary)',
                 'font-size': '18px',
                 padding: '',
-                'background-color': '#1a73e8',
+                background: '#1a73e8',
                 'font-style': 'italic',
                 opacity: '0.5',
               },
@@ -480,6 +481,35 @@ describe('element panel', () => {
         },
       ]),
     )
+  })
+
+  it('saves a change on an element whose own inline style the panel could not write (rgba, calc, a gradient)', async () => {
+    const calls = mockApi(routes())
+    await openPanel({
+      inlineStyle:
+        'color: rgba(0, 0, 0, 0.8); width: calc(100% - 16px); background: linear-gradient(red, blue)',
+    })
+    fireEvent.input(screen.getByLabelText('背景：任意颜色'), { target: { value: '#1a73e8' } })
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
+        {
+          baseVersionId: 'v2',
+          ops: [{ kind: 'style', file: 'screens/home.html', ggId: '120', props: { background: '#1a73e8' } }],
+        },
+      ]),
+    )
+  })
+
+  it('lists every other page under 点击跳转到 with one page shown alone', async () => {
+    mockApi(routes())
+    await renderTab()
+    act(() => setArtifactPage('a1', 'home'))
+    await waitFor(() => expect(screen.queryByTestId('art-node-detail')).toBeNull())
+    key('e')
+    select()
+    fireEvent.click(screen.getByRole('tab', { name: '交互' }))
+    fireEvent.click(screen.getByRole('button', { name: '点击跳转到' }))
+    expect(screen.getAllByRole('menuitemcheckbox').map((o) => o.textContent)).toEqual(['无', '书籍详情'])
   })
 
   it('saves by itself once the member leaves a field, never an unsafe value', async () => {
@@ -762,6 +792,7 @@ describe('mark (M)', () => {
       }),
     )
     await renderTab()
+    act(() => setArtifactPage('a1', 'home'))
     expect(screen.queryByRole('tab', { name: '批注' })).toBeNull()
     const doc = await screen.findByTestId('art-pagedoc-home')
     const rows = within(doc).getAllByRole('listitem')
@@ -790,12 +821,12 @@ describe('mark (M)', () => {
     await renderTab()
     expect(screen.queryByTestId('art-pagedoc-home')).toBeNull()
     const title = screen.getByRole('button', { name: '首页' }).closest('.art-title') as HTMLElement
+    // From 全部页面 it opens the page alone, its document beside it (全部页面 shows no documents).
     fireEvent.click(within(title).getByRole('button', { name: '编写页面文档' }))
-    const doc = screen.getByTestId('art-pagedoc-home')
-    // The page after it makes way for it.
+    const doc = await screen.findByTestId('art-pagedoc-home')
+    expect(screen.queryByTestId('art-node-detail')).toBeNull()
     const left = (id: string) => Number.parseFloat(node(id).style.left)
     expect(left('pagedoc:home')).toBeGreaterThan(left('home'))
-    expect(left('detail')).toBeGreaterThan(left('pagedoc:home') + 400)
     const box = within(doc).getByRole('textbox', { name: '页面文档' })
     fireEvent.change(box, { target: { value: '# 首页\n\n- 本周共读入口' } })
     fireEvent.blur(box)
@@ -813,6 +844,40 @@ describe('mark (M)', () => {
         expect.objectContaining({ command: 'write-doc', botId: 'b1', screenIds: ['home'] }),
       ),
     )
+  })
+
+  it('页面文档 shows only with its page alone, never in 全部页面; dragged by its header it stays where it is put', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1/versions/v2': detail(2, [
+          file('tokens.css'),
+          file('screens/home.html'),
+          file('docs/home.md'),
+        ]),
+        'GET /artifacts/a1/files/docs/home.md?version=v2': () => new Response('# 首页'),
+      }),
+    )
+    await renderTab()
+    await waitFor(() => expect(screen.getByRole('button', { name: '查看页面文档' })).toBeTruthy())
+    expect(screen.queryByTestId('art-pagedoc-home')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '查看页面文档' }))
+    await screen.findByTestId('art-pagedoc-home')
+    const at = () => [node('pagedoc:home').style.left, node('pagedoc:home').style.top].map(Number.parseFloat)
+    const [x0 = 0, y0 = 0] = at()
+    const head = screen.getByTestId('art-pagedoc-move-home')
+    fireEvent.pointerDown(head, { button: 0, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(window, { clientX: 150, clientY: 160 })
+    fireEvent.pointerUp(window, { clientX: 150, clientY: 160 })
+    const [x1 = 0, y1 = 0] = at()
+    expect(x1).toBeGreaterThan(x0)
+    expect(y1).toBeGreaterThan(y0)
+    expect(JSON.parse(localStorage.getItem('gg.art.docSizes.a1') ?? '{}').home).toMatchObject({
+      dx: expect.any(Number),
+      dy: expect.any(Number),
+    })
+    // Back in 全部页面: no document over the pages.
+    act(() => setArtifactPage('a1', null))
+    await waitFor(() => expect(screen.queryByTestId('art-pagedoc-home')).toBeNull())
   })
 })
 

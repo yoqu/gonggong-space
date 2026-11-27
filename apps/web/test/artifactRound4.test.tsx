@@ -18,6 +18,7 @@ import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { acceptBridge } from '../src/features/artifacts/bridge'
 import { artifactContextOf, clearContext, useCanvasContext } from '../src/features/artifacts/context'
 import { layoutNodes, REF_SIZE } from '../src/features/artifacts/geometry'
+import { setArtifactPage } from '../src/features/artifacts/page'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
@@ -322,6 +323,7 @@ describe('region marks (G08)', () => {
         ],
       }),
     )
+    setArtifactPage('a1', 'home')
     await renderTab()
     key('m')
     expect(await screen.findByTestId('art-region-n2')).toBeTruthy()
@@ -421,6 +423,7 @@ describe('queued commands (R04) and the annotation badge', () => {
         ],
       }),
     )
+    setArtifactPage('a1', 'home')
     await renderTab()
     const doc = await screen.findByTestId('art-pagedoc-home')
     await waitFor(() => expect(within(doc).getAllByText(/待处理/)).toHaveLength(2))

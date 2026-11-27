@@ -7,6 +7,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { clearContext } from '../src/features/artifacts/context'
 import { implementationPrompt } from '../src/features/artifacts/implPrompt'
+import { setArtifactPage } from '../src/features/artifacts/page'
 import {
   addRuleOps,
   anchorFor,
@@ -270,6 +271,8 @@ const select = (o: Record<string, unknown> = {}) =>
     ...o,
   })
 const doc = () => screen.getByTestId('art-pagedoc-home')
+/** 首页 shown alone: its document beside it (全部页面 shows none). */
+const alone = () => setArtifactPage('a1', 'home')
 
 class NoopSocket {
   close() {}
@@ -362,6 +365,7 @@ describe('page rules on the canvas', () => {
 
   it('an anchor gone from the screen draws no mark and is flagged in the document', async () => {
     mockApi(routes())
+    alone()
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     expect(within(doc()).queryByText('元素已不存在')).toBeNull()
@@ -374,6 +378,7 @@ describe('page rules on the canvas', () => {
 
   it('puts a new whole-page rule’s draft mark in the page row', async () => {
     mockApi(routes())
+    alone()
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     fireEvent.click(within(doc()).getByRole('button', { name: '添加规则' }))
@@ -404,6 +409,7 @@ describe('page rules on the canvas', () => {
 
   it('edits the rules (an AI’s too) in the document: one file save', async () => {
     const calls = mockApi(routes())
+    alone()
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     fireEvent.click(within(doc()).getByRole('button', { name: '编辑' }))
@@ -420,6 +426,7 @@ describe('page rules on the canvas', () => {
 
   it('adds a rule by picking an element: its anchor and the rule in one version', async () => {
     const calls = mockApi(routes())
+    alone()
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     fromScreen({ type: 'ready', width: 390, height: 800 })
@@ -457,6 +464,7 @@ describe('page rules on the canvas', () => {
 
   it('a script-made element can only take a whole-page rule; Esc cancels picking', async () => {
     mockApi(routes())
+    alone()
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     fireEvent.click(within(doc()).getByRole('button', { name: '添加规则' }))
@@ -469,12 +477,13 @@ describe('page rules on the canvas', () => {
 
   it('AI 补全 hands the screen to the artifact’s bot', async () => {
     const calls = mockApi(routes())
+    alone()
     await renderTab()
     await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
     fireEvent.click(within(doc()).getByRole('button', { name: 'AI 补全' }))
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toEqual([
-        { command: 'complete-rules', botId: 'b1', screenIds: ['home'] },
+        expect.objectContaining({ command: 'complete-rules', botId: 'b1', screenIds: ['home'] }),
       ]),
     )
   })

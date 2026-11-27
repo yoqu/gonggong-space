@@ -239,6 +239,15 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await page.mouse.move(grip.x + 40, grip.y + 30, { steps: 5 })
         await page.mouse.up()
         await expect.poll(async () => (await node.boundingBox())!.width).toBeGreaterThan(before.width + 20)
+        // The page is shown alone (全部页面 shows no documents), and the document moves by its header.
+        await expect(page.getByTestId('art-node-detail')).toHaveCount(0)
+        const head = (await page.getByTestId('art-pagedoc-move-home').boundingBox())!
+        const placed = (await node.boundingBox())!
+        await page.mouse.move(head.x + head.width / 2, head.y + head.height / 2)
+        await page.mouse.down()
+        await page.mouse.move(head.x + head.width / 2 + 60, head.y + head.height / 2 + 40, { steps: 5 })
+        await page.mouse.up()
+        await expect.poll(async () => (await node.boundingBox())!.y).toBeGreaterThan(placed.y + 20)
         await page.waitForTimeout(400)
         await page.screenshot({ path: join(SHOTS, 'e2e-canvas-pagedoc.png') })
       })

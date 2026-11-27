@@ -13,6 +13,7 @@ import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { openTab } from '../workbench/open'
 import { setActivity } from './activity'
+import { resetArtifactPages } from './page'
 
 /** An artifact's details and versions (oldest first), loaded per open tab and refreshed when its card changes. */
 export interface ArtifactEntry {
@@ -248,4 +249,5 @@ export const artifactLink = (groupId: string, artifactId: string, screenIds: str
 export function resetArtifacts() {
   useStore.setState({}, true)
   useFocus.setState({}, true)
+  resetArtifactPages()
 }

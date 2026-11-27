@@ -23,6 +23,7 @@ const EDITED: StyleProp[] = [
   'margin',
   'padding',
   'gap',
+  'background',
   'background-color',
   'border-color',
   'border-width',
@@ -114,7 +115,10 @@ export function ElementPanel({
   const isLink = el.tag === 'a' || el.href !== null
   const colors = useMemo(() => (tokens?.vars ?? []).filter(([k]) => k.startsWith('--color-')), [tokens])
 
-  const badStyle = Object.entries(style).filter(([k, v]) => v.trim() && !styleValueOk(v.trim(), k))
+  // Only what the member changes: a page's own inline style (rgba(), calc(), a gradient…) never blocks saving.
+  const badStyle = Object.entries(style).filter(
+    ([k, v]) => v.trim() && v.trim() !== (inline[k] ?? '') && !styleValueOk(v.trim(), k),
+  )
   const badHref = isLink && href.trim() !== '' && !attrValueOk('href', href.trim())
   const ops: ArtifactEditOp[] = []
   const where = { file: el.file, ggId: el.ggId ?? '' }
@@ -435,7 +439,19 @@ export function ElementPanel({
       <Fold title={t('外观')}>
         <div className="mk-row">
           <span>{t('填充')}</span>
-          {colorOf('background-color', t('背景'))}
+          <ColorField
+            label={t('背景')}
+            value={
+              styleValueOk(style.background ?? '', 'background')
+                ? (style.background ?? '')
+                : (style['background-color'] ?? '')
+            }
+            shown={el.computed['background-color'] ?? 'transparent'}
+            colors={colors}
+            disabled={readOnly}
+            // The shorthand: a fill also replaces a gradient or image the page painted there.
+            onChange={(v) => setStyle((st) => ({ ...st, background: v, 'background-color': '' }))}
+          />
         </div>
         <div className="mk-row">
           <span>{t('边框')}</span>

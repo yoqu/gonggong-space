@@ -194,7 +194,8 @@ export interface PageSettings {
   /** The body's computed background; null until the page has said. */
   background: string | null
   hotspots: BridgeLayer[]
-  screens: CanvasNode[]
+  /** Every page of the artifact, shown on the canvas or not: where a 热区 goes. */
+  screens: { id: string; title: string }[]
   onRename: (title: string) => void
   onPreset: (preset: string) => void
   onBackground: ((color: string) => void) | null
@@ -470,7 +471,8 @@ export function HotspotForm({
 }: {
   /** Where it is drawn (document px of its page); null while it is still to be drawn. */
   drawn: { screenId: string; file: string; rect: { x: number; y: number; w: number; h: number } } | null
-  screens: CanvasNode[]
+  /** Every page of the artifact, shown on the canvas or not. */
+  screens: { id: string; title: string }[]
   onSave: (op: ArtifactEditOp) => Promise<boolean>
   onCancel: () => void
 }) {

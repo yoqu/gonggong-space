@@ -80,6 +80,8 @@ export default {
   '交给 AI 处理': 'Hand to AI',
   '批注（{n}）': 'Annotations ({n})',
   编写页面文档: 'Write page doc',
+  查看页面文档: 'View page doc',
+  拖动标题栏移动文档: 'Drag the header to move the doc',
   编辑文档: 'Edit document',
   还没有文档: 'No document yet',
   '还没有文档。点右上角铅笔开始写，或让 AI 帮你写':

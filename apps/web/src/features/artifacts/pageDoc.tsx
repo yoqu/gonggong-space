@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Button, IconButton, Textarea } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import type { PageDocBox } from './geometry'
 import { type PageRulesProps, PageRulesSection } from './pageRules'
 
 /** Every page's document (docs/<id>.md) of the shown version, read once per version. */
@@ -62,6 +63,7 @@ export function PageDocNode({
   rules,
   zoom,
   onResize,
+  onMove,
 }: {
   screenId: string
   title: string
@@ -85,6 +87,8 @@ export function PageDocNode({
   zoom: number
   /** Dragged to this size (canvas px), as it goes; `done` on letting go. */
   onResize: (size: { w: number; h: number }, done: boolean) => void
+  /** Dragged by its header this far (canvas px) from where it started, as it goes; `done` on letting go. */
+  onMove: (by: { dx: number; dy: number }, done: boolean) => void
 }) {
   const me = useSession((s) => s.user?.id ?? null)
   /** A note's 删除 asks once more, in place. */
@@ -108,7 +112,26 @@ export function PageDocNode({
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <header className="art-pagedoc__head">
+      <header
+        className="art-pagedoc__head"
+        data-testid={`art-pagedoc-move-${screenId}`}
+        title={t('拖动标题栏移动文档')}
+        onPointerDown={(e) => {
+          if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+          e.preventDefault()
+          // Captured: the drag goes on over a page's frame too.
+          e.currentTarget.setPointerCapture?.(e.pointerId)
+          const from = { x: e.clientX, y: e.clientY }
+          const by = (ev: PointerEvent) => ({
+            dx: Math.round((ev.clientX - from.x) / zoom),
+            dy: Math.round((ev.clientY - from.y) / zoom),
+          })
+          dragWith(
+            (ev) => onMove(by(ev), false),
+            (ev) => onMove(by(ev), true),
+          )
+        }}
+      >
         <strong>{t('页面文档')}</strong>
         <span className="art-pagedoc__file">{docFileOf(screenId)}</span>
         {canEdit && !editing ? (
@@ -225,20 +248,17 @@ export function PageDocNode({
           onPointerDown={(e) => {
             e.stopPropagation()
             e.preventDefault()
+            e.currentTarget.setPointerCapture?.(e.pointerId)
             const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
             const start = { x: e.clientX, y: e.clientY, w: box.width / zoom, h: box.height / zoom }
             const size = (ev: PointerEvent) => ({
               w: Math.round(Math.max(280, edge === 's' ? start.w : start.w + (ev.clientX - start.x) / zoom)),
               h: Math.round(Math.max(240, edge === 'e' ? start.h : start.h + (ev.clientY - start.y) / zoom)),
             })
-            const move = (ev: PointerEvent) => onResize(size(ev), false)
-            const up = (ev: PointerEvent) => {
-              window.removeEventListener('pointermove', move)
-              window.removeEventListener('pointerup', up)
-              onResize(size(ev), true)
-            }
-            window.addEventListener('pointermove', move)
-            window.addEventListener('pointerup', up)
+            dragWith(
+              (ev) => onResize(size(ev), false),
+              (ev) => onResize(size(ev), true),
+            )
           }}
         />
       ))}
@@ -246,9 +266,21 @@ export function PageDocNode({
   )
 }
 
+/** Follows a drag on the window until the pointer is let go. */
+function dragWith(move: (e: PointerEvent) => void, end: (e: PointerEvent) => void) {
+  const up = (e: PointerEvent) => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+    end(e)
+  }
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', up)
+}
+
 /**
  * The canvas's 页面文档 layer: which pages show one (a document, annotations, or 编写页面文档 just pressed), their
- * nodes, and the title button that starts one.
+ * nodes, and the title button that starts one. Only a page shown alone has its document beside it: 全部页面 is the UI
+ * at a glance (蒋庆 2026-11-27), its title button opens the page alone with its document.
  */
 export function usePageDocLayer(o: {
   files: { path: string; hash: string }[] | null
@@ -271,10 +303,16 @@ export function usePageDocLayer(o: {
   rulesOf: (screenId: string) => PageRulesProps
   artifactId: string
   zoom: number
+  /** One page is shown alone: the documents show beside it; else none do. */
+  alone: boolean
+  /** Shows a page alone (from 全部页面), to see its document. */
+  openAlone: (screenId: string) => void
 }) {
   const docs = usePageDocs(o.files, o.readFile)
   const [started, setStarted] = useState<ReadonlySet<string>>(new Set())
-  const [sizes, setSizes] = useDocSizes(o.artifactId)
+  const [boxes, setBox] = useDocBoxes(o.artifactId)
+  /** A header drag's box when it started: its moves add to that. */
+  const moveFrom = useRef(new Map<string, PageDocBox>())
   const shown = new Set(
     o.screens
       .filter(
@@ -286,15 +324,17 @@ export function usePageDocLayer(o: {
       )
       .map((s) => s.id),
   )
-  const key = [...shown]
-    .sort()
-    .map((id) => `${id}=${sizes[id] ? `${sizes[id].w}x${sizes[id].h}` : ''}`)
-    .join(',')
+  const key = o.alone ? JSON.stringify([...shown].sort().map((id) => [id, boxes[id] ?? {}])) : '[]'
+  const show = (screenId: string) => {
+    setStarted((s) => (s.has(screenId) ? s : new Set(s).add(screenId)))
+    if (!o.alone) o.openAlone(screenId)
+    o.reveal(screenId)
+  }
   return {
-    /** Shows a page's document (empty if it has none yet), as 编写页面文档 does. */
-    start: (screenId: string) => setStarted((s) => (s.has(screenId) ? s : new Set(s).add(screenId))),
-    /** Stable while the same pages show one at the same sizes, for the layout's memo. */
-    pageDocs: useMemoSizes(key),
+    /** Shows a page's document (empty if it has none yet) and brings it into view, as 编写页面文档 does. */
+    start: show,
+    /** Stable while the same pages show one in the same boxes, for the layout's memo. */
+    pageDocs: useMemoBoxes(key),
     node: (screenId: string, title: string, file: string) => (
       <PageDocNode
         screenId={screenId}
@@ -313,62 +353,57 @@ export function usePageDocLayer(o: {
         onFocusNote={o.focus}
         rules={o.rulesOf(screenId)}
         zoom={o.zoom}
-        onResize={(size, done) => setSizes(screenId, size, done)}
+        onResize={(size, done) => setBox(screenId, size, done)}
+        onMove={(by, done) => {
+          const at = moveFrom.current.get(screenId) ?? boxes[screenId] ?? {}
+          moveFrom.current.set(screenId, at)
+          if (done) moveFrom.current.delete(screenId)
+          setBox(screenId, { dx: (at.dx ?? 0) + by.dx, dy: (at.dy ?? 0) + by.dy }, done)
+        }}
       />
     ),
-    /** 编写页面文档, right of a page's name, while it has none showing. */
+    /** 编写页面文档 (查看页面文档 in 全部页面 when it has one), right of a page's name, while none shows beside it. */
     titleButton: (screenId: string) =>
-      o.canEdit && !shown.has(screenId) ? (
+      (o.alone ? o.canEdit && !shown.has(screenId) : o.canEdit || shown.has(screenId)) ? (
         <button
           type="button"
           className="art-title__doc"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
-            setStarted((s) => new Set(s).add(screenId))
-            o.reveal(screenId)
+            show(screenId)
           }}
         >
-          {t('编写页面文档')}
+          {shown.has(screenId) ? t('查看页面文档') : t('编写页面文档')}
         </button>
       ) : null,
   }
 }
 
-/** Each page doc's size, dragged by its edges (canvas px; absent: the default), kept per artifact on this device. */
-function useDocSizes(artifactId: string) {
+/**
+ * Each page doc's box: its size dragged by its edges and its offset dragged by its header (canvas px; absent: the
+ * default), kept per artifact on this device.
+ */
+function useDocBoxes(artifactId: string) {
   const storeKey = `gg.art.docSizes.${artifactId}`
-  const [sizes, set] = useState<Record<string, { w: number; h: number }>>(() => {
+  const [boxes, set] = useState<Record<string, PageDocBox>>(() => {
     try {
-      return JSON.parse(localStorage.getItem(storeKey) ?? '{}') as Record<string, { w: number; h: number }>
+      return JSON.parse(localStorage.getItem(storeKey) ?? '{}') as Record<string, PageDocBox>
     } catch {
       return {}
     }
   })
-  const setSize = (id: string, size: { w: number; h: number }, done: boolean) =>
+  const setBox = (id: string, change: PageDocBox, done: boolean) =>
     set((m) => {
-      const next = { ...m, [id]: size }
+      const next = { ...m, [id]: { ...m[id], ...change } }
       if (done) localStorage.setItem(storeKey, JSON.stringify(next))
       return next
     })
-  return [sizes, setSize] as const
+  return [boxes, setBox] as const
 }
 
-function useMemoSizes(key: string) {
-  const ref = useRef<{ key: string; map: ReadonlyMap<string, { w: number; h: number } | null> }>({
-    key: '',
-    map: new Map(),
-  })
-  if (ref.current.key !== key)
-    ref.current = {
-      key,
-      map: new Map(
-        (key ? key.split(',') : []).map((part) => {
-          const [id = '', size = ''] = part.split('=')
-          const [w, h] = size.split('x').map(Number)
-          return [id, size && w && h ? { w, h } : null]
-        }),
-      ),
-    }
+function useMemoBoxes(key: string) {
+  const ref = useRef<{ key: string; map: ReadonlyMap<string, PageDocBox> }>({ key: '[]', map: new Map() })
+  if (ref.current.key !== key) ref.current = { key, map: new Map(JSON.parse(key) as [string, PageDocBox][]) }
   return ref.current.map
 }

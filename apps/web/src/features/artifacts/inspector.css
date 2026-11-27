@@ -633,6 +633,11 @@ fieldset.art-el {
   gap: var(--space-8);
   padding: var(--space-12) var(--space-16);
   border-bottom: 1px solid var(--separator);
+  cursor: grab;
+  user-select: none;
+}
+.art-pagedoc__head:active {
+  cursor: grabbing;
 }
 .art-pagedoc__file {
   flex: 1;

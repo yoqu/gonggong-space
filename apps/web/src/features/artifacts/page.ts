@@ -36,3 +36,9 @@ export function setCanvasScreen(artifactId: string, screenId: string | null) {
     return screenId ? { ...rest, [artifactId]: screenId } : rest
   }, true)
 }
+
+/** Forgets what every canvas shows (with the artifacts store). */
+export function resetArtifactPages() {
+  usePages.setState({}, true)
+  useCanvasScreens.setState({}, true)
+}

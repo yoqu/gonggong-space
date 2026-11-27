@@ -37,6 +37,13 @@ const PAGE_DOC_MIN_H = 480
 export const PAGE_DOC_PREFIX = 'pagedoc:'
 /** The 页面文档 node of a page. */
 export const pageDocId = (screenId: string) => `${PAGE_DOC_PREFIX}${screenId}`
+/** A 页面文档's box as the member left it: its size (absent: the default) and where it was dragged from its place. */
+export interface PageDocBox {
+  w?: number
+  h?: number
+  dx?: number
+  dy?: number
+}
 /** Room above a node for its title, in canvas units at 100%. */
 export const TITLE_ROOM = 32
 const PAD = 64
@@ -151,7 +158,7 @@ export interface LayoutInput {
   /** Web pages on the canvas. */
   links?: GgArtifactLink[]
   /** Pages whose 页面文档 shows beside them (in the room right of the page; the pages after it make way). */
-  pageDocs?: ReadonlyMap<string, { w: number; h: number } | null>
+  pageDocs?: ReadonlyMap<string, PageDocBox>
 }
 
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
@@ -250,15 +257,16 @@ function layoutAll({
       x += c.w + NODE_GAP
       tallest = Math.max(tallest, c.h)
       if (c.kind !== 'screen' || !pageDocs?.has(c.id)) continue
-      const size = pageDocs.get(c.id) ?? { w: PAGE_DOC_WIDTH, h: Math.max(c.h, PAGE_DOC_MIN_H) }
+      const box = pageDocs.get(c.id) ?? {}
+      const size = { w: box.w ?? PAGE_DOC_WIDTH, h: box.h ?? Math.max(c.h, PAGE_DOC_MIN_H) }
       tallest = Math.max(tallest, size.h)
       nodes.push({
         id: pageDocId(c.id),
         kind: 'pagedoc',
         title: c.title,
         file: c.file,
-        x: at.x + c.w + PAGE_DOC_GAP,
-        y: at.y,
+        x: at.x + c.w + PAGE_DOC_GAP + (box.dx ?? 0),
+        y: at.y + (box.dy ?? 0),
         w: size.w,
         h: size.h,
       })

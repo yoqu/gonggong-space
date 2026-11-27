@@ -501,10 +501,7 @@ export function Canvas({
       setSelected([id])
       fitTo([id])
     },
-    reveal: (id) => {
-      docLayer.start(id)
-      setRevealDoc({ id })
-    },
+    reveal: (id) => docLayer.start(id),
   })
   const page = useShownPage(artifactId, manifest)
   const allNotes = useAllAnnotations(artifactId, annotations.tick)
@@ -530,6 +527,8 @@ export function Canvas({
     rulesOf: rules.pageRules,
     artifactId,
     zoom: view.z,
+    alone: !!page && !!manifest?.screens.some((s) => s.id === page),
+    openAlone: (id) => setArtifactPage(artifactId, id),
   })
   const { device, nodes } = useMemo(
     () =>
@@ -1420,13 +1419,15 @@ export function Canvas({
   /** 外观 / 交互 of the element being edited, else 画布设置. */
   const propsTab = panel === null || panel === 'element' || panel === 'interact'
   const startHotspot = () => (tool === 'hotspot' ? setHotspot(null) : setTool('hotspot'))
+  /** Where a click may go: every page, not only those shown (a page shown alone has no other on the canvas). */
+  const allScreens = manifest?.screens ?? []
   const pageSettings = one
     ? {
         node: one,
         ...pagePresets(frameOf(one), device),
         background: shownLayers?.body?.background ?? null,
         hotspots: shownLayers?.items.filter((l) => l.hotspot) ?? [],
-        screens,
+        screens: allScreens,
         onRename: (next: string) => edit([manifestOp('rename', one.id, { title: next })]),
         onPreset: (p: string) => command(`${CMD.frame}${p}`),
         onBackground: shownLayers?.body
@@ -1451,7 +1452,7 @@ export function Canvas({
       <HotspotForm
         key={hotspot ? `${hotspot.file}@${hotspot.rect.x},${hotspot.rect.y}` : ''}
         drawn={hotspot}
-        screens={screens}
+        screens={allScreens}
         onSave={async (op) => {
           const ok = await saveOps([op])
           if (ok) setTool('edit')
@@ -1488,7 +1489,7 @@ export function Canvas({
         onHotspot={canEdit ? startHotspot : undefined}
         el={element}
         artifactId={artifactId}
-        screens={screens}
+        screens={allScreens}
         tokens={tokens}
         readOnly={!canEdit}
         onSave={async (ops) => {
