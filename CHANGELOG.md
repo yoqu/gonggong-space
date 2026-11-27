@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.35 — 2026-11-27
+
+- Codex Bot 在「工作区」和「帮我审批」模式下可以访问数仓等联网服务，不放宽文件沙箱；越界写入仍走原有审批。「只读」模式不变 / Codex bots can reach network services in Workspace and Approve-for-me modes without relaxing filesystem sandboxing. Writes outside permitted paths still follow the existing approval flow; Read-only is unchanged
+- 修复多个 Bot 同时下载同一附件时互相抢占临时文件的问题 / Fix temporary-file collisions when multiple bots download the same attachment
+- CodeBuddy 支持登录状态检测和授权引导；话题支持搜索、分栏和原地改名 / CodeBuddy adds sign-in detection and authorization guidance; threads support search, split view, and inline renaming
+- 作品按类型分区，原型编辑器支持就地编辑，并更新工具栏、图层和属性面板 / Works are grouped by type, and the prototype editor adds inline editing and refreshes its toolbar, layers, and properties panel
+
 ## v0.4.34 — 2026-11-27
 
 - Claude 配置目录供应商的模型探测会应用各自的 `--settings`，并在需要时重新探测；同时上报实际使用的模型与缓存 Token 用量 / Claude config-directory providers now probe with their own `--settings` and reprobe when needed; the daemon also reports the served model and cache-token usage
