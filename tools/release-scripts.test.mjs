@@ -242,3 +242,39 @@ tar -cf - -C "${root}/target/x86_64-apple-darwin/release" gg
   assert.match(peer, /MACOSX_DEPLOYMENT_TARGET=10\.13/)
   assert.match(peer, /cargo build .* -p gonggong --target x86_64-apple-darwin/)
 })
+
+test('--assemble writes checksums and manifests with empty build target arrays (Bash 3.2 safe)', () => {
+  const root = releaseFixture()
+  const out = join(root, 'dist/0.4.3')
+  mkdirSync(out, { recursive: true })
+  mkdirSync(join(root, 'docs/release-notes'), { recursive: true })
+  writeFileSync(join(root, 'docs/release-notes/v0.4.3.md'), '# v0.4.3\n\nNotes.\n')
+  for (const platform of platforms) {
+    writeFileSync(join(out, artifact('0.4.3', platform)), `bin-${platform}`)
+  }
+  for (const arch of ['aarch64', 'x86_64']) {
+    writeFileSync(join(out, `Gonggong_0.4.3_${arch}.app.tar.gz`), `tar-${arch}`)
+    writeFileSync(join(out, `Gonggong_0.4.3_${arch}.app.tar.gz.sig`), `sig-${arch}\n`)
+  }
+  writeFileSync(join(out, 'Gonggong_0.4.3_x64-setup.exe'), 'win-exe')
+  writeFileSync(join(out, 'Gonggong_0.4.3_x64-setup.exe.sig'), 'sig-win\n')
+
+  const bash = existsSync('/bin/bash') ? '/bin/bash' : 'bash'
+  const res = run(bash, ['scripts/release.sh', '--assemble', '--allow-dirty'], { cwd: root })
+
+  assert.equal(res.status, 0, res.stderr + res.stdout)
+  const sums = readFileSync(join(out, 'SHA256SUMS'), 'utf8')
+  for (const platform of platforms) {
+    const file = artifact('0.4.3', platform)
+    assert.match(sums, new RegExp(`${sha256(`bin-${platform}`)}  ${file.replace('.', '\\.')}`))
+  }
+  const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'))
+  assert.equal(manifest.version, '0.4.3')
+  assert.equal(manifest.releaseNotes, '# v0.4.3\n\nNotes.')
+  assert.equal(Object.keys(manifest.builds).length, 5)
+  const latest = JSON.parse(readFileSync(join(out, 'github/latest.json'), 'utf8'))
+  assert.equal(latest.version, '0.4.3')
+  assert.equal(latest.platforms['darwin-aarch64'].signature, 'sig-aarch64')
+  assert.equal(latest.platforms['darwin-x86_64'].signature, 'sig-x86_64')
+  assert.equal(latest.platforms['windows-x86_64'].signature, 'sig-win')
+})

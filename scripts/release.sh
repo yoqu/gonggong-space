@@ -116,7 +116,7 @@ done
 
 docker_builds() {
   local p key target exe script=""
-  for p in "${docker_targets[@]}"; do
+  for p in ${docker_targets[@]+"${docker_targets[@]}"}; do
     key="${p%%:*}" target="${p#*:}" exe=""
     [[ $key == windows-* ]] && exe=.exe
     script+="echo '== $key ($target)'; cargo build -q --release --locked -p gonggong --target $target;"
@@ -203,7 +203,7 @@ mac_build() { # Rust targets
     cargo build -q --release --locked -p gonggong "${args[@]}")
 }
 local_mac=()
-for p in "${mac_targets[@]}"; do
+for p in ${mac_targets[@]+"${mac_targets[@]}"}; do
   [ -n "$peer_x86" ] && [ "${p%%:*}" = macos-x86_64 ] || local_mac+=("${p#*:}")
 done
 mac_build ${local_mac[@]+"${local_mac[@]}"}
@@ -271,7 +271,7 @@ fi
 
 peer_done
 [ -n "$peer_x86" ] || [ -z "$peer_gg" ] || mac_build x86_64-apple-darwin
-for p in "${mac_targets[@]}"; do
+for p in ${mac_targets[@]+"${mac_targets[@]}"}; do
   cp "$ROOT/target/${p#*:}/release/gg" "$out/$(artifact "${p%%:*}")"
 done
 for pid in ${notarize_pids[@]+"${notarize_pids[@]}"}; do
