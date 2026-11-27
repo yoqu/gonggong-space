@@ -31,7 +31,7 @@ describe('English dictionary', () => {
     for (const rel of sources) {
       const text = readFileSync(join(protoDir, rel), 'utf8')
       for (const m of text.matchAll(
-        /(?:message:[ \t]*|,[ \t]*|URL\.canParse\(u\),\s*)'([^']*[\u4e00-\u9fff][^']*)'/g,
+        /(?:message:[ \t]*|,[ \t]*|URL\.canParse\(u\),\s*)'([^'\n]*[\u4e00-\u9fff][^'\n]*)'/g,
       )) {
         const msg = m[1] ?? ''
         if (!(msg in en)) missing.push(`${rel}: ${msg}`)
