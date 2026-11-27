@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.34 — 2026-11-27
+
+- Claude 配置目录供应商的模型探测会应用各自的 `--settings`，并在需要时重新探测；同时上报实际使用的模型与缓存 Token 用量 / Claude config-directory providers now probe with their own `--settings` and reprobe when needed; the daemon also reports the served model and cache-token usage
+- 同目录并行写入选择等待时显示正在等待的运行；取消等待更快 / Shared-workspace write prompts identify the runs being waited on, and cancelling a wait is faster
+
 ## v0.4.33 — 2026-11-26
 
 - 多个 Bot 共用一个工作区时，只读不打扰；需要写入且有其他写者时，才确认并行还是等待 / Bots can read a shared workspace without interruption. A write prompts for confirmation only when another run may also write
