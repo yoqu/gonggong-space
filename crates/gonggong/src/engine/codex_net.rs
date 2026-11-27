@@ -52,8 +52,8 @@ fn patched_entry(script: &Path) -> anyhow::Result<PathBuf> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
     let tmp = script.with_file_name(format!("{ENTRY}.{}-{n}.tmp", std::process::id()));
-    std::fs::write(&tmp, patched).with_context(|| format!("writing {}", tmp.display()))?;
-    std::fs::rename(&tmp, &entry).inspect_err(|_| _ = std::fs::remove_file(&tmp))?;
+    let written = std::fs::write(&tmp, patched).and_then(|()| std::fs::rename(&tmp, &entry));
+    written.inspect_err(|_| _ = std::fs::remove_file(&tmp)).with_context(|| format!("writing {}", entry.display()))?;
     Ok(entry)
 }
 
