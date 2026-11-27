@@ -55,6 +55,7 @@ const PARAMS: SystemParams = {
   singleTeamMode: true,
   teamCreation: 'sysadmin',
   feishuAutoSignup: true,
+  feishuWebApp: false,
   publicUrl: '',
   demoMode: false,
   pluginsEnabled: false,

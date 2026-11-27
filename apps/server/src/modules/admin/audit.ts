@@ -163,11 +163,14 @@ function paramChanges(d: Detail, t = defaultT) {
   const feishu = changes.feishuAutoSignup
     ? [t(changes.feishuAutoSignup[1] ? '开启飞书自动开户' : '关闭飞书自动开户')]
     : []
+  const webApp = changes.feishuWebApp
+    ? [t(changes.feishuWebApp[1] ? '开启在飞书内打开共工链接' : '关闭在飞书内打开共工链接')]
+    : []
   const url = changes.publicUrl
     ? [t('对外地址改为 {url}', { url: str(changes.publicUrl[1]) || t('未设置') })]
     : []
   const demo = changes.demoMode ? [t(changes.demoMode[1] ? '开启演示模式' : '关闭演示模式')] : []
-  return [...reg, ...single, ...creation, ...feishu, ...url, ...demo, ...numeric].join(t('；'))
+  return [...reg, ...single, ...creation, ...feishu, ...webApp, ...url, ...demo, ...numeric].join(t('；'))
 }
 
 /** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */

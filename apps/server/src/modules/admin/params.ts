@@ -29,6 +29,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   singleTeamMode: true,
   teamCreation: 'sysadmin',
   feishuAutoSignup: true,
+  feishuWebApp: false,
   publicUrl: '',
   demoMode: false,
   pluginsEnabled: false,

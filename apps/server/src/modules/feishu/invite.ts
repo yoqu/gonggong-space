@@ -3,7 +3,7 @@ import { translator } from '../../i18n/index.js'
 import { noticeCard } from './cards.js'
 import { creatingChats } from './chats.js'
 import { credsOf, type FeishuAppRow, onFeishu } from './gateway.js'
-import { publicUrl } from './identity.js'
+import { cardUrl } from './identity.js'
 import { boundGroupOf } from './members.js'
 
 const zt = translator('zh')
@@ -39,14 +39,14 @@ export function startFeishuInvite(ctx: Ctx) {
 async function invite(ctx: Ctx, app: FeishuAppRow, chatId: string) {
   // A chat 创建飞书群 just made is bound once that request finishes.
   await Promise.allSettled([...creatingChats])
-  const base = await publicUrl(ctx)
+  const link = await cardUrl(ctx)
   if (await boundGroupOf(ctx, chatId)) return
-  const card = base
+  const card = link
     ? noticeCard(
         zt(
           '这个飞书群还没有接入共工。点下方按钮新建或关联已有的共工群，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。',
         ),
-        { label: zt('接入共工'), url: `${base}/?feishuChat=${encodeURIComponent(chatId)}` },
+        { label: zt('接入共工'), url: link(`/?feishuChat=${encodeURIComponent(chatId)}`) },
       )
     : noticeCard(zt('这个飞书群还没有接入共工。请在共工的群设置 › 飞书里关联本群。'))
   await ctx.feishu.api.send(credsOf(app), chatId, {

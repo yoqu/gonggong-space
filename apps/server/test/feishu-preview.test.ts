@@ -102,6 +102,19 @@ describe('preview cards in Feishu', () => {
     expect(t.feishu.cardUpdates).toEqual([])
   })
 
+  it('with 飞书网页应用 on, the links open 共工 through the main app: in a Feishu tab, or its sidebar', async () => {
+    const { group, preview } = await setup()
+    await t.db.insert(systemParams).values({ key: 'feishuWebApp', value: true })
+    forgetSysParams(t.db)
+    await publish(group.id)
+    const json = JSON.stringify(previewCards()[0]!.content)
+    const target = encodeURIComponent(`${BASE}/g/${group.id}?preview=${preview.id}`)
+    const app = `https://applink.feishu.cn/client/web_app/open?appId=${MAIN}`
+    expect(json).toContain(`${app}&lk_target_url=${target}`)
+    expect(json).toContain(`${app}&mode=sidebar&lk_target_url=${target}`)
+    expect(json).not.toContain('web_url')
+  })
+
   it('shows the snapshot, uploaded once per snapshot', async () => {
     const { group, preview } = await setup()
     await publish(group.id)

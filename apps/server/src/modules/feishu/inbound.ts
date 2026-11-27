@@ -44,7 +44,7 @@ import { approveJoinRequest, rejectJoinRequest } from '../team-sections/join-req
 import { askInGroup } from '../teams/onboarding.js'
 import { ACT_FIELD, approvalCard, type CardValue, formAnswers, noticeCard, questionCard } from './cards.js'
 import { credsOf, type FeishuAppRow, type FeishuInbound, onFeishu } from './gateway.js'
-import { publicUrl } from './identity.js'
+import { cardUrl } from './identity.js'
 import { boundChat, enqueue, linkOf, markBound, markRendered, userOfFeishu } from './mirror.js'
 
 const zt = translator('zh')
@@ -169,9 +169,9 @@ const reply = (ctx: Ctx, app: FeishuAppRow, ev: Receive, card: object) =>
 
 /** The 认证共工账号 button, back to `next` once verified. */
 async function verifyAction(ctx: Ctx, next: string) {
-  const base = await publicUrl(ctx)
-  return base
-    ? { label: zt('绑定飞书账号'), url: `${base}/api/auth/feishu/start?next=${encodeURIComponent(next)}` }
+  const link = await cardUrl(ctx)
+  return link
+    ? { label: zt('绑定飞书账号'), url: link(`/api/auth/feishu/start?next=${encodeURIComponent(next)}`) }
     : undefined
 }
 
@@ -182,8 +182,8 @@ type Target = { groupId: string; botId: string; user: { id: string; name: string
  * group page then offers 加入 or 申请加入). Signs them in from Feishu on the way.
  */
 async function joinAction(ctx: Ctx, groupId: string, userId: string) {
-  const base = await publicUrl(ctx)
-  if (!base) return undefined
+  const link = await cardUrl(ctx)
+  if (!link) return undefined
   const [row] = await ctx.db
     .select({ id: groups.id })
     .from(groups)
@@ -191,7 +191,7 @@ async function joinAction(ctx: Ctx, groupId: string, userId: string) {
     .where(and(eq(groups.id, groupId), isNull(groups.archivedAt), isNotNull(groups.teamSectionId)))
   if (!row) return undefined
   const next = `/g/${groupId}`
-  return { label: zt('申请加入'), url: `${base}/api/auth/feishu/start?next=${encodeURIComponent(next)}` }
+  return { label: zt('申请加入'), url: link(`/api/auth/feishu/start?next=${encodeURIComponent(next)}`) }
 }
 
 /** A message in a Feishu chat bound to a group: the @-ed bot runs there if the sender is a member. */

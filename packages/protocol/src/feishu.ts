@@ -35,6 +35,15 @@ export const FeishuAppReq = z.object({
 })
 export type FeishuAppReq = z.infer<typeof FeishuAppReq>
 
+/**
+ * PUT /api/admin/feishu/web-app: turning it on enables the main app's 网页应用 (homepage = 对外地址) and submits a
+ * version for the Feishu admin to approve. `manual`: Feishu will not let 共工 modify the app; set it up by hand.
+ */
+export const FeishuWebAppReq = z.object({ enabled: z.boolean() })
+export type FeishuWebAppReq = z.infer<typeof FeishuWebAppReq>
+export const FeishuWebAppDto = z.object({ enabled: z.boolean(), manual: z.boolean() })
+export type FeishuWebAppDto = z.infer<typeof FeishuWebAppDto>
+
 /** The Feishu chat a group is bound to. */
 export const FeishuChatDto = z.object({
   groupId: z.string(),

@@ -534,26 +534,22 @@ const PREVIEW_STATE: Record<PreviewState, { label: string; template: string }> =
   closed: { label: zt('已关闭'), template: 'grey' },
 }
 
-/** Feishu applink that opens `url` in the chat's sidebar (desktop client). */
-const sidebarUrl = (url: string) =>
-  `https://applink.feishu.cn/client/web_url/open?mode=sidebar-semi&url=${encodeURIComponent(url)}`
-
-/** A bot's published preview: its snapshot and the ways to open it in 共工; `url` is null without 对外地址 or once closed. */
+/** A bot's published preview: its snapshot and the ways to open it in 共工; `open` is null without 对外地址 or once closed. */
 export function previewCard(o: {
   bot: string
   title: string
   kind: string
   state: PreviewState
   image: string | null
-  url: string | null
+  open: { url: string; sidebarUrl: string } | null
 }) {
   const s = PREVIEW_STATE[o.state]
   const elements = [
     ...(o.image
       ? [{ tag: 'img', img_key: o.image, alt: text(o.title), scale_type: 'fit_horizontal', preview: true }]
       : []),
-    ...(o.url
-      ? [linkButton(zt('打开预览'), o.url, true), linkButton(zt('在飞书侧边栏打开'), sidebarUrl(o.url))]
+    ...(o.open
+      ? [linkButton(zt('打开预览'), o.open.url, true), linkButton(zt('在飞书侧边栏打开'), o.open.sidebarUrl)]
       : []),
   ]
   const note = o.state === 'closed' ? zt('预览已关闭') : zt('在共工群里打开此预览')

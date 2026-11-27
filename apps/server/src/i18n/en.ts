@@ -237,6 +237,11 @@ export const en = {
   '移除 Bot {bot} 的飞书应用 {appId}': 'Removed Feishu app {appId} from Bot {bot}',
   开启飞书自动开户: 'Turn on Feishu auto sign-up',
   关闭飞书自动开户: 'Turn off Feishu auto sign-up',
+  开启在飞书内打开共工链接: 'Turn on opening Gonggong links inside Feishu',
+  关闭在飞书内打开共工链接: 'Turn off opening Gonggong links inside Feishu',
+  先配置主应用: 'Set up the main app first',
+  先保存对外地址: 'Save the public URL first',
+  '开通网页应用失败：{reason}': 'Failed to enable the web app: {reason}',
 
   // Feishu
   'App ID 应以 cli_ 开头': 'The App ID must start with cli_',

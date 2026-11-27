@@ -52,6 +52,7 @@ const PARAMS: SystemParams = {
   singleTeamMode: true,
   teamCreation: 'sysadmin',
   feishuAutoSignup: true,
+  feishuWebApp: false,
   publicUrl: 'https://gg.example.com',
   demoMode: false,
   pluginsEnabled: true,

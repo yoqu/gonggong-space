@@ -184,3 +184,40 @@ describe('FeishuAppForm', () => {
     expect(calls.some((c) => c.method === 'POST' && c.path === '/bots/b1/feishu/configure')).toBe(true)
   })
 })
+
+describe('管理后台 · 飞书 · 飞书网页应用', () => {
+  it('shows the AppLink for 搜索结果快捷入口 and turns on opening card links inside Feishu', async () => {
+    let on = false
+    const calls = mockApi({
+      'GET /admin/feishu': connected,
+      'GET /admin/feishu/overview': () => ({
+        publicUrl: 'https://gg.example.com',
+        main: connected.app,
+        linkedUsers: 1,
+        othersLinked: false,
+        bots: [],
+        chats: [],
+      }),
+      'GET /admin/params': () =>
+        ({ feishuAutoSignup: true, feishuWebApp: on, publicUrl: 'https://gg.example.com' }) as SystemParams,
+      'PUT /admin/feishu/web-app': (body: unknown) => {
+        on = (body as { enabled: boolean }).enabled
+        return { enabled: on, manual: false }
+      },
+    })
+    render(
+      <MemoryRouter initialEntries={['/admin/feishu']}>
+        <App />
+      </MemoryRouter>,
+    )
+    expect(
+      await screen.findByText('https://applink.feishu.cn/client/web_app/open?appId=cli_main01'),
+    ).toBeTruthy()
+    const toggle = (await screen.findByRole('switch', { name: '在飞书内打开共工链接' })) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    fireEvent.click(toggle)
+    await waitFor(() => expect(on).toBe(true))
+    expect(calls.find((c) => c.path === '/admin/feishu/web-app')?.body).toEqual({ enabled: true })
+    await waitFor(() => expect(toggle.checked).toBe(true))
+  })
+})

@@ -177,6 +177,8 @@ export const SystemParams = GroupParams.extend({
   teamCreation: z.enum(['all', 'sysadmin']),
   /** First 飞书登录 may create an account (only the enterprise's own members can authorize the main app). */
   feishuAutoSignup: z.boolean(),
+  /** Links back to 共工 in Feishu cards open in the main app's 网页应用 (a Feishu tab) instead of the browser. */
+  feishuWebApp: z.boolean(),
   /** How browsers reach this server (OAuth redirect, links in Feishu cards); '' = not set. */
   publicUrl: z.union([z.literal(''), z.url().regex(/^https?:\/\/[^/]+$/)]),
   /** Public demo site: no public preview links or Feishu preview cards, no full tier, no remote control,
@@ -279,6 +281,7 @@ export const SYSTEM_PARAM_VIEW: {
     | 'singleTeamMode'
     | 'teamCreation'
     | 'feishuAutoSignup'
+    | 'feishuWebApp'
     | 'publicUrl'
     | 'demoMode'
     | 'pluginsEnabled'

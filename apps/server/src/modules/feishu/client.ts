@@ -216,6 +216,8 @@ export interface FeishuApi {
   register(reg: FeishuRegistration): Promise<FeishuCreds>
   /** Applies dev config the QR cannot carry; the app must already hold its long connection for `websocket`. */
   configure(app: FeishuCreds, config: FeishuDevConfig): Promise<void>
+  /** Turns on the app's 网页应用 with `url` as its homepage and trusted domain, then submits a version for approval. */
+  enableWebApp(app: FeishuCreds, url: string): Promise<void>
 }
 
 type Res<T> = { code?: number; msg?: string; data?: T }
@@ -608,6 +610,28 @@ export function larkApi(): FeishuApi {
               security: { add: { redirect_urls: config.redirectUrls }, allow_refresh_token: true },
             }),
           },
+        }),
+      )
+    },
+
+    async enableWebApp(app, url) {
+      const c = client(app).application.v7
+      await call(
+        c.applicationAbility.patch({
+          path: { app_id: app.appId },
+          data: { web_app: { enable: true, pc_url: url, mobile_url: url, pc_new_page_open_mode: 'new_tab' } },
+        }),
+      )
+      await call(
+        c.applicationConfig.patch({
+          path: { app_id: app.appId },
+          data: { security: { add: { h5_trusted_domains: [url] } } },
+        }),
+      )
+      await call(
+        c.applicationPublish.create({
+          path: { app_id: app.appId },
+          data: { remark: '共工：开启网页应用', changelog: '在飞书内打开共工' },
         }),
       )
     },

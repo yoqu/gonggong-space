@@ -1,7 +1,11 @@
+import type { FeishuWebAppDto } from '@gonggong/protocol'
 import { and, eq, isNotNull, ne } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { feishuApps } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
+import { fail } from '../../lib/errors.js'
+import { saveSysParams } from '../admin/params.js'
+import { mainApp } from './apps.js'
 import { BOT_CALLBACKS, BOT_EVENTS, type FeishuDevConfig, FeishuError, MAIN_EVENTS } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
 import { publicUrl } from './identity.js'
@@ -55,6 +59,28 @@ export async function configureApp(ctx: Ctx, row: FeishuAppRow) {
     .where(eq(feishuApps.id, row.id))
     .returning()
   return saved
+}
+
+/**
+ * 飞书网页应用 on: the main app's 网页应用 is enabled (homepage = 对外地址) and a version submitted, then card links go
+ * through it. An app Feishu will not modify is switched on all the same, for the admin to set up by hand.
+ */
+export async function setWebApp(ctx: Ctx, enabled: boolean, actorUserId: string): Promise<FeishuWebAppDto> {
+  let manual = false
+  if (enabled) {
+    const main = (await mainApp(ctx)) ?? fail('invalid', '先配置主应用')
+    const base = (await publicUrl(ctx)) ?? fail('invalid', '先保存对外地址')
+    try {
+      await ctx.feishu.api.enableWebApp(credsOf(main), base)
+    } catch (err) {
+      if (!(err instanceof FeishuError)) throw err
+      if (err.code !== NOT_MODIFIABLE_CODE)
+        fail('invalid', '开通网页应用失败：{reason}', { reason: err.message })
+      manual = true
+    }
+  }
+  const next = await saveSysParams(ctx, { feishuWebApp: enabled }, actorUserId)
+  return { enabled: next.feishuWebApp, manual }
 }
 
 /** One pass over the apps whose dev config is still pending. */

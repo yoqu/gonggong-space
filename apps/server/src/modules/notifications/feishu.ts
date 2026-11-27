@@ -6,14 +6,14 @@ import { translator } from '../../i18n/index.js'
 import { mainApp } from '../feishu/apps.js'
 import { notificationCard, shareRequestCard } from '../feishu/cards.js'
 import { credsOf } from '../feishu/gateway.js'
-import { publicUrl } from '../feishu/identity.js'
+import { cardUrl } from '../feishu/identity.js'
 import { notificationDto } from './notify.js'
 import { pushSuppressed } from './suppress.js'
 
 async function viewOf(ctx: Ctx, n: NotificationDto) {
   const view = notificationView(n, translator('zh').text)
-  const base = await publicUrl(ctx)
-  return { ...view, url: base && `${base}${view.href}` }
+  const link = await cardUrl(ctx)
+  return { ...view, url: link?.(view.href) ?? null }
 }
 
 /**

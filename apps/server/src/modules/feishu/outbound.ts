@@ -17,7 +17,7 @@ import { mainApp } from './apps.js'
 import { webhookNotificationCard } from './cards.js'
 import { type FeishuBody, type FeishuCreds, FeishuError, type FeishuFileType } from './client.js'
 import { credsOf } from './gateway.js'
-import { publicUrl, userToken } from './identity.js'
+import { cardUrl, userToken } from './identity.js'
 import { appOfBot, boundChat, cardBody, enqueue } from './mirror.js'
 
 type Link = typeof feishuMessageLinks.$inferSelect
@@ -227,10 +227,10 @@ export async function mirrorUserMessage(ctx: Ctx, message: MessageRow, author: {
         messageId: message.id,
         ...(byUser && { refId: author.id }),
       })
-    const base = await publicUrl(ctx)
+    const link = await cardUrl(ctx)
     await sendFiles(ctx, { appId: from.appId, creds: app }, chat.chatId, files, {
       messageId: message.id,
-      url: base && `${base}/g/${message.groupId}?msg=${message.id}`,
+      url: link?.(`/g/${message.groupId}?msg=${message.id}`) ?? null,
       replyTo,
       as: token ? { userId: author.id, token } : null,
       first: !sent,
@@ -274,10 +274,10 @@ export async function mirrorBotAttachments(ctx: Ctx, message: MessageRow) {
         messageId: message.id,
       })
     }
-    const base = await publicUrl(ctx)
+    const link = await cardUrl(ctx)
     await sendFiles(ctx, { appId: from.appId, creds: app }, trigger.chatId, files, {
       messageId: message.id,
-      url: base && `${base}/g/${message.groupId}?msg=${message.id}`,
+      url: link?.(`/g/${message.groupId}?msg=${message.id}`) ?? null,
       ...opts,
     })
   })

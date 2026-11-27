@@ -107,6 +107,10 @@ export class FakeFeishu {
   /** `configure` fails with this message when set. */
   configureError: string | null = null
   configureErrorCode = 99991672
+  /** 网页应用 turned on per app (`enableWebApp`). */
+  readonly webApps: { appId: string; url: string }[] = []
+  /** `enableWebApp` fails with this when set. */
+  webAppError: { code: number; message: string } | null = null
   /** 扫码创建 sessions waiting for the admin to scan; settle them with `approve` / `deny`. */
   readonly registrations: (FeishuRegistration & { url: string; settle: (r: FeishuCreds | Error) => void })[] =
     []
@@ -545,6 +549,11 @@ export class FakeFeishu {
       this.check(app.appId)
       if (this.configureError) throw new FeishuError(this.configureErrorCode, this.configureError)
       this.configs.push({ appId: app.appId, config })
+    },
+    enableWebApp: async (app, url) => {
+      this.check(app.appId)
+      if (this.webAppError) throw new FeishuError(this.webAppError.code, this.webAppError.message)
+      this.webApps.push({ appId: app.appId, url })
     },
   }
 }

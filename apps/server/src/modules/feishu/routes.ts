@@ -4,6 +4,8 @@ import {
   type FeishuOverviewDto,
   type FeishuRegisterDto,
   FeishuRegisterReq,
+  type FeishuWebAppDto,
+  FeishuWebAppReq,
 } from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -11,7 +13,7 @@ import { fail } from '../../lib/errors.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { assertCanManage, loadBot } from '../bots/routes.js'
 import { appDto, botApp, mainApp, removeApp, saveApp } from './apps.js'
-import { configureApp } from './config.js'
+import { configureApp, setWebApp } from './config.js'
 import type { FeishuAppRow } from './gateway.js'
 import { feishuOverview } from './overview.js'
 import { cancelRegister, registerDto, registerSession, startRegister } from './register.js'
@@ -70,6 +72,11 @@ export function feishuRoutes(ctx: Ctx) {
     app.post<IdParams>('/api/bots/:id/feishu/configure', async (req): Promise<FeishuAppView> => {
       const { bot } = await manageableBot(req, req.params.id)
       return { app: appDto(await configureApp(ctx, bound(true, await botApp(ctx, bot.id)) as FeishuAppRow)) }
+    })
+
+    app.put('/api/admin/feishu/web-app', async (req): Promise<FeishuWebAppDto> => {
+      const actor = await requireSysadmin(ctx, req)
+      return setWebApp(ctx, FeishuWebAppReq.parse(req.body).enabled, actor.id)
     })
 
     app.get('/api/admin/feishu/overview', async (req): Promise<FeishuOverviewDto> => {

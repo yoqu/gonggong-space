@@ -20,6 +20,17 @@ export default {
     'When on, members of your enterprise can create a Gonggong account on their first Feishu sign-in, regardless of open sign-up.',
   已开启飞书自动开户: 'Feishu auto sign-up turned on',
   已关闭飞书自动开户: 'Feishu auto sign-up turned off',
+  飞书网页应用: 'Feishu web app',
+  在飞书内打开共工链接: 'Open Gonggong links inside Feishu',
+  '开启时为主应用开通网页应用（主页为对外地址）并提交版本发布，飞书管理员审核通过后，飞书卡片里的共工链接在飞书标签页中打开。':
+    "Turning this on enables the main app's web app (homepage: the public URL) and submits a version; once a Feishu admin approves it, Gonggong links in Feishu cards open in a Feishu tab.",
+  '在飞书开发者后台「网页应用 › 搜索结果快捷入口」填写此链接，成员在飞书里搜索快捷入口的完整名称即可打开共工（仅电脑端）。':
+    "Enter this link under Web app › Search result shortcut in the Feishu developer console; members then open Gonggong by searching the shortcut's full name in Feishu (desktop only).",
+  '飞书不允许共工修改该应用，请在开发者后台手动开启网页应用，主页填写 {url}':
+    "Feishu won't let Gonggong modify this app. Enable the web app by hand in the developer console with {url} as its homepage",
+  '已提交版本发布，飞书管理员审核通过后生效':
+    'Version submitted; takes effect once a Feishu admin approves it',
+  已关闭在飞书内打开: 'Links open in the browser again',
   '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。':
     "The main app powers Feishu sign-in and mirrors members' messages to bots into Feishu; each bot's own Feishu app is connected under its settings › Feishu.",
   飞书应用: 'Feishu app',

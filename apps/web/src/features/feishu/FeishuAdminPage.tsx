@@ -1,4 +1,4 @@
-import type { SystemParams } from '@gonggong/protocol'
+import type { FeishuWebAppDto, SystemParams } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
@@ -21,6 +21,8 @@ export function FeishuAdminPage() {
   const [paramsError, setParamsError] = useState('')
   const [paramsLoading, setParamsLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
+  const [webApp, setWebApp] = useState(false)
+  const [togglingWebApp, setTogglingWebApp] = useState(false)
   const [publicUrl, setPublicUrl] = useState('')
   const [urlDraft, setUrlDraft] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
@@ -33,6 +35,7 @@ export function FeishuAdminPage() {
       .get<SystemParams>('/admin/params')
       .then((p) => {
         setAutoSignup(p.feishuAutoSignup)
+        setWebApp(p.feishuWebApp)
         setPublicUrl(p.publicUrl ?? '')
         setUrlDraft(p.publicUrl || window.location.origin)
       })
@@ -73,6 +76,33 @@ export function FeishuAdminPage() {
       setToggling(false)
     }
   }
+
+  const toggleWebApp = async (enabled: boolean) => {
+    if (togglingWebApp) return
+    setTogglingWebApp(true)
+    try {
+      const next = await api.put<FeishuWebAppDto>('/admin/feishu/web-app', { enabled })
+      setWebApp(next.enabled)
+      if (next.manual)
+        toast({
+          type: 'warning',
+          message: t('飞书不允许共工修改该应用，请在开发者后台手动开启网页应用，主页填写 {url}', {
+            url: publicUrl,
+          }),
+        })
+      else
+        toast({
+          type: 'success',
+          message: enabled ? t('已提交版本发布，飞书管理员审核通过后生效') : t('已关闭在飞书内打开'),
+        })
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setTogglingWebApp(false)
+    }
+  }
+
+  const mainAppId = overview.data?.main?.appId
 
   return (
     <AdminPage
@@ -165,6 +195,35 @@ export function FeishuAdminPage() {
                 blocked={publicUrl ? undefined : t('先保存对外地址')}
                 onChange={overview.reload}
               />
+            </GroupRow>
+          </GroupBox>
+        </section>
+      ) : null}
+      {autoSignup !== null && mainAppId && publicUrl ? (
+        <section className="admin-params">
+          <h2 className="admin-params__title">{t('飞书网页应用')}</h2>
+          <GroupBox>
+            <GroupRow
+              label={t('在飞书内打开共工链接')}
+              description={t(
+                '开启时为主应用开通网页应用（主页为对外地址）并提交版本发布，飞书管理员审核通过后，飞书卡片里的共工链接在飞书标签页中打开。',
+              )}
+            >
+              <Switch
+                ariaLabel={t('在飞书内打开共工链接')}
+                label={webApp ? t('已开启') : t('已关闭#off')}
+                checked={webApp}
+                disabled={togglingWebApp}
+                onChange={(v) => void toggleWebApp(v)}
+              />
+            </GroupRow>
+            <GroupRow
+              label="AppLink"
+              description={t(
+                '在飞书开发者后台「网页应用 › 搜索结果快捷入口」填写此链接，成员在飞书里搜索快捷入口的完整名称即可打开共工（仅电脑端）。',
+              )}
+            >
+              <code className="feishu-app__id">{`https://applink.feishu.cn/client/web_app/open?appId=${mainAppId}`}</code>
             </GroupRow>
           </GroupBox>
         </section>

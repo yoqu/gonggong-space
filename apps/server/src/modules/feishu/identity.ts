@@ -55,3 +55,24 @@ async function currentToken(ctx: Ctx, userId: string): Promise<string | null> {
 export async function publicUrl(ctx: Ctx): Promise<string | null> {
   return (await sysParams(ctx.db)).publicUrl || null
 }
+
+/** Opens a 共工 page: in the browser, or from a Feishu card in Feishu's sidebar. */
+export type CardUrl = (path: string, where?: 'sidebar') => string
+
+const APPLINK = 'https://applink.feishu.cn/client'
+
+/**
+ * Links back to 共工 for Feishu cards; null until 对外地址 is set. With 飞书网页应用 on they go through the main app's
+ * 网页应用 (a Feishu tab), else to the browser.
+ */
+export async function cardUrl(ctx: Ctx): Promise<CardUrl | null> {
+  const p = await sysParams(ctx.db)
+  if (!p.publicUrl) return null
+  const main = p.feishuWebApp ? await mainApp(ctx) : undefined
+  return (path, where) => {
+    const target = encodeURIComponent(`${p.publicUrl}${path}`)
+    if (main)
+      return `${APPLINK}/web_app/open?appId=${main.appId}${where ? `&mode=${where}` : ''}&lk_target_url=${target}`
+    return where ? `${APPLINK}/web_url/open?mode=sidebar-semi&url=${target}` : `${p.publicUrl}${path}`
+  }
+}

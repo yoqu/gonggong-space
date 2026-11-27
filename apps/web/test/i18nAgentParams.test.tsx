@@ -50,6 +50,7 @@ it('shows system parameter labels and units in English', async () => {
     singleTeamMode: true,
     teamCreation: 'sysadmin',
     feishuAutoSignup: true,
+    feishuWebApp: false,
     publicUrl: '',
     demoMode: false,
     pluginsEnabled: false,

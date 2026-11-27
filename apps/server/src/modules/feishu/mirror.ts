@@ -45,7 +45,7 @@ import {
 } from './cards.js'
 import { type FeishuBody, FeishuError } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
-import { publicUrl } from './identity.js'
+import { type CardUrl, cardUrl } from './identity.js'
 import { hintParams, issueOf } from './issues.js'
 
 /** Patched (non-streaming) run cards change at most this often; the final state is never held back. */
@@ -496,8 +496,8 @@ async function syncRunCard(
   const existing = await cardLink(ctx, 'run_card', { runId: run.id })
   const terminal = TERMINAL_RUN_STATUS.includes(run.status as RunStatus)
   const { streams } = state(ctx)
-  const base = await publicUrl(ctx)
-  const url = base ? `${base}/g/${run.groupId}?run=${run.id}` : null
+  const link = await cardUrl(ctx)
+  const url = link?.(`/g/${run.groupId}?run=${run.id}`) ?? null
   const s = streams.get(run.id)
   // A card sent as a plain message (no card_id), a refused entity, or a run that ends before it had one.
   if ((existing && !existing.feishuRef) || s?.legacy || (!existing && terminal)) {
@@ -514,7 +514,7 @@ async function syncRunCard(
       bot,
       status: run.status as RunStatus,
       step: run.step,
-      reply: await replyOf(ctx, app, run, base),
+      reply: await replyOf(ctx, app, run, link),
       url,
       items,
     })
@@ -570,7 +570,7 @@ async function syncRunCard(
 }
 
 /** The run's final reply as card markdown, with snapshots of its html_render pages that have one. */
-async function replyOf(ctx: Ctx, app: FeishuAppRow, run: Row, base: string | null) {
+async function replyOf(ctx: Ctx, app: FeishuAppRow, run: Row, link: CardUrl | null) {
   const [reply] = await ctx.db
     .select({ id: messages.id, body: messages.body, meta: messages.meta })
     .from(messages)
@@ -579,7 +579,7 @@ async function replyOf(ctx: Ctx, app: FeishuAppRow, run: Row, base: string | nul
     .limit(1)
   if (!reply) return null
   const meta = reply.meta as MessageMeta
-  const url = base && `${base}/g/${run.groupId}?msg=${reply.id}`
+  const url = link?.(`/g/${run.groupId}?msg=${reply.id}`) ?? null
   const shots: PageShot[] = []
   for (const p of meta.htmlRenders ?? []) {
     const image = await pageImage(ctx, app, p.attachmentId)
@@ -645,7 +645,7 @@ async function patchedRunCard(
     bot,
     status: run.status as RunStatus,
     step: run.step,
-    reply: terminal ? await replyOf(ctx, app, run, await publicUrl(ctx)) : null,
+    reply: terminal ? await replyOf(ctx, app, run, await cardUrl(ctx)) : null,
     url,
     items,
   })
@@ -776,7 +776,7 @@ async function syncPreviewCards(ctx: Ctx, groupId: string) {
           : isNull(previews.closedAt),
       ),
     )
-  const base = await publicUrl(ctx)
+  const link = await cardUrl(ctx)
   for (const { p, bot, threadRootId } of rows) {
     if (await inArtifactChat(ctx, threadRootId)) continue
     const existing = await cardLink(ctx, 'preview', { refId: p.id })
@@ -790,14 +790,15 @@ async function syncPreviewCards(ctx: Ctx, groupId: string) {
           .where(and(eq(runs.id, p.createdByRunId), eq(feishuMessageLinks.kind, 'message')))
       : []
     const state: PreviewState = p.closedAt ? 'closed' : ctx.tunnels.get(p.machineId) ? 'online' : 'offline'
-    const url = base && !p.closedAt ? `${base}/g/${groupId}?preview=${p.id}` : null
+    const path = `/g/${groupId}?preview=${p.id}`
+    const open = link && !p.closedAt ? { url: link(path), sidebarUrl: link(path, 'sidebar') } : null
     const card = previewCard({
       bot,
       title: p.title,
       kind: p.kind,
       state,
       image: await snapshotKey(ctx, app, p),
-      url,
+      open,
     })
     await putCard(ctx, app, trigger ?? { chatId: chat.chatId }, existing, card, {
       kind: 'preview',
@@ -869,13 +870,13 @@ async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
     .where(
       and(eq(feishuMessageLinks.messageId, row.run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
     )
-  const base = await publicUrl(ctx)
+  const link = await cardUrl(ctx)
   const at = row.req.userId && !row.req.filledAt ? await cardAt(ctx, row.req.userId, app) : ''
   const card = secretCard({
     bot: row.bot,
     text: at ? `${at} ${row.body}` : row.body,
     filled: row.req.filledAt !== null,
-    url: base && `${base}/secret-requests/${requestId}`,
+    url: link?.(`/secret-requests/${requestId}`) ?? null,
   })
   const existing = await cardLink(ctx, 'secret', { refId: requestId })
   await putCard(ctx, app, trigger ?? { chatId: chat.chatId }, existing, card, {
@@ -910,7 +911,7 @@ async function syncConnectorCard(ctx: Ctx, groupId: string, messageId: string) {
     .where(
       and(eq(feishuMessageLinks.messageId, run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
     )
-  const base = await publicUrl(ctx)
+  const link = await cardUrl(ctx)
   const at = card.resolved ? '' : await cardAt(ctx, card.userId, app)
   const existing = await cardLink(ctx, 'connector', { refId: card.id })
   await putCard(
@@ -921,7 +922,7 @@ async function syncConnectorCard(ctx: Ctx, groupId: string, messageId: string) {
     connectorCard({
       text: at ? `${at} ${m.body}` : m.body,
       resolved: card.resolved,
-      url: base && `${base}/g/${groupId}${m.threadRootId ? `?thread=${m.threadRootId}&msg=${m.id}` : ''}`,
+      url: link?.(`/g/${groupId}${m.threadRootId ? `?thread=${m.threadRootId}&msg=${m.id}` : ''}`) ?? null,
     }),
     { kind: 'connector', refId: card.id },
   )
