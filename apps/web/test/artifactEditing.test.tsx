@@ -749,7 +749,7 @@ describe('mark (M)', () => {
     })
   })
 
-  it('lists the annotations, sends the ticked ones (all open by default) to the bot, resolves, and deletes the author’s own', async () => {
+  it('shows a page’s annotations in its 页面文档: hands the open ones to the bot, resolves, deletes the author’s own', async () => {
     const calls = mockApi(
       routes({
         'GET /artifacts/a1/annotations?version=v2': [
@@ -762,33 +762,57 @@ describe('mark (M)', () => {
       }),
     )
     await renderTab()
-    fireEvent.click(screen.getByRole('button', { name: '批注' }))
-    const list = await screen.findByTestId('art-annotations')
-    const rows = within(list).getAllByRole('listitem')
-    expect(rows[0]?.textContent).toContain('王磊')
+    expect(screen.queryByRole('tab', { name: '批注' })).toBeNull()
+    const doc = await screen.findByTestId('art-pagedoc-home')
+    const rows = within(doc).getAllByRole('listitem')
     expect(rows[0]?.textContent).toContain('标题再大一点')
-    expect(rows[0]?.textContent).toContain('待处理')
+    expect(rows[0]?.textContent).toContain('王磊 · 待处理')
     expect(within(rows[1] as HTMLElement).queryByRole('button', { name: '删除' })).toBeNull()
-    // Every open note starts ticked (P2-03); unticking leaves one out.
-    expect(screen.getByRole('button', { name: '发给 @设计助手（2）' })).toBeTruthy()
-    fireEvent.click(within(rows[0] as HTMLElement).getByRole('checkbox'))
-    fireEvent.change(screen.getByRole('textbox', { name: '补充说明' }), { target: { value: '尽快' } })
-    fireEvent.click(screen.getByRole('button', { name: '发给 @设计助手（1）' }))
+    fireEvent.click(within(doc).getByRole('button', { name: '交给 AI 处理' }))
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/annotations/send')).toEqual([
-        { annotationIds: ['n2'], botId: 'b1', extra: '尽快' },
+        { annotationIds: ['n1', 'n2'], botId: 'b1' },
       ]),
     )
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole('button', { name: '解决' }))
+    fireEvent.click(within(rows[1] as HTMLElement).getByRole('button', { name: '标为已解决' }))
     fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: '删除' }))
     // Deleting asks first: nothing goes until confirmed.
-    const confirm = await screen.findByRole('alertdialog', { name: '要删除这条批注吗？' })
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
-    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: '确认删除' }))
     await waitFor(() => {
       expect(bodies(calls, 'PATCH', '/annotations/n2')).toEqual([{ status: 'resolved' }])
       expect(calls.some((c) => c.method === 'DELETE' && c.path === '/annotations/n1')).toBe(true)
     })
+  })
+
+  it('页面文档: 编写页面文档 beside a page’s name opens one to type in, saved as docs/<id>.md; AI 帮我写 asks the bot', async () => {
+    const calls = mockApi(routes())
+    await renderTab()
+    expect(screen.queryByTestId('art-pagedoc-home')).toBeNull()
+    const title = screen.getByRole('button', { name: '首页' }).closest('.art-title') as HTMLElement
+    fireEvent.click(within(title).getByRole('button', { name: '编写页面文档' }))
+    const doc = screen.getByTestId('art-pagedoc-home')
+    // The page after it makes way for it.
+    const left = (id: string) => Number.parseFloat(node(id).style.left)
+    expect(left('pagedoc:home')).toBeGreaterThan(left('home'))
+    expect(left('detail')).toBeGreaterThan(left('pagedoc:home') + 400)
+    const box = within(doc).getByRole('textbox', { name: '页面文档' })
+    fireEvent.change(box, { target: { value: '# 首页\n\n- 本周共读入口' } })
+    fireEvent.blur(box)
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
+        {
+          baseVersionId: 'v2',
+          ops: [{ kind: 'file', path: 'docs/home.md', content: '# 首页\n\n- 本周共读入口' }],
+        },
+      ]),
+    )
+    fireEvent.click(within(doc).getByRole('button', { name: 'AI 帮我写' }))
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toContainEqual(
+        expect.objectContaining({ command: 'write-doc', botId: 'b1', screenIds: ['home'] }),
+      ),
+    )
   })
 })
 
@@ -1190,25 +1214,5 @@ describe('Stitch round 2 fixes', () => {
     expect(ai.textContent).toContain('@设计助手 离线，上线后执行')
     fireEvent.click(ai)
     expect(within(popover()).getByRole('note').textContent).toBe('@设计助手 离线，上线后执行')
-  })
-
-  it('points to open annotations left on another version, and shows that version (R05)', async () => {
-    mockApi(
-      routes({
-        'GET /artifacts/a1/annotations': [
-          note({ versionId: 'v1' }),
-          note({ id: 'n2', versionId: 'v1' }),
-          note({ id: 'n3', versionId: 'v1', status: 'resolved' }),
-        ],
-        'GET /artifacts/a1/annotations?version=v1': [note({ versionId: 'v1' })],
-      }),
-    )
-    await renderTab()
-    fireEvent.click(screen.getByRole('button', { name: '批注' }))
-    expect(await screen.findByText('还没有批注')).toBeTruthy()
-    const hint = await screen.findByTestId('art-notes-elsewhere')
-    expect(hint.textContent).toContain('v1 上还有 2 条未处理批注')
-    fireEvent.click(within(hint).getByRole('button', { name: '查看' }))
-    expect(await screen.findByText('正在查看 v1（只读）')).toBeTruthy()
   })
 })

@@ -313,7 +313,7 @@ describe('region marks (G08)', () => {
     )
   })
 
-  it('draws region annotations as boxes with their number, and lists element and region apart', async () => {
+  it('draws region annotations as boxes with their number, and lists them in the page’s document', async () => {
     mockApi(
       routes({
         'GET /artifacts/a1/annotations?version=v2': [
@@ -327,10 +327,8 @@ describe('region marks (G08)', () => {
     expect(await screen.findByTestId('art-region-n2')).toBeTruthy()
     expect(screen.queryByTestId('art-region-n1')).toBeNull()
     expect(screen.getByTestId('art-bubble-n2').textContent).toBe('2')
-    fireEvent.click(screen.getByRole('button', { name: '批注' }))
-    const rows = within(await screen.findByTestId('art-annotations')).getAllByRole('listitem')
-    expect(rows[0]?.textContent).toContain('元素')
-    expect(rows[1]?.textContent).toContain('区域')
+    const rows = within(await screen.findByTestId('art-pagedoc-home')).getAllByRole('listitem')
+    expect(rows.map((r) => r.querySelector('button')?.textContent)).toEqual(['标题再大一点', '这块太挤'])
   })
 
   it('ignores a malformed box', () => {
@@ -413,7 +411,7 @@ describe('queued commands (R04) and the annotation badge', () => {
     expect(screen.queryByTestId('art-queued')).toBeNull()
   })
 
-  it('counts the open annotations of the shown version on the annotations tool', async () => {
+  it('shows the annotations of the shown version, with their status, in the page’s document', async () => {
     mockApi(
       routes({
         'GET /artifacts/a1/annotations?version=v2': [
@@ -424,8 +422,9 @@ describe('queued commands (R04) and the annotation badge', () => {
       }),
     )
     await renderTab()
-    const tool = screen.getByRole('button', { name: '批注' })
-    await waitFor(() => expect(within(tool).getByTestId('art-tool-badge').textContent).toBe('2'))
+    const doc = await screen.findByTestId('art-pagedoc-home')
+    await waitFor(() => expect(within(doc).getAllByText(/待处理/)).toHaveLength(2))
+    expect(within(doc).getByText(/· 已解决/)).toBeTruthy()
   })
 })
 

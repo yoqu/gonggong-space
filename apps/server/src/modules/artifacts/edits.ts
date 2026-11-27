@@ -10,6 +10,7 @@ import {
   type ArtifactFile,
   ArtifactFiles,
   type ArtifactUploadRes,
+  docFileOf,
   GG_ARTIFACT_MANIFEST,
   GgArtifactManifest,
   type GgArtifactScreen,
@@ -213,7 +214,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         break
       case 'file':
         // An emptied rule file goes: a screen without rules has none.
-        if (op.path.startsWith('rules/') && !op.content.trim()) {
+        if ((op.path.startsWith('rules/') || op.path.startsWith('docs/')) && !op.content.trim()) {
           changed.delete(op.path)
           removed.add(op.path)
         } else {
@@ -270,11 +271,15 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         const file = `screens/${id}.html`
         changed.set(file, await read(screen.file))
         removed.delete(file)
-        const rules = ruleFileOf(screen.id)
-        if (!removed.has(rules) && (changed.has(rules) || files.has(rules))) {
-          changed.set(ruleFileOf(id), await read(rules))
-          removed.delete(ruleFileOf(id))
-        }
+        // Its rules and its document (页面文档) go with the copy.
+        for (const [from, to] of [
+          [ruleFileOf(screen.id), ruleFileOf(id)],
+          [docFileOf(screen.id), docFileOf(id)],
+        ] as const)
+          if (!removed.has(from) && (changed.has(from) || files.has(from))) {
+            changed.set(to, await read(from))
+            removed.delete(to)
+          }
         // The copy goes back to the layout rather than on top of its original.
         const { x: _x, y: _y, ...rest } = screen
         m.screens.splice(i + 1, 0, {
@@ -293,7 +298,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
             if (screen.parent) sub.parent = screen.parent
             else if (screen.group) sub.group = screen.group
           }
-        for (const path of [screen.file, ruleFileOf(screen.id)]) {
+        for (const path of [screen.file, ruleFileOf(screen.id), docFileOf(screen.id)]) {
           removed.add(path)
           changed.delete(path)
         }

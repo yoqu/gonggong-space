@@ -9,7 +9,7 @@ import {
   GgArtifactManifest,
   GgArtifactPageGroup,
 } from './artifact-manifest.js'
-import { ArtifactAnchor, ArtifactRuleFile } from './artifact-rules.js'
+import { ArtifactAnchor, ArtifactDocFile, ArtifactRuleFile } from './artifact-rules.js'
 import { ArtifactStateKey } from './artifact-states.js'
 import { RunStatus } from './common.js'
 import { StyleProp, styleValueOk, tokenValueOk } from './styles.js'
@@ -346,7 +346,11 @@ export function tokensCssOk(css: string) {
 }
 
 /** Files of an artifact a member may replace whole: the design system panel's, and the rule files (stored as plain text). */
-export const ArtifactWholeFile = z.union([z.enum(['DESIGN.md', 'tokens.css']), ArtifactRuleFile])
+export const ArtifactWholeFile = z.union([
+  z.enum(['DESIGN.md', 'tokens.css']),
+  ArtifactRuleFile,
+  ArtifactDocFile,
+])
 export type ArtifactWholeFile = z.infer<typeof ArtifactWholeFile>
 export const ARTIFACT_WHOLE_FILE_MAX_BYTES = 200 * 1024
 
@@ -867,6 +871,8 @@ export const ArtifactCommand = z.enum([
   'connect-element',
   /** Fills in the business rules (rules/<id>.md, shared ones in rules/shared.md) of `screenIds`, pending what it cannot infer. */
   'complete-rules',
+  /** Writes the page documents (docs/<id>.md, a PRD) of `screenIds` from the page and its rules, `text` its focus. */
+  'write-doc',
 ])
 export type ArtifactCommand = z.infer<typeof ArtifactCommand>
 

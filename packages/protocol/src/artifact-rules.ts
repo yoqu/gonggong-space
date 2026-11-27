@@ -10,6 +10,9 @@ import { z } from 'zod'
 export const ArtifactRuleFile = z.string().regex(/^rules\/[a-z0-9]+(-[a-z0-9]+)*\.md$/)
 export const SHARED_RULES_FILE = 'rules/shared.md'
 export const ruleFileOf = (screenId: string) => `rules/${screenId}.md`
+/** 页面文档: the PRD a member (or the AI, 写页面文档) writes beside a page, as Markdown; the AI reads it when changing it. */
+export const ArtifactDocFile = z.string().regex(/^docs\/[a-z0-9]+(-[a-z0-9]+)*\.md$/)
+export const docFileOf = (screenId: string) => `docs/${screenId}.md`
 /** A stable element mark (`data-gg-anchor`) page rules hang on; survives regenerating the screen, unlike `data-gg-id`. */
 export const ArtifactAnchor = z
   .string()

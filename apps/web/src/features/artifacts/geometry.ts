@@ -31,6 +31,12 @@ export const framePreset = (p: FramePreset, device: ArtifactDevice) =>
     ? { ...FRAME_PRESETS.mobile, w: DEVICE_SIZE.miniprogram.w }
     : FRAME_PRESETS[p]
 const NODE_GAP = 120
+const PAGE_DOC_GAP = 40
+const PAGE_DOC_WIDTH = 440
+const PAGE_DOC_MIN_H = 480
+export const PAGE_DOC_PREFIX = 'pagedoc:'
+/** The 页面文档 node of a page. */
+export const pageDocId = (screenId: string) => `${PAGE_DOC_PREFIX}${screenId}`
 /** Room above a node for its title, in canvas units at 100%. */
 export const TITLE_ROOM = 32
 const PAD = 64
@@ -89,7 +95,7 @@ const linkSize = (l: GgArtifactLink) => {
   return { w: p.w, h: LINK_HEAD + p.h }
 }
 
-type NodeKind = 'system' | 'doc' | 'rules' | 'screen' | 'prototype' | 'ref' | 'link'
+type NodeKind = 'system' | 'doc' | 'rules' | 'screen' | 'prototype' | 'ref' | 'link' | 'pagedoc'
 
 export interface CanvasNode {
   id: string
@@ -144,6 +150,8 @@ export interface LayoutInput {
   page?: string | null
   /** Web pages on the canvas. */
   links?: GgArtifactLink[]
+  /** Pages whose 页面文档 shows beside them (in the room right of the page; the pages after it make way). */
+  pageDocs?: ReadonlySet<string>
 }
 
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
@@ -164,7 +172,7 @@ export function layoutNodes({ page, ...input }: LayoutInput) {
   const { manifest, title, frames, content } = input
   return page && manifest
     ? layoutAll({
-        ...{ title, frames, content, system: null },
+        ...{ title, frames, content, system: null, pageDocs: input.pageDocs },
         manifest: { ...manifest, screens: shownScreens(manifest, page) },
         prototype: false,
       })
@@ -182,6 +190,7 @@ function layoutAll({
   refs = [],
   refHeights = {},
   links = [],
+  pageDocs,
   prototype = true,
 }: Omit<LayoutInput, 'page'> & { prototype?: boolean }): {
   device: ArtifactDevice
@@ -236,9 +245,23 @@ function layoutAll({
     let x = left
     let tallest = 0
     for (const c of cells.slice(i, i + row)) {
-      nodes.push({ ...c, x, y, ...placed.get(c.id) })
+      const at = { x, y, ...placed.get(c.id) }
+      nodes.push({ ...c, ...at })
       x += c.w + NODE_GAP
       tallest = Math.max(tallest, c.h)
+      if (c.kind !== 'screen' || !pageDocs?.has(c.id)) continue
+      tallest = Math.max(tallest, PAGE_DOC_MIN_H)
+      nodes.push({
+        id: pageDocId(c.id),
+        kind: 'pagedoc',
+        title: c.title,
+        file: c.file,
+        x: at.x + c.w + PAGE_DOC_GAP,
+        y: at.y,
+        w: PAGE_DOC_WIDTH,
+        h: Math.max(c.h, PAGE_DOC_MIN_H),
+      })
+      if (!placed.has(c.id)) x += PAGE_DOC_GAP + PAGE_DOC_WIDTH
     }
     y += tallest + NODE_GAP + TITLE_ROOM
   }

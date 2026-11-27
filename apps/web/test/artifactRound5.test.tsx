@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 import type {
-  AnnotationDto,
   ArtifactDto,
   BotDto,
   GgArtifactManifest,
@@ -77,22 +76,6 @@ const detail = (o: Record<string, unknown> = {}) => ({
   ...version(2, { files: [] }),
   manifest: manifest(),
   links: [],
-  ...o,
-})
-const note = (o: Partial<AnnotationDto> = {}): AnnotationDto => ({
-  id: 'n1',
-  artifactId: 'a1',
-  versionId: 'v2',
-  file: 'screens/home.html',
-  ggId: '120',
-  selector: 'body > h1',
-  rect: { x: 10, y: 300, w: 100, h: 30 },
-  snippet: '<h1> 本周共读',
-  note: '标题再大一点',
-  authorId: 'u1',
-  authorName: '王磊',
-  status: 'open',
-  createdAt: at,
   ...o,
 })
 const routes = (o: Record<string, unknown> = {}) => ({
@@ -324,28 +307,6 @@ describe('chat column chips (P1-05, P2-01, P2-02, P2-16)', () => {
     )
     expect(screen.queryByTestId('art-context-screens')).toBeNull()
     expect(screen.getByTitle('读书会小程序 · 首页')).toBeTruthy()
-  })
-})
-
-describe('annotations after a run (P2-03, P2-04)', () => {
-  it('heads the panel with the notes sent to the AI on the version before, to resolve or reopen', async () => {
-    const sent = note({ id: 'n7', versionId: 'v1', status: 'sent', note: '按钮改圆角' })
-    const calls = mockApi(
-      routes({
-        'GET /artifacts/a1/annotations': [sent, note({ id: 'n8', versionId: 'v1', status: 'resolved' })],
-        'GET /artifacts/a1/annotations?version=v2': [note({ id: 'n1' }), note({ id: 'n2', status: 'sent' })],
-        'PATCH /annotations/n7': { ...sent, status: 'resolved' },
-      }),
-    )
-    await renderTab()
-    fireEvent.click(screen.getByRole('button', { name: '批注' }))
-    const box = await screen.findByTestId('art-notes-sent')
-    expect(box.textContent).toContain('v1 上发给 AI 的 1 条批注')
-    expect(box.textContent).toContain('首页按钮改圆角')
-    // Open notes of the shown version start ticked; ones already sent do not.
-    expect(screen.getByRole('button', { name: '发给 @设计助手（1）' })).toBeTruthy()
-    fireEvent.click(within(box).getByRole('button', { name: '标为已解决' }))
-    await waitFor(() => expect(bodies(calls, 'PATCH', '/annotations/n7')).toEqual([{ status: 'resolved' }]))
   })
 })
 

@@ -610,3 +610,114 @@ fieldset.art-el {
   flex: none;
   padding: 0 6px;
 }
+
+/* 页面文档 beside a page (pageDoc.tsx). */
+.art-node--pagedoc {
+  overflow: hidden;
+  border-radius: var(--radius-window);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-glass);
+}
+.art-pagedoc {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--label);
+  cursor: auto;
+  user-select: text;
+}
+.art-pagedoc__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--separator);
+}
+.art-pagedoc__file {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--label-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-pagedoc__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-12) var(--space-16);
+}
+.art-pagedoc__input {
+  width: 100%;
+  min-height: 320px;
+  font-family: var(--font-mono);
+}
+.art-pagedoc__empty {
+  margin: 0;
+  color: var(--label-secondary);
+}
+.art-pagedoc__notes {
+  margin-top: var(--space-16);
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--separator);
+}
+.art-pagedoc__notes header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.art-pagedoc__notes h4 {
+  margin: 0;
+  font-size: var(--text-body-size, 14px);
+}
+.art-pagedoc__notes ol {
+  margin: var(--space-8) 0 0;
+  padding-left: var(--space-16);
+}
+.art-pagedoc__note {
+  margin-bottom: var(--space-8);
+}
+.art-pagedoc__note--done .art-pagedoc__note-text {
+  color: var(--label-tertiary);
+  text-decoration: line-through;
+}
+.art-pagedoc__note-text {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.art-pagedoc__meta {
+  color: var(--label-secondary);
+  font-size: 12px;
+}
+.art-pagedoc__acts {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-8);
+}
+.art-title__doc {
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: var(--content-bg);
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.art-title__doc:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

@@ -623,8 +623,6 @@ function PrototypeArtifactTab({
                 guardDesign={design.guard}
                 request={request}
                 onRequestHandled={() => setRequest((r) => r && { ...r, handled: true })}
-                versions={entry.versions}
-                onViewVersion={(id) => setViewing(id === head ? null : id)}
                 onPrototypeAsked={() => {
                   awaitProto.current = a.running ? 'running' : 'asked'
                 }}

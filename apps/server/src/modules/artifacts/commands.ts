@@ -7,6 +7,7 @@ import {
   type ArtifactContext,
   type ArtifactElementRef,
   type ArtifactThreadAnchor,
+  docFileOf,
   type GgArtifactManifest,
   type MessageCanvas,
   type MessageDto,
@@ -167,6 +168,15 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
     return f ? (await readBlob(a.groupId, f.hash)).toString('utf8') : null
   }, ruleScreens)
   if (rules.length) lines.push(...rules)
+  for (const id of ruleScreens) {
+    const f = v.files.find((x) => x.path === docFileOf(id))
+    const doc = f ? (await readBlob(a.groupId, f.hash)).toString('utf8').trim() : ''
+    if (doc)
+      lines.push(
+        `屏幕 ${id} 的页面文档（${docFileOf(id)}，改这一页时照着它，改完内容不符的地方同步更新）：`,
+        doc,
+      )
+  }
   const canvas: MessageCanvas = {
     artifactId: a.id,
     title: a.title,
@@ -226,6 +236,14 @@ function commandInstruction(
     ]
       .filter(Boolean)
       .join('\n'),
+    'write-doc': [
+      `为下面选中的每个屏幕编写页面文档（PRD），写进 ${dir}/docs/<屏幕 id>.md（已有的保留成员写的内容，补全缺的部分）。`,
+      '用 Markdown：# 页面名，然后 ## 页面目标、## 内容与模块（逐个模块说明展示什么、数据从哪来）、## 交互说明（点击后去哪、各种状态）、## 异常与边界。',
+      `参考页面本身、${dir}/rules/<屏幕 id>.md 的业务规则和页面上的批注；推不出来的标 [待确认] 并写建议。只写文档，不要改页面。`,
+      ask,
+    ]
+      .filter(Boolean)
+      .join('\n'),
   }
   return by[r.command]
 }
@@ -242,6 +260,7 @@ const COMMAND_LABEL: Record<ArtifactCommand, MessageKey> = {
   'apply-design-system': '套用设计系统',
   'connect-element': '新建一屏并连接',
   'complete-rules': '补全业务规则',
+  'write-doc': '编写页面文档',
 }
 
 const withText = (action: string, text: string | undefined) =>

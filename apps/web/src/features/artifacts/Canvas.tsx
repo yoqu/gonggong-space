@@ -1,5 +1,4 @@
 import type {
-  AnnotationDto,
   ArtifactCommand,
   ArtifactCommandReq,
   ArtifactDevice,
@@ -11,6 +10,7 @@ import type {
   GgArtifactManifest,
   GgArtifactRef,
 } from '@gonggong/protocol'
+import { docFileOf } from '@gonggong/protocol'
 import {
   Fragment,
   type KeyboardEvent,
@@ -23,7 +23,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
@@ -43,7 +42,6 @@ import {
   toast,
 } from '../../ui'
 import { openUrl } from '../previews/store'
-import { AnnotationsPanel } from './AnnotationsPanel'
 import {
   copyPng,
   copyScreensCode,
@@ -59,9 +57,9 @@ import {
   sendCommand,
   updateAnnotation,
   uploadImage,
+  useAllAnnotations,
   useAnnotations,
   useArtifactBot,
-  useOpenElsewhere,
 } from './actions'
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
@@ -114,6 +112,8 @@ import {
   nodeKind,
   nodesInRect,
   onScreen,
+  PAGE_DOC_PREFIX,
+  pageDocId,
   REF_PREFIX,
   type Rect,
   rectOf,
@@ -159,6 +159,7 @@ import {
 } from './menus'
 import { noEditReasonOf, PagePill } from './PageRail'
 import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
+import { usePageDocLayer } from './pageDoc'
 import { contextTarget, PageFrames } from './pageFrames'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
@@ -255,10 +256,6 @@ export interface CanvasProps {
   designPanel: (close: () => void, tab: DesignTab, notify: Notify) => ReactNode
   /** Leaving the design-system panel goes through this (it asks first when there are unsaved changes). */
   guardDesign: (proceed: () => void) => void
-  /** The artifact's versions, to name the ones with open annotations. */
-  versions: { id: string; n: number }[]
-  /** Shows a version (read-only unless it is the head). */
-  onViewVersion: (versionId: string) => void
   /** The tab bar's asks: the export panel, the command menu, the shortcuts. */
   request: CanvasRequest | null
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
@@ -292,6 +289,7 @@ function frameSignatures(files: { path: string; hash: string }[], manifest: GgAr
         f.path !== 'gg-artifact.json' &&
         f.path !== 'DESIGN.md' &&
         !f.path.startsWith('rules/') &&
+        !f.path.startsWith('docs/') &&
         !f.path.startsWith('refs/'),
     )
     .map((f) => `${f.path}:${f.hash}`)
@@ -333,8 +331,6 @@ export function Canvas({
   request,
   onPrototypeAsked,
   onRequestHandled,
-  versions,
-  onViewVersion,
 }: CanvasProps) {
   const root = useRef<HTMLDivElement>(null)
   const plane = useRef<HTMLDivElement>(null)
@@ -446,23 +442,6 @@ export function Canvas({
   const pendingPick = useRef<{ file: string; ggId: string } | null>(null)
   /** 动效 ＋: 用 AI 修改 opened on the picked element with the request begun. */
   const [animate, setAnimate] = useState<{ text: string; n: number } | null>(null)
-  const otherNotes = useOpenElsewhere(
-    artifactId,
-    versionKey || null,
-    panel === 'annotations',
-    annotations.tick,
-  )
-  const elsewhere = versions
-    .filter((v) => otherNotes.counts[v.id])
-    .map((v) => ({ versionId: v.id, n: v.n, count: otherNotes.counts[v.id] ?? 0 }))
-    .sort((a, b) => b.n - a.n)
-  /** Notes handed to the AI on versions before the shown one: their results are in this one, to be checked. */
-  const shownN = versions.find((v) => v.id === versionKey)?.n ?? 0
-  const sentEarlier = otherNotes.sent.flatMap((a) => {
-    const n = versions.find((v) => v.id === a.versionId)?.n ?? 0
-    return n && n < shownN ? [{ ...a, n }] : []
-  })
-  const meId = useSession((s) => s.user?.id ?? null)
   const press = useRef<{
     id: number
     x: number
@@ -522,6 +501,30 @@ export function Canvas({
     },
   })
   const page = useShownPage(artifactId, manifest)
+  const allNotes = useAllAnnotations(artifactId, annotations.tick)
+  // 页面文档 beside the pages; the annotations show in them (the 批注 panel is gone, 蒋庆 2026-11-27).
+  const docLayer = usePageDocLayer({
+    ...{ files, readFile, canEdit, screens: manifest?.screens ?? [], version: versionKey },
+    notes: [...annotations.list, ...allNotes.filter((a) => !annotations.list.some((b) => b.id === a.id))],
+    ai: bot ? null : t('暂无可用 Bot'),
+    save: (id, md) => saveOps([{ kind: 'file', path: docFileOf(id), content: md }]),
+    write: (id) => void ask('write-doc', { screenIds: [id] }),
+    setStatus: (id, status) => annotationAction(() => updateAnnotation(id, { status })),
+    remove: (id) => void deleteAnnotation(id).then(() => annotations.reload()),
+    send: (annotationIds) =>
+      bot &&
+      void attempt(() => sendAnnotations(artifactId, { annotationIds, botId: bot.id })).then((ok) => {
+        if (ok) handedTo(bot)
+        annotations.reload()
+      }),
+    focus: (a) => {
+      if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
+    },
+    reveal: (id) => {
+      revealDoc.current = id
+    },
+  })
+  const revealDoc = useRef<string | null>(null)
   const { device, nodes } = useMemo(
     () =>
       layoutNodes({
@@ -536,8 +539,10 @@ export function Canvas({
         refs,
         refHeights,
         links: web.links,
+        pageDocs: docLayer.pageDocs,
       }),
     [
+      docLayer.pageDocs,
       page,
       title,
       placedManifest,
@@ -584,6 +589,14 @@ export function Canvas({
     const v = fitView(only ? nodes.filter((n) => only.includes(n.id)) : nodes, room)
     if (v) setView(v)
   }
+  // A page doc just started: the page and it, in view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once its node is laid out
+  useEffect(() => {
+    const id = revealDoc.current
+    if (!id || !nodes.some((n) => n.id === pageDocId(id))) return
+    revealDoc.current = null
+    fitTo([id, pageDocId(id)])
+  }, [nodes])
   // Fit whenever the layout's bounds or the plane's size change, until the member takes over the view.
   const bounds = boundsKey(nodes)
   // biome-ignore lint/correctness/useExhaustiveDependencies: on new bounds or a new plane size only
@@ -1488,37 +1501,6 @@ export function Canvas({
         }
         onClose={dropElement}
       />
-    ) : panel === 'annotations' ? (
-      <AnnotationsPanel
-        list={annotations.list}
-        meId={meId}
-        screenTitle={(file) => screens.find((s) => s.file === file)?.title ?? file}
-        bots={bots}
-        bot={bot}
-        onPickBot={pickBot}
-        onSend={async (annotationIds, extra) => {
-          if (!bot) return false
-          const ok = await attempt(() =>
-            sendAnnotations(artifactId, { annotationIds, botId: bot.id, ...(extra ? { extra } : {}) }),
-          )
-          if (ok) handedTo(bot)
-          annotations.reload()
-          return ok
-        }}
-        onStatus={(id, status) => annotationAction(() => updateAnnotation(id, { status }))}
-        onDelete={(id) => deleteAnnotation(id).then(() => annotations.reload())}
-        onFocus={(a: AnnotationDto) => {
-          const n = screens.find((s) => s.file === a.file)
-          if (!n) return
-          setSelected([n.id])
-          fitTo([n.id])
-          if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
-        }}
-        elsewhere={elsewhere}
-        sent={sentEarlier}
-        onView={onViewVersion}
-        onClose={() => setPanel(null)}
-      />
     ) : panel === 'details' && one ? (
       <DetailsPanel
         artifactId={artifactId}
@@ -1687,7 +1669,6 @@ export function Canvas({
           }}
           panel={panel}
           onPanel={(p) => (panel === p ? setPanel(null) : p === 'design' ? openDesign('theme') : setPanel(p))}
-          notes={openNotes}
           badges={rules.show}
           onBadges={rules.toggle}
         />
@@ -1830,6 +1811,8 @@ export function Canvas({
                           />
                         ) : null
                       })()
+                    ) : n.kind === 'pagedoc' ? (
+                      docLayer.node(n.id.slice(PAGE_DOC_PREFIX.length), n.title, n.file)
                     ) : n.kind === 'system' && tokens ? (
                       <DesignSystemNode tokens={tokens} />
                     ) : n.kind === 'rules' ? (
@@ -1903,6 +1886,7 @@ export function Canvas({
                   />
                 ) : null}
                 {nodes.map((n) => {
+                  if (n.kind === 'pagedoc') return null
                   const r = onScreen(n, view)
                   const on = selected.includes(n.id)
                   const fav = favourites.includes(n.id)
@@ -2009,6 +1993,7 @@ export function Canvas({
                           ) : null}
                           {!tiny && n.kind === 'screen' ? rules.badge(n) : null}
                           {!tiny && n.kind === 'screen' && (on || !narrow) ? states.picker(n.id) : null}
+                          {!tiny && n.kind === 'screen' ? docLayer.titleButton(n.id) : null}
                         </div>
                       )}
                       {on ? (

@@ -74,4 +74,17 @@ export default {
   阴影颜色: 'Shadow color',
   默认字体: 'Default font',
   设计系统颜色: 'Design system colors',
+  '用 Markdown 写：页面目标、内容与模块、交互说明、异常与边界':
+    'Write Markdown: the goal, the content and blocks, the interactions, edge cases',
+  'AI 帮我写': 'Write it with AI',
+  '交给 AI 处理': 'Hand to AI',
+  '批注（{n}）': 'Annotations ({n})',
+  编写页面文档: 'Write page doc',
+  编辑文档: 'Edit document',
+  还没有文档: 'No document yet',
+  '还没有文档。点右上角铅笔开始写，或让 AI 帮你写':
+    'No document yet. Click the pencil to write it, or have AI write it',
+  '页面文档 · {title}': 'Page doc · {title}',
+  页面文档: 'Page doc',
+  旧版本上的: 'on an earlier version',
 }

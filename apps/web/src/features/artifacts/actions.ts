@@ -149,44 +149,24 @@ export function useAnnotations(artifactId: string, versionId: string | null) {
 }
 
 /**
- * Annotations on other versions than `versionId` (they stay with the version they were made on, so a new version, a
- * local one too, seems to drop them): how many are still open, by version, and the ones handed to the AI, whose
- * results show in a newer version. Asked only while `enabled`.
+ * Every annotation of the artifact, whatever version it was made on (they stay with their version, so a newer one
+ * would seem to drop them): the 页面文档 shows them all with their page. `tick` reloads them.
  */
-export function useOpenElsewhere(
-  artifactId: string,
-  versionId: string | null,
-  enabled: boolean,
-  tick: number,
-) {
-  const [state, setState] = useState<{ counts: Record<string, number>; sent: AnnotationDto[] }>(
-    NONE_ELSEWHERE,
-  )
+export function useAllAnnotations(artifactId: string, tick: number) {
+  const [list, setList] = useState<AnnotationDto[]>([])
   // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` reloads with the shown version's list
   useEffect(() => {
-    if (!enabled) return setState(NONE_ELSEWHERE)
     let live = true
     api.get<AnnotationDto[]>(`/artifacts/${artifactId}/annotations`).then(
-      (l) => {
-        if (!live) return
-        const counts: Record<string, number> = {}
-        const sent: AnnotationDto[] = []
-        for (const a of l) {
-          if (a.versionId === versionId) continue
-          if (a.status === 'open') counts[a.versionId] = (counts[a.versionId] ?? 0) + 1
-          else if (a.status === 'sent') sent.push(a)
-        }
-        setState({ counts, sent })
-      },
-      () => live && setState(NONE_ELSEWHERE),
+      (l) => live && setList(l),
+      () => live && setList([]),
     )
     return () => {
       live = false
     }
-  }, [artifactId, versionId, enabled, tick])
-  return state
+  }, [artifactId, tick])
+  return list
 }
-const NONE_ELSEWHERE = { counts: {}, sent: [] }
 
 export const createAnnotation = (artifactId: string, req: CreateAnnotationReq) =>
   api.post<AnnotationDto>(`/artifacts/${artifactId}/annotations`, req)

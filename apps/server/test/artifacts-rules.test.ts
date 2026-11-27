@@ -169,6 +169,47 @@ describe('page business rules', () => {
   })
 })
 
+describe('page documents (页面文档)', () => {
+  it('saves a page’s document as docs/<id>.md, copies and drops it with the page, and an empty one goes', async () => {
+    const s = await setup()
+    expect(
+      (await s.edit([{ kind: 'file', path: 'docs/home.md', content: '# 首页\n\n- 报名入口\n' }])).statusCode,
+    ).toBe(200)
+    expect((await s.file('docs/home.md')).body).toBe('# 首页\n\n- 报名入口\n')
+    expect((await s.edit([{ kind: 'file', path: 'docs/../x.md', content: 'x' }])).statusCode).toBe(400)
+    expect((await s.edit([{ kind: 'manifest', op: 'duplicate', screenId: 'home' }])).statusCode).toBe(200)
+    expect((await s.file('docs/home-copy.md')).body).toBe('# 首页\n\n- 报名入口\n')
+    expect((await s.edit([{ kind: 'file', path: 'docs/home-copy.md', content: '  ' }])).statusCode).toBe(200)
+    expect(await s.paths()).not.toContain('docs/home-copy.md')
+    expect((await s.edit([{ kind: 'manifest', op: 'delete', screenId: 'home' }])).statusCode).toBe(200)
+    expect(await s.paths()).not.toContain('docs/home.md')
+  })
+
+  it('asks the agent to write the page documents, and hands a page’s document to every change of it', async () => {
+    const s = await setup({ 'docs/home.md': '# 首页 PRD\n报名截止后按钮置灰\n' })
+    const res = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, {
+      command: 'write-doc',
+      botId: s.bot.id,
+      screenIds: ['home'],
+    })
+    expect(res.statusCode).toBe(200)
+    const msg = res.json() as MessageDto
+    expect(msg.body).toBe('@小王的 Claude 编写页面文档\n「活动报名」 › 首页')
+    const note = (await s.meta(msg.id)).artifactNote ?? ''
+    expect(note).toContain('docs/<屏幕 id>.md')
+    expect(note).toContain('报名截止后按钮置灰')
+    const edit = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, {
+      command: 'edit-with-ai',
+      botId: s.bot.id,
+      screenIds: ['home'],
+      text: '换个配色',
+    })
+    const editNote = (await s.meta((edit.json() as MessageDto).id)).artifactNote ?? ''
+    expect(editNote).toContain('屏幕 home 的页面文档（docs/home.md，')
+    expect(editNote).toContain('报名截止后按钮置灰')
+  })
+})
+
 describe('canvas links', () => {
   const add = (title: string, url = 'https://example.com/a') => ({
     kind: 'link',

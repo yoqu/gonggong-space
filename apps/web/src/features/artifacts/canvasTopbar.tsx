@@ -19,7 +19,7 @@ export function useStoredFlag(key: string, initial: boolean) {
   return [on, toggle, setOn] as const
 }
 
-type ToolPanel = 'design' | 'favourites' | 'annotations'
+type ToolPanel = 'design' | 'favourites'
 
 /** The tools of the top bar, then the panels it opens. */
 export function CanvasTools({
@@ -32,7 +32,6 @@ export function CanvasTools({
   onRefresh,
   panel,
   onPanel,
-  notes,
   badges,
   onBadges,
 }: {
@@ -46,7 +45,6 @@ export function CanvasTools({
   onRefresh: () => void
   panel: string | null
   onPanel: (panel: ToolPanel) => void
-  notes: number
   badges: boolean
   onBadges: () => void
 }) {
@@ -95,13 +93,6 @@ export function CanvasTools({
         label={t('收藏')}
         on={panel === 'favourites'}
         onClick={() => onPanel('favourites')}
-      />
-      <ToolButton
-        icon="bubble"
-        label={t('批注')}
-        badge={notes}
-        on={panel === 'annotations'}
-        onClick={() => onPanel('annotations')}
       />
       <ToolButton icon="tag" label={t('显示角标')} on={badges} onClick={onBadges} />
     </>

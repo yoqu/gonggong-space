@@ -218,6 +218,20 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         )
       })
 
+      await test.step('页面文档: written beside the page, kept as docs/home.md in the next version', async () => {
+        await page.locator('[data-screen-title="home"]').getByRole('button', { name: '编写页面文档' }).click()
+        const doc = page.getByTestId('art-pagedoc-home')
+        const box = doc.getByRole('textbox', { name: '页面文档' })
+        await box.fill('# 首页\n\n- 报名入口在顶部')
+        await doc.getByRole('button', { name: '完成' }).click()
+        await expect(card.getByText('v6')).toBeVisible({ timeout: 30_000 })
+        await expect(doc.getByRole('listitem').filter({ hasText: '报名入口在顶部' })).toBeVisible({
+          timeout: 30_000,
+        })
+        await page.waitForTimeout(400)
+        await page.screenshot({ path: join(SHOTS, 'e2e-canvas-pagedoc.png') })
+      })
+
       await test.step('with the bot offline the canvas still opens: the server hosts it', async () => {
         m.stop()
         online = false
