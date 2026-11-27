@@ -13,7 +13,6 @@ import type {
 import { useMemo } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { EmptyState, NoDataArt } from '../../ui'
 import {
   DEFAULT_COST_FORMAT,
   fmtCompactTokens,
@@ -25,6 +24,7 @@ import {
   fmtTps,
   type UsageCostFormat,
 } from './formatters'
+import { UsageEmpty } from './metrics'
 import type { UsageChartMode, UsageFilterState } from './types'
 import { UsageCalendarHeatmap } from './UsageHeatmap'
 import { type UsageKpiCell, UsageKpiStrip } from './UsageKpiStrip'
@@ -56,6 +56,8 @@ export interface UsageOverviewTabProps {
   onFilterJump: (patch: Partial<UsageFilterState>) => void
   costFormat?: UsageCostFormat
   stale?: boolean
+  /** Set while filters narrow the view: an empty result offers to clear them. */
+  onClearFilters?: () => void
 }
 
 export function UsageOverviewTab({
@@ -82,6 +84,7 @@ export function UsageOverviewTab({
   onFilterJump,
   costFormat = DEFAULT_COST_FORMAT,
   stale = false,
+  onClearFilters,
 }: UsageOverviewTabProps) {
   const kpi = overview?.kpi
   const prev = overview?.previous
@@ -92,8 +95,12 @@ export function UsageOverviewTab({
       {
         key: 'tokens',
         label: 'Token',
-        value: fmtCompactTokens(kpi.totalTokens),
-        delta: fmtDelta(kpi.totalTokens, prev?.totalTokens),
+        value: kpi.tokenReportedRuns > 0 ? fmtCompactTokens(kpi.totalTokens) : t('未上报'),
+        delta: fmtDelta(kpi.totalTokens, prev?.totalTokens, {
+          sample: prev?.tokenReportedRuns,
+          reported: kpi.tokenReportedRuns,
+          prior: prev && fmtCompactTokens(prev.totalTokens),
+        }),
         sub: (
           <>
             {capabilities.hasInputOutput ? (
@@ -142,7 +149,10 @@ export function UsageOverviewTab({
         label: t('费用'),
         value: fmtCost(kpi.totalCostUsd, { partial, format: costFormat }),
         tone: 'green',
-        delta: fmtDelta(kpi.totalCostUsd, prev?.totalCostUsd),
+        delta: fmtDelta(kpi.totalCostUsd, prev?.totalCostUsd, {
+          sample: prev?.costReportedRuns,
+          prior: prev && fmtCost(prev.totalCostUsd, { format: costFormat }),
+        }),
         sub: (
           <>
             {reportedRuns > 0 ? <span>{t('{n} 轮上报', { n: fmtCount(reportedRuns) })}</span> : null}
@@ -185,7 +195,10 @@ export function UsageOverviewTab({
       inlineMeta: kpi.avgOutputTps != null ? fmtTps(kpi.avgOutputTps) : undefined,
       delta:
         kpi.avgDurationMs != null && prev?.avgDurationMs != null
-          ? fmtDelta(kpi.avgDurationMs, prev.avgDurationMs)
+          ? fmtDelta(kpi.avgDurationMs, prev.avgDurationMs, {
+              sample: prev.completedRuns,
+              prior: fmtDurationMs(prev.avgDurationMs),
+            })
           : null,
       sub: (
         <span>
@@ -222,7 +235,7 @@ export function UsageOverviewTab({
   if (isEmpty) {
     return (
       <div className="usage-tab-stack" data-testid="usage-overview-empty">
-        <EmptyState compact illustration={<NoDataArt />} title={t('当前时间范围内没有运行记录')} />
+        <UsageEmpty what="runs" onClearFilters={onClearFilters} />
       </div>
     )
   }

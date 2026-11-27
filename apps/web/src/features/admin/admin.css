@@ -25,6 +25,10 @@
   color: var(--label-secondary);
   white-space: nowrap;
 }
+/* Groups the menu so on phones it scrolls on its own; on desktop it is transparent to the sidebar's column. */
+.admin__nav-scroll {
+  display: contents;
+}
 .admin__back {
   margin-top: auto;
 }
@@ -93,11 +97,23 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   .admin__nav.ui-sidebar {
     width: auto;
     flex-direction: row;
-    gap: var(--space-2);
+    align-items: center;
+    gap: var(--space-6);
     padding: var(--space-6) var(--space-8);
-    overflow-x: auto;
+    overflow: hidden;
     border-right: 0;
     border-bottom: 1px solid var(--separator);
+  }
+  .admin__nav-scroll {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    gap: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .admin__nav-scroll::-webkit-scrollbar {
+    display: none;
   }
   .admin__nav .ui-sidebar__section {
     flex-direction: row;
@@ -118,15 +134,13 @@ a.ui-sidebar__item:hover:not([aria-current]) {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  /* The tab row scrolls sideways: keep the way out first and pinned so it never scrolls off or leaks behind padding. */
+  /* The way out stays first and outside the scrolling menu, split off by a hairline, so menu items never slide under it. */
   .admin__back {
     order: -1;
-    position: sticky;
-    left: calc(-1 * var(--space-8));
-    z-index: 1;
-    margin: 0 0 0 calc(-1 * var(--space-8));
-    padding-left: var(--space-8);
-    background: var(--sidebar-bg);
+    flex: none;
+    margin: 0;
+    padding-right: var(--space-6);
+    border-right: 1px solid var(--separator);
   }
   .admin__toolbar,
   .admin__page {

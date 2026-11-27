@@ -43,5 +43,4 @@ export default {
   '使用者 {u} 人 {ur} 轮 · 搭建者 {b} 人 {br} 轮':
     'Users: {u} {u:person|people}, {ur} {ur:run|runs} · Builders: {b} {b:person|people}, {br} {br:run|runs}',
   失败原因: 'Failure reasons',
-  '前 {n} 天：{v}': 'Previous {n} days: {v}',
 } satisfies Record<string, string>

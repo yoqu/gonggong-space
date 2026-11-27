@@ -13,11 +13,9 @@ import {
   AgentIcon,
   Button,
   Drawer,
-  EmptyState,
   GroupBox,
   GroupRow,
   Icon,
-  NoDataArt,
   Table,
   type TableColumn,
   type TableSort,
@@ -41,6 +39,7 @@ import {
   fmtUnitPriceDetail,
   type UsageCostFormat,
 } from './formatters'
+import { UsageEmpty } from './metrics'
 import type { UsageFilterState, UsageRunsOptions } from './types'
 
 export interface UsageRequestsTabProps {
@@ -51,6 +50,8 @@ export interface UsageRequestsTabProps {
   onFilterJump: (patch: Partial<UsageFilterState>) => void
   costFormat?: UsageCostFormat
   stale?: boolean
+  /** Set while filters narrow the view: an empty result offers to clear them. */
+  onClearFilters?: () => void
 }
 
 const VALID_SORT = new Set<UsageRunsSortBy>([
@@ -75,6 +76,7 @@ export function UsageRequestsTab({
   onFilterJump,
   costFormat = DEFAULT_COST_FORMAT,
   stale = false,
+  onClearFilters,
 }: UsageRequestsTabProps) {
   const [selected, setSelected] = useState<UsageRunItemDto | null>(null)
   const summary = data?.summary
@@ -354,7 +356,7 @@ export function UsageRequestsTab({
           </div>
         </div>
       ) : (
-        <EmptyState compact illustration={<NoDataArt />} title={t('当前筛选条件下没有运行记录')} />
+        <UsageEmpty what="runs" onClearFilters={onClearFilters} />
       )}
 
       <Drawer

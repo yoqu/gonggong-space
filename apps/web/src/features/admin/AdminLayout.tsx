@@ -7,16 +7,16 @@ import '../../ui/sidebar.css'
 import { ADMIN_NAV } from './nav'
 import './admin.css'
 
-/** 管理后台 shell: a flush Pane sidebar with settings-style tile icons (a scrolling tab row under 768px) beside the page. Members manage their own bots and machines in the chat UI. */
+/** 管理后台 shell: a flush Pane sidebar with settings-style tile icons (under 768px a scrolling tab row after a fixed 返回消息) beside the page. Members manage their own bots and machines in the chat UI. */
 export function AdminLayout() {
   const user = useSession((s) => s.user)
   const { pathname } = useLocation()
-  const navRef = useRef<HTMLElement>(null)
-  // On phones the sidebar is a horizontal scroll strip: center the active route pill into view after layout.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // On phones the menu is a horizontal scroll strip beside 返回消息: center the active route pill into view after layout.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll active nav item on route changes
   useEffect(() => {
     const scrollActive = () => {
-      const nav = navRef.current
+      const nav = scrollRef.current
       const active = nav?.querySelector<HTMLElement>('[aria-current="page"]')
       if (!nav || !active) return
       if (nav.scrollWidth > nav.clientWidth && typeof nav.scrollTo === 'function') {
@@ -35,25 +35,27 @@ export function AdminLayout() {
   if (user?.role !== 'sysadmin') return <Navigate to="/" replace />
   return (
     <div className="admin">
-      <nav ref={navRef} className="ui-sidebar admin__nav" aria-label={t('管理后台')}>
+      <nav className="ui-sidebar admin__nav" aria-label={t('管理后台')}>
         <div className="admin__brand">
           <Logo size={20} />
           <span className="admin__product">{t('共工空间')}</span>
           <span className="admin__crumb">{t('管理后台')}</span>
         </div>
-        {ADMIN_NAV.map((g) => (
-          <div key={g.head} className="ui-sidebar__section">
-            <div className="ui-sidebar__title">{g.head}</div>
-            {g.items.map((i) => (
-              <NavLink key={i.path} to={`/admin/${i.path}`} className="ui-sidebar__item">
-                <span className="ui-sidebar__icon ui-sidebar__icon--tile" style={{ background: i.color }}>
-                  <Icon name={i.icon} />
-                </span>
-                <span className="ui-sidebar__label">{i.label}</span>
-              </NavLink>
-            ))}
-          </div>
-        ))}
+        <div ref={scrollRef} className="admin__nav-scroll">
+          {ADMIN_NAV.map((g) => (
+            <div key={g.head} className="ui-sidebar__section">
+              <div className="ui-sidebar__title">{g.head}</div>
+              {g.items.map((i) => (
+                <NavLink key={i.path} to={`/admin/${i.path}`} className="ui-sidebar__item">
+                  <span className="ui-sidebar__icon ui-sidebar__icon--tile" style={{ background: i.color }}>
+                    <Icon name={i.icon} />
+                  </span>
+                  <span className="ui-sidebar__label">{i.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </div>
         <div className="ui-sidebar__section admin__back">
           <Link to="/" className="ui-sidebar__item">
             <span

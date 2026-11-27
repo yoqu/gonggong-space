@@ -313,7 +313,7 @@ export function UsageFilterBar({
                 <div className="usage-pricing-pop__row">
                   <span>{t('参考汇率')}</span>
                   <strong title={pricing?.fx.syncedAt ? localDateTime(pricing.fx.syncedAt) : undefined}>
-                    {t('汇率 1 USD = ¥{rate}', { rate: costFormat.usdToCny.toFixed(2) })}
+                    {`1 USD = ¥${costFormat.usdToCny.toFixed(2)}`}
                   </strong>
                 </div>
               </div>
@@ -477,7 +477,7 @@ export function UsageFilterBar({
           {hasSecondary ? (
             <Button size="small" variant="plain" onClick={onResetFilters}>
               <Icon name="xmark" size={12} />
-              {t('重置')}
+              {t('清除筛选')}
             </Button>
           ) : null}
           <PullDownButton

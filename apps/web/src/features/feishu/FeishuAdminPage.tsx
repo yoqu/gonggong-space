@@ -2,13 +2,38 @@ import type { FeishuWebAppDto, SystemParams } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import { Alert, Button, GroupBox, GroupRow, Spinner, Switch, TextField, toast, useFlash } from '../../ui'
+import {
+  Alert,
+  Button,
+  GroupBox,
+  GroupRow,
+  Icon,
+  IconButton,
+  Spinner,
+  Switch,
+  TextField,
+  toast,
+  useFlash,
+} from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { FeishuAppForm } from './FeishuAppForm'
 import { FeishuOverviewTables, FeishuProgress, useFeishuOverview } from './FeishuOverview'
 
 const trimUrl = (url: string) => url.trim().replace(/\/+$/, '')
+
+/** A value the admin pastes into the Feishu developer console, with a copy button beside it. */
+function CopyableCode({ value, copyLabel, copied }: { value: string; copyLabel: string; copied: string }) {
+  return (
+    <span className="feishu-url-line feishu-url-line--copy">
+      <code className="feishu-app__id">{value}</code>
+      <IconButton title={copyLabel} onClick={() => void copyWithToast(value, copied)}>
+        <Icon name="copy" />
+      </IconButton>
+    </span>
+  )
+}
 
 /**
  * 管理后台 · 飞书: the setup progress on top, then the public URL (the sign-in callback, card links and the chat invite card need it, so
@@ -23,6 +48,8 @@ export function FeishuAdminPage() {
   const [toggling, setToggling] = useState(false)
   const [webApp, setWebApp] = useState(false)
   const [togglingWebApp, setTogglingWebApp] = useState(false)
+  // Feishu would not let 共工 modify the app: the hand-setup steps stay on the page instead of a passing toast.
+  const [webAppManual, setWebAppManual] = useState(false)
   const [publicUrl, setPublicUrl] = useState('')
   const [urlDraft, setUrlDraft] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
@@ -83,17 +110,11 @@ export function FeishuAdminPage() {
     try {
       const next = await api.put<FeishuWebAppDto>('/admin/feishu/web-app', { enabled })
       setWebApp(next.enabled)
-      if (next.manual)
-        toast({
-          type: 'warning',
-          message: t('飞书不允许共工修改该应用，请在开发者后台手动开启网页应用，主页填写 {url}', {
-            url: publicUrl,
-          }),
-        })
-      else
+      setWebAppManual(next.manual)
+      if (!next.manual)
         toast({
           type: 'success',
-          message: enabled ? t('已提交版本发布，飞书管理员审核通过后生效') : t('已关闭在飞书内打开'),
+          message: enabled ? t('已提交版本发布，飞书管理员审核通过后生效') : t('已关闭在飞书内打开共工链接'),
         })
     } catch (e) {
       toastError(e)
@@ -134,6 +155,7 @@ export function FeishuAdminPage() {
           <h2 className="admin-params__title">{t('对外地址')}</h2>
           <GroupBox>
             <GroupRow
+              stacked
               className="feishu-url-row"
               label={t('对外地址')}
               description={
@@ -174,7 +196,11 @@ export function FeishuAdminPage() {
                   '在飞书开发者后台「安全设置 · 重定向 URL」中添加此地址，飞书登录才能回到共工。',
                 )}
               >
-                <code className="feishu-app__id">{`${publicUrl}/api/auth/feishu/callback`}</code>
+                <CopyableCode
+                  value={`${publicUrl}/api/auth/feishu/callback`}
+                  copyLabel={t('复制重定向 URL')}
+                  copied={t('已复制重定向 URL')}
+                />
               </GroupRow>
             ) : null}
           </GroupBox>
@@ -217,15 +243,37 @@ export function FeishuAdminPage() {
                 onChange={(v) => void toggleWebApp(v)}
               />
             </GroupRow>
-            <GroupRow
-              label="AppLink"
-              description={t(
-                '在飞书开发者后台「网页应用 › 搜索结果快捷入口」填写此链接，成员在飞书里搜索快捷入口的完整名称即可打开共工（仅电脑端）。',
-              )}
-            >
-              <code className="feishu-app__id">{`https://applink.feishu.cn/client/web_app/open?appId=${mainAppId}`}</code>
-            </GroupRow>
+            {webApp ? (
+              <GroupRow
+                label="AppLink"
+                description={t(
+                  '在飞书开发者后台「网页应用 › 搜索结果快捷入口」填写此链接，成员在飞书里搜索快捷入口的完整名称即可打开共工（仅电脑端）。',
+                )}
+              >
+                <CopyableCode
+                  value={`https://applink.feishu.cn/client/web_app/open?appId=${mainAppId}`}
+                  copyLabel={t('复制 AppLink')}
+                  copied={t('已复制 AppLink')}
+                />
+              </GroupRow>
+            ) : null}
           </GroupBox>
+          {webApp && webAppManual ? (
+            <Alert
+              variant="warning"
+              description={t('飞书不允许共工修改该应用，请在开发者后台手动开启网页应用，主页填写 {url}', {
+                url: publicUrl,
+              })}
+            >
+              <Button
+                size="small"
+                icon="copy"
+                onClick={() => void copyWithToast(publicUrl, t('已复制主页地址'))}
+              >
+                {t('复制主页地址')}
+              </Button>
+            </Alert>
+          ) : null}
         </section>
       ) : null}
       {overview.data ? <FeishuOverviewTables data={overview.data} reload={overview.reload} /> : null}

@@ -186,7 +186,7 @@ describe('FeishuAppForm', () => {
 })
 
 describe('管理后台 · 飞书 · 飞书网页应用', () => {
-  it('shows the AppLink for 搜索结果快捷入口 and turns on opening card links inside Feishu', async () => {
+  const setup = (manual = false) => {
     let on = false
     const calls = mockApi({
       'GET /admin/feishu': connected,
@@ -202,7 +202,7 @@ describe('管理后台 · 飞书 · 飞书网页应用', () => {
         ({ feishuAutoSignup: true, feishuWebApp: on, publicUrl: 'https://gg.example.com' }) as SystemParams,
       'PUT /admin/feishu/web-app': (body: unknown) => {
         on = (body as { enabled: boolean }).enabled
-        return { enabled: on, manual: false }
+        return { enabled: on, manual: on && manual }
       },
     })
     render(
@@ -210,14 +210,39 @@ describe('管理后台 · 飞书 · 飞书网页应用', () => {
         <App />
       </MemoryRouter>,
     )
-    expect(
-      await screen.findByText('https://applink.feishu.cn/client/web_app/open?appId=cli_main01'),
-    ).toBeTruthy()
+    return { calls, isOn: () => on }
+  }
+  const appLink = 'https://applink.feishu.cn/client/web_app/open?appId=cli_main01'
+
+  it('turns on opening card links inside Feishu, then shows the AppLink for 搜索结果快捷入口 with a copy button', async () => {
+    const { calls, isOn } = setup()
     const toggle = (await screen.findByRole('switch', { name: '在飞书内打开共工链接' })) as HTMLInputElement
     expect(toggle.checked).toBe(false)
+    // Off, the AppLink opens nothing yet.
+    expect(screen.queryByText(appLink)).toBeNull()
     fireEvent.click(toggle)
-    await waitFor(() => expect(on).toBe(true))
+    await waitFor(() => expect(isOn()).toBe(true))
     expect(calls.find((c) => c.path === '/admin/feishu/web-app')?.body).toEqual({ enabled: true })
     await waitFor(() => expect(toggle.checked).toBe(true))
+    expect(await screen.findByText(appLink)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '复制 AppLink' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '复制重定向 URL' })).toBeTruthy()
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(isOn()).toBe(false))
+    expect(await screen.findByText('已关闭在飞书内打开共工链接')).toBeTruthy()
+  })
+
+  it('keeps the hand-setup steps on the page when Feishu will not let 共工 modify the app', async () => {
+    setup(true)
+    fireEvent.click(await screen.findByRole('switch', { name: '在飞书内打开共工链接' }))
+    const steps = await screen.findByText(
+      '飞书不允许共工修改该应用，请在开发者后台手动开启网页应用，主页填写 {url}'.replace(
+        '{url}',
+        'https://gg.example.com',
+      ),
+    )
+    expect(steps.closest('[role="alert"], .ui-alert')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '复制主页地址' })).toBeTruthy()
   })
 })

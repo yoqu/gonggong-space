@@ -1,16 +1,41 @@
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
+import { Button, EmptyState, NoDataArt } from '../../ui'
+import { fmtDelta, isSmallSample } from './formatters'
 import './usage.css'
 
-/** Percentage change against a prior window of `days` days. */
+/** Change against a prior window of `days` days; a small prior window shows its raw value (see `isSmallSample`). */
 export function Delta({ now, before, days }: { now: number; before: number; days: number }) {
-  if (!before) return null
-  const pct = Math.round(((now - before) / before) * 100)
+  if (isSmallSample(before))
+    return <span className="usage-stat__delta">{t('前 {n} 天：{v}', { n: days, v: before })}</span>
   return (
     <span className="usage-stat__delta">
-      <span>{pct ? `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%` : t('持平')}</span>
+      <span>{fmtDelta(now, before)?.label}</span>
       <span>{t('较前 {n} 天', { n: days })}</span>
     </span>
+  )
+}
+
+const EMPTY_TITLE = {
+  runs: [t('当前时间范围内没有运行记录'), t('当前筛选条件下没有运行记录')],
+  sessions: [t('当前时间范围内没有会话记录'), t('当前筛选条件下没有会话记录')],
+} as const
+
+/** An empty usage view: with filters on it says so and offers 清除筛选; otherwise the time range had nothing. */
+export function UsageEmpty({
+  what,
+  onClearFilters,
+}: {
+  what: keyof typeof EMPTY_TITLE
+  onClearFilters?: () => void
+}) {
+  return (
+    <EmptyState
+      compact
+      illustration={<NoDataArt />}
+      title={EMPTY_TITLE[what][onClearFilters ? 1 : 0]}
+      action={onClearFilters ? <Button onClick={onClearFilters}>{t('清除筛选')}</Button> : undefined}
+    />
   )
 }
 

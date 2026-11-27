@@ -16,6 +16,10 @@ export const en = {
   '电脑登录已失效，请重新绑定': 'Computer sign-in expired; bind again',
   拒绝跨站请求: 'Cross-site request refused',
   请求无效: 'Invalid request',
+  请选择开始日期: 'Choose a start date',
+  开始日期须早于结束日期: 'The start date must be before the end date',
+  '无法连接 models.dev，价格未更新，请稍后再试':
+    "Couldn't reach models.dev; prices weren't updated. Try again later",
   操作失败: 'Operation failed',
   '；': '; ',
   '，': ', ',
@@ -282,6 +286,7 @@ export const en = {
     "Only the requester, the Bot's owner or the members @-mentioned can answer",
   该提问已处理: 'This question was already handled',
   回答与问题不匹配: "The answers don't match the questions",
+  '这个确认只能选给出的选项，不收附件': 'Pick one of the given options; no attachments',
   '仅触发人或 Bot 主人可以打断并追加': "Only the requester or the Bot's owner can interrupt & append",
   只能在该运行所在的会话里打断并追加: 'Interrupt & append only where the run is: its thread or the main chat',
   '该运行已结束，请直接发送': 'This run has ended, send it as a new message',

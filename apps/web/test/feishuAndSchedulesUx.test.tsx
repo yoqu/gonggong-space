@@ -48,10 +48,13 @@ describe('feishu admin mobile UX fixes', () => {
     await waitFor(() => {
       expect(container.querySelector('.feishu-url-row')).not.toBeNull()
     })
+    // GroupRow's own stacked layout: the phone wrap rules (180px basis) never turn into a tall gap above the field.
+    expect(container.querySelector('.feishu-url-row')?.className).toContain('ui-group__row--stacked')
 
     const feishuCss = readFileSync(resolve(ROOT, 'src/features/feishu/feishu.css'), 'utf8')
-    expect(feishuCss).toContain('.ui-group__row.feishu-url-row')
-    expect(feishuCss).toContain('flex-direction: column')
+    expect(feishuCss).not.toContain('.ui-group__row.feishu-url-row')
+    // The copy button stays beside the long redirect URL instead of dropping to a line of its own.
+    expect(feishuCss).toMatch(/\.feishu-url-line--copy\s*\{[^}]*flex-wrap:\s*nowrap/)
     expect(feishuCss).toContain('.feishu-app__fields')
     expect(feishuCss).toContain('grid-template-columns: 1fr')
     expect(feishuCss).toContain('overflow-wrap: anywhere')

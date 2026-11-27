@@ -30,7 +30,13 @@ export default {
     "Feishu won't let Gonggong modify this app. Enable the web app by hand in the developer console with {url} as its homepage",
   '已提交版本发布，飞书管理员审核通过后生效':
     'Version submitted; takes effect once a Feishu admin approves it',
-  已关闭在飞书内打开: 'Links open in the browser again',
+  已关闭在飞书内打开共工链接: 'Gonggong links open in the browser again',
+  '复制 AppLink': 'Copy AppLink',
+  '已复制 AppLink': 'AppLink copied',
+  '复制重定向 URL': 'Copy redirect URL',
+  '已复制重定向 URL': 'Redirect URL copied',
+  复制主页地址: 'Copy homepage URL',
+  已复制主页地址: 'Homepage URL copied',
   '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。':
     "The main app powers Feishu sign-in and mirrors members' messages to bots into Feishu; each bot's own Feishu app is connected under its settings › Feishu.",
   飞书应用: 'Feishu app',

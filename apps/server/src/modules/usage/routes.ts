@@ -28,7 +28,7 @@ import { getBreakdown, getFacets, getOverview, getTimeseries } from './analytics
 import { exportUsage } from './export.js'
 import { getHeatmap } from './heatmap.js'
 import { getInsights } from './insights.js'
-import { getPricingStatus, syncPricingNow } from './pricing-sync.js'
+import { getPricingStatus, syncPricingOrFail } from './pricing-sync.js'
 import { addDays, DAY_MS, dayIn, platformUsageScope, type ScopedFn, usageScope } from './query.js'
 import { getRuns } from './runs.js'
 
@@ -76,7 +76,7 @@ export function usageRoutes(ctx: Ctx) {
 
     app.post('/api/admin/usage/pricing/sync', async (req): Promise<UsagePricingStatusDto> => {
       await requireSysadmin(ctx, req)
-      return syncPricingNow(ctx.now())
+      return syncPricingOrFail(ctx.now())
     })
   }
 

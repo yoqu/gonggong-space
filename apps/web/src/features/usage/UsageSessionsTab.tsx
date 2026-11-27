@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { ago } from '../../lib/time'
-import { AgentIcon, EmptyState, NoDataArt, SegmentedControl } from '../../ui'
+import { AgentIcon, SegmentedControl } from '../../ui'
 import {
   DEFAULT_COST_FORMAT,
   fmtAgentKind,
@@ -25,6 +25,7 @@ import {
   seriesColor,
   type UsageCostFormat,
 } from './formatters'
+import { UsageEmpty } from './metrics'
 import { UsageWeekHourHeatmap } from './UsageHeatmap'
 import { type UsageKpiCell, UsageKpiStrip } from './UsageKpiStrip'
 import { UsageRankingSection } from './UsageRankingSection'
@@ -44,6 +45,8 @@ export interface UsageSessionsTabProps {
   onSessionSortChange: (s: UsageSessionSort) => void
   costFormat?: UsageCostFormat
   stale?: boolean
+  /** Set while filters narrow the view: an empty result offers to clear them. */
+  onClearFilters?: () => void
 }
 
 function SessionRow({
@@ -115,6 +118,7 @@ export function UsageSessionsTab({
   onSessionSortChange,
   costFormat = DEFAULT_COST_FORMAT,
   stale = false,
+  onClearFilters,
 }: UsageSessionsTabProps) {
   const [shapeMode, setShapeMode] = useState<ShapeMode>('turns')
   const [toolMode, setToolMode] = useState<ToolViewMode>('name')
@@ -239,7 +243,7 @@ export function UsageSessionsTab({
   )
 
   if (insights && insights.sessionShape.totalSessions === 0) {
-    return <EmptyState compact illustration={<NoDataArt />} title={t('当前时间范围内没有会话记录')} />
+    return <UsageEmpty what="sessions" onClearFilters={onClearFilters} />
   }
 
   const maxHist = Math.max(1, ...histogramBars.map((b) => b.value))

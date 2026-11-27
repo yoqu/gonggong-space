@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { UsageFxStatusDto, UsagePricingStatusDto } from '@gonggong/protocol'
+import { fail } from '../../lib/errors.js'
 import { dataDir } from '../attachments/service.js'
 import {
   getPricingIndex,
@@ -46,7 +47,7 @@ interface FxCache {
 
 let fxMem: FxCache | null = null
 let fxFailedAt = 0
-let inflightSync: Promise<UsagePricingStatusDto> | null = null
+let inflightSync: Promise<SyncResult> | null = null
 let fxUrlOverride: string | null = null
 let modelsDevUrlOverride: string | null = null
 
@@ -295,8 +296,21 @@ async function fetchLiveFx(now: Date): Promise<FxCache> {
   }
 }
 
+type SyncResult = { status: UsagePricingStatusDto; catalogOk: boolean }
+
 /** Fetches BOTH models.dev/api.json and open.er-api.com/v6/latest/USD in parallel (single-flight). */
 export async function syncPricingNow(now = new Date()): Promise<UsagePricingStatusDto> {
+  return (await syncPricing(now)).status
+}
+
+/** The admin's 同步最新价格: an unreachable or empty models.dev must not read as a successful sync. */
+export async function syncPricingOrFail(now = new Date()): Promise<UsagePricingStatusDto> {
+  const { status, catalogOk } = await syncPricing(now)
+  if (!catalogOk) fail('unavailable', '无法连接 models.dev，价格未更新，请稍后再试')
+  return status
+}
+
+function syncPricing(now: Date): Promise<SyncResult> {
   if (inflightSync) return inflightSync
   const task = (async () => {
     const catalogUrl = modelsDevUrlOverride ?? MODELS_DEV_URL
@@ -305,21 +319,21 @@ export async function syncPricingNow(now = new Date()): Promise<UsagePricingStat
       fetchLiveFx(now),
     ])
 
+    let catalogOk = false
     if (catalogRes && typeof catalogRes === 'object' && !Array.isArray(catalogRes)) {
       const snapshot = distillLiveModelsDev(catalogRes as Record<string, unknown>, now.toISOString(), fx)
       if (snapshot.modelCount > 0) {
+        catalogOk = true
         await writeJsonAtomic(pricingCachePath(), snapshot).catch(() => {})
         resetPricingCache()
       }
     }
 
-    return buildStatus(now)
+    return { status: buildStatus(now), catalogOk }
   })()
 
   inflightSync = task
-  try {
-    return await task
-  } finally {
+  return task.finally(() => {
     if (inflightSync === task) inflightSync = null
-  }
+  })
 }

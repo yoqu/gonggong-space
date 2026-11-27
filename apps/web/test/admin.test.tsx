@@ -72,15 +72,24 @@ describe('admin console', () => {
     expect(screen.getByRole('button', { name: '账户菜单' })).toBeTruthy()
   })
 
-  it('keeps 返回消息 first and pinned in the phone tab row, not scrolled off its far end', () => {
+  it('keeps 返回消息 first in the phone tab row, outside the scrolling menu so the menu never slides under it', () => {
+    useSession.setState({ user: admin, status: 'ready' })
+    mockApi({ 'GET /admin/users': [] })
+    renderAt('/admin/users')
+    const nav = screen.getByRole('navigation', { name: '管理后台' })
+    const scroller = nav.querySelector('.admin__nav-scroll') as HTMLElement
+    expect(within(scroller).getByRole('link', { name: /账号与角色/ })).toBeTruthy()
+    expect(within(scroller).queryByRole('link', { name: /返回消息/ })).toBeNull()
+
     const css = readFileSync('src/features/admin/admin.css', 'utf8')
+    const rule = (src: string, sel: string) =>
+      src.slice(src.indexOf(`${sel} {`), src.indexOf('}', src.indexOf(`${sel} {`)))
+    expect(rule(css, '.admin__nav-scroll')).toContain('display: contents')
     const phone = css.slice(css.indexOf('@media (max-width: 767px)'))
-    const back = phone.slice(
-      phone.indexOf('.admin__back {'),
-      phone.indexOf('}', phone.indexOf('.admin__back {')),
-    )
-    expect(back).toContain('order: -1')
-    expect(back).toContain('position: sticky')
+    expect(rule(phone, '.admin__back')).toContain('order: -1')
+    expect(rule(phone, '.admin__back')).not.toContain('position: sticky')
+    expect(rule(phone, '.admin__nav-scroll')).toContain('overflow-x: auto')
+    expect(rule(phone, '.admin__nav.ui-sidebar')).not.toContain('overflow-x: auto')
   })
 
   it('shows every admin table as cards on a phone, keeping status and row actions', async () => {

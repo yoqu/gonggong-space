@@ -546,6 +546,27 @@ describe('usage pricing policy, model resolution, FX sync & engine persistence',
     }
   })
 
+  it('reports a failed models.dev sync instead of answering with the old catalog', async () => {
+    const admin = await t.seed.user({ name: '管理员', role: 'sysadmin' })
+    const adminApi = client(t, await t.seed.cookie(admin.id))
+    const mock = createServer((_req, res) => {
+      res.statusCode = 502
+      res.end('{}')
+    })
+    await new Promise<void>((resolve) => mock.listen(0, '127.0.0.1', resolve))
+    const addr = mock.address() as { port: number }
+    setSyncUrlsForTest({
+      modelsDev: `http://127.0.0.1:${addr.port}/models`,
+      fx: `http://127.0.0.1:${addr.port}/fx`,
+    })
+    try {
+      const res = await adminApi.post<{ message: string }>('/api/admin/usage/pricing/sync', {})
+      expect([res.status, res.body.message]).toEqual([503, '无法连接 models.dev，价格未更新，请稍后再试'])
+    } finally {
+      await new Promise<void>((resolve) => mock.close(() => resolve()))
+    }
+  })
+
   it('preserves concrete runs.model on null/default session.config and persists RunDone.model', async () => {
     const alice = await t.seed.user({ name: '王磊' })
     const { machine } = await t.seed.machine(alice.id, { name: 'dev-box' })

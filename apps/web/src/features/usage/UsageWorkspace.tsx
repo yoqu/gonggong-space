@@ -32,6 +32,7 @@ import {
 import {
   DEFAULT_USAGE_FILTERS,
   EMPTY_CAPABILITIES,
+  hasActiveSecondaryFilters,
   type UsageChartMode,
   type UsageFilterState,
   type UsageRunsOptions,
@@ -316,6 +317,9 @@ export function UsageWorkspace({
     }
   }
 
+  const filtered = hasActiveSecondaryFilters(filters)
+  const runsFiltered = filtered || runsOpt.onlySlow || runsOpt.onlyError
+
   const initialSkeleton =
     (isOverview && overviewQ.initialLoading) ||
     (isRuns && runsQ.initialLoading) ||
@@ -388,6 +392,7 @@ export function UsageWorkspace({
               onFilterJump={updateFilters}
               costFormat={costFormat}
               stale={overviewQ.stale || timeseriesQ.stale}
+              onClearFilters={filtered ? resetFilters : undefined}
             />
           ) : null}
 
@@ -400,6 +405,7 @@ export function UsageWorkspace({
               onFilterJump={updateFilters}
               costFormat={costFormat}
               stale={runsQ.stale}
+              onClearFilters={runsFiltered ? resetFilters : undefined}
             />
           ) : null}
 
@@ -416,6 +422,7 @@ export function UsageWorkspace({
               onSessionSortChange={setSessionSort}
               costFormat={costFormat}
               stale={insightsQ.stale || weekHourQ.stale}
+              onClearFilters={filtered ? resetFilters : undefined}
             />
           ) : null}
         </div>

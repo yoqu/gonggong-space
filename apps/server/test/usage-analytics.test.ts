@@ -482,10 +482,12 @@ describe('usage analytics API', () => {
     expect(searchRate.body.kpi.totalTokens).toBe(350)
 
     // Invalid custom ranges rejected with 400
-    expect((await api.get('/api/admin/usage/overview?preset=custom')).status).toBe(400)
-    expect(
-      (await api.get('/api/admin/usage/overview?preset=custom&from=2026-11-10&to=2026-11-01')).status,
-    ).toBe(400)
+    const noFrom = await api.get<{ message: string }>('/api/admin/usage/overview?preset=custom')
+    expect([noFrom.status, noFrom.body.message]).toEqual([400, '请选择开始日期'])
+    const reversed = await api.get<{ message: string }>(
+      '/api/admin/usage/overview?preset=custom&from=2026-11-10&to=2026-11-01',
+    )
+    expect([reversed.status, reversed.body.message]).toEqual([400, '开始日期须早于结束日期'])
     expect((await api.get('/api/admin/usage/overview?preset=30d&tz=Not/A_Zone')).status).toBe(400)
 
     // Valid custom range covering last 24h via ISO bounds

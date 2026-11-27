@@ -39,6 +39,12 @@
   max-width: 100%;
   min-width: 0;
 }
+.feishu-url-line--copy {
+  flex-wrap: nowrap;
+}
+.feishu-url-line--copy > .feishu-app__id {
+  min-width: 0;
+}
 .feishu-url-line > .ui-field {
   flex: 1 1 200px;
   min-width: 0;
@@ -281,17 +287,6 @@
 }
 
 @media (max-width: 640px) {
-  .ui-group__row.feishu-url-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .feishu-url-row .feishu-url-line {
-    width: 100%;
-  }
-  .feishu-url-row .feishu-url-line .ui-field {
-    flex: 1;
-    min-width: 0;
-  }
   .feishu-app__fields {
     grid-template-columns: 1fr;
   }

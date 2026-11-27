@@ -715,7 +715,7 @@ describe('UsageWorkspace & unified motion tokens', () => {
 
     const pop = await screen.findByTestId('usage-pricing-popover')
     expect(pop.textContent).toContain('95 供应商 · 3,800 模型')
-    expect(pop.textContent).toContain('汇率 1 USD = ¥7.25')
+    expect(pop.textContent).toContain('1 USD = ¥7.25')
 
     // Switch CNY -> USD and check KPI + SpeedTable + localStorage update
     fireEvent.click(within(pop).getByRole('radio', { name: '$ 美元' }))

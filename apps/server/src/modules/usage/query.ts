@@ -181,10 +181,10 @@ export function resolveRange(
     case 'all':
       return { from: null, to, previousFrom: null, previousTo: null, granularity: 'day' }
     case 'custom': {
-      const rawFrom = q.from ?? fail('invalid', '请求无效')
+      const rawFrom = q.from ?? fail('invalid', '请选择开始日期')
       const from = parseBound(rawFrom, q.tz, false)
       const customTo = q.to ? parseBound(q.to, q.tz, true) : now
-      if (from.getTime() >= customTo.getTime()) fail('invalid', '请求无效')
+      if (from.getTime() >= customTo.getTime()) fail('invalid', '开始日期须早于结束日期')
       const span = customTo.getTime() - from.getTime()
       return {
         from,

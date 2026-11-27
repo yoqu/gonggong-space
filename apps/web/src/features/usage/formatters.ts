@@ -201,12 +201,23 @@ export function fmtTps(tps: number | null | undefined): string {
   return t('{n} token/秒', { n: tps >= 10 ? Math.round(tps) : trimFixed(tps, 1) })
 }
 
-/** Percentage delta between current and previous periods. */
+/** Under 10 in the prior window a percentage swings wildly (1 → 0 reads ↓ 100%), so the prior value is shown instead. */
+export const isSmallSample = (n: number) => n < 10
+
+/**
+ * Percentage delta between current and previous periods. `sample` is the prior window's size (defaults to `before`,
+ * a count); `prior` is how the prior value reads when the sample is small; `reported` is how many current runs
+ * reported the metric — none means the current value is missing, not zero.
+ */
 export function fmtDelta(
   now: number,
   before: number | null | undefined,
+  opts: { sample?: number; prior?: string | null; reported?: number } = {},
 ): { label: string; dir: 'up' | 'down' | 'flat' } | null {
-  if (before == null || before <= 0) return null
+  if (before == null || opts.reported === 0) return null
+  if (isSmallSample(opts.sample ?? before))
+    return { label: t('上期 {v}', { v: opts.prior ?? fmtCount(before) }), dir: 'flat' }
+  if (before <= 0) return null
   const pct = Math.round(((now - before) / before) * 100)
   if (pct === 0) return { label: t('持平'), dir: 'flat' }
   return {
