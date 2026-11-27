@@ -296,14 +296,14 @@ function BotCapabilitiesPanelInner({
       ) : !data ? (
         <Skeleton />
       ) : !ready.length && !unavailable.length ? (
-        <div className="bot-cap__empty">
+        <div className="bot-cap__empty ui-panel-swap">
           <span className="bot-page__muted">{t('当前范围还没有启用插件')}</span>
           <Link to={marketPath} className="bot-cap__link">
             {t('去插件市场看看')}
           </Link>
         </div>
       ) : (
-        <div className="bot-cap__sections">
+        <div className="bot-cap__sections ui-panel-swap">
           {ready.length ? (
             <div className="bot-cap__sec">
               <div className="bot-cap__sec-head">

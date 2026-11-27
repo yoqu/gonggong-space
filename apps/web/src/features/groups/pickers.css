@@ -48,6 +48,9 @@
   font: inherit;
   text-align: left;
   cursor: default;
+  transition:
+    background-color var(--fade-fast),
+    opacity var(--fade-fast);
 }
 .pick__row:not(:disabled):hover {
   background: var(--control-track);

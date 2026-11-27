@@ -1,4 +1,5 @@
 import type { GroupDto } from '@gonggong/protocol'
+import { useRef } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, GroupBox, IconButton } from '../../ui'
@@ -41,6 +42,12 @@ export function CandidateBotPicker({
 }) {
   const allBots = useWorkspace((s) => s.bots)
   const canConfigure = useCanConfigure(group)
+  // Bots the user just added or removed: only their rows/chips animate in, not the ones already there on open.
+  const moved = useRef(new Set<string>())
+  const setCandidates = (next: string[], id: string) => {
+    moved.current.add(id)
+    onCandidatesChange(next)
+  }
   const nameOf = (id: string) => allBots.find((b) => b.id === id)?.name ?? t('已移出')
   const isOnline = (id: string) => {
     const p = allBots.find((b) => b.id === id)?.presence
@@ -71,7 +78,10 @@ export function CandidateBotPicker({
           const bot = allBots.find((b) => b.id === id)
           const online = isOnline(id)
           return (
-            <div key={id} className="bot-pick__row">
+            <div
+              key={id}
+              className={moved.current.has(id) ? 'bot-pick__row bot-pick__row--new' : 'bot-pick__row'}
+            >
               <span className="bot-pick__rank">{i + 1}</span>
               <BotAvatar id={id} name={nameOf(id)} size={22} />
               <span className="bot-pick__name">
@@ -104,7 +114,12 @@ export function CandidateBotPicker({
               <IconButton
                 size="small"
                 title={t('移除 {name}', { name: nameOf(id) })}
-                onClick={() => onCandidatesChange(candidates.filter((x) => x !== id))}
+                onClick={() =>
+                  setCandidates(
+                    candidates.filter((x) => x !== id),
+                    id,
+                  )
+                }
               >
                 {'minus' as const}
               </IconButton>
@@ -121,9 +136,10 @@ export function CandidateBotPicker({
                 <Button
                   key={id}
                   size="small"
+                  className={moved.current.has(id) ? 'ui-pop-in' : undefined}
                   disabled={atLimit}
                   aria-label={t('添加 {name}', { name: nameOf(id) })}
-                  onClick={() => onCandidatesChange([...candidates, id])}
+                  onClick={() => setCandidates([...candidates, id], id)}
                 >
                   <span
                     className="bot-pick__dot"

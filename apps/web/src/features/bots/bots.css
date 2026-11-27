@@ -367,6 +367,7 @@
   border-radius: var(--radius-field);
   color: inherit;
   text-decoration: none;
+  transition: background-color var(--fade-fast);
 }
 .bot-page__place:hover {
   background: var(--selection-fill);

@@ -163,8 +163,9 @@ describe('ThreadInbox & GroupThreads UX', () => {
     await waitFor(() => expect(screen.getByText('架构讨论')).toBeTruthy())
 
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索话题' }), { target: { value: ' 发布 ' } })
-    await waitFor(() => expect(screen.getByText('发布计划')).toBeTruthy())
-    expect(screen.queryByText('架构讨论')).toBeNull()
+    // The previous list stays (dimmed) until the search answers.
+    await waitFor(() => expect(screen.queryByText('架构讨论')).toBeNull())
+    expect(screen.getByText('发布计划')).toBeTruthy()
     expect(getSpy).toHaveBeenCalledWith(`/groups/g1/threads?q=${encodeURIComponent('发布')}`)
 
     const list = container.querySelector('.group-threads__list') as HTMLElement

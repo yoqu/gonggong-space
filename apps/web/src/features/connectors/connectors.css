@@ -28,6 +28,12 @@
   padding: 0;
   list-style: none;
 }
+/* Loaded (or crossing between matches and none): the list/empty state fades in after the spinner. */
+.cn-menu__list,
+.cn-menu__empty,
+.cn-menu > .mention-pop__empty {
+  animation: ui-fade-in var(--fade-in);
+}
 .cn-menu__loading {
   display: flex;
   justify-content: center;
@@ -68,7 +74,12 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: opacity var(--fade-in);
+  transition:
+    opacity var(--fade-in),
+    scale var(--spring-interactive);
+}
+.cn-row__main:active {
+  scale: var(--press-card);
 }
 .cn-row__name {
   min-width: 0;

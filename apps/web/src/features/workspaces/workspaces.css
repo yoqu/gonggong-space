@@ -67,6 +67,12 @@
   font: inherit;
   text-align: left;
   cursor: default;
+  transition:
+    background-color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+.dirpick__place:active {
+  scale: var(--press-button);
 }
 .dirpick__place:hover {
   background: var(--selection-fill);
@@ -112,6 +118,7 @@
   font: inherit;
   font-size: var(--text-footnote-size);
   cursor: default;
+  transition: color var(--fade-fast);
 }
 .dirpick__col.is-active {
   color: var(--label);
@@ -148,6 +155,16 @@
   .dirpick__col--modified {
     display: none;
   }
+}
+/* Notes above the list (git repo, hints, warnings) change with the folder: they rise in instead of popping. */
+.dirpick__main > .dirpick__git,
+.dirpick__main > .dirpick__hint,
+.dirpick__main > .ui-alert,
+.dirpick__error {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 .dirpick__hint {
   margin: 0;
@@ -191,6 +208,14 @@
   font: inherit;
   text-align: left;
   cursor: default;
+  /* A folder's listing arrives after a spinner: its rows fade in rather than pop. */
+  animation: ui-fade-in var(--fade-in);
+  transition:
+    background-color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+button.dirpick__item:active {
+  scale: var(--press-card);
 }
 .dirpick__item:hover {
   background: var(--selection-fill);
@@ -213,6 +238,7 @@
 .dirpick__loading,
 .dirpick__empty {
   margin: auto;
+  animation: ui-fade-in var(--fade-in);
   font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
@@ -235,13 +261,18 @@
   cursor: default;
   transition:
     background var(--fade-fast),
+    opacity var(--fade-fast),
     scale var(--spring-interactive);
 }
-.dirpick__choice:hover {
+.dirpick__choice:not(:disabled):hover {
   background: var(--tint-blue);
 }
-.dirpick__choice:active {
+.dirpick__choice:not(:disabled):active {
   scale: var(--press-card);
+}
+/* Binding in progress: the other choices dim instead of silently ignoring clicks. */
+.dirpick__choice:disabled {
+  opacity: 0.6;
 }
 .dirpick__choice-icon {
   flex: none;

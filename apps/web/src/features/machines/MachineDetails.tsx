@@ -279,159 +279,161 @@ export function MachineDetails({
           {blockedNote(machine) ? <p className="machine__tabs-note">{blockedNote(machine)}</p> : null}
         </div>
       ) : null}
-      {current === 'overview' ? null : current === 'plugins' ? (
-        <PluginTrustsPanel machine={machine} />
-      ) : !machine.online ? (
-        <OfflineNote machine={machine} />
-      ) : blocked(machine, current) ? (
-        <EmptyState
-          compact
-          title={t('请先升级这台电脑的共工客户端')}
-          description={t('当前客户端版本不支持在网页端管理，升级后即可使用。')}
-        />
-      ) : current === 'agents' ? (
-        <div className="mx">
-          <div className="mx-reloc">
-            <Icon name="info" size={14} className="mx-reloc__icon" />
-            <span className="mx-reloc__text">
-              {t('Agent 引擎与模型供应商预设属于电脑运行环境，统一在电脑设置中管理，不再混在插件市场中。')}
-            </span>
-            {plugins ? (
-              <Link to="/market" className="mx-reloc__link" onClick={onLeave}>
-                {t('前往插件市场')}
-              </Link>
-            ) : null}
-          </div>
-          <MachineAgentsPanel
-            machine={machine}
-            initialOpen={pendingLogin}
-            initialLogin={pendingLogin}
-            onInitialLoginHandled={() => setPendingLogin(null)}
+      <div key={current} className="ui-panel-swap">
+        {current === 'overview' ? null : current === 'plugins' ? (
+          <PluginTrustsPanel machine={machine} />
+        ) : !machine.online ? (
+          <OfflineNote machine={machine} />
+        ) : blocked(machine, current) ? (
+          <EmptyState
+            compact
+            title={t('请先升级这台电脑的共工客户端')}
+            description={t('当前客户端版本不支持在网页端管理，升级后即可使用。')}
           />
-        </div>
-      ) : current === 'workspaces' ? (
-        <WorkspacesPanel machine={machine} />
-      ) : current === 'git' ? (
-        <GitAccessPanel machine={machine} repo={params.get('repo') ?? undefined} />
-      ) : (
-        <DiagnosticsPanel machine={machine} latest={latest} onOpenGit={() => setTab('git')} />
-      )}
-      {current === 'overview' ? (
-        <div className="machine">
-          <section className="machine__hero" data-os={machine.os}>
-            <span className="machine__os">
-              <Icon name={OS_ICON[machine.os]} size={30} label={OS_LABEL[machine.os]} />
-            </span>
-            <span className="machine__id">
-              <span className="machine__host">{machine.hostname}</span>
-              <span className="machine__tags">
-                <span className="machine__tag">{osText(machine)}</span>
-                <span className="machine__tag">{machine.arch}</span>
-                {machine.daemonVersion ? (
-                  <span className="machine__tag">
-                    {t('客户端')} v{machine.daemonVersion}
-                  </span>
-                ) : null}
-                {upgradable(machine, latest) ? (
-                  <span
-                    className="machine__tag machine__tag--update"
-                    title={t('共工客户端会自动升级到最新版本')}
-                  >
-                    {t('可升级到 {version}', { version: latest })}
-                  </span>
-                ) : null}
+        ) : current === 'agents' ? (
+          <div className="mx">
+            <div className="mx-reloc">
+              <Icon name="info" size={14} className="mx-reloc__icon" />
+              <span className="mx-reloc__text">
+                {t('Agent 引擎与模型供应商预设属于电脑运行环境，统一在电脑设置中管理，不再混在插件市场中。')}
               </span>
-            </span>
-            <span
-              className="machine__status"
-              data-online={machine.online}
-              title={machine.online ? undefined : dateText(machine.lastSeenAt)}
-            >
-              {machine.online ? t('在线') : (offlineDuration(machine.lastSeenAt) ?? t('离线'))}
-            </span>
-          </section>
-          {upgradable(machine, latest) ? (
-            <Disclosure title={t('如何升级')}>
-              <UpgradeGuide machine={machine} latest={latest} />
-            </Disclosure>
-          ) : null}
-          <div className="machine__specs">
-            {specs
-              .filter((r): r is [IconName, string, string] => r[2] !== null)
-              .map(([icon, k, v]) => (
-                <div key={k} className="machine__spec">
-                  <Icon name={icon} size={18} className="machine__spec-icon" />
-                  <span className="machine__spec-label">{k}</span>
-                  <span className="machine__spec-value">{v}</span>
-                </div>
-              ))}
+              {plugins ? (
+                <Link to="/market" className="mx-reloc__link" onClick={onLeave}>
+                  {t('前往插件市场')}
+                </Link>
+              ) : null}
+            </div>
+            <MachineAgentsPanel
+              machine={machine}
+              initialOpen={pendingLogin}
+              initialLogin={pendingLogin}
+              onInitialLoginHandled={() => setPendingLogin(null)}
+            />
           </div>
-          <section className="machine__card" aria-label="Agent">
-            <span className="machine__card-title">Agent</span>
-            {machine.agents.length ? (
-              machine.agents.map((a) => (
-                <span key={a.kind} className="machine__agent" data-available={a.available}>
-                  <AgentIcon kind={a.kind} size={16} />
-                  <span className="machine__agent-name">{AGENT_META[a.kind].name}</span>
-                  {needsOfficialLogin(a) ? <Tag tone="orange">{t('未登录')}</Tag> : null}
-                  {needsOfficialLogin(a) && owner && machine.online && !blocked(machine, 'agents') ? (
-                    <Button size="small" variant="plain" onClick={() => openAgentLogin(a.kind)}>
-                      {t('去登录')}
-                    </Button>
+        ) : current === 'workspaces' ? (
+          <WorkspacesPanel machine={machine} />
+        ) : current === 'git' ? (
+          <GitAccessPanel machine={machine} repo={params.get('repo') ?? undefined} />
+        ) : (
+          <DiagnosticsPanel machine={machine} latest={latest} onOpenGit={() => setTab('git')} />
+        )}
+        {current === 'overview' ? (
+          <div className="machine">
+            <section className="machine__hero" data-os={machine.os}>
+              <span className="machine__os">
+                <Icon name={OS_ICON[machine.os]} size={30} label={OS_LABEL[machine.os]} />
+              </span>
+              <span className="machine__id">
+                <span className="machine__host">{machine.hostname}</span>
+                <span className="machine__tags">
+                  <span className="machine__tag">{osText(machine)}</span>
+                  <span className="machine__tag">{machine.arch}</span>
+                  {machine.daemonVersion ? (
+                    <span className="machine__tag">
+                      {t('客户端')} v{machine.daemonVersion}
+                    </span>
                   ) : null}
-                  <span className="machine__agent-version">
-                    {a.available ? (a.version ?? t('已安装')) : t('未安装')}
-                  </span>
+                  {upgradable(machine, latest) ? (
+                    <span
+                      className="machine__tag machine__tag--update"
+                      title={t('共工客户端会自动升级到最新版本')}
+                    >
+                      {t('可升级到 {version}', { version: latest })}
+                    </span>
+                  ) : null}
                 </span>
-              ))
-            ) : (
-              <span className="machine__muted">{t('未检测到 Agent')}</span>
-            )}
-          </section>
-          {bots?.length ? (
-            <section className="machine__card">
-              <span className="machine__card-title">{t('运行的 Bot')}</span>
-              <ul className="machine__bots" aria-label={t('运行的 Bot')}>
-                {bots.map((b) => (
-                  <li key={b.id}>
-                    <Link to={`/bot/${b.id}`} className="machine__bot" onClick={onLeave}>
-                      <BotAvatar id={b.id} name={b.name} size={20} />
-                      <span className="machine__agent-name">{b.name}</span>
-                      <span className="machine__bot-state">
-                        <span
-                          className="machine__bot-dot"
-                          style={{ background: PRESENCE[b.presence].color }}
-                        />
-                        {PRESENCE[b.presence].label}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              </span>
+              <span
+                className="machine__status"
+                data-online={machine.online}
+                title={machine.online ? undefined : dateText(machine.lastSeenAt)}
+              >
+                {machine.online ? t('在线') : (offlineDuration(machine.lastSeenAt) ?? t('离线'))}
+              </span>
             </section>
-          ) : null}
-          <dl className="machine__meta">
-            {ownerName ? (
-              <>
-                <dt>{t('主人')}</dt>
-                <dd>{ownerName}</dd>
-              </>
+            {upgradable(machine, latest) ? (
+              <Disclosure title={t('如何升级')}>
+                <UpgradeGuide machine={machine} latest={latest} />
+              </Disclosure>
             ) : null}
-            {machine.online ? null : (
-              <>
-                <dt>{t('最后在线')}</dt>
-                <dd title={dateText(machine.lastSeenAt)}>
-                  {offlineDuration(machine.lastSeenAt) ?? dateText(machine.lastSeenAt)}
-                </dd>
-              </>
-            )}
-            <dt>{t('首次绑定')}</dt>
-            <dd>{dateText(machine.createdAt)}</dd>
-            <dt>{t('最近绑定')}</dt>
-            <dd>{dateText(machine.boundAt)}</dd>
-          </dl>
-        </div>
-      ) : null}
+            <div className="machine__specs">
+              {specs
+                .filter((r): r is [IconName, string, string] => r[2] !== null)
+                .map(([icon, k, v]) => (
+                  <div key={k} className="machine__spec">
+                    <Icon name={icon} size={18} className="machine__spec-icon" />
+                    <span className="machine__spec-label">{k}</span>
+                    <span className="machine__spec-value">{v}</span>
+                  </div>
+                ))}
+            </div>
+            <section className="machine__card" aria-label="Agent">
+              <span className="machine__card-title">Agent</span>
+              {machine.agents.length ? (
+                machine.agents.map((a) => (
+                  <span key={a.kind} className="machine__agent" data-available={a.available}>
+                    <AgentIcon kind={a.kind} size={16} />
+                    <span className="machine__agent-name">{AGENT_META[a.kind].name}</span>
+                    {needsOfficialLogin(a) ? <Tag tone="orange">{t('未登录')}</Tag> : null}
+                    {needsOfficialLogin(a) && owner && machine.online && !blocked(machine, 'agents') ? (
+                      <Button size="small" variant="plain" onClick={() => openAgentLogin(a.kind)}>
+                        {t('去登录')}
+                      </Button>
+                    ) : null}
+                    <span className="machine__agent-version">
+                      {a.available ? (a.version ?? t('已安装')) : t('未安装')}
+                    </span>
+                  </span>
+                ))
+              ) : (
+                <span className="machine__muted">{t('未检测到 Agent')}</span>
+              )}
+            </section>
+            {bots?.length ? (
+              <section className="machine__card">
+                <span className="machine__card-title">{t('运行的 Bot')}</span>
+                <ul className="machine__bots" aria-label={t('运行的 Bot')}>
+                  {bots.map((b) => (
+                    <li key={b.id}>
+                      <Link to={`/bot/${b.id}`} className="machine__bot" onClick={onLeave}>
+                        <BotAvatar id={b.id} name={b.name} size={20} />
+                        <span className="machine__agent-name">{b.name}</span>
+                        <span className="machine__bot-state">
+                          <span
+                            className="machine__bot-dot"
+                            style={{ background: PRESENCE[b.presence].color }}
+                          />
+                          {PRESENCE[b.presence].label}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            <dl className="machine__meta">
+              {ownerName ? (
+                <>
+                  <dt>{t('主人')}</dt>
+                  <dd>{ownerName}</dd>
+                </>
+              ) : null}
+              {machine.online ? null : (
+                <>
+                  <dt>{t('最后在线')}</dt>
+                  <dd title={dateText(machine.lastSeenAt)}>
+                    {offlineDuration(machine.lastSeenAt) ?? dateText(machine.lastSeenAt)}
+                  </dd>
+                </>
+              )}
+              <dt>{t('首次绑定')}</dt>
+              <dd>{dateText(machine.createdAt)}</dd>
+              <dt>{t('最近绑定')}</dt>
+              <dd>{dateText(machine.boundAt)}</dd>
+            </dl>
+          </div>
+        ) : null}
+      </div>
     </>
   )
 }

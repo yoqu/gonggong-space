@@ -220,3 +220,13 @@
   overflow-wrap: anywhere;
   color: var(--label-secondary);
 }
+
+.ag-login__phase {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.ag-login__result-icon {
+  display: inline-flex;
+}

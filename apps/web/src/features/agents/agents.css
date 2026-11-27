@@ -40,9 +40,14 @@
   text-align: left;
   cursor: default;
 }
+/* One chevron that turns, so opening reads as the same control changing state. */
 .ag-row__chev {
   flex: none;
   color: var(--label-tertiary);
+  transition: rotate var(--spring-snappy);
+}
+.ag-agent[data-open="true"] .ag-row__chev {
+  rotate: 90deg;
 }
 .ag-row__actions {
   flex: none;
@@ -58,6 +63,10 @@
   flex-direction: column;
   gap: var(--space-12);
   padding: 0 var(--space-12) var(--space-12) var(--space-32);
+  --enter-y: -4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 .ag-detail__note,
 .ag-empty {

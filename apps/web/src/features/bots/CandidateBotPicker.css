@@ -47,3 +47,10 @@
   font-size: var(--text-footnote-size);
   color: var(--system-orange);
 }
+/* A bot the user just added to the candidates rises into its row. */
+.bot-pick__row--new {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}

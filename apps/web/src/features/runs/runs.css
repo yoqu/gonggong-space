@@ -113,6 +113,13 @@
   background: transparent;
   color: var(--label-secondary);
   cursor: default;
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+.run-tab__copy:active {
+  scale: var(--press-icon);
 }
 .run-tab__copy:hover {
   background: var(--control-track);
@@ -147,6 +154,7 @@
 .run-audit__text {
   min-width: 0;
   overflow-wrap: anywhere;
+  transition: color var(--fade-fast);
 }
 .run-audit__note {
   font-size: var(--text-subheadline-size);
@@ -190,6 +198,12 @@
   font: inherit;
   font-size: var(--text-subheadline-size);
   cursor: pointer;
+  transition:
+    color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+.run-rounds__more:active {
+  scale: var(--press-button);
 }
 .run-rounds__more:hover {
   color: var(--label);
@@ -230,6 +244,7 @@
   color: var(--label-secondary);
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--fade-fast);
 }
 .run-round__head:hover {
   background: var(--quote-fill);
@@ -255,6 +270,15 @@
   font-variant-numeric: tabular-nums;
 }
 /* Why a run failed or still waits: its reason in full, under the facts. */
+/* A run's failure/auth notice arrives with the run's end: rises 4px into place instead of popping in. */
+.run-issue,
+.run-auth,
+.run-auth__ready {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
 .run-issue {
   display: flex;
   flex-direction: column;
@@ -339,6 +363,7 @@
   color: var(--label-secondary);
   font: inherit;
   font-size: var(--text-footnote-size);
+  transition: color var(--fade-fast);
 }
 .run-ask__audit:hover {
   color: var(--accent);

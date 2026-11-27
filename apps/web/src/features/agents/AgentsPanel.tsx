@@ -291,7 +291,7 @@ function AgentRow({
     <div className="ag-agent" data-open={open}>
       <div className="mx-row ag-row">
         <button type="button" className="ag-row__open" aria-expanded={open} onClick={onToggle}>
-          <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} className="ag-row__chev" />
+          <Icon name="chevron-right" size={12} className="ag-row__chev" />
           <AgentIcon kind={a.kind} />
           <span className="mx-row__main">
             <span className="mx-row__title">

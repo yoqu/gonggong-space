@@ -75,7 +75,9 @@ export function BotPicker({
         className="pick__row"
         onClick={() => onPick(b, close)}
       >
-        <span className="pick__check">{on ? <Icon name="check" size={12} weight={2} /> : null}</span>
+        <span className="pick__check">
+          {on ? <Icon name="check" size={12} weight={2} className="ui-pop-in" /> : null}
+        </span>
         <BotAvatar id={b.id} name={b.name} size={20} />
         <span className="pick__main">
           <span className="pick__name">{b.name}</span>
@@ -196,7 +198,7 @@ export function MemberPicker({
                   onClick={() => setPicked(on ? picked.filter((id) => id !== u.id) : [...picked, u.id])}
                 >
                   <span className="pick__check">
-                    {on ? <Icon name="check" size={12} weight={2} /> : null}
+                    {on ? <Icon name="check" size={12} weight={2} className="ui-pop-in" /> : null}
                   </span>
                   <Avatar name={u.name} src={u.avatar ?? undefined} size={20} />
                   <span className="pick__main">

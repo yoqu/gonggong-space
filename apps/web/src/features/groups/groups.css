@@ -577,6 +577,12 @@
   align-items: center;
   gap: var(--space-6);
 }
+/* Enabling a plugin or finishing its connection re-tones its health tag in place: fade the color, don't snap. */
+.gs-cap-row__title > .ui-tag {
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
+}
 .gs-adv {
   display: flex;
   flex-direction: column;

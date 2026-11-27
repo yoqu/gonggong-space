@@ -110,3 +110,13 @@
   flex-shrink: 0;
   margin: var(--space-12) var(--space-16) 0;
 }
+.group-threads__list {
+  transition: opacity var(--fade-in);
+}
+.group-threads__list[aria-busy="true"] {
+  opacity: 0.6;
+}
+.group-threads__search .ui-search__clear {
+  animation: ui-fade-in var(--fade-in);
+  transition: background-color var(--fade-fast);
+}

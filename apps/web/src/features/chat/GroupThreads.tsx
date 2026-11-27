@@ -63,6 +63,10 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
   )
 }
 
+type ThreadsView = 'failed' | 'loading' | 'none' | 'empty' | 'list'
+const rowsView = (rows: GroupThreadItemDto[], query: string): ThreadsView =>
+  rows.length ? 'list' : query ? 'none' : 'empty'
+
 /** 话题 of one group in the chat's right rail: bots at work first, then the latest reply first. */
 export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () => void }) {
   useEscape(onClose)
@@ -157,6 +161,15 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
   const isLive = (x: GroupThreadItemDto) => x.live || liveRoots.has(x.root.id)
   const rows = list && [...list.filter(isLive), ...list.filter((x) => !isLive(x))]
   shown.current = new Set(rows?.map((x) => x.root.id))
+  // While another query loads, the last settled view stays (dimmed) so typing doesn't flash the list away and back.
+  const settled: ThreadsView = failed && !list ? 'failed' : !rows ? 'loading' : rowsView(rows, query)
+  const lastSettled = useRef<{ groupId: string; view: ThreadsView; rows: GroupThreadItemDto[] } | null>(null)
+  if (lastSettled.current?.groupId !== group.id || settled === 'failed') lastSettled.current = null
+  const stale = settled === 'loading' ? lastSettled.current : null
+  if (rows && settled !== 'failed') lastSettled.current = { groupId: group.id, view: settled, rows }
+  const busy = !!stale
+  const view = stale ? stale.view : settled
+  const shownRows = (stale ? stale.rows : rows) ?? []
   const mobile = useIsMobile()
   const layout = useThreadLayout()
   const sideFits = useThreadSideFits()
@@ -176,8 +189,8 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
         </div>
       </PanelHead>
       <SearchField className="group-threads__search" placeholder={t('搜索话题')} value={q} onChange={setQ} />
-      {failed && !list ? (
-        <div className="group-threads__center">
+      {view === 'failed' ? (
+        <div key="failed" className="group-threads__center ui-panel-swap">
           <EmptyState
             bare
             illustration={<FailedArt />}
@@ -189,16 +202,16 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
             }
           />
         </div>
-      ) : !rows ? (
-        <div className="group-threads__center">
+      ) : view === 'loading' ? (
+        <div key="loading" className="group-threads__center ui-panel-swap">
           <Mascot action="wait" size={56} label={t('加载中')} />
         </div>
-      ) : !rows.length && query ? (
-        <div className="group-threads__center">
+      ) : view === 'none' ? (
+        <div key="none" className="group-threads__center ui-panel-swap">
           <EmptyState bare illustration={<EmptyChatArt />} title={t('没有匹配的话题')} />
         </div>
-      ) : !rows.length ? (
-        <div className="group-threads__center">
+      ) : view === 'empty' ? (
+        <div key="empty" className="group-threads__center ui-panel-swap">
           <EmptyState
             bare
             illustration={<EmptyChatArt />}
@@ -208,14 +221,16 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
         </div>
       ) : (
         <div
+          key="list"
           className="group-threads__list"
+          aria-busy={busy || undefined}
           onScroll={(e) => {
             if (moreFailed) return
             const el = e.currentTarget
             if (el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_END_PX) void more()
           }}
         >
-          {rows.map((x) => (
+          {shownRows.map((x) => (
             <Row key={x.root.id} item={x} live={isLive(x)} />
           ))}
           {moreFailed ? (

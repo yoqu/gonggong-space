@@ -139,6 +139,9 @@ export function AgentLoginDialog({
   const unsubRef = useRef<(() => void) | null>(null)
   const autoOpenedOpRef = useRef<string | null>(null)
   const mountedRef = useRef(true)
+  // The first idle panel arrives with the dialog itself; only later phase changes swap in.
+  const phaseSwappedRef = useRef(false)
+  if (phase !== 'idle') phaseSwappedRef.current = true
 
   const openUrl = useCallback(
     (url: string) => {
@@ -388,101 +391,108 @@ export function AgentLoginDialog({
       >
         {useAcp ? (
           <div className="ag-login">
-            {phase === 'idle' ? (
-              <>
-                {methods.length ? (
-                  <fieldset className="ag-login__methods">
-                    <legend className="ag-login__legend">{t('选择登录方式')}</legend>
-                    {methods.map((m) => (
-                      <label key={m.id} className="ag-login__method">
-                        <input
-                          type="radio"
-                          name={`agent-login-method-${agent}`}
-                          className="ag-login__radio"
-                          value={m.id}
-                          checked={methodId === m.id}
-                          onChange={() => setMethodId(m.id)}
-                        />
-                        <span className="ag-login__method-body">
-                          <span className="ag-login__method-name">{m.label}</span>
-                          {m.description ? (
-                            <span className="ag-login__method-desc">{m.description}</span>
-                          ) : null}
-                        </span>
-                      </label>
-                    ))}
-                  </fieldset>
-                ) : null}
-                {isDesktop && loginDriver?.launchTerminal ? (
-                  <div className="ag-login__alt-links">
-                    <button type="button" className="mx-link" onClick={() => setManualFallback(true)}>
-                      {t('在终端中手动登录')}
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            ) : phase === 'starting' ? (
-              <div className="ag-login__status">
-                <Spinner />
-                <span>{stageText || t('正在启动授权…')}</span>
-              </div>
-            ) : phase === 'authorizing' && authUrl ? (
-              <div className="ag-login__auth">
-                <div className="ag-login__qr">
-                  <QRCodeSVG value={authUrl} size={180} marginSize={2} title={t('授权二维码')} />
-                </div>
-                <span className="ag-login__auth-hint">
-                  <Spinner />
-                  <span>{t('请在浏览器或微信中完成登录…')}</span>
-                </span>
-                <Button variant="primary" icon="external" onClick={() => openUrl(authUrl)}>
-                  {t('在浏览器中打开')}
-                </Button>
-                <div className="ag-login__url-row">
-                  <span className="ag-login__url" title={authUrl}>
-                    {authUrl}
-                  </span>
-                  <Button
-                    size="small"
-                    variant="plain"
-                    icon="copy"
-                    onClick={() => void copyWithToast(authUrl, t('已复制链接'))}
-                  >
-                    {t('复制链接')}
-                  </Button>
-                </div>
-              </div>
-            ) : phase === 'success' ? (
-              <div className="ag-login__result" role="status">
-                <Icon name="checkmark-circle" size={28} />
-                <span className="ag-login__result-title">{t('登录成功')}</span>
-                {loggedInUser ? (
-                  <span className="ag-login__result-sub">
-                    {t('已登录账号：{user}', { user: loggedInUser })}
-                  </span>
-                ) : null}
-              </div>
-            ) : (
-              <div className="ag-login__error" role="alert">
-                <span className="ag-login__error-head">
-                  <Icon name="exclamation-circle" size={16} />
-                  <span>{t('登录失败')}</span>
-                </span>
-                <span className="ag-login__error-body">{errorMsg}</span>
-                <div className="ag-login__alt-links">
-                  {onAddProvider ? (
-                    <button type="button" className="mx-link" onClick={switchToProvider}>
-                      {t('改为配置 API Key')}
-                    </button>
+            <div
+              key={phase}
+              className={phaseSwappedRef.current ? 'ag-login__phase ui-panel-swap' : 'ag-login__phase'}
+            >
+              {phase === 'idle' ? (
+                <>
+                  {methods.length ? (
+                    <fieldset className="ag-login__methods">
+                      <legend className="ag-login__legend">{t('选择登录方式')}</legend>
+                      {methods.map((m) => (
+                        <label key={m.id} className="ag-login__method">
+                          <input
+                            type="radio"
+                            name={`agent-login-method-${agent}`}
+                            className="ag-login__radio"
+                            value={m.id}
+                            checked={methodId === m.id}
+                            onChange={() => setMethodId(m.id)}
+                          />
+                          <span className="ag-login__method-body">
+                            <span className="ag-login__method-name">{m.label}</span>
+                            {m.description ? (
+                              <span className="ag-login__method-desc">{m.description}</span>
+                            ) : null}
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
                   ) : null}
                   {isDesktop && loginDriver?.launchTerminal ? (
-                    <button type="button" className="mx-link" onClick={() => setManualFallback(true)}>
-                      {t('在终端中手动登录')}
-                    </button>
+                    <div className="ag-login__alt-links">
+                      <button type="button" className="mx-link" onClick={() => setManualFallback(true)}>
+                        {t('在终端中手动登录')}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              ) : phase === 'starting' ? (
+                <div className="ag-login__status">
+                  <Spinner />
+                  <span>{stageText || t('正在启动授权…')}</span>
+                </div>
+              ) : phase === 'authorizing' && authUrl ? (
+                <div className="ag-login__auth">
+                  <div className="ag-login__qr">
+                    <QRCodeSVG value={authUrl} size={180} marginSize={2} title={t('授权二维码')} />
+                  </div>
+                  <span className="ag-login__auth-hint">
+                    <Spinner />
+                    <span>{t('请在浏览器或微信中完成登录…')}</span>
+                  </span>
+                  <Button variant="primary" icon="external" onClick={() => openUrl(authUrl)}>
+                    {t('在浏览器中打开')}
+                  </Button>
+                  <div className="ag-login__url-row">
+                    <span className="ag-login__url" title={authUrl}>
+                      {authUrl}
+                    </span>
+                    <Button
+                      size="small"
+                      variant="plain"
+                      icon="copy"
+                      onClick={() => void copyWithToast(authUrl, t('已复制链接'))}
+                    >
+                      {t('复制链接')}
+                    </Button>
+                  </div>
+                </div>
+              ) : phase === 'success' ? (
+                <div className="ag-login__result" role="status">
+                  <span className="ui-check-pop ag-login__result-icon">
+                    <Icon name="checkmark-circle" size={28} />
+                  </span>
+                  <span className="ag-login__result-title">{t('登录成功')}</span>
+                  {loggedInUser ? (
+                    <span className="ag-login__result-sub">
+                      {t('已登录账号：{user}', { user: loggedInUser })}
+                    </span>
                   ) : null}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="ag-login__error" role="alert">
+                  <span className="ag-login__error-head">
+                    <Icon name="exclamation-circle" size={16} />
+                    <span>{t('登录失败')}</span>
+                  </span>
+                  <span className="ag-login__error-body">{errorMsg}</span>
+                  <div className="ag-login__alt-links">
+                    {onAddProvider ? (
+                      <button type="button" className="mx-link" onClick={switchToProvider}>
+                        {t('改为配置 API Key')}
+                      </button>
+                    ) : null}
+                    {isDesktop && loginDriver?.launchTerminal ? (
+                      <button type="button" className="mx-link" onClick={() => setManualFallback(true)}>
+                        {t('在终端中手动登录')}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
             {lines.length ? (
               <Disclosure title={t('查看日志')}>
                 <pre className="ag-login__log">{lines.join('\n')}</pre>
@@ -490,7 +500,7 @@ export function AgentLoginDialog({
             ) : null}
           </div>
         ) : (
-          <div className="ag-login">
+          <div key="manual" className={manualFallback ? 'ag-login ui-panel-swap' : 'ag-login'}>
             {isDesktop && loginDriver?.launchTerminal ? (
               <div className="ag-login__callout">
                 <span className="ag-login__callout-text">

@@ -99,6 +99,9 @@
   border-radius: var(--radius-field);
   background: transparent;
   color: var(--label-secondary);
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
 }
 .machine-name__edit:hover {
   background: var(--quote-fill);
@@ -240,6 +243,7 @@
 .machine__agent-name {
   flex: 1;
   color: var(--label);
+  transition: color var(--fade-fast);
 }
 .machine__agent-version {
   font-family: var(--font-mono);
@@ -368,6 +372,7 @@
   font: inherit;
   text-align: left;
   cursor: default;
+  transition: background-color var(--fade-fast);
 }
 .mx-row--button:hover {
   background: var(--quote-fill);
@@ -574,6 +579,10 @@
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
   cursor: pointer;
+  transition:
+    background-color var(--fade-fast),
+    box-shadow var(--fade-fast),
+    color var(--fade-fast);
 }
 .client-dl__option:hover {
   color: var(--label);

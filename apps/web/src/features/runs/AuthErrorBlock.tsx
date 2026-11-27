@@ -127,7 +127,7 @@ export function AuthErrorActions({
       {loggedIn ? (
         <div className="run-auth__ready">
           <span className="run-auth__ready-text">
-            <Icon name="checkmark-circle" size={14} />
+            <Icon name="checkmark-circle" size={14} className="ui-check-pop" />
             {t('{agent} 已登录', { agent: agentName })}
           </span>
           {canRetry ? (
