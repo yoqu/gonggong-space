@@ -9,6 +9,7 @@ import type {
   UserDto,
 } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -165,6 +166,32 @@ describe('R3B P1-2: GroupSettingsDialog dirty-state protection', () => {
     const alert3 = await screen.findByRole('alertdialog', { name: '要放弃未保存的更改吗？' })
     fireEvent.click(within(alert3).getByRole('button', { name: '放弃更改' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a tab picked before the mount effects flush (Jenkins #679)', async () => {
+    mockApi({ 'GET /groups/g1/params': params })
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    const host = document.body.appendChild(document.createElement('div'))
+    const root = createRoot(host)
+    env.IS_REACT_ACT_ENVIRONMENT = false
+    try {
+      // Resolve on the commit's DOM mutation, before React's passive effects run.
+      const committed = new Promise<void>((resolve) =>
+        new MutationObserver((_, o) => {
+          o.disconnect()
+          resolve()
+        }).observe(document.body, { childList: true, subtree: true }),
+      )
+      root.render(<GroupSettingsDialog group={group()} tab="basic" onClose={vi.fn()} />)
+      await committed
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '群级参数' }))
+      env.IS_REACT_ACT_ENVIRONMENT = true
+      expect(await screen.findByLabelText('接力链长上限（跳）')).toBeTruthy()
+    } finally {
+      env.IS_REACT_ACT_ENVIRONMENT = true
+      act(() => root.unmount())
+      host.remove()
+    }
   })
 
   it('protects unsaved params changes, resets draft on discard, and closes cleanly on save', async () => {

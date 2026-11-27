@@ -73,12 +73,15 @@ export function GroupSettingsDialog({
   const [tabSaving, setTabSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   // Reopened on another tab while still closing, the dialog is reused rather than remounted.
-  useEffect(() => {
+  // Reset during render, not in an effect: a mount effect would undo a tab picked before it flushed.
+  const [shownInitial, setShownInitial] = useState(initial)
+  if (shownInitial !== initial) {
+    setShownInitial(initial)
     setTab(initial)
     setTabDirty(false)
     setTabSaving(false)
     setPendingAction(null)
-  }, [initial])
+  }
   const [params, setParams] = useState<Draft | null>(null)
   const [savedParams, setSavedParams] = useState<Draft | null>(null)
   const [paramsError, setParamsError] = useState<string | null>(null)
