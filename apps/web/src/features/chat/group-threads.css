@@ -106,3 +106,7 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.group-threads__search {
+  flex-shrink: 0;
+  margin: var(--space-12) var(--space-16) 0;
+}

@@ -230,8 +230,8 @@ export const ThreadInboxQuery = z.object({
 export const ThreadInboxDto = z.object({ threads: z.array(ThreadInboxItemDto) })
 export type ThreadInboxDto = z.infer<typeof ThreadInboxDto>
 /**
- * GET /api/groups/:id/threads?cursor=<last reply seq>&limit= → GroupThreadsDto: the group's threads (replies or a bot at
- * work), bots at work first, then latest reply first. `next` is the cursor of the following page; threads with a bot at
+ * GET /api/groups/:id/threads?cursor=<last reply seq>&limit=&q= → GroupThreadsDto: the group's threads (replies or a bot at
+ * work), bots at work first, then latest reply first; `q` keeps those whose title, root or a reply contains it. `next` is the cursor of the following page; threads with a bot at
  * work come with the first page only.
  */
 export const GroupThreadItemDto = z.object({
@@ -245,6 +245,7 @@ export type GroupThreadItemDto = z.infer<typeof GroupThreadItemDto>
 export const GroupThreadsQuery = z.object({
   cursor: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  q: z.string().trim().max(200).optional(),
 })
 export const GroupThreadsDto = z.object({
   threads: z.array(GroupThreadItemDto),

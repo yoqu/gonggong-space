@@ -100,6 +100,32 @@ describe('group thread list', () => {
     expect(second.next).toBeNull()
   })
 
+  it('searches titles, roots and replies of the group threads, paging the matches', async () => {
+    const s = await setup()
+    const a = (await send(s.asWang, s.g.id, '发布计划')).body
+    await send(s.asLi, s.g.id, '周五冻结', { threadRootId: a.id })
+    const b = (await send(s.asWang, s.g.id, '登录报错')).body
+    await send(s.asLi, s.g.id, '发布后复现了', { threadRootId: b.id })
+    const c = (await send(s.asWang, s.g.id, '随便聊聊')).body
+    await send(s.asLi, s.g.id, '好的', { threadRootId: c.id })
+    await s.asWang.put(`/api/messages/${c.id}/thread/title`, { title: '下周发布' })
+    const d = (await send(s.asWang, s.g.id, '午饭')).body
+    await send(s.asLi, s.g.id, '面条', { threadRootId: d.id })
+    // Not a thread: a plain message that matches.
+    await send(s.asWang, s.g.id, '发布说明')
+
+    const q = `?q=${encodeURIComponent('发布')}`
+    const all = await list(s.asWang, s.g.id, q)
+    expect(all.threads.map((x) => x.root.body)).toEqual(['随便聊聊', '登录报错', '发布计划'])
+    expect((await list(s.asWang, s.g.id, '?q=%25')).threads).toEqual([])
+
+    const first = await list(s.asWang, s.g.id, `${q}&limit=2`)
+    expect(first.threads.map((x) => x.root.body)).toEqual(['随便聊聊', '登录报错'])
+    const second = await list(s.asWang, s.g.id, `${q}&limit=2&cursor=${first.next}`)
+    expect(second.threads.map((x) => x.root.body)).toEqual(['发布计划'])
+    expect(second.next).toBeNull()
+  })
+
   it('is for members only', async () => {
     const s = await setup()
     expect((await s.asOutsider.get(`/api/groups/${s.g.id}/threads`)).status).toBe(404)

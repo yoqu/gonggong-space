@@ -39,6 +39,7 @@ import {
 } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { likePattern } from '../../lib/text.js'
 import { requireArtifact } from '../artifacts/service.js'
 import { requireUser } from '../auth/session.js'
 import { findMember, requireMember, requireReader } from '../groups/service.js'
@@ -253,13 +254,24 @@ export function threadRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const groupId = req.params.id
       await requireReader(ctx, groupId, me.id)
-      const { cursor, limit } = GroupThreadsQuery.parse(req.query)
+      const { cursor, limit, q } = GroupThreadsQuery.parse(req.query)
+      // Roots whose title, body or a reply body contains q (a reply stands for its root).
+      const matching = q
+        ? sql`(select coalesce(m.thread_root_id, m.id) from messages m where m.group_id = ${groupId} and m.recalled_at is null and m.kind <> 'event' and (m.body ilike ${likePattern(q)} or m.meta->>'threadTitle' ilike ${likePattern(q)}))`
+        : undefined
+      const inMatching = (col: typeof runs.threadRootId | typeof messages.threadRootId) =>
+        matching ? sql`${col} in ${matching}` : undefined
       // Both start from the few thread rows (runs_thread / messages_thread), not from every root of the group.
       const live = await ctx.db
         .select({ id: sql<string>`${runs.threadRootId}` })
         .from(runs)
         .where(
-          and(eq(runs.groupId, groupId), isNotNull(runs.threadRootId), inArray(runs.status, BOT_AT_WORK)),
+          and(
+            eq(runs.groupId, groupId),
+            isNotNull(runs.threadRootId),
+            inArray(runs.status, BOT_AT_WORK),
+            inMatching(runs.threadRootId),
+          ),
         )
         .groupBy(runs.threadRootId)
         .orderBy(desc(max(runs.queuedAt)))
@@ -279,6 +291,7 @@ export function threadRoutes(ctx: Ctx) {
               isNull(messages.recalledAt),
               ne(messages.kind, 'event'),
               liveIdsList.length ? notInArray(messages.threadRootId, liveIdsList) : undefined,
+              inMatching(messages.threadRootId),
             ),
           )
           .groupBy(messages.threadRootId)
@@ -298,6 +311,7 @@ export function threadRoutes(ctx: Ctx) {
               sql`not exists (select 1 from messages m where m.thread_root_id = ${runs.threadRootId} and m.recalled_at is null and m.kind <> 'event')`,
               liveIdsList.length ? notInArray(runs.threadRootId, liveIdsList) : undefined,
               cursor ? lt(messages.seq, cursor) : undefined,
+              inMatching(runs.threadRootId),
             ),
           )
           .groupBy(runs.threadRootId, messages.seq)

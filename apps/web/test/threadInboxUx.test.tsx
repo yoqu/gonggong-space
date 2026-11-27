@@ -145,4 +145,70 @@ describe('ThreadInbox & GroupThreads UX', () => {
     expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
     expect(getSpy).toHaveBeenCalledWith('/groups/g1/threads?cursor=10')
   })
+  it('searches the group threads on the server and restores the list when cleared', async () => {
+    const item = (id: string, body: string) => ({
+      root: msg(id, body, 1),
+      state: { rootId: id, groupId: 'g1', following: false, lastReadSeq: 0, unread: 0, mentioned: false },
+      live: false,
+    })
+    const getSpy = vi.spyOn(api, 'get').mockImplementation(async (path: string) => {
+      if (path.includes('q=')) return { threads: [item('m2', '发布计划')], next: 5 }
+      return { threads: [item('m1', '架构讨论'), item('m2', '发布计划')], next: null }
+    })
+    const { container } = render(
+      <MemoryRouter>
+        <GroupThreads group={GROUP} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByText('架构讨论')).toBeTruthy())
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索话题' }), { target: { value: ' 发布 ' } })
+    await waitFor(() => expect(screen.getByText('发布计划')).toBeTruthy())
+    expect(screen.queryByText('架构讨论')).toBeNull()
+    expect(getSpy).toHaveBeenCalledWith(`/groups/g1/threads?q=${encodeURIComponent('发布')}`)
+
+    const list = container.querySelector('.group-threads__list') as HTMLElement
+    Object.defineProperty(list, 'scrollHeight', { value: 500, configurable: true })
+    Object.defineProperty(list, 'clientHeight', { value: 500, configurable: true })
+    fireEvent.scroll(list)
+    await waitFor(() =>
+      expect(getSpy).toHaveBeenCalledWith(`/groups/g1/threads?q=${encodeURIComponent('发布')}&cursor=5`),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '清除' }))
+    await waitFor(() => expect(screen.getByText('架构讨论')).toBeTruthy())
+    expect(getSpy).toHaveBeenLastCalledWith('/groups/g1/threads')
+  })
+
+  it('says so when no thread matches', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async (path: string) =>
+      path.includes('q=')
+        ? { threads: [], next: null }
+        : {
+            threads: [
+              {
+                root: msg('m1', '架构讨论', 1),
+                state: {
+                  rootId: 'm1',
+                  groupId: 'g1',
+                  following: false,
+                  lastReadSeq: 0,
+                  unread: 0,
+                  mentioned: false,
+                },
+                live: false,
+              },
+            ],
+            next: null,
+          },
+    )
+    render(
+      <MemoryRouter>
+        <GroupThreads group={GROUP} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByText('架构讨论')).toBeTruthy())
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索话题' }), { target: { value: '不存在' } })
+    await waitFor(() => expect(screen.getByText('没有匹配的话题')).toBeTruthy())
+  })
 })

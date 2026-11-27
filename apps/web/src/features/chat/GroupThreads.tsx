@@ -15,6 +15,7 @@ import {
   Mascot,
   PanelHead,
   paletteColor,
+  SearchField,
   Spinner,
   Tag,
   useEscape,
@@ -73,13 +74,27 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
   const loadingMore = useRef(false)
   const shown = useRef(new Set<string>())
   const liveRoots = useThreadLive((s) => s.roots)
-  const url = `/groups/${group.id}/threads`
+  const [q, setQ] = useState('')
+  const query = q.trim()
+  const url = `/groups/${group.id}/threads${query ? `?q=${encodeURIComponent(query)}` : ''}`
+  const urlRef = useRef(url)
+  urlRef.current = url
+
+  // Another search (or clearing it) starts over from its own first page.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset whenever the query changes
+  useEffect(() => {
+    setFirst(null)
+    setRest(null)
+    setFailed(false)
+    setMoreFailed(false)
+  }, [url])
 
   const firstRef = useRef(first)
   firstRef.current = first
   const refresh = useCallback(async () => {
     try {
       const page = await api.get<GroupThreadsDto>(url)
+      if (urlRef.current !== url) return
       // Threads pushed off the first page by newer ones stay among the pages loaded further down.
       const old = firstRef.current?.threads ?? []
       setRest(
@@ -89,7 +104,7 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
       setFirst(page)
       setFailed(false)
     } catch {
-      setFailed(true)
+      if (urlRef.current === url) setFailed(true)
     }
   }, [url])
   const list =
@@ -121,17 +136,19 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
       off()
       offReconnect()
     }
-  }, [group.id, liveRoots])
+  }, [group.id, liveRoots, url])
 
   const more = async () => {
     if (next === null || loadingMore.current) return
     loadingMore.current = true
     setMoreFailed(false)
+    const from = url
     try {
-      const page = await api.get<GroupThreadsDto>(`${url}?cursor=${next}`)
+      const page = await api.get<GroupThreadsDto>(`${url}${query ? '&' : '?'}cursor=${next}`)
+      if (urlRef.current !== from) return
       setRest((r) => ({ threads: [...(r?.threads ?? []), ...page.threads], next: page.next }))
     } catch {
-      setMoreFailed(true)
+      if (urlRef.current === from) setMoreFailed(true)
     } finally {
       loadingMore.current = false
     }
@@ -158,6 +175,7 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
           <span className="pn-threadpanel__sub">{`# ${group.name}`}</span>
         </div>
       </PanelHead>
+      <SearchField className="group-threads__search" placeholder={t('搜索话题')} value={q} onChange={setQ} />
       {failed && !list ? (
         <div className="group-threads__center">
           <EmptyState
@@ -174,6 +192,10 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
       ) : !rows ? (
         <div className="group-threads__center">
           <Mascot action="wait" size={56} label={t('加载中')} />
+        </div>
+      ) : !rows.length && query ? (
+        <div className="group-threads__center">
+          <EmptyState bare illustration={<EmptyChatArt />} title={t('没有匹配的话题')} />
         </div>
       ) : !rows.length ? (
         <div className="group-threads__center">

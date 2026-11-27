@@ -16,6 +16,8 @@ export default {
   '还有 {n} 条回复': '{n} more {n:reply|replies}',
   本群话题: 'Threads of this group',
   还没有话题: 'No threads yet',
+  搜索话题: 'Search threads',
+  没有匹配的话题: 'No matching threads',
   '在任意消息上选择「回复话题」即可开始': 'Pick "Reply in thread" on any message to start one',
   还没有关注的话题: 'No followed threads yet',
   '在消息上点「回复话题」，或在话题里被 @，就会出现在这里。':
