@@ -371,8 +371,20 @@ function PrototypeArtifactTab({
         {renaming ? (
           <TitleField title={a.title} onDone={rename} />
         ) : (
-          <h2 className="art-bar__title" title={a.title} onDoubleClick={() => setRenaming(true)}>
-            {a.title}
+          <h2 className="art-bar__title" title={a.title}>
+            {a.access === 'view' ? (
+              a.title
+            ) : (
+              <button
+                type="button"
+                className="art-bar__title-btn"
+                title={t('点击修改名称')}
+                onClick={() => setRenaming(true)}
+              >
+                <span>{a.title}</span>
+                <Icon name="pencil" size={12} className="art-bar__title-edit" />
+              </button>
+            )}
           </h2>
         )}
         {versions.length ? (

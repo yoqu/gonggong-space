@@ -161,7 +161,7 @@ describe('artifact tab', () => {
     renderTab()
     expect(await screen.findByRole('application', { name: '画布' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '选择' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '直接编辑' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: '上传到画布' })).toHaveProperty('disabled', true)
     expect(screen.getByText('在下方对话框里说要做什么，AI 会做出第一版')).toBeTruthy()
     expect(screen.queryByText('正在生成，第一版完成后显示在这里')).toBeNull()
     await waitFor(() =>
@@ -257,13 +257,13 @@ describe('artifact tab', () => {
     expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(false)
   })
 
-  it('switches tools with V and H; the hand does not select', async () => {
+  it('switches tools with V and H (no hand button: space pans); the hand does not select', async () => {
     mockApi(routes())
     renderTab()
     await screen.findByTitle('首页')
-    const hand = screen.getByRole('button', { name: '抓手' })
+    expect(screen.queryByRole('button', { name: '抓手' })).toBeNull()
     fireEvent.keyDown(canvas(), { key: 'h' })
-    expect(hand.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: '选择' }).getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(screen.getByTestId('art-node-home'))
     expect(screen.queryByTestId('art-select-home')).toBeNull()
     fireEvent.keyDown(canvas(), { key: 'v' })

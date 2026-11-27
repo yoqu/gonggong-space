@@ -1,5 +1,5 @@
 import type { ArtifactEditOp, BotDto } from '@gonggong/protocol'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { Button, CloseButton, Icon, type IconName, Select, Textarea } from '../../ui'
 import { offlineHint } from './actions'
@@ -168,8 +168,11 @@ export function ElementActions({
   onConnect,
   onRule,
   onDelete,
+  ask,
 }: {
   group: 'look' | 'interact'
+  /** Opens 用 AI 修改 with this request written (动效 ＋), each new `n` once. */
+  ask?: { text: string; n: number }
   el: PickedElement
   readOnly: boolean
   bots: BotDto[]
@@ -187,8 +190,15 @@ export function ElementActions({
   onRule: () => void
   onDelete: () => void
 }) {
-  const [step, setStep] = useState<'menu' | 'image' | 'ai' | 'connect'>('menu')
-  const [ask, setAsk] = useState('')
+  const [step, setStep] = useState<'menu' | 'image' | 'ai' | 'connect'>(ask ? 'ai' : 'menu')
+  const [request, setAsk] = useState(ask?.text ?? '')
+  const askN = ask?.n
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new ask only
+  useEffect(() => {
+    if (!ask) return
+    setAsk(ask.text)
+    setStep('ai')
+  }, [askN])
   const [busy, setBusy] = useState(false)
   const located = el.ggId !== null
   const run = async (f: () => Promise<boolean>) => {
@@ -210,7 +220,7 @@ export function ElementActions({
   return (
     <section className="art-el__actions" aria-label={t('模块操作')}>
       {step === 'menu' ? (
-        <div className="art-pop__actions">
+        <div className={group === 'look' ? 'art-pop__actions art-pop__actions--row' : 'art-pop__actions'}>
           {group === 'look' ? (
             <>
               {image ? (
@@ -287,13 +297,13 @@ export function ElementActions({
           className="art-pop__form"
           onSubmit={(e) => {
             e.preventDefault()
-            if (ask.trim()) void run(() => (step === 'ai' ? onAi : onConnect)(ask.trim()))
+            if (request.trim()) void run(() => (step === 'ai' ? onAi : onConnect)(request.trim()))
           }}
         >
           <Textarea
             aria-label={step === 'ai' ? t('修改要求') : t('新屏描述')}
             placeholder={step === 'ai' ? t('描述要怎么改这个元素…') : t('描述点它之后打开的新屏…')}
-            value={ask}
+            value={request}
             rows={3}
             maxLength={2000}
             autoFocus
@@ -307,7 +317,13 @@ export function ElementActions({
             <Button size="small" variant="plain" onClick={() => setStep('menu')}>
               {t('返回')}
             </Button>
-            <Button size="small" variant="primary" icon="send" type="submit" disabled={busy || !ask.trim()}>
+            <Button
+              size="small"
+              variant="primary"
+              icon="send"
+              type="submit"
+              disabled={busy || !request.trim()}
+            >
               {bot ? t('发给 @{name}', { name: bot.name }) : t('发送')}
             </Button>
           </div>

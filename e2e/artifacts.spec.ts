@@ -13,7 +13,7 @@ const WRITE = `sh ${join(ROOT, 'e2e/fixtures/l1-artifact.sh')}`
 const SHOTS = '/tmp/art-shots'
 
 /** The frame of a screen node on the artifact canvas. */
-const screen = (page: Page, id: string) => page.getByTestId(`art-node-${id}`).frameLocator('iframe')
+const screen = (page: Page, id: string) => page.getByTestId(`art-node-${id}`).frameLocator('iframe[title]')
 
 test('a creation is hosted as versions: the canvas shows its screens from the server, undo checks the old head out', async ({
   page,
@@ -133,10 +133,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
       })
 
       await test.step('direct edit: a heading’s new text is saved as the next version, on the card and the canvas', async () => {
-        await page
-          .getByRole('toolbar', { name: '画布工具' })
-          .getByRole('button', { name: '直接编辑' })
-          .click()
+        // Who may edit points at a block and edits it: no tool to pick first (墨刀).
         await screen(page, 'home').getByRole('heading', { name: '首页第一版' }).click()
         const pop = page.getByTestId('art-inspector').getByRole('region', { name: '模块操作' })
         await pop.getByRole('button', { name: '编辑文字' }).click()
@@ -190,6 +187,8 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
           .toBe('40px')
         await expect(inspector.getByTestId('art-element-panel')).toBeVisible({ timeout: 30_000 })
         await expect(inspector.getByRole('textbox', { name: '字号' })).toHaveValue('40px')
+        // The new version loaded behind the shown page and took its place: one page again, no blank reload.
+        await expect(page.getByTestId('art-node-home').locator('iframe')).toHaveCount(1)
       })
 
       await test.step('热区: dragged out on a page, it links to another page as the next version', async () => {

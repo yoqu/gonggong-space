@@ -27,6 +27,7 @@ import {
   BridgeToShell,
   CreateAnnotationReq,
   DaemonFeature,
+  FONT_PRESETS,
   GgArtifactManifest,
   MessageCanvas,
   MessageCard,
@@ -156,6 +157,16 @@ describe('style values', () => {
     expect(styleValueOk('underline', 'text-decoration')).toBe(true)
     expect(styleValueOk('line-through', 'text-decoration')).toBe(true)
     expect(STYLE_PROPS).toEqual(expect.arrayContaining(['box-shadow', 'font-style', 'text-decoration']))
+  })
+  it('墨刀 panel: font presets, rotation, vertical alignment, hide, a coloured shadow', () => {
+    for (const v of FONT_PRESETS) expect(styleValueOk(v, 'font-family')).toBe(true)
+    expect(styleValueOk('Comic Sans', 'font-family')).toBe(false)
+    expect(styleValueOk('15deg', 'rotate')).toBe(true)
+    expect(styleValueOk('center', 'align-content')).toBe(true)
+    expect(styleValueOk('none', 'display')).toBe(true)
+    expect(styleValueOk('block', 'display')).toBe(false)
+    expect(styleValueOk('0 4px 12px #00000066', 'box-shadow')).toBe(true)
+    expect(styleValueOk('0 4px 12px red', 'box-shadow')).toBe(false)
   })
   it('a hotspot: a rect of the page (document px) leading to a screen', () => {
     const op = {

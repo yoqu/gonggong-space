@@ -26,6 +26,9 @@
     'border-color',
     'opacity',
     'box-shadow',
+    'font-family',
+    'rotate',
+    'align-content',
   ]
   const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
   // ArtifactAnchor in the contract.
@@ -75,6 +78,10 @@
     'box-shadow',
     'font-style',
     'text-decoration',
+    'font-family',
+    'rotate',
+    'align-content',
+    'display',
   ])
   // What the server and this script add to the stored source.
   const INJECTED = / data-gg-(?:id|selected|hover|mark|pick|editing|off)(?:="[^"]*")?/g

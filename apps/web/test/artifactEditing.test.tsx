@@ -428,9 +428,11 @@ describe('element panel', () => {
     return screen.getByTestId('art-element-panel')
   }
 
-  it('shows the tag and the selector’s last parts', async () => {
+  it('shows the tag and the selector’s last parts under 交互', async () => {
     mockApi(routes())
-    const panel = await openPanel()
+    await openPanel()
+    fireEvent.click(screen.getByRole('tab', { name: '交互' }))
+    const panel = screen.getByTestId('art-element-panel')
     expect(panel.textContent).toContain('<h1>')
     expect(panel.textContent).toContain('…')
     expect(panel.textContent).toContain('section:nth-of-type(2)')
@@ -448,7 +450,6 @@ describe('element panel', () => {
     fireEvent.input(screen.getByLabelText('背景：任意颜色'), { target: { value: '#1a73e8' } })
     fireEvent.click(screen.getByRole('button', { name: '斜体' }))
     fireEvent.change(screen.getByRole('slider', { name: '不透明度' }), { target: { value: '50' } })
-    fireEvent.change(screen.getByRole('textbox', { name: '文字' }), { target: { value: '本月共读' } })
     // 交互: the same draft.
     fireEvent.click(screen.getByRole('tab', { name: '交互' }))
     fireEvent.click(screen.getByRole('button', { name: '点击跳转到' }))
@@ -461,7 +462,6 @@ describe('element panel', () => {
         {
           baseVersionId: 'v2',
           ops: [
-            { kind: 'text', ...at, text: '本月共读' },
             { kind: 'attr', ...at, name: 'data-gg-link', value: 'detail' },
             { kind: 'attr', ...at, name: 'data-gg-transition', value: 'push-back' },
             {
@@ -516,10 +516,15 @@ describe('element panel', () => {
     expect(screen.getByText('改完自动保存，可用撤销退回')).toBeTruthy()
   })
 
-  it('disables the text of an element with children', async () => {
+  it('edits text on the page itself (编辑文字), not in the panel', async () => {
     mockApi(routes())
     await openPanel({ textOnly: false })
-    expect(screen.getByRole('textbox', { name: '文字' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByRole('textbox', { name: '文字' })).toBeNull()
+    expect(
+      within(popover())
+        .getByRole('button', { name: /编辑文字/ })
+        .hasAttribute('disabled'),
+    ).toBe(false)
   })
 
   it('uploads a replacement image, then saves it as an asset op by itself', async () => {
@@ -613,7 +618,7 @@ describe('element panel', () => {
     expect(row(/img/).classList.contains('art-layers__row--hidden')).toBe(true)
     // Picked outside 直接编辑: it turns on, then the screen selects the element.
     fireEvent.click(row(/本周共读/))
-    expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: '选择' }).getAttribute('aria-pressed')).toBe('true')
     expect(sent().filter((m) => m.type === 'pick')).toEqual([
       expect.objectContaining({ type: 'pick', ggId: '120' }),
     ])

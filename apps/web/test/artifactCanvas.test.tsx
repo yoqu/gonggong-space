@@ -199,12 +199,14 @@ describe('bridge', () => {
     expect(node('home').style.height).toBe('1024px')
   })
 
-  it('tells the screens the tool, and lets them take the pointer only for mark and edit', async () => {
+  it('who may edit points at blocks by default (墨刀): the pages take the pointer, in edit mode', async () => {
     mockApi(routes())
     await renderTab()
     const iframe = screen.getByTitle('首页') as HTMLIFrameElement
     const sent = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
-    expect(iframe.classList.contains('art-node__frame--live')).toBe(false)
+    expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
+    expect(screen.queryByRole('button', { name: '直接编辑' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '抓手' })).toBeNull()
     act(() => {
       window.dispatchEvent(
         new MessageEvent('message', {
@@ -214,21 +216,26 @@ describe('bridge', () => {
         }),
       )
     })
-    key('e')
-    expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
-    expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
+    expect(screen.getByRole('button', { name: '选择' }).getAttribute('aria-pressed')).toBe('true')
     expect(sent).toHaveBeenCalledWith({ source: 'gg-host', type: 'mode', mode: 'edit' }, ORIGIN)
+    key('m')
+    expect(sent).toHaveBeenCalledWith({ source: 'gg-host', type: 'mode', mode: 'mark' }, ORIGIN)
+    sent.mockClear()
     key('v')
+    expect(sent).toHaveBeenCalledWith({ source: 'gg-host', type: 'mode', mode: 'edit' }, ORIGIN)
+    // Space pans: the pages let go of the pointer while it is held.
+    fireEvent.keyDown(canvas(), { key: ' ' })
     expect(iframe.classList.contains('art-node__frame--live')).toBe(false)
-    expect(sent).toHaveBeenLastCalledWith({ source: 'gg-host', type: 'mode', mode: 'preview' }, ORIGIN)
+    fireEvent.keyUp(canvas(), { key: ' ' })
+    expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
   })
 
-  it('in edit mode tells how to work the page, and a link worked through (⌥ click) goes to its screen', async () => {
+  it('in mark mode tells how to work the page, and a link worked through (⌥ click) goes to its screen', async () => {
     mockApi(routes())
     await renderTab()
     const iframe = screen.getByTitle('首页') as HTMLIFrameElement
     expect(screen.queryByTestId('art-through')).toBeNull()
-    key('e')
+    key('m')
     expect(screen.getByTestId('art-through').textContent).toMatch(/切到交互工具（P）/)
     act(() => {
       window.dispatchEvent(
@@ -240,7 +247,6 @@ describe('bridge', () => {
       )
     })
     expect(canvasScreen('a1')).toBe('detail')
-    expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
     key('v')
     expect(screen.queryByTestId('art-through')).toBeNull()
   })
@@ -278,8 +284,8 @@ describe('bridge', () => {
       )
     })
     expect(canvasScreen('a1')).toBe('detail')
-    key('e')
-    expect(screen.getByTestId('art-mode-pill').textContent).toContain('直接编辑')
+    key('v')
+    expect(screen.queryByTestId('art-mode-pill')).toBeNull()
     expect(screen.getByTitle('首页')).toBe(iframe)
     expect(sent).toHaveBeenLastCalledWith({ source: 'gg-host', type: 'mode', mode: 'edit' }, ORIGIN)
   })
@@ -732,7 +738,7 @@ describe('while AI is editing', () => {
     await renderTab()
     expect(document.querySelector('.art-runner')?.textContent).toContain('等待回答')
     expect(screen.queryByText('AI 正在修改')).toBeNull()
-    expect(screen.getByRole('button', { name: '直接编辑' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(false)
     const menu = openContext('home')
     for (const name of [/创建副本/, /重命名/]) expect(item(menu, name).hasAttribute('disabled')).toBe(false)
   })
@@ -1159,7 +1165,7 @@ describe('G03 command menu and deep links', () => {
     const input = within(menu).getByRole('combobox', { name: '搜索命令' })
     fireEvent.change(input, { target: { value: '抓手' } })
     fireEvent.click(within(menu).getByRole('option', { name: /抓手/ }))
-    expect(screen.getByRole('button', { name: '抓手' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: '选择' }).getAttribute('aria-pressed')).toBe('false')
     key('k', { metaKey: true })
     const again = await screen.findByTestId('art-command-menu')
     fireEvent.change(within(again).getByRole('combobox'), { target: { value: '缩放到 100%' } })
@@ -1491,7 +1497,7 @@ describe('G18 artifact menu', () => {
     )
     render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
     await screen.findByTitle('读书会小程序')
-    for (const label of ['直接编辑', '上传到画布', '添加链接']) {
+    for (const label of ['上传到画布', '添加链接', '热区']) {
       const btn = screen.getByRole('button', { name: label })
       expect(btn.hasAttribute('disabled')).toBe(true)
       const tip = btn.parentElement?.textContent ?? ''

@@ -50,17 +50,11 @@ export function CanvasTools({
   badges: boolean
   onBadges: () => void
 }) {
-  const tools: {
-    id: Tool
-    icon: 'cursor' | 'marquee' | 'pencil' | 'play' | 'hand'
-    label: string
-    key: string
-  }[] = [
+  // 直接编辑 is the select tool for who may edit (a block is edited where it is pointed at); the hand is space-drag.
+  const tools: { id: Tool; icon: 'cursor' | 'marquee' | 'play'; label: string; key: string }[] = [
     { id: 'select', icon: 'cursor', label: t('选择'), key: 'V' },
     { id: 'mark', icon: 'marquee', label: t('标记#mark'), key: 'M' },
-    { id: 'edit', icon: 'pencil', label: t('直接编辑'), key: 'E' },
     { id: 'play', icon: 'play', label: t('交互'), key: 'P' },
-    { id: 'hand', icon: 'hand', label: t('抓手'), key: 'H' },
   ]
   return (
     <>
@@ -70,8 +64,7 @@ export function CanvasTools({
           icon={it.icon}
           label={it.label}
           shortcut={it.key}
-          on={tool === it.id}
-          off={it.id === 'edit' ? noEdit : undefined}
+          on={tool === it.id || (it.id === 'select' && tool === 'edit')}
           onClick={() => onTool(it.id)}
         />
       ))}

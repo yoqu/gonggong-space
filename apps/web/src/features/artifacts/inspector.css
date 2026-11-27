@@ -407,3 +407,206 @@ fieldset.art-el {
   margin: 0;
   border: 0;
 }
+
+/* A changed page loading behind the shown one (Canvas: no blank flash on a new version). */
+.art-node__frame--next {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}
+
+/* 墨刀's right panel (外观): black text, compact rows, bold section titles (蒋庆's screenshot, 2026-11-27). */
+.art-inspector,
+.art-inspector .art-panel__label,
+.art-inspector .art-props dt,
+.art-inspector .art-props dd,
+.art-inspector__row > span:first-child,
+.art-inspector .art-el__field {
+  color: var(--label);
+}
+.mk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--separator);
+}
+.mk-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: var(--space-8);
+}
+.mk-name strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8) var(--space-12);
+  padding: var(--space-8) 0;
+  border-bottom: 1px solid var(--separator);
+}
+.mk-fold .mk-grid {
+  border-bottom: 0;
+}
+.mk-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.mk-num {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+.mk-num:hover,
+.mk-num:focus-within {
+  border-color: var(--separator);
+}
+.mk-num--bad {
+  border-color: var(--destructive, #e5484d);
+}
+.mk-num__key {
+  flex: none;
+  color: var(--label-secondary);
+  font-size: 12px;
+}
+.mk-num input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.mk-num input[readonly] {
+  color: var(--label-secondary);
+}
+.mk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 32px;
+}
+.mk-row > span:first-child {
+  flex: none;
+  min-width: 48px;
+}
+.mk-fold {
+  padding: var(--space-8) 0;
+  border-bottom: 1px solid var(--separator);
+}
+.mk-fold__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+}
+.mk-fold__head h4 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-body-size, 14px);
+  font-weight: 600;
+}
+.mk-fold__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-top: var(--space-8);
+}
+.mk-color {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mk-color__hex {
+  min-width: 52px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.mk-color__alpha {
+  width: 34px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  text-align: right;
+}
+.mk-color__alpha:focus {
+  border-bottom-color: var(--accent);
+  outline: none;
+}
+.mk-color__pct {
+  color: var(--label-secondary);
+}
+.mk-color .ui-popup {
+  margin-left: auto;
+}
+.mk-toggles {
+  display: flex;
+  gap: 2px;
+}
+.mk-toggles .art-el__toggle {
+  border-color: transparent;
+}
+.mk-toggles .art-el__toggle[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--selection-fill);
+  color: var(--label);
+}
+.mk-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.art-pop__actions--row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.art-pop__actions--row .art-pop__action {
+  width: auto;
+  grid-template-columns: 15px auto;
+  padding: 4px 8px;
+  border: 1px solid var(--separator);
+}
+.art-pop__actions--row .art-pop__action small {
+  display: none;
+}
+.art-el__actions .art-pop__actions--row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.art-el__actions .art-pop__actions--row .art-pop__action {
+  width: auto;
+  grid-template-columns: 15px auto;
+  padding: 4px 8px;
+  border: 1px solid var(--separator);
+  font-size: 12px;
+}
+/* 墨刀 has no title over 外观 / 交互: the tabs say it. */
+.art-inspector .art-panel:has(> .art-panel__body > .art-el) > .art-panel__head {
+  display: none;
+}
+.mk-color__tokens {
+  flex: none;
+  padding: 0 6px;
+}

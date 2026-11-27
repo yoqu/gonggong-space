@@ -355,6 +355,10 @@ export function Canvas({
   const [selected, setSelected] = useState<string[]>([])
   const [help, setHelp] = useState(false)
   const [reloads, setReloads] = useState<Record<string, number>>({})
+  /** The reload of each page on show; a newer one loads behind it (`reloads`) until it has loaded. */
+  const [showing, setShowing] = useState<Record<string, number>>({})
+  /** Where each page was scrolled, across versions: a reloaded page opens there. */
+  const lastScroll = useRef<Record<string, Scroll>>({})
   // A new version reloads only the frames whose page it changed: reloading every screen after one text edit flickers.
   const lastSigs = useRef<{ previewId: string; sigs: Map<string, string> } | null>(null)
   useEffect(() => {
@@ -440,6 +444,8 @@ export function Canvas({
   const [hotspot, setHotspot] = useState<{ screenId: string; file: string; rect: Rect } | null>(null)
   /** A layer picked outside 标记 / 直接编辑: picked once the screens are in the editing mode. */
   const pendingPick = useRef<{ file: string; ggId: string } | null>(null)
+  /** 动效 ＋: 用 AI 修改 opened on the picked element with the request begun. */
+  const [animate, setAnimate] = useState<{ text: string; n: number } | null>(null)
   const otherNotes = useOpenElsewhere(
     artifactId,
     versionKey || null,
@@ -473,9 +479,15 @@ export function Canvas({
   const panning = tool === 'hand' || space
   const live = tool === 'mark' || tool === 'edit'
   /** The pages take the pointer: picked in 标记 / 直接编辑, worked by plain clicks in 交互. */
-  const through = live || tool === 'play' || tool === 'hotspot'
+  /** The pages take the pointer, but not while space pans the canvas. */
+  const through = (live || tool === 'play' || tool === 'hotspot') && !space
   const canEdit = !readOnly && !!manifest
   const noEditReason = noEditReasonOf(versionKey, readOnly, manifest)
+  // 墨刀-style: who may edit points at a block and edits it (select is edit); a read-only version only selects.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: when editing becomes possible or not
+  useEffect(() => {
+    setTool((t) => (canEdit && t === 'select' ? 'edit' : !canEdit && t === 'edit' ? 'select' : t))
+  }, [canEdit])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved nodes in place
   useEffect(() => setMoves({}), [manifest])
@@ -637,6 +649,9 @@ export function Canvas({
       const f = frameEls.get(m.file)
       postToScreen(f, origin, { type: 'mode', mode: rules.modeFor(bridgeMode(tool)) })
       if (tool === 'mark') postToScreen(f, origin, { type: 'highlight', ggIds: markedIn(m.file) })
+      const was = lastScroll.current[m.file]
+      if (was && (was.x || was.y) && !m.scrollX && !m.scrollY)
+        postToScreen(f, origin, { type: 'scroll-position', x: was.x, y: was.y })
       // The element just saved from the 属性面板 stays picked in the new version (its own start, its id, is unmoved).
       const again = pendingPick.current
       if (again?.file === m.file && tool === 'edit') {
@@ -658,6 +673,7 @@ export function Canvas({
       auto.current = false
       setView((v) => zoomAt(v, v.z * m.factor, at.x - box.left, at.y - box.top))
     } else if (m.type === 'scroll') {
+      lastScroll.current[m.file] = { x: m.scrollX, y: m.scrollY }
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
     } else if (m.type === 'text-edit') {
       textEdit.onMessage(m)
@@ -734,6 +750,8 @@ export function Canvas({
     for (const [file, f] of frameEls)
       postToScreen(f, origin, { type: 'highlight', ggIds: tool === 'mark' ? markedIn(file) : [] })
   }, [tool, origin, frameEls, annotations.list])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a newly picked element starts with no request
+  useEffect(() => setAnimate(null), [element?.file, element?.ggId])
   const dropElement = () => {
     if (element) postToScreen(frameEls.get(element.file), origin, { type: 'select-clear' })
     setElement(null)
@@ -1150,7 +1168,7 @@ export function Canvas({
       run(() => (selected.length ? setSelected([]) : setPanel(null)))
     else if (e.key === ' ') run(() => setSpace(true))
     else if (e.key === 'Delete' || e.key === 'Backspace') run(() => command(CMD.remove))
-    else if (key === 'v') run(() => setTool('select'))
+    else if (key === 'v') run(() => setTool(canEdit ? 'edit' : 'select'))
     else if (key === 'h') run(() => setTool('hand'))
     else if (key === 'm') run(() => setTool('mark'))
     else if (key === 'p') run(() => setTool('play'))
@@ -1277,7 +1295,15 @@ export function Canvas({
   }
   // A reference is dragged by its body; a screen by its body once selected (unselected, the drag pans).
   const bodyDown = (e: PointerEvent<HTMLDivElement>, n: CanvasNode) => {
-    if (!movable(n) || tool !== 'select' || panning || zoomHold || e.button !== 0 || e.shiftKey) return
+    if (
+      !movable(n) ||
+      (tool !== 'select' && tool !== 'edit') ||
+      panning ||
+      zoomHold ||
+      e.button !== 0 ||
+      e.shiftKey
+    )
+      return
     if (n.kind === 'screen' && !selected.includes(n.id)) return
     startMove(e, n)
   }
@@ -1451,8 +1477,11 @@ export function Canvas({
             onConnect={(text) => askAboutElement('connect-element', element, text)}
             onRule={() => rules.addFor(element)}
             onDelete={() => setDeleting(element)}
+            ask={animate ?? undefined}
           />
         }
+        onLayers={() => setPanel('layers')}
+        onAnimate={() => setAnimate((a) => ({ text: '给这个元素加一个合适的动效：', n: (a?.n ?? 0) + 1 }))}
         onHotspot={canEdit ? startHotspot : undefined}
         el={element}
         artifactId={artifactId}
@@ -1660,7 +1689,7 @@ export function Canvas({
       >
         <CanvasTools
           tool={tool}
-          onTool={setTool}
+          onTool={(next) => setTool(next === 'select' && canEdit ? 'edit' : next)}
           noEdit={noEditReason}
           uploading={uploading}
           onUpload={() => command(CMD.upload)}
@@ -1785,7 +1814,7 @@ export function Canvas({
                       'art-node',
                       `art-node--${n.kind}`,
                       movable(n) &&
-                        tool === 'select' &&
+                        (tool === 'select' || tool === 'edit') &&
                         (n.kind !== 'screen' || selected.includes(n.id)) &&
                         'art-node--movable',
                     )}
@@ -1869,22 +1898,38 @@ export function Canvas({
                             onLoad={(e) => onThumbLoad(n, e.currentTarget)}
                           />
                         ) : null}
-                        <iframe
-                          key={reloads[n.id] ?? 0}
-                          ref={(el) => {
-                            if (el) frameEls.set(n.file, el)
-                            else frameEls.delete(n.file)
-                          }}
-                          className={cx(
-                            'art-node__frame',
-                            (through || rules.picking) && 'art-node__frame--live',
-                            ((swapToThumbs && covered(n)) || !nearView(n, view, room)) &&
-                              'art-node__frame--off',
-                          )}
-                          title={n.title}
-                          src={src(n) ?? undefined}
-                          tabIndex={-1}
-                        />
+                        {/* A changed page loads behind the shown one and takes its place once loaded: no blank flash. */}
+                        {[...new Set([showing[n.id] ?? reloads[n.id] ?? 0, reloads[n.id] ?? 0])].map((k) => {
+                          const latest = k === (reloads[n.id] ?? 0)
+                          return (
+                            <iframe
+                              key={k}
+                              ref={
+                                latest
+                                  ? (el) => {
+                                      if (el) frameEls.set(n.file, el)
+                                      else frameEls.delete(n.file)
+                                    }
+                                  : undefined
+                              }
+                              className={cx(
+                                'art-node__frame',
+                                (through || rules.picking) && 'art-node__frame--live',
+                                ((swapToThumbs && covered(n)) || !nearView(n, view, room)) &&
+                                  'art-node__frame--off',
+                                latest && (showing[n.id] ?? k) !== k && 'art-node__frame--next',
+                              )}
+                              title={latest ? n.title : undefined}
+                              src={src(n) ?? undefined}
+                              tabIndex={-1}
+                              onLoad={
+                                latest
+                                  ? () => setShowing((m) => (m[n.id] === k ? m : { ...m, [n.id]: k }))
+                                  : undefined
+                              }
+                            />
+                          )
+                        })}
                       </>
                     ) : (
                       <Skeleton variant="block" count={1} width="100%" height="100%" />
@@ -2196,8 +2241,8 @@ export function Canvas({
           {/* Beside the 属性面板 a canvas can get too narrow for a tip to read. */}
           {room.width === 0 || room.width >= 480 ? (
             <CanvasTips
-              through={through && tool !== 'hotspot' ? (live ? 'pick' : 'play') : null}
-              mode={tool === 'play' || tool === 'mark' || tool === 'edit' ? tool : null}
+              through={through && (tool === 'mark' || tool === 'play') ? (live ? 'pick' : 'play') : null}
+              mode={tool === 'play' || tool === 'mark' ? tool : null}
             />
           ) : null}
 

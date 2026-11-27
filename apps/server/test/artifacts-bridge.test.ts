@@ -664,6 +664,9 @@ describe('gg-bridge', () => {
       'border-color',
       'opacity',
       'box-shadow',
+      'font-family',
+      'rotate',
+      'align-content',
     ])
     expect(s.$('[data-gg-link]').hasAttribute('data-gg-selected')).toBe(true)
     s.click('h1')

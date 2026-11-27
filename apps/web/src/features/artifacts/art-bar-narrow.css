@@ -19,3 +19,34 @@
     padding: 0 var(--space-8);
   }
 }
+
+/* The project name, renamed by a click (蒋庆 2026-11-27). */
+.art-bar__title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+.art-bar__title-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.art-bar__title-btn:hover {
+  border-color: var(--separator);
+}
+.art-bar__title-edit {
+  flex: none;
+  color: var(--label-tertiary);
+  opacity: 0;
+}
+.art-bar__title-btn:hover .art-bar__title-edit,
+.art-bar__title-btn:focus-visible .art-bar__title-edit {
+  opacity: 1;
+}
