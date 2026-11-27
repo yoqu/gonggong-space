@@ -599,6 +599,8 @@ describe('两步添加文案与自动刷新（UX 回归 11-27）', () => {
       )
       const dialog = screen.getByRole('dialog', { name: /添加 数仓查询/ })
       await within(dialog).findByText('已添加到「支付核心群」，还差 1 步就能用')
+      // findByText resolves on commit; flush passive effects so the poll interval exists before advancing.
+      await act(async () => {})
       const gets = () => calls.filter((c) => c.path.startsWith('/market/l1/readiness')).length
       const before = gets()
       await act(async () => {
