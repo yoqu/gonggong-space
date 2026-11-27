@@ -1,4 +1,4 @@
-import type { BridgeFromShell, BridgeLayer } from '@gonggong/protocol'
+import type { ArtifactEditOp, ArtifactTransition, BridgeFromShell, BridgeLayer } from '@gonggong/protocol'
 import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
@@ -470,10 +470,10 @@ export function HotspotForm({
   onSave,
   onCancel,
 }: {
-  /** The page it is drawn on; null while it is still to be drawn. */
-  drawn: { screenId: string; w: number; h: number } | null
+  /** Where it is drawn (document px of its page); null while it is still to be drawn. */
+  drawn: { screenId: string; file: string; rect: { x: number; y: number; w: number; h: number } } | null
   screens: CanvasNode[]
-  onSave: (to: string, transition: string) => Promise<boolean>
+  onSave: (op: ArtifactEditOp) => Promise<boolean>
   onCancel: () => void
 }) {
   const others = screens.filter((s) => s.id !== drawn?.screenId)
@@ -486,7 +486,7 @@ export function HotspotForm({
       {drawn ? (
         <>
           <p className="art-inspector__hint">
-            {t('热区 {w} × {h}，点击后跳到：', { w: drawn.w, h: drawn.h })}
+            {t('热区 {w} × {h}，点击后跳到：', { w: Math.round(drawn.rect.w), h: Math.round(drawn.rect.h) })}
           </p>
           <div className="art-inspector__rows">
             <div className="art-inspector__row">
@@ -530,8 +530,21 @@ export function HotspotForm({
           loading={busy}
           disabled={!drawn || !to}
           onClick={async () => {
+            if (!drawn) return
+            const { x, y, w, h } = drawn.rect
             setBusy(true)
-            await onSave(to, transition)
+            await onSave({
+              kind: 'hotspot',
+              file: drawn.file,
+              rect: {
+                x: Math.max(0, Math.round(x)),
+                y: Math.max(0, Math.round(y)),
+                w: Math.round(w),
+                h: Math.round(h),
+              },
+              to,
+              transition: transition as ArtifactTransition,
+            })
             setBusy(false)
           }}
         >

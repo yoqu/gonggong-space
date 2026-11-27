@@ -4,7 +4,6 @@ import type {
   ArtifactCommandReq,
   ArtifactDevice,
   ArtifactEditOp,
-  ArtifactTransition,
   BridgeLayer,
   BridgeLinkRect,
   BridgeMode,
@@ -160,6 +159,7 @@ import {
 } from './menus'
 import { noEditReasonOf, PagePill } from './PageRail'
 import { setArtifactPage, setCanvasScreen, useShownPage } from './page'
+import { contextTarget, PageFrames } from './pageFrames'
 import { usePlaneGestures } from './planeGestures'
 import { useArtifactCommands } from './pluginCommands'
 import { typing } from './prototype'
@@ -1431,26 +1431,10 @@ export function Canvas({
     tool === 'hotspot' ? (
       <HotspotForm
         key={hotspot ? `${hotspot.file}@${hotspot.rect.x},${hotspot.rect.y}` : ''}
-        drawn={
-          hotspot && {
-            screenId: hotspot.screenId,
-            w: Math.round(hotspot.rect.w),
-            h: Math.round(hotspot.rect.h),
-          }
-        }
+        drawn={hotspot}
         screens={screens}
-        onSave={async (to, transition) => {
-          if (!hotspot) return false
-          const { x, y, w, h } = hotspot.rect
-          const rect = {
-            x: Math.max(0, Math.round(x)),
-            y: Math.max(0, Math.round(y)),
-            w: Math.round(w),
-            h: Math.round(h),
-          }
-          const ok = await saveOps([
-            { kind: 'hotspot', file: hotspot.file, rect, to, transition: transition as ArtifactTransition },
-          ])
+        onSave={async (op) => {
+          const ok = await saveOps([op])
           if (ok) setTool('edit')
           return ok
         }}
@@ -1773,26 +1757,9 @@ export function Canvas({
               onPointerUp={pointerUp}
               onPointerCancel={pointerUp}
               onContextMenu={(e) => {
-                const target = e.target as Element
-                // A screen's title gets the screen's menu, as the screen itself does.
-                const titled = target.closest<HTMLElement>('[data-screen-title]')?.dataset.screenTitle
-                const refTitled = target.closest<HTMLElement>('[data-ref-title]')?.dataset.refTitle
-                // The design system, DESIGN.md and the prototype have menus of their own.
-                const other = target.closest<HTMLElement>('[data-node-kind]')
-                const kind = other?.dataset.nodeKind as 'system' | 'doc' | 'prototype' | undefined
-                const hit = titled ?? refTitled ?? other?.dataset.nodeId
+                const { hit, menu } = contextTarget(e.target as Element)
                 if (hit && !selected.includes(hit)) setSelected([hit])
-                setCtxOn(
-                  kind
-                    ? kind
-                    : refTitled?.startsWith(LINK_PREFIX) || target.closest('.art-node--link')
-                      ? 'link'
-                      : refTitled || target.closest('.art-node--ref')
-                        ? 'ref'
-                        : titled || target.closest('.art-node--screen')
-                          ? 'screen'
-                          : null,
-                )
+                setCtxOn(menu)
               }}
               onClick={(e) => {
                 if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('art-world'))
@@ -1898,38 +1865,21 @@ export function Canvas({
                             onLoad={(e) => onThumbLoad(n, e.currentTarget)}
                           />
                         ) : null}
-                        {/* A changed page loads behind the shown one and takes its place once loaded: no blank flash. */}
-                        {[...new Set([showing[n.id] ?? reloads[n.id] ?? 0, reloads[n.id] ?? 0])].map((k) => {
-                          const latest = k === (reloads[n.id] ?? 0)
-                          return (
-                            <iframe
-                              key={k}
-                              ref={
-                                latest
-                                  ? (el) => {
-                                      if (el) frameEls.set(n.file, el)
-                                      else frameEls.delete(n.file)
-                                    }
-                                  : undefined
-                              }
-                              className={cx(
-                                'art-node__frame',
-                                (through || rules.picking) && 'art-node__frame--live',
-                                ((swapToThumbs && covered(n)) || !nearView(n, view, room)) &&
-                                  'art-node__frame--off',
-                                latest && (showing[n.id] ?? k) !== k && 'art-node__frame--next',
-                              )}
-                              title={latest ? n.title : undefined}
-                              src={src(n) ?? undefined}
-                              tabIndex={-1}
-                              onLoad={
-                                latest
-                                  ? () => setShowing((m) => (m[n.id] === k ? m : { ...m, [n.id]: k }))
-                                  : undefined
-                              }
-                            />
-                          )
-                        })}
+                        <PageFrames
+                          file={n.file}
+                          title={n.title}
+                          src={src(n) ?? undefined}
+                          shown={showing[n.id]}
+                          latest={reloads[n.id] ?? 0}
+                          frames={frameEls}
+                          className={cx(
+                            'art-node__frame',
+                            (through || rules.picking) && 'art-node__frame--live',
+                            ((swapToThumbs && covered(n)) || !nearView(n, view, room)) &&
+                              'art-node__frame--off',
+                          )}
+                          onLoaded={(k) => setShowing((m) => (m[n.id] === k ? m : { ...m, [n.id]: k }))}
+                        />
                       </>
                     ) : (
                       <Skeleton variant="block" count={1} width="100%" height="100%" />
