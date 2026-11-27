@@ -28,6 +28,7 @@ interface ScopeOption {
   scope: InstallScope
   base: string
   scopeId: string
+  teamId?: string
   label: string
   description: string
   isCurrentGroup?: boolean
@@ -52,6 +53,7 @@ function useTeamRepos(teams: { id: string; name: string; role: string }[], enabl
             scope: 'repo',
             base: `/teams/${team.id}/repos/${r.id}`,
             scopeId: r.id,
+            teamId: team.id,
             label: `${team.name} / ${r.name}`,
             description:
               team.role === 'member'
@@ -116,7 +118,7 @@ export function InstallTargetDialog({
   listing: InstallableListingInput
   sourceGroupId?: string
   /** Open straight into Step 2 for an already-installed target (from 去配置). */
-  initialReadyTarget?: { scope: InstallScope; scopeId: string; label: string }
+  initialReadyTarget?: { scope: InstallScope; scopeId: string; label: string; teamId?: string }
   onClose: () => void
   onChanged?: () => void
   onReusedSecrets?: (items: ReusedSecretDto[]) => void
@@ -167,6 +169,7 @@ export function InstallTargetDialog({
         scope: 'group',
         base: `/groups/${g.id}`,
         scopeId: g.id,
+        teamId: g.teamId ?? undefined,
         label: g.name,
         description: installed.has(k)
           ? t('已经添加过')
@@ -185,6 +188,7 @@ export function InstallTargetDialog({
     scope: 'team',
     base: `/teams/${x.id}`,
     scopeId: x.id,
+    teamId: x.id,
     label: x.name,
     description:
       x.role === 'member'
@@ -213,6 +217,7 @@ export function InstallTargetDialog({
     scope: InstallScope
     scopeId: string
     label: string
+    teamId?: string
   } | null>(initialReadyTarget ?? null)
 
   const target = allOptions.find((x) => x.base === picked) ?? null
@@ -246,7 +251,12 @@ export function InstallTargetDialog({
       if (res?.reusedSecrets?.length) onReusedSecrets?.(res.reusedSecrets)
       onChanged?.()
       setBusy(false)
-      setReadyTarget({ scope: target.scope, scopeId: target.scopeId, label: target.label })
+      setReadyTarget({
+        scope: target.scope,
+        scopeId: target.scopeId,
+        label: target.label,
+        teamId: target.teamId,
+      })
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
@@ -376,6 +386,7 @@ export function InstallTargetDialog({
           scope={readyTarget.scope}
           scopeId={readyTarget.scopeId}
           targetLabel={readyTarget.label}
+          teamId={readyTarget.teamId}
           fallbackExamples={listing.examples}
           onDone={onClose}
           onGoInstalled={onGoInstalled}

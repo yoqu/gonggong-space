@@ -317,7 +317,13 @@ describe('市场导航与权限可见性', () => {
 describe('市场首页与分类浏览（无术语、无系统预设）', () => {
   it('renders featured hero cards and 3 shelves without MCP/Skill/ACP jargon, hiding agent/provider presets', async () => {
     const withPresets: MarketListingView[] = [
-      ...LISTINGS,
+      listing({
+        installedIn: [
+          { scope: 'user', scopeId: 'u1', label: '' },
+          { scope: 'group', scopeId: 'g1', label: '支付核心群' },
+        ],
+      }),
+      ...LISTINGS.slice(1),
       listing({ id: 'a1', type: 'plugin', name: 'claude-agent', title: 'Claude 引擎', category: 'agent' }),
       listing({
         id: 'p1',
@@ -338,6 +344,10 @@ describe('市场首页与分类浏览（无术语、无系统预设）', () => {
     expect(await screen.findByRole('region', { name: '连接你的常用工具' })).toBeTruthy()
     expect(screen.getByRole('region', { name: '本团队正在用' })).toBeTruthy()
     expect(screen.getByRole('region', { name: '最新上架' })).toBeTruthy()
+
+    // Personal-scope installed tooltip uses 「我的插件」 (never 「我的 Skill」).
+    expect(screen.getAllByTitle('已添加到：我的插件、支付核心群').length).toBeGreaterThan(0)
+    expect(document.querySelector('[title*="Skill"]')).toBeNull()
 
     // System presets must never appear in Plugin Market.
     expect(screen.queryByText('Claude 引擎')).toBeNull()
@@ -667,7 +677,7 @@ describe('两步添加弹窗与原地准备（InstallTargetDialog + InstallReady
           },
           trusts: {
             codeEnabled: true,
-            ready: trusted,
+            ready: false,
             machines: [
               {
                 machineId: 'm1',
@@ -681,12 +691,26 @@ describe('两步添加弹窗与原地准备（InstallTargetDialog + InstallReady
                 botIds: ['b1'],
                 botNames: ['研效 Bot'],
               },
+              {
+                machineId: 'm3',
+                machineName: '王磊的 Mac',
+                ownerId: 'u3',
+                ownerName: '王磊',
+                own: false,
+                online: true,
+                trustId: 'tr3',
+                status: 'denied',
+                botIds: ['b3'],
+                botNames: ['测试 Bot'],
+              },
             ],
           },
         }),
       'POST /market/l3/readiness/action': (body: unknown) => {
-        if ((body as { action?: string })?.action === 'allow_trust') trusted = true
-        return { ok: true }
+        const act = (body as { action?: string })?.action
+        if (act === 'allow_trust') trusted = true
+        if (act === 'notify_trust') return { ok: true, notified: false }
+        return { ok: true, notified: true }
       },
     })
 
@@ -715,7 +739,17 @@ describe('两步添加弹窗与原地准备（InstallTargetDialog + InstallReady
         ),
       ).toBe(true),
     )
-    expect(await within(dialog).findByRole('button', { name: '已提醒' })).toBeTruthy()
+    await waitFor(() =>
+      expect(useToasts.getState().items.some((x) => x.message === '已提醒 陈晨 连接账号')).toBe(true),
+    )
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '通知王磊授权' }))
+    await waitFor(() =>
+      expect(
+        useToasts.getState().items.some((x) => x.message === '该电脑主人之前已拒绝或已收到提醒，未重复发送'),
+      ).toBe(true),
+    )
+    expect(within(dialog).getAllByRole('button', { name: '已提醒' })).toHaveLength(2)
   })
 })
 
@@ -839,6 +873,131 @@ describe('已添加集中管理（InstalledView）', () => {
     fireEvent.click(within(confirm).getByRole('button', { name: '移除' }))
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'DELETE' && c.path === '/me/installs/l1')).toBe(true),
+    )
+  })
+
+  it('handles pending banner & 去配置 for mine/team items and in-place 升级 for groups/team installs', async () => {
+    const installedData: MarketInstalledDto = {
+      todoCount: 2,
+      pendingUpdates: 2,
+      mine: [
+        {
+          listing: listing({ revision: 4 }),
+          scene: 'dev',
+          capabilities: ['do'],
+          readiness: 'needs-secret',
+          source: 'team',
+          teamName: '支付组',
+          author: '陈晨',
+          enabled: true,
+          pinVersionId: null,
+          resolvedVersionId: 'pv4',
+          resolvedRevision: 4,
+          latestRevision: 4,
+          hasUpdate: false,
+          health: 'needs-secret',
+          healthDetail: '待填凭据',
+          banReason: null,
+          updatedAt: '2026-11-01T00:00:00Z',
+        },
+      ],
+      groups: [
+        {
+          listing: LISTINGS[2]!,
+          scene: 'connect',
+          capabilities: ['connect'],
+          readiness: 'ready',
+          source: 'official',
+          teamName: null,
+          latestRevision: 5,
+          hasUpdate: true,
+          health: 'update-available',
+          healthDetail: null,
+          banReason: null,
+          groups: [
+            {
+              groupId: 'g1',
+              groupName: '支付核心群',
+              canManage: true,
+              enabled: true,
+              pinVersionId: 'pv3',
+              resolvedVersionId: 'pv3',
+              resolvedRevision: 3,
+              hasUpdate: true,
+              health: 'update-available',
+              healthDetail: null,
+            },
+          ],
+        },
+      ],
+      team: [
+        {
+          listing: LISTINGS[1]!,
+          scene: 'create',
+          capabilities: ['create'],
+          readiness: 'needs-secret',
+          source: 'official',
+          scope: 'team',
+          scopeId: 't1',
+          teamId: 't1',
+          targetLabel: '支付组',
+          groupsCount: 5,
+          canManage: true,
+          enabled: true,
+          pinVersionId: 'pv3',
+          resolvedVersionId: 'pv3',
+          resolvedRevision: 3,
+          latestRevision: 5,
+          hasUpdate: true,
+          health: 'needs-secret',
+          healthDetail: '待填凭据',
+          banReason: null,
+          updatedAt: '2026-11-05T00:00:00Z',
+        },
+      ],
+    }
+
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/installed': installedData,
+      'GET /install-requests?view=todo': [],
+      'GET /market/reviews?teamId=t1': [],
+      'GET /market/l1/readiness?scope=user&scopeId=u1': readyRes({ scope: 'user', scopeId: 'u1' }),
+      'PUT /groups/g1/installs/l3': {},
+      'PUT /teams/t1/installs/l2': {},
+    })
+
+    renderPage('/market?tab=installed')
+    // Top banner surfaces mine + team pending items and offers 逐个处理 even when no group item is pending.
+    const banner = await screen.findByRole('region', { name: '待处理提醒' })
+    expect(banner.textContent).toContain('代码评审助手 待填凭据')
+    expect(banner.textContent).toContain('幻灯片 待填凭据')
+    fireEvent.click(within(banner).getByRole('button', { name: '逐个处理' }))
+    expect(await screen.findByRole('dialog', { name: /添加 代码评审助手/ })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    // Mine & team rows expose 去配置
+    const mineSec = screen.getByRole('region', { name: '我的插件' })
+    expect(within(mineSec).getByRole('button', { name: '去配置' })).toBeTruthy()
+    const teamSec = screen.getByRole('region', { name: '团队统一插件' })
+    expect(within(teamSec).getByRole('button', { name: '去配置' })).toBeTruthy()
+
+    // Group & team rows expose in-place 升级
+    const groupSec = screen.getByRole('region', { name: '我所在群的插件' })
+    fireEvent.click(within(groupSec).getByRole('button', { name: '升级' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT' && c.path === '/groups/g1/installs/l3')?.body).toEqual({
+        enabled: true,
+        pinVersionId: 'pv4',
+      }),
+    )
+
+    fireEvent.click(within(teamSec).getByRole('button', { name: '升级' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT' && c.path === '/teams/t1/installs/l2')?.body).toEqual({
+        enabled: true,
+        pinVersionId: 'pv4',
+      }),
     )
   })
 })

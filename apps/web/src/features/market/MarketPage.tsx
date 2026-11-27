@@ -126,7 +126,7 @@ export function MarketPage() {
   const [sort, setSort] = useState<SortMode>('team')
   const [modal, setModal] = useState<{
     listing: InstallableListingInput
-    readyTarget?: { scope: InstallScope; scopeId: string; label: string }
+    readyTarget?: { scope: InstallScope; scopeId: string; label: string; teamId?: string }
   } | null>(null)
   const [reusedByListing, setReusedByListing] = useState<Record<string, ReusedSecretDto[]>>({})
   const [detailTick, setDetailTick] = useState(0)
@@ -148,7 +148,7 @@ export function MarketPage() {
   const pendingTargetByListing = useMemo(() => {
     const map = new Map<
       string,
-      { scope: InstallScope; scopeId: string; label: string; needsTrust: boolean }
+      { scope: InstallScope; scopeId: string; label: string; teamId?: string; needsTrust: boolean }
     >()
     const isTodo = (h: string) => h === 'needs-secret' || h === 'needs-account' || h === 'needs-trust'
     for (const item of installedGet.data?.mine ?? []) {
@@ -178,6 +178,7 @@ export function MarketPage() {
           scope: item.scope,
           scopeId: item.scopeId,
           label: item.targetLabel,
+          teamId: item.teamId,
           needsTrust: item.health === 'needs-trust',
         })
       }
@@ -294,7 +295,12 @@ export function MarketPage() {
       if (pending) {
         setModal({
           listing: l,
-          readyTarget: { scope: pending.scope, scopeId: pending.scopeId, label: pending.label },
+          readyTarget: {
+            scope: pending.scope,
+            scopeId: pending.scopeId,
+            label: pending.label,
+            teamId: pending.teamId,
+          },
         })
         return
       }

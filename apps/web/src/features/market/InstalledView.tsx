@@ -8,6 +8,7 @@ import {
 } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
@@ -90,11 +91,12 @@ export function InstalledView({
   onOpenDetail: (id: string, tab?: 'overview' | 'changelog') => void
   onConfigure: (
     listing: InstallableListingInput,
-    target: { scope: InstallScope; scopeId: string; label: string },
+    target: { scope: InstallScope; scopeId: string; label: string; teamId?: string },
   ) => void
   onChanged?: () => void
 }) {
   const navigate = useNavigate()
+  const me = useSession((s) => s.user?.id)
   const { data, error, loading, reload } = useGet<MarketInstalledDto>('/market/installed')
   const locks = useRowLocks()
   const [removing, setRemoving] = useState<RemovingState | null>(null)
@@ -115,23 +117,87 @@ export function InstalledView({
     }
   }
 
+  const upgradeGroups = async (
+    key: string,
+    listingId: string,
+    versionId: string,
+    targets: { groupId: string; enabled: boolean }[],
+  ) => {
+    const ok = await locks.run(key, () =>
+      attempt(() =>
+        Promise.all(
+          targets.map((g) =>
+            api.put(`/groups/${g.groupId}/installs/${listingId}`, {
+              enabled: g.enabled,
+              pinVersionId: versionId,
+            }),
+          ),
+        ),
+      ),
+    )
+    if (ok) {
+      reload()
+      onChanged?.()
+    }
+  }
+
   const total = data ? data.mine.length + data.groups.length + data.team.length : 0
 
-  // First pending group plugin and first updatable plugin for the top banner CTA buttons.
-  const pendingGroupItem = data?.groups.find((e) => e.groups.some((g) => isPendingHealth(g.health)))
-  const pendingGroupTarget = pendingGroupItem?.groups.find((g) => isPendingHealth(g.health))
+  // Pending targets across mine, groups, and team for the top banner summary + 逐个处理 action.
+  const pendingEntries: {
+    title: string
+    health: InstalledHealth
+    installable: InstallableListingInput
+    target: { scope: InstallScope; scopeId: string; label: string; teamId?: string }
+  }[] = []
+  if (data) {
+    for (const item of data.mine) {
+      if (isPendingHealth(item.health)) {
+        pendingEntries.push({
+          title: item.listing.title,
+          health: item.health,
+          installable: toInstallable(item.listing, item.source, item.teamName),
+          target: { scope: 'user', scopeId: me ?? '', label: t('我的插件') },
+        })
+      }
+    }
+    for (const item of data.groups) {
+      const g = item.groups.find((x) => isPendingHealth(x.health))
+      if (g) {
+        pendingEntries.push({
+          title: item.listing.title,
+          health: g.health,
+          installable: toInstallable(item.listing, item.source, item.teamName),
+          target: { scope: 'group', scopeId: g.groupId, label: g.groupName },
+        })
+      }
+    }
+    for (const item of data.team) {
+      if (isPendingHealth(item.health)) {
+        pendingEntries.push({
+          title: item.listing.title,
+          health: item.health,
+          installable: toInstallable(item.listing, item.source, item.targetLabel),
+          target: {
+            scope: item.scope,
+            scopeId: item.scopeId,
+            label: item.targetLabel,
+            teamId: item.teamId,
+          },
+        })
+      }
+    }
+  }
+  const firstPending = pendingEntries[0]
   const firstUpdateListing =
     data?.mine.find((x) => x.hasUpdate)?.listing ??
     data?.groups.find((x) => x.hasUpdate)?.listing ??
     data?.team.find((x) => x.hasUpdate)?.listing
 
-  const pendingSummary = data
-    ? data.groups
-        .filter((e) => isPendingHealth(e.health))
-        .slice(0, 2)
-        .map((e) => `${e.listing.title} ${HEALTH_LABEL[e.health]}`)
-        .join(' · ')
-    : ''
+  const pendingSummary = pendingEntries
+    .slice(0, 2)
+    .map((e) => `${e.title} ${HEALTH_LABEL[e.health]}`)
+    .join(' · ')
 
   return (
     <div className="mkt-content mkt-content--narrow">
@@ -175,23 +241,10 @@ export function InstalledView({
                     <strong>{t('{n} 个插件还要配置', { n: data.todoCount })}</strong>
                     {pendingSummary ? `：${pendingSummary}` : null}
                   </span>
-                  {pendingGroupItem && pendingGroupTarget ? (
+                  {firstPending ? (
                     <Button
                       size="small"
-                      onClick={() =>
-                        onConfigure(
-                          toInstallable(
-                            pendingGroupItem.listing,
-                            pendingGroupItem.source,
-                            pendingGroupItem.teamName,
-                          ),
-                          {
-                            scope: 'group',
-                            scopeId: pendingGroupTarget.groupId,
-                            label: pendingGroupTarget.groupName,
-                          },
-                        )
-                      }
+                      onClick={() => onConfigure(firstPending.installable, firstPending.target)}
                     >
                       {t('逐个处理')}
                     </Button>
@@ -259,6 +312,21 @@ export function InstalledView({
                         </Tag>
                       </div>
                       <div className="mkt-inst-row__ops">
+                        {isPendingHealth(item.health) ? (
+                          <Button
+                            size="small"
+                            className={item.health === 'needs-trust' ? undefined : 'mkt-btn-warn'}
+                            onClick={() =>
+                              onConfigure(toInstallable(item.listing, item.source, item.teamName), {
+                                scope: 'user',
+                                scopeId: me ?? '',
+                                label: t('我的插件'),
+                              })
+                            }
+                          >
+                            {item.health === 'needs-trust' ? t('查看授权') : t('去配置')}
+                          </Button>
+                        ) : null}
                         {item.hasUpdate ? (
                           <Button
                             size="small"
@@ -319,11 +387,14 @@ export function InstalledView({
               <div className="mkt-group-box">
                 {data.groups.map((item) => {
                   const pendingTarget = item.groups.find((g) => isPendingHealth(g.health))
+                  const upgradableGroups = item.groups.filter((g) => g.hasUpdate && g.canManage)
                   const single = item.groups.length === 1 ? item.groups[0] : null
                   const first = item.groups[0]
                   const anyManage = item.groups.some((g) => g.canManage)
-                  const lockKey = single ? `group:${single.groupId}:${item.listing.id}` : ''
-                  const busy = lockKey ? locks.busy.has(lockKey) : false
+                  const lockKey = single
+                    ? `group:${single.groupId}:${item.listing.id}`
+                    : `groups:${item.listing.id}`
+                  const busy = locks.busy.has(lockKey)
                   return (
                     <div key={item.listing.id} className="mkt-inst-row">
                       <ListingIcon type={item.listing.type} size={36} listing={item.listing} />
@@ -355,6 +426,24 @@ export function InstalledView({
                         )}
                       </div>
                       <div className="mkt-inst-row__ops">
+                        {upgradableGroups.length ? (
+                          <Button
+                            size="small"
+                            className="mkt-btn-soft"
+                            disabled={busy}
+                            loading={busy}
+                            onClick={() =>
+                              void upgradeGroups(
+                                lockKey,
+                                item.listing.id,
+                                item.listing.versionId,
+                                upgradableGroups,
+                              )
+                            }
+                          >
+                            {t('升级')}
+                          </Button>
+                        ) : null}
                         {pendingTarget ? (
                           <Button
                             size="small"
@@ -458,12 +547,49 @@ export function InstalledView({
                       </div>
                       <div className="mkt-inst-row__status">
                         <Tag tone={HEALTH_TONE[item.health]}>
-                          {item.healthDetail || HEALTH_LABEL[item.health]}
+                          {item.hasUpdate
+                            ? t('有更新 r{n}', { n: item.latestRevision })
+                            : item.healthDetail || HEALTH_LABEL[item.health]}
                         </Tag>
                       </div>
                       <div className="mkt-inst-row__ops">
+                        {isPendingHealth(item.health) ? (
+                          <Button
+                            size="small"
+                            className={item.health === 'needs-trust' ? undefined : 'mkt-btn-warn'}
+                            onClick={() =>
+                              onConfigure(toInstallable(item.listing, item.source, item.targetLabel), {
+                                scope: item.scope,
+                                scopeId: item.scopeId,
+                                label: item.targetLabel,
+                                teamId: item.teamId,
+                              })
+                            }
+                          >
+                            {item.health === 'needs-trust' ? t('查看授权') : t('去配置')}
+                          </Button>
+                        ) : null}
                         {item.canManage ? (
                           <>
+                            {item.hasUpdate ? (
+                              <Button
+                                size="small"
+                                className="mkt-btn-soft"
+                                disabled={busy}
+                                loading={busy}
+                                onClick={() =>
+                                  void putInstall(
+                                    key,
+                                    base,
+                                    item.listing.id,
+                                    item.enabled,
+                                    item.listing.versionId,
+                                  )
+                                }
+                              >
+                                {t('升级')}
+                              </Button>
+                            ) : null}
                             <Switch
                               ariaLabel={t('启用 {name}', { name: item.listing.title })}
                               checked={item.enabled}

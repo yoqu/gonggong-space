@@ -13,7 +13,6 @@ import {
 import { t } from '../../i18n'
 import { Button, Icon, type IconName, paletteColor, Tag, type TagTone, toast } from '../../ui'
 import { draftKey } from '../chat/MessageComposer'
-import { targetLabels } from './status'
 
 export type MarketScene = PluginScene
 export type MarketCapability = PluginCapability
@@ -134,7 +133,9 @@ export const byline = (l: Pick<MarketListingDto, 'author' | 'teamName' | 'source
 
 /** 已添加到：我的插件、产品讨论群 */
 export const installedText = (where: InstalledTarget[]) =>
-  t('已添加到：{targets}', { targets: targetLabels(where) })
+  t('已添加到：{targets}', {
+    targets: where.map((x) => (x.scope === 'user' ? t('我的插件') : x.label)).join(t('、')),
+  })
 
 /** Pick a Pane icon for a listing without a custom SVG tile. */
 export function iconForListing(

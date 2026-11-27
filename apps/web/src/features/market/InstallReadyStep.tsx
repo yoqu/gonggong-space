@@ -3,13 +3,14 @@ import {
   type MarketReadinessActionReq,
   type MarketReadinessActionRes,
   type MarketReadinessDto,
-  PERSONAL_BASE,
   type ReadinessSecretItemDto,
   type ReusedSecretDto,
   SECRET_MIN_LENGTH,
 } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useSession } from '../../app/session'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
@@ -31,6 +32,7 @@ export function InstallReadyStep({
   scope,
   scopeId,
   targetLabel,
+  teamId,
   fallbackExamples = [],
   onDone,
   onGoInstalled,
@@ -42,6 +44,7 @@ export function InstallReadyStep({
   scope: InstallScope
   scopeId: string
   targetLabel: string
+  teamId?: string
   fallbackExamples?: string[]
   onDone: () => void
   onGoInstalled?: () => void
@@ -49,6 +52,8 @@ export function InstallReadyStep({
   onReusedSecrets?: (items: ReusedSecretDto[]) => void
 }) {
   const navigate = useNavigate()
+  const groups = useWorkspace((s) => s.groups)
+  const teams = useSession((s) => s.tenancy?.teams) ?? []
   const path = `/market/${listingId}/readiness?scope=${encodeURIComponent(scope)}&scopeId=${encodeURIComponent(scopeId)}`
   const { data, error, loading, reload } = useGet<MarketReadinessDto>(path)
 
@@ -92,14 +97,25 @@ export function InstallReadyStep({
   }
 
   const missingSecrets = data.secrets.filter((s) => s.status !== 'ok')
+  const codeDisabled = !!data.trusts && !data.trusts.codeEnabled
   const pendingTrusts =
     data.trusts && !data.trusts.ready ? data.trusts.machines.filter((m) => m.status !== 'allowed') : []
   const pendingConnector = data.connector && !data.connector.ready ? data.connector : null
   const pendingCount =
     data.pendingSteps ||
-    (missingSecrets.length ? 1 : 0) + (pendingTrusts.length ? 1 : 0) + (pendingConnector ? 1 : 0)
+    (missingSecrets.length ? 1 : 0) +
+      (codeDisabled || pendingTrusts.length ? 1 : 0) +
+      (pendingConnector ? 1 : 0)
   const allReady = data.ready || pendingCount === 0
   const prompts = data.tryPrompts.length ? data.tryPrompts : fallbackExamples
+
+  const resolvedTeamId =
+    teamId ||
+    (scope === 'team'
+      ? scopeId
+      : scope === 'group'
+        ? groups.find((g) => g.id === scopeId)?.teamId
+        : (teams.find((x) => x.role !== 'member')?.id ?? teams[0]?.id))
 
   const saveSecret = async (item: ReadinessSecretItemDto) => {
     const val = (values[item.name] ?? '').trim()
@@ -110,11 +126,35 @@ export function InstallReadyStep({
     setSavingSecret(item.name)
     setInlineErr('')
     try {
-      if (item.action === 'fill_personal' && item.defId) {
-        await secretsApi.setMine(item.defId, {
-          value: val,
-          allowForeignMachines: !!foreign[item.name],
-        })
+      if (item.action === 'fill_personal') {
+        if (item.defId) {
+          await secretsApi.setMine(item.defId, {
+            value: val,
+            allowForeignMachines: !!foreign[item.name],
+          })
+        } else if (groupId) {
+          await api.post(`/groups/${groupId}/secret-needs/personal`, {
+            name: item.name,
+            value: val,
+            allowForeignMachines: !!foreign[item.name],
+          })
+        } else if (resolvedTeamId && teams.some((x) => x.id === resolvedTeamId && x.role !== 'member')) {
+          const created = await secretsApi.create(`/teams/${resolvedTeamId}/secrets`, {
+            name: item.name,
+            description: [item.title, item.description].filter(Boolean).join('：'),
+            mode: 'personal',
+            botIds: null,
+            enabled: true,
+            expiresAt: null,
+          })
+          await secretsApi.setMine(created.id, {
+            value: val,
+            allowForeignMachines: !!foreign[item.name],
+          })
+        } else {
+          setInlineErr(item.reason || t('凭据定义尚未就绪，请联系管理员处理'))
+          return
+        }
       } else if (item.action === 'fill_shared' && item.defId) {
         await secretsApi.update(item.defId, { value: val })
       } else if (item.action === 'create_and_fill') {
@@ -123,7 +163,13 @@ export function InstallReadyStep({
             ? `/groups/${scopeId}/secrets`
             : scope === 'team'
               ? `/teams/${scopeId}/secrets`
-              : `${PERSONAL_BASE}/secrets`
+              : resolvedTeamId
+                ? `/teams/${resolvedTeamId}/secrets`
+                : null
+        if (!secretsBase) {
+          setInlineErr(item.reason || t('凭据定义尚未就绪，请联系管理员处理'))
+          return
+        }
         const created = await secretsApi.create(secretsBase, {
           name: item.name,
           description: [item.title, item.description].filter(Boolean).join('：'),
@@ -141,7 +187,6 @@ export function InstallReadyStep({
         }
       } else {
         setInlineErr(item.reason || t('凭据定义尚未就绪，请联系管理员处理'))
-        setSavingSecret(null)
         return
       }
       toast({ type: 'success', message: t('已保存「{name}」', { name: item.title || item.name }) })
@@ -178,10 +223,22 @@ export function InstallReadyStep({
         onChanged?.()
       } else {
         setNotified((prev) => ({ ...prev, [key]: true }))
-        toast({
-          type: res?.notified === false ? 'info' : 'success',
-          message: ownerName ? t('已提醒 {owner} 完成授权', { owner: ownerName }) : t('已发送授权提醒'),
-        })
+        if (res?.notified === false) {
+          toast({
+            type: 'info',
+            message: t('该电脑主人之前已拒绝或已收到提醒，未重复发送'),
+          })
+        } else if (action === 'notify_connector') {
+          toast({
+            type: 'success',
+            message: ownerName ? t('已提醒 {owner} 连接账号', { owner: ownerName }) : t('已发送连接账号提醒'),
+          })
+        } else {
+          toast({
+            type: 'success',
+            message: ownerName ? t('已提醒 {owner} 完成授权', { owner: ownerName }) : t('已发送授权提醒'),
+          })
+        }
       }
     } catch (e) {
       toastError(e)
@@ -426,6 +483,20 @@ export function InstallReadyStep({
                   )
                 })
               )}
+            </div>
+          </div>
+        ) : null}
+
+        {codeDisabled ? (
+          <div className="mkt-check-item">
+            <span className="mkt-check-dot" aria-hidden="true">
+              <Icon name="lock" size={13} />
+            </span>
+            <div>
+              <div className="mkt-check-title">{t('需管理员开启「插件运行本机程序」')}</div>
+              <div className="mkt-check-sub">
+                {t('当前系统未开启插件运行本机程序，请联系系统管理员在管理后台开启后再使用。')}
+              </div>
             </div>
           </div>
         ) : null}

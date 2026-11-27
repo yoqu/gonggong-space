@@ -359,6 +359,13 @@ export default {
   '已允许在「{machine}」上运行': 'Allowed on "{machine}"',
   '已提醒 {owner} 完成授权': 'Reminded {owner} to approve',
   已发送授权提醒: 'Authorization reminder sent',
+  '已提醒 {owner} 连接账号': 'Reminded {owner} to connect their account',
+  已发送连接账号提醒: 'Account connection reminder sent',
+  '该电脑主人之前已拒绝或已收到提醒，未重复发送':
+    'The machine owner already declined or was notified; no duplicate reminder sent',
+  '需管理员开启「插件运行本机程序」': 'Admin needs to enable local plugin execution',
+  '当前系统未开启插件运行本机程序，请联系系统管理员在管理后台开启后再使用。':
+    'Local plugin execution is disabled system-wide; ask a system admin to enable it in Admin settings.',
   '已就绪，可以用了': 'Ready to use',
   '「{target}」里的 Bot 现在可以直接帮你干活了': 'Bots in "{target}" can now use this plugin for you',
   '「{name}」已添加到「{target}」，现在就可以开始使用':

@@ -326,6 +326,107 @@ describe('凭据准备与同名复用提示隔离', () => {
       }),
     )
   })
+
+  it('posts missing_def personal secret to /groups/:id/secret-needs/personal, creates repo secrets under /teams/:teamId/secrets, and shows codeEnabled=false blocker', async () => {
+    const groupCalls = mockApi({
+      'GET /market/l1/readiness?scope=group&scopeId=g1': readiness({
+        pendingSteps: 2,
+        secrets: [
+          {
+            name: 'DW_KEY',
+            title: '数仓 Key',
+            description: '个人中心签发',
+            url: null,
+            placeholder: null,
+            mode: 'personal',
+            required: true,
+            status: 'missing_def',
+            reason: null,
+            defId: null,
+            defScope: null,
+            action: 'fill_personal',
+            reused: false,
+            viaConnector: false,
+          },
+        ],
+        trusts: { codeEnabled: false, ready: false, machines: [] },
+      }),
+      'POST /groups/g1/secret-needs/personal': {},
+    })
+    const d = detail()
+    const { unmount } = render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          initialReadyTarget={{ scope: 'group', scopeId: 'g1', label: '支付核心群', teamId: 't1' }}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const dlg = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    expect(await within(dlg).findByText('需管理员开启「插件运行本机程序」')).toBeTruthy()
+    fireEvent.change(within(dlg).getByLabelText('数仓 Key'), { target: { value: 'personal-key-1234' } })
+    fireEvent.click(within(dlg).getByRole('button', { name: '保存并验证' }))
+    await waitFor(() =>
+      expect(groupCalls.find((c) => c.path === '/groups/g1/secret-needs/personal')?.body).toEqual({
+        name: 'DW_KEY',
+        value: 'personal-key-1234',
+        allowForeignMachines: false,
+      }),
+    )
+    unmount()
+
+    const repoCalls = mockApi({
+      'GET /market/l1/readiness?scope=repo&scopeId=r1': readiness({
+        scope: 'repo',
+        scopeId: 'r1',
+        targetLabel: '支付组 / core',
+        pendingSteps: 1,
+        secrets: [
+          {
+            name: 'REPO_TOKEN',
+            title: '仓库凭据',
+            description: '团队共用',
+            url: null,
+            placeholder: null,
+            mode: 'shared',
+            required: true,
+            status: 'missing_def',
+            reason: null,
+            defId: null,
+            defScope: null,
+            action: 'create_and_fill',
+            reused: false,
+            viaConnector: false,
+          },
+        ],
+      }),
+      'POST /teams/t1/secrets': { id: 's9' },
+    })
+    render(
+      <MemoryRouter>
+        <InstallTargetDialog
+          listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+          initialReadyTarget={{ scope: 'repo', scopeId: 'r1', label: '支付组 / core', teamId: 't1' }}
+          onClose={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const repoDlg = screen.getByRole('dialog', { name: /添加 数仓查询/ })
+    fireEvent.change(await within(repoDlg).findByLabelText('仓库凭据'), {
+      target: { value: 'repo-secret-9999' },
+    })
+    fireEvent.click(within(repoDlg).getByRole('button', { name: '保存并验证' }))
+    await waitFor(() =>
+      expect(
+        repoCalls.find((c) => c.method === 'POST' && c.path === '/teams/t1/secrets')?.body,
+      ).toMatchObject({
+        name: 'REPO_TOKEN',
+        mode: 'shared',
+        value: 'repo-secret-9999',
+      }),
+    )
+  })
 })
 
 describe('upgrading an install', () => {
