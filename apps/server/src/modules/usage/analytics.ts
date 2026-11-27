@@ -138,46 +138,13 @@ async function queryCacheStats(ctx: Ctx, where: SQL | undefined) {
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(where)
 
-  // Fallback to latest unpurged run_events breakdown.cache for runs without direct usage.cachedReadTokens.
-  const unpurgedRuns = ctx.db
-    .select({ id: runs.id })
-    .from(runs)
-    .innerJoin(bots, eq(bots.id, runs.botId))
-    .leftJoin(machines, eq(machines.id, bots.machineId))
-    .innerJoin(users, eq(users.id, runs.originUserId))
-    .innerJoin(groups, eq(groups.id, runs.groupId))
-    .where(and(where, isNull(runs.purgedAt), sql`${directCacheRead} is null`))
-    .as('u_runs')
-
-  const latest = ctx.db
-    .selectDistinctOn([runEvents.runId], {
-      runId: runEvents.runId,
-      read: sql<number>`(${runEvents.payload}->'breakdown'->'cache'->>'read')::bigint`.as('cache_read'),
-      total: sql<number>`(${runEvents.payload}->'breakdown'->'cache'->>'total')::bigint`.as('cache_total'),
-    })
-    .from(runEvents)
-    .innerJoin(unpurgedRuns, eq(unpurgedRuns.id, runEvents.runId))
-    .where(and(eq(runEvents.kind, 'usage'), sql`${runEvents.payload}->'breakdown'->'cache' is not null`))
-    .orderBy(runEvents.runId, desc(runEvents.id))
-    .as('latest_cache')
-
-  const [evRow] = await ctx.db
-    .select({
-      runs: sql<number>`count(*)`.mapWith(Number),
-      read: sql<number>`coalesce(sum(${latest.read}), 0)`.mapWith(Number),
-      total: sql<number>`coalesce(sum(${latest.total}), 0)`.mapWith(Number),
-    })
-    .from(latest)
-
-  const totalRuns = (directRow?.runs ?? 0) + (evRow?.runs ?? 0)
-  const totalRead = (directRow?.read ?? 0) + (evRow?.read ?? 0)
-  const totalInput = (directRow?.total ?? 0) + (evRow?.total ?? 0)
-
+  const read = directRow?.read ?? 0
+  const total = directRow?.total ?? 0
   return {
-    cacheReportedRuns: totalRuns,
-    cacheReadTokens: totalRead,
-    cacheInputTokens: totalInput,
-    cacheHitRate: safeDiv(totalRead, totalInput, 4),
+    cacheReportedRuns: directRow?.runs ?? 0,
+    cacheReadTokens: read,
+    cacheInputTokens: total,
+    cacheHitRate: safeDiv(read, total, 4),
   }
 }
 

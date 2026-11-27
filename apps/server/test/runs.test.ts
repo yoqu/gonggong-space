@@ -448,6 +448,38 @@ describe('run engine', () => {
     expect(ended?.sessionAfter).toBe('sess-1')
   })
 
+  it('keeps the last usage breakdown cache read on runs.usage when run.done omits it', async () => {
+    const w = await world()
+    const web = watch(w.bob.id)
+    const d = await daemon(w.token)
+    await w.mention('@小王的 Claude 读缓存')
+    const { runId } = await d.next()
+    const usage = (read: number) =>
+      ({
+        t: 'run.event',
+        runId,
+        event: {
+          kind: 'usage',
+          usage: {},
+          breakdown: { tools: [], turns: [], cache: { read, total: read * 2 } },
+        },
+      }) as const
+    d.send(usage(100))
+    d.send(usage(700))
+    d.send(done(runId))
+    await web.until(runUpdated('completed', runId))
+    const [ended] = await t.db.select().from(runs).where(eq(runs.id, runId))
+    expect(ended?.usage).toEqual({ totalTokens: 1500, cachedReadTokens: 700 })
+
+    await w.mention('@小王的 Claude 再来')
+    const next = await d.next()
+    d.send({ ...usage(700), runId: next.runId })
+    d.send(done(next.runId, { usage: { totalTokens: 10, cachedReadTokens: 5 } }))
+    await web.until(runUpdated('completed', next.runId))
+    const [reported] = await t.db.select().from(runs).where(eq(runs.id, next.runId))
+    expect(reported?.usage).toEqual({ totalTokens: 10, cachedReadTokens: 5 })
+  })
+
   it('stores and publishes the workspace git status reported with run.done', async () => {
     const w = await world()
     // Provisioned already, so connecting publishes no workspace state of its own.

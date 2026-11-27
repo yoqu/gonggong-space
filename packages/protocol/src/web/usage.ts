@@ -361,7 +361,7 @@ export const UsageKpiDto = z.object({
   reportedCostRuns: z.number().int().optional(),
   /** Runs priced via models.dev catalog lookup. */
   estimatedCostRuns: z.number().int().optional(),
-  /** Prompt cache read tokens from runs.usage or unpurged `run_events` breakdown.cache. */
+  /** Prompt cache read tokens from runs.usage (the run end fills it from the last usage event when the agent omits it). */
   cacheReadTokens: z.number().int(),
   cacheInputTokens: z.number().int(),
   /** cacheReadTokens / cacheInputTokens; null when no runs reported cache. */

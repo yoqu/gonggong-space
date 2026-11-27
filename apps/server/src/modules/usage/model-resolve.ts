@@ -1,7 +1,7 @@
 import { USAGE_DEFAULT_SENTINEL, type UsageCostSource, type UsageModelSource } from '@gonggong/protocol'
 import { eq, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groups, machines, runEvents, runs, users } from '../../db/schema.js'
+import { bots, groups, machines, runs, users } from '../../db/schema.js'
 import { isOfficialAnthropic, type MatchedModelPrice, matchModelPrice } from './pricing.js'
 
 const DEFAULT_PREFIX_SQL = sql.raw(`'${USAGE_DEFAULT_SENTINEL}:'`)
@@ -42,20 +42,8 @@ export const modelKeyExpr = sql<string>`coalesce(
   ${DEFAULT_PREFIX_SQL} || ${bots.agentKind}
 )`
 
-/** Cache read tokens: runs.usage.cachedReadTokens, else latest unpurged run_events breakdown.cache.read, else 0. */
-export const effectiveCacheReadExpr = sql<number>`coalesce(
-  (${runs.usage}->>'cachedReadTokens')::bigint,
-  case when ${runs.purgedAt} is null then (
-    select (re.payload->'breakdown'->'cache'->>'read')::bigint
-    from ${runEvents} re
-    where re.run_id = ${runs.id}
-      and re.kind = 'usage'
-      and re.payload->'breakdown'->'cache' is not null
-    order by re.id desc
-    limit 1
-  ) else null end,
-  0
-)`
+/** Cache read tokens: the run end copies the last usage event's breakdown onto `runs.usage` when the agent omits it. */
+export const effectiveCacheReadExpr = sql<number>`coalesce((${runs.usage}->>'cachedReadTokens')::bigint, 0)`
 
 export const effectiveCacheWriteExpr = sql<number>`coalesce((${runs.usage}->>'cachedWriteTokens')::bigint, 0)`
 
@@ -79,27 +67,22 @@ function buildCatalogFormula(matched: MatchedModelPrice): SQL<number> {
   const output = sql`coalesce((${runs.usage}->>'outputTokens')::bigint, 0)::double precision`
   const cr = sql`(${effectiveCacheReadExpr})::double precision`
   const cw = sql`(${effectiveCacheWriteExpr})::double precision`
+  const cost = (r: { input: number; output: number; cacheRead: number; cacheWrite: number }) =>
+    sql`(${input} * ${r.input} + ${output} * ${r.output} + ${cr} * ${r.cacheRead} + ${cw} * ${r.cacheWrite}) / 1000000.0`
   const p = matched.price
-
-  const baseFormula = sql<number>`(${input} * ${p.input} + ${output} * ${p.output} + ${cr} * ${p.cacheRead} + ${cw} * ${p.cacheWrite}) / 1000000.0`
-  if (!p.tiers || p.tiers.length === 0) return baseFormula
-
-  const prompt = sql`(${input} + ${cr} + ${cw})`
-  // Highest matching tier wins (sorted ascending by `above`, check descending in CASE).
-  const branches: SQL[] = []
-  for (let i = p.tiers.length - 1; i >= 0; i--) {
-    const tier = p.tiers[i]
-    if (!tier) continue
-    branches.push(
-      sql`when ${prompt} > ${tier.above} then (${input} * ${tier.input} + ${output} * ${tier.output} + ${cr} * ${tier.cacheRead} + ${cw} * ${tier.cacheWrite}) / 1000000.0`,
-    )
-  }
-  return sql<number>`case ${sql.join(branches, sql` `)} else ${baseFormula} end`
+  if (!p.tiers?.length) return cost(p) as SQL<number>
+  // Highest matching tier wins (tiers sorted ascending by `above`, so check descending).
+  const branches = [...p.tiers]
+    .reverse()
+    .map((tier) => sql`when ${input} + ${cr} + ${cw} > ${tier.above} then ${cost(tier)}`)
+  return sql<number>`case ${sql.join(branches, sql` `)} else ${cost(p)} end`
 }
 
 /**
  * Builds SQL cost expressions backed by live/bundled models.dev pricing for every distinct
  * `(resolvedModel, provider)` pair in `where`, enforcing the exact Magpie override policy.
+ * Dispatches with a simple `CASE <resolved model> WHEN …` so the model expression (with its machine-catalog
+ * subquery) is evaluated once per row instead of once per pair.
  */
 export async function buildPricingPlan(ctx: Ctx, where: SQL | undefined): Promise<SqlPricingPlan> {
   const providerCol = sql<string | null>`${runs.settings}->>'provider'`
@@ -112,13 +95,12 @@ export async function buildPricingPlan(ctx: Ctx, where: SQL | undefined): Promis
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(where)
 
-  const matches = new Map<string, MatchedModelPrice>()
-  const costBranches: SQL[] = []
-  const sourceBranches: SQL[] = []
-
   const hasSplitTokens = sql`(${runs.usage}->>'inputTokens' is not null or ${runs.usage}->>'outputTokens' is not null)`
   const hasReportedCost = sql`(${runs.usage}->>'costUsd' is not null)`
   const reportedCost = sql`(${runs.usage}->>'costUsd')::double precision`
+
+  const matches = new Map<string, MatchedModelPrice>()
+  const byModel = new Map<string, { cost: SQL[]; source: SQL[] }>()
 
   for (const row of pairs) {
     if (!row.model) continue
@@ -126,47 +108,35 @@ export async function buildPricingPlan(ctx: Ctx, where: SQL | undefined): Promis
     if (!hit) continue
     matches.set(pairKey(row.model, row.provider), hit)
 
-    const matchCond =
-      row.provider === null
-        ? sql`${resolvedModelExpr} = ${row.model} and ${providerCol} is null`
-        : sql`${resolvedModelExpr} = ${row.model} and ${providerCol} = ${row.provider}`
-
+    const providerCond =
+      row.provider === null ? sql`${providerCol} is null` : sql`${providerCol} = ${row.provider}`
     const catalogCost = buildCatalogFormula(hit)
-    const officialAnthropic = isOfficialAnthropic(row.model, row.provider)
+    // Official Anthropic keeps its reported cost; otherwise the catalog price overrides bogus adapter costUsd.
+    const order: ['reported' | 'catalog', SQL, SQL][] = [
+      ['reported', hasReportedCost, reportedCost],
+      ['catalog', hasSplitTokens, catalogCost],
+    ]
+    if (!isOfficialAnthropic(row.model, row.provider)) order.reverse()
 
-    if (officialAnthropic) {
-      costBranches.push(
-        sql`when ${matchCond} and ${hasReportedCost} then ${reportedCost}`,
-        sql`when ${matchCond} and ${hasSplitTokens} then ${catalogCost}`,
-      )
-      sourceBranches.push(
-        sql`when ${matchCond} and ${hasReportedCost} then 'reported'`,
-        sql`when ${matchCond} and ${hasSplitTokens} then 'catalog'`,
-      )
-    } else {
-      // Non-Anthropic model or third-party provider: catalog price always overrides bogus adapter costUsd.
-      costBranches.push(
-        sql`when ${matchCond} and ${hasSplitTokens} then ${catalogCost}`,
-        sql`when ${matchCond} and ${hasReportedCost} then ${reportedCost}`,
-      )
-      sourceBranches.push(
-        sql`when ${matchCond} and ${hasSplitTokens} then 'catalog'`,
-        sql`when ${matchCond} and ${hasReportedCost} then 'reported'`,
-      )
+    const entry = byModel.get(row.model) ?? { cost: [], source: [] }
+    byModel.set(row.model, entry)
+    for (const [source, cond, value] of order) {
+      entry.cost.push(sql`when ${providerCond} and ${cond} then ${value}`)
+      entry.source.push(sql`when ${providerCond} and ${cond} then ${source}`)
     }
   }
 
-  const costNullableExpr =
-    costBranches.length > 0
-      ? sql<
-          number | null
-        >`case ${sql.join(costBranches, sql` `)} when ${hasReportedCost} then ${reportedCost} else null end`
-      : sql<number | null>`case when ${hasReportedCost} then ${reportedCost} else null end`
+  const dispatch = (pick: 'cost' | 'source', fallback: SQL) => {
+    const fallbackCase = sql`case when ${hasReportedCost} then ${fallback} else null end`
+    if (byModel.size === 0) return fallbackCase
+    const arms = [...byModel].map(
+      ([model, e]) => sql`when ${model} then case ${sql.join(e[pick], sql` `)} else ${fallbackCase} end`,
+    )
+    return sql`case ${resolvedModelExpr} ${sql.join(arms, sql` `)} else ${fallbackCase} end`
+  }
 
-  const costSourceExpr =
-    sourceBranches.length > 0
-      ? sql<UsageCostSource>`case ${sql.join(sourceBranches, sql` `)} when ${hasReportedCost} then 'reported' else 'unpriced' end`
-      : sql<UsageCostSource>`case when ${hasReportedCost} then 'reported' else 'unpriced' end`
+  const costNullableExpr = dispatch('cost', reportedCost) as SQL<number | null>
+  const costSourceExpr = sql<UsageCostSource>`coalesce(${dispatch('source', sql`'reported'`)}, 'unpriced')`
 
   const costZeroExpr = sql<number>`coalesce(${costNullableExpr}, 0)`
   const hasEffectiveCostExpr = sql<boolean>`(${costNullableExpr}) is not null`

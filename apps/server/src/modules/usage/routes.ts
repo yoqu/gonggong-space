@@ -43,6 +43,26 @@ const tokens = sql<number>`coalesce(sum((${runs.usage}->>'totalTokens')::bigint)
 const unreported = sql<number>`count(*) filter (where ${runs.usage}->>'totalTokens' is null)`.mapWith(Number)
 
 /**
+ * The usage page fires a burst of aggregate queries over every run; unbounded, they took all pooled database
+ * connections and stalled every other endpoint. Analytics requests queue behind this many in flight.
+ */
+const ANALYTICS_CONCURRENCY = 2
+let analyticsActive = 0
+const analyticsWaiting: (() => void)[] = []
+
+async function gated<T>(fn: () => Promise<T>): Promise<T> {
+  if (analyticsActive < ANALYTICS_CONCURRENCY) analyticsActive++
+  else await new Promise<void>((resolve) => analyticsWaiting.push(resolve))
+  try {
+    return await fn()
+  } finally {
+    const next = analyticsWaiting.shift()
+    if (next) next()
+    else analyticsActive--
+  }
+}
+
+/**
  * Usage totals over runs (spec §3.7) plus full multi-dimensional analytics under `/api[/admin]/usage/*`.
  * Legacy `GET ${base}` and `GET ${base}/daily` remain strictly backward-compatible.
  */
@@ -104,42 +124,50 @@ export function usageRoutes(ctx: Ctx) {
 
     app.get(`${base}/facets`, async (req): Promise<UsageFacetsDto> => {
       const q = UsageAnalyticsQuery.parse(req.query)
-      return getFacets(ctx, q, await scoped(ctx, req, q, { forFacets: true }))
+      const where = await scoped(ctx, req, q, { forFacets: true })
+      return gated(() => getFacets(ctx, q, where))
     })
 
     app.get(`${base}/overview`, async (req): Promise<UsageOverviewDto> => {
       const q = UsageAnalyticsQuery.parse(req.query)
-      return getOverview(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      return gated(() => getOverview(ctx, q, where))
     })
 
     app.get(`${base}/timeseries`, async (req): Promise<UsageTimeseriesDto> => {
       const q = UsageTimeseriesQuery.parse(req.query)
-      return getTimeseries(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      return gated(() => getTimeseries(ctx, q, where))
     })
 
     app.get(`${base}/breakdown`, async (req): Promise<UsageBreakdownDto> => {
       const q = UsageBreakdownQuery.parse(req.query)
-      return getBreakdown(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      return gated(() => getBreakdown(ctx, q, where))
     })
 
     app.get(`${base}/heatmap`, async (req): Promise<UsageHeatmapDto> => {
       const q = UsageHeatmapQuery.parse(req.query)
-      return getHeatmap(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      return gated(() => getHeatmap(ctx, q, where))
     })
 
     app.get(`${base}/insights`, async (req): Promise<UsageInsightsDto> => {
       const q = UsageInsightsQuery.parse(req.query)
-      return getInsights(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      return gated(() => getInsights(ctx, q, where))
     })
 
     app.get(`${base}/runs`, async (req): Promise<UsageRunsDto> => {
       const q = UsageRunsQuery.parse(req.query)
-      return getRuns(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      return gated(() => getRuns(ctx, q, where))
     })
 
     app.get(`${base}/export`, async (req, reply) => {
       const q = UsageExportQuery.parse(req.query)
-      const out = await exportUsage(ctx, q, await scoped(ctx, req, q))
+      const where = await scoped(ctx, req, q)
+      const out = await gated(() => exportUsage(ctx, q, where))
       reply
         .header('content-type', out.contentType)
         .header('content-disposition', `attachment; filename="${out.filename}"`)

@@ -1,5 +1,5 @@
-import type { RunDone, RunEvent } from '@gonggong/protocol'
-import { and, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm'
+import type { RunDone, RunEvent, Usage } from '@gonggong/protocol'
+import { and, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 import { attachments, bots, groupBots, messages, runEvents, runs, threadSessions } from '../../db/schema.js'
@@ -441,6 +441,25 @@ async function forceStoppedDone(ctx: Ctx, machineId: string, done: RunDone) {
 }
 
 /**
+ * Agents that report no `cachedReadTokens` still send the context breakdown as the run's last usage event (daemon
+ * messages are handled in order, so it is stored by now); keeping it on `runs.usage` spares usage analytics a
+ * per-run `run_events` lookup.
+ */
+async function withCacheRead(ctx: Ctx, runId: string, usage: Usage): Promise<Usage> {
+  if (usage.cachedReadTokens !== undefined) return usage
+  const read = sql<number | null>`(${runEvents.payload}->'breakdown'->'cache'->>'read')::bigint`.mapWith(
+    (v) => (v === null ? null : Number(v)),
+  )
+  const [row] = await ctx.db
+    .select({ read })
+    .from(runEvents)
+    .where(and(eq(runEvents.runId, runId), eq(runEvents.kind, 'usage'), sql`${read} is not null`))
+    .orderBy(desc(runEvents.id))
+    .limit(1)
+  return row?.read == null ? usage : { ...usage, cachedReadTokens: row.read }
+}
+
+/**
  * Ends the run: terminal state, session id, git status and the final reply are stored in one transaction, so a
  * failure never leaves a finished run without its reply (or the reverse). The run stays `finalizing` until
  * `finalize` completed.
@@ -451,6 +470,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
   const reply = done.reply.trim() ? redact(done.reply) : null
   const userMentions = reply ? await memberMentions(ctx, owned.groupId, reply, { skipCode: true }) : []
   const doneModel = normalizeConcreteModel(done.model)
+  const usage = done.usage && (await withCacheRead(ctx, owned.id, done.usage))
   const ended = await ctx.db.transaction(async (tx) => {
     const [run] = await tx
       .update(runs)
@@ -462,7 +482,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
         filesChanged: done.filesChanged,
         patch: done.patch && seal(redact(done.patch)),
         patchRepos: done.repos,
-        ...(done.usage && { usage: done.usage }),
+        ...(usage && { usage }),
         ...(doneModel && { model: doneModel }),
         ...(done.newSessionReason && { newSessionReason: done.newSessionReason }),
         sessionAfter: done.sessionId,

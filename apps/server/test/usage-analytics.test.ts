@@ -93,7 +93,7 @@ async function seedRichWorld() {
         fromCli: [],
         fromBot: [],
       },
-      usage: { inputTokens: 800, outputTokens: 200, totalTokens: 1000, costUsd: 0.05 },
+      usage: { inputTokens: 800, outputTokens: 200, totalTokens: 1000, cachedReadTokens: 750, costUsd: 0.05 },
       sessionAfter: 'sess-1',
       queuedAt: new Date(now - 2 * HOUR),
       startedAt: new Date(now - 2 * HOUR),
@@ -395,7 +395,7 @@ describe('usage analytics API', () => {
     })
   })
 
-  it('computes overview KPIs, percentiles, cache hit rate (latest unpurged), and previous period', async () => {
+  it('computes overview KPIs, percentiles, cache hit rate, and previous period', async () => {
     const w = await seedRichWorld()
     const api = client(t, await t.seed.cookie(w.admin.id))
 
@@ -421,11 +421,11 @@ describe('usage analytics API', () => {
     expect(kpi.costReportedRuns).toBe(4)
     expect(kpi.reportedCostRuns).toBe(2)
     expect(kpi.estimatedCostRuns).toBe(2)
-    // Cache: only r1 latest event (750 / 1000), purged r6 excluded!
+    // Cache comes from runs.usage only (r1: 750 read / 800 input + 750 read); run_events breakdowns are ignored.
     expect(kpi.cacheReportedRuns).toBe(1)
     expect(kpi.cacheReadTokens).toBe(750)
-    expect(kpi.cacheInputTokens).toBe(1000)
-    expect(kpi.cacheHitRate).toBe(0.75)
+    expect(kpi.cacheInputTokens).toBe(1550)
+    expect(kpi.cacheHitRate).toBe(0.4839)
     // Completed durations: 5000ms (r6), 10000ms (r1), 80000ms (r2) -> avg 31667, p50 10000
     expect(kpi.avgDurationMs).toBe(31667)
     expect(kpi.p50DurationMs).toBe(10000)
