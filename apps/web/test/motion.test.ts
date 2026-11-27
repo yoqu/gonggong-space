@@ -151,12 +151,24 @@ describe('motion and touch CSS contract', () => {
     )
   })
 
-  it('pops the current rail icon and unread badges with a spring', () => {
+  it('pops the current rail icon with a spring; unread badges grow in without overshoot', () => {
     const rail = read('ui/nav-rail.css')
     expect(ruleOf(rail, '.ui-rail__item[aria-current="page"] .ui-rail__tile > svg')).toContain(
       'var(--spring-bouncy) ui-rail-pop',
     )
-    expect(ruleOf(read('ui/display.css'), '.ui-badge')).toContain('var(--spring-bouncy) ui-badge-pop')
+    const badge = ruleOf(read('ui/display.css'), '.ui-badge')
+    expect(badge).toContain('var(--spring-snappy) ui-badge-pop')
+    expect(badge).toContain('var(--fade-in) ui-fade-in')
+    expect(read('ui/display.css')).toMatch(/@keyframes ui-badge-pop \{\s*from \{\s*scale: 0\.6;/)
+  })
+  it('shares chip pop-in and just-finished check classes', () => {
+    const m = read('ui/motion.css')
+    expect(ruleOf(m, '.ui-pop-in')).toContain('var(--spring-snappy) ui-enter')
+    expect(ruleOf(m, '.ui-pop-in')).toContain('var(--fade-in) ui-fade-in')
+    expect(ruleOf(m, '.ui-check-pop')).toContain('var(--spring-bouncy) ui-enter')
+    const chip = ruleOf(read('features/chat/run-config.css'), '.run-config__chip')
+    expect(chip).toContain('background-color var(--fade-fast)')
+    expect(chip).toContain('scale var(--spring-interactive)')
   })
   it('moves the timeline: rising hover bar, drawn unread rules, springing pills, roomy touch targets', () => {
     const msg = read('ui/im/message.css')

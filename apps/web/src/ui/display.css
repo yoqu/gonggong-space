@@ -59,16 +59,18 @@
   font-size: var(--text-subheadline-size);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  animation: var(--spring-bouncy) ui-badge-pop;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-badge-pop;
 }
-/* A badge pops in when it appears; later counts roll in place (RollingNumber). */
+/* A badge grows in when it appears (no overshoot: several can land at once); later counts roll in place (RollingNumber). */
 @keyframes ui-badge-pop {
   from {
-    scale: 0.4;
+    scale: 0.6;
   }
 }
 .ui-badge[data-state="closed"] {
-  --exit-scale: 0.5;
+  --exit-scale: 0.8;
   animation: var(--fade-out) ui-exit forwards;
 }
 .ui-badge--muted {

@@ -29,6 +29,20 @@
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
+/* A chip/tag that just appeared (attachment, quote, selected page, picked bot): grows in from .92 without overshoot. */
+.ui-pop-in {
+  --enter-scale: 0.92;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+/* A check mark for something the user just finished (step done, secret saved): the one place a small bounce is earned. */
+.ui-check-pop {
+  --enter-scale: 0.6;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-bouncy) ui-enter;
+}
 /* A list row on its way out (useLeaving): slides aside and fades; clicks no longer land on it. */
 .ui-leaving {
   pointer-events: none;

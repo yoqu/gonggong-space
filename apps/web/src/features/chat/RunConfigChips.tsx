@@ -103,7 +103,7 @@ export function RunConfigChip({
   if (!editable || !live)
     return (
       <MenuButton
-        className="run-config__chip"
+        className="run-config__chip ui-pop-in"
         aria-label={name}
         title={
           !editable ? READ_ONLY : !live ? t('正在读取可选模型…') : (live.error ?? t('电脑尚未上报可选模型'))
@@ -153,7 +153,7 @@ export function RunConfigChip({
   ]
   return (
     <MenuButton
-      className="run-config__chip"
+      className="run-config__chip ui-pop-in"
       aria-label={name}
       align="end"
       portal

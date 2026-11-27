@@ -99,6 +99,26 @@ describe('useLeaving', () => {
     expect(btn.hasAttribute('data-leaving')).toBe(false)
   })
 
+  it('drops the row as .ui-leaving (--fade-out) ends by default, leaving no blank gap', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    const gone = vi.fn()
+    function Rows() {
+      const { leave } = useLeaving()
+      return (
+        <button type="button" onClick={() => leave('a', gone)}>
+          删
+        </button>
+      )
+    }
+    render(<Rows />)
+    fireEvent.click(screen.getByRole('button', { name: '删' }))
+    act(() => vi.advanceTimersByTime(110))
+    expect(gone).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(20))
+    expect(gone).toHaveBeenCalledOnce()
+  })
+
   it('drops pending exits on unmount instead of updating a gone tree', () => {
     vi.useFakeTimers()
     const gone = vi.fn()
