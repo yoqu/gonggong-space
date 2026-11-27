@@ -37,7 +37,7 @@ export function AgentIcon({
     >
       <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} aria-hidden="true">
         {m.mark.map((d) => (
-          <path key={d} d={d} fill="#fff" />
+          <path key={d} d={d} fill="#fff" fillRule="evenodd" />
         ))}
       </svg>
     </span>

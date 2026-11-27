@@ -28,6 +28,10 @@
   object-fit: cover;
   background: none;
 }
+:is([data-theme="dark"], [data-theme="hc-dark"]) .mkt-icon.mkt-icon--img {
+  outline: 1px solid rgb(255 255 255 / 0.16);
+  outline-offset: -1px;
+}
 .mkt-icon {
   flex: none;
   display: grid;

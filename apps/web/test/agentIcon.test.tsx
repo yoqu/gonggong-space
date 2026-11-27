@@ -14,7 +14,10 @@ describe('AgentIcon', () => {
       expect(icon.style.background).toContain('linear-gradient')
       const paths = icon.querySelectorAll('path')
       expect(paths).toHaveLength(AGENT_META[kind].mark.length)
-      for (const p of paths) expect(p.getAttribute('fill')).toBe('#fff')
+      for (const p of paths) {
+        expect(p.getAttribute('fill')).toBe('#fff')
+        expect(p.getAttribute('fill-rule')).toBe('evenodd')
+      }
       unmount()
     }
   })

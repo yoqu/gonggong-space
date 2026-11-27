@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFile
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
+  AGENT_META,
   AgentKind,
   GgArtifactManifest,
   LegacyProviderPreset,
@@ -74,6 +75,21 @@ describe.each([
     expect(agent!.id).toBe(id)
     for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
       expect(existsSync(join(root, f)), f).toBe(true)
+  })
+
+  it('ships an icon matching AGENT_META brand mark and gradient', () => {
+    const { root, manifest } = load(`agent-${id}`)
+    const meta = AGENT_META[id as keyof typeof AGENT_META]
+    const svg = readFileSync(join(root, manifest.icon!), 'utf8')
+    const { document } = new JSDOM(svg, { contentType: 'image/svg+xml' }).window
+    expect(document.querySelectorAll('text')).toHaveLength(0)
+    const stops = [...document.querySelectorAll('linearGradient stop')].map((s) =>
+      s.getAttribute('stop-color'),
+    )
+    expect(stops).toEqual([meta.color.from, meta.color.to])
+    const paths = [...document.querySelectorAll('path')]
+    expect(paths.map((p) => p.getAttribute('d'))).toEqual([...meta.mark])
+    for (const p of paths) expect(p.getAttribute('fill-rule')).toBe('evenodd')
   })
 })
 

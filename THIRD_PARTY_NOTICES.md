@@ -49,9 +49,9 @@ limitations under the License.
 
 ## Lobe Icons
 
-The agent marks in `apps/web/src/features/bots/agentFigures.ts` are traced from [Lobe Icons](https://github.com/lobehub/lobe-icons) (`@lobehub/icons-static-svg` 1.102.0, MIT License, Copyright (c) LobeHub) and redrawn as bot characters.
+The agent marks in `packages/protocol/src/agents.ts` (rendered in `apps/web/src/features/bots/agentFigures.ts` and `apps/server/plugins/official/agent-*/assets/icon.svg`) are taken from [Lobe Icons](https://github.com/lobehub/lobe-icons) (`@lobehub/icons-static-svg`, MIT License, Copyright (c) LobeHub).
 
-Claude and Claude Code are trademarks of Anthropic, PBC; Codex of OpenAI; Gemini of Google LLC; CodeBuddy of Tencent; pi of its authors; DeepSeek of DeepSeek. They are used only to show which agent a bot runs and belong to their owners; this project is not affiliated with or endorsed by them. Every mark lives in that one file, so any of them can be replaced on request.
+Claude and Claude Code are trademarks of Anthropic, PBC; Codex of OpenAI; Gemini and Antigravity of Google LLC; CodeBuddy of Tencent; pi of Earendil; DeepSeek of DeepSeek; OpenCode of Anomaly; Qwen of Alibaba; Kimi of Moonshot AI; Goose of Block; GitHub Copilot of GitHub. They are used only to show which agent a bot or plugin runs and belong to their owners; this project is not affiliated with or endorsed by them. Every mark is defined in `packages/protocol/src/agents.ts`, so any of them can be replaced on request.
 
 ## Open Artifact
 
