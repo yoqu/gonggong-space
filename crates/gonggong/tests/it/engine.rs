@@ -1703,9 +1703,10 @@ async fn the_change_confirmation_says_runs_not_sessions() {
         if step == "等待确认：同一工作区还有其他运行")));
     let Some(DaemonToServer::QuestionAsk { questions, .. }) = seen.last() else { unreachable!() };
     assert_eq!(questions[0].options, ["现在就改", "等运行结束再改"]);
+    // Cancel one at a time: done_of skips other runs, so r1's run.done could be dropped while waiting for r2's.
     r.send(ServerToDaemon::RunCancel { run_id: "r2".into() });
-    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     done_of(&mut r, "r2").await;
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
 }
 
