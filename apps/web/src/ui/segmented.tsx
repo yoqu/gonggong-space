@@ -99,6 +99,7 @@ function Segments<V extends string>({
             aria-selected={tabs ? selected : undefined}
             aria-checked={tabs ? undefined : selected}
             aria-label={it.label ? undefined : it['aria-label']}
+            title={it.label ? undefined : it['aria-label']}
             data-selected={selected || undefined}
             className="ui-seg__item"
             tabIndex={i === focusable ? 0 : -1}

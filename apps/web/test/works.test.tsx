@@ -299,7 +299,7 @@ describe('作品 page', () => {
       '流程白板',
       '露营原型',
     ])
-    fireEvent.click(screen.getByRole('radio', { name: '列表' }))
+    fireEvent.click(screen.getByRole('radio', { name: '列表视图' }))
     expect(document.querySelector('.works__list')).toBeTruthy()
     expect(localStorage.getItem('gg.works.layout')).toBe('list')
     localStorage.removeItem('gg.works.layout')
@@ -562,7 +562,7 @@ describe('作品 page', () => {
         .getByRole('radio', { name: /产品原型/ })
         .getAttribute('aria-checked'),
     ).toBe('true')
-    fireEvent.click(await within(dialog).findByRole('button', { name: '创建' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '创建原型' }))
     await waitFor(() => expect(where()).toContain('/works/a9'))
     expect(calls.find((c) => c.method === 'POST')).toMatchObject({
       path: '/works',
@@ -585,7 +585,7 @@ describe('作品 page', () => {
     const dialog = await screen.findByRole('dialog', { name: '新建作品' })
     fireEvent.click(within(dialog).getByRole('radio', { name: /幻灯片/ }))
     fireEvent.click(await within(dialog).findByRole('button', { name: '数据周报' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建幻灯片' }))
     await waitFor(() => expect(where()).toContain('/works/a9'))
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
       botId: 'b3',
@@ -599,9 +599,31 @@ describe('作品 page', () => {
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
     const dialog = await screen.findByRole('dialog', { name: '新建作品' })
-    fireEvent.click(within(dialog).getByRole('radio', { name: /网页/ }))
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^网页/ }))
     expect(within(dialog).getByText('点预览卡上的「托管到服务器」')).toBeTruthy()
-    expect(within(dialog).queryByRole('button', { name: '创建' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: /创建/ })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '去群里试试' }))
+    await waitFor(() => expect(where()).toContain('/'))
+  })
+
+  it('新建 offers 重试 when the types fail to load, instead of saying a plugin is off', async () => {
+    let fail = true
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': [],
+      'GET /works/starters': () => {
+        if (fail) throw new Error('offline')
+        return STARTERS
+      },
+    })
+    renderAt('/works')
+    fireEvent.click(await screen.findByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建作品' })
+    expect(await within(dialog).findByText('加载失败')).toBeTruthy()
+    expect(within(dialog).queryByText('产品原型插件未启用')).toBeNull()
+    fail = false
+    fireEvent.click(within(dialog).getByRole('button', { name: '重试' }))
+    expect(await within(dialog).findByRole('button', { name: '创建原型' })).toBeTruthy()
   })
 
   it('says so when neither AI is in the team', async () => {
@@ -609,7 +631,9 @@ describe('作品 page', () => {
     const calls = mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [], 'GET /works/starters': STARTERS })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
-    fireEvent.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: '创建' }))
+    fireEvent.click(
+      await within(await screen.findByRole('dialog')).findByRole('button', { name: '创建原型' }),
+    )
     expect(await screen.findByText('当前团队暂无可用于创作作品的 Bot')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })

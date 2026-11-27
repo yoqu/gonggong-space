@@ -92,11 +92,11 @@ const TYPES: { value: WorkType; label: string; icon: IconName; always?: boolean 
 ]
 const TYPE_LABEL = Object.fromEntries(TYPES.map((x) => [x.value, x.label])) as Record<WorkType, string>
 const EMPTY_SECTION: Partial<Record<WorkType, { title: string; description: string }>> = {
-  prototype: { title: t('还没有产品原型'), description: t('点「新建」做一个多屏可交互的产品原型') },
+  prototype: { title: t('还没有产品原型'), description: t('直接向 AI 描述需求，几分钟生成可点击的产品原型') },
   slides: { title: t('还没有幻灯片'), description: t('挑一套模板，快速做出可翻页的汇报、路演或周报') },
   site: {
     title: t('还没有网页作品'),
-    description: t('在群里让 Bot 做好网页，点预览卡上的「托管到服务器」，网页就会出现在这里'),
+    description: t('把 AI 生成的网页托管到这里，随时在线预览与分享，不受电脑开关机影响'),
   },
 }
 
@@ -309,7 +309,7 @@ export function WorksPage() {
                     id: x.value,
                     label: x.label,
                     icon: x.icon,
-                    badge: counts.get(x.value) ?? 0,
+                    badge: counts.get(x.value) || undefined,
                   })),
                 ],
               },
@@ -365,8 +365,8 @@ export function WorksPage() {
                 value={layout}
                 onChange={setLayout}
                 items={[
-                  { value: 'grid', icon: 'grid', 'aria-label': t('网格') },
-                  { value: 'list', icon: 'list', 'aria-label': t('列表') },
+                  { value: 'grid', icon: 'grid', 'aria-label': t('网格视图') },
+                  { value: 'list', icon: 'list', 'aria-label': t('列表视图') },
                 ]}
               />
             </div>
@@ -418,8 +418,10 @@ export function WorksPage() {
                         {section === 'slides'
                           ? t('新建幻灯片')
                           : section === 'site'
-                            ? t('了解托管方式')
-                            : t('新建')}
+                            ? t('查看托管步骤')
+                            : section === 'prototype'
+                              ? t('新建原型')
+                              : t('新建')}
                       </Button>
                     ) : undefined
                   }

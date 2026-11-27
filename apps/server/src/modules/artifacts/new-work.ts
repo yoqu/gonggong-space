@@ -48,7 +48,14 @@ const STARTERS: Record<
     plugin: 'web-prototype',
     fits: (m) => (m.artifact?.kind ?? 'prototype') === 'prototype' && m.category === 'web',
   },
-  slides: { plugin: 'slides', fits: (m) => m.artifact?.kind === 'slides' || m.category === 'deck' },
+  // Slides plugins made before kinds existed declare none (prototype): their category says what they make.
+  slides: {
+    plugin: 'slides',
+    fits: (m) =>
+      (m.artifact?.kind ?? 'prototype') === 'prototype'
+        ? m.category === 'deck'
+        : m.artifact?.kind === 'slides',
+  },
 }
 
 /** The plugin 作品 新建 starts `type` from in the space: the official one when on, else the first that fits. */
