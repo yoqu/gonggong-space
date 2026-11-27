@@ -25,6 +25,7 @@ import {
   Tag,
   toast,
 } from '../../ui'
+import { previewUrl } from '../plugins/model'
 import { NeedsDialog } from '../secrets/SecretNeeds'
 
 function sceneIcon(item: BotCapabilityItemDto): IconName {
@@ -36,8 +37,9 @@ function sceneIcon(item: BotCapabilityItemDto): IconName {
 }
 
 function CapIcon({ item }: { item: BotCapabilityItemDto }) {
-  if (item.icon && /^(https?:|\/|data:)/.test(item.icon)) {
-    return <img className="bot-cap__img" src={item.icon} alt="" aria-hidden="true" />
+  if (item.icon) {
+    const src = /^(https?:|\/|data:)/.test(item.icon) ? item.icon : previewUrl(item.pluginId, item.icon)
+    return <img className="bot-cap__img" src={src} alt="" aria-hidden="true" />
   }
   return (
     <span className="bot-cap__tile" aria-hidden="true">
@@ -167,7 +169,7 @@ function BotCapabilitiesPanelInner({
 
   const renderAction = (item: BotCapabilityItemDto) => {
     const target = targetGroupOf(item)
-    const isOwner = item.ownMachine || me.id === bot.ownerId
+    const isOwner = item.machineId ? item.ownMachine : me.id === bot.ownerId
     const key = itemKeyOf(item)
     const notified = !!notifiedIds[key]
     const busy = notifyingId === key

@@ -193,9 +193,11 @@ export function GroupPluginsPanel({
   const enabledCount =
     connectorPlugins.filter((p) => p.enabledInGroup).length +
     capabilityPlugins.filter((p) => p.enabledInGroup).length +
-    extraInstalls.filter((i) => i.enabled).length +
+    extraInstalls.filter((i) => i.enabled && i.listing.status !== 'banned').length +
     extraInherited.filter((s) => s.enabledInGroup).length
 
+  const actionableNeeds = (secretNeeds.data ?? []).filter(actionable)
+  const actionableNeedSkills = new Set(actionableNeeds.map((n) => n.skill))
   const pendingConnectors = connectorPlugins.filter((p) => {
     if (!p.enabledInGroup) return false
     const c = connectorById.get(p.id)
@@ -206,8 +208,13 @@ export function GroupPluginsPanel({
       p.enabledInGroup &&
       p.bots.some((b) => b.blocker === 'secret' || b.blocker === 'trust' || b.blocker === 'daemon'),
   ).length
-  const actionableNeeds = (secretNeeds.data ?? []).filter(actionable)
-  const pendingCount = Math.max(pendingConnectors + pendingCapabilities, actionableNeeds.length ? 1 : 0)
+  const pendingExtraInstalls = extraInstalls.filter(
+    (i) => i.enabled && i.listing.status !== 'banned' && actionableNeedSkills.has(i.listing.name),
+  ).length
+  const pendingCount = Math.max(
+    pendingConnectors + pendingCapabilities + pendingExtraInstalls,
+    actionableNeeds.length ? 1 : 0,
+  )
 
   const flipPlugin = (p: GroupPluginDto, on: boolean) => {
     setToggling(`p:${p.id}`)
@@ -359,7 +366,7 @@ export function GroupPluginsPanel({
                       <span className="cfg__controls">
                         {needAction ? (
                           <Button size="small" onClick={() => setOpenConnectorId(c.id)}>
-                            {t('去填写')}
+                            {c.cli ? t('去连接') : t('去填写')}
                           </Button>
                         ) : p.enabledInGroup && c ? (
                           <Button size="small" onClick={onOpenCredentials}>
@@ -435,42 +442,58 @@ export function GroupPluginsPanel({
                     </GroupRow>
                   )
                 })}
-                {extraInstalls.map((i) => (
-                  <GroupRow
-                    key={`inst:${i.listing.id}`}
-                    className="cfg__item"
-                    label={
-                      <div className="gs-cap-row">
-                        <span className="gs-cap-tile" aria-hidden="true">
-                          <Icon name="sparkle" size={15} />
-                        </span>
-                        <div className="gs-cap-row__text">
-                          <span className="gs-cap-row__title">
-                            <strong>{i.listing.title}</strong>
-                            <Tag tone="gray">{t('本群')}</Tag>
-                            <Tag tone={i.enabled ? 'green' : 'gray'}>
-                              {i.enabled ? t('已就绪') : t('已停用')}
-                            </Tag>
+                {extraInstalls.map((i) => {
+                  const banned = i.listing.status === 'banned'
+                  const needsSecret = i.enabled && !banned && actionableNeedSkills.has(i.listing.name)
+                  const health: { label: string; tone: 'red' | 'orange' | 'green' | 'gray' } = banned
+                    ? { label: t('已封禁'), tone: 'red' }
+                    : !i.enabled
+                      ? { label: t('已停用'), tone: 'gray' }
+                      : needsSecret
+                        ? { label: t('待填凭据'), tone: 'orange' }
+                        : { label: t('已就绪'), tone: 'green' }
+                  return (
+                    <GroupRow
+                      key={`inst:${i.listing.id}`}
+                      className="cfg__item"
+                      label={
+                        <div className="gs-cap-row">
+                          <span className="gs-cap-tile" aria-hidden="true">
+                            <Icon name="sparkle" size={15} />
                           </span>
-                          <span className="gs-desc">
-                            {i.listing.description || t('通过 / 快捷指令或在对话中触发')}
-                          </span>
+                          <div className="gs-cap-row__text">
+                            <span className="gs-cap-row__title">
+                              <strong>{i.listing.title}</strong>
+                              <Tag tone="gray">{t('本群')}</Tag>
+                              <Tag tone={health.tone}>{health.label}</Tag>
+                            </span>
+                            <span className="gs-desc">
+                              {i.listing.description || t('通过 / 快捷指令或在对话中触发')}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    }
-                  >
-                    {readOnly ? null : (
-                      <span className="cfg__controls">
-                        <Switch
-                          disabled={toggling === `i:${i.listing.id}`}
-                          ariaLabel={t('在本群启用 {name}', { name: i.listing.title })}
-                          checked={i.enabled}
-                          onChange={(on) => flipInstall(i, on)}
-                        />
-                      </span>
-                    )}
-                  </GroupRow>
-                ))}
+                      }
+                    >
+                      {needsSecret || !readOnly ? (
+                        <span className="cfg__controls">
+                          {needsSecret ? (
+                            <Button size="small" onClick={() => setOpenNeeds(true)}>
+                              {t('去填写')}
+                            </Button>
+                          ) : null}
+                          {readOnly ? null : (
+                            <Switch
+                              disabled={toggling === `i:${i.listing.id}`}
+                              ariaLabel={t('在本群启用 {name}', { name: i.listing.title })}
+                              checked={i.enabled}
+                              onChange={(on) => flipInstall(i, on)}
+                            />
+                          )}
+                        </span>
+                      ) : null}
+                    </GroupRow>
+                  )
+                })}
                 {extraInherited.map((s) => (
                   <GroupRow
                     key={`inh:${s.name}`}

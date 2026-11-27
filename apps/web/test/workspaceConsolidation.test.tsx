@@ -353,6 +353,105 @@ describe('Workspace Concept Consolidation · Group & Team Settings', () => {
     expect(within(dlg).queryByRole('switch')).toBeNull()
   })
 
+  it('shows 去连接 for CLI connectors and surfaces banned & secret-needed states on market skill installs', async () => {
+    const cliConn = connectorItem({
+      id: 'p-feishu',
+      connected: false,
+      missing: [],
+      status: 'unchecked',
+      cli: {
+        state: 'needs_login',
+        target: 'm1',
+        readyBotIds: [],
+        machines: [
+          {
+            machineId: 'm1',
+            machineName: 'wanglei-mbp',
+            own: true,
+            profile: 'default',
+            state: 'needs_login',
+            account: null,
+            verified: null,
+            botIds: ['b1'],
+          },
+        ],
+      },
+    })
+    const makeInstall = (
+      id: string,
+      name: string,
+      title: string,
+      status: 'listed' | 'banned',
+    ): InstallDto => ({
+      scope: 'group',
+      enabled: true,
+      pinVersionId: null,
+      resolvedVersionId: `v-${id}`,
+      resolvedRevision: 1,
+      banReason: status === 'banned' ? '已下架' : null,
+      updatedBy: null,
+      updatedAt: now,
+      listing: {
+        id,
+        type: 'skill',
+        name,
+        title,
+        description: `${title}说明`,
+        layer: 'team',
+        status,
+        versionId: `v-${id}`,
+        revision: 1,
+      },
+    })
+    mockApi({
+      'GET /groups/g1/params': { approvalTimeoutMin: 30, chainMaxHops: 3, offlineWaitMin: 30 },
+      'GET /groups/g1/plugins': [connectorPlugin],
+      'GET /groups/g1/connectors': { connectors: [cliConn] },
+      'GET /groups/g1/installs': [
+        makeInstall('l-sec', 'jira-helper', 'Jira 助手', 'listed'),
+        makeInstall('l-ban', 'bad-skill', '已下架技能', 'banned'),
+      ],
+      'GET /groups/g1/secret-needs': [
+        {
+          skill: 'jira-helper',
+          skillVersionId: 'v-l-sec',
+          personalSkill: false,
+          spec: { name: 'JIRA_KEY', title: 'Jira Key', description: '', mode: 'personal', required: true },
+          status: 'unfilled',
+          def: { id: 's9', scope: 'group', mode: 'personal', description: '', hasValue: false },
+          target: null,
+          mine: null,
+          action: 'fill_personal',
+        },
+      ],
+      'GET /groups/g1/inherited-skills': [],
+    })
+
+    render(
+      <MemoryRouter>
+        <GroupSettingsDialog group={group()} tab="plugins" onClose={() => {}} />
+      </MemoryRouter>,
+    )
+
+    const dlg = screen.getByRole('dialog', { name: '插件与能力 · 支付服务重构' })
+    // 1 CLI connector + 1 secret-needed skill (banned skill excluded from enabled count) = 2 enabled, 2 pending.
+    expect(await within(dlg).findByText('本群已启用 2 个插件 · 2 个待配置')).toBeTruthy()
+    const connSection = within(dlg).getByRole('region', { name: '连接外部系统' })
+    expect(within(connSection).getByRole('button', { name: '去连接' })).toBeTruthy()
+    expect(within(connSection).queryByRole('button', { name: '去填写' })).toBeNull()
+
+    const capSection = within(dlg).getByRole('region', { name: '专业创作与专项能力' })
+    const jiraRow = within(capSection).getByText('Jira 助手').closest('.cfg__item') as HTMLElement
+    expect(within(jiraRow).getByText('待填凭据')).toBeTruthy()
+    expect(within(jiraRow).getByRole('button', { name: '去填写' })).toBeTruthy()
+    const bannedRow = within(capSection).getByText('已下架技能').closest('.cfg__item') as HTMLElement
+    expect(within(bannedRow).getByText('已封禁')).toBeTruthy()
+    expect(within(bannedRow).queryByText('已就绪')).toBeNull()
+
+    fireEvent.click(within(jiraRow).getByRole('button', { name: '去填写' }))
+    expect(await screen.findByRole('dialog', { name: '配置密钥' })).toBeTruthy()
+  })
+
   it('consolidates TeamSettingsDialog into 插件与能力 + 凭据与授权 with collapsed developer config', async () => {
     mockApi({
       'GET /teams/t1/members': [],
@@ -485,7 +584,7 @@ describe('Workspace Concept Consolidation · Bot Details 已装配能力', () =>
             title: '飞书',
             description: '读写飞书文档与日程',
             type: 'plugin',
-            icon: null,
+            icon: 'assets/feishu.svg',
             versionId: 'v1',
             scene: 'connect',
             capabilities: ['connect'],
@@ -584,7 +683,7 @@ describe('Workspace Concept Consolidation · Bot Details 已装配能力', () =>
       'POST /market/p-exec/readiness/action': { ok: true, notified: true },
     })
 
-    // Non-owner, non-shared member still sees 已装配能力!
+    // Non-owner, non-shared member still sees 已装配能力 and relative icons resolve via previewUrl!
     render(
       <MemoryRouter initialEntries={['/bot/b1?groupId=g1']}>
         <BotPage bot={bot()} me={memberUser} onSettings={() => {}} />
@@ -597,6 +696,9 @@ describe('Workspace Concept Consolidation · Bot Details 已装配能力', () =>
     expect(await within(panel).findByText('已就绪 · 现在就能用（1）')).toBeTruthy()
     expect(within(panel).getByText('待处理 / 暂不可用（2）')).toBeTruthy()
     expect(within(panel).getByText('飞书')).toBeTruthy()
+    expect(panel.querySelector('img.bot-cap__img')?.getAttribute('src')).toBe(
+      '/api/plugins/p-feishu/files/assets/feishu.svg',
+    )
     expect(within(panel).getByText('还缺少你的数仓 Key，填写后即可调用')).toBeTruthy()
     expect(within(panel).getByRole('button', { name: '去填写' })).toBeTruthy()
 
@@ -614,6 +716,63 @@ describe('Workspace Concept Consolidation · Bot Details 已装配能力', () =>
     // Switch scope to 全部所在群（2）.
     fireEvent.click(within(panel).getByRole('radio', { name: '全部所在群（2）' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/bots/b1/capabilities')).toBe(true))
+  })
+
+  it('respects ownMachine=false even when me.id === bot.ownerId', async () => {
+    mockApi({
+      'GET /users': [{ id: 'u1', name: '王磊', account: 'wanglei' }],
+      'GET /bots/b1/activity': [],
+      'GET /bots/b1/feishu': { app: null },
+      'GET /usage?by=user&days=7&botId=b1': [],
+      'GET /usage?by=group&days=7&botId=b1': [],
+      'GET /usage/daily?days=7&botId=b1': [],
+      'GET /bots/b1/capabilities': {
+        botId: 'b1',
+        groupId: null,
+        groups: [{ id: 'g1', name: '支付服务重构' }],
+        pluginsEnabled: true,
+        ready: [],
+        unavailable: [
+          {
+            pluginId: 'p-exec',
+            name: 'tracker',
+            title: '缺陷跟踪',
+            description: '拉取研发缺陷单',
+            type: 'plugin',
+            icon: null,
+            versionId: 'v3',
+            scene: 'dev',
+            capabilities: ['do'],
+            source: 'team',
+            sourceLabel: '团队插件',
+            statusLabel: '',
+            createsArtifacts: false,
+            chatCommand: null,
+            groups: [{ id: 'g1', name: '支付服务重构' }],
+            groupId: 'g1',
+            blocker: 'trust',
+            reasonLabel: '待电脑授权',
+            reason: '需要电脑主人允许运行',
+            action: 'trust-machine',
+            missingSecrets: [],
+            ownMachine: false,
+            machineId: 'm-other',
+            machineName: 'other-mbp',
+            machineOwnerName: '陈晨',
+            minDaemon: null,
+            daemonVersion: '0.9.0',
+          },
+        ],
+      },
+    })
+    render(
+      <MemoryRouter initialEntries={['/bot/b1']}>
+        <BotPage bot={bot({ ownerId: adminUser.id })} me={adminUser} onSettings={() => {}} />
+      </MemoryRouter>,
+    )
+    const panel = await screen.findByRole('region', { name: '已装配能力' })
+    expect(await within(panel).findByRole('button', { name: '提醒机主' })).toBeTruthy()
+    expect(within(panel).queryByRole('button', { name: '去授权' })).toBeNull()
   })
 })
 
