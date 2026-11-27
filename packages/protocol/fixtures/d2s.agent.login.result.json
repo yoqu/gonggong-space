@@ -1,0 +1,7 @@
+{
+  "t": "agent.login.result",
+  "opId": "op-1",
+  "kind": "codebuddy",
+  "ok": true,
+  "user": "alice"
+}

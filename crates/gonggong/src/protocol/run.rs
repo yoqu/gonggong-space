@@ -267,6 +267,12 @@ pub enum RunOutcome {
     Failed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RunErrorKind {
+    Auth,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunDone {
@@ -278,6 +284,8 @@ pub struct RunDone {
     pub session_id: Option<String>,
     pub new_session_reason: Option<String>,
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_kind: Option<RunErrorKind>,
     pub git: Option<GitStatus>,
     pub patch: Option<String>,
     /// The repos `patch` spans, root first.

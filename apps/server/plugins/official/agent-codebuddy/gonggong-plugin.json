@@ -66,11 +66,43 @@
           "checks": [
             {
               "type": "env",
-              "names": ["CODEBUDDY_API_KEY"],
+              "names": ["CODEBUDDY_AUTH_TOKEN", "CODEBUDDY_API_KEY"],
               "label": "API key"
+            },
+            {
+              "type": "jsonPresent",
+              "file": "{home}/settings.json",
+              "path": "/env/CODEBUDDY_AUTH_TOKEN",
+              "label": "API key"
+            },
+            {
+              "type": "jsonPresent",
+              "file": "{home}/settings.json",
+              "path": "/env/CODEBUDDY_API_KEY",
+              "label": "API key"
+            },
+            {
+              "type": "jsonPresent",
+              "file": "{home}/settings.json",
+              "path": "/apiKeyHelper",
+              "label": "API key"
+            },
+            {
+              "type": "authFile",
+              "envOverride": "CODEBUDDY_AUTH_FILE_PATH",
+              "paths": {
+                "macos": "Library/Application Support/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info",
+                "windows": "AppData/Local/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info",
+                "linux": ".local/share/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info"
+              },
+              "excludeSuffix": ".logged-out",
+              "jsonPaths": ["/auth/domain", "/account/uid"],
+              "label": "账号登录"
             }
           ],
-          "loggedOut": false,
+          "loggedOut": true,
+          "acpAuth": true,
+          "acpAuthUrlNotification": "_codebuddy.ai/authUrl",
           "command": "codebuddy",
           "hint": "进入后输入 /login，用微信、Google/GitHub 或企业账号登录"
         },

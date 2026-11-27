@@ -23,6 +23,7 @@ import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { machineDto, publishBots } from '../bots/dto.js'
 import { machineAdminRoutes } from './admin.js'
+import { agentLoginRoutes } from './agent-login.js'
 import { afterBind, bindMachine, CODE_ALPHABET, CODE_FORMAT } from './bind.js'
 import { gitAccessRoutes } from './git-access.js'
 import { linkRoutes } from './link.js'
@@ -88,6 +89,7 @@ export function machineRoutes(ctx: Ctx) {
     }
     await app.register(netRoutes(ctx))
     await app.register(toolRoutes(ctx))
+    await app.register(agentLoginRoutes(ctx))
     await app.register(gitAccessRoutes(ctx))
     await app.register(machineAdminRoutes(ctx))
     ctx.hub.on('online', pushState)

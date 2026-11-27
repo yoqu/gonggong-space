@@ -68,6 +68,9 @@ export const cardColumns = {
 }
 type CardRow = Pick<RunRow, keyof typeof cardColumns>
 
+const AUTH_ERROR_STEP_KEY = '运行出错：{agent} 尚未登录或登录已过期'
+const AUTH_ERROR_STEP_RE = /Authentication required|"category"\s*:\s*"auth"|尚未登录或登录已过期/i
+
 /** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / system param). */
 const runDto = (
   r: CardRow,
@@ -90,6 +93,10 @@ const runDto = (
   status: r.status as RunStatus,
   step: r.step,
   ...stepI18nOf(r),
+  ...((r.stepI18n?.key === AUTH_ERROR_STEP_KEY ||
+    (r.status === 'interrupted' && AUTH_ERROR_STEP_RE.test(r.step))) && {
+    errorKind: 'auth' as const,
+  }),
   filesChanged: r.filesChanged,
   usage: (r.usage as Usage | null) ?? null,
   newSessionReason: r.newSessionReason,

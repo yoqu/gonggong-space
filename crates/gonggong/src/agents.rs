@@ -1,7 +1,7 @@
 use crate::adapters;
 use crate::engine::ADAPTERS;
 use crate::local::{LocalSettings, load_catalogs, load_profile_catalogs};
-use crate::protocol::{AgentCatalog, AgentKind, AgentState};
+use crate::protocol::{AgentCatalog, AgentKind, AgentLoginFlow, AgentLoginState, AgentState};
 use crate::providers::{Endpoint, Selection, Store};
 use crate::t;
 use sha2::{Digest, Sha256};
@@ -302,6 +302,13 @@ fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentState
     let path = locate(home, kind, local);
     let available = path.as_deref().is_some_and(Path::is_file);
     let tool = crate::tools::ToolKind::of(kind);
+    let (login_state, login_label, login_flow) = match path.as_deref().filter(|_| available) {
+        Some(cli) => {
+            let (state, label) = classify_login(login_status_in(home, kind, cli));
+            (Some(state), label, Some(login_flow_for(kind)))
+        }
+        None => (None, None, None),
+    };
     let mut state = AgentState {
         kind,
         available,
@@ -313,10 +320,37 @@ fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentState
         latest: crate::tools::cached_latest(home, tool),
         upgrade_command: None,
         install_command: None,
+        login_state,
+        login_label,
+        login_flow,
     };
     let install = crate::tools::agent_status(home, &state);
     (state.upgrade_command, state.install_command) = (install.upgrade_command, install.install_command);
     state
+}
+
+pub fn login_flow_for(kind: AgentKind) -> AgentLoginFlow {
+    if adapters::get(kind).is_some_and(|a| a.spec.login.acp_auth) {
+        AgentLoginFlow::Acp
+    } else {
+        AgentLoginFlow::Terminal
+    }
+}
+
+pub fn classify_login(status: Option<String>) -> (AgentLoginState, Option<String>) {
+    let Some(s) = status else {
+        return (AgentLoginState::Unknown, None);
+    };
+    let out_prefix = t!("未登录");
+    if s == out_prefix {
+        return (AgentLoginState::LoggedOut, None);
+    }
+    if s.starts_with(out_prefix) {
+        let why = s.split_once(" · ").map(|(_, rest)| rest.to_string());
+        return (AgentLoginState::LoggedOut, why);
+    }
+    let label = s.split_once(" · ").map_or(s.clone(), |(_, how)| how.to_string());
+    (AgentLoginState::LoggedIn, Some(label))
 }
 
 /// The agent CLI to run: the configured path (even if it no longer exists, so the error names it), else the
@@ -514,13 +548,20 @@ pub fn logged_out(kind: AgentKind, user_home: &Path, env: &dyn Fn(&str) -> Optio
 /// 登录 state as the agent CLI reports it (`claude auth status`, `codex login status`) or, for the others, as their
 /// manifest's checks find it; `None` if it cannot tell.
 pub fn login_status(kind: AgentKind, cli: &Path) -> Option<String> {
+    login_status_in(&crate::config::home(), kind, cli)
+}
+
+pub fn login_status_in(home: &Path, kind: AgentKind, cli: &Path) -> Option<String> {
     let args = match kind {
         AgentKind::Claude => ["auth", "status"],
         AgentKind::Codex => ["login", "status"],
         _ => return adapter(kind).login_status(&crate::config::user_home(), &env_var),
     };
-    let out = crate::proc::command(cli).args(args).output().ok()?;
-    let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let mut cmd = crate::proc::command(cli);
+    if let Some(bin) = crate::tools::runtime_bin(home) {
+        cmd.env("PATH", crate::tools::prepend_path(&bin));
+    }
+    let text = crate::proc::output_within(cmd.args(args), VERSION_TIMEOUT)?;
     login_label(kind, &text)
 }
 
@@ -712,6 +753,29 @@ mod tests {
         assert_eq!(login_label(Codex, "error: unknown"), None);
     }
 
+    #[test]
+    fn classifies_login_state_and_flow() {
+        use super::{classify_login, login_flow_for};
+        use crate::protocol::{AgentKind, AgentLoginFlow, AgentLoginState};
+        assert_eq!(classify_login(None), (AgentLoginState::Unknown, None));
+        assert_eq!(classify_login(Some("未登录".into())), (AgentLoginState::LoggedOut, None));
+        assert_eq!(
+            classify_login(Some("未登录 · Google 账号登录已不支持".into())),
+            (AgentLoginState::LoggedOut, Some("Google 账号登录已不支持".into()))
+        );
+        assert_eq!(
+            classify_login(Some("已登录 · 账号登录".into())),
+            (AgentLoginState::LoggedIn, Some("账号登录".into()))
+        );
+        assert_eq!(
+            classify_login(Some("已登录 · Claude Max".into())),
+            (AgentLoginState::LoggedIn, Some("Claude Max".into()))
+        );
+        assert_eq!(login_flow_for(AgentKind::Codebuddy), AgentLoginFlow::Acp);
+        assert_eq!(login_flow_for(AgentKind::Claude), AgentLoginFlow::Terminal);
+        assert_eq!(login_flow_for(AgentKind::Codex), AgentLoginFlow::Terminal);
+    }
+
     #[cfg(unix)]
     #[test]
     fn runs_an_npm_script_on_our_node_and_a_native_binary_as_it_is() {
@@ -807,6 +871,9 @@ mod tests {
             managed: false,
             upgrade_command: None,
             install_command: None,
+            login_state: None,
+            login_label: None,
+            login_flow: None,
         };
         for (id, model) in ids.iter().zip(["opus", "sonnet"]) {
             let e = &store.get(id).unwrap().endpoints[0];
@@ -838,8 +905,14 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let home = tempfile::tempdir().unwrap();
         let (cli, calls) = (home.path().join("claude"), home.path().join("calls"));
-        std::fs::write(&cli, format!("#!/bin/sh\necho x >> '{}'\necho '2.1.4 (Claude Code)'\n", calls.display()))
-            .unwrap();
+        std::fs::write(
+            &cli,
+            format!(
+                "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo x >> '{}'; echo '2.1.4 (Claude Code)'; fi\n",
+                calls.display()
+            ),
+        )
+        .unwrap();
         std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut local = LocalSettings::default();
         local.agents.insert(AgentKind::Claude, AgentSettings { path: Some(cli.to_string_lossy().into()) });

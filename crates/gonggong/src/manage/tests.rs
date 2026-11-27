@@ -424,6 +424,9 @@ async fn bot_catalog_follows_what_a_new_session_would_use() {
         managed: false,
         upgrade_command: None,
         install_command: None,
+        login_state: None,
+        login_label: None,
+        login_flow: None,
     };
     let manage = Manage::new(home.path().into(), home.path().into());
     manage.watch_agents(watch::channel(vec![claude]).0);
@@ -477,6 +480,9 @@ async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one(
         managed: false,
         upgrade_command: None,
         install_command: None,
+        login_state: None,
+        login_label: None,
+        login_flow: None,
     };
     let dir = profile.path().to_string_lossy().to_string();
     let id = Store::update(home.path(), |s| {
@@ -554,6 +560,9 @@ async fn a_profile_with_its_own_settings_offers_only_its_own_probed_catalog() {
         managed: false,
         upgrade_command: None,
         install_command: None,
+        login_state: None,
+        login_label: None,
+        login_flow: None,
     };
     crate::local::save_catalog(
         home.path(),
@@ -641,7 +650,8 @@ fn features_include_cc_switch_only_when_present() {
             "agentState",
             "protocolProviders",
             "threadSessions",
-            "connectors"
+            "connectors",
+            "agent_login"
         ]
     );
     std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -690,6 +700,7 @@ fn features_include_cc_switch_only_when_present() {
             "protocolProviders",
             "threadSessions",
             "connectors",
+            "agent_login",
             "ccSwitch"
         ]
     );

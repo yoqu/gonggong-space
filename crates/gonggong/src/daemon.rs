@@ -46,6 +46,7 @@ pub struct Stopped {
 pub struct Daemon {
     monitor: Monitor,
     agents: watch::Sender<Vec<AgentState>>,
+    engine: Engine,
     /// Re-detection, catalog probing, the preview tunnel and the GitHub update check.
     background: Vec<JoinHandle<()>>,
     task: JoinHandle<Stopped>,
@@ -105,7 +106,7 @@ impl Daemon {
             config: opts.config,
             machine: machine_info(),
             agents: rx,
-            handler: engine,
+            handler: engine.clone(),
             max_backoff: MAX_BACKOFF,
             upgrader,
             monitor: monitor.clone(),
@@ -118,7 +119,7 @@ impl Daemon {
             m.rejected(*reason, message.clone(), &wiped);
             Stopped { fatal, wiped }
         });
-        Ok(Daemon { monitor, agents, background, task, services, _lock: lock })
+        Ok(Daemon { monitor, agents, engine, background, task, services, _lock: lock })
     }
 
     pub fn status(&self) -> Status {
@@ -140,6 +141,20 @@ impl Daemon {
     /// A fresh local detection (the desktop's 重新检测, a changed path); reported to the server if it differs.
     pub fn set_agents(&self, agents: Vec<AgentState>) {
         publish_agents(&self.agents, agents);
+    }
+
+    pub fn engine(&self) -> Engine {
+        self.engine.clone()
+    }
+
+    /// Re-probes `kind`'s model catalog in the background (e.g. after desktop interactive login succeeds).
+    pub fn reprobe(&self, kind: AgentKind) {
+        let engine = self.engine.clone();
+        tokio::spawn(async move {
+            if let Err(e) = engine.reprobe(kind).await {
+                tracing::warn!("reprobe of {kind:?} failed: {e:#}");
+            }
+        });
     }
 
     /// Runs until the server rejects this machine for good.

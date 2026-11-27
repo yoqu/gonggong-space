@@ -99,9 +99,58 @@ fn tells_the_logins_from_env_and_files() {
     std::fs::remove_file(home.path().join(".gemini/settings.json")).unwrap();
 
     let codebuddy = a(AgentKind::Codebuddy);
-    assert_eq!(codebuddy.login_status(home.path(), &none), None, "it cannot tell");
-    let cb = |n: &str| (n == "CODEBUDDY_API_KEY").then(|| "k".to_string());
-    assert_eq!(codebuddy.login_status(home.path(), &cb).as_deref(), Some("已登录 · API key"));
+    assert!(codebuddy.spec.login.acp_auth);
+    assert_eq!(codebuddy.spec.login.acp_auth_url_notification.as_deref(), Some("_codebuddy.ai/authUrl"));
+    assert_eq!(codebuddy.login_status(home.path(), &none).as_deref(), Some("未登录"));
+    let cb_key = |n: &str| (n == "CODEBUDDY_API_KEY").then(|| "k".to_string());
+    assert_eq!(codebuddy.login_status(home.path(), &cb_key).as_deref(), Some("已登录 · API key"));
+    let cb_tok = |n: &str| (n == "CODEBUDDY_AUTH_TOKEN").then(|| "tok".to_string());
+    assert_eq!(codebuddy.login_status(home.path(), &cb_tok).as_deref(), Some("已登录 · API key"));
+
+    // ~/.codebuddy/settings.json: env.CODEBUDDY_API_KEY, env.CODEBUDDY_AUTH_TOKEN, apiKeyHelper
+    let cb_dir = home.path().join(".codebuddy");
+    std::fs::create_dir_all(&cb_dir).unwrap();
+    std::fs::write(cb_dir.join("settings.json"), r#"{"env":{"CODEBUDDY_API_KEY":"sk-1"}}"#).unwrap();
+    assert_eq!(codebuddy.login_status(home.path(), &none).as_deref(), Some("已登录 · API key"));
+    std::fs::write(cb_dir.join("settings.json"), r#"{"env":{"CODEBUDDY_AUTH_TOKEN":"tok-1"}}"#).unwrap();
+    assert_eq!(codebuddy.login_status(home.path(), &none).as_deref(), Some("已登录 · API key"));
+    std::fs::write(cb_dir.join("settings.json"), r#"{"apiKeyHelper":"/usr/local/bin/helper"}"#).unwrap();
+    assert_eq!(codebuddy.login_status(home.path(), &none).as_deref(), Some("已登录 · API key"));
+    std::fs::write(cb_dir.join("settings.json"), r#"{"apiKeyHelper":"   "}"#).unwrap();
+    assert_eq!(codebuddy.login_status(home.path(), &none).as_deref(), Some("未登录"));
+    std::fs::remove_file(cb_dir.join("settings.json")).unwrap();
+
+    // Cross-platform OAuth .info file + .logged-out exclusion + CODEBUDDY_AUTH_FILE_PATH override
+    for (os, rel) in [
+        ("macos", "Library/Application Support/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info"),
+        ("windows", "AppData/Local/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info"),
+        ("linux", ".local/share/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info"),
+    ] {
+        let os_home = tempfile::tempdir().unwrap();
+        let info = os_home.path().join(rel);
+        std::fs::create_dir_all(info.parent().unwrap()).unwrap();
+        std::fs::write(&info, r#"{"auth":{"domain":"codebuddy.cn"}}"#).unwrap();
+        assert_eq!(codebuddy.login_status_for_os(os_home.path(), &none, os).as_deref(), Some("已登录 · 账号登录"));
+        std::fs::write(&info, r#"{"account":{"uid":"u-123"}}"#).unwrap();
+        assert_eq!(codebuddy.login_status_for_os(os_home.path(), &none, os).as_deref(), Some("已登录 · 账号登录"));
+        std::fs::write(&info, r#"{"auth":{},"account":{}}"#).unwrap();
+        assert_eq!(codebuddy.login_status_for_os(os_home.path(), &none, os).as_deref(), Some("未登录"));
+        std::fs::write(&info, r#"{"auth":{"domain":"codebuddy.cn"}}"#).unwrap();
+        let mut logged_out = info.as_os_str().to_os_string();
+        logged_out.push(".logged-out");
+        std::fs::write(&logged_out, "1").unwrap();
+        assert_eq!(
+            codebuddy.login_status_for_os(os_home.path(), &none, os).as_deref(),
+            Some("未登录"),
+            "logged-out marker suppresses session file on {os}"
+        );
+    }
+    let override_dir = tempfile::tempdir().unwrap();
+    let custom_info = override_dir.path().join("custom.info");
+    std::fs::write(&custom_info, r#"{"account":{"uid":"override-uid"}}"#).unwrap();
+    let cb_override =
+        |n: &str| (n == "CODEBUDDY_AUTH_FILE_PATH").then(|| custom_info.to_string_lossy().into_owned());
+    assert_eq!(codebuddy.login_status(home.path(), &cb_override).as_deref(), Some("已登录 · 账号登录"));
 
     let dir = tempfile::tempdir().unwrap();
     let at = |n: &str| (n == "PI_CODING_AGENT_DIR" || n == "DSH_HOME").then(|| dir.path().to_string_lossy().into());

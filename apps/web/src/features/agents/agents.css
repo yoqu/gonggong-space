@@ -44,6 +44,15 @@
   flex: none;
   color: var(--label-tertiary);
 }
+.ag-row__actions {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.ag-row__actions:empty {
+  display: none;
+}
 .ag-detail {
   display: flex;
   flex-direction: column;

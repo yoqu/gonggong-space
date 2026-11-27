@@ -1,0 +1,6 @@
+{
+  "t": "agent.login",
+  "op": "cancel",
+  "opId": "op-1",
+  "kind": "codebuddy"
+}

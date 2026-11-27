@@ -15,7 +15,7 @@ import {
   RunStatus,
   Usage,
 } from '../common.js'
-import { PermissionOption, PlanItem, RunEvent } from '../daemon.js'
+import { PermissionOption, PlanItem, RunErrorKind, RunEvent } from '../daemon.js'
 import { HtmlRenderRef } from '../html-render.js'
 import { I18nText } from '../i18n.js'
 import { RunSecret } from '../secrets.js'
@@ -119,6 +119,8 @@ export const RunDto = z.object({
   step: z.string(),
   /** `step`'s translatable source when the server wrote it; `step` holds its Chinese rendering. */
   stepI18n: I18nText.optional(),
+  /** Structured failure classification (e.g. `auth` when the agent CLI is not signed in); absent otherwise. */
+  errorKind: RunErrorKind.optional(),
   filesChanged: z.number().int(),
   usage: Usage.nullable(),
   newSessionReason: z.string().nullable(),

@@ -34,6 +34,7 @@ pub struct Host {
     pub home: PathBuf,
     state: Mutex<State>,
     notify: Notify,
+    agent_login: gonggong::agent_login::AgentLoginManager,
 }
 
 impl Host {
@@ -42,7 +43,29 @@ impl Host {
         if let Err(e) = gonggong::providers::Store::migrate_file(&home) {
             tracing::warn!("providers.json migration failed: {e:#}");
         }
-        Host { home, state: Mutex::new(State::Idle), notify }
+        Host {
+            home,
+            state: Mutex::new(State::Idle),
+            notify,
+            agent_login: gonggong::agent_login::AgentLoginManager::new(),
+        }
+    }
+
+    pub fn agent_login(&self) -> gonggong::agent_login::AgentLoginManager {
+        self.agent_login.clone()
+    }
+
+    pub fn engine(&self) -> Option<gonggong::engine::Engine> {
+        match &*self.state.lock().unwrap() {
+            State::Running(daemon) => Some(daemon.engine()),
+            _ => None,
+        }
+    }
+
+    pub fn reprobe_agent(&self, kind: gonggong::protocol::AgentKind) {
+        if let State::Running(daemon) = &*self.state.lock().unwrap() {
+            daemon.reprobe(kind);
+        }
     }
 
     pub fn snapshot(&self) -> Snapshot {

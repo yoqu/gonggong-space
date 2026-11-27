@@ -23,8 +23,19 @@ pub fn async_command(program: impl AsRef<OsStr>) -> tokio::process::Command {
 /// Stdout of a short-lived `cmd` (a `--version` probe), or None if it fails or outlives `limit`: then it is killed, so
 /// a hung CLI cannot stall detection. Its output must fit the pipe buffer.
 pub fn stdout_within(cmd: &mut std::process::Command, limit: Duration) -> Option<String> {
+    run_within(cmd, limit, false)
+}
+
+/// Combined stdout + stderr of a short-lived `cmd` (e.g. `claude auth status` / `codex login status`), killed past
+/// `limit`. Output must fit the pipe buffer.
+pub fn output_within(cmd: &mut std::process::Command, limit: Duration) -> Option<String> {
+    run_within(cmd, limit, true)
+}
+
+fn run_within(cmd: &mut std::process::Command, limit: Duration, with_stderr: bool) -> Option<String> {
     use std::process::Stdio;
-    let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let stderr = if with_stderr { Stdio::piped() } else { Stdio::null() };
+    let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(stderr).spawn().ok()?;
     let deadline = Instant::now() + limit;
     loop {
         match child.try_wait() {
@@ -39,6 +50,9 @@ pub fn stdout_within(cmd: &mut std::process::Command, limit: Duration) -> Option
     }
     let mut out = vec![];
     child.stdout.take()?.read_to_end(&mut out).ok()?;
+    if with_stderr && let Some(mut err) = child.stderr.take() {
+        let _ = err.read_to_end(&mut out);
+    }
     Some(String::from_utf8_lossy(&out).into_owned())
 }
 

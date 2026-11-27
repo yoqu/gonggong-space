@@ -1,17 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { useToasts } from '@web/ui/toast'
 import { beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { App } from '../src/App'
 import { ipc, onOpenLinks } from '../src/ipc'
 import { useDaemon } from '../src/store'
-import { INFO, status } from './ipc-mock'
+import { agent, INFO, STATE, status } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 const LINK = 'gonggong://bind?server=https%3A%2F%2Fevil.example&code=K7QM-4X2P'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useDaemon.setState({ info: null, snapshot: { phase: 'unbound' }, botGuideDismissed: false })
+  useToasts.setState({ items: [] })
+  useDaemon.setState({
+    info: null,
+    snapshot: { phase: 'unbound' },
+    botGuideDismissed: false,
+    pendingAgentIntent: null,
+  })
   m.snapshot.mockResolvedValue({ phase: 'unbound' })
   m.readClipboard.mockResolvedValue('')
   m.parseLink.mockResolvedValue({ server: 'https://evil.example', code: 'K7QM-4X2P' })
@@ -53,4 +60,20 @@ it('shows the inline create-Bot guide on Overview after binding without auto-lau
   useDaemon.setState({ snapshot: { phase: 'running', status: status() } })
   expect(await screen.findByText('电脑已接入，接下来创建你的第一个 Bot')).toBeTruthy()
   expect(m.openWeb).not.toHaveBeenCalled()
+})
+
+it('routes gonggong://agents?kind=codebuddy&action=login to Agents page and login dialog when already bound', async () => {
+  m.appInfo.mockResolvedValue(INFO)
+  m.agentFeatures.mockResolvedValue(['tools', 'providers', 'protocolProviders', 'codebuddy', 'agent_login'])
+  m.tools.mockResolvedValue({
+    ...STATE,
+    agents: [agent('codebuddy', { loginState: 'logged_out', loginFlow: 'acp' })],
+  })
+  vi.mocked(onOpenLinks).mockImplementation(async (cb) => {
+    cb(['gonggong://agents?kind=codebuddy&action=login'])
+    return () => {}
+  })
+  render(<App />)
+  expect(await screen.findByRole('dialog', { name: /登录 CodeBuddy.*官方账号/ })).toBeTruthy()
+  expect(screen.queryByText(/请先在设置中解绑/)).toBeNull()
 })

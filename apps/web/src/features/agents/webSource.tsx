@@ -1,4 +1,6 @@
 import type {
+  AgentKind,
+  AgentLoginStartedDto,
   AgentSettingsReq,
   CcSwitchImportedDto,
   CcSwitchPreviewDto,
@@ -21,7 +23,55 @@ import { realtime } from '../../lib/realtime'
 import { AgentLoginDialog } from '../machines/AgentLoginDialog'
 import { DirPicker, join } from '../workspaces/DirPicker'
 import { AgentsPanel } from './AgentsPanel'
-import type { AgentsSource } from './source'
+import type { AgentLoginDriver, AgentsSource } from './source'
+
+/** Web login driver: relays native ACP login to the machine's daemon via server HTTP + WS. */
+export function webLoginDriver(machine: MachineDto): AgentLoginDriver {
+  const id = machine.id
+  return {
+    mode: 'web',
+    supportsAcp: machine.online && machine.features.includes('agent_login'),
+    startAcp: async ({ kind, methodId, openBrowser }) => {
+      const res = await api.post<AgentLoginStartedDto>(`/machines/${id}/agents/${kind}/login`, {
+        methodId,
+        openBrowser,
+      })
+      return { opId: res.opId }
+    },
+    cancelAcp: async (kind, opId) => {
+      await api.post(`/machines/${id}/agents/${kind}/login/cancel`, { opId })
+    },
+    subscribeAcp: (cb) =>
+      realtime.subscribe((e) => {
+        if (
+          e.t !== 'machine.agentLogin.methods' &&
+          e.t !== 'machine.agentLogin.auth' &&
+          e.t !== 'machine.agentLogin.progress' &&
+          e.t !== 'machine.agentLogin.result'
+        )
+          return
+        if (e.machineId !== id) return
+        if (e.t === 'machine.agentLogin.methods')
+          cb({ t: 'agent.login.methods', opId: e.opId, kind: e.kind, methods: e.methods })
+        else if (e.t === 'machine.agentLogin.auth')
+          cb({ t: 'agent.login.auth', opId: e.opId, kind: e.kind, url: e.url, methodId: e.methodId })
+        else if (e.t === 'machine.agentLogin.progress')
+          cb({ t: 'agent.login.progress', opId: e.opId, kind: e.kind, stage: e.stage, line: e.line })
+        else
+          cb({
+            t: 'agent.login.result',
+            opId: e.opId,
+            kind: e.kind,
+            ok: e.ok,
+            error: e.error,
+            user: e.user,
+          })
+      }),
+    openExternalUrl: (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
+  }
+}
 
 /** The web's source: everything is relayed live to the machine's daemon by the server, nothing is kept there. */
 export function machineSource(machine: MachineDto, openBot?: (id: string) => void): AgentsSource {
@@ -111,8 +161,16 @@ export function machineSource(machine: MachineDto, openBot?: (id: string) => voi
         onClose={onClose}
       />
     ),
-    renderLogin: ({ agent, onClose, onAddProvider }) => (
-      <AgentLoginDialog machine={machine} agent={agent} onClose={onClose} onAddProvider={onAddProvider} />
+    renderLogin: ({ agent, agentState, onClose, onAddProvider, onLoggedIn }) => (
+      <AgentLoginDialog
+        machine={machine}
+        agent={agent}
+        agentState={agentState}
+        loginDriver={webLoginDriver(machine)}
+        onClose={onClose}
+        onAddProvider={onAddProvider}
+        onLoggedIn={onLoggedIn}
+      />
     ),
     openBot,
   }
@@ -130,9 +188,27 @@ export function useMachineSource(machine: MachineDto) {
 }
 
 /** The Agent page of a machine on the web, with the bots the member sees on it. */
-export function MachineAgentsPanel({ machine }: { machine: MachineDto }) {
+export function MachineAgentsPanel({
+  machine,
+  initialOpen,
+  initialLogin,
+  onInitialLoginHandled,
+}: {
+  machine: MachineDto
+  initialOpen?: AgentKind | null
+  initialLogin?: AgentKind | null
+  onInitialLoginHandled?: () => void
+}) {
   const source = useMachineSource(machine)
   const all = useWorkspace((s) => s.bots)
   const bots = useMemo(() => all.filter((b) => b.machineId === machine.id), [all, machine.id])
-  return <AgentsPanel source={source} bots={bots} />
+  return (
+    <AgentsPanel
+      source={source}
+      bots={bots}
+      initialOpen={initialOpen}
+      initialLogin={initialLogin}
+      onInitialLoginHandled={onInitialLoginHandled}
+    />
+  )
 }

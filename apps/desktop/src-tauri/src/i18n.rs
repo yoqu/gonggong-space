@@ -16,6 +16,7 @@ const EN: &[(&str, &str)] = &[
     ("选择配置目录", "Choose the configuration directory"),
     ("找不到 {path}", "Not found: {path}"),
     ("选择 {agent} 可执行文件", "Choose the {agent} executable"),
+    ("仅支持打开 http/https 链接", "Only http/https links are supported"),
 ];
 
 pub fn text(zh: &'static str) -> &'static str {

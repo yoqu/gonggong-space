@@ -404,4 +404,15 @@ export default {
   不再提醒: "Don't show again",
   '已收起提示；随时可点卡片右上角「{label}」调整权限':
     'Tip hidden. Click "{label}" at the top right of any card anytime to adjust access settings',
+  '{agent} 尚未登录': '{agent} is not signed in',
+  '请先登录官方账号或在供应商中配置 API Key，完成后重新运行。':
+    'Sign in to the official account or configure an API key provider, then rerun.',
+  '请等待电脑主人 {owner} 登录 {agent} 后重试':
+    'Wait for the computer owner {owner} to sign in to {agent}, then try again',
+  电脑主人: 'the owner',
+  '{agent} 已登录': '{agent} signed in',
+  立即重新运行: 'Rerun now',
+  '去登录 {agent}': 'Sign in to {agent}',
+  '配置 API Key': 'Configure API Key',
+  '{agent} 尚未登录或登录已过期': '{agent} is not signed in or its session has expired',
 } satisfies Record<string, string>

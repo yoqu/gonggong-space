@@ -361,3 +361,16 @@ export function OfflineGlyph() {
     </svg>
   )
 }
+
+/** Daemon reason codes; the first session of a (group, bot) pair needs no note. */
+const NEW_SESSION: Record<string, string | null> = {
+  first: null,
+  resume_failed: t('会话恢复失败，已开新会话并补送最近 50 条群消息'),
+  requested: t('已按要求开启新会话'),
+  schedule: t('定时任务在独立的新会话中运行'),
+  config_changed: t('本轮因配置变更开启新会话'),
+  idle: t('距上次对话较久，已开启新会话'),
+  provider_removed: t('原供应商已删除，已开启新会话'),
+}
+export const newSessionNote = (reason: string | null) =>
+  reason === null ? null : reason in NEW_SESSION ? NEW_SESSION[reason] : reason

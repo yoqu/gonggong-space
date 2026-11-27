@@ -4,18 +4,60 @@ use crate::agents;
 use crate::engine::Process;
 use crate::inject::ClaudeLaunch;
 use crate::local::LocalSettings;
-use crate::protocol::{AgentCatalog, AgentKind, Approval, RunBot, SecretEnv, Tier};
+use crate::protocol::{
+    AgentCatalog, AgentKind, AgentLoginCmd, AgentLoginOp, Approval, DaemonToServer, RunBot, SecretEnv, Tier,
+};
 use crate::providers::{RunPlan, Selection, Store};
+use crate::service::Outbox;
 use crate::session;
 use crate::t;
-use agent_client_protocol::AcpAgent;
+use agent_client_protocol::{AcpAgent, AcpAgentConfig};
 use anyhow::bail;
 use std::path::Path;
+use std::sync::Arc;
 
 impl Engine {
+    /// `agent.login`: starts or cancels an interactive ACP login flow for `kind`, streaming `agent.login.*` messages
+    /// and refreshing agent state + model catalog on success.
+    pub(super) fn handle_agent_login(&self, cmd: AgentLoginCmd, out: &Outbox) {
+        if cmd.op == AgentLoginOp::Cancel {
+            self.0.agent_login.cancel(&cmd.op_id);
+            return;
+        }
+        let this = self.clone();
+        let home = self.0.config.home.clone();
+        let kind = cmd.kind;
+        let open_browser = cmd.open_browser.unwrap_or(false);
+        let out_emit = out.clone();
+        let emit: Arc<dyn Fn(DaemonToServer) + Send + Sync> = Arc::new(move |msg| out_emit.send(msg));
+        let cfg_engine = self.clone();
+        let config_fut = async move { cfg_engine.login_config(kind).await };
+        let on_success: crate::agent_login::OnSuccessFn = Box::new(move || {
+            Box::pin(async move {
+                this.0.manage.refresh_agents().await;
+                let reprobe_engine = this.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = reprobe_engine.reprobe(kind).await {
+                        tracing::warn!("post-login reprobe of {kind:?} failed: {e:#}");
+                    }
+                });
+            })
+        });
+        self.0.agent_login.start(home, cmd.op_id, kind, cmd.method_id, open_browser, config_fut, emit, Some(on_success));
+    }
+
+    /// Launch config for an interactive ACP login session of `kind` (official login, no bot settings).
+    pub async fn login_config(&self, kind: AgentKind) -> anyhow::Result<AcpAgentConfig> {
+        let local = LocalSettings::load(&self.0.config.home)?;
+        let selection = Selection::Official(Store::load(&self.0.config.home)?.official(kind));
+        let bot = throwaway_bot(kind);
+        let process = Process { key: crate::adapters::PROBE, ..Default::default() };
+        self.0.adapter(&bot, &local, &selection, &SecretEnv::default(), &process).await
+    }
+
     /// `agents.reprobe`: probes the agent again now, whatever is cached, and publishes the new catalog before
     /// answering. A failed probe keeps the cached one.
-    pub(super) async fn reprobe(&self, kind: AgentKind) -> anyhow::Result<()> {
+    pub async fn reprobe(&self, kind: AgentKind) -> anyhow::Result<()> {
         let home = self.0.config.home.clone();
         let detected = {
             let home = home.clone();

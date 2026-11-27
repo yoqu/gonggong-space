@@ -20,9 +20,69 @@ import {
   type RuntimeState,
 } from '@gonggong/protocol'
 import { t } from '../../i18n'
+import type { AgentLocal } from './source'
 
 export const hasUpdate = (x: { version?: string | null; latest?: string | null }) =>
   !!(x.latest && x.version && compareVersions(x.latest, x.version) > 0)
+
+/** True when an installed agent is logged out AND relies on official login (not a custom API-key provider). */
+export function needsOfficialLogin(
+  agent: Pick<AgentState, 'kind' | 'available' | 'loginState'>,
+  store?: ProviderStoreView | null,
+): boolean {
+  if (!agent.available || agent.loginState !== 'logged_out') return false
+  if (agentMeta(agent.kind).login === 'own') return true
+  if (!store) return true
+  return machineDefault(store, agent.kind).provider === OFFICIAL_PROVIDER
+}
+
+export type LoginDisplay = {
+  state: 'logged_in' | 'logged_out' | 'unknown'
+  text: string
+}
+
+const LOGGED_OUT_RE = /^(未登录|not logged in|not signed in)(\s*[·:：(-]|$)/i
+const LOGGED_IN_PREFIX_RE = /^(已登录|logged in|signed in)/i
+const isLoggedOutLabel = (value: string) => LOGGED_OUT_RE.test(value.trim())
+
+/** Normalized login display for AgentDetail across Web (AgentState) and Desktop (AgentState + agentLocal). */
+export function loginDisplay(
+  agent: Pick<AgentState, 'loginState' | 'loginLabel'>,
+  local?: AgentLocal | null,
+): LoginDisplay | null {
+  if (agent.loginState === 'logged_in') {
+    const raw = agent.loginLabel?.trim()
+    if (raw) {
+      const label = t.text({ key: raw })
+      return {
+        state: 'logged_in',
+        text: LOGGED_IN_PREFIX_RE.test(raw) ? label : t('已登录（{label}）', { label }),
+      }
+    }
+    if (local?.login && !isLoggedOutLabel(local.login)) {
+      return { state: 'logged_in', text: local.login }
+    }
+    return { state: 'logged_in', text: t('已登录') }
+  }
+  if (agent.loginState === 'logged_out') {
+    return { state: 'logged_out', text: t('未登录') }
+  }
+  if (agent.loginState === 'unknown') {
+    if (local?.login) {
+      return isLoggedOutLabel(local.login)
+        ? { state: 'logged_out', text: local.login }
+        : { state: 'logged_in', text: local.login }
+    }
+    return { state: 'unknown', text: t('未知') }
+  }
+  if (local) {
+    if (!local.login) return { state: 'unknown', text: t('未知') }
+    return isLoggedOutLabel(local.login)
+      ? { state: 'logged_out', text: local.login }
+      : { state: 'logged_in', text: local.login }
+  }
+  return null
+}
 
 /** Managed, or installed by the user in a way the daemon knows how to upgrade (brew, claude update, npm). */
 export const canUpgrade = (x: {

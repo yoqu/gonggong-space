@@ -1,5 +1,12 @@
-import { AGENT_META, type BotDto, type ClientDownloads, type MachineDto } from '@gonggong/protocol'
-import { useRef, useState } from 'react'
+import {
+  AGENT_KINDS,
+  AGENT_META,
+  type AgentKind,
+  type BotDto,
+  type ClientDownloads,
+  type MachineDto,
+} from '@gonggong/protocol'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -7,7 +14,19 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { localDateTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import { AgentIcon, Disclosure, EmptyState, Icon, type IconName, Tabs, TextField, toast } from '../../ui'
+import {
+  AgentIcon,
+  Button,
+  Disclosure,
+  EmptyState,
+  Icon,
+  type IconName,
+  Tabs,
+  Tag,
+  TextField,
+  toast,
+} from '../../ui'
+import { needsOfficialLogin } from '../agents/model'
 import { MachineAgentsPanel } from '../agents/webSource'
 import { BotAvatar } from '../bots/avatars'
 import { PRESENCE } from '../bots/model'
@@ -187,6 +206,9 @@ function OfflineNote({ machine }: { machine: MachineDto }) {
   )
 }
 
+const parseAgentKind = (v: string | null): AgentKind | null =>
+  v && (AGENT_KINDS as readonly string[]).includes(v) ? (v as AgentKind) : null
+
 /** Sections of one machine, shared by its page and the admin dialog. */
 export function MachineDetails({
   machine,
@@ -202,10 +224,29 @@ export function MachineDetails({
   onLeave?: () => void
 }) {
   const [params] = useSearchParams()
+  const queryLogin = parseAgentKind(params.get('login'))
   const [tab, setTab] = useState<Tab>(() => {
     const v = params.get('tab') ?? ''
-    return (Object.hasOwn(TAB_ALIAS, v) && TAB_ALIAS[v]) || 'overview'
+    const alias = Object.hasOwn(TAB_ALIAS, v) ? TAB_ALIAS[v] : undefined
+    if (alias) return alias
+    return queryLogin ? 'agents' : 'overview'
   })
+  const [pendingLogin, setPendingLogin] = useState<AgentKind | null>(queryLogin)
+  const lastQueryLogin = useRef<string | null>(params.get('login'))
+  useEffect(() => {
+    const raw = params.get('login')
+    if (raw === lastQueryLogin.current) return
+    lastQueryLogin.current = raw
+    const next = parseAgentKind(raw)
+    if (next) {
+      setTab('agents')
+      setPendingLogin(next)
+    }
+  }, [params])
+  const openAgentLogin = (kind: AgentKind) => {
+    setTab('agents')
+    setPendingLogin(kind)
+  }
   const owner = useSession((st) => st.user?.id === machine.ownerId)
   const plugins = useSession((st) => !!st.tenancy?.pluginsEnabled)
   const latest = useGet<ClientDownloads | null>('/client-downloads').data?.version
@@ -247,7 +288,12 @@ export function MachineDetails({
           description={t('当前客户端版本不支持在网页端管理，升级后即可使用。')}
         />
       ) : current === 'agents' ? (
-        <MachineAgentsPanel machine={machine} />
+        <MachineAgentsPanel
+          machine={machine}
+          initialOpen={pendingLogin}
+          initialLogin={pendingLogin}
+          onInitialLoginHandled={() => setPendingLogin(null)}
+        />
       ) : current === 'workspaces' ? (
         <WorkspacesPanel machine={machine} />
       ) : current === 'git' ? (
@@ -312,6 +358,12 @@ export function MachineDetails({
                 <span key={a.kind} className="machine__agent" data-available={a.available}>
                   <AgentIcon kind={a.kind} size={16} />
                   <span className="machine__agent-name">{AGENT_META[a.kind].name}</span>
+                  {needsOfficialLogin(a) ? <Tag tone="orange">{t('未登录')}</Tag> : null}
+                  {needsOfficialLogin(a) && owner && machine.online && !blocked(machine, 'agents') ? (
+                    <Button size="small" variant="plain" onClick={() => openAgentLogin(a.kind)}>
+                      {t('去登录')}
+                    </Button>
+                  ) : null}
                   <span className="machine__agent-version">
                     {a.available ? (a.version ?? t('已安装')) : t('未安装')}
                   </span>

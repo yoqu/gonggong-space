@@ -71,6 +71,10 @@ vi.mock('../src/ipc', () => ({
     claudeDefaultDir: vi.fn(async () => ({ path: '/Users/me/.claude', exists: true })),
     pickDir: vi.fn(async () => null),
     agentLocal: vi.fn(async () => ({ customPath: false, login: null, adapterVersion: null })),
+    agentLoginStart: vi.fn(async () => 'op-1'),
+    agentLoginCancel: vi.fn(async () => {}),
+    agentLaunchLogin: vi.fn(async () => {}),
+    openExternalUrl: vi.fn(async () => {}),
     pickAgentPath: vi.fn(async () => false),
     resetAgentPath: vi.fn(async () => {}),
     groupNames: vi.fn(async () => ({})),
@@ -91,6 +95,7 @@ vi.mock('../src/ipc', () => ({
   },
   onSnapshot: vi.fn(async () => () => {}),
   onToolProgress: vi.fn(async () => () => {}),
+  onAgentLoginEvent: vi.fn(async () => () => {}),
   onOpenLinks: vi.fn(async () => () => {}),
 }))
 

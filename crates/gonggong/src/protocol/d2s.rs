@@ -115,6 +115,9 @@ pub const FEATURE_STORAGE_ADMIN: &str = "storageAdmin";
 /// connectors.* and `RunStart.cli_profiles` (plan 连接器-体验升级方案): CLI connectors detected and connected here.
 pub const FEATURE_CONNECTORS: &str = "connectors";
 
+/// agent.login.*: daemon-driven interactive ACP agent login (methods, OAuth URL, progress, result).
+pub const FEATURE_AGENT_LOGIN: &str = "agent_login";
+
 pub const FEATURE_GIT_OPS: &str = "gitOps";
 
 /// git.diff, git.refresh and commit `paths`: without it a server must not send paths, or everything gets committed.
@@ -373,6 +376,14 @@ pub enum DaemonToServer {
     },
     #[serde(rename = "agents.reprobe.result", rename_all = "camelCase")]
     AgentsReprobeResult { request_id: String, ok: bool, error: Option<String> },
+    #[serde(rename = "agent.login.methods")]
+    AgentLoginMethods(AgentLoginMethods),
+    #[serde(rename = "agent.login.auth")]
+    AgentLoginAuth(AgentLoginAuth),
+    #[serde(rename = "agent.login.progress")]
+    AgentLoginProgress(AgentLoginProgress),
+    #[serde(rename = "agent.login.result")]
+    AgentLoginResult(AgentLoginResult),
     #[serde(rename = "gitaccess.result", rename_all = "camelCase")]
     GitAccessResult {
         request_id: String,

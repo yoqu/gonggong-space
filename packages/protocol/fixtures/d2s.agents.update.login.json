@@ -1,0 +1,31 @@
+{
+  "t": "agents.update",
+  "agents": [
+    {
+      "kind": "codebuddy",
+      "available": true,
+      "version": "2.186.0",
+      "path": "C:\\Users\\alice\\.gonggong\\tools\\codebuddy.cmd",
+      "minVersion": "2.182.0",
+      "catalog": null,
+      "latest": "2.187.0",
+      "managed": true,
+      "loginState": "logged_out",
+      "loginLabel": null,
+      "loginFlow": "acp"
+    },
+    {
+      "kind": "claude",
+      "available": true,
+      "version": "2.1.4",
+      "path": "/opt/homebrew/bin/claude",
+      "minVersion": "2.0.0",
+      "catalog": null,
+      "latest": "2.1.285",
+      "managed": false,
+      "loginState": "logged_in",
+      "loginLabel": "账号登录",
+      "loginFlow": "terminal"
+    }
+  ]
+}

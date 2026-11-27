@@ -1,0 +1,7 @@
+{
+  "t": "agent.login.auth",
+  "opId": "op-1",
+  "kind": "codebuddy",
+  "url": "https://copilot.tencent.com/oauth/authorize?state=abc123",
+  "methodId": "internal"
+}

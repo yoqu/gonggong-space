@@ -6,14 +6,21 @@ import {
   type ProviderStoreView,
   type ToolKind,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
-import { AgentIcon, Alert, Button, GroupBox, Icon, Skeleton, Tag } from '../../ui'
+import { AgentIcon, Alert, Button, GroupBox, Icon, Presence, Skeleton, Tag } from '../../ui'
 import { type EditorState, ProvidersPanel } from '../machines/ProvidersPanel'
 import { AgentDetail } from './AgentDetail'
-import { type AgentStatus, agentStatus, missingAgent, nodeStatus, runnableAgents } from './model'
+import {
+  type AgentStatus,
+  agentStatus,
+  missingAgent,
+  needsOfficialLogin,
+  nodeStatus,
+  runnableAgents,
+} from './model'
 import { NodeBar } from './NodeBar'
 import type { AgentBotRef, AgentsSource, ToolOpKind } from './source'
 import { ToolLog } from './ToolLog'
@@ -26,7 +33,19 @@ import './agents.css'
  * line, one row per installed agent with one main action, those not installed under 可安装, 全部升级, each opening
  * into its details; then the machine's providers.
  */
-export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: AgentBotRef[] }) {
+export function AgentsPanel({
+  source,
+  bots,
+  initialOpen,
+  initialLogin,
+  onInitialLoginHandled,
+}: {
+  source: AgentsSource
+  bots: AgentBotRef[]
+  initialOpen?: AgentKind | null
+  initialLogin?: AgentKind | null
+  onInitialLoginHandled?: () => void
+}) {
   const has = (f: string) => source.features.includes(f)
   const live = has('providers') || has('agentSettings')
   const tools = useAgentTools(source)
@@ -34,7 +53,9 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
   const [error, setError] = useState('')
   const [providersLoading, setProvidersLoading] = useState(live)
   const [providersTick, setProvidersTick] = useState(0)
-  const [open, setOpen] = useState<AgentKind | null>(null)
+  const [open, setOpen] = useState<AgentKind | null>(initialOpen ?? initialLogin ?? null)
+  const [loginKind, setLoginKind] = useState<AgentKind | null>(null)
+  const [localRefreshTick, setLocalRefreshTick] = useState(0)
   const [editor, setEditorState] = useState<EditorState>(null)
   // Each opening of the editor starts fresh, though a closing one may still be on screen.
   const seq = useRef(0)
@@ -42,6 +63,29 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
     seq.current += 1
     setEditorState(e && { ...e, seq: seq.current })
   }
+
+  // Deep link / URL query intent: expand the target agent and open its login dialog once agents are loaded.
+  useEffect(() => {
+    if (!tools.state) return
+    if (!initialOpen && !initialLogin) return
+    const target = initialLogin ?? initialOpen
+    if (target) setOpen(target)
+    if (initialLogin && source.renderLogin) setLoginKind(initialLogin)
+    onInitialLoginHandled?.()
+  }, [tools.state, initialOpen, initialLogin, source.renderLogin, onInitialLoginHandled])
+
+  const refreshLoginState = useCallback(() => {
+    setLocalRefreshTick((n) => n + 1)
+    void tools.reload().catch(() => {})
+  }, [tools.reload])
+
+  // Refresh login status when the window regains focus while the login dialog is open.
+  useEffect(() => {
+    if (!loginKind) return
+    const onFocus = () => refreshLoginState()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [loginKind, refreshLoginState])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `providersTick` triggers a reload
   useEffect(() => {
@@ -96,10 +140,13 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
   const canRun = has('tools')
   const nodeNeedsInstall = canRun && !!state.node && nodeStatus(state.node) !== 'ok'
   const showUpgradeAll = canRun && upgradable.length > 0
+  const loginAgent = loginKind ? (agents.find((a) => a.kind === loginKind) ?? missingAgent(loginKind)) : null
   const row = (a: AgentState) => (
     <AgentRow
       key={a.kind}
       agent={a}
+      needsLogin={needsOfficialLogin(a, view)}
+      onLogin={source.renderLogin ? () => setLoginKind(a.kind) : undefined}
       nodeVersion={state.node?.version ?? null}
       open={open === a.kind}
       onToggle={() => setOpen(open === a.kind ? null : a.kind)}
@@ -114,7 +161,9 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
           view={view}
           onView={setView}
           onAddProvider={() => setEditor({ editing: null })}
+          onOpenLogin={source.renderLogin ? () => setLoginKind(a.kind) : undefined}
           onAgents={tools.reload}
+          refreshTick={localRefreshTick}
           bots={bots}
         />
       }
@@ -165,6 +214,20 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
           <GroupBox>{installable.map(row)}</GroupBox>
         </section>
       ) : null}
+      <Presence>
+        {loginAgent
+          ? source.renderLogin?.({
+              agent: loginAgent.kind,
+              agentState: loginAgent,
+              onClose: () => {
+                setLoginKind(null)
+                refreshLoginState()
+              },
+              onAddProvider: () => setEditor({ editing: null }),
+              onLoggedIn: refreshLoginState,
+            })
+          : null}
+      </Presence>
     </div>
   )
 }
@@ -189,6 +252,8 @@ const nodeNoteMissing = (note: string | undefined, nodeVersion: string | null) =
 
 function AgentRow({
   agent: a,
+  needsLogin,
+  onLogin,
   nodeVersion,
   open,
   onToggle,
@@ -199,6 +264,8 @@ function AgentRow({
   detail,
 }: {
   agent: AgentState
+  needsLogin: boolean
+  onLogin?: () => void
   nodeVersion: string | null
   open: boolean
   onToggle: () => void
@@ -229,6 +296,7 @@ function AgentRow({
           <span className="mx-row__main">
             <span className="mx-row__title">
               <span className="mx-strong">{meta.name}</span>
+              {needsLogin ? <Tag tone="orange">{t('未登录')}</Tag> : null}
               {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}
               {belowMin(a) ? (
                 <Tag tone="red">{t('低于最低要求 {version}', { version: a.minVersion ?? '' })}</Tag>
@@ -245,14 +313,21 @@ function AgentRow({
             </span>
           </span>
         </button>
-        <MainAction
-          agent={a}
-          status={status}
-          busy={busy}
-          loading={Boolean(mine?.running)}
-          canRun={canRun}
-          onRun={onRun}
-        />
+        <span className="ag-row__actions">
+          {needsLogin && onLogin ? (
+            <Button size="small" variant="primary" onClick={onLogin}>
+              {t('登录')}
+            </Button>
+          ) : null}
+          <MainAction
+            agent={a}
+            status={status}
+            busy={busy}
+            loading={Boolean(mine?.running)}
+            canRun={canRun}
+            onRun={onRun}
+          />
+        </span>
       </div>
       {mine ? <ToolLog op={mine} /> : null}
       {mine?.failed && mine.which === 'upgrade' && !a.managed && canRun ? (

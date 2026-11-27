@@ -5,6 +5,7 @@ import { desktopSource } from '../agentsSource'
 import { t } from '../i18n'
 import { ipc, type MachineBot } from '../ipc'
 import { useIpc } from '../lib/useIpc'
+import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
 /** The Web's Agent page of a machine (same components), on this machine's files. */
@@ -12,6 +13,8 @@ export function AgentsPage(_: PageProps) {
   const loadSource = useCallback(() => ipc.agentFeatures().then(desktopSource), [])
   const sourceQ = useIpc(loadSource)
   const [bots, setBots] = useState<MachineBot[]>([])
+  const pendingIntent = useDaemon((s) => s.pendingAgentIntent)
+  const clearIntent = useCallback(() => useDaemon.setState({ pendingAgentIntent: null }), [])
 
   useEffect(() => {
     ipc.bots().then(setBots, () => {})
@@ -28,7 +31,13 @@ export function AgentsPage(_: PageProps) {
         </span>
       </p>
       {sourceQ.data ? (
-        <AgentsPanel source={sourceQ.data} bots={bots} />
+        <AgentsPanel
+          source={sourceQ.data}
+          bots={bots}
+          initialOpen={pendingIntent?.kind ?? null}
+          initialLogin={pendingIntent?.action === 'login' ? pendingIntent.kind : null}
+          onInitialLoginHandled={clearIntent}
+        />
       ) : sourceQ.error ? (
         <Alert
           variant="error"

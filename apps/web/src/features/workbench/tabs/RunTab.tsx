@@ -1,4 +1,5 @@
 import {
+  agentMeta,
   type DiffScope,
   type RunDetailDto,
   type RunDto,
@@ -48,6 +49,7 @@ import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDif
 import { fieldLabel, tokensLabel } from '../../machines/agentSettings'
 import { ActivityDock } from '../../runs/ActivityDock'
 import { ApprovalCard } from '../../runs/ApprovalBlock'
+import { AuthErrorActions } from '../../runs/AuthErrorBlock'
 import { processMarkdown, processText } from '../../runs/activity'
 import { ContextWindow, lastContext } from '../../runs/ContextWindow'
 import { IssueBanner } from '../../runs/IssueBanner'
@@ -287,7 +289,8 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   const body = useRef<HTMLDivElement>(null)
   const away = useFollow(body, live && view === 'process', steps)
   const started = run?.startedAt ? Date.parse(run.startedAt) : null
-  const issue = run ? runIssue(run) : null
+  const agentName = bot?.agentKind ? agentMeta(bot.agentKind).name : undefined
+  const issue = run ? runIssue(run, agentName) : null
   const me = useSession((s) => s.user?.id)
   // The server allows the same: an unfinished hop-1 run (stopped ones too), by its trigger user or the bot owner.
   const canRetry =
@@ -397,7 +400,22 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
           </GroupBox>
         ) : null}
         {more && detail?.settings ? <RunSettings settings={detail.settings} /> : null}
-        {issue ? <IssueBanner issue={issue} onRetry={canRetry ? retry : undefined} /> : null}
+        {issue && run ? (
+          <IssueBanner
+            issue={issue}
+            onRetry={canRetry ? retry : undefined}
+            extra={
+              issue.kind === 'auth' ? (
+                <AuthErrorActions
+                  run={run}
+                  agentLabel={agentName}
+                  onRetry={canRetry ? retry : undefined}
+                  hideDefaultRetry
+                />
+              ) : undefined
+            }
+          />
+        ) : null}
         <Tabs size="sm" items={VIEWS} value={view} onChange={(v) => patch(tabKey, { view: v })} />
       </div>
       {view === 'process' && run?.plan ? <RunPlan plan={run.plan} live={live} panel /> : null}

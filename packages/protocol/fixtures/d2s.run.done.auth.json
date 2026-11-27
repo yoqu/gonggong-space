@@ -1,0 +1,15 @@
+{
+  "t": "run.done",
+  "runId": "r1",
+  "outcome": "failed",
+  "reply": "",
+  "filesChanged": 0,
+  "usage": null,
+  "sessionId": null,
+  "newSessionReason": null,
+  "error": "CodeBuddy（WorkBuddy） 尚未登录或登录已过期",
+  "errorKind": "auth",
+  "git": null,
+  "patch": null,
+  "appendsApplied": 0
+}

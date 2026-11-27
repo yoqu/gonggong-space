@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { RunSettingsSnapshot } from '../agent-settings.js'
 import { AiReview, ApprovalMcp, DiffRepo, GitStatus, Question, Usage } from '../common.js'
 import { RunSyncDone, SyncApplied, SyncState, SyncSubmit } from '../sync.js'
+import { AgentLoginAuth, AgentLoginMethods, AgentLoginProgress, AgentLoginResult } from './agent-login.js'
 import { AgentState, RuntimeState } from './agent-state.js'
 import {
   AgentsReprobeResult,
@@ -91,6 +92,9 @@ export const Hello = z.object({
 })
 export const Heartbeat = z.object({ t: z.literal('heartbeat') })
 export const RunEventMsg = z.object({ t: z.literal('run.event'), runId: z.string(), event: RunEvent })
+export const RunErrorKind = z.enum(['auth'])
+export type RunErrorKind = z.infer<typeof RunErrorKind>
+
 export const RunDone = z.object({
   t: z.literal('run.done'),
   runId: z.string(),
@@ -103,6 +107,8 @@ export const RunDone = z.object({
   /** Set when a new session was opened, e.g. 'resume_failed' | 'first' | 'requested'. */
   newSessionReason: z.string().nullable(),
   error: z.string().nullable(),
+  /** Structured classification when `outcome === 'failed'` (e.g. `auth` for unauthenticated / expired CLI login); omitted by older daemons. */
+  errorKind: RunErrorKind.optional(),
   /** Workspace git state after the turn; null for workspaces without a repo. */
   git: GitStatus.nullable(),
   /** Unified diff of what this turn changed (repo workspaces; capped by the daemon, see PATCH_MAX_BYTES). */
@@ -560,6 +566,10 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   SiteHostResult,
   ToolsProgress,
   ToolsResult,
+  AgentLoginMethods,
+  AgentLoginAuth,
+  AgentLoginProgress,
+  AgentLoginResult,
   ConnectorsProgress,
   ConnectorsAuth,
   ConnectorsResult,

@@ -6,6 +6,12 @@ import { AgentCatalog } from './machine.js'
 export const ApiProtocol = z.enum(API_PROTOCOLS)
 export type ApiProtocol = z.infer<typeof ApiProtocol>
 
+export const AgentLoginState = z.enum(['logged_in', 'logged_out', 'unknown'])
+export type AgentLoginState = z.infer<typeof AgentLoginState>
+
+export const AgentLoginFlow = z.enum(['acp', 'terminal'])
+export type AgentLoginFlow = z.infer<typeof AgentLoginFlow>
+
 /** One agent on a machine: detection and install in one (replaces AgentInfo and the agents' ToolStatus). */
 export const AgentState = z.object({
   kind: AgentKind,
@@ -24,6 +30,12 @@ export const AgentState = z.object({
   upgradeCommand: z.string().nullable().default(null),
   /** Not on npm, so Gonggong neither installs nor upgrades it: the maker's install command, run on the machine. */
   installCommand: z.string().nullable().default(null),
+  /** Official CLI login state as detected on the machine; omitted by older daemons. */
+  loginState: AgentLoginState.optional(),
+  /** Label of the detected login source (e.g. 'API key', '账号登录'); null when logged out or unknown. */
+  loginLabel: z.string().nullable().optional(),
+  /** Interactive login mechanism supported for this agent on this machine; omitted when unavailable or by older daemons. */
+  loginFlow: AgentLoginFlow.optional(),
 })
 export type AgentState = z.infer<typeof AgentState>
 

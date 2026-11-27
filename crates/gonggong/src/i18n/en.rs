@@ -875,4 +875,18 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("服务器返回了意外的握手消息", "Server returned an unexpected handshake message"),
     ("握手时服务器断开了连接", "Server closed the connection during handshake"),
     ("{tool}：{err}", "{tool}: {err}"),
+    ("已取消登录", "Sign-in canceled"),
+    ("登录已超时，请重试", "Sign-in timed out; please try again"),
+    ("该 Agent 不支持通过 ACP 登录", "This agent does not support ACP sign-in"),
+    (
+        "{agent} 尚未登录或登录已过期，请先登录官方账号或在供应商中配置 API Key",
+        "{agent} is not signed in or its session expired. Sign in to the official account or configure an API key provider.",
+    ),
+    ("进入后按提示完成登录，或输入 /login", "Follow the prompts after launch, or enter /login"),
+    ("按终端提示完成登录", "Follow the terminal prompts to sign in"),
+    ("无法准备登录脚本目录：{e}", "Cannot prepare sign-in script directory: {e}"),
+    ("无法写入登录脚本：{e}", "Cannot write sign-in script: {e}"),
+    ("无法设置登录脚本权限：{e}", "Cannot set sign-in script permissions: {e}"),
+    ("无法打开终端：{e}", "Cannot open terminal: {e}"),
+    ("未能找到可用的终端程序，请手动在终端运行：{cmd}", "No terminal app found; run manually in a terminal: {cmd}"),
 ];

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { AgentSettings } from '../agent-settings.js'
 import { AgentKind, Answer, Attachment, Tier } from '../common.js'
 import { SyncAction, SyncAvailable, SyncInit, SyncResult } from '../sync.js'
+import { AgentLoginCmd } from './agent-login.js'
 import {
   Mirror,
   OfficialInput,
@@ -489,6 +490,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   SiteHost,
   PresetsSync,
   ToolsCmd,
+  AgentLoginCmd,
   ConnectorsCmd,
   ConnectorsSync,
   ProvidersCmd,

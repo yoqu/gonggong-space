@@ -30,9 +30,9 @@ import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Update } from '@tauri-apps/plugin-updater'
-import type { AgentLocal } from '@web/features/agents/source'
+import type { AgentLocal, AgentLoginEvent } from '@web/features/agents/source'
 
-export type { Mirror, Update }
+export type { AgentLoginEvent, Mirror, Update }
 
 type RejectReason = 'protocol' | 'revoked' | 'unauthorized' | 'workspace' | 'readonly'
 
@@ -306,6 +306,15 @@ export const ipc = {
   pickDir: (start: string | null) => invoke<string | null>('pick_dir', { start }),
   /** The agent's path picked by hand, its CLI's login and the bundled adapter's version. */
   agentLocal: (kind: AgentKind) => invoke<AgentLocal>('agent_local', { kind }),
+  /** Starts an interactive ACP login flow on this machine; events arrive on `agent-login-event`. */
+  agentLoginStart: (kind: AgentKind, methodId?: string, openBrowser?: boolean) =>
+    invoke<string>('agent_login_start', { kind, methodId, openBrowser }),
+  /** Cancels an active ACP login flow. */
+  agentLoginCancel: (opId: string) => invoke<void>('agent_login_cancel', { opId }),
+  /** Launches a native OS terminal pre-loaded with managed Node/tools PATH for interactive login. */
+  agentLaunchLogin: (kind: AgentKind) => invoke<void>('agent_launch_login', { kind }),
+  /** Opens an http(s) URL in the user's default browser via Rust tauri_plugin_opener. */
+  openExternalUrl: (url: string) => invoke<void>('open_external_url', { url }),
   /** 更换路径… with the system file dialog; false when cancelled. */
   pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
   /** 恢复自动检测. */
@@ -345,6 +354,10 @@ export function onToolProgress(opId: string, cb: (line: string) => void): Promis
   return listen<{ opId: string; line: string }>('tools://progress', (e) => {
     if (e.payload.opId === opId) cb(e.payload.line)
   })
+}
+
+export function onAgentLoginEvent(cb: (e: AgentLoginEvent) => void): Promise<UnlistenFn> {
+  return listen<AgentLoginEvent>('agent-login-event', (e) => cb(e.payload))
 }
 
 /** URLs this app is opened with (`gonggong://bind?…`): the one it was launched with, then every later one. */

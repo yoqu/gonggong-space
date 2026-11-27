@@ -103,6 +103,8 @@ export const DaemonFeature = z.enum([
   'protocolProviders',
   /** connectors.* and RunStart.cliProfiles (plan 连接器-体验升级方案): CLI connectors detected and connected by the daemon. */
   'connectors',
+  /** agent.login.*: daemon-driven interactive ACP agent login (methods, OAuth URL, progress, result). */
+  'agent_login',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

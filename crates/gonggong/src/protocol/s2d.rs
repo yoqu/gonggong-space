@@ -304,6 +304,8 @@ pub enum ServerToDaemon {
     CcSwitchApply { request_id: String, keys: Vec<String>, set_default: bool },
     #[serde(rename = "agents.reprobe", rename_all = "camelCase")]
     AgentsReprobe { request_id: String, kind: AgentKind },
+    #[serde(rename = "agent.login")]
+    AgentLogin(AgentLoginCmd),
     #[serde(rename = "gitaccess.cmd")]
     GitAccessCmd(GitAccessCmd),
     #[serde(rename = "diag.run", rename_all = "camelCase")]

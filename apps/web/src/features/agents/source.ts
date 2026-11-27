@@ -1,7 +1,9 @@
 import type {
+  AgentAuthMethod,
   AgentKind,
   AgentSettingsReq,
   AgentSettingValues,
+  AgentState,
   CcSwitchCandidate,
   CcSwitchImportedDto,
   MachineAgentsDto,
@@ -15,6 +17,28 @@ import type {
 import type { ReactNode } from 'react'
 
 export type ToolOpKind = 'install' | 'upgrade'
+
+export type AgentLoginEvent =
+  | { t: 'agent.login.methods'; opId: string; kind: AgentKind; methods: AgentAuthMethod[] }
+  | { t: 'agent.login.auth'; opId: string; kind: AgentKind; url: string; methodId?: string }
+  | { t: 'agent.login.progress'; opId: string; kind: AgentKind; stage: string; line?: string }
+  | { t: 'agent.login.result'; opId: string; kind: AgentKind; ok: boolean; error?: string; user?: string }
+
+/** Unified interactive login driver shared by Desktop (Tauri IPC) and Web (HTTP + WS). */
+export interface AgentLoginDriver {
+  mode: 'desktop' | 'web'
+  /** Supports native ACP OAuth start/cancel/events. */
+  supportsAcp: boolean
+  startAcp?(p: { kind: AgentKind; methodId?: string; openBrowser?: boolean }): Promise<{ opId: string }>
+  cancelAcp?(kind: AgentKind, opId: string): Promise<void>
+  subscribeAcp?(cb: (event: AgentLoginEvent) => void): (() => void) | Promise<() => void>
+  /** Desktop-only: opens a native terminal pre-loaded with managed Node/tools PATH. */
+  launchTerminal?(kind: AgentKind): Promise<void>
+  /** Opens an external http(s) URL in the user's browser. */
+  openExternalUrl?(url: string): Promise<void> | void
+  /** Refreshes agent state after login succeeds or manual login finishes. */
+  refresh?(): Promise<void>
+}
 
 /** A bot that runs on the machine: 使用它的 Bot, and whose overrides Agent 设置 names. */
 export interface AgentBotRef {
@@ -68,7 +92,13 @@ export interface AgentsSource {
     onClose: () => void
   }): ReactNode
   /** How to log in to the agent's official account; absent = no 登录… button. */
-  renderLogin?(p: { agent: AgentKind; onClose: () => void; onAddProvider: () => void }): ReactNode
+  renderLogin?(p: {
+    agent: AgentKind
+    agentState?: AgentState
+    onClose: () => void
+    onAddProvider: () => void
+    onLoggedIn?: () => void
+  }): ReactNode
   /** Opens a bot of 使用它的 Bot; absent = names only. */
   openBot?(id: string): void
   /** What only the machine itself tells about an agent (the desktop app); absent = not shown. */

@@ -276,6 +276,10 @@ export const protocolEn = {
   'Bot 离线超过 {n} 分钟，已作废并通知 {user}':
     'Bot offline for over {n} {n:minute|minutes}; expired and {user} was notified',
   '运行出错：{error}': 'Run error: {error}',
+  '运行出错：{agent} 尚未登录或登录已过期': 'Run error: {agent} is not signed in or its session has expired',
+  '{agent} 尚未登录或登录已过期，请先登录官方账号或在供应商中配置 API Key':
+    '{agent} is not signed in or its session has expired; sign in with an official account or configure an API key provider',
+  账号登录: 'Account login',
   'agent 异常：{error}': 'Run error: {error}',
   'Bot 未绑定或未确认，不能被触发': "The Bot isn't bound or confirmed and can't be triggered",
   '只有 Bot 主人可以触发，未启动运行': 'Only its owner can trigger this Bot; no run started',

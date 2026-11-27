@@ -19,6 +19,8 @@ export default {
   共工内置适配器: 'Built into Gonggong',
   '共工内置适配器 {version}': 'Built into Gonggong, {version}',
   '登录#status': 'Login',
+  已登录: 'Signed in',
+  '已登录（{label}）': 'Signed in ({label})',
   未知: 'Unknown',
   '更换路径…': 'Change path…',
   '手动指定路径…': 'Set path…',

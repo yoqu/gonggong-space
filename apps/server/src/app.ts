@@ -51,6 +51,7 @@ import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
 import { feishuProjectRoutes } from './modules/integrations/feishu-project.js'
 import { knowledgeRoutes } from './modules/knowledge/routes.js'
+import { startAgentLoginRelay } from './modules/machines/agent-login.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { marketRoutes } from './modules/market/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
@@ -223,6 +224,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
     }),
   )
   await app.register(machineRoutes(ctx))
+  app.addHook('onClose', startAgentLoginRelay(ctx))
   await app.register(connectorCliRoutes(ctx))
   await app.register(providerRoutes(ctx))
   await app.register(botRoutes(ctx))

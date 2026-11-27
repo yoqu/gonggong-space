@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  AgentLoginCheck,
   AUTO_DESIGN_SYSTEM,
   CREATION_INPUT_MAX,
   CreateGroupDesignSystemReq,
@@ -242,5 +245,77 @@ describe('createsArtifacts', () => {
     expect(createsArtifacts({ entry: 'dw-query', category: 'connector' })).toBe(false)
     expect(createsArtifacts({ entry: 'slides', category: 'deck' })).toBe(true)
     expect(createsArtifacts({ entry: null, category: 'tool' })).toBe(false)
+  })
+})
+
+describe('agent login checks and codebuddy manifest', () => {
+  it('validates authFile and jsonPresent login checks', () => {
+    const authFile = AgentLoginCheck.parse({
+      type: 'authFile',
+      envOverride: 'CODEBUDDY_AUTH_FILE_PATH',
+      paths: {
+        macos:
+          'Library/Application Support/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info',
+        windows: 'AppData/Local/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info',
+        linux: '.local/share/CodeBuddyExtension/Data/Public/auth/Tencent-Cloud.coding-copilot.info',
+      },
+      excludeSuffix: '.logged-out',
+      jsonPaths: ['/auth/domain', '/account/uid'],
+      label: '账号登录',
+    })
+    expect(authFile.type).toBe('authFile')
+    expect(AgentLoginCheck.safeParse({ type: 'authFile', paths: {}, label: '账号登录' }).success).toBe(false)
+    expect(
+      AgentLoginCheck.safeParse({
+        type: 'authFile',
+        paths: { linux: 'a' },
+        jsonPaths: ['not-a-pointer'],
+        label: '账号登录',
+      }).success,
+    ).toBe(false)
+
+    const jsonPresent = AgentLoginCheck.parse({
+      type: 'jsonPresent',
+      file: '{home}/settings.json',
+      path: '/env/CODEBUDDY_AUTH_TOKEN',
+      label: 'API key',
+    })
+    expect(jsonPresent).toEqual({
+      type: 'jsonPresent',
+      file: '{home}/settings.json',
+      path: '/env/CODEBUDDY_AUTH_TOKEN',
+      label: 'API key',
+    })
+    expect(
+      AgentLoginCheck.safeParse({
+        type: 'jsonPresent',
+        file: '{home}/settings.json',
+        path: 'env/CODEBUDDY_AUTH_TOKEN',
+        label: 'API key',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('parses official agent-codebuddy manifest with login checks and acpAuth', () => {
+    const manifestPath = join(
+      import.meta.dirname,
+      '../../../apps/server/plugins/official/agent-codebuddy/gonggong-plugin.json',
+    )
+    const raw = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    const parsed = PluginManifest.parse(raw)
+    const cb = parsed.contributes.agents[0]
+    expect(cb?.id).toBe('codebuddy')
+    expect(cb?.login.loggedOut).toBe(true)
+    expect(cb?.login.acpAuth).toBe(true)
+    expect(cb?.login.acpAuthUrlNotification).toBe('_codebuddy.ai/authUrl')
+    expect(cb?.login.command).toBe('codebuddy')
+    expect(cb?.login.checks).toHaveLength(5)
+    expect(cb?.login.checks.map((c) => c.type)).toEqual([
+      'env',
+      'jsonPresent',
+      'jsonPresent',
+      'jsonPresent',
+      'authFile',
+    ])
   })
 })

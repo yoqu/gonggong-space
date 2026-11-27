@@ -1,3 +1,4 @@
+export * from './daemon/agent-login.js'
 export * from './daemon/agent-state.js'
 export * from './daemon/agent-tools.js'
 export * from './daemon/connectors.js'

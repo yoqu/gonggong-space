@@ -218,6 +218,32 @@ export const AgentLoginCheck = z.discriminatedUnion('type', [
   }),
   /** The JSON object's keys are the logins, listed as the label. */
   z.object({ type: z.literal('jsonKeys'), file: MachinePath }),
+  /**
+   * A per-OS credential file relative to the user's home directory (or `envOverride` when set).
+   * `excludeSuffix` (e.g. `.logged-out`): `<file><excludeSuffix>` must not exist.
+   * `jsonPaths`: when set, at least one JSON pointer must hold a non-empty string.
+   */
+  z.object({
+    type: z.literal('authFile'),
+    paths: z
+      .object({
+        macos: MachinePath.optional(),
+        windows: MachinePath.optional(),
+        linux: MachinePath.optional(),
+      })
+      .refine((p) => !!(p.macos || p.windows || p.linux), '至少填写一个平台的路径'),
+    envOverride: EnvName.optional(),
+    excludeSuffix: z.string().min(1).max(40).optional(),
+    jsonPaths: z.array(z.string().startsWith('/')).max(10).optional(),
+    label: Label,
+  }),
+  /** The JSON file (comments allowed) has a non-empty string at the JSON pointer `path`. */
+  z.object({
+    type: z.literal('jsonPresent'),
+    file: MachinePath,
+    path: z.string().startsWith('/'),
+    label: Label,
+  }),
 ])
 export type AgentLoginCheck = z.infer<typeof AgentLoginCheck>
 
@@ -335,12 +361,16 @@ export const PluginAgent = z.object({
     config: z.string().min(1).max(100),
   }),
   login: z.object({
-    checks: z.array(AgentLoginCheck).max(6),
+    checks: z.array(AgentLoginCheck).max(12),
     /** Say 「未登录」 when no check holds; false: it cannot tell (a key may come from elsewhere). */
     loggedOut: z.boolean().default(true),
     /** What the owner runs on the machine to log in, and what to do in it. */
     command: z.string().min(1).max(100),
     hint: z.string().min(1).max(200),
+    /** The agent's ACP server implements `initialize.authMethods` + `authenticate`. */
+    acpAuth: z.boolean().optional(),
+    /** ACP extension notification method carrying the OAuth URL during `authenticate` (e.g. `_codebuddy.ai/authUrl`). */
+    acpAuthUrlNotification: z.string().min(1).max(100).optional(),
   }),
   env: z.record(EnvName, Template).default({}),
   permission: z

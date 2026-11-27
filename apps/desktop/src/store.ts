@@ -1,5 +1,12 @@
+import type { AgentKind } from '@gonggong/protocol'
 import { create } from 'zustand'
 import { type AppInfo, ipc, type Overview, onSnapshot, type Snapshot } from './ipc'
+
+export interface AgentDeepLinkIntent {
+  kind: AgentKind
+  action?: 'login'
+  seq: number
+}
 
 export const useDaemon = create<{
   info: AppInfo | null
@@ -8,11 +15,14 @@ export const useDaemon = create<{
   overview: Overview | null
   /** Whether the post-bind create-Bot guide on 概览 was dismissed in this session. */
   botGuideDismissed: boolean
+  /** Pending deep-link intent (e.g. `gonggong://agents?kind=codebuddy&action=login`) when already bound. */
+  pendingAgentIntent: AgentDeepLinkIntent | null
 }>()(() => ({
   info: null,
   snapshot: { phase: 'unbound' },
   overview: null,
   botGuideDismissed: false,
+  pendingAgentIntent: null,
 }))
 
 /** Replaces the page's toolbar title while a page shows a sub-view (a run of 概览). */

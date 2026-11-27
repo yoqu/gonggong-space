@@ -480,6 +480,12 @@ export const en = {
   电脑不存在: 'Computer not found',
   '只有电脑主人可以管理其 Agent 工具与供应商':
     "Only the computer's owner can manage its Agent tools and providers",
+  '只有电脑主人可以登录该电脑上的 Agent': "Only the computer's owner can sign in Agents on this computer",
+  '电脑当前离线，请先保持共工客户端在线':
+    'This computer is currently offline; keep the Gonggong client online first',
+  '当前电脑的共工客户端版本较旧，请升级客户端后重试，或在电脑终端手动登录':
+    "This computer's Gonggong client is outdated; upgrade it and try again, or sign in manually in the computer's terminal",
+  '电脑已离线，登录已中断': 'Computer went offline; sign-in was interrupted',
   请先升级这台电脑的共工客户端: "Upgrade this computer's Gonggong client first",
   '请先升级这台电脑的共工客户端，才能为一个供应商登记多种协议':
     "Upgrade this computer's Gonggong client to register more than one protocol for a provider",
@@ -1172,6 +1178,7 @@ export const en = {
   '有模板、设计系统或输入项时必须填写': 'Required when templates, design systems, or inputs are defined',
   连接器类插件必须且只能由它填写: 'Only connector plugins may set this field, and it is required for them',
   'CLI 登录的连接器不能再要求密钥': 'CLI-login connectors cannot also require secrets',
+  至少填写一个平台的路径: 'Provide a path for at least one platform',
   取值重复: 'Duplicate value',
   '官方 / 默认': 'Official / Default',
   默认模型: 'Default model',

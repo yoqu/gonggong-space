@@ -4,8 +4,8 @@ use crate::ccswitch;
 use crate::config::{Config, Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
-    AgentCatalog, AgentState, Choice, DaemonToServer, DiagCheck, EndpointInput, FEATURE_AGENT_SETTINGS,
-    FEATURE_AGENT_STATE, FEATURE_ANTIGRAVITY, FEATURE_APPROVAL_GATES, FEATURE_ARTIFACT_ACTIVITY,
+    AgentCatalog, AgentState, Choice, DaemonToServer, DiagCheck, EndpointInput, FEATURE_AGENT_LOGIN,
+    FEATURE_AGENT_SETTINGS, FEATURE_AGENT_STATE, FEATURE_ANTIGRAVITY, FEATURE_APPROVAL_GATES, FEATURE_ARTIFACT_ACTIVITY,
     FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS,
     FEATURE_CLAUDE_DEFAULT_DIR, FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONNECTORS, FEATURE_CONTAINER,
     FEATURE_COPILOT, FEATURE_DEEPSEEK, FEATURE_DIAG, FEATURE_GEMINI, FEATURE_GIT_ACCESS, FEATURE_GIT_OPS,
@@ -109,6 +109,7 @@ impl Manage {
             FEATURE_PROTOCOL_PROVIDERS.to_string(),
             FEATURE_THREAD_SESSIONS.to_string(),
             FEATURE_CONNECTORS.to_string(),
+            FEATURE_AGENT_LOGIN.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());

@@ -1,3 +1,4 @@
+import { AGENT_KINDS, type AgentKind } from '@gonggong/protocol'
 import { Toaster, toast } from '@web/ui'
 import { useEffect, useState } from 'react'
 import { t } from './i18n'
@@ -9,6 +10,24 @@ import { TitleBar } from './shell/TitleBar'
 import { UpdateBanner } from './shell/UpdateBanner'
 import { connectDaemon, refreshInfo, useDaemon } from './store'
 import { startUpdater } from './updater'
+
+let intentSeq = 0
+
+/** Parses `gonggong://agents?kind=<kind>&action=login` deep links. */
+export function parseAgentsDeepLink(url: string): { kind: AgentKind; action?: 'login' } | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'gonggong:') return null
+    const target = parsed.hostname || parsed.pathname.replace(/^\/+/, '')
+    if (target !== 'agents') return null
+    const kind = parsed.searchParams.get('kind')
+    if (!kind || !(AGENT_KINDS as readonly string[]).includes(kind)) return null
+    const action = parsed.searchParams.get('action') === 'login' ? 'login' : undefined
+    return { kind: kind as AgentKind, action }
+  } catch {
+    return null
+  }
+}
 
 export function App() {
   const info = useDaemon((s) => s.info)
@@ -22,12 +41,18 @@ export function App() {
       const url = urls[urls.length - 1]
       const server = useDaemon.getState().info?.server
       if (!url) return
-      if (server)
+      if (server) {
+        const agentIntent = parseAgentsDeepLink(url)
+        if (agentIntent) {
+          intentSeq += 1
+          useDaemon.setState({ pendingAgentIntent: { ...agentIntent, seq: intentSeq } })
+          return
+        }
         toast({
           type: 'warning',
           message: t('本机已绑定到 {host}，请先在设置中解绑', { host: host(server) }),
         })
-      else setLink({ url })
+      } else setLink({ url })
     }
     // Links are handled once the binding is known.
     const unlisten = connectDaemon().then(async (stopDaemon) => {

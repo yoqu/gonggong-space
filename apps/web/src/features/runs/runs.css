@@ -343,3 +343,42 @@
 .run-ask__audit:hover {
   color: var(--accent);
 }
+
+/* Auth error recovery block (Chat RunCard & RunTab IssueBanner) */
+.run-auth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-field);
+  background: var(--tint-orange);
+  font-size: var(--text-subheadline-size);
+}
+.run-auth__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--tint-orange-text);
+  font-weight: 500;
+}
+.run-auth__head > svg {
+  flex: none;
+}
+.run-auth__actions,
+.run-auth__ready {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-2);
+}
+.run-auth__ready-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--tint-green-text);
+  font-weight: 500;
+}
+.run-auth__hint {
+  color: var(--label-secondary);
+}

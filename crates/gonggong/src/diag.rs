@@ -391,6 +391,9 @@ mod tests {
             managed: false,
             upgrade_command: None,
             install_command: None,
+            login_state: None,
+            login_label: None,
+            login_flow: None,
         };
         let both = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.160.1"))]);
         assert_eq!((both.status, both.detail.as_str()), (Status::Ok, "Claude Code 2.1.3 · Codex 0.160.1 可用"));

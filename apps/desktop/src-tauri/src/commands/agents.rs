@@ -4,12 +4,16 @@ use super::Result;
 use crate::host::Host;
 use crate::i18n::tr;
 use gonggong::local::{LocalSettings, LocalStore};
-use gonggong::protocol::AgentKind;
+use gonggong::protocol::{AgentKind, DaemonToServer};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, State};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+
+/// Tauri event streaming `DaemonToServer::AgentLogin*` JSON payloads during interactive ACP login.
+const AGENT_LOGIN_EVENT: &str = "agent-login-event";
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,6 +100,75 @@ pub async fn group_names() -> BTreeMap<String, String> {
         .into_iter()
         .map(|p| (p.group_id, p.group_name))
         .collect()
+}
+
+/// Starts an interactive ACP login flow for `kind`, emitting `agent-login-event` updates (`DaemonToServer::AgentLogin*`).
+/// Returns the generated `opId` so the UI can correlate events and cancel the operation.
+#[tauri::command]
+pub async fn agent_login_start(
+    app: AppHandle,
+    host: State<'_, Host>,
+    kind: AgentKind,
+    method_id: Option<String>,
+    open_browser: Option<bool>,
+) -> Result<String> {
+    let op_id = gonggong::agent_login::new_op_id();
+    let home = host.home.clone();
+    let engine = host.engine().unwrap_or_else(|| {
+        gonggong::engine::Engine::new(gonggong::engine::EngineConfig {
+            home: home.clone(),
+            user_home: gonggong::config::user_home(),
+            adapter_cmd: None,
+            idle: std::time::Duration::from_secs(60),
+            reap: std::time::Duration::from_secs(60),
+            cancel_grace: std::time::Duration::from_secs(5),
+            continuation: Default::default(),
+            api: None,
+        })
+    });
+    let open_browser = open_browser.unwrap_or(false);
+    let emit_app = app.clone();
+    let emit: Arc<dyn Fn(DaemonToServer) + Send + Sync> = Arc::new(move |msg| {
+        let _ = emit_app.emit(AGENT_LOGIN_EVENT, msg);
+    });
+    let done_app = app.clone();
+    let done_home = home.clone();
+    let on_success: gonggong::agent_login::OnSuccessFn = Box::new(move || {
+        Box::pin(async move {
+            let h = done_home.clone();
+            if let Ok(Ok(agents)) = tauri::async_runtime::spawn_blocking(move || {
+                LocalSettings::load(&h).map(|local| gonggong::agents::detect(&h, &local))
+            })
+            .await
+            {
+                let host = done_app.state::<Host>();
+                host.report_agents(agents);
+                host.reprobe_agent(kind);
+            }
+        })
+    });
+    let config_fut = async move { engine.login_config(kind).await };
+    host.agent_login().start(home, op_id.clone(), kind, method_id, open_browser, config_fut, emit, Some(on_success));
+    Ok(op_id)
+}
+
+#[tauri::command]
+pub async fn agent_login_cancel(host: State<'_, Host>, op_id: String) -> Result<()> {
+    host.agent_login().cancel(&op_id);
+    Ok(())
+}
+
+/// Opens a native terminal window with managed Node + tools prepended to `PATH` and runs `kind`'s login command.
+#[tauri::command]
+pub async fn agent_launch_login(host: State<'_, Host>, kind: AgentKind) -> Result<()> {
+    let home = host.home.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let local = LocalSettings::load(&home).map_err(|e| format!("{e:#}"))?;
+        let custom_path = local.agent(kind).path;
+        gonggong::open_apps::launch_agent_login_terminal(&home, kind, custom_path.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

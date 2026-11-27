@@ -161,6 +161,7 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
         session_id: None,
         new_session_reason: None,
         error: None,
+        error_kind: None,
         git: None,
         patch: None,
         repos: vec![],
@@ -201,6 +202,9 @@ async fn reports_agent_detection_changes_after_hello() {
         managed: false,
         upgrade_command: None,
         install_command: None,
+        login_state: None,
+        login_label: None,
+        login_flow: None,
     };
     let (tx, rx) = watch::channel(vec![claude(false)]);
     let task = tokio::spawn(with_agents(port, Recorder::default(), rx).run());
@@ -232,6 +236,7 @@ impl Handler for Reporter {
                 session_id: None,
                 new_session_reason: None,
                 error: None,
+                error_kind: None,
                 git: None,
                 patch: None,
                 repos: vec![],

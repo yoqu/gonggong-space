@@ -109,6 +109,7 @@ pub(crate) struct Inner {
     manage: Manage,
     /// CLI connectors: probed, connected and shimmed into the agents' PATH.
     connectors: crate::connectors::Connectors,
+    agent_login: crate::agent_login::AgentLoginManager,
     replicas: Arc<Replicas>,
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     terminals: crate::terminal::TerminalManager,
@@ -160,6 +161,7 @@ impl Engine {
             diff_slots: Arc::new(tokio::sync::Semaphore::new(DIFF_SLOTS)),
             manage,
             connectors,
+            agent_login: crate::agent_login::AgentLoginManager::new(),
             replicas,
             #[cfg(any(target_os = "macos", target_os = "linux"))]
             terminals,
@@ -862,6 +864,7 @@ impl Handler for Engine {
                     out.send(DaemonToServer::AgentsReprobeResult { request_id, ok: error.is_none(), error });
                 });
             }
+            ServerToDaemon::AgentLogin(cmd) => self.handle_agent_login(cmd, out),
             ServerToDaemon::CcSwitchApply { request_id, keys, set_default } => {
                 self.0.manage.ccswitch_apply(request_id, keys, set_default, out)
             }
@@ -1330,19 +1333,9 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
 
 fn failed_done(run_id: &str, error: String) -> RunDone {
     RunDone {
-        run_id: run_id.into(),
-        outcome: RunOutcome::Failed,
-        reply: String::new(),
-        files_changed: 0,
-        usage: None,
-        session_id: None,
-        new_session_reason: None,
-        error: Some(error),
-        git: None,
-        patch: None,
-        repos: vec![],
-        appends_applied: 0,
-        sync: None, model: None,
+        run_id: run_id.into(), outcome: RunOutcome::Failed, reply: String::new(), files_changed: 0,
+        usage: None, session_id: None, new_session_reason: None, error: Some(error), error_kind: None,
+        git: None, patch: None, repos: vec![], appends_applied: 0, sync: None, model: None,
     }
 }
 

@@ -1109,6 +1109,12 @@ impl Shared {
         Permission::Ask(rx)
     }
 
+    fn set_error_kind(&self, kind: Option<crate::protocol::RunErrorKind>) {
+        if let Some(a) = self.0.lock().unwrap().active.as_mut() {
+            a.turn.error_kind = kind;
+        }
+    }
+
     /// Ends the active turn and reports it. `Err` = the agent failed.
     fn finish(
         &self,
@@ -1319,6 +1325,7 @@ fn done(
         session_id,
         new_session_reason,
         error,
+        error_kind: turn.error_kind,
         git,
         patch: turn.patch,
         repos: turn.repos,
@@ -1372,42 +1379,6 @@ fn command_of(raw: Option<&serde_json::Value>) -> Option<String> {
 /// ACP's older way to pick a model (Gemini CLI): `models` beside the session's fields, set with this method.
 const SET_MODEL: &str = "session/set_model";
 
-/// A session's models as `models` reports them.
-#[derive(Debug, Clone, PartialEq)]
-struct Models {
-    current: String,
-    /// The one the session was opened with.
-    initial: String,
-    choices: Vec<Choice>,
-}
-
-impl Models {
-    fn of(raw: &serde_json::Value) -> Option<Models> {
-        let models = raw.get("models")?;
-        let current = models["currentModelId"].as_str()?.to_string();
-        let choices = models["availableModels"]
-            .as_array()?
-            .iter()
-            .filter_map(|m| {
-                let value = m["modelId"].as_str()?.to_string();
-                let name = m["name"].as_str().map_or_else(|| value.clone(), String::from);
-                Some(Choice { name, value, description: m["description"].as_str().map(String::from) })
-            })
-            .collect();
-        Some(Models { initial: current.clone(), current, choices })
-    }
-
-    fn catalog(self) -> AgentCatalog {
-        let models =
-            named(self.choices).into_iter().map(|choice| ModelChoice { choice, efforts: vec![], effort: None });
-        AgentCatalog {
-            models: models.collect(),
-            current: Some(self.current).filter(|v| v != ADAPTER_DEFAULT),
-            ..Default::default()
-        }
-    }
-}
-
 /// Sends `req` and also returns its raw result, for what the typed response leaves out ([`Models`]).
 async fn send_raw<R>(
     cx: &ConnectionTo<Agent>,
@@ -1422,6 +1393,7 @@ where
 }
 
 use model::ADAPTER_DEFAULT;
+use models::Models;
 
 fn named(choices: Vec<Choice>) -> Vec<Choice> {
     choices.into_iter().filter(|c| c.value != ADAPTER_DEFAULT).collect()
@@ -1876,7 +1848,9 @@ impl Conversation<'_> {
                     (id, reason, history)
                 }
                 Err(e) => {
-                    self.shared.finish(Err(t!("无法建立 agent 会话：{e}", e = describe(&e))), None, None, None);
+                    let (msg, kind) = crate::agent_login::session_open_error(s.bot.agent_kind, &e, &describe(&e));
+                    self.shared.set_error_kind(kind);
+                    self.shared.finish(Err(msg), None, None, None);
                     return Ok(());
                 }
             },
@@ -1996,7 +1970,12 @@ impl Conversation<'_> {
                 let done_model = model::combine_done_model(pre_model, updated_model, served_model);
                 self.shared.report_context(&session, result.as_ref().ok().and_then(|r| r.usage.as_ref()));
                 self.shared.post_turn(outcome).await;
-                self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref(), done_model);
+                let res = result.map_err(|e| {
+                    let (msg, kind) = crate::agent_login::prompt_error(s.bot.agent_kind, &e, &describe(&e));
+                    self.shared.set_error_kind(kind);
+                    msg
+                });
+                self.shared.finish(res, Some(&session), reason.as_deref(), done_model);
                 // Before the next turn switches modes itself; failed, the mode is unknown and the next switch is sent.
                 if let Some(restoring) = self.shared.take_restoring() {
                     let Ok(mode) = tokio::time::timeout(self.cancel_grace, restoring).await else {
@@ -2317,6 +2296,7 @@ fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer
 mod context;
 mod gate;
 mod model;
+mod models;
 mod permission;
 #[cfg(test)]
 use permission::name_mcp_call;

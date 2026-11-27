@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { desktopSource } from '../src/agentsSource'
-import { ipc, onToolProgress } from '../src/ipc'
+import { type AgentLoginEvent, ipc, onAgentLoginEvent, onToolProgress } from '../src/ipc'
 import { AgentsPage } from '../src/pages/Agents'
 import { agent, bot, CLAUDE, CODEX, provider, STATE, VIEW } from './ipc-mock'
 
@@ -124,6 +124,50 @@ describe('Agent page', () => {
     await screen.findByRole('region', { name: '可安装' })
     fireEvent.click(row('Codex').getByRole('button', { name: '安装' }))
     expect(await screen.findByText('本机已有工具安装或升级在进行中，请稍后再试')).toBeTruthy()
+  })
+
+  it('runs CodeBuddy ACP OAuth login via Tauri IPC and opens auth URL once', async () => {
+    let emit: (e: AgentLoginEvent) => void = () => {}
+    vi.mocked(onAgentLoginEvent).mockImplementation(async (cb) => {
+      emit = cb
+      return () => {}
+    })
+    m.agentFeatures.mockResolvedValue(['tools', 'providers', 'protocolProviders', 'codebuddy', 'agent_login'])
+    m.tools.mockResolvedValue({
+      ...STATE,
+      agents: [agent('codebuddy', { loginState: 'logged_out', loginFlow: 'acp', latest: '2.187.0' })],
+    })
+    m.agentLoginStart.mockResolvedValue('op-cb')
+    render(<AgentsPage go={() => {}} />)
+    await screen.findByRole('region', { name: 'Agent' })
+    expect(row('CodeBuddy').getByText('未登录')).toBeTruthy()
+    fireEvent.click(row('CodeBuddy').getByRole('button', { name: '登录' }))
+    const dialog = await screen.findByRole('dialog', { name: /登录 CodeBuddy.*官方账号/ })
+    fireEvent.click(within(dialog).getByRole('button', { name: '开始登录授权' }))
+    await waitFor(() => expect(m.agentLoginStart).toHaveBeenCalledWith('codebuddy', 'internal', false))
+    act(() =>
+      emit({
+        t: 'agent.login.auth',
+        opId: 'op-cb',
+        kind: 'codebuddy',
+        url: 'https://codebuddy.cn/oauth?s=1',
+      }),
+    )
+    expect(await within(dialog).findByTitle('授权二维码')).toBeTruthy()
+    expect(m.openExternalUrl).toHaveBeenCalledTimes(1)
+    expect(m.openExternalUrl).toHaveBeenCalledWith('https://codebuddy.cn/oauth?s=1')
+    act(() => emit({ t: 'agent.login.result', opId: 'op-cb', kind: 'codebuddy', ok: true, user: 'wl' }))
+    expect(await within(dialog).findByText('登录成功')).toBeTruthy()
+    await waitFor(() => expect(m.tools.mock.calls.length).toBeGreaterThanOrEqual(2))
+  })
+
+  it('launches native terminal login for non-ACP agents on Desktop', async () => {
+    render(<AgentsPage go={() => {}} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Claude Code/ }))
+    fireEvent.click(await row('Claude Code').findByRole('button', { name: '登录…' }))
+    const dialog = await screen.findByRole('dialog', { name: '登录 Claude Code 官方账号' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '打开终端登录' }))
+    await waitFor(() => expect(m.agentLaunchLogin).toHaveBeenCalledWith('claude'))
   })
 })
 

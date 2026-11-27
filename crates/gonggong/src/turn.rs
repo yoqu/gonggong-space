@@ -2,8 +2,8 @@
 use crate::attachments::rel_path;
 use crate::protocol::{
     self, AgentKind, CompactionStatus, CompactionTrigger, ContextMessage, ContextUsage, DiffRepo, GitStatus, McpCall,
-    PlanItem, PlanStatus, RunBot, RunEvent, RunPrompt, RunSyncDone, RunSyncStart, SubagentState, TaskState, Tier,
-    ToolStatus, Usage, WebCall,
+    PlanItem, PlanStatus, RunBot, RunErrorKind, RunEvent, RunPrompt, RunSyncDone, RunSyncStart, SubagentState,
+    TaskState, Tier, ToolStatus, Usage, WebCall,
 };
 use crate::{mcp_call, web_call};
 use agent_client_protocol::schema::MaybeUndefined;
@@ -398,6 +398,8 @@ pub struct Turn {
     pub usage: Option<Usage>,
     /// Terminal agent error reported out of band (e.g. invalid model); the turn still ends with `end_turn`.
     pub failure: Option<String>,
+    /// Structured error category when a turn failed (e.g. `auth`).
+    pub error_kind: Option<RunErrorKind>,
     /// run.append messages fed into this turn.
     pub appends_applied: u32,
     /// Repo workspaces only: git state after the turn and the number of paths the turn changed.

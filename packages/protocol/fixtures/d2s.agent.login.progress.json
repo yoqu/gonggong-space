@@ -1,0 +1,7 @@
+{
+  "t": "agent.login.progress",
+  "opId": "op-1",
+  "kind": "codebuddy",
+  "stage": "authenticating",
+  "line": "Waiting for browser authorization"
+}

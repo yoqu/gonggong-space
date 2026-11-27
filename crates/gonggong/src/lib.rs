@@ -1,4 +1,5 @@
 pub mod adapters;
+pub mod agent_login;
 pub mod agent_settings;
 pub mod agents;
 pub mod antigravity;

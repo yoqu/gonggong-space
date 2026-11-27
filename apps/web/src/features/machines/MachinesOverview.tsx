@@ -11,8 +11,8 @@ import { Link } from 'react-router'
 import { t } from '../../i18n'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import { AgentIcon, Button, EmptyState, Icon, PickChatArt } from '../../ui'
-import { choiceLabel, machineDefault } from '../agents/model'
+import { AgentIcon, Button, EmptyState, Icon, PickChatArt, Tag } from '../../ui'
+import { choiceLabel, machineDefault, needsOfficialLogin } from '../agents/model'
 import { agentsUndetected, reportedAgent } from '../bots/model'
 import { OS_ICON } from './MachineDetails'
 import { OS_LABEL } from './model'
@@ -108,6 +108,7 @@ function MachineCard({
                 {a?.available
                   ? `${AGENT_META[kind].name} ${a.version ?? ''}`.trim()
                   : `${AGENT_META[kind].name} ${agentsUndetected(m) ? t('待检测') : t('未安装')}`}
+                {a && needsOfficialLogin(a, view) ? <Tag tone="orange">{t('未登录')}</Tag> : null}
                 {provider ? <span className="mx-sub">{t('供应商：{name}', { name: provider })}</span> : null}
               </span>
             )

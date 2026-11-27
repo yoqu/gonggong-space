@@ -1,0 +1,8 @@
+{
+  "t": "agent.login",
+  "op": "start",
+  "opId": "op-1",
+  "kind": "codebuddy",
+  "methodId": "internal",
+  "openBrowser": false
+}

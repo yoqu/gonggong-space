@@ -1,4 +1,4 @@
-import type { RunDone, RunEvent, Usage } from '@gonggong/protocol'
+import { AGENT_META, type AgentKind, type RunDone, type RunEvent, type Usage } from '@gonggong/protocol'
 import { and, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
@@ -459,6 +459,10 @@ async function withCacheRead(ctx: Ctx, runId: string, usage: Usage): Promise<Usa
   return row?.read == null ? usage : { ...usage, cachedReadTokens: row.read }
 }
 
+const RAW_AUTH_ERROR_RE = /Authentication required|"category"\s*:\s*"auth"/i
+const isAuthFailure = (done: RunDone) =>
+  done.errorKind === 'auth' || (!!done.error && RAW_AUTH_ERROR_RE.test(done.error))
+
 /**
  * Ends the run: terminal state, session id, git status and the final reply are stored in one transaction, so a
  * failure never leaves a finished run without its reply (or the reverse). The run stays `finalizing` until
@@ -471,14 +475,28 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
   const userMentions = reply ? await memberMentions(ctx, owned.groupId, reply, { skipCode: true }) : []
   const doneModel = normalizeConcreteModel(done.model)
   const usage = done.usage && (await withCacheRead(ctx, owned.id, done.usage))
+  let failedStep: ReturnType<typeof runStep> | null = null
+  if (done.outcome === 'failed') {
+    if (isAuthFailure(done)) {
+      const [bot] = await ctx.db
+        .select({ agentKind: bots.agentKind })
+        .from(bots)
+        .where(eq(bots.id, owned.botId))
+      const kind = bot?.agentKind as AgentKind | undefined
+      const agent = (kind && AGENT_META[kind]?.name) ?? bot?.agentKind ?? 'Agent'
+      failedStep = runStep('运行出错：{agent} 尚未登录或登录已过期', { agent })
+    } else {
+      failedStep = runStep('运行出错：{error}', {
+        error: done.error ? redact(done.error) : { key: '未知错误' },
+      })
+    }
+  }
   const ended = await ctx.db.transaction(async (tx) => {
     const [run] = await tx
       .update(runs)
       .set({
         status: done.outcome === 'completed' ? 'completed' : 'interrupted',
-        ...(done.outcome === 'failed'
-          ? runStep('运行出错：{error}', { error: done.error ? redact(done.error) : { key: '未知错误' } })
-          : { step: '' }),
+        ...(failedStep ?? { step: '' }),
         filesChanged: done.filesChanged,
         patch: done.patch && seal(redact(done.patch)),
         patchRepos: done.repos,

@@ -65,3 +65,35 @@ pub fn open_web(app: AppHandle) -> Result<()> {
     let config = Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
     app.opener().open_url(format!("{}/", config.server.trim_end_matches('/')), None::<&str>).map_err(|e| e.to_string())
 }
+
+fn validate_external_url(url: &str) -> Result<String> {
+    gonggong::agent_login::validate_http_url(url).ok_or_else(|| tr!("仅支持打开 http/https 链接").to_string())
+}
+
+/// Opens an external `http://` or `https://` URL (e.g. an agent OAuth login page) in the system browser.
+#[tauri::command]
+pub fn open_external_url(url: String, app: AppHandle) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let valid = validate_external_url(&url)?;
+    app.opener().open_url(valid, None::<&str>).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_external_url;
+
+    #[test]
+    fn external_url_rejects_non_http_and_malformed_inputs() {
+        assert_eq!(
+            validate_external_url("https://copilot.tencent.com/oauth?state=1").as_deref(),
+            Ok("https://copilot.tencent.com/oauth?state=1")
+        );
+        assert!(validate_external_url("http://127.0.0.1:8080/cb").is_ok());
+        assert!(validate_external_url("file:///etc/passwd").is_err());
+        assert!(validate_external_url("javascript:alert(1)").is_err());
+        assert!(validate_external_url("https://").is_err());
+        assert!(validate_external_url("https://example.com/a b").is_err());
+        assert!(validate_external_url("https://example.com/\r\ncalc").is_err());
+        assert!(validate_external_url("https://example.com/\"&calc").is_err());
+    }
+}

@@ -1,8 +1,8 @@
 import { type ProviderSavedDto, ProviderStoreView } from '@gonggong/protocol'
-import type { AgentsSource } from '@web/features/agents/source'
+import type { AgentLoginDriver, AgentsSource } from '@web/features/agents/source'
 import { AgentLoginDialog } from '@web/features/machines/AgentLoginDialog'
 import { useEffect } from 'react'
-import { ipc, onToolProgress, type ProvidersCmd } from './ipc'
+import { ipc, onAgentLoginEvent, onToolProgress, type ProvidersCmd } from './ipc'
 import { fail } from './lib/ui'
 
 /** Tauri rejects with the command's message; the shared components expect an Error. */
@@ -44,6 +44,17 @@ function DirPicker({
  * same code as the daemon answers the Web with (`src-tauri/src/commands/{tools,providers}.rs`).
  */
 export function desktopSource(features: string[]): AgentsSource {
+  const loginDriver: AgentLoginDriver = {
+    mode: 'desktop',
+    supportsAcp: true,
+    startAcp: ({ kind, methodId, openBrowser }) =>
+      wrap(ipc.agentLoginStart(kind, methodId, openBrowser)).then((opId) => ({ opId })),
+    cancelAcp: (_kind, opId) => wrap(ipc.agentLoginCancel(opId)),
+    subscribeAcp: (cb) => onAgentLoginEvent(cb),
+    launchTerminal: (kind) => wrap(ipc.agentLaunchLogin(kind)),
+    openExternalUrl: (url) => wrap(ipc.openExternalUrl(url)),
+    refresh: () => wrap(ipc.tools()).then(() => undefined),
+  }
   return {
     key: 'local',
     features,
@@ -83,7 +94,7 @@ export function desktopSource(features: string[]): AgentsSource {
     claudeDirs: () => wrap(ipc.claudeDirs()),
     claudeDefaultDir: () => wrap(ipc.claudeDefaultDir()),
     renderDirPicker: (p) => <DirPicker {...p} />,
-    renderLogin: (p) => <AgentLoginDialog {...p} />,
+    renderLogin: (p) => <AgentLoginDialog {...p} loginDriver={loginDriver} />,
     openBot: (id) => void ipc.openBotInWeb(id).catch(fail),
     agentLocal: (kind) => wrap(ipc.agentLocal(kind)),
     pickPath: (kind) => wrap(ipc.pickAgentPath(kind)),

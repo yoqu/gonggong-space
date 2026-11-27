@@ -7,6 +7,7 @@ pub use crate::providers::{ModelMap, Preset, StoreView};
 pub use crate::tools::{ToolKind, ToolStatus as ToolState};
 use serde::{Deserialize, Serialize};
 
+mod agent_login;
 mod agent_state;
 mod agent_tools;
 mod common;
@@ -24,6 +25,7 @@ mod terminal;
 #[cfg(test)]
 mod tests;
 
+pub use agent_login::*;
 pub use agent_state::*;
 pub use agent_tools::*;
 pub use common::*;

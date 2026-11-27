@@ -111,6 +111,29 @@ export const InstallToolReq = z.object({ version: z.string().regex(TOOL_VERSION)
 /** A started install / upgrade: its lines arrive as machine.tools.progress, its end as machine.tools.result. */
 export const ToolOpDto = z.object({ opId: z.string() })
 export type ToolOpDto = z.infer<typeof ToolOpDto>
+
+/** POST /api/machines/:id/agents/:kind/login — starts a daemon-driven ACP agent login (owner only). */
+export const AgentLoginStartReq = z.object({
+  /** Auth method id chosen by the owner (e.g. `internal`, `external`); omitted to list methods or use default. */
+  methodId: z.string().min(1).max(100).optional(),
+  /** Whether the daemon / CLI may open the browser on the machine (false by default for web-driven login). */
+  openBrowser: z.boolean().optional(),
+})
+export type AgentLoginStartReq = z.infer<typeof AgentLoginStartReq>
+
+/** Answer to starting an agent login; methods, auth URL, progress and result arrive as `machine.agentLogin.*`. */
+export const AgentLoginStartedDto = z.object({
+  opId: z.string(),
+  machineId: z.string(),
+  kind: AgentKind,
+})
+export type AgentLoginStartedDto = z.infer<typeof AgentLoginStartedDto>
+
+/** POST /api/machines/:id/agents/:kind/login/cancel — cancels a running agent login op (owner only). */
+export const AgentLoginCancelReq = z.object({
+  opId: z.string().min(1),
+})
+export type AgentLoginCancelReq = z.infer<typeof AgentLoginCancelReq>
 export const SaveProviderReq = ProviderInput.omit({ id: true }).extend({
   /** Agents whose machine default becomes this provider. */
   setDefault: z.array(AgentKind).default([]),

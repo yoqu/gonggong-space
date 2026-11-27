@@ -238,10 +238,32 @@ pub struct Login {
     pub logged_out: bool,
     pub command: String,
     pub hint: String,
+    #[serde(default)]
+    pub acp_auth: bool,
+    #[serde(default)]
+    pub acp_auth_url_notification: Option<String>,
 }
 
 fn yes() -> bool {
     true
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OsPaths {
+    pub macos: Option<String>,
+    pub windows: Option<String>,
+    pub linux: Option<String>,
+}
+
+impl OsPaths {
+    fn for_os(&self, os: &str) -> Option<&str> {
+        match os {
+            "macos" => self.macos.as_deref(),
+            "windows" => self.windows.as_deref(),
+            _ => self.linux.as_deref(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -271,6 +293,22 @@ pub enum LoginCheck {
     },
     JsonKeys {
         file: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    AuthFile {
+        paths: OsPaths,
+        #[serde(default)]
+        env_override: Option<String>,
+        #[serde(default)]
+        exclude_suffix: Option<String>,
+        #[serde(default)]
+        json_paths: Vec<String>,
+        label: String,
+    },
+    JsonPresent {
+        file: String,
+        path: String,
+        label: String,
     },
 }
 
@@ -359,6 +397,15 @@ impl Adapter {
 
     /// 登录 state from the manifest's checks; None when it cannot tell.
     pub fn login_status(&self, user_home: &Path, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+        self.login_status_for_os(user_home, env, std::env::consts::OS)
+    }
+
+    pub(crate) fn login_status_for_os(
+        &self,
+        user_home: &Path,
+        env: &dyn Fn(&str) -> Option<String>,
+        target_os: &str,
+    ) -> Option<String> {
         let home = self.config_home(user_home, env);
         let path = |p: &str| expand(p, &home, user_home);
         let logged = |how: &str| t!("已登录 · {how}", how = how);
@@ -415,6 +462,49 @@ impl Adapter {
                         return Some(logged(&keys.join(", ")));
                     }
                 }
+                LoginCheck::AuthFile { paths, env_override, exclude_suffix, json_paths, label } => {
+                    let file = env_override
+                        .as_deref()
+                        .and_then(env)
+                        .filter(|v| !v.trim().is_empty())
+                        .map(PathBuf::from)
+                        .filter(|p| p.is_absolute())
+                        .or_else(|| {
+                            paths.for_os(target_os).map(|rel| {
+                                if rel.starts_with("{home}/") || rel.starts_with("~/") {
+                                    expand(rel, &home, user_home)
+                                } else {
+                                    user_home.join(rel)
+                                }
+                            })
+                        });
+                    let Some(file) = file else { continue };
+                    if let Some(suffix) = exclude_suffix {
+                        let mut excluded = file.as_os_str().to_os_string();
+                        excluded.push(suffix);
+                        if Path::new(&excluded).exists() {
+                            continue;
+                        }
+                    }
+                    let Ok(text) = std::fs::read_to_string(&file) else { continue };
+                    let Ok(v) = serde_json::from_str::<Value>(&text) else { continue };
+                    let valid = if json_paths.is_empty() {
+                        v.is_object()
+                    } else {
+                        json_paths.iter().any(|p| v.pointer(p).is_some_and(json_value_present))
+                    };
+                    if valid {
+                        return Some(logged(label));
+                    }
+                }
+                LoginCheck::JsonPresent { file, path: pointer, label } => {
+                    let v = std::fs::read_to_string(path(file))
+                        .ok()
+                        .and_then(|t| serde_json::from_str::<Value>(&strip_comments(&t)).ok());
+                    if v.as_ref().and_then(|v| v.pointer(pointer)?.as_str()).is_some_and(|s| !s.trim().is_empty()) {
+                        return Some(logged(label));
+                    }
+                }
             }
         }
         self.spec.login.logged_out.then(|| t!("未登录").to_string())
@@ -451,6 +541,14 @@ impl Adapter {
 
 fn unquote(s: &str) -> &str {
     s.trim().trim_matches(['"', '\''])
+}
+
+fn json_value_present(v: &Value) -> bool {
+    match v {
+        Value::String(s) => !s.trim().is_empty(),
+        Value::Null => false,
+        _ => true,
+    }
 }
 
 /// `~/…` under the user's home, `{home}/…` under the agent's.

@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
-import { Button, GroupBox, GroupRow, Icon, IconButton, Presence, toast } from '../../ui'
+import { Button, GroupBox, GroupRow, Icon, IconButton, Presence, Tag, toast } from '../../ui'
 import { AgentSettingsBox } from '../machines/AgentSettingsPanel'
 import { OfficialEditor } from '../machines/ProviderEditor'
 import { SwitchNote, switchLines, useProviderSwitch } from '../machines/providers'
 import { SaveStatus, useSaves } from '../machines/save'
-import { botProviderText, choiceValue, machineDefault, parseChoice } from './model'
+import { botProviderText, choiceValue, loginDisplay, machineDefault, parseChoice } from './model'
 import { ProviderModelPicker } from './ProviderModelPicker'
 import type { AgentBotRef, AgentLocal, AgentsSource } from './source'
 
@@ -35,7 +35,9 @@ export function AgentDetail({
   view,
   onView,
   onAddProvider,
+  onOpenLogin,
   onAgents,
+  refreshTick = 0,
   bots,
 }: {
   source: AgentsSource
@@ -44,8 +46,12 @@ export function AgentDetail({
   view: ProviderStoreView | null
   onView: (view: ProviderStoreView) => void
   onAddProvider: () => void
+  /** Opens the shared login dialog hosted by AgentsPanel; absent falls back to DefaultBox's own dialog. */
+  onOpenLogin?: () => void
   /** Detects the agents again (after a path is picked or reset). */
   onAgents: () => Promise<void>
+  /** Incremented after login dialog closes/succeeds to re-read local login info. */
+  refreshTick?: number
   bots: AgentBotRef[]
 }) {
   const meta = agentMeta(a.kind)
@@ -53,15 +59,16 @@ export function AgentDetail({
   const mine = bots.filter((b) => b.agentKind === a.kind)
   const models = a.catalog?.models.map((m) => m.name) ?? []
   const [local, setLocal] = useState<AgentLocal | null>(null)
+  const login = loginDisplay(a, local)
   // Again after each detection: the path, and so the login, may have changed.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a.path and a.available stand for a new detection
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a.path, a.available, a.loginState and refreshTick trigger fresh reads
   useEffect(() => {
     let on = true
     source.agentLocal?.(a.kind).then((l) => on && setLocal(l), fail)
     return () => {
       on = false
     }
-  }, [source, a.kind, a.path, a.available])
+  }, [source, a.kind, a.path, a.available, a.loginState, refreshTick])
   const { pickPath, resetPath } = source
   const [pathBusy, setPathBusy] = useState<'pick' | 'reset' | null>(null)
   const changePath = (op: 'pick' | 'reset', task: () => Promise<unknown>) => async () => {
@@ -135,7 +142,26 @@ export function AgentDetail({
                 value={<Command command={a.upgradeCommand} />}
               />
             ) : null}
-            {local ? <GroupRow label={t('登录#status')} wideValue value={local.login ?? t('未知')} /> : null}
+            {login ? (
+              <GroupRow
+                label={t('登录#status')}
+                wideValue
+                value={
+                  login.state === 'logged_out' ? (
+                    <span className="ag-value">
+                      <Tag tone="orange">{login.text}</Tag>
+                      {onOpenLogin ? (
+                        <Button size="small" variant="primary" onClick={onOpenLogin}>
+                          {t('去登录')}
+                        </Button>
+                      ) : null}
+                    </span>
+                  ) : (
+                    login.text
+                  )
+                }
+              />
+            ) : null}
             <GroupRow
               label={t('适配器')}
               wideValue
@@ -205,6 +231,8 @@ export function AgentDetail({
           view={view}
           onView={onView}
           onAddProvider={onAddProvider}
+          onOpenLogin={onOpenLogin}
+          onAgents={onAgents}
           bots={bots}
         />
       ) : null}
@@ -239,6 +267,8 @@ function DefaultBox({
   view,
   onView,
   onAddProvider,
+  onOpenLogin,
+  onAgents,
   bots,
 }: {
   source: AgentsSource
@@ -246,6 +276,8 @@ function DefaultBox({
   view: ProviderStoreView
   onView: (view: ProviderStoreView) => void
   onAddProvider: () => void
+  onOpenLogin?: () => void
+  onAgents: () => Promise<void>
   bots: AgentBotRef[]
 }) {
   const agent = a.kind
@@ -322,7 +354,7 @@ function DefaultBox({
         >
           <span className="mx-inline">
             {source.renderLogin ? (
-              <Button size="small" onClick={() => setOpen('login')}>
+              <Button size="small" onClick={() => (onOpenLogin ? onOpenLogin() : setOpen('login'))}>
                 {t('登录…')}
               </Button>
             ) : null}
@@ -350,7 +382,13 @@ function DefaultBox({
       {switcher.dialog}
       <Presence>
         {open === 'login'
-          ? source.renderLogin?.({ agent, onClose: () => setOpen(null), onAddProvider })
+          ? source.renderLogin?.({
+              agent,
+              agentState: a,
+              onClose: () => setOpen(null),
+              onAddProvider,
+              onLoggedIn: () => void onAgents().catch(() => {}),
+            })
           : null}
       </Presence>
     </section>

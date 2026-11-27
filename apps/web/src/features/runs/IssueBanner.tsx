@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { copyWithToast } from '../../lib/clipboard'
 import { Button, Icon } from '../../ui'
@@ -11,7 +11,15 @@ const HEAD_LINES = 4
  * Why the run failed or waits, its reason in full (folded past a few lines) and what to do about it.
  * `onRetry` resolves whether it worked; after success the button stays disabled so one click starts one run.
  */
-export function IssueBanner({ issue, onRetry }: { issue: RunIssue; onRetry?: () => Promise<boolean> }) {
+export function IssueBanner({
+  issue,
+  onRetry,
+  extra,
+}: {
+  issue: RunIssue
+  onRetry?: () => Promise<boolean>
+  extra?: ReactNode
+}) {
   const [all, setAll] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const retry = async () => {
@@ -71,6 +79,7 @@ export function IssueBanner({ issue, onRetry }: { issue: RunIssue; onRetry?: () 
         </button>
       ) : null}
       {issue.hint ? <div className="run-issue__hint">{issue.hint}</div> : null}
+      {extra}
     </div>
   )
 }

@@ -1,0 +1,16 @@
+{
+  "t": "agent.login.methods",
+  "opId": "op-1",
+  "kind": "codebuddy",
+  "methods": [
+    {
+      "id": "internal",
+      "name": "Login with WeChat",
+      "description": "中国站微信扫码登录"
+    },
+    {
+      "id": "external",
+      "name": "Login with Google/Github"
+    }
+  ]
+}

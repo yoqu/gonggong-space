@@ -1,5 +1,5 @@
 import { Avatar, Sidebar, useScrollEdge } from '@web/ui'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { PAGES, type PageKey, SECTIONS } from '../pages'
 import { useDaemon, useHeading } from '../store'
@@ -12,9 +12,14 @@ const OS = { macos: 'macOS', windows: 'Windows', linux: 'Linux' } as Record<stri
 export function Shell() {
   const [page, setPage] = useState<PageKey>('overview')
   const info = useDaemon((s) => s.info)
+  const pendingAgentIntent = useDaemon((s) => s.pendingAgentIntent)
   const current = PAGES.find((p) => p.key === page) ?? (PAGES[0] as (typeof PAGES)[number])
   const heading = useHeading((s) => s.heading)
   const [sentinel, scrolled] = useScrollEdge()
+
+  useEffect(() => {
+    if (pendingAgentIntent) setPage('agents')
+  }, [pendingAgentIntent])
   return (
     <div className="dk-body">
       <aside className="dk-sidebar">

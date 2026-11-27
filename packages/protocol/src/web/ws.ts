@@ -3,6 +3,12 @@ import { ArtifactThreadDto } from '../artifact-threads.js'
 import { ArtifactActivityDto } from '../artifacts.js'
 import { ContextUsage, GitStatus, Tier } from '../common.js'
 import { ConnectorDto } from '../connectors.js'
+import {
+  AgentLoginAuth,
+  AgentLoginMethods,
+  AgentLoginProgress,
+  AgentLoginResult,
+} from '../daemon/agent-login.js'
 import { ConnectorsAuth, ConnectorsProgress, ConnectorsResult } from '../daemon/connectors.js'
 import { RepoAccessReason } from '../daemon.js'
 import { GroupSchedulesDto } from '../schedules.js'
@@ -55,6 +61,30 @@ export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 /** GET /api/groups/:id/bots/:botId/repo-candidates: the owner's local clones of the group repo (repo.found). */
 export const RepoCandidatesDto = z.object({ managedPath: z.string(), paths: z.array(z.string()) })
 export type RepoCandidatesDto = z.infer<typeof RepoCandidatesDto>
+
+export const MachineAgentLoginMethodsEvent = AgentLoginMethods.extend({
+  t: z.literal('machine.agentLogin.methods'),
+  machineId: z.string(),
+})
+export type MachineAgentLoginMethodsEvent = z.infer<typeof MachineAgentLoginMethodsEvent>
+
+export const MachineAgentLoginAuthEvent = AgentLoginAuth.extend({
+  t: z.literal('machine.agentLogin.auth'),
+  machineId: z.string(),
+})
+export type MachineAgentLoginAuthEvent = z.infer<typeof MachineAgentLoginAuthEvent>
+
+export const MachineAgentLoginProgressEvent = AgentLoginProgress.extend({
+  t: z.literal('machine.agentLogin.progress'),
+  machineId: z.string(),
+})
+export type MachineAgentLoginProgressEvent = z.infer<typeof MachineAgentLoginProgressEvent>
+
+export const MachineAgentLoginResultEvent = AgentLoginResult.extend({
+  t: z.literal('machine.agentLogin.result'),
+  machineId: z.string(),
+})
+export type MachineAgentLoginResultEvent = z.infer<typeof MachineAgentLoginResultEvent>
 
 export const WebEvent = z.discriminatedUnion('t', [
   /** 团队分区 or what is filed under them changed: refetch them and the directory. */
@@ -180,6 +210,14 @@ export const WebEvent = z.discriminatedUnion('t', [
     error: z.string().nullable(),
     state: MachineAgentsDto.nullable(),
   }),
+  /** Owner only: auth methods advertised by the agent's ACP `initialize` during an agent login. */
+  MachineAgentLoginMethodsEvent,
+  /** Owner only: OAuth / browser URL to open or scan for an agent login; never posted to a group. */
+  MachineAgentLoginAuthEvent,
+  /** Owner only: a stage / log line of a running agent login. */
+  MachineAgentLoginProgressEvent,
+  /** Owner only: the agent login ended (succeeded, failed, timed out, or cancelled). */
+  MachineAgentLoginResultEvent,
   /** The caller only: a line of their connector.cli `connect` (plan 连接器-体验升级方案 §5.4). */
   ConnectorsProgress.extend({ t: z.literal('connector.cli.progress') }),
   /** The caller only: a link to open or scan to go on; never posted to a group. */

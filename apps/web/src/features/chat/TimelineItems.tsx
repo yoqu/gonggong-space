@@ -39,6 +39,7 @@ import { ReactionBar } from '../reactions'
 import { RichMessage } from '../rich/context'
 import { HtmlRender } from '../rich/HtmlRender'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
+import { AuthErrorBlock, isRunAuthError } from '../runs/AuthErrorBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { runMascot } from '../runs/mascot'
 import { stepText, toolTitle } from '../runs/mcp'
@@ -65,6 +66,7 @@ import {
   FanOut,
   FilesFact,
   HopChain,
+  newSessionNote,
   OfflineGlyph,
   PersonalSkillsFact,
   RunStatusIcon,
@@ -97,18 +99,7 @@ export const RUN_STATUS = Object.fromEntries(
   Object.entries(TONE).map(([k, tone]) => [k, { label: STATUS_LABEL[k as RunStatus], tone }]),
 ) as Record<RunStatus, { label: string; tone: TagTone }>
 
-/** Daemon reason codes; the first session of a (group, bot) pair needs no note. */
-const NEW_SESSION: Record<string, string | null> = {
-  first: null,
-  resume_failed: t('会话恢复失败，已开新会话并补送最近 50 条群消息'),
-  requested: t('已按要求开启新会话'),
-  schedule: t('定时任务在独立的新会话中运行'),
-  config_changed: t('本轮因配置变更开启新会话'),
-  idle: t('距上次对话较久，已开启新会话'),
-  provider_removed: t('原供应商已删除，已开启新会话'),
-}
-export const newSessionNote = (reason: string | null) =>
-  reason === null ? null : reason in NEW_SESSION ? NEW_SESSION[reason] : reason
+export { newSessionNote }
 
 export const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
 const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
@@ -783,7 +774,8 @@ export const RunCard = memo(function RunCard({
     run.status === 'running' ? s[run.id]?.trim().split('\n').at(-1) : undefined,
   )
   const note = NOTE.includes(run.status)
-  const step = note || reply ? '' : streamed || toolTitle(stepText(run))
+  const authError = !note && !reply && isRunAuthError(run)
+  const step = note || reply || authError ? '' : streamed || toolTitle(stepText(run))
   const working = !note && !reply && run.status === 'running'
   const mascot = runMascot(run.status, !!streamed)
   const costume = useBotCostume(run.botId)
@@ -919,7 +911,9 @@ export const RunCard = memo(function RunCard({
                 >
                   <div>
                     <div className="pn-mcard__body">
-                      {step || working ? (
+                      {authError ? (
+                        <AuthErrorBlock run={run} agentLabel={agent} />
+                      ) : step || working ? (
                         <div className="run-card__step">
                           {mascot && !walked ? (
                             <Mascot
