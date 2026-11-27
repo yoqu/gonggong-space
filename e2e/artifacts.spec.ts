@@ -96,6 +96,10 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await expect(screen(page, 'detail').getByRole('heading', { name: '活动详情' })).toBeVisible()
         mkdirSync(SHOTS, { recursive: true })
         await page.screenshot({ path: join(SHOTS, 'e2e-canvas.png') })
+        await page.locator('[data-screen-title="home"] .art-title__name').click()
+        await expect(page.getByTestId('art-selection-actions')).toBeVisible()
+        await page.waitForTimeout(600)
+        await page.screenshot({ path: join(SHOTS, 'e2e-canvas-page.png') })
       })
 
       await test.step('a second turn starts from v1 and its change becomes v2', async () => {
@@ -168,8 +172,29 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await page.screenshot({ path: join(SHOTS, 'e2e-canvas-interact.png') })
       })
 
+      await test.step('外观 saves by itself: a new font size is the next version, the heading stays picked', async () => {
+        const inspector = page.getByTestId('art-inspector')
+        await inspector.getByRole('tab', { name: '外观' }).click()
+        const size = inspector.getByRole('textbox', { name: '字号' })
+        await size.fill('40px')
+        await size.press('Enter')
+        await expect(card.getByText('v4')).toBeVisible({ timeout: 30_000 })
+        await expect
+          .poll(
+            () =>
+              screen(page, 'home')
+                .getByRole('heading', { name: '首页直接改' })
+                .evaluate((h) => getComputedStyle(h).fontSize),
+            { timeout: 30_000 },
+          )
+          .toBe('40px')
+        await expect(inspector.getByTestId('art-element-panel')).toBeVisible({ timeout: 30_000 })
+        await expect(inspector.getByRole('textbox', { name: '字号' })).toHaveValue('40px')
+      })
+
       await test.step('热区: dragged out on a page, it links to another page as the next version', async () => {
         const inspector = page.getByTestId('art-inspector')
+        await inspector.getByRole('tab', { name: '交互' }).click()
         await inspector.getByRole('button', { name: '添加热区' }).click()
         // Fit the page in view (F), then drag across its upper part.
         await page.locator('[data-screen-title="home"] .art-title__name').click()
@@ -185,7 +210,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await expect(form).toContainText('×')
         await page.screenshot({ path: join(SHOTS, 'e2e-canvas-hotspot.png') })
         await form.getByRole('button', { name: '保存' }).click()
-        await expect(card.getByText('v4')).toBeVisible({ timeout: 30_000 })
+        await expect(card.getByText('v5')).toBeVisible({ timeout: 30_000 })
         await expect(screen(page, 'home').locator('[data-gg-hotspot][data-gg-link="detail"]')).toHaveCount(
           1,
           {

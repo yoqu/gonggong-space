@@ -1,6 +1,6 @@
 import { type CSSProperties, type ReactElement, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { Icon, IconButton, type IconName, MenuButton, type MenuItem, Tooltip } from '../../ui'
+import { Icon, IconButton, type IconName, Tooltip } from '../../ui'
 
 export { ActivityLayer } from './ActivityLayer'
 
@@ -41,41 +41,6 @@ export function RenameField({
       }}
       onBlur={() => finish(null)}
     />
-  )
-}
-
-/** A menu of the selection toolbar; `compact` (a narrow canvas) shows its icon only, the label in a tooltip. */
-export function FloatMenu({
-  icon,
-  label,
-  compact,
-  items,
-  onSelect,
-}: {
-  icon: IconName
-  label: string
-  compact: boolean
-  items: MenuItem[]
-  onSelect: (value: string) => void
-}) {
-  const menu = (
-    <MenuButton
-      className="ui-btn ui-btn--plain ui-btn--small art-float__btn"
-      aria-label={compact ? label : undefined}
-      items={items}
-      onSelect={onSelect}
-    >
-      <Icon name={icon} size={14} />
-      {compact ? null : label}
-      <Icon name="chevron-down" size={10} weight={2} />
-    </MenuButton>
-  )
-  return compact ? (
-    <Tooltip content={label} placement="bottom">
-      {menu}
-    </Tooltip>
-  ) : (
-    menu
   )
 }
 

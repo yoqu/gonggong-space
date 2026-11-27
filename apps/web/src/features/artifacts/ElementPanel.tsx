@@ -6,7 +6,7 @@ import {
   type StyleProp,
   styleValueOk,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Alert, Button, Input, PopUpButton, Textarea } from '../../ui'
@@ -63,6 +63,13 @@ const TRANSITIONS = [
   { value: 'slide-up', label: t('上滑') },
   { value: 'fade', label: t('淡入') },
 ]
+
+/** Enter in a one-line field is done typing: it saves, as leaving it does. */
+const blurOnEnter = (e: KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === 'Enter') e.currentTarget.blur()
+}
+/** How long after a pick (a colour, a toggle, the slider) its change saves: one version for a quick run of picks. */
+const AUTO_SAVE_MS = 500
 
 /** A titled group of 外观 / 交互 (墨刀's sections). */
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -189,15 +196,28 @@ export function ElementPanel({
       setUploading(false)
     }
   }
-  const save = async () => {
+  // 墨刀-style: a change applies by itself (a new version, undone with 撤销), once the member leaves the text field
+  // they type in, or a moment after a pick; never while invalid, uploading or saving.
+  const [typing, setTyping] = useState(false)
+  const opsKey = JSON.stringify(ops)
+  const sent = useRef('[]')
+  const save = useRef(async () => {})
+  save.current = async () => {
+    sent.current = opsKey
     setBusy(true)
     const ok = await onSave(ops)
     setBusy(false)
-    if (ok) {
-      saved.current = true
-      onClose()
-    }
+    if (ok) saved.current = true
   }
+  useEffect(() => {
+    if (readOnly || invalid || uploading || busy || typing || opsKey === '[]' || opsKey === sent.current)
+      return
+    const timer = setTimeout(() => void save.current(), AUTO_SAVE_MS)
+    return () => clearTimeout(timer)
+  }, [opsKey, readOnly, invalid, uploading, busy, typing])
+  const textField = (el: EventTarget) =>
+    el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLInputElement && (el.type === 'text' || el.type === 'url'))
   const setProp = (p: StyleProp, v: string) => setStyle((s) => ({ ...s, [p]: v }))
 
   const color = (p: StyleProp) => (
@@ -267,6 +287,7 @@ export function ElementPanel({
         invalid={badStyle.some(([k]) => k === p)}
         disabled={readOnly}
         onChange={(e) => setProp(p, e.target.value)}
+        onKeyDown={blurOnEnter}
       />
     </div>
   )
@@ -451,6 +472,7 @@ export function ElementPanel({
             placeholder="https://"
             disabled={readOnly}
             onChange={(e) => setHref(e.target.value)}
+            onKeyDown={blurOnEnter}
           />
         </>
       ) : null}
@@ -469,7 +491,12 @@ export function ElementPanel({
 
   return (
     <Panel title={view === 'look' ? t('外观') : t('交互')} onClose={onClose}>
-      <div className="art-el" data-testid="art-element-panel">
+      <fieldset
+        className="art-el"
+        data-testid="art-element-panel"
+        onFocus={(e) => textField(e.target) && setTyping(true)}
+        onBlur={(e) => textField(e.target) && setTyping(false)}
+      >
         <div className="art-el__crumbs" title={el.selector}>
           <code className="art-el__tag">{`<${el.tag}>`}</code>
           {crumbs(el.selector).map((c, i) => (
@@ -485,21 +512,10 @@ export function ElementPanel({
         {actions}
         {view === 'look' ? look : interact}
         {error ? <Alert variant="error" description={error} /> : null}
-      </div>
-      <div className="art-el__foot">
-        <Button size="small" onClick={onClose}>
-          {t('取消')}
-        </Button>
-        <Button
-          size="small"
-          variant="primary"
-          loading={busy}
-          disabled={readOnly || invalid || uploading || !ops.length}
-          onClick={() => void save()}
-        >
-          {t('保存')}
-        </Button>
-      </div>
+      </fieldset>
+      <p className="art-el__saving" role="status">
+        {busy ? t('正在保存…') : readOnly ? t('历史版本只读') : t('改完自动保存，可用撤销退回')}
+      </p>
     </Panel>
   )
 }

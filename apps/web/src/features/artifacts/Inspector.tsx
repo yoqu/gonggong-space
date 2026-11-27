@@ -9,11 +9,14 @@ import {
   IconButton,
   type IconName,
   Input,
+  MenuButton,
+  type MenuItem,
   PopUpButton,
   Spinner,
   Switch,
 } from '../../ui'
 import type { CanvasNode } from './geometry'
+import { CMD } from './menus'
 import './inspector.css'
 
 /** The page's body, as `layers` reports it. */
@@ -173,15 +176,15 @@ function ColorRow({
   )
 }
 const swatch = (v: string) => <i className="art-swatch" style={{ background: v }} />
-/** `rgb(…)` as the `#rrggbb` a colour input takes; black when it is not one. */
+/** `rgb(…)` as the `#rrggbb` a colour input takes; white when transparent, black when it is not a colour. */
 export const hexOf = (css: string) => {
-  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(css)
-  return m
-    ? `#${m
-        .slice(1, 4)
-        .map((n) => Number(n).toString(16).padStart(2, '0'))
-        .join('')}`
-    : '#000000'
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(css)
+  if (!m) return css === 'transparent' ? '#ffffff' : '#000000'
+  if (m[4] !== undefined && Number(m[4]) === 0) return '#ffffff'
+  return `#${m
+    .slice(1, 4)
+    .map((n) => Number(n).toString(16).padStart(2, '0'))
+    .join('')}`
 }
 
 /** The selected page in 画布设置 (墨刀's page settings): its name, size, background and 热区. */
@@ -202,9 +205,102 @@ export interface PageSettings {
   onCode: () => void
 }
 
-/** 画布设置: the selected page's settings (墨刀's), then the canvas's own. */
+/**
+ * What the selected pages can do (the canvas's old floating toolbar, its duplicates dropped: 编辑 and 设计系统 are
+ * in the top bar, 尺寸 and 查看代码 above, 导出 in the tab's bar, 重新加载 is the top bar's 刷新).
+ */
+export interface SelectionActions {
+  count: number
+  /** One page with its preview: it opens in a tab, and has details. */
+  single: boolean
+  /** The pages show their full height. */
+  full: boolean
+  /** 生成: the platform's and the plugin's AI commands, and the variations. */
+  generate: MenuItem[]
+  bots: { value: string; label: string }[]
+  bot: string
+  onPickBot: (id: string) => void
+  readOnly: boolean
+  onCommand: (value: string) => void
+}
+
+function SelectionSection({ s, multi }: { s: SelectionActions; multi: boolean }) {
+  return (
+    <Section title={multi ? t('所选 {n} 个页面', { n: s.count }) : t('页面操作')}>
+      <div className="art-inspector__rows" data-testid="art-selection-actions">
+        <div className="art-inspector__row">
+          <span>{t('AI')}</span>
+          <div className="art-inspector__buttons">
+            <MenuButton
+              className="ui-btn ui-btn--small"
+              aria-label={t('生成')}
+              items={s.generate}
+              onSelect={s.onCommand}
+            >
+              <Icon name="sparkle" size={14} />
+              {t('生成')}
+              <Icon name="chevron-down" size={10} weight={2} />
+            </MenuButton>
+            {s.bots.length > 1 ? (
+              <PopUpButton
+                aria-label={t('交给')}
+                size="small"
+                value={s.bot}
+                onChange={s.onPickBot}
+                options={s.bots}
+              />
+            ) : null}
+          </div>
+        </div>
+        <div className="art-inspector__row">
+          <span>{t('预览')}</span>
+          <div className="art-inspector__buttons">
+            {s.single ? (
+              <IconButton size="small" title={t('新标签页打开')} onClick={() => s.onCommand(CMD.newTab)}>
+                {'external' as const}
+              </IconButton>
+            ) : null}
+            <IconButton size="small" title={t('显示二维码')} onClick={() => s.onCommand(CMD.qr)}>
+              {'qrcode' as const}
+            </IconButton>
+            <Switch
+              size="small"
+              label={t('全高')}
+              checked={s.full}
+              onChange={() => s.onCommand(CMD.fullHeight)}
+            />
+          </div>
+        </div>
+        <div className="art-inspector__row">
+          <span>{t('更多')}</span>
+          <div className="art-inspector__buttons">
+            {s.single ? (
+              <IconButton size="small" title={t('查看详情')} onClick={() => s.onCommand(CMD.details)}>
+                {'info' as const}
+              </IconButton>
+            ) : null}
+            <IconButton size="small" title={t('下载')} onClick={() => s.onCommand(CMD.download)}>
+              {'download' as const}
+            </IconButton>
+            <IconButton
+              size="small"
+              title={s.readOnly ? t('历史版本只读') : t('删除')}
+              disabled={s.readOnly}
+              onClick={() => s.onCommand(CMD.remove)}
+            >
+              {'trash' as const}
+            </IconButton>
+          </div>
+        </div>
+      </div>
+    </Section>
+  )
+}
+
+/** 画布设置: the selected page's settings (墨刀's), what the selection can do, then the canvas's own. */
 export function CanvasSettings({
   page,
+  selection,
   readOnly,
   colors,
   screens,
@@ -221,6 +317,7 @@ export function CanvasSettings({
   onRulers,
 }: {
   page: PageSettings | null
+  selection: SelectionActions | null
   readOnly: boolean
   colors: [string, string][]
   screens: number
@@ -323,6 +420,7 @@ export function CanvasSettings({
       ) : (
         <p className="art-inspector__hint">{t('选中一个页面，可以改它的名称、尺寸、背景和热区')}</p>
       )}
+      {selection ? <SelectionSection s={selection} multi={!page} /> : null}
       <Section title={t('画布')}>
         <dl className="art-props">
           <dt>{t('屏幕')}</dt>

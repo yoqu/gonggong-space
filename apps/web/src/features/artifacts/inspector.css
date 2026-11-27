@@ -384,3 +384,26 @@
 .art-el__actions .art-pop__form {
   padding: 0;
 }
+.art-inspector__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.art-inspector__buttons .ui-switch {
+  margin-left: 4px;
+}
+.art-el__saving {
+  flex: none;
+  margin: 0;
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--separator);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+fieldset.art-el {
+  padding: 0;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+}

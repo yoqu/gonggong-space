@@ -227,12 +227,12 @@ describe('artifact tab', () => {
     mockApi(routes())
     renderTab()
     await screen.findByTitle('首页')
-    expect(screen.queryByRole('toolbar', { name: '所选屏幕' })).toBeNull()
+    expect(screen.queryByTestId('art-selection-actions')).toBeNull()
     fireEvent.click(screen.getByTestId('art-node-home'))
     expect(screen.getByTestId('art-select-home').textContent).toContain('390 x 844')
     expect(screen.queryByTestId('art-select-detail')).toBeNull()
-    const bar = screen.getByRole('toolbar', { name: '所选屏幕' })
-    for (const name of ['生成', '修改', '预览', '更多'])
+    const bar = screen.getByTestId('art-selection-actions')
+    for (const name of ['生成', '显示二维码', '下载'])
       expect(within(bar).getByRole('button', { name })).toBeTruthy()
     fireEvent.click(screen.getByTestId('art-node-detail'), { shiftKey: true })
     expect(screen.getByTestId('art-select-home')).toBeTruthy()
@@ -248,13 +248,12 @@ describe('artifact tab', () => {
     expect(screen.queryByTestId('art-select-home')).toBeNull()
   })
 
-  it('opens the preview menu, and offers upload to canvas on an editable version', async () => {
+  it('offers the QR code of a selected page, and upload to canvas on an editable version', async () => {
     mockApi(routes())
     renderTab()
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByTestId('art-node-home'))
-    fireEvent.click(screen.getByRole('button', { name: '预览' }))
-    expect(screen.getByRole('menuitem', { name: /显示二维码/ }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByRole('button', { name: '显示二维码' }).hasAttribute('disabled')).toBe(false)
     expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(false)
   })
 

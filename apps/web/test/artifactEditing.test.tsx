@@ -358,7 +358,7 @@ describe('direct edit (E)', () => {
     fireEvent.click(screen.getByRole('tab', { name: '交互' }))
     fireEvent.click(screen.getByRole('button', { name: '点击跳转到' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '书籍详情' }))
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    // Applied by itself, no 保存.
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
         {
@@ -455,7 +455,6 @@ describe('element panel', () => {
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '书籍详情' }))
     fireEvent.click(screen.getByRole('button', { name: '转场' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '推回' }))
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
     const at = { file: 'screens/home.html', ggId: '120' }
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
@@ -483,16 +482,38 @@ describe('element panel', () => {
     )
   })
 
-  it('refuses free colours and unsafe values: saving stays off', async () => {
-    mockApi(routes())
+  it('saves by itself once the member leaves a field, never an unsafe value', async () => {
+    const calls = mockApi(routes())
     await openPanel()
-    const save = screen.getByRole('button', { name: '保存' })
-    expect(save.hasAttribute('disabled')).toBe(true)
-    fireEvent.change(screen.getByRole('textbox', { name: '字号' }), { target: { value: 'url(x)' } })
-    expect(save.hasAttribute('disabled')).toBe(true)
+    const size = screen.getByRole('textbox', { name: '字号' })
+    act(() => size.focus())
+    fireEvent.change(size, { target: { value: 'url(x)' } })
     expect(screen.getByText(/只能填数值加单位/)).toBeTruthy()
-    fireEvent.change(screen.getByRole('textbox', { name: '字号' }), { target: { value: 'var(--text-lg)' } })
-    expect(save.hasAttribute('disabled')).toBe(false)
+    act(() => size.blur())
+    await new Promise((r) => setTimeout(r, 700))
+    expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([])
+    // Typing: nothing saves until the field is left (Enter leaves it).
+    act(() => size.focus())
+    fireEvent.change(size, { target: { value: 'var(--text-lg)' } })
+    await new Promise((r) => setTimeout(r, 700))
+    expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([])
+    fireEvent.keyDown(size, { key: 'Enter' })
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
+        {
+          baseVersionId: 'v2',
+          ops: [
+            {
+              kind: 'style',
+              file: 'screens/home.html',
+              ggId: '120',
+              props: { 'font-size': 'var(--text-lg)' },
+            },
+          ],
+        },
+      ]),
+    )
+    expect(screen.getByText('改完自动保存，可用撤销退回')).toBeTruthy()
   })
 
   it('disables the text of an element with children', async () => {
@@ -501,7 +522,7 @@ describe('element panel', () => {
     expect(screen.getByRole('textbox', { name: '文字' }).hasAttribute('disabled')).toBe(true)
   })
 
-  it('uploads a replacement image, then saves it as an asset op; 取消 drops everything', async () => {
+  it('uploads a replacement image, then saves it as an asset op by itself', async () => {
     const calls = mockApi(
       routes({ 'POST /artifacts/a1/uploads': { uploadId: 'up1', path: 'assets/up1.png' } }),
     )
@@ -512,7 +533,6 @@ describe('element panel', () => {
     const [upload] = calls.filter((c) => c.path === '/artifacts/a1/uploads')
     expect(upload?.method).toBe('POST')
     expect(upload?.body).toBe(image)
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
         {
@@ -523,20 +543,20 @@ describe('element panel', () => {
     )
   })
 
-  it('edits a link’s href and drops it with 取消', async () => {
+  it('never saves an unsafe href, and closing drops the draft', async () => {
     const calls = mockApi(routes())
     await openPanel({ tag: 'a', href: 'https://a.test' })
     fireEvent.click(screen.getByRole('tab', { name: '交互' }))
     fireEvent.change(screen.getByRole('textbox', { name: '链接' }), {
       target: { value: 'javascript:alert(1)' },
     })
-    expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    await new Promise((r) => setTimeout(r, 700))
+    fireEvent.click(within(screen.getByTestId('art-inspector')).getByRole('button', { name: '关闭' }))
     expect(screen.queryByTestId('art-element-panel')).toBeNull()
     expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([])
   })
 
-  it('previews style values on the element as they are set, and puts its style back on 取消 (P2-07)', async () => {
+  it('previews style values on the element as they are set, and puts its style back when closed unsaved (P2-07)', async () => {
     mockApi(routes())
     await renderTab()
     fromScreen({ type: 'ready', width: 390, height: 800 })
@@ -558,7 +578,7 @@ describe('element panel', () => {
     })
     fireEvent.change(screen.getByRole('textbox', { name: '内边距' }), { target: { value: '' } })
     expect(previews().at(-1)?.props).toEqual({ 'font-size': '18px', padding: '' })
-    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    fireEvent.click(within(screen.getByTestId('art-inspector')).getByRole('button', { name: '关闭' }))
     expect(previews().at(-1)?.props).toBeNull()
     for (const m of previews()) expect(BridgeToShell.safeParse(m).success).toBe(true)
   })

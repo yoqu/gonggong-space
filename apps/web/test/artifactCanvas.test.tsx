@@ -190,11 +190,11 @@ describe('bridge', () => {
     expect(node('home').style.height).toBe('1800px')
     fireEvent.click(node('home'))
     expect(screen.getByTestId('art-select-home').textContent).toContain('390 x 1800')
-    fireEvent.click(screen.getByRole('button', { name: '预览' }))
-    fireEvent.click(item(screen.getByRole('menu'), /全高/))
+    // 画布设置: 全高 and 尺寸.
+    fireEvent.click(within(screen.getByTestId('art-selection-actions')).getByRole('switch', { name: '全高' }))
     expect(node('home').style.height).toBe('844px')
-    fireEvent.click(screen.getByRole('button', { name: '预览' }))
-    fireEvent.click(item(screen.getByRole('menu'), /平板/))
+    fireEvent.click(within(screen.getByTestId('art-page-settings')).getByRole('button', { name: '尺寸' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /平板/ }))
     expect(node('home').style.width).toBe('768px')
     expect(node('home').style.height).toBe('1024px')
   })
@@ -753,7 +753,6 @@ describe('Stitch round 1 fixes', () => {
   }
   const tool = (name: string) =>
     within(screen.getByRole('toolbar', { name: '画布工具' })).getByRole('button', { name })
-  const float = () => screen.getByRole('toolbar', { name: '所选屏幕' })
   const titleLeft = (name: string) =>
     Number.parseFloat((screen.getByRole('button', { name }).closest('.art-title') as HTMLElement).style.left)
 
@@ -796,33 +795,26 @@ describe('Stitch round 1 fixes', () => {
     expect(rulers.querySelectorAll('.art-rulers__span')).toHaveLength(2)
   })
 
-  it('opens panels docked in the 属性面板, the selection toolbar left in full (C06)', async () => {
+  it('opens panels docked in the 属性面板; a selected page’s actions are there, not floating over the canvas', async () => {
     sized(700, 600)
     mockApi(routes())
     await renderTab()
     fireEvent.click(node('home'))
-    expect(float().classList.contains('art-float--compact')).toBe(false)
-    expect(within(float()).getByRole('button', { name: /生成/ }).textContent).toContain('生成')
-    // Panels open docked in the 属性面板, never over the canvas.
-    fireEvent.click(tool('收藏'))
+    expect(screen.queryByRole('toolbar', { name: '所选屏幕' })).toBeNull()
     const inspector = screen.getByTestId('art-inspector')
+    const actions = within(inspector).getByTestId('art-selection-actions')
+    for (const name of ['生成', '新标签页打开', '显示二维码', '查看详情', '下载', '删除'])
+      expect(within(actions).getByRole('button', { name })).toBeTruthy()
+    // Two pages: what they share, none of one page's own.
+    fireEvent.click(node('detail'), { shiftKey: true })
+    expect(within(inspector).getByText('所选 2 个页面')).toBeTruthy()
+    expect(within(inspector).queryByRole('button', { name: '新标签页打开' })).toBeNull()
+    fireEvent.click(tool('收藏'))
     expect(within(inspector).getByRole('complementary', { name: '收藏' })).toBeTruthy()
-    expect(float().classList.contains('art-float--compact')).toBe(false)
     fireEvent.click(tool('设计系统'))
     expect(within(inspector).getByRole('complementary', { name: '设计系统' })).toBeTruthy()
     fireEvent.click(tool('设计系统'))
     expect(within(inspector).queryByRole('complementary', { name: '设计系统' })).toBeNull()
-  })
-
-  it('shows the selection toolbar’s icons only on a narrow canvas (C06)', async () => {
-    sized(400, 600)
-    mockApi(routes())
-    await renderTab()
-    fireEvent.click(node('home'))
-    expect(float().classList.contains('art-float--compact')).toBe(true)
-    const gen = within(float()).getByRole('button', { name: '生成' })
-    expect(gen.textContent).toBe('')
-    expect(document.getElementById(gen.getAttribute('aria-describedby') ?? '')?.textContent).toBe('生成')
   })
 
   it('pans to a screen whose title takes the keyboard focus off screen (K03)', async () => {
@@ -1057,7 +1049,8 @@ describe('Stitch round 2 fixes', () => {
     fireEvent.keyDown(gen, { key: 'Escape' })
     expect(gen.getAttribute('aria-expanded')).toBe('false')
     expect(screen.getByTestId('art-select-home')).toBeTruthy()
-    // Right-click menu too.
+    // Right-click menu too (a right press focuses the canvas first; 生成 is in the 属性面板, outside it).
+    act(() => canvas().focus())
     fireEvent.contextMenu(node('home'))
     expect(document.querySelector('.ui-menu--context')).toBeTruthy()
     fireEvent.keyDown(canvas(), { key: 'Escape' })
@@ -1075,8 +1068,8 @@ describe('Stitch round 2 fixes', () => {
     fireEvent.click(node('home'))
     key('P', { shiftKey: true })
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/#play:home$/), '_blank', 'noopener')
-    fireEvent.click(screen.getByRole('button', { name: '预览' }))
-    expect(item(screen.getByRole('menu'), /手机/).textContent).toContain('手机 375×884')
+    fireEvent.click(within(screen.getByTestId('art-page-settings')).getByRole('button', { name: '尺寸' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: /手机/ }).textContent).toContain('手机 375×884')
   })
 
   it('keeps its shortcuts after the tab’s 导出 opened the export panel (K01)', async () => {

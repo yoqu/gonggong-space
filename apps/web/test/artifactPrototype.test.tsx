@@ -896,7 +896,9 @@ describe('R5 contract on the canvas', () => {
     render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByTestId('art-node-home'))
-    expect(screen.getByRole('button', { name: /@前端/ })).toBeTruthy()
+    expect(
+      within(screen.getByTestId('art-selection-actions')).getByRole('button', { name: '交给' }).textContent,
+    ).toContain('@前端')
     fireEvent.click(screen.getByRole('button', { name: '生成' }))
     fireEvent.click(screen.getByRole('menuitem', { name: /^重新生成/ }))
     await waitFor(() =>
@@ -912,7 +914,9 @@ describe('R5 contract on the canvas', () => {
     render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByTestId('art-node-home'))
-    expect(screen.getByRole('button', { name: /@设计助手/ })).toBeTruthy()
+    expect(
+      within(screen.getByTestId('art-selection-actions')).getByRole('button', { name: '交给' }).textContent,
+    ).toContain('@设计助手')
   })
 
   it('shows the manifest’s prompt as the design notes', async () => {

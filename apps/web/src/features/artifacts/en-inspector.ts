@@ -49,4 +49,9 @@ export default {
   下划线: 'Underline',
   删除线: 'Strike-through',
   模块操作: 'Element actions',
+  AI: 'AI',
+  '所选 {n} 个页面': '{n} pages selected',
+  按维度出变体: 'Variations by…',
+  '改完自动保存，可用撤销退回': 'Changes save by themselves; undo takes them back',
+  '正在保存…': 'Saving…',
 }

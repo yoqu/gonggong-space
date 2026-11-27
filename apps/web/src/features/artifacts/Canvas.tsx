@@ -68,8 +68,8 @@ import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge
 import { CodeDialog } from './CodeDialog'
 import { CommandMenu } from './CommandMenu'
 import { canvasCommandEntries, RUN } from './canvasCommands'
-import { ActivityLayer, CanvasTips, FloatMenu, RenameField } from './canvasControls'
-import { LINK_CMD, useCanvasLinks } from './canvasLinks'
+import { ActivityLayer, CanvasTips, RenameField } from './canvasControls'
+import { useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
 import { CanvasTools, CanvasTopbar, Rulers, spanOf, type Tool, useStoredFlag } from './canvasTopbar'
 import { framePoint } from './canvasZoom'
@@ -110,7 +110,6 @@ import {
   framePreset,
   LINK_PREFIX,
   layoutNodes,
-  linkNodeId,
   nearView,
   neighbour,
   nodeKind,
@@ -144,13 +143,9 @@ import {
   type BotState,
   CMD,
   canvasContextItems,
-  copyPngItem,
   generateItems,
-  modifyItems,
-  moreItems,
   nodeContextItems,
   pagePresets,
-  previewItems,
   refContextItems,
   screenContextItems,
   VARIATION_CUSTOM,
@@ -208,10 +203,6 @@ const NOTICE_MS = 2400
 const CROWD = 6
 /** The view counts as moving until it has been still this long. */
 const SETTLE_MS = 200
-
-/** Below this much width the selection toolbar shows icons only (labels move into tooltips). */
-const FLOAT_FULL = 380
-const FLOAT_FULL_WITH_BOT = 500
 
 /** Below this zoom node titles show their icon only. */
 const TINY_ZOOM = 0.15
@@ -646,6 +637,12 @@ export function Canvas({
       const f = frameEls.get(m.file)
       postToScreen(f, origin, { type: 'mode', mode: rules.modeFor(bridgeMode(tool)) })
       if (tool === 'mark') postToScreen(f, origin, { type: 'highlight', ggIds: markedIn(m.file) })
+      // The element just saved from the 属性面板 stays picked in the new version (its own start, its id, is unmoved).
+      const again = pendingPick.current
+      if (again?.file === m.file && tool === 'edit') {
+        pendingPick.current = null
+        postToScreen(f, origin, { type: 'pick', ggId: again.ggId })
+      }
     }
     if (m.type === 'ready' || m.type === 'size') {
       const h = m.height
@@ -1462,7 +1459,11 @@ export function Canvas({
         screens={screens}
         tokens={tokens}
         readOnly={!canEdit}
-        onSave={saveOps}
+        onSave={async (ops) => {
+          const ok = await saveOps(ops)
+          if (ok && element.ggId) pendingPick.current = { file: element.file, ggId: element.ggId }
+          return ok
+        }}
         onPreview={(props) =>
           element.ggId
             ? postToScreen(frameEls.get(element.file), origin, {
@@ -1569,6 +1570,24 @@ export function Canvas({
     ) : propsTab || panel === 'details' ? (
       <CanvasSettings
         page={pageSettings}
+        selection={
+          picked.length
+            ? {
+                count: picked.length,
+                single: !!one && !!preview,
+                full: !!sharedFrame?.full,
+                generate: [
+                  ...generateItems(botState, pluginCommands),
+                  { label: t('按维度出变体'), value: 'variations', submenu: variationItems(botState) },
+                ],
+                bots: bots.map((b) => ({ value: b.id, label: `@${b.name}` })),
+                bot: bot?.id ?? '',
+                onPickBot: pickBot,
+                readOnly: !canEdit,
+                onCommand: command,
+              }
+            : null
+        }
         readOnly={!canEdit}
         colors={(tokens?.vars ?? []).filter(([k]) => k.startsWith('--color-'))}
         screens={screens.length}
@@ -1590,8 +1609,6 @@ export function Canvas({
     ) : (
       rules.panel
     )
-  const compactFloat =
-    room.width > 0 && room.width - 24 < (bots.length > 1 ? FLOAT_FULL_WITH_BOT : FLOAT_FULL)
   /** Keyboard focus on an off-screen title pans the view to its node (the plane itself never scrolls). */
   const reveal = (n: CanvasNode) => {
     const v = revealView(n, view, room)
@@ -2028,51 +2045,7 @@ export function Canvas({
             </div>
           </ContextMenu>
 
-          {picked.length ? (
-            <div
-              className={cx('art-float', compactFloat && 'art-float--compact')}
-              role="toolbar"
-              aria-label={t('所选屏幕')}
-            >
-              <FloatMenu
-                icon="sparkle"
-                label={t('生成')}
-                compact={compactFloat}
-                items={generateItems(botState, pluginCommands)}
-                onSelect={command}
-              />
-              <FloatMenu
-                icon="pencil"
-                label={t('修改#modify')}
-                compact={compactFloat}
-                items={modifyItems(!canEdit)}
-                onSelect={command}
-              />
-              <FloatMenu
-                icon="eye"
-                label={t('预览')}
-                compact={compactFloat}
-                items={previewItems(!!one && !!preview, sharedFrame, device)}
-                onSelect={command}
-              />
-              <FloatMenu
-                icon="more"
-                label={t('更多')}
-                compact={compactFloat}
-                items={moreItems(!canEdit)}
-                onSelect={command}
-              />
-              {bots.length > 1 && bot ? (
-                <FloatMenu
-                  icon="bot"
-                  label={`@${bot.name}`}
-                  compact={compactFloat}
-                  items={bots.map((b) => ({ label: `@${b.name}`, value: b.id, checked: b.id === bot.id }))}
-                  onSelect={pickBot}
-                />
-              ) : null}
-            </div>
-          ) : pickedRefs.length ? (
+          {!picked.length && pickedRefs.length ? (
             <div className="art-float" role="toolbar" aria-label={t('所选参考文件')}>
               <Button size="small" variant="plain" icon="at" onClick={() => command(CMD.addToChat)}>
                 {t('添加到对话')}
