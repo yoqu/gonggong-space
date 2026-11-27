@@ -333,7 +333,12 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
         const byDefault =
           r.version.manifest.category === 'connector' ||
           ((g.kind === 'dm' || g.kind === 'works') && createsArtifacts(r.version.manifest))
-        return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? byDefault }
+        return {
+          ...r,
+          version: install?.version ?? r.version,
+          enabledInGroup: install?.enabled ?? byDefault,
+          installLayer: (install?.layer as 'group' | 'repo' | 'team' | undefined) ?? null,
+        }
       })
       return [g.id, list] as const
     }),

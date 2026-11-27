@@ -231,7 +231,7 @@ export const MarketListingDetailDto = MarketListingDto.extend({
   permissions: z.array(PluginPermission).default([]),
   mcp: z.array(PluginMcp).default([]),
   /** Chat / artifact commands contributed by this plugin; empty for skills. */
-  commands: z.array(PluginCommand).default([]),
+  commands: z.array(PluginCommand).optional(),
   /** Number of creation templates shipped by this plugin. */
   templatesCount: z.number().int().optional(),
   /** Whether this listing ships a skill/guide entry. */

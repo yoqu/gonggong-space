@@ -45,7 +45,7 @@ import { type SecretRow, blocked as secretBlocked, visibleSecrets } from '../sec
 import { requireTeam } from '../teams/service.js'
 import { scopeMachines } from './installed.js'
 import { deriveListingMeta, isPluginManifest, recordedReusedSecrets } from './meta.js'
-import { maintainedBy } from './service.js'
+import { ADMIN_ROLES, maintainedBy } from './service.js'
 
 type Me = { id: string; role: string; name?: string }
 
@@ -121,25 +121,31 @@ async function loadReadableListingVersion(ctx: Ctx, me: Me, listingId: string, p
     .from(plugins)
     .where(eq(plugins.id, idParam(listingId, '条目不存在')))
   if (!listing) return fail('not_found', '条目不存在')
-  const myTeams = new Set(
-    (
-      await ctx.db.select({ id: teamMembers.teamId }).from(teamMembers).where(eq(teamMembers.userId, me.id))
-    ).map((r) => r.id),
-  )
+  const memberships = await ctx.db
+    .select({ id: teamMembers.teamId, role: teamMembers.role })
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, me.id))
+  const myTeams = new Set(memberships.map((r) => r.id))
   const [maintained] = await ctx.db
     .select({ id: plugins.id })
     .from(plugins)
     .where(and(eq(plugins.id, listing.id), maintainedBy(ctx.db, me.id)))
+  const canReview =
+    listing.visibility === 'team'
+      ? memberships.some((m) => m.id === listing.teamId && ADMIN_ROLES.includes(m.role))
+      : me.role === 'sysadmin'
+  const privileged = !!maintained || canReview
   const visible =
-    !!maintained ||
-    me.role === 'sysadmin' ||
+    privileged ||
     (!!listing.listedVersionId &&
       listing.status !== 'banned' &&
       (listing.scope === 'platform' ||
         (listing.scope === 'team' &&
           (listing.visibility === 'public' || (!!listing.teamId && myTeams.has(listing.teamId))))))
   if (!visible) return fail('not_found', '条目不存在')
-  const vid = preferredVersionId ?? listing.listedVersionId ?? listing.versionId
+  const vid = preferredVersionId
+    ? idParam(preferredVersionId, '版本不存在')
+    : (listing.listedVersionId ?? (privileged ? listing.versionId : null))
   if (!vid) return fail('not_found', '版本不存在')
   const [version] = await ctx.db
     .select({
@@ -149,7 +155,13 @@ async function loadReadableListingVersion(ctx: Ctx, me: Me, listingId: string, p
       files: pluginVersions.files,
     })
     .from(pluginVersions)
-    .where(and(eq(pluginVersions.id, vid), eq(pluginVersions.pluginId, listing.id)))
+    .where(
+      and(
+        eq(pluginVersions.id, vid),
+        eq(pluginVersions.pluginId, listing.id),
+        privileged ? undefined : eq(pluginVersions.reviewStatus, 'approved'),
+      ),
+    )
   if (!version) return fail('not_found', '版本不存在')
   return { listing, version }
 }
@@ -458,7 +470,18 @@ export async function marketReadinessAction(
     return { ok: true, trustId: row?.id }
   }
 
-  if (machine.ownerId !== me.id) {
+  // Validate optional scope/scopeId pair and ensure the machine belongs to the validated scope.
+  let validatedGroupId: string | undefined
+  if (req.scope !== undefined || req.scopeId !== undefined) {
+    if (!req.scope || (req.scope !== 'user' && !req.scopeId)) return fail('invalid', '请求无效')
+    const resolvedScope = await resolveReadinessScope(ctx, me, req.scope, req.scopeId ?? me.id)
+    if (resolvedScope.scope === 'group') validatedGroupId = resolvedScope.scopeId
+    if (machine.ownerId !== me.id) {
+      const allowedMachines = await scopeMachines(ctx, resolvedScope.groupIds, me.id)
+      if (!allowedMachines.some((m) => m.machineId === machine.id))
+        return fail('forbidden', '这台电脑不在当前范围内')
+    }
+  } else if (machine.ownerId !== me.id) {
     const myTeams = await ctx.db
       .select({ teamId: teamMembers.teamId })
       .from(teamMembers)
@@ -484,7 +507,8 @@ export async function marketReadinessAction(
       .select()
       .from(pluginTrusts)
       .where(and(eq(pluginTrusts.machineId, machine.id), eq(pluginTrusts.versionId, version.id)))
-    if (trust?.status === 'allowed') return { ok: true, trustId: trust.id, notified: false }
+    if (trust?.status === 'allowed' || trust?.status === 'denied')
+      return { ok: true, trustId: trust.id, notified: false }
     if (trust) {
       await notify(
         ctx,
@@ -506,7 +530,6 @@ export async function marketReadinessAction(
   if (plugin?.category !== 'connector' || !(plugin.connector?.cli || plugin.connector?.login)) {
     return fail('invalid', '该插件不是外部账号连接插件')
   }
-  const groupId = req.scope === 'group' && req.scopeId ? req.scopeId : undefined
   await notify(
     ctx,
     machine.ownerId,
@@ -517,7 +540,7 @@ export async function marketReadinessAction(
         machine: machineName,
         title: plugin.title,
       }),
-      ...(groupId && { groupId }),
+      ...(validatedGroupId && { groupId: validatedGroupId }),
     },
     null,
   )

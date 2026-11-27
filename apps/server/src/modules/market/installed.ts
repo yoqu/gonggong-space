@@ -425,8 +425,10 @@ export async function marketInstalled(ctx: Ctx, me: Me): Promise<MarketInstalled
       } else if (!r.install.enabled) {
         health = 'disabled'
         healthDetail = t('已停用')
-      } else if (meta.secretSpecs.some((s) => s.required) && teamIds[0]) {
-        if (await missingRequiredSecrets(ctx, teamIds[0], me.id, meta.secretSpecs)) {
+      } else if (meta.secretSpecs.some((s) => s.required)) {
+        const secretTeamId =
+          r.listing.teamId && myTeamIds.has(r.listing.teamId) ? r.listing.teamId : teamIds[0]
+        if (secretTeamId && (await missingRequiredSecrets(ctx, secretTeamId, me.id, meta.secretSpecs))) {
           health = 'needs-secret'
           healthDetail = t('待填凭据')
         }

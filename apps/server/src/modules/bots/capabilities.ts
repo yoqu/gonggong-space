@@ -14,6 +14,7 @@ import { and, asc, eq, exists, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'
 import {
+  connectorStates,
   groupBots,
   groupMembers,
   groups,
@@ -35,6 +36,7 @@ import { groupInstalls, inScope, maintainedBy } from '../market/service.js'
 import { botStates, groupPluginList, pluginBlocker, pluginsOn } from '../plugins/service.js'
 import { nearest } from '../secrets/needs.js'
 import { type SecretRow, visibleSecrets } from '../secrets/resolve.js'
+import { LAYER_RANK, turnedOff } from '../skills/service.js'
 import { requireTeam } from '../teams/service.js'
 import { loadBot } from './routes.js'
 
@@ -172,6 +174,21 @@ function describePluginBlocker(
   }
 }
 
+function sourceLabelOf(source: BotCapabilitySource, isCreation = false): string {
+  switch (source) {
+    case 'official':
+      return isCreation ? t('官方创作插件') : t('官方插件')
+    case 'team':
+      return t('团队统一开启')
+    case 'repo':
+      return t('仓库统一开启')
+    case 'personal':
+      return t('我的个人插件 · 仅你 @ 时生效')
+    case 'group':
+      return t('本群已开启')
+  }
+}
+
 /**
  * GET /api/bots/:id/capabilities?groupId= — returns the bot's assembled plugins & skills
  * split into `ready` and `unavailable`, reusing `pluginBlocker`, secrets, CLI connector probes,
@@ -254,6 +271,11 @@ export async function botCapabilities(
 
   const readyMap = new Map<string, BotCapabilityItemDto>()
   const unavailMap = new Map<string, BotCapabilityItemDto>()
+  const loginStates = await ctx.db
+    .select()
+    .from(connectorStates)
+    .where(and(eq(connectorStates.userId, me.id), eq(connectorStates.teamId, bot.teamId)))
+  const loginStateByName = new Map(loginStates.map((s) => [s.name, s]))
 
   const pushItem = (target: Map<string, BotCapabilityItemDto>, key: string, item: BotCapabilityItemDto) => {
     const prev = target.get(key)
@@ -266,12 +288,13 @@ export async function botCapabilities(
   }
 
   for (const g of targetGroups) {
-    const [pluginRows, states, gSkills, pSkills, defs, [memberRow]] = await Promise.all([
+    const [pluginRows, states, gSkills, pSkills, defs, offSkills, [memberRow]] = await Promise.all([
       groupPluginList(ctx.db, g.id),
       botStates(ctx, g.id, me.id, bot.id),
       groupInstalls(ctx.db, g.id, 'skill'),
       personalSkillInstalls(ctx, g.id, me.id),
       visibleSecrets(ctx.db, g.id),
+      turnedOff(ctx.db, g.id),
       ctx.db
         .select({ off: groupMembers.connectorsOff })
         .from(groupMembers)
@@ -291,7 +314,7 @@ export async function botCapabilities(
       let blocker: PluginBlocker | 'connector' | null = pluginBlocker(m, bState, r.version.id)
       let connectorAccount: string | null = null
 
-      if (!blocker && m.category === 'connector' && m.connector?.cli) {
+      if (!blocker && m.category === 'connector') {
         const spec = cliSpec(r.plugin.name, m)
         if (spec) {
           if (!bState.features.includes('connectors')) {
@@ -301,11 +324,17 @@ export async function botCapabilities(
             if (stateOf(probe) !== 'ready') blocker = 'connector'
             else connectorAccount = probe?.account ?? null
           }
+        } else if (m.connector?.login) {
+          const st = loginStateByName.get(r.plugin.name)
+          if (st?.status !== 'ok') blocker = 'connector'
+          else connectorAccount = st.account ?? null
         }
       }
 
       const source: BotCapabilitySource =
-        r.plugin.scope === 'platform' ? 'official' : (r.plugin.scope as BotCapabilitySource)
+        r.plugin.scope === 'platform'
+          ? 'official'
+          : (r.installLayer ?? (r.plugin.scope as BotCapabilitySource))
       const isCreation = createsArtifacts(m)
       const firstChatCmd = m.contributes.commands.find((c) => c.where === 'chat')?.name ?? null
 
@@ -334,20 +363,14 @@ export async function botCapabilities(
 
       if (!blocker) {
         const sourceLabel =
-          m.category === 'connector' && m.connector?.cli
+          m.category === 'connector' && (m.connector?.cli || m.connector?.login)
             ? connectorAccount
               ? t('使用 {account} 的{title}账号', { account: connectorAccount, title: m.title })
               : t('使用 {owner} 的{title}账号', {
                   owner: machine.ownerName ?? t('电脑主人'),
                   title: m.title,
                 })
-            : source === 'official'
-              ? isCreation
-                ? t('官方创作插件')
-                : t('官方插件')
-              : source === 'team'
-                ? t('团队统一开启')
-                : t('本群已开启')
+            : sourceLabelOf(source, isCreation)
         const statusLabel =
           m.category === 'connector' ? t('已连接') : meta.readiness === 'ready' ? t('开箱即用') : t('已就绪')
         pushItem(readyMap, r.plugin.id, {
@@ -365,8 +388,7 @@ export async function botCapabilities(
         const desc = describePluginBlocker(blocker, m, machine, missingSecrets, defs)
         pushItem(unavailMap, `${r.plugin.id}:${blocker}`, {
           ...base,
-          sourceLabel:
-            source === 'official' ? t('官方插件') : source === 'team' ? t('团队统一开启') : t('本群已开启'),
+          sourceLabel: sourceLabelOf(source),
           statusLabel: '',
           blocker,
           reasonLabel: desc.reasonLabel,
@@ -377,7 +399,16 @@ export async function botCapabilities(
       }
     }
 
-    // 2. Market skill installs (personal + group/repo/team)
+    // 2. Market skill installs (resolve group > repo > team per listingId first, then personal > group > repo > team by name)
+    const topByListing = new Map<string, (typeof gSkills)[number]>()
+    for (const s of gSkills) {
+      const had = topByListing.get(s.listingId)
+      if (!had || (LAYER_RANK[s.layer] ?? 0) > (LAYER_RANK[had.layer] ?? 0)) topByListing.set(s.listingId, s)
+    }
+    const effectiveGroupSkills = [...topByListing.values()]
+      .filter((s) => s.enabled && !(s.layer !== 'group' && offSkills.has(s.name)))
+      .sort((a, b) => (LAYER_RANK[b.layer] ?? 0) - (LAYER_RANK[a.layer] ?? 0))
+
     const seenSkillNames = new Set<string>()
     const skillItems = [
       ...pSkills.map((p) => ({
@@ -387,17 +418,15 @@ export async function botCapabilities(
         manifest: p.manifest as unknown as SkillListingManifest,
         source: 'personal' as BotCapabilitySource,
       })),
-      ...gSkills
-        .filter((s) => s.enabled)
-        .map((s) => ({
-          listingId: s.listingId,
-          name: s.name,
-          versionId: s.version.id,
-          manifest: s.version.manifest as unknown as SkillListingManifest,
-          source: (s.layer === 'group' || s.layer === 'team' || s.layer === 'repo'
-            ? s.layer
-            : 'official') as BotCapabilitySource,
-        })),
+      ...effectiveGroupSkills.map((s) => ({
+        listingId: s.listingId,
+        name: s.name,
+        versionId: s.version.id,
+        manifest: s.version.manifest as unknown as SkillListingManifest,
+        source: (s.layer === 'group' || s.layer === 'team' || s.layer === 'repo'
+          ? s.layer
+          : 'official') as BotCapabilitySource,
+      })),
     ]
     for (const sk of skillItems) {
       if (seenSkillNames.has(sk.name)) continue
@@ -405,6 +434,7 @@ export async function botCapabilities(
       const meta = deriveListingMeta({ type: 'skill', name: sk.name, scope: sk.source }, sk.manifest)
       const reqSpecs = (sk.manifest.secretSpecs ?? []).filter((s) => s.required)
       const missingSecrets = reqSpecs.filter((s) => !(s.name in bState.env)).map((s) => s.name)
+      const skSourceLabel = sourceLabelOf(sk.source)
       const base = {
         pluginId: sk.listingId,
         name: sk.name,
@@ -431,14 +461,7 @@ export async function botCapabilities(
         const mName = machine.name ?? t('未知电脑')
         pushItem(unavailMap, `${sk.listingId}:offline`, {
           ...base,
-          sourceLabel:
-            sk.source === 'personal'
-              ? t('我的个人插件 · 仅你 @ 时生效')
-              : sk.source === 'team'
-                ? t('团队统一开启')
-                : sk.source === 'repo'
-                  ? t('仓库统一开启')
-                  : t('本群已开启'),
+          sourceLabel: skSourceLabel,
           statusLabel: '',
           blocker: 'offline',
           reasonLabel: t('电脑离线'),
@@ -452,12 +475,7 @@ export async function botCapabilities(
         const desc = describeSecretBlocker(missingSecrets, reqSpecs, defs)
         pushItem(unavailMap, `${sk.listingId}:secret`, {
           ...base,
-          sourceLabel:
-            sk.source === 'personal'
-              ? t('我的个人插件 · 仅你 @ 时生效')
-              : sk.source === 'team'
-                ? t('团队统一开启')
-                : t('本群已开启'),
+          sourceLabel: skSourceLabel,
           statusLabel: '',
           blocker: 'secret',
           reasonLabel: desc.reasonLabel,
@@ -468,14 +486,7 @@ export async function botCapabilities(
       } else {
         pushItem(readyMap, sk.listingId, {
           ...base,
-          sourceLabel:
-            sk.source === 'personal'
-              ? t('我的个人插件 · 仅你 @ 时生效')
-              : sk.source === 'team'
-                ? t('团队统一开启')
-                : sk.source === 'repo'
-                  ? t('仓库统一开启')
-                  : t('本群已开启'),
+          sourceLabel: skSourceLabel,
           statusLabel: t('已就绪'),
           blocker: null,
           reasonLabel: null,

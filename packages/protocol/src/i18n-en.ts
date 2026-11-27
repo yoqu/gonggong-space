@@ -626,6 +626,6 @@ export const protocolEn = {
   这台电脑不在当前范围内: 'This computer is not in the selected scope',
   版本未知: 'unknown',
   未知电脑: 'Unknown computer',
-  电脑主人: 'computer owner',
+  电脑主人: 'the owner',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

@@ -7,7 +7,7 @@ import type {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groupBots, teamMembers } from '../src/db/schema.js'
+import { connectorStates, groupBots, teamMembers } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { setProbes } from '../src/modules/connectors/state.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -261,5 +261,87 @@ describe('GET /api/bots/:id/capabilities', () => {
 
     // Access control: outsider cannot read
     expect((await apiOutsider.get(`/api/bots/${bot.id}/capabilities`)).status).toBe(404)
+
+    // Regression #4: team-authored market plugin installed ONLY in groupA reports source='group' ('本群已开启')
+    const teamMarketPlugin = (
+      await apiMia.post<PublishRes>('/api/market', {
+        teamId: teamA,
+        visibility: 'team',
+        files: pluginFiles('group-tool', { title: '群内工具', category: 'tool' }),
+      })
+    ).body.listing
+    await apiMia.post<MyListingDto>(
+      `/api/market/${teamMarketPlugin.id}/versions/${teamMarketPlugin.latest.id}/submit`,
+      { changelog: 'v1' },
+    )
+    await apiOwner.post(`/api/market/${teamMarketPlugin.id}/versions/${teamMarketPlugin.latest.id}/review`, {
+      approve: true,
+    })
+    await apiOwner.put(`/api/groups/${groupA.id}/installs/${teamMarketPlugin.id}`, { enabled: true })
+    const gAfter = (
+      await apiMia.get<BotCapabilitiesDto>(`/api/bots/${bot.id}/capabilities?groupId=${groupA.id}`)
+    ).body
+    expect(gAfter.ready.find((r) => r.name === 'group-tool')).toMatchObject({
+      source: 'group',
+      sourceLabel: '本群已开启',
+    })
+
+    // Regression #5: group-level enabled:false overrides team-level enabled:true for a market skill
+    const teamSk = (
+      await apiMia.post<PublishRes>('/api/market', {
+        teamId: teamA,
+        visibility: 'team',
+        files: skillFiles('team-only-skill'),
+      })
+    ).body.listing
+    await apiMia.post<MyListingDto>(`/api/market/${teamSk.id}/versions/${teamSk.latest.id}/submit`, {
+      changelog: 'v1',
+    })
+    await apiOwner.post(`/api/market/${teamSk.id}/versions/${teamSk.latest.id}/review`, { approve: true })
+    await apiOwner.put(`/api/teams/${teamA}/installs/${teamSk.id}`, { enabled: true })
+    await apiOwner.put(`/api/groups/${groupA.id}/installs/${teamSk.id}`, { enabled: false })
+    const gDisabled = (
+      await apiMia.get<BotCapabilitiesDto>(`/api/bots/${bot.id}/capabilities?groupId=${groupA.id}`)
+    ).body
+    expect(gDisabled.ready.find((r) => r.name === 'team-only-skill')).toBeUndefined()
+    const gBRes = (
+      await apiMia.get<BotCapabilitiesDto>(`/api/bots/${bot.id}/capabilities?groupId=${groupB.id}`)
+    ).body
+    expect(gBRes.ready.find((r) => r.name === 'team-only-skill')).toMatchObject({
+      source: 'team',
+      sourceLabel: '团队统一开启',
+    })
+
+    // Regression #6: non-CLI login connector is unavailable until connectorStates.status === 'ok'
+    await apiRoot.post<ListingSummary>('/api/admin/plugins', {
+      files: pluginFiles('legacy-login', {
+        title: '旧版登录连接器',
+        category: 'connector',
+        entry: 'legacy-login',
+        connector: { examples: [], login: '帮我登录旧版系统' },
+      }),
+    })
+    const beforeLogin = (
+      await apiMia.get<BotCapabilitiesDto>(`/api/bots/${bot.id}/capabilities?groupId=${groupA.id}`)
+    ).body
+    expect(beforeLogin.unavailable.find((u) => u.name === 'legacy-login')).toMatchObject({
+      blocker: 'connector',
+      action: 'connect-account',
+    })
+    await t.db.insert(connectorStates).values({
+      userId: mia.id,
+      teamId: teamA,
+      name: 'legacy-login',
+      status: 'ok',
+      account: '米娅',
+      checkedAt: new Date(),
+    })
+    const afterLogin = (
+      await apiMia.get<BotCapabilitiesDto>(`/api/bots/${bot.id}/capabilities?groupId=${groupA.id}`)
+    ).body
+    expect(afterLogin.ready.find((r) => r.name === 'legacy-login')).toMatchObject({
+      statusLabel: '已连接',
+      sourceLabel: expect.stringContaining('米娅'),
+    })
   })
 })

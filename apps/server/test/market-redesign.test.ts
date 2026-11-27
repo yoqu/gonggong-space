@@ -14,7 +14,7 @@ import type {
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groupBots, notifications, secrets, teamMembers } from '../src/db/schema.js'
+import { groupBots, notifications, pluginTrusts, secrets, teamMembers } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { setProbes } from '../src/modules/connectors/state.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -559,5 +559,168 @@ describe('aggregated installed view, readiness actions, and exec install request
     // Re-check /api/market/installed: todoCount dropped to 0!
     const instAfter = (await w.api.eve.get<MarketInstalledDto>('/api/market/installed')).body
     expect(instAfter.todoCount).toBe(0)
+  })
+
+  it('validates versionId, blocks draft version leaks, validates readiness scope, and suppresses denied-trust spam', async () => {
+    const w = await world()
+    await saveSysParams(t.ctx, { pluginsEnabled: true, pluginCodeEnabled: true }, w.root.id)
+    const { machine: m2 } = await t.seed.machine(w.bob.id, { name: '鲍勃的电脑', daemonVersion: '0.9.0' })
+    t.ctx.hub.register(m2.id, { send() {}, close() {} }, ['plugins', 'pluginMcp', 'connectors'])
+    const b2 = await t.seed.bot({ teamId: w.teamA, ownerId: w.bob.id, machineId: m2.id, name: 'BobBot' })
+    // b2 is ONLY in groupA (not groupB)
+    await t.db.insert(groupBots).values({ groupId: w.groupA.id, botId: b2.id })
+
+    // Publish approved v1, then an unapproved draft v2
+    const oaV1 = await publishAndApprove(
+      w.api.eve,
+      w.api.bob,
+      w.teamA,
+      pluginFiles(
+        'oa-guard',
+        {
+          title: '审批守卫',
+          category: 'tool',
+          entry: null,
+          permissions: ['exec'],
+          contributes: {
+            mcp: [
+              { transport: 'stdio', name: 'oa', command: ['{node}', '{pkg}/contrib/mcp/oa.js'], env: {} },
+            ],
+          },
+        },
+        [{ path: 'contrib/mcp/oa.js', content: 'console.log(1)', encoding: 'utf8' }],
+      ),
+    )
+    const draftV2 = (
+      await w.api.eve.post<PublishRes>('/api/market', {
+        teamId: w.teamA,
+        visibility: 'team',
+        files: pluginFiles(
+          'oa-guard',
+          {
+            title: '审批守卫 v2',
+            version: '2.0.0',
+            category: 'tool',
+            entry: null,
+            permissions: ['exec'],
+            contributes: {
+              mcp: [
+                { transport: 'stdio', name: 'oa', command: ['{node}', '{pkg}/contrib/mcp/oa.js'], env: {} },
+              ],
+            },
+          },
+          [{ path: 'contrib/mcp/oa.js', content: 'console.log(2)', encoding: 'utf8' }],
+        ),
+      })
+    ).body.listing.latest
+
+    // Non-UUID versionId returns 404 (not 500)
+    expect(
+      (
+        await w.api.mia.get(
+          `/api/market/${oaV1.id}/readiness?scope=group&scopeId=${w.groupA.id}&versionId=not-a-uuid`,
+        )
+      ).status,
+    ).toBe(404)
+    // Non-maintainer cannot query or act on draft v2
+    expect(
+      (
+        await w.api.mia.get(
+          `/api/market/${oaV1.id}/readiness?scope=group&scopeId=${w.groupA.id}&versionId=${draftV2.id}`,
+        )
+      ).status,
+    ).toBe(404)
+    expect(
+      (
+        await w.api.mia.post(`/api/market/${oaV1.id}/readiness/action`, {
+          action: 'notify_trust',
+          machineId: m2.id,
+          versionId: draftV2.id,
+        })
+      ).status,
+    ).toBe(404)
+
+    // Machine m2 is not in groupB → scope validation blocks notify_trust / notify_connector against groupB
+    expect(
+      (
+        await w.api.mia.post(`/api/market/${oaV1.id}/readiness/action`, {
+          action: 'notify_trust',
+          machineId: m2.id,
+          scope: 'group',
+          scopeId: w.groupB.id,
+        })
+      ).status,
+    ).toBe(403)
+    // Invalid scopeId fails cleanly (never injects raw groupId into notification)
+    const conn = (
+      await w.api.root.post<ListingSummary>('/api/admin/plugins', {
+        files: pluginFiles('feishu-guard', {
+          title: '飞书测试',
+          category: 'connector',
+          entry: 'feishu-guard',
+          connector: { examples: [], cli: { driver: 'lark-cli', npm: '@larksuite/cli' } },
+        }),
+      })
+    ).body
+    expect(
+      (
+        await w.api.mia.post(`/api/market/${conn.id}/readiness/action`, {
+          action: 'notify_connector',
+          machineId: m2.id,
+          scope: 'group',
+          scopeId: 'not-a-group-uuid',
+        })
+      ).status,
+    ).toBe(404)
+
+    // Denied trust is NOT re-notified (拒绝不再追问)
+    await t.db.insert(pluginTrusts).values({
+      machineId: m2.id,
+      pluginId: oaV1.id,
+      versionId: oaV1.latest.id,
+      status: 'denied',
+      decidedBy: w.bob.id,
+      decidedAt: new Date(),
+    })
+    const deniedRes = await w.api.mia.post<MarketReadinessActionRes>(
+      `/api/market/${oaV1.id}/readiness/action`,
+      {
+        action: 'notify_trust',
+        machineId: m2.id,
+        scope: 'group',
+        scopeId: w.groupA.id,
+      },
+    )
+    expect(deniedRes.status).toBe(200)
+    expect(deniedRes.body.notified).toBe(false)
+    const notices = await t.db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.userId, w.bob.id), eq(notifications.type, 'plugin_trust')))
+    expect(notices).toHaveLength(0)
+
+    // Multi-team personal skill checks its own team's secrets rather than blindly teamIds[0]
+    const teamB = await t.seed.team({ ownerId: w.bob.id, name: '第二团队', memberIds: [w.mia.id] })
+    const secSkill = await publishAndApprove(
+      w.api.mia,
+      w.api.bob,
+      teamB.id,
+      skillFiles(
+        'team-b-skill',
+        'secrets:\n  - name: TEAM_B_TOKEN\n    mode: personal\n    required: true\n',
+      ),
+    )
+    // Define & fill TEAM_B_TOKEN in teamB (not teamA)
+    const defB = await w.api.bob.post<SecretDto>(`/api/teams/${teamB.id}/secrets`, {
+      name: 'TEAM_B_TOKEN',
+      mode: 'personal',
+    })
+    expect(defB.status).toBe(201)
+    expect(
+      (await w.api.mia.put(`/api/me/secrets/${defB.body.id}`, { value: 'tok_team_b_123456' })).status,
+    ).toBe(200)
+    expect((await w.api.mia.put(`/api/me/installs/${secSkill.id}`, { enabled: true })).status).toBe(200)
+    const installedMia = (await w.api.mia.get<MarketInstalledDto>('/api/market/installed')).body
+    expect(installedMia.mine.find((m) => m.listing.id === secSkill.id)?.health).toBe('ready')
   })
 })
