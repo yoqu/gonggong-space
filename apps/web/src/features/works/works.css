@@ -476,6 +476,9 @@
   display: grid;
   align-content: start;
 }
+.new-work__detail > .ui-alert {
+  margin-bottom: var(--space-12);
+}
 .new-work__detail > .ui-spinner,
 .new-work__detail > .ui-empty {
   align-self: center;

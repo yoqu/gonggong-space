@@ -142,7 +142,7 @@ export default {
   属性: 'Properties',
   设计屏幕: 'Design screen',
   还没有收藏: 'No favorites yet',
-  '选中屏幕按 ⇧F 收藏': 'Select a screen and press ⇧F to star it',
+  '选中页面按 ⇧F 收藏': 'Select a page and press ⇧F to star it',
   // R3: direct edit, annotations, AI commands, chat context
   交给: 'Send to',
   '产物已更新，已刷新': 'The artifact changed and was reloaded',
@@ -181,7 +181,6 @@ export default {
   数量: 'Count',
   文字: 'Text',
   文字颜色: 'Text color',
-  替换图片: 'Replace image',
   来源版本: 'Source version',
   样式: 'Style',
   添加批注: 'Add note',

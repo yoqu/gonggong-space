@@ -101,7 +101,10 @@ export function PageDocNode({
   }, [md, editing])
   const done = async () => {
     setEditing(false)
-    if (draft !== md) await onSave(draft)
+    if (draft === md || (await onSave(draft))) return
+    // Not saved: the typing stays, to try again.
+    setDraft(draft)
+    setEditing(true)
   }
   const open = notes.filter((n) => n.status === 'open')
   return (

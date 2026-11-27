@@ -269,7 +269,7 @@ describe('bridge', () => {
     expect(screen.getByRole('button', { name: '交互' }).getAttribute('aria-pressed')).toBe('true')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
     expect(sent).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'mark' }), ORIGIN)
-    expect(screen.getByTestId('art-through').textContent).toBe('直接点击操作页面，切回标记/编辑可选元素')
+    expect(screen.getByTestId('art-through').textContent).toBe('直接点击操作页面，切回选择或标记可选元素')
     const modePill = screen.getByTestId('art-mode-pill')
     expect(modePill.textContent).toContain('交互模式')
     fireEvent.click(within(modePill).getByRole('button', { name: '关闭模式提示' }))
@@ -696,7 +696,7 @@ describe('favourites', () => {
     fireEvent.click(screen.getByRole('button', { name: '收藏' }))
     const panel = screen.getByRole('complementary', { name: '收藏' })
     expect(within(panel).getByText('还没有收藏')).toBeTruthy()
-    expect(within(panel).getByText('选中屏幕按 ⇧F 收藏')).toBeTruthy()
+    expect(within(panel).getByText('选中页面按 ⇧F 收藏')).toBeTruthy()
     fireEvent.click(node('detail'))
     key('F', { shiftKey: true })
     await waitFor(() =>

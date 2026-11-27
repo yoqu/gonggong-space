@@ -6,15 +6,15 @@ export default {
   图层: 'Layers',
   选择设计系统: 'Choose a design system',
   标尺: 'Rulers',
-  先选中一个屏幕: 'Select a screen first',
-  图层列出所选屏幕里的元素: 'Layers lists the elements of the selected screen',
+  先选中一个页面: 'Select a page first',
+  图层列出所选页面里的元素: 'Layers lists the elements of the selected page',
   刷新图层: 'Refresh layers',
-  这个屏幕没有可选的元素: 'This screen has no elements to pick',
+  这个页面没有可选的元素: 'This page has no elements to pick',
   画布设置: 'Canvas settings',
   '选中一个页面，可以改它的名称、尺寸、背景和热区':
     'Select a page to change its name, size, background and hotspots',
-  '用「直接编辑」点选页面上的模块，在这里调它的外观和交互':
-    'Pick a block of a page with Direct edit to adjust its appearance and interaction here',
+  '用「选择」工具点选页面上的模块，在这里调它的外观和交互':
+    'Pick a block of a page with the Select tool to adjust its appearance and interaction here',
   热区: 'Hotspot',
   添加热区: 'Add hotspot',
   '在页面上框出一块区域，点击它跳到别的页面': 'Draw an area on the page; clicking it opens another page',

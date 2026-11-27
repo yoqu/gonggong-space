@@ -154,7 +154,7 @@ export function FavouritesPanel({
           ))}
         </ul>
       ) : (
-        <EmptyState compact icon="star" title={t('还没有收藏')} description={t('选中屏幕按 ⇧F 收藏')} />
+        <EmptyState compact icon="star" title={t('还没有收藏')} description={t('选中页面按 ⇧F 收藏')} />
       )}
     </Panel>
   )

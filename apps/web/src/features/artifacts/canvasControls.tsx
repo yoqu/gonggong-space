@@ -142,7 +142,7 @@ export function CanvasTips({
           <Icon name="cursor" size={14} />
           <span>
             {through === 'play'
-              ? t('直接点击操作页面，切回标记/编辑可选元素')
+              ? t('直接点击操作页面，切回选择或标记可选元素')
               : t('按住 ⌥/Alt 点击或切到交互工具（P）可操作页面，再点选其中的元素')}
           </span>
         </div>

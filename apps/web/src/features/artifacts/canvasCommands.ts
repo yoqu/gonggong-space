@@ -17,7 +17,8 @@ import {
   zoomItems,
 } from './menus'
 
-const TOOL_IDS: Exclude<Tool, 'hotspot'>[] = ['select', 'mark', 'edit', 'play', 'hand']
+/** The top bar's tools, and the hand (H); 选择 is editing for who may edit, so 直接编辑 is not one of its own. */
+const TOOL_IDS: Exclude<Tool, 'hotspot' | 'edit'>[] = ['select', 'mark', 'play', 'hand']
 /** Command-menu values beyond the menus' own commands. */
 export const RUN = { tool: 'tool:', zoom: 'zoom:', screen: 'screen:', panel: 'panel:' } as const
 /** Commands that take selected references as well as screens. */
@@ -124,13 +125,11 @@ export function canvasCommandEntries(o: {
         label: {
           select: t('选择'),
           mark: t('标记#mark'),
-          edit: t('直接编辑'),
           play: t('交互'),
           hand: t('抓手'),
         }[id],
         value: `${RUN.tool}${id}`,
-        shortcut: { select: 'V', mark: 'M', edit: 'E', play: 'P', hand: 'H' }[id],
-        ...(id === 'edit' && noEditReason ? { disabled: true, title: noEditReason } : {}),
+        shortcut: { select: 'V', mark: 'M', play: 'P', hand: 'H' }[id],
       })),
     ),
     ...entriesOf(t('工具'), [
@@ -149,7 +148,7 @@ export function canvasCommandEntries(o: {
       { label: t('设计系统'), value: CMD.designSystem },
       ...(designMd ? [{ label: 'DESIGN.md', value: CMD.designMd }] : []),
       { label: t('收藏'), value: `${RUN.panel}favourites` },
-      { label: t('批注'), value: `${RUN.panel}annotations` },
+      { label: t('批注'), value: CMD.notes },
       { label: t('页面规则'), value: CMD.rules },
       { label: t('共享规则.md'), value: CMD.sharedRules },
       { label: t('快捷键'), value: CMD.shortcuts, shortcut: '?' },

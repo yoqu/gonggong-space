@@ -423,7 +423,7 @@ export function CanvasSettings({
       {selection ? <SelectionSection s={selection} multi={!page} /> : null}
       <Section title={t('画布')}>
         <dl className="art-props">
-          <dt>{t('屏幕')}</dt>
+          <dt>{t('页面')}</dt>
           <dd>{t('{n} 个', { n: screens })}</dd>
           <dt>{t('设备')}</dt>
           <dd>{device === 'desktop' ? t('桌面端') : t('手机')}</dd>
@@ -455,10 +455,10 @@ export function CanvasSettings({
             ))}
           </ul>
         ) : (
-          <p className="art-inspector__hint">{t('选中屏幕按 ⇧F 收藏')}</p>
+          <p className="art-inspector__hint">{t('选中页面按 ⇧F 收藏')}</p>
         )}
       </Section>
-      <p className="art-inspector__hint">{t('用「直接编辑」点选页面上的模块，在这里调它的外观和交互')}</p>
+      <p className="art-inspector__hint">{t('用「选择」工具点选页面上的模块，在这里调它的外观和交互')}</p>
     </div>
   )
 }
@@ -603,8 +603,8 @@ export function LayersPanel({
       <EmptyState
         compact
         icon="grid"
-        title={t('先选中一个屏幕')}
-        description={t('图层列出所选屏幕里的元素')}
+        title={t('先选中一个页面')}
+        description={t('图层列出所选页面里的元素')}
       />
     )
   return (
@@ -643,7 +643,7 @@ export function LayersPanel({
           ))}
         </ul>
       ) : (
-        <EmptyState compact icon="grid" title={t('这个屏幕没有可选的元素')} />
+        <EmptyState compact icon="grid" title={t('这个页面没有可选的元素')} />
       )}
     </div>
   )

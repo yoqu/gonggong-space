@@ -431,6 +431,32 @@ describe('queued commands (R04) and the annotation badge', () => {
   })
 })
 
+describe('annotations in the page’s document (UX 原则回归)', () => {
+  it('opens the page’s document from an annotation’s bubble (the 批注 panel is gone)', async () => {
+    mockApi(routes({ 'GET /artifacts/a1/annotations?version=v2': [note({ id: 'n2', ggId: null })] }))
+    await renderTab()
+    key('m')
+    expect(screen.queryByTestId('art-pagedoc-home')).toBeNull()
+    fireEvent.click(await screen.findByTestId('art-bubble-n2'))
+    expect(await screen.findByTestId('art-pagedoc-home')).toBeTruthy()
+  })
+
+  it('says so when deleting an annotation fails', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1/annotations?version=v2': [note()],
+        'DELETE /annotations/n1': () => new Response('{"error":"boom"}', { status: 500 }),
+      }),
+    )
+    setArtifactPage('a1', 'home')
+    await renderTab()
+    const doc = await screen.findByTestId('art-pagedoc-home')
+    fireEvent.click(await within(doc).findByRole('button', { name: '删除' }))
+    fireEvent.click(within(doc).getByRole('button', { name: '确认删除' }))
+    await waitFor(() => expect(useToasts.getState().items.some((x) => x.type === 'error')).toBe(true))
+  })
+})
+
 describe('arrow keys (G10, kept as is)', () => {
   it('move the view, ⇧ ten times as far, with a screen selected too', async () => {
     mockApi(routes())

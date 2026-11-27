@@ -1279,27 +1279,6 @@
 .art-el__hint--bad {
   color: var(--tint-red-text);
 }
-.art-el__image {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  min-width: 0;
-}
-.art-el__image img {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-control);
-  object-fit: cover;
-}
-.art-el__image code {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--label-secondary);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .art-el__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

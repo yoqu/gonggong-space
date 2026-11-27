@@ -303,6 +303,27 @@ describe('direct edit (E)', () => {
     )
   })
 
+  it('offers one way to upload a replacement image in 外观, not two', async () => {
+    mockApi(routes())
+    await renderTab()
+    key('e')
+    select({ tag: 'img', text: '', src: '../assets/cover.png' })
+    const panel = await screen.findByTestId('art-element-panel')
+    expect(within(panel).getAllByRole('button', { name: /上传图片|替换图片/ })).toHaveLength(1)
+  })
+
+  it('picks elements to edit after ⌘K 选择, as the top bar’s 选择 does', async () => {
+    mockApi(routes())
+    await renderTab()
+    key('m')
+    key('k', { metaKey: true })
+    const menu = await screen.findByTestId('art-command-menu')
+    fireEvent.change(within(menu).getByRole('combobox'), { target: { value: '选择' } })
+    fireEvent.click(within(menu).getByRole('option', { name: /^选择\s*V$/ }))
+    select()
+    expect(await screen.findByTestId('art-element-panel')).toBeTruthy()
+  })
+
   it('leaves a script-made element to annotations', async () => {
     mockApi(routes())
     await renderTab()
@@ -555,27 +576,6 @@ describe('element panel', () => {
         .getByRole('button', { name: /编辑文字/ })
         .hasAttribute('disabled'),
     ).toBe(false)
-  })
-
-  it('uploads a replacement image, then saves it as an asset op by itself', async () => {
-    const calls = mockApi(
-      routes({ 'POST /artifacts/a1/uploads': { uploadId: 'up1', path: 'assets/up1.png' } }),
-    )
-    await openPanel({ tag: 'img', src: 'assets/cover.png', text: '', href: null })
-    const image = new File([new Uint8Array([137, 80, 78, 71])], 'new.png', { type: 'image/png' })
-    fireEvent.change(screen.getByTestId('art-element-image'), { target: { files: [image] } })
-    await screen.findByText('new.png')
-    const [upload] = calls.filter((c) => c.path === '/artifacts/a1/uploads')
-    expect(upload?.method).toBe('POST')
-    expect(upload?.body).toBe(image)
-    await waitFor(() =>
-      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
-        {
-          baseVersionId: 'v2',
-          ops: [{ kind: 'asset', file: 'screens/home.html', ggId: '120', uploadId: 'up1' }],
-        },
-      ]),
-    )
   })
 
   it('never saves an unsafe href, and closing drops the draft', async () => {

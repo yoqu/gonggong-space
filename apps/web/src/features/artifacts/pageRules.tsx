@@ -44,7 +44,10 @@ export function PageRulesSection({ rules, canEdit }: { rules: PageRulesProps; ca
   }, [rules.selected])
   const done = async () => {
     setEditing(false)
-    if (draft !== (rules.page?.md ?? '')) await rules.saveMd(draft)
+    if (draft === (rules.page?.md ?? '') || (await rules.saveMd(draft))) return
+    // Not saved: the typing stays, to try again.
+    setDraft(draft)
+    setEditing(true)
   }
   return (
     <section className="art-pagedoc__rules" aria-label={t('页面规则')}>

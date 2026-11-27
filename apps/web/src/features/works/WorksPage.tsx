@@ -414,7 +414,12 @@ export function WorksPage() {
                         {t('清除筛选')}
                       </Button>
                     ) : scope === 'all' && section !== 'all' ? (
-                      <Button size="small" variant="primary" icon="plus" onClick={startNew}>
+                      <Button
+                        size="small"
+                        variant="primary"
+                        icon={section === 'site' ? undefined : 'plus'}
+                        onClick={startNew}
+                      >
                         {section === 'slides'
                           ? t('新建幻灯片')
                           : section === 'site'

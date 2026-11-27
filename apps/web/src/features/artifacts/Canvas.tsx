@@ -513,7 +513,7 @@ export function Canvas({
     save: (id, md) => saveOps([{ kind: 'file', path: docFileOf(id), content: md }]),
     write: (id) => void ask('write-doc', { screenIds: [id] }),
     setStatus: (id, status) => annotationAction(() => updateAnnotation(id, { status })),
-    remove: (id) => void deleteAnnotation(id).then(() => annotations.reload()),
+    remove: (id) => annotationAction(() => deleteAnnotation(id)),
     send: (annotationIds) =>
       bot &&
       void attempt(() => sendAnnotations(artifactId, { annotationIds, botId: bot.id })).then((ok) => {
@@ -963,7 +963,8 @@ export function Canvas({
     const ids = picked.map((n) => n.id)
     if (value.startsWith(RUN.tool)) {
       const next = value.slice(RUN.tool.length) as Tool
-      if (next !== 'edit' || canEdit) setTool(next)
+      if (next === 'select' && canEdit) setTool('edit')
+      else if (next !== 'edit' || canEdit) setTool(next)
       return
     }
     if (value.startsWith(RUN.zoom)) return zoom(value.slice(RUN.zoom.length))
@@ -1088,7 +1089,8 @@ export function Canvas({
         if (canEdit && (one || ref)) setRenaming(one?.id ?? refNodeId((ref as GgArtifactRef).id))
         return
       }
-      case CMD.rules: {
+      case CMD.rules:
+      case CMD.notes: {
         const id = one?.id ?? screens[0]?.id
         return id ? rules.open(id) : undefined
       }
@@ -1488,7 +1490,6 @@ export function Canvas({
         onAnimate={() => setAnimate((a) => ({ text: '给这个元素加一个合适的动效：', n: (a?.n ?? 0) + 1 }))}
         onHotspot={canEdit ? startHotspot : undefined}
         el={element}
-        artifactId={artifactId}
         screens={allScreens}
         tokens={tokens}
         readOnly={!canEdit}
@@ -2083,7 +2084,7 @@ export function Canvas({
                       data-testid={`art-bubble-${a.id}`}
                       style={{ left: b.left + b.width, top: b.top }}
                       title={`${a.authorName}：${a.note}`}
-                      onClick={() => setPanel('annotations')}
+                      onClick={() => docLayer.start(n.id)}
                     >
                       {i + 1}
                     </button>

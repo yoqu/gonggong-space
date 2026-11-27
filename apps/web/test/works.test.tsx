@@ -626,16 +626,28 @@ describe('作品 page', () => {
     expect(await within(dialog).findByRole('button', { name: '创建原型' })).toBeTruthy()
   })
 
-  it('says so when neither AI is in the team', async () => {
+  it('says so in the dialog, before 创建, when neither AI is in the team', async () => {
     useWorkspace.setState({ bots: [] })
     const calls = mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [], 'GET /works/starters': STARTERS })
     renderAt('/works')
     fireEvent.click(await screen.findByRole('button', { name: '新建' }))
-    fireEvent.click(
-      await within(await screen.findByRole('dialog')).findByRole('button', { name: '创建原型' }),
-    )
-    expect(await screen.findByText('当前团队暂无可用于创作作品的 Bot')).toBeTruthy()
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('当前团队暂无可用于创作作品的 Bot')).toBeTruthy()
+    const create = await within(dialog).findByRole('button', { name: '创建原型' })
+    expect((create as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(create)
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+})
+
+describe('an empty 网页 section (UX 原则回归)', () => {
+  it('offers the hosting steps without a ＋, as it creates nothing', async () => {
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [work({})] })
+    renderAt('/works')
+    const nav = await screen.findByRole('navigation', { name: '作品分类' })
+    fireEvent.click(within(nav).getByText('网页'))
+    const steps = await screen.findByRole('button', { name: '查看托管步骤' })
+    expect(steps.querySelector('svg')).toBeNull()
   })
 })
 

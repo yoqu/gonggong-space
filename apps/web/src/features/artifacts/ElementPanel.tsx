@@ -1,5 +1,4 @@
 import {
-  ARTIFACT_UPLOAD_TYPES,
   type ArtifactEditOp,
   attrValueOk,
   FONT_PRESETS,
@@ -8,9 +7,7 @@ import {
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { errorText } from '../../lib/api'
-import { Alert, Button, IconButton, Input, PopUpButton } from '../../ui'
-import { uploadImage } from './actions'
+import { Button, IconButton, Input, PopUpButton } from '../../ui'
 import { crumbs, type PickedElement, parseInlineStyle, styleChanges } from './elements'
 import { AlignIcon, blurOnEnter, ColorField, Fold, NumField, Toggles, VAlignIcon } from './mkControls'
 import { Panel } from './SidePanel'
@@ -59,14 +56,13 @@ const TRANSITIONS = [
 const AUTO_SAVE_MS = 500
 
 /**
- * The selected element in the 属性面板 (墨刀's 外观 / 交互 tabs): text, image and inline style, or the screen it
+ * The selected element in the 属性面板 (墨刀's 外观 / 交互 tabs): text and inline style, or the screen it
  * opens, its link and the page's 热区; colours from the tokens first, any hex colour too. Style values preview on the element as
  * they are set (`onPreview`); 保存 makes one version, 取消 drops it all and puts the element's style back.
  */
 export function ElementPanel({
   view = 'look',
   el,
-  artifactId,
   screens,
   tokens,
   readOnly,
@@ -81,7 +77,6 @@ export function ElementPanel({
   /** 外观 or 交互 (the inspector's tabs); one draft for both, saved together. */
   view?: 'look' | 'interact'
   el: PickedElement
-  artifactId: string
   screens: { id: string; title: string }[]
   tokens: DesignTokens | null
   readOnly: boolean
@@ -106,12 +101,7 @@ export function ElementPanel({
   const [style, setStyle] = useState<Record<string, string>>(() =>
     Object.fromEntries(EDITED.map((p) => [p, inline[p] ?? ''])),
   )
-  const [upload, setUpload] = useState<{ uploadId: string; name: string; url: string | null } | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const picker = useRef<HTMLInputElement>(null)
-  const isImage = el.tag === 'img' || el.src !== null
   const isLink = el.tag === 'a' || el.href !== null
   const colors = useMemo(() => (tokens?.vars ?? []).filter(([k]) => k.startsWith('--color-')), [tokens])
 
@@ -128,7 +118,6 @@ export function ElementPanel({
   if (link !== (el.link ?? ''))
     ops.push({ kind: 'attr', ...where, name: 'data-gg-link', value: link || null })
   if (link && transition) ops.push({ kind: 'attr', ...where, name: 'data-gg-transition', value: transition })
-  if (upload) ops.push({ kind: 'asset', ...where, uploadId: upload.uploadId })
   const props = styleChanges(inline, style)
   if (Object.keys(props).length) ops.push({ kind: 'style', ...where, props })
   const invalid = badStyle.length > 0 || badHref
@@ -160,25 +149,8 @@ export function ElementPanel({
     [],
   )
 
-  const pickImage = async (file: File | undefined) => {
-    if (!file) return
-    setUploading(true)
-    setError('')
-    try {
-      const res = await uploadImage(artifactId, file)
-      setUpload({
-        uploadId: res.uploadId,
-        name: file.name,
-        url: typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null,
-      })
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setUploading(false)
-    }
-  }
   // 墨刀-style: a change applies by itself (a new version, undone with 撤销), once the member leaves the text field
-  // they type in, or a moment after a pick; never while invalid, uploading or saving.
+  // they type in, or a moment after a pick; never while invalid or saving.
   const [typing, setTyping] = useState(false)
   const opsKey = JSON.stringify(ops)
   const sent = useRef('[]')
@@ -191,11 +163,10 @@ export function ElementPanel({
     if (ok) saved.current = true
   }
   useEffect(() => {
-    if (readOnly || invalid || uploading || busy || typing || opsKey === '[]' || opsKey === sent.current)
-      return
+    if (readOnly || invalid || busy || typing || opsKey === '[]' || opsKey === sent.current) return
     const timer = setTimeout(() => void save.current(), AUTO_SAVE_MS)
     return () => clearTimeout(timer)
-  }, [opsKey, readOnly, invalid, uploading, busy, typing])
+  }, [opsKey, readOnly, invalid, busy, typing])
   const textField = (el: EventTarget) =>
     el instanceof HTMLTextAreaElement ||
     (el instanceof HTMLInputElement && (el.type === 'text' || el.type === 'url'))
@@ -280,32 +251,6 @@ export function ElementPanel({
         </IconButton>
       </div>
       {actions}
-      {isImage ? (
-        <div className="art-el__image">
-          {upload?.url ? <img src={upload.url} alt="" /> : null}
-          <code title={el.src ?? ''}>{upload ? upload.name : el.src || '—'}</code>
-          <Button
-            size="small"
-            icon="image"
-            loading={uploading}
-            disabled={readOnly}
-            onClick={() => picker.current?.click()}
-          >
-            {t('替换图片')}
-          </Button>
-          <input
-            ref={picker}
-            type="file"
-            hidden
-            data-testid="art-element-image"
-            accept={Object.keys(ARTIFACT_UPLOAD_TYPES).join(',')}
-            onChange={(e) => {
-              void pickImage(e.target.files?.[0])
-              e.target.value = ''
-            }}
-          />
-        </div>
-      ) : null}
       <div className="mk-grid">
         <NumField label="X" value={String(Math.round(el.rect.x))} readOnly unit="" />
         <NumField label="Y" value={String(Math.round(el.rect.y))} readOnly unit="" />
@@ -611,7 +556,6 @@ export function ElementPanel({
             {interact}
           </>
         )}
-        {error ? <Alert variant="error" description={error} /> : null}
       </fieldset>
       <p className="art-el__saving" role="status">
         {busy ? t('正在保存…') : readOnly ? t('历史版本只读') : t('改完自动保存，可用撤销退回')}

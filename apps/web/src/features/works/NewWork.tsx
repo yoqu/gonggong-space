@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, Dialog, EmptyState, Icon, type IconName, Spinner, toast } from '../../ui'
+import { Alert, Button, Dialog, EmptyState, Icon, type IconName, Spinner, toast } from '../../ui'
 import { lastWorkBot, pickDefaultBot, rememberCanvasBot, useArtifactBots } from '../artifacts/CanvasBotPicker'
 import { previewUrl } from '../plugins/model'
 
@@ -67,6 +67,7 @@ export function NewWorkDialog({
 }) {
   const [choice, setChoice] = useState<NewChoice>(initial)
   const navigate = useNavigate()
+  const noBot = useArtifactBots().length === 0
   const [starters, setStarters] = useState<WorkStarterDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -95,7 +96,7 @@ export function NewWorkDialog({
 
   const starter = choice === 'site' ? null : starters?.find((s) => s.type === choice)
   const picked = starter?.templates.find((tp) => tp.id === template) ?? starter?.templates[0]
-  const canCreate = !!starter && !busy
+  const canCreate = !!starter && !busy && !noBot
   return (
     <Dialog
       open={open}
@@ -142,6 +143,9 @@ export function NewWorkDialog({
           ))}
         </div>
         <div className="new-work__detail">
+          {noBot && choice !== 'site' ? (
+            <Alert variant="warning" description={t('当前团队暂无可用于创作作品的 Bot')} />
+          ) : null}
           {choice === 'site' ? (
             <ol className="new-work__steps">
               <li>{t('在群里让 AI 做好网页并生成预览')}</li>
