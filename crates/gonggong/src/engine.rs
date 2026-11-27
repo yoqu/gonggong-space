@@ -1300,8 +1300,8 @@ impl Inner {
                 .envs(settings.child_env());
             tools::run(npm, &log).await.context(t!("安装 ACP 适配器失败"))?;
         }
-        let h = home.clone();
-        let key = tokio::task::spawn_blocking(move || tools::runtime_bin(&h)).await?;
+        let (h, c) = (home.clone(), modules.join(ADAPTERS[1].1));
+        let key = tokio::task::spawn_blocking(move || codex_net::apply(&c).map(|()| tools::runtime_bin(&h))).await??;
         *self.adapter_node.lock().unwrap() = Some((key, node.clone()));
         Ok((node, script))
     }
@@ -1340,6 +1340,7 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
 }
 
 mod chdir;
+mod codex_net;
 mod launch;
 mod probe;
 pub(crate) use launch::Process;
@@ -1349,8 +1350,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pins_codex_adapter_with_workspace_write_mode() {
-        let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
-        assert_eq!(*version, "2.12.0");
+    fn pins_the_codex_adapter_its_network_patch_was_written_for() {
+        assert_eq!((ADAPTERS[1].0, ADAPTERS[1].2), (AgentKind::Codex, "2.12.0"));
     }
 }
