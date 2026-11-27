@@ -161,6 +161,8 @@ export const MessageDto = z.object({
   hidden: z.boolean().optional(),
   /** On a root message with replies: their summary. */
   thread: ThreadSummary.optional(),
+  /** A thread root's name set by a member; absent = its first line stands for it. */
+  threadTitle: z.string().optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 /**
@@ -208,6 +210,9 @@ export const ThreadDto = z.object({
 export type ThreadDto = z.infer<typeof ThreadDto>
 export const ThreadReadReq = z.object({ seq: z.number().int().min(0).optional() })
 export const ThreadFollowReq = z.object({ following: z.boolean() })
+/** PUT /api/messages/:rootId/thread/title (any group member) → the root MessageDto; blank goes back to the first line. */
+export const THREAD_TITLE_MAX = 80
+export const ThreadTitleReq = z.object({ title: z.string().trim().max(THREAD_TITLE_MAX) })
 /** GET /api/threads?before=<last reply seq> → ThreadInboxDto: followed threads, latest reply first. */
 export const ThreadInboxItemDto = z.object({
   groupId: z.string(),

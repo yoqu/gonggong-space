@@ -8,6 +8,7 @@ import { BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { ThreadInbox } from '../features/chat/ThreadInbox'
+import { useThreadLayout } from '../features/chat/threadLayout'
 import { UnreadInbox } from '../features/chat/UnreadInbox'
 import { JoinPreview } from '../features/groups/JoinPreview'
 import { loadSections, loadTeamSections, useTeamSections } from '../features/groups/sections'
@@ -276,6 +277,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const preview = useTeamSections((s) => s.directory.find((g) => g.id === groupId))
   const joinable = useTeamSections((s) => s.directory[0]?.id)
   const inspector = useInspector((s) => s.view)
+  const threadLayout = useThreadLayout()
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
   useEffect(() => () => useInspector.getState().close(), [groupId])
   // The group must be loaded, so the workbench has switched to it for good.
@@ -361,6 +363,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
         chatStrip={group ? <ChatStrip key={group.id} group={group} /> : null}
         rail={inspector ? <InspectorSlot /> : undefined}
         railOpen={!!inspector}
+        railReplace={threadLayout === 'replace'}
         railKind={
           inspector === 'group-info'
             ? 'info'

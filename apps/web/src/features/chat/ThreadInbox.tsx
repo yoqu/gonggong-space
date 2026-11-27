@@ -77,6 +77,7 @@ function Card({
           {state.mentioned ? <span className="thread-inbox__at">{t('[有人@我] ')}</span> : null}
           <Badge count={state.unread} />
         </span>
+        {item.root.threadTitle ? <span className="thread-inbox__title">{item.root.threadTitle}</span> : null}
         <Line m={item.root} />
         {item.root.thread && item.root.thread.replyCount > item.latest.length ? (
           <span className="thread-inbox__more">
@@ -149,7 +150,13 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
       setFailed(true)
     }
   }, [])
-  useRealtimeRefresh(load, (e) => e.t === 'thread.state')
+  useRealtimeRefresh(
+    load,
+    (e) =>
+      e.t === 'thread.state' ||
+      // A rename of a listed thread.
+      (e.t === 'message.edited' && !!list?.some((x) => x.root.id === e.message.id)),
+  )
 
   const older = async () => {
     const last = list?.at(-1)?.latest.at(-1)?.seq

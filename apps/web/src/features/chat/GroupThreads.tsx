@@ -1,5 +1,6 @@
 import type { GroupDto, GroupThreadItemDto, GroupThreadsDto } from '@gonggong/protocol'
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import { useIsMobile } from '../../app/viewport'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
@@ -19,6 +20,7 @@ import {
   useEscape,
 } from '../../ui'
 import { openThread } from './thread'
+import { useThreadLayout, useThreadSideFits } from './threadLayout'
 import { useThreadLive, useThreadPeople } from './threadSummary'
 import './group-threads.css'
 import { messageSnippet } from './snippet'
@@ -44,6 +46,7 @@ function Row({ item, live }: { item: GroupThreadItemDto; live: boolean }) {
         <b>{root.authorName}</b>
         {root.thread ? <time dateTime={root.thread.lastReplyAt}>{ago(root.thread.lastReplyAt)}</time> : null}
       </span>
+      {root.threadTitle ? <span className="group-threads__title">{root.threadTitle}</span> : null}
       <span className="group-threads__text">{messageSnippet(root)}</span>
       <span className="group-threads__meta">
         <AvatarGroup people={people} size={20} max={3} />
@@ -68,6 +71,7 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
   const [failed, setFailed] = useState(false)
   const [moreFailed, setMoreFailed] = useState(false)
   const loadingMore = useRef(false)
+  const shown = useRef(new Set<string>())
   const liveRoots = useThreadLive((s) => s.roots)
   const url = `/groups/${group.id}/threads`
 
@@ -108,6 +112,8 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
     const off = realtime.subscribe((e) => {
       if (e.t === 'thread.state' && e.groupId === group.id) later()
       else if (e.t === 'thread.updated' && e.groupId === group.id) later()
+      // A rename of a listed thread.
+      else if (e.t === 'message.edited' && shown.current.has(e.message.id)) later()
     })
     const offReconnect = realtime.onReconnect(later)
     return () => {
@@ -133,10 +139,20 @@ export function GroupThreads({ group, onClose }: { group: GroupDto; onClose: () 
 
   const isLive = (x: GroupThreadItemDto) => x.live || liveRoots.has(x.root.id)
   const rows = list && [...list.filter(isLive), ...list.filter((x) => !isLive(x))]
+  shown.current = new Set(rows?.map((x) => x.root.id))
+  const mobile = useIsMobile()
+  const layout = useThreadLayout()
+  const sideFits = useThreadSideFits()
+  const inChatsPlace = !mobile && (layout === 'replace' || !sideFits)
 
   return (
     <aside className="pn-threadpanel group-threads" aria-label={t('本群话题')}>
-      <PanelHead onClose={onClose} closeLabel={t('关闭话题')}>
+      <PanelHead
+        onClose={inChatsPlace ? undefined : onClose}
+        onBack={inChatsPlace ? onClose : undefined}
+        backLabel={t('返回群聊')}
+        closeLabel={t('关闭话题')}
+      >
         <div className="pn-threadpanel__titles">
           <span>{t('话题#inbox')}</span>
           <span className="pn-threadpanel__sub">{`# ${group.name}`}</span>

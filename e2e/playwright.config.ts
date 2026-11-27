@@ -37,6 +37,7 @@ const FAST_SPECS = [
   'team-sections',
   'team-skills',
   'terminal',
+  'thread-layout',
   'threads',
   'two-machines',
   'unread-notify',

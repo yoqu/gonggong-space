@@ -86,6 +86,12 @@
   font-size: var(--text-subheadline-size);
   font-weight: 600;
 }
+.thread-inbox__title {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .thread-inbox__at {
   color: var(--tint-red-text);
   font-weight: 600;

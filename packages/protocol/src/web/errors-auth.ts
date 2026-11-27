@@ -53,6 +53,12 @@ export const NotifyPrefs = z.object({
     .optional(),
 })
 export type NotifyPrefs = z.infer<typeof NotifyPrefs>
+/** How a thread opens beside the group chat: in a column at its right, or in the chat's place (返回群聊 leads back). */
+export const ThreadLayout = z.enum(['side', 'replace'])
+export type ThreadLayout = z.infer<typeof ThreadLayout>
+/** Interface choices kept on the account, so the web and desktop apps agree. */
+export const UiPrefs = z.object({ threadLayout: ThreadLayout.optional() })
+export type UiPrefs = z.infer<typeof UiPrefs>
 /** PATCH /api/me: the caller's own preferences and profile (same name rule as sign-up); `email: ''` clears it. */
 export const UpdateMeReq = z.object({
   gitProtocol: GitProtocol.optional(),
@@ -60,6 +66,8 @@ export const UpdateMeReq = z.object({
   email: z.union([z.literal(''), z.string().trim().toLowerCase().pipe(z.email().max(120))]).optional(),
   /** Merged into the stored prefs; null clears a field. */
   notifyPrefs: NotifyPrefs.optional(),
+  /** Merged into the stored prefs. */
+  uiPrefs: UiPrefs.optional(),
 })
 /** PUT /api/{me,teams/:id,bots/:id,groups/:id}/avatar (multipart `file`): raster images only, SVG could carry script. */
 export const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const

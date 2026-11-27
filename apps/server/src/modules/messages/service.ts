@@ -48,6 +48,8 @@ export async function requireMessage(ctx: Ctx, id: string, userId: string) {
  */
 export type MessageMeta = {
   mentions?: string[]
+  /** A thread root's name set by a member (plan 话题); absent = its first line stands for it. */
+  threadTitle?: string
   /** Came in from the bound Feishu chat; `name` is the sender's Feishu name when they have no 共工 author. */
   feishu?: { name?: string }
   /** Members it @s (被 @ notifications). */
@@ -167,6 +169,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).feishuIssue && { feishuIssue: (m.meta as MessageMeta).feishuIssue }),
     ...(m.threadRootId && { threadRootId: m.threadRootId }),
     ...((m.meta as MessageMeta).alsoSent && { alsoSent: true }),
+    ...((m.meta as MessageMeta).threadTitle && { threadTitle: (m.meta as MessageMeta).threadTitle }),
   }
 }
 

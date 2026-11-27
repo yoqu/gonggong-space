@@ -26,6 +26,7 @@ import {
   type RunSecret,
   type RunSettingsSnapshot,
   type RunSyncDone,
+  type UiPrefs,
 } from '@gonggong/protocol'
 import { type AnyColumn, sql } from 'drizzle-orm'
 import {
@@ -69,6 +70,7 @@ export const users = pgTable('users', {
   onboarding: jsonb('onboarding').notNull().default({}),
   /** NotifyPrefs: 暂停通知 and 免打扰时段; push is held back meanwhile, notifications still land in the list. */
   notifyPrefs: jsonb('notify_prefs').$type<NotifyPrefs>().notNull().default({}),
+  uiPrefs: jsonb('ui_prefs').$type<UiPrefs>().notNull().default({}),
   disabledAt: ts('disabled_at'),
   createdAt: createdAt(),
 })

@@ -86,8 +86,10 @@ const edit = (s: TimelineState, { message: e }: Edited): TimelineState => ({
     m.id === e.id
       ? {
           ...m,
-          body: e.body,
+          // A root the viewer deleted stays blank; a rename still reaches its name.
+          body: m.hidden ? m.body : e.body,
           editedAt: e.editedAt,
+          threadTitle: e.threadTitle,
           mcpSecret: e.mcpSecret,
           secretCard: e.secretCard,
           connectorCard: e.connectorCard,

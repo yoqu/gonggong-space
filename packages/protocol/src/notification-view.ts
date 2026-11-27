@@ -122,7 +122,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         text: p('botReply')
           ? say('{bot} 在话题里回复了你：{text}', { bot: p('byName'), text: p('text') })
           : `${p('byName')}：${p('text')}`,
-        group,
+        group: p('threadTitle') ? `${group} · ${p('threadTitle')}` : group,
         // An @ in a thread opens that thread.
         href: p('threadRootId')
           ? `/g/${p('groupId')}?thread=${p('threadRootId')}&msg=${p('messageId')}`

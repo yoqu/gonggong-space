@@ -69,6 +69,7 @@ export async function meDto(ctx: Ctx, user: typeof users.$inferSelect): Promise<
     demoMode: params.demoMode,
     pluginsEnabled: params.pluginsEnabled,
     notifyPrefs: user.notifyPrefs,
+    uiPrefs: user.uiPrefs,
     onboarding: (user.onboarding ?? {}) as UserOnboarding,
   }
 }

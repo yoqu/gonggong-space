@@ -7,6 +7,7 @@ import {
   type ThreadInboxDto,
   ThreadInboxQuery,
   ThreadReadReq,
+  ThreadTitleReq,
   type ThreadUnreadDto,
   TimelineQuery,
 } from '@gonggong/protocol'
@@ -40,10 +41,17 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireArtifact } from '../artifacts/service.js'
 import { requireUser } from '../auth/session.js'
-import { findMember, requireReader } from '../groups/service.js'
+import { findMember, requireMember, requireReader } from '../groups/service.js'
 import { chatArtifactOf } from '../messages/guests.js'
 import { notHiddenBy } from '../messages/recall.js'
-import { messageDto, userAuthorName } from '../messages/service.js'
+import {
+  authorName,
+  type MessageMeta,
+  memberIds,
+  messageDto,
+  postEvent,
+  userAuthorName,
+} from '../messages/service.js'
 import { readThreadMentions } from '../notifications/notify.js'
 import { reactionsFor } from '../reactions/service.js'
 import { cardColumns, runDtoLoader } from '../runs/dto.js'
@@ -204,6 +212,42 @@ export function threadRoutes(ctx: Ctx) {
       ctx.bus.publish([me.id], { t: 'thread.state', ...state })
       return state
     })
+
+    app.put<{ Params: { id: string } }>(
+      '/api/messages/:id/thread/title',
+      async (req): Promise<MessageDto> => {
+        const me = await requireUser(ctx, req)
+        const root = await requireRoot(ctx, req.params.id, me.id)
+        await requireMember(ctx, root.groupId, me.id)
+        const title = ThreadTitleReq.parse(req.body).title
+        const meta = root.meta as MessageMeta
+        if (title !== (meta.threadTitle ?? '')) {
+          const { threadTitle: _, ...rest } = meta
+          const next = title ? { ...rest, threadTitle: title } : rest
+          // Set on its own key so a concurrent card update of the root's meta is kept.
+          await ctx.db
+            .update(messages)
+            .set({
+              meta: title
+                ? sql`jsonb_set(${messages.meta}, '{threadTitle}', to_jsonb(${title}::text))`
+                : sql`${messages.meta} - 'threadTitle'`,
+            })
+            .where(eq(messages.id, root.id))
+          await postEvent(
+            ctx,
+            root.groupId,
+            title ? '{user} 把话题改名为「{title}」' : '{user} 恢复了话题的默认名称',
+            { user: me.name, ...(title && { title }) },
+            {},
+            root.id,
+          )
+          const shared = messageDto({ ...root, meta: next }, await authorName(ctx, root))
+          ctx.bus.publish(await memberIds(ctx, root.groupId), { t: 'message.edited', message: shared })
+        }
+        const [dto] = await loadMessages(ctx, me.id, eq(messages.id, root.id), 1, true)
+        return dto ?? fail('not_found', '消息不存在')
+      },
+    )
 
     app.get<{ Params: { id: string } }>('/api/groups/:id/threads', async (req): Promise<GroupThreadsDto> => {
       const me = await requireUser(ctx, req)

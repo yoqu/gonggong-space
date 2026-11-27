@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TeamParams, UserOnboarding } from './admin.js'
-import { NotifyPrefs, UserDto } from './errors-auth.js'
+import { NotifyPrefs, UiPrefs, UserDto } from './errors-auth.js'
 
 // ── Teams (plan 团队层级) ─────────────────────────────────────────────────────
 export const TeamRole = z.enum(['owner', 'admin', 'member'])
@@ -29,6 +29,7 @@ export const MeDto = UserDto.extend({
   /** 系统参数 · the plugin master switch: group settings offer the 插件 tab while it is on. */
   pluginsEnabled: z.boolean(),
   notifyPrefs: NotifyPrefs,
+  uiPrefs: UiPrefs.optional(),
   onboarding: UserOnboarding.optional(),
 })
 export type MeDto = z.infer<typeof MeDto>

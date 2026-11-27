@@ -1,7 +1,7 @@
 import { mentionedMembers } from '@gonggong/protocol'
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { and, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { groupMembers, runs, threadFollows, users } from '../../db/schema.js'
+import { groupMembers, messages, runs, threadFollows, users } from '../../db/schema.js'
 import { activeBots } from '../groups/service.js'
 import { notify } from '../notifications/notify.js'
 import type { MessageMeta, MessageRow } from './service.js'
@@ -68,6 +68,12 @@ export async function notifyMentions(ctx: Ctx, m: MessageRow, byName: string) {
     ...new Set([...((m.meta as MessageMeta).userMentions ?? []), ...(asker ? [asker] : [])]),
   ].filter((id) => id !== m.authorUserId)
   if (!ids.length) return
+  const [root] = m.threadRootId
+    ? await ctx.db
+        .select({ title: sql<string | null>`${messages.meta}->>'threadTitle'` })
+        .from(messages)
+        .where(eq(messages.id, m.threadRootId))
+    : []
   const off = new Set(
     (
       await ctx.db
@@ -88,6 +94,7 @@ export async function notifyMentions(ctx: Ctx, m: MessageRow, byName: string) {
         groupId: m.groupId,
         messageId: m.id,
         ...(m.threadRootId && { threadRootId: m.threadRootId }),
+        ...(root?.title && { threadTitle: root.title }),
         byName,
         text,
         ...(userId === asker &&

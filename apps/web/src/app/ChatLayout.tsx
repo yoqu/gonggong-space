@@ -173,6 +173,7 @@ export function ChatLayout({
   rail,
   railOpen = false,
   railKind = 'run',
+  railReplace = false,
   workbench,
   mobileView,
   sidebarLabel = t('会话列表'),
@@ -193,6 +194,8 @@ export function ChatLayout({
   rail?: ReactNode
   railOpen?: boolean
   railKind?: RailKind
+  /** A thread rail takes the chat's place instead of sitting beside it; it always does under 1100px. */
+  railReplace?: boolean
   /** The workbench column right of the chat; on phones a full-screen page over the chat. */
   workbench?: ReactNode
   /** Under 768px only one column is shown. */
@@ -207,6 +210,8 @@ export function ChatLayout({
   const stored = useBenchMode()
   const railBody = rail && railOpen ? rail : null
   const docked = bench && !!railBody
+  // A thread never covers the chat: short of room for both it takes the chat's place, as it does when asked to.
+  const replaces = !mobile && !!railBody && railKind === 'thread' && (railReplace || width < RAIL_MIN)
   // Width right of the nav and the conversation list (or its icon strip): chat, docked rail and workbench share it.
   const roomIn = (m: WorkbenchMode) =>
     width -
@@ -262,7 +267,7 @@ export function ChatLayout({
         {sidebar}
       </nav>
     )
-  const railTakesChat = docked && !full && room - (chat.width + 1) - resize.width < BENCH_MIN
+  const railTakesChat = docked && !full && (replaces || room - (chat.width + 1) - resize.width < BENCH_MIN)
   // 全屏 hides the chat but floats its composer over the workbench: one composer, draft and selection kept.
   const floating = full && !over && !phoneBench
   // Short of room the rail opens in the chat's column, at its width, so the workbench keeps its place; in 全屏 it
@@ -292,6 +297,7 @@ export function ChatLayout({
         mobile && `chat--${mobileView}`,
         bench && `chat--bench chat--${mode}`,
         sidebarHidden && 'chat--sidebar-collapsed',
+        replaces && !bench && 'chat--rail-replace',
       )}
       rail={mobile ? undefined : nav?.('vertical')}
       sidebar={
@@ -307,7 +313,7 @@ export function ChatLayout({
         // On phones the workbench is the top page: a thread it was opened from waits under it, mounted in its host.
         railBody && !bench && !phoneBench ? (
           <>
-            {mobile ? null : (
+            {mobile || replaces ? null : (
               <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
             )}
             {railBody}
@@ -316,7 +322,7 @@ export function ChatLayout({
       }
       inspectorProps={{
         'aria-label': t('侧栏'),
-        className: cx('chat__rail', mobile && 'chat__rail--overlay'),
+        className: cx('chat__rail', mobile && 'chat__rail--overlay', replaces && 'chat__rail--replace'),
       }}
     >
       {full ? (
@@ -340,7 +346,7 @@ export function ChatLayout({
             floating && 'chat__center--float',
           )}
           // Kept mounted under the phone workbench so the draft and scroll survive 返回聊天.
-          hidden={phoneBench || railTakesChat}
+          hidden={phoneBench || railTakesChat || (replaces && !bench)}
         >
           <FloatingChat.Provider value={floating}>
             <ShowFloatingChat.Provider value={floating ? () => setOver(true) : null}>

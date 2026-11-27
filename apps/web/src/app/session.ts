@@ -10,7 +10,7 @@ export type Tenancy = Pick<
   MeDto,
   'teams' | 'singleTeamMode' | 'canCreateTeam' | 'demoMode' | 'pluginsEnabled'
 > &
-  Partial<Pick<MeDto, 'notifyPrefs' | 'onboarding'>>
+  Partial<Pick<MeDto, 'notifyPrefs' | 'uiPrefs' | 'onboarding'>>
 
 interface SessionState {
   user: UserDto | null
@@ -49,13 +49,23 @@ export const useSession = create<SessionState>()((set) => ({
         demoMode,
         pluginsEnabled,
         notifyPrefs,
+        uiPrefs,
         onboarding,
         ...rest
       } = user
       syncTeam(teams)
       set({
         user: rest,
-        tenancy: { teams, singleTeamMode, canCreateTeam, demoMode, pluginsEnabled, notifyPrefs, onboarding },
+        tenancy: {
+          teams,
+          singleTeamMode,
+          canCreateTeam,
+          demoMode,
+          pluginsEnabled,
+          notifyPrefs,
+          uiPrefs,
+          onboarding,
+        },
         status: 'ready',
       })
     } else set(user ? { user, status: 'ready' } : { user, tenancy: null, status: 'ready' })

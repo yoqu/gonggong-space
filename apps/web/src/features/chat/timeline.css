@@ -713,6 +713,43 @@
 .thread-view.pn-threadpanel {
   width: 100%;
 }
+.thread-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.thread-title--editable {
+  appearance: none;
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: text;
+}
+.thread-title--editable:hover {
+  background: var(--control-track);
+}
+.thread-title--editable:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.thread-title__input {
+  min-width: 0;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: 0 var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-small);
+  background: var(--content-bg);
+  color: var(--label);
+  font: inherit;
+  outline: none;
+}
 
 /* The reply bar of a recalled root lines up with the one under a regular message: past the avatar column. */
 .tl-recalled-thread {

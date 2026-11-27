@@ -7,6 +7,7 @@ import {
 } from '@gonggong/protocol'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useSession } from '../../app/session'
+import { useIsMobile } from '../../app/viewport'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -16,6 +17,8 @@ import {
   Button,
   EmptyState,
   FailedArt,
+  Icon,
+  IconButton,
   Mascot,
   reducedMotion,
   Spinner,
@@ -28,7 +31,9 @@ import { lastEditable } from './editing'
 import { ActiveRunsContext, startedRunIds } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
 import { PendingMessages } from './PendingMessages'
+import { ThreadTitle } from './ThreadTitle'
 import { BotReply, EventRow, messageKey, RecallRow, RunCard, UserMessage } from './TimelineItems'
+import { setThreadLayout, useThreadLayout, useThreadSideFits } from './threadLayout'
 import { InThread, ThreadScope } from './threadSummary'
 import { useTimeline } from './useTimeline'
 
@@ -151,6 +156,11 @@ export function ThreadView({
   const liveRuns = useRef(runList)
   liveRuns.current = runList
 
+  const layout = useThreadLayout()
+  const sideFits = useThreadSideFits()
+  const mobile = useIsMobile()
+  // In the chat's place the way out is 返回群聊, unless it came from the thread list (back leads there).
+  const inChatsPlace = !mobile && (layout === 'replace' || !sideFits)
   const following = tl.threadState?.following ?? false
   const follow = async () => {
     try {
@@ -170,18 +180,36 @@ export function ThreadView({
       <ThreadScope.Provider value={rootId}>
         <ThreadPanel
           className="thread-view"
+          heading={<ThreadTitle root={root} readOnly={readOnly} />}
           subtitle={`# ${group.name}`}
-          onClose={onClose}
-          onBack={onBack}
+          onClose={onBack || !inChatsPlace ? onClose : undefined}
+          onBack={onBack ?? (inChatsPlace ? onClose : undefined)}
+          backLabel={onBack ? undefined : t('返回群聊')}
           scrollRef={scroll}
           onScroll={onScroll}
           replyCount={root?.thread?.replyCount ?? replies.length}
           actions={
-            readOnly || !tl.loaded ? null : (
-              <Button size="small" variant="plain" icon={following ? 'bell-slash' : 'bell'} onClick={follow}>
-                {following ? t('取消关注#thread') : t('关注#thread')}
-              </Button>
-            )
+            <>
+              {readOnly || !tl.loaded ? null : (
+                <Button
+                  size="small"
+                  variant="plain"
+                  icon={following ? 'bell-slash' : 'bell'}
+                  onClick={follow}
+                >
+                  {following ? t('取消关注#thread') : t('关注#thread')}
+                </Button>
+              )}
+              {mobile || !sideFits ? null : (
+                <IconButton
+                  size="small"
+                  title={layout === 'replace' ? t('在右侧并排查看') : t('顶掉群聊查看')}
+                  onClick={() => void setThreadLayout(layout === 'replace' ? 'side' : 'replace')}
+                >
+                  <Icon name={layout === 'replace' ? 'sidebar-right' : 'expand'} />
+                </IconButton>
+              )}
+            </>
           }
           root={
             tl.failed ? (

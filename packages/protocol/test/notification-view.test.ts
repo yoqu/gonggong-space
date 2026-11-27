@@ -29,6 +29,22 @@ describe('notificationView', () => {
     ).toEqual({ label: '有人@我', text: '王磊：看下这个', group: '支付', href: '/g/g1?msg=m1' })
   })
 
+  it('names the thread a mention landed in', () => {
+    expect(
+      notificationView(
+        n('mention', {
+          groupId: 'g1',
+          groupName: '支付',
+          messageId: 'm2',
+          threadRootId: 'm1',
+          threadTitle: '冻结主干安排',
+          byName: '王磊',
+          text: '看下这个',
+        }),
+      ).group,
+    ).toBe('支付 · 冻结主干安排')
+  })
+
   it('describes each type with the prototype labels and a link to act on it', () => {
     expect(
       notificationView(

@@ -14,11 +14,13 @@ export function PanelHead({
   onClose,
   closeLabel,
   onBack,
+  backLabel = t('返回'),
 }: {
   children: ReactNode
   onClose?: () => void
   closeLabel: string
   onBack?: () => void
+  backLabel?: string
 }) {
   return (
     <div className="pn-info__head">
@@ -26,8 +28,8 @@ export function PanelHead({
         <button
           type="button"
           className="pn-info__close"
-          aria-label={t('返回')}
-          title={t('返回')}
+          aria-label={backLabel}
+          title={backLabel}
           onClick={onBack}
         >
           <Icon name="chevron-left" weight={2} />
@@ -306,6 +308,8 @@ export function ChatInfoBody({
 export interface ThreadPanelProps {
   /** Header title, default「话题」. */
   title?: string
+  /** Shown in the title's place (e.g. an editable name); `title` still labels the panel. */
+  heading?: ReactNode
   /** The conversation the thread lives in. */
   subtitle?: ReactNode
   onClose?: () => void
@@ -327,6 +331,8 @@ export interface ThreadPanelProps {
   actions?: ReactNode
   /** Shows a back button in the header. */
   onBack?: () => void
+  /** The back button's name, default「返回」. */
+  backLabel?: string
   scrollRef?: Ref<HTMLDivElement>
   onScroll?: UIEventHandler<HTMLDivElement>
   className?: string
@@ -336,6 +342,7 @@ export interface ThreadPanelProps {
 /** Thread inspector (360px): root message, reply count divider, replies, and a thread composer. */
 export function ThreadPanel({
   title = t('话题'),
+  heading,
   subtitle,
   onClose,
   root,
@@ -349,6 +356,7 @@ export function ThreadPanel({
   footer,
   actions,
   onBack,
+  backLabel,
   scrollRef,
   onScroll,
   className,
@@ -357,9 +365,9 @@ export function ThreadPanel({
   const replies = Children.toArray(children)
   return (
     <aside className={cx('pn-threadpanel', className)} style={style} aria-label={title}>
-      <PanelHead onClose={onClose} closeLabel={t('关闭话题')} onBack={onBack}>
+      <PanelHead onClose={onClose} closeLabel={t('关闭话题')} onBack={onBack} backLabel={backLabel}>
         <div className="pn-threadpanel__titles">
-          <span>{title}</span>
+          {heading ?? <span>{title}</span>}
           {subtitle && <span className="pn-threadpanel__sub">{subtitle}</span>}
         </div>
         {actions && <div className="pn-threadpanel__actions">{actions}</div>}

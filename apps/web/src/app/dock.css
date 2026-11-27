@@ -16,3 +16,19 @@
 .chat--sidebar-collapsed > .ui-frame__sidebar {
   display: none;
 }
+
+/* A thread in the chat's place: the content column is the thread's, no hairline or shadow at its edge. */
+.chat--rail-replace > .ui-frame__main {
+  display: none;
+}
+.chat__rail.chat__rail--replace {
+  --enter-x: 24px;
+  position: relative;
+  inset: auto;
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  border-left: 0;
+  box-shadow: none;
+  animation: var(--spring-smooth) ui-enter;
+}

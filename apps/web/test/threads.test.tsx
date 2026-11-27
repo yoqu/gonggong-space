@@ -212,6 +212,7 @@ afterEach(() => {
 })
 
 const panel = () => screen.findByRole('complementary', { name: '话题' })
+const rootOf = (rail: HTMLElement) => rail.querySelector('.pn-threadpanel__root') as HTMLElement
 
 describe('thread root in the main timeline', () => {
   it('shows the reply bar and opens the thread in the rail, marking it read', async () => {
@@ -220,7 +221,11 @@ describe('thread root in the main timeline', () => {
     const rail = await panel()
     expect(await within(rail).findByText('要，周四开始')).toBeTruthy()
     expect(within(rail).getByText('同意')).toBeTruthy()
-    expect(within(rail).getByText('发版前要不要冻结主干？')).toBeTruthy()
+    expect(within(rootOf(rail)).getByText('发版前要不要冻结主干？')).toBeTruthy()
+    // The thread is named after its root.
+    expect(
+      within(rail).getByRole('button', { name: '话题名称：发版前要不要冻结主干？，点击修改' }),
+    ).toBeTruthy()
     await waitFor(() =>
       expect(calls).toContainEqual(
         expect.objectContaining({ method: 'PUT', path: '/messages/m1/thread/read', body: { seq: 3 } }),
@@ -722,7 +727,7 @@ describe('thread root boundaries', () => {
   it('keeps the open thread when its root is deleted live', async () => {
     renderAt('/g/g1?thread=m1')
     const rail = await panel()
-    await within(rail).findByText('发版前要不要冻结主干？')
+    await within(rootOf(rail)).findByText('发版前要不要冻结主干？')
     push({ t: 'message.hidden', groupId: 'g1', messageId: 'm1' })
     expect(await within(rail).findByText('你已删除这条消息')).toBeTruthy()
     expect(within(rail).getByText('要，周四开始')).toBeTruthy()

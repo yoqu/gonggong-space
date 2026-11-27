@@ -109,13 +109,14 @@ export function authRoutes(ctx: Ctx) {
 
     app.patch('/api/me', async (req) => {
       const user = await requireUser(ctx, req)
-      const { email, notifyPrefs, ...patch } = UpdateMeReq.parse(req.body)
+      const { email, notifyPrefs, uiPrefs, ...patch } = UpdateMeReq.parse(req.body)
       const renamed = patch.name !== undefined && patch.name !== user.name
       if (renamed || email !== undefined) await assertNotDemo(ctx, user)
       const set = {
         ...patch,
         ...(email !== undefined && { email: email || null }),
         ...(notifyPrefs && { notifyPrefs: mergePrefs(user.notifyPrefs, notifyPrefs) }),
+        ...(uiPrefs && { uiPrefs: { ...user.uiPrefs, ...uiPrefs } }),
       }
       if (!Object.keys(set).length) return meDto(ctx, user)
       const [row] = await ctx.db.update(users).set(set).where(eq(users.id, user.id)).returning()
