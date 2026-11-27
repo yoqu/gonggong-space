@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { Button, IconButton, Textarea } from '../../ui'
+import { Button, IconButton, Textarea, useLeaving } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import type { PageDocBox } from './geometry'
 import { type PageRulesProps, PageRulesSection } from './pageRules'
@@ -93,6 +93,7 @@ export function PageDocNode({
   const me = useSession((s) => s.user?.id ?? null)
   /** A note's 删除 asks once more, in place. */
   const [confirming, setConfirming] = useState<string | null>(null)
+  const { leaving, leave } = useLeaving()
   const [editing, setEditing] = useState(start && canEdit && !md)
   const [draft, setDraft] = useState(md)
   useEffect(() => {
@@ -200,7 +201,11 @@ export function PageDocNode({
               {notes.map((n) => (
                 <li
                   key={n.id}
-                  className={cx('art-pagedoc__note', n.status === 'resolved' && 'art-pagedoc__note--done')}
+                  className={cx(
+                    'art-pagedoc__note',
+                    n.status === 'resolved' && 'art-pagedoc__note--done',
+                    leaving.has(n.id) && 'ui-leaving',
+                  )}
                 >
                   <button type="button" className="art-pagedoc__note-text" onClick={() => onFocusNote(n)}>
                     {n.note}
@@ -212,17 +217,31 @@ export function PageDocNode({
                   {canEdit ? (
                     <span className="art-pagedoc__acts">
                       {n.status === 'resolved' ? (
-                        <Button size="small" variant="plain" onClick={() => onStatus(n.id, 'open')}>
+                        <Button
+                          key="reopen"
+                          size="small"
+                          variant="plain"
+                          onClick={() => onStatus(n.id, 'open')}
+                        >
                           {t('重新打开')}
                         </Button>
                       ) : (
-                        <Button size="small" variant="plain" onClick={() => onStatus(n.id, 'resolved')}>
+                        <Button
+                          key="resolve"
+                          size="small"
+                          variant="plain"
+                          onClick={() => onStatus(n.id, 'resolved')}
+                        >
                           {t('标为已解决')}
                         </Button>
                       )}
                       {n.authorId === me ? (
                         confirming === n.id ? (
-                          <Button size="small" variant="plain" onClick={() => onDelete(n.id)}>
+                          <Button
+                            size="small"
+                            variant="plain"
+                            onClick={() => leave(n.id, () => onDelete(n.id))}
+                          >
                             {t('确认删除')}
                           </Button>
                         ) : (

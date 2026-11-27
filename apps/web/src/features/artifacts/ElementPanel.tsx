@@ -587,6 +587,7 @@ export function ElementPanel({
       <fieldset
         className="art-el"
         data-testid="art-element-panel"
+        data-view={view}
         onFocus={(e) => textField(e.target) && setTyping(true)}
         onBlur={(e) => textField(e.target) && setTyping(false)}
       >

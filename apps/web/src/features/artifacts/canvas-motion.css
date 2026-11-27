@@ -1,0 +1,150 @@
+/* State changes of the 页面文档 and the in-place editing panel (动效回归 2026-11-27): only transform, opacity and
+   colors move; the doc's drag and resize set left/top/width/height directly, so nothing here transitions them. */
+
+/* The doc arrives beside its page from its own center. */
+.art-node--pagedoc {
+  --enter-y: -4px;
+  --enter-scale: 0.98;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.art-pagedoc__head {
+  transition: background-color var(--fade-fast);
+}
+.art-pagedoc__head:active:not(:has(button:active)) {
+  background: color-mix(in srgb, var(--label) 5%, transparent);
+}
+/* Read ↔ edit (and the rules' list ↔ editor, a note's 删除 ↔ 确认删除): what replaces what fades in, in place. */
+.art-pagedoc__head > .ui-btn,
+.art-pagedoc__head > .ui-icon-btn,
+.art-pagedoc__body > .md,
+.art-pagedoc__body > .art-pagedoc__empty,
+.art-pagedoc__input,
+.art-pagedoc__rule-list,
+.art-pagedoc__acts > *,
+.art-pagedoc__add {
+  animation: var(--fade-in) ui-fade-in;
+}
+.art-pagedoc__note-text {
+  text-decoration-line: line-through;
+  text-decoration-color: transparent;
+  transition:
+    color var(--fade-fast),
+    text-decoration-color var(--fade-fast);
+}
+.art-pagedoc__note--done .art-pagedoc__note-text {
+  text-decoration-color: currentColor;
+}
+.art-pagedoc__meta {
+  transition: color var(--fade-fast);
+}
+.art-pagedoc__rule {
+  position: relative;
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
+}
+/* The entry a page's number points to rings once (activity.css's landed flash), then keeps its fill. */
+.art-pagedoc__rule::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .art-pagedoc__rule--on::after {
+    animation: art-landed-flash var(--flash);
+  }
+}
+/* Resize grips: faint at rest so the edges are findable, full on hover or while dragging. */
+.art-pagedoc__grip {
+  opacity: 0.3;
+  transition: opacity var(--fade-fast);
+}
+.art-pagedoc__grip:hover,
+.art-pagedoc__grip:active {
+  opacity: 1;
+}
+.art-pagedoc__grip--e::after,
+.art-pagedoc__grip--s::after {
+  content: "";
+  position: absolute;
+  border-radius: var(--radius-capsule);
+  background: var(--label-tertiary);
+}
+.art-pagedoc__grip--e::after {
+  top: calc(50% - 16px);
+  right: 2px;
+  width: 3px;
+  height: 32px;
+}
+.art-pagedoc__grip--s::after {
+  bottom: 2px;
+  left: calc(50% - 16px);
+  width: 32px;
+  height: 3px;
+}
+.art-title__doc {
+  transition:
+    color var(--fade-fast),
+    border-color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+
+/* The right panel: a tab's panel shifts in; a picked module's controls only fade (picking another is frequent). */
+:where(.art-inspector__body > :not(.art-panel:has(fieldset.art-el))) {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+/* 外观 ↔ 交互 keep the same panel: a new animation name restarts the fade. */
+fieldset.art-el {
+  animation: var(--fade-in) ui-fade-in;
+}
+fieldset.art-el[data-view="interact"] {
+  animation-name: art-el-swap;
+}
+@keyframes art-el-swap {
+  from {
+    opacity: 0;
+  }
+}
+.art-el__actions > *,
+.art-pop__status,
+.mk-fold__body {
+  animation: var(--fade-in) ui-fade-in;
+}
+.art-inspector__tab,
+.art-el__toggle,
+.art-pop__action {
+  transition:
+    background-color var(--fade-fast),
+    border-color var(--fade-fast),
+    color var(--fade-fast),
+    scale var(--spring-interactive);
+}
+.art-layers__row,
+.art-layers__tag {
+  transition:
+    background-color var(--fade-fast),
+    color var(--fade-fast);
+}
+.mk-num,
+.mk-color__alpha {
+  transition: border-color var(--fade-fast);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .art-inspector__tab:active,
+  .art-pop__action:active:not(:disabled),
+  .art-title__doc:active {
+    scale: var(--press-button);
+  }
+  .art-el__toggle:active:not(:disabled) {
+    scale: var(--press-icon);
+  }
+}

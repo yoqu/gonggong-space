@@ -66,6 +66,14 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+.art-rule-mark:not(.proto-mark) {
+  transition: scale var(--spring-interactive);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .art-rule-mark:not(.proto-mark, .art-rule-mark--draft):active {
+    scale: var(--press-icon);
+  }
+}
 .art-rule-mark--draft {
   border: 1.5px dashed var(--accent);
   background: var(--content-bg);

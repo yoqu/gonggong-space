@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
+import { prefersReducedMotion } from '../../lib/motion'
 import { Button, Checkbox, Input, Textarea } from '../../ui'
 import { type RulesAdding, RuleText, ruleLabel } from './RulesPanel'
 import type { ScreenRules } from './rules'
@@ -35,7 +36,11 @@ export function PageRulesSection({ rules, canEdit }: { rules: PageRulesProps; ca
   const [draft, setDraft] = useState(rules.page?.md ?? '')
   const items = useRef<(HTMLLIElement | null)[]>([])
   useEffect(() => {
-    if (rules.selected !== null) items.current[rules.selected]?.scrollIntoView?.({ block: 'nearest' })
+    if (rules.selected !== null)
+      items.current[rules.selected]?.scrollIntoView?.({
+        block: 'nearest',
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      })
   }, [rules.selected])
   const done = async () => {
     setEditing(false)

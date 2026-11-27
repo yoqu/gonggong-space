@@ -18,6 +18,7 @@ import {
 import type { CanvasNode } from './geometry'
 import { CMD } from './menus'
 import './inspector.css'
+import './canvas-motion.css'
 
 /** The page's body, as `layers` reports it. */
 export type LayersBody = NonNullable<Extract<BridgeFromShell, { type: 'layers' }>['body']>
