@@ -18,6 +18,7 @@ import time
 
 import bmesh
 import bpy
+import mathutils.noise
 from mathutils import Euler, Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
@@ -137,6 +138,12 @@ class MaterialCache:
             bsdf.inputs["Roughness"].default_value = 0.07
             if "Coat Weight" in bsdf.inputs:
                 bsdf.inputs["Coat Weight"].default_value = 0.95
+        elif family == "Lens":
+            bsdf.inputs["Metallic"].default_value = 0.0
+            bsdf.inputs["Roughness"].default_value = 0.02
+            bsdf.inputs["Alpha"].default_value = alpha
+            if "IOR" in bsdf.inputs:
+                bsdf.inputs["IOR"].default_value = 1.49
         elif family == "Emissive":
             bsdf.inputs["Metallic"].default_value = 0.0
             bsdf.inputs["Roughness"].default_value = 0.20
@@ -152,7 +159,7 @@ class MaterialCache:
             if "Emission Strength" in bsdf.inputs:
                 bsdf.inputs["Emission Strength"].default_value = emission_strength
 
-        if alpha < 0.999 and family != "Crystal":
+        if alpha < 0.999 and family not in ("Crystal", "Lens"):
             bsdf.inputs["Alpha"].default_value = alpha
 
         if emissive_srgb is not None and family != "Emissive":
@@ -170,6 +177,15 @@ class MaterialCache:
         self._cache[key] = mat
         return mat
 
+
+# Production-toy surface detailing (round b5): real vinyl toys have ~1 mm edge radii,
+# a mold parting line splitting front/back halves, and slight rotocast waviness.
+BEVEL_SCALE = 0.62
+PARTING_MIN_DIM = 0.16
+PARTING_HALF_WIDTH = 0.0032
+PARTING_DEPTH = 0.0028
+WAVE_AMPLITUDE = 0.0012
+WAVE_FREQ = 6.5
 
 # Common studio palette helpers
 COL_PORCELAIN = (0.96, 0.97, 0.99)
@@ -267,6 +283,9 @@ class FigurineBuilder:
 
         min_dim = min(sx, sy_up, sz_front)
         bw = min(bevel, min_dim * 0.42)
+        if subsurf == 0:
+            bw *= BEVEL_SCALE
+            bevel_segs += 1
         if bw > 0.001:
             bev = obj.modifiers.new(name="Bevel", type="BEVEL")
             bev.width = bw
@@ -284,6 +303,9 @@ class FigurineBuilder:
     def pill(self, group, center, size, mat, rot=(0, 0, 0), subsurf=1):
         """Plush rounded designer-vinyl capsule/pillow using Bevel + Catmull-Clark SUBSURF."""
         min_dim = min(size)
+        if min_dim >= PARTING_MIN_DIM:
+            # Large shells receive a parting-line groove; it needs level-2 density to cut cleanly
+            subsurf = max(subsurf, 2)
         return self.box(
             group,
             center,
@@ -616,7 +638,9 @@ class FigurineBuilder:
         x_offset=0.0,
     ):
         m_obs = self.mats.get("Obsidian", "eye", COL_OBSIDIAN)
-        m_hi = self.mats.get("Emissive", "catchlight", COL_WHITE, emissive_srgb=COL_WHITE, emission_strength=2.3)
+        m_hi = self.mats.get("Ceramic", "eye_catchlight", (0.94, 0.95, 0.96))
+        # Dark base so the dome only adds specular/fresnel and never greys out the pupil
+        m_lens = self.mats.get("Lens", "eye", (0.06, 0.06, 0.07), alpha=0.05)
         for sign in (-1, 1):
             cx = x_offset + sign * eye_x
             if round_eyes:
@@ -644,6 +668,13 @@ class FigurineBuilder:
                     subdivisions=1,
                     subsurf=0,
                 )
+            # Clear acrylic eye dome over the painted pupil (front sits ~0.63*d ahead, enclosing catchlights)
+            lens_c = (cx, eye_y, eye_z + d * 0.18)
+            lens_size = (w * 1.06, h * 1.06, d * 0.92)
+            if round_eyes:
+                self.sphere(group, lens_c, lens_size, m_lens, subdivisions=3, subsurf=0)
+            else:
+                self.pill(group, lens_c, lens_size, m_lens, subsurf=2)
 
     def add_twin_boots(
         self,
@@ -723,11 +754,11 @@ class FigurineBuilder:
                 segs=14,
             )
             # Flush matching-color shoulder collar ball tucked cleanly into arm silhouette (no harsh side-view step!)
-            self.sphere(grp, (sign * (sx - 0.018), shoulder_y + 0.002, 0.0), (arm_w * 0.96, arm_w * 0.96, arm_d * 0.94), arm_mat, subdivisions=2, subsurf=1)
+            self.sphere(grp, (sign * (sx - 0.018), shoulder_y + 0.002, 0.0), (arm_w * 0.96, arm_w * 0.96, arm_d * 0.94), arm_mat, subdivisions=3, subsurf=1)
             if blocky:
                 self.box(grp, (sign * sx, shoulder_y - arm_h * 0.36, 0.0), (arm_w, arm_h, arm_d), arm_mat, bevel=0.018, bevel_segs=2)
             else:
-                self.pill(grp, (sign * sx, shoulder_y - arm_h * 0.36, 0.0), (arm_w, arm_h, arm_d), arm_mat, subsurf=1)
+                self.pill(grp, (sign * sx, shoulder_y - arm_h * 0.36, 0.0), (arm_w, arm_h, arm_d), arm_mat, subsurf=2)
             if cuff_mat is not None:
                 self.cyl(grp, (sign * sx, shoulder_y - arm_h * 0.72, 0.0), arm_w * 1.06, 0.032, arm_d * 1.06, cuff_mat, segs=16)
 
@@ -742,6 +773,73 @@ class FigurineBuilder:
             self.cyl(grp, (sign * (sx + 0.075), y_off - 0.075, 0.012), 0.098, 0.042, 0.098, cuff_mat, rot=(0, 0, sign * 0.18), segs=16)
             self.pill(grp, (sign * (sx + 0.082), y_off - 0.142, 0.018), (0.118, 0.132, 0.110), glove_mat, subsurf=1)
             self.sphere(grp, (sign * (sx + 0.024), y_off - 0.132, 0.042), (0.052, 0.058, 0.052), glove_mat, subdivisions=1, subsurf=0)
+
+    # ── Production Surface Detailing (applied to baked world-space meshes) ───
+
+    @staticmethod
+    def _surface_family(mat_name):
+        for fam in ("Vinyl", "Ceramic"):
+            if mat_name.startswith(f"Mat_{fam}_"):
+                return fam
+        return None
+
+    def _detail_surface(self, bo, mat_name, hard_surface):
+        """Cut a front/back mold parting line and add rotocast waviness to large shell parts."""
+        fam = self._surface_family(mat_name)
+        if fam is None or "catchlight" in mat_name or "blush" in mat_name:
+            return False
+        mesh = bo.data
+        xs = [v.co.x for v in mesh.vertices]
+        ys = [v.co.y for v in mesh.vertices]
+        zs = [v.co.z for v in mesh.vertices]
+        if not xs:
+            return False
+        dims = (max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
+        if min(dims) < PARTING_MIN_DIM:
+            return False
+
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        # Seam plane faces front (Blender -Y), set slightly behind center like a real two-part mold
+        cy = (min(ys) + max(ys)) * 0.5 + dims[1] * 0.06
+        no = Vector((0.0, 1.0, 0.0))
+        for off in (-PARTING_HALF_WIDTH, PARTING_HALF_WIDTH, 0.0):
+            geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+            bmesh.ops.bisect_plane(bm, geom=geom, plane_co=Vector((0.0, cy + off, 0.0)), plane_no=no, dist=1e-6)
+        bm.normal_update()
+        seam = [v for v in bm.verts if abs(v.co.y - cy) < 1e-5]
+        offsets = {v: -v.normal * PARTING_DEPTH for v in seam}
+
+        if fam == "Vinyl" and not hard_surface:
+            # One shared world-space field: overlapping same-color parts must wave together or their intersection turns ragged
+            seed = Vector((0.37, 1.7, 3.1))
+            for v in bm.verts:
+                n = mathutils.noise.noise(v.co * WAVE_FREQ + seed)
+                offsets[v] = offsets.get(v, Vector()) + v.normal * (n * WAVE_AMPLITUDE)
+        for v, d in offsets.items():
+            v.co += d
+        bm.to_mesh(mesh)
+        bm.free()
+        return True
+
+    @staticmethod
+    def _reshade(bo, hard_surface):
+        """bmesh edits invalidate baked custom normals; rebuild weighted normals for hard parts."""
+        mesh = bo.data
+        if mesh.has_custom_normals:
+            mesh.normals_split_custom_set([(0.0, 0.0, 0.0)] * len(mesh.loops))
+        if not hard_surface:
+            return bo
+        wn = bo.modifiers.new(name="WeightedNormal", type="WEIGHTED_NORMAL")
+        wn.keep_sharp = True
+        bpy.context.view_layer.update()
+        dg = bpy.context.evaluated_depsgraph_get()
+        new_mesh = bpy.data.meshes.new_from_object(bo.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+        bo.modifiers.clear()
+        old = bo.data
+        bo.data = new_mesh
+        bpy.data.meshes.remove(old)
+        return bo
 
     # ── Automated 3D Gap / Connectivity Validator (BVHTree) ──────────────────
 
@@ -905,6 +1003,9 @@ class FigurineBuilder:
                 baked_mesh.transform(o.matrix_world)
                 bo = bpy.data.objects.new(orig_name + "_b", baked_mesh)
                 bpy.context.collection.objects.link(bo)
+                hard = any(m.type == "WEIGHTED_NORMAL" for m in o.modifiers)
+                if self._detail_surface(bo, mat_name, hard):
+                    self._reshade(bo, hard)
                 baked_objs.append(bo)
                 all_baked.append(
                     {
@@ -2186,7 +2287,7 @@ def main():
 
     manifest = {
         "generator": f"Blender {bpy.app.version_string}",
-        "round": "b4b",
+        "round": "b5",
         "count": len(figurines),
         "coordinateSystem": "glTF 2.0 Y-up, grounded flush at Y=0, front facing +Z",
         "nodeContract": ["Body", "Arm_L", "Arm_R", "Leg_L", "Leg_R", "Accessory"],

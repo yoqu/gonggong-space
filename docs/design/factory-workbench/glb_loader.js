@@ -8,7 +8,7 @@ import { MAT, mat4Identity, mat4Mul } from './renderer.js?v=b5r'
  * real-time procedural animation and exploded-view rendering.
  */
 
-export const GLB_VERSION = 'b4b'
+export const GLB_VERSION = 'b5'
 
 const GLB_MAGIC = 0x46546c67 // 'glTF'
 const CHUNK_JSON = 0x4e4f534a // 'JSON'
@@ -253,7 +253,8 @@ export function mapBlenderMaterial(matDef) {
   const emMag = Math.hypot(emissive[0], emissive[1], emissive[2])
 
   let matType = MAT.VINYL_MATTE
-  if (/mat_vinyl|vinyl/i.test(name)) matType = MAT.VINYL_MATTE
+  if (/mat_lens/i.test(name)) matType = MAT.GLASS
+  else if (/mat_vinyl|vinyl/i.test(name)) matType = MAT.VINYL_MATTE
   else if (/mat_ceramic|ceramic|porcelain|glaze/i.test(name)) matType = MAT.CERAMIC_GLAZE
   else if (/mat_crystal|crystal|glass/i.test(name)) matType = MAT.CRYSTAL_GLASS
   else if (/mat_brass|brass|gold|copper|bronze/i.test(name)) matType = MAT.BRUSHED_BRASS
@@ -279,9 +280,9 @@ export function mapBlenderMaterial(matDef) {
     emissive[2] = Math.pow(color[2], 2.2) * 1.85
   }
 
-  const isEyeOrGlow = matType === MAT.OBSIDIAN || matType === MAT.EMISSIVE
+  const isEyeOrGlow = matType === MAT.OBSIDIAN || matType === MAT.EMISSIVE || matType === MAT.GLASS
   const isHardware = matType === MAT.TITANIUM || matType === MAT.ALUMINUM
-  const isDetailAccent = /blush|face|belly|sole|pin/i.test(name)
+  const isDetailAccent = /blush|face|belly|sole|pin|catchlight/i.test(name)
   const isPrimaryShell = !isEyeOrGlow && !isHardware && !isDetailAccent
 
   return {

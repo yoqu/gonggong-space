@@ -1,6 +1,6 @@
 {
   "generator": "Blender 5.2.1 LTS",
-  "round": "b4b",
+  "round": "b5",
   "count": 25,
   "coordinateSystem": "glTF 2.0 Y-up, grounded flush at Y=0, front facing +Z",
   "nodeContract": [
@@ -25,9 +25,9 @@
     "claude": {
       "key": "claude",
       "file": "claude.glb",
-      "bytes": 100616,
-      "triangles": 5548,
-      "vertices": 2852,
+      "bytes": 212432,
+      "triangles": 12548,
+      "vertices": 6356,
       "height": 1.095,
       "minY": 0.0,
       "nodes": [
@@ -40,8 +40,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1568,
-          "vertices": 812,
+          "triangles": 3960,
+          "vertices": 2012,
           "pivot": [
             0.0,
             0.67,
@@ -49,8 +49,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 752,
-          "vertices": 382,
+          "triangles": 2272,
+          "vertices": 1142,
           "pivot": [
             -0.545,
             0.65,
@@ -58,8 +58,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 752,
-          "vertices": 382,
+          "triangles": 2272,
+          "vertices": 1142,
           "pivot": [
             0.545,
             0.65,
@@ -67,8 +67,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 808,
-          "vertices": 416,
+          "triangles": 1352,
+          "vertices": 688,
           "pivot": [
             -0.225,
             0.35,
@@ -76,8 +76,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 808,
-          "vertices": 416,
+          "triangles": 1352,
+          "vertices": 688,
           "pivot": [
             0.225,
             0.35,
@@ -85,8 +85,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 860,
-          "vertices": 444,
+          "triangles": 1340,
+          "vertices": 684,
           "pivot": [
             0.0,
             0.74,
@@ -97,16 +97,17 @@
       "materials": [
         "Mat_Aluminum_alu",
         "Mat_Brass_brass",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Emissive_led",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Titanium_pin",
         "Mat_Titanium_ti",
         "Mat_Vinyl_claude_shell"
       ],
       "connectivity": {
-        "totalParts": 39,
-        "connectedParts": 39,
+        "totalParts": 41,
+        "connectedParts": 41,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -115,10 +116,10 @@
     "codex": {
       "key": "codex",
       "file": "codex.glb",
-      "bytes": 135736,
-      "triangles": 7272,
-      "vertices": 3686,
-      "height": 0.9509,
+      "bytes": 229004,
+      "triangles": 13146,
+      "vertices": 6627,
+      "height": 0.9508,
       "minY": 0.0,
       "nodes": [
         "Body",
@@ -130,8 +131,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 4400,
-          "vertices": 2224,
+          "triangles": 6082,
+          "vertices": 3069,
           "pivot": [
             0.0,
             0.6,
@@ -139,8 +140,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 836,
-          "vertices": 424,
+          "triangles": 2852,
+          "vertices": 1432,
           "pivot": [
             -0.365,
             0.55,
@@ -148,8 +149,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 836,
-          "vertices": 424,
+          "triangles": 2852,
+          "vertices": 1432,
           "pivot": [
             0.365,
             0.55,
@@ -157,8 +158,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.165,
             0.34,
@@ -166,8 +167,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.165,
             0.34,
@@ -187,8 +188,9 @@
       "materials": [
         "Mat_Aluminum_alu",
         "Mat_Ceramic_codex_face",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Emissive_codex_cursor",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Titanium_sole",
         "Mat_Titanium_ti",
@@ -197,8 +199,8 @@
         "Mat_Vinyl_codex_cloud"
       ],
       "connectivity": {
-        "totalParts": 26,
-        "connectedParts": 26,
+        "totalParts": 28,
+        "connectedParts": 28,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -207,9 +209,9 @@
     "gemini": {
       "key": "gemini",
       "file": "gemini.glb",
-      "bytes": 85636,
-      "triangles": 4468,
-      "vertices": 2292,
+      "bytes": 178212,
+      "triangles": 10276,
+      "vertices": 5200,
       "height": 1.0583,
       "minY": 0.0,
       "nodes": [
@@ -222,8 +224,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1572,
-          "vertices": 814,
+          "triangles": 3188,
+          "vertices": 1626,
           "pivot": [
             0.0,
             0.64,
@@ -231,8 +233,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             -0.255,
             0.56,
@@ -240,8 +242,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             0.255,
             0.56,
@@ -249,8 +251,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.14,
             0.36,
@@ -258,8 +260,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.14,
             0.36,
@@ -278,20 +280,21 @@
       },
       "materials": [
         "Mat_Aluminum_alu",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_gemini_blush",
         "Mat_Ceramic_gemini_face",
         "Mat_Ceramic_gemini_limbs",
         "Mat_Ceramic_gemini_rim",
         "Mat_Crystal_gemini_star",
-        "Mat_Emissive_catchlight",
         "Mat_Emissive_gemini_core",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole"
       ],
       "connectivity": {
-        "totalParts": 29,
-        "connectedParts": 28,
+        "totalParts": 31,
+        "connectedParts": 30,
         "allowedFloatingCount": 1,
         "defectCount": 0
       },
@@ -300,9 +303,9 @@
     "codebuddy": {
       "key": "codebuddy",
       "file": "codebuddy.glb",
-      "bytes": 84912,
-      "triangles": 4528,
-      "vertices": 2310,
+      "bytes": 180244,
+      "triangles": 10574,
+      "vertices": 5333,
       "height": 1.0703,
       "minY": 0.0,
       "nodes": [
@@ -315,8 +318,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1732,
-          "vertices": 882,
+          "triangles": 3506,
+          "vertices": 1769,
           "pivot": [
             0.0,
             0.6,
@@ -324,8 +327,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             -0.34,
             0.54,
@@ -333,8 +336,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             0.34,
             0.54,
@@ -342,8 +345,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.15,
             0.29,
@@ -351,8 +354,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.15,
             0.29,
@@ -360,8 +363,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 108,
-          "vertices": 56,
+          "triangles": 188,
+          "vertices": 96,
           "pivot": [
             0.0,
             0.54,
@@ -390,9 +393,9 @@
     "pi": {
       "key": "pi",
       "file": "pi.glb",
-      "bytes": 71560,
-      "triangles": 3772,
-      "vertices": 1936,
+      "bytes": 167412,
+      "triangles": 9660,
+      "vertices": 4884,
       "height": 0.993,
       "minY": 0.0,
       "nodes": [
@@ -405,8 +408,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1164,
-          "vertices": 604,
+          "triangles": 3404,
+          "vertices": 1728,
           "pivot": [
             -0.04,
             0.64,
@@ -414,8 +417,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 940,
-          "vertices": 478,
+          "triangles": 2460,
+          "vertices": 1238,
           "pivot": [
             -0.425,
             0.74,
@@ -423,8 +426,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 940,
-          "vertices": 478,
+          "triangles": 2460,
+          "vertices": 1238,
           "pivot": [
             0.345,
             0.74,
@@ -432,8 +435,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 216,
-          "vertices": 112,
+          "triangles": 472,
+          "vertices": 240,
           "pivot": [
             -0.26,
             0.4,
@@ -441,8 +444,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 216,
-          "vertices": 112,
+          "triangles": 376,
+          "vertices": 192,
           "pivot": [
             0.02,
             0.38,
@@ -450,8 +453,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 296,
-          "vertices": 152,
+          "triangles": 488,
+          "vertices": 248,
           "pivot": [
             0.28,
             0.2,
@@ -462,8 +465,9 @@
       "materials": [
         "Mat_Aluminum_alu",
         "Mat_Brass_brass",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Emissive_led",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Titanium_pin",
         "Mat_Titanium_ti",
@@ -471,8 +475,8 @@
         "Mat_Vinyl_pi_shell"
       ],
       "connectivity": {
-        "totalParts": 25,
-        "connectedParts": 23,
+        "totalParts": 27,
+        "connectedParts": 25,
         "allowedFloatingCount": 2,
         "defectCount": 0
       },
@@ -481,9 +485,9 @@
     "deepseek": {
       "key": "deepseek",
       "file": "deepseek.glb",
-      "bytes": 116472,
-      "triangles": 5948,
-      "vertices": 3056,
+      "bytes": 162264,
+      "triangles": 8488,
+      "vertices": 4330,
       "height": 1.1114,
       "minY": 0.0,
       "nodes": [
@@ -496,8 +500,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 3804,
-          "vertices": 1960,
+          "triangles": 6184,
+          "vertices": 3154,
           "pivot": [
             0.0,
             0.56,
@@ -523,8 +527,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.135,
             0.28,
@@ -532,8 +536,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.135,
             0.28,
@@ -555,15 +559,16 @@
         "Mat_Ceramic_ds_blush",
         "Mat_Ceramic_ds_tail",
         "Mat_Ceramic_ds_whale",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Crystal_ds_bubble",
-        "Mat_Emissive_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole"
       ],
       "connectivity": {
-        "totalParts": 27,
-        "connectedParts": 25,
+        "totalParts": 29,
+        "connectedParts": 27,
         "allowedFloatingCount": 2,
         "defectCount": 0
       },
@@ -572,9 +577,9 @@
     "antigravity": {
       "key": "antigravity",
       "file": "antigravity.glb",
-      "bytes": 123416,
-      "triangles": 6480,
-      "vertices": 3308,
+      "bytes": 178328,
+      "triangles": 9524,
+      "vertices": 4846,
       "height": 1.083,
       "minY": 0.0,
       "nodes": [
@@ -586,8 +591,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 4216,
-          "vertices": 2160,
+          "triangles": 7260,
+          "vertices": 3698,
           "pivot": [
             0.0,
             0.62,
@@ -636,16 +641,17 @@
         "Mat_Ceramic_ag_apex",
         "Mat_Ceramic_ag_arch",
         "Mat_Ceramic_ag_face",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Crystal_ag_ring",
         "Mat_Emissive_ag_glow",
-        "Mat_Emissive_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_ti"
       ],
       "connectivity": {
-        "totalParts": 21,
-        "connectedParts": 17,
+        "totalParts": 23,
+        "connectedParts": 19,
         "allowedFloatingCount": 4,
         "defectCount": 0
       },
@@ -654,9 +660,9 @@
     "opencode": {
       "key": "opencode",
       "file": "opencode.glb",
-      "bytes": 83816,
-      "triangles": 4436,
-      "vertices": 2276,
+      "bytes": 173512,
+      "triangles": 9972,
+      "vertices": 5048,
       "height": 0.945,
       "minY": 0.0,
       "nodes": [
@@ -669,8 +675,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1728,
-          "vertices": 892,
+          "triangles": 4064,
+          "vertices": 2064,
           "pivot": [
             0.0,
             0.6,
@@ -678,8 +684,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 940,
-          "vertices": 478,
+          "triangles": 2460,
+          "vertices": 1238,
           "pivot": [
             -0.395,
             0.58,
@@ -687,8 +693,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 940,
-          "vertices": 478,
+          "triangles": 2460,
+          "vertices": 1238,
           "pivot": [
             0.395,
             0.58,
@@ -696,8 +702,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.17,
             0.29,
@@ -705,8 +711,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.17,
             0.29,
@@ -725,9 +731,10 @@
       },
       "materials": [
         "Mat_Aluminum_alu",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Emissive_oc_halo",
         "Mat_Emissive_oc_orange",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Titanium_pin",
         "Mat_Titanium_sole",
@@ -736,8 +743,8 @@
         "Mat_Vinyl_oc_frame"
       ],
       "connectivity": {
-        "totalParts": 29,
-        "connectedParts": 29,
+        "totalParts": 31,
+        "connectedParts": 31,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -746,9 +753,9 @@
     "qwen": {
       "key": "qwen",
       "file": "qwen.glb",
-      "bytes": 88908,
-      "triangles": 4576,
-      "vertices": 2350,
+      "bytes": 180944,
+      "triangles": 10172,
+      "vertices": 5152,
       "height": 1.0302,
       "minY": 0.0,
       "nodes": [
@@ -761,8 +768,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1952,
-          "vertices": 1008,
+          "triangles": 4348,
+          "vertices": 2210,
           "pivot": [
             0.0,
             0.62,
@@ -770,8 +777,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 940,
-          "vertices": 478,
+          "triangles": 2460,
+          "vertices": 1238,
           "pivot": [
             -0.38,
             0.56,
@@ -779,8 +786,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 940,
-          "vertices": 478,
+          "triangles": 2460,
+          "vertices": 1238,
           "pivot": [
             0.38,
             0.56,
@@ -788,8 +795,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.16,
             0.29,
@@ -797,8 +804,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.16,
             0.29,
@@ -817,20 +824,21 @@
       },
       "materials": [
         "Mat_Aluminum_alu",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_qwen_face",
         "Mat_Ceramic_qwen_main",
         "Mat_Ceramic_qwen_mid",
         "Mat_Ceramic_qwen_sec",
         "Mat_Crystal_qwen_jewel",
-        "Mat_Emissive_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_pin",
         "Mat_Titanium_sole"
       ],
       "connectivity": {
-        "totalParts": 31,
-        "connectedParts": 31,
+        "totalParts": 33,
+        "connectedParts": 33,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -839,9 +847,9 @@
     "kimi": {
       "key": "kimi",
       "file": "kimi.glb",
-      "bytes": 90324,
-      "triangles": 4900,
-      "vertices": 2496,
+      "bytes": 183036,
+      "triangles": 10508,
+      "vertices": 5300,
       "height": 1.0485,
       "minY": 0.0,
       "nodes": [
@@ -854,8 +862,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1348,
-          "vertices": 690,
+          "triangles": 2560,
+          "vertices": 1296,
           "pivot": [
             0.0,
             0.6,
@@ -863,8 +871,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             -0.355,
             0.56,
@@ -872,8 +880,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             0.355,
             0.56,
@@ -881,8 +889,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.16,
             0.29,
@@ -890,8 +898,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.16,
             0.29,
@@ -899,8 +907,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 864,
-          "vertices": 434,
+          "triangles": 1068,
+          "vertices": 536,
           "pivot": [
             0.36,
             0.95,
@@ -930,9 +938,9 @@
     "goose": {
       "key": "goose",
       "file": "goose.glb",
-      "bytes": 111660,
-      "triangles": 5636,
-      "vertices": 2946,
+      "bytes": 148564,
+      "triangles": 7640,
+      "vertices": 3964,
       "height": 1.0402,
       "minY": 0.0,
       "nodes": [
@@ -945,8 +953,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 2800,
-          "vertices": 1454,
+          "triangles": 4484,
+          "vertices": 2312,
           "pivot": [
             0.0,
             0.56,
@@ -972,8 +980,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 296,
-          "vertices": 152,
+          "triangles": 376,
+          "vertices": 192,
           "pivot": [
             -0.14,
             0.28,
@@ -981,8 +989,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 296,
-          "vertices": 152,
+          "triangles": 376,
+          "vertices": 192,
           "pivot": [
             0.14,
             0.28,
@@ -990,8 +998,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 236,
-          "vertices": 124,
+          "triangles": 396,
+          "vertices": 204,
           "pivot": [
             0.0,
             0.66,
@@ -1001,15 +1009,16 @@
       },
       "materials": [
         "Mat_Brass_brass",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Vinyl_goose_charcoal",
         "Mat_Vinyl_goose_orange",
         "Mat_Vinyl_goose_white"
       ],
       "connectivity": {
-        "totalParts": 20,
-        "connectedParts": 20,
+        "totalParts": 22,
+        "connectedParts": 22,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1018,9 +1027,9 @@
     "copilot": {
       "key": "copilot",
       "file": "copilot.glb",
-      "bytes": 117828,
-      "triangles": 6364,
-      "vertices": 3244,
+      "bytes": 216240,
+      "triangles": 12456,
+      "vertices": 6290,
       "height": 1.028,
       "minY": 0.0,
       "nodes": [
@@ -1033,8 +1042,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 2800,
-          "vertices": 1424,
+          "triangles": 4620,
+          "vertices": 2334,
           "pivot": [
             0.0,
             0.62,
@@ -1042,8 +1051,8 @@
           ]
         },
         "Arm_L": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             -0.325,
             0.44,
@@ -1051,8 +1060,8 @@
           ]
         },
         "Arm_R": {
-          "triangles": 1024,
-          "vertices": 520,
+          "triangles": 3040,
+          "vertices": 1528,
           "pivot": [
             0.325,
             0.44,
@@ -1060,8 +1069,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             -0.165,
             0.3,
@@ -1069,8 +1078,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 320,
-          "vertices": 166,
+          "triangles": 400,
+          "vertices": 206,
           "pivot": [
             0.165,
             0.3,
@@ -1078,8 +1087,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 876,
-          "vertices": 448,
+          "triangles": 956,
+          "vertices": 488,
           "pivot": [
             0.0,
             0.82,
@@ -1109,9 +1118,9 @@
     "role-gong": {
       "key": "role-gong",
       "file": "role-gong.glb",
-      "bytes": 85936,
-      "triangles": 4728,
-      "vertices": 2434,
+      "bytes": 135004,
+      "triangles": 7352,
+      "vertices": 3750,
       "height": 1.0592,
       "minY": 0.0,
       "nodes": [
@@ -1124,8 +1133,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 2296,
-          "vertices": 1184,
+          "triangles": 4760,
+          "vertices": 2420,
           "pivot": [
             0.0,
             0.52,
@@ -1151,8 +1160,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 492,
-          "vertices": 252,
+          "triangles": 572,
+          "vertices": 292,
           "pivot": [
             -0.145,
             0.29,
@@ -1160,8 +1169,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 492,
-          "vertices": 252,
+          "triangles": 572,
+          "vertices": 292,
           "pivot": [
             0.145,
             0.29,
@@ -1181,9 +1190,10 @@
       "materials": [
         "Mat_Brass_brass",
         "Mat_Ceramic_blush",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_porcelain",
         "Mat_Crystal_gong_jade_gem",
-        "Mat_Emissive_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Vinyl_gong_cobalt",
@@ -1191,8 +1201,8 @@
         "Mat_Vinyl_gong_pillar"
       ],
       "connectivity": {
-        "totalParts": 35,
-        "connectedParts": 34,
+        "totalParts": 37,
+        "connectedParts": 36,
         "allowedFloatingCount": 1,
         "defectCount": 0
       },
@@ -1201,9 +1211,9 @@
     "role-hammock": {
       "key": "role-hammock",
       "file": "role-hammock.glb",
-      "bytes": 141612,
-      "triangles": 7508,
-      "vertices": 3860,
+      "bytes": 194712,
+      "triangles": 10480,
+      "vertices": 5362,
       "height": 0.9638,
       "minY": 0.0,
       "nodes": [
@@ -1216,8 +1226,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 4696,
-          "vertices": 2414,
+          "triangles": 7508,
+          "vertices": 3836,
           "pivot": [
             0.0,
             0.54,
@@ -1243,8 +1253,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.145,
             0.25,
@@ -1252,8 +1262,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.145,
             0.25,
@@ -1272,10 +1282,11 @@
       },
       "materials": [
         "Mat_Brass_brass",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_ham_head",
         "Mat_Ceramic_white",
         "Mat_Crystal_ham_halo",
-        "Mat_Emissive_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -1284,8 +1295,8 @@
         "Mat_Vinyl_ham_wood"
       ],
       "connectivity": {
-        "totalParts": 42,
-        "connectedParts": 39,
+        "totalParts": 44,
+        "connectedParts": 41,
         "allowedFloatingCount": 3,
         "defectCount": 0
       },
@@ -1294,9 +1305,9 @@
     "role-braces": {
       "key": "role-braces",
       "file": "role-braces.glb",
-      "bytes": 94036,
-      "triangles": 4912,
-      "vertices": 2540,
+      "bytes": 150884,
+      "triangles": 8040,
+      "vertices": 4108,
       "height": 0.801,
       "minY": 0.0,
       "nodes": [
@@ -1309,8 +1320,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1192,
-          "vertices": 620,
+          "triangles": 3360,
+          "vertices": 1708,
           "pivot": [
             0.0,
             0.56,
@@ -1336,8 +1347,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.155,
             0.25,
@@ -1345,8 +1356,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.155,
             0.25,
@@ -1354,8 +1365,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 1360,
-          "vertices": 704,
+          "triangles": 2160,
+          "vertices": 1104,
           "pivot": [
             0.0,
             0.56,
@@ -1365,14 +1376,15 @@
       },
       "materials": [
         "Mat_Aluminum_br_steel",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Titanium_br_dark",
         "Mat_Vinyl_br_core"
       ],
       "connectivity": {
-        "totalParts": 42,
-        "connectedParts": 42,
+        "totalParts": 44,
+        "connectedParts": 44,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1381,9 +1393,9 @@
     "role-focus": {
       "key": "role-focus",
       "file": "role-focus.glb",
-      "bytes": 129088,
-      "triangles": 6732,
-      "vertices": 3468,
+      "bytes": 195864,
+      "triangles": 10444,
+      "vertices": 5328,
       "height": 0.873,
       "minY": 0.0,
       "nodes": [
@@ -1396,8 +1408,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1496,
-          "vertices": 776,
+          "triangles": 5048,
+          "vertices": 2556,
           "pivot": [
             0.0,
             0.54,
@@ -1423,8 +1435,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.15,
             0.25,
@@ -1432,8 +1444,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.15,
             0.25,
@@ -1452,12 +1464,13 @@
       },
       "materials": [
         "Mat_Brass_brass",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_foc_head",
-        "Mat_Emissive_catchlight",
         "Mat_Emissive_fg_coral",
         "Mat_Emissive_fg_gold",
         "Mat_Emissive_fg_orange",
         "Mat_Emissive_foc_ring",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -1465,8 +1478,8 @@
         "Mat_Vinyl_foc_sec"
       ],
       "connectivity": {
-        "totalParts": 39,
-        "connectedParts": 39,
+        "totalParts": 41,
+        "connectedParts": 41,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1475,9 +1488,9 @@
     "role-steps": {
       "key": "role-steps",
       "file": "role-steps.glb",
-      "bytes": 83456,
-      "triangles": 4368,
-      "vertices": 2254,
+      "bytes": 142736,
+      "triangles": 7840,
+      "vertices": 3994,
       "height": 0.8719,
       "minY": 0.0,
       "nodes": [
@@ -1490,8 +1503,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1444,
-          "vertices": 744,
+          "triangles": 4516,
+          "vertices": 2284,
           "pivot": [
             0.0,
             0.54,
@@ -1517,8 +1530,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.155,
             0.25,
@@ -1526,8 +1539,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.155,
             0.25,
@@ -1535,8 +1548,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 564,
-          "vertices": 294,
+          "triangles": 804,
+          "vertices": 414,
           "pivot": [
             0.0,
             0.34,
@@ -1545,10 +1558,11 @@
         }
       },
       "materials": [
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_st_head",
-        "Mat_Emissive_catchlight",
         "Mat_Emissive_ci_green",
         "Mat_Emissive_ci_red",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -1556,8 +1570,8 @@
         "Mat_Vinyl_st_sec"
       ],
       "connectivity": {
-        "totalParts": 35,
-        "connectedParts": 35,
+        "totalParts": 37,
+        "connectedParts": 37,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1566,9 +1580,9 @@
     "role-blank": {
       "key": "role-blank",
       "file": "role-blank.glb",
-      "bytes": 85496,
-      "triangles": 4416,
-      "vertices": 2280,
+      "bytes": 115616,
+      "triangles": 6060,
+      "vertices": 3106,
       "height": 0.903,
       "minY": 0.0,
       "nodes": [
@@ -1581,8 +1595,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1192,
-          "vertices": 616,
+          "triangles": 2036,
+          "vertices": 1042,
           "pivot": [
             0.0,
             0.56,
@@ -1608,8 +1622,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.135,
             0.25,
@@ -1617,8 +1631,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.135,
             0.25,
@@ -1626,8 +1640,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 864,
-          "vertices": 448,
+          "triangles": 1504,
+          "vertices": 768,
           "pivot": [
             0.0,
             0.58,
@@ -1639,15 +1653,16 @@
         "Mat_Brass_bl_rosegold",
         "Mat_Ceramic_bl_dot",
         "Mat_Ceramic_bl_por",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Vinyl_bl_pri",
         "Mat_Vinyl_bl_sec"
       ],
       "connectivity": {
-        "totalParts": 36,
-        "connectedParts": 32,
+        "totalParts": 38,
+        "connectedParts": 34,
         "allowedFloatingCount": 4,
         "defectCount": 0
       },
@@ -1656,10 +1671,10 @@
     "role-no": {
       "key": "role-no",
       "file": "role-no.glb",
-      "bytes": 97108,
-      "triangles": 5052,
-      "vertices": 2600,
-      "height": 0.9028,
+      "bytes": 151748,
+      "triangles": 8188,
+      "vertices": 4172,
+      "height": 0.9027,
       "minY": 0.0,
       "nodes": [
         "Body",
@@ -1671,8 +1686,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 2152,
-          "vertices": 1104,
+          "triangles": 4728,
+          "vertices": 2396,
           "pivot": [
             0.0,
             0.56,
@@ -1698,8 +1713,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.15,
             0.25,
@@ -1707,8 +1722,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.15,
             0.25,
@@ -1716,8 +1731,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 540,
-          "vertices": 280,
+          "triangles": 940,
+          "vertices": 480,
           "pivot": [
             0.0,
             0.43,
@@ -1727,10 +1742,11 @@
       },
       "materials": [
         "Mat_Brass_brass",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_no_sheet",
-        "Mat_Emissive_catchlight",
         "Mat_Emissive_no_green",
         "Mat_Emissive_no_red",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -1739,8 +1755,8 @@
         "Mat_Vinyl_no_orange"
       ],
       "connectivity": {
-        "totalParts": 37,
-        "connectedParts": 37,
+        "totalParts": 39,
+        "connectedParts": 39,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1749,9 +1765,9 @@
     "role-abacus": {
       "key": "role-abacus",
       "file": "role-abacus.glb",
-      "bytes": 125072,
-      "triangles": 6528,
-      "vertices": 3354,
+      "bytes": 183088,
+      "triangles": 9676,
+      "vertices": 4932,
       "height": 1.008,
       "minY": 0.0,
       "nodes": [
@@ -1764,8 +1780,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 2788,
-          "vertices": 1420,
+          "triangles": 5376,
+          "vertices": 2718,
           "pivot": [
             0.0,
             0.56,
@@ -1791,8 +1807,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.145,
             0.25,
@@ -1800,8 +1816,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.145,
             0.25,
@@ -1809,8 +1825,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 1380,
-          "vertices": 718,
+          "triangles": 1780,
+          "vertices": 918,
           "pivot": [
             0.0,
             0.895,
@@ -1821,7 +1837,8 @@
       "materials": [
         "Mat_Brass_ab_brass",
         "Mat_Ceramic_ab_head",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -1832,8 +1849,8 @@
         "Mat_Vinyl_ab_walnut"
       ],
       "connectivity": {
-        "totalParts": 47,
-        "connectedParts": 47,
+        "totalParts": 49,
+        "connectedParts": 49,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1842,10 +1859,10 @@
     "role-invert": {
       "key": "role-invert",
       "file": "role-invert.glb",
-      "bytes": 89228,
-      "triangles": 4640,
-      "vertices": 2408,
-      "height": 0.8162,
+      "bytes": 161372,
+      "triangles": 8800,
+      "vertices": 4492,
+      "height": 0.8164,
       "minY": 0.0,
       "nodes": [
         "Body",
@@ -1857,8 +1874,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1448,
-          "vertices": 748,
+          "triangles": 5448,
+          "vertices": 2752,
           "pivot": [
             -0.02,
             0.56,
@@ -1884,8 +1901,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.15,
             0.25,
@@ -1893,8 +1910,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.15,
             0.25,
@@ -1913,10 +1930,11 @@
       },
       "materials": [
         "Mat_Brass_brass",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_inv_head",
         "Mat_Crystal_inv_glass",
-        "Mat_Emissive_catchlight",
         "Mat_Emissive_inv_sand",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -1924,8 +1942,8 @@
         "Mat_Vinyl_inv_sec"
       ],
       "connectivity": {
-        "totalParts": 35,
-        "connectedParts": 35,
+        "totalParts": 37,
+        "connectedParts": 37,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -1934,9 +1952,9 @@
     "role-sentry": {
       "key": "role-sentry",
       "file": "role-sentry.glb",
-      "bytes": 75164,
-      "triangles": 3904,
-      "vertices": 2006,
+      "bytes": 86384,
+      "triangles": 4580,
+      "vertices": 2344,
       "height": 1.012,
       "minY": 0.0,
       "nodes": [
@@ -1949,8 +1967,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1300,
-          "vertices": 664,
+          "triangles": 1816,
+          "vertices": 922,
           "pivot": [
             0.0,
             0.56,
@@ -1976,8 +1994,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.155,
             0.25,
@@ -1985,8 +2003,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.155,
             0.25,
@@ -2023,9 +2041,9 @@
     "role-spring": {
       "key": "role-spring",
       "file": "role-spring.glb",
-      "bytes": 108244,
-      "triangles": 5748,
-      "vertices": 2960,
+      "bytes": 150124,
+      "triangles": 8148,
+      "vertices": 4164,
       "height": 0.93,
       "minY": 0.0,
       "nodes": [
@@ -2038,8 +2056,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 3088,
-          "vertices": 1590,
+          "triangles": 5248,
+          "vertices": 2674,
           "pivot": [
             0.0,
             0.68,
@@ -2065,8 +2083,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.145,
             0.25,
@@ -2074,8 +2092,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.145,
             0.25,
@@ -2083,8 +2101,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 300,
-          "vertices": 154,
+          "triangles": 380,
+          "vertices": 194,
           "pivot": [
             0.115,
             0.855,
@@ -2094,8 +2112,9 @@
       },
       "materials": [
         "Mat_Aluminum_sp_coil",
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_sp_head",
-        "Mat_Emissive_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -2105,8 +2124,8 @@
         "Mat_Vinyl_sp_sec"
       ],
       "connectivity": {
-        "totalParts": 33,
-        "connectedParts": 33,
+        "totalParts": 35,
+        "connectedParts": 35,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -2115,9 +2134,9 @@
     "role-compass": {
       "key": "role-compass",
       "file": "role-compass.glb",
-      "bytes": 106760,
-      "triangles": 5528,
-      "vertices": 2844,
+      "bytes": 189240,
+      "triangles": 10008,
+      "vertices": 5088,
       "height": 1.0678,
       "minY": 0.0,
       "nodes": [
@@ -2130,8 +2149,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1660,
-          "vertices": 856,
+          "triangles": 5660,
+          "vertices": 2860,
           "pivot": [
             0.0,
             0.56,
@@ -2157,8 +2176,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.15,
             0.25,
@@ -2166,8 +2185,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.15,
             0.25,
@@ -2175,8 +2194,8 @@
           ]
         },
         "Accessory": {
-          "triangles": 1508,
-          "vertices": 772,
+          "triangles": 1828,
+          "vertices": 932,
           "pivot": [
             0.0,
             0.905,
@@ -2189,7 +2208,8 @@
         "Mat_Brass_cp_brass",
         "Mat_Ceramic_cp_cream",
         "Mat_Ceramic_cp_north",
-        "Mat_Emissive_catchlight",
+        "Mat_Ceramic_eye_catchlight",
+        "Mat_Lens_eye",
         "Mat_Obsidian_cp_dial",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
@@ -2198,8 +2218,8 @@
         "Mat_Vinyl_cp_sec"
       ],
       "connectivity": {
-        "totalParts": 41,
-        "connectedParts": 41,
+        "totalParts": 43,
+        "connectedParts": 43,
         "allowedFloatingCount": 0,
         "defectCount": 0
       },
@@ -2208,9 +2228,9 @@
     "role-loop": {
       "key": "role-loop",
       "file": "role-loop.glb",
-      "bytes": 82432,
-      "triangles": 4224,
-      "vertices": 2178,
+      "bytes": 116180,
+      "triangles": 5996,
+      "vertices": 3068,
       "height": 0.91,
       "minY": 0.0,
       "nodes": [
@@ -2223,8 +2243,8 @@
       ],
       "nodeDetails": {
         "Body": {
-          "triangles": 1144,
-          "vertices": 594,
+          "triangles": 2756,
+          "vertices": 1404,
           "pivot": [
             0.0,
             0.56,
@@ -2250,8 +2270,8 @@
           ]
         },
         "Leg_L": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             -0.145,
             0.25,
@@ -2259,8 +2279,8 @@
           ]
         },
         "Leg_R": {
-          "triangles": 508,
-          "vertices": 262,
+          "triangles": 588,
+          "vertices": 302,
           "pivot": [
             0.145,
             0.25,
@@ -2278,11 +2298,12 @@
         }
       },
       "materials": [
+        "Mat_Ceramic_eye_catchlight",
         "Mat_Ceramic_lp_blush",
         "Mat_Ceramic_lp_ivory",
         "Mat_Crystal_lp_halo",
-        "Mat_Emissive_catchlight",
         "Mat_Emissive_lp_heart",
+        "Mat_Lens_eye",
         "Mat_Obsidian_eye",
         "Mat_Obsidian_mouth",
         "Mat_Titanium_sole",
@@ -2290,8 +2311,8 @@
         "Mat_Vinyl_lp_sec"
       ],
       "connectivity": {
-        "totalParts": 34,
-        "connectedParts": 29,
+        "totalParts": 36,
+        "connectedParts": 31,
         "allowedFloatingCount": 5,
         "defectCount": 0
       },

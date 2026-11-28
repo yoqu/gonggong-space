@@ -43,7 +43,7 @@ import {
   getGLBModel,
   onGLBLoaded,
   preloadAllGLBs,
-} from './glb_loader.js?v=b5r'
+} from './glb_loader.js?v=b5m'
 import {
   CleanroomRenderer,
   MAT,

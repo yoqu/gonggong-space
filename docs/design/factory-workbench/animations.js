@@ -1,7 +1,7 @@
 import { drawLoungeFurniture } from './decor.js?v=e5'
 import { AGENT_FIGURINE_META, drawAgentFigurine } from './figurines_agents.js?v=b5r'
 import { ROLE_FIGURINE_META, drawRoleFigurine } from './figurines_roles.js?v=b5r'
-import { ensureGLBLoaded, getGLBModel, resolveGLBMaterial } from './glb_loader.js?v=b5r'
+import { ensureGLBLoaded, getGLBModel, resolveGLBMaterial } from './glb_loader.js?v=b5m'
 import {
   MAT,
   TRS,
