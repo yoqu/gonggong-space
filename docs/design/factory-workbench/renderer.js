@@ -9,7 +9,7 @@ import {
   createSphere,
   createTaperedPot,
   createTorus,
-} from './geometry.js?v=b4b'
+} from './geometry.js?v=b5r'
 
 /**
  * High-Scale WebGL2 Two-Pass Shadow-Mapped GGX PBR Cleanroom Campus Renderer
@@ -501,6 +501,7 @@ uniform float uNight;
 uniform float uGolden;
 uniform float uTime;
 uniform float uFogRange;
+uniform float uExposure;
 
 uniform vec3 uBaseColor;
 uniform vec3 uEmissive;
@@ -508,7 +509,7 @@ uniform int uMatType;
 uniform float uAlpha;
 uniform float uExtra;
 
-uniform sampler2D uShadowMap;
+uniform highp sampler2DShadow uShadowMap;
 
 out vec4 fragColor;
 
@@ -518,6 +519,17 @@ float hash21(vec2 p) {
   return fract(p.x * p.y);
 }
 
+const vec2 POISSON[16] = vec2[](
+  vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725),
+  vec2(-0.09418410, -0.92938870), vec2(0.34495938, 0.29387760),
+  vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+  vec2(-0.38277543, 0.27676845), vec2(0.97484398, 0.75648379),
+  vec2(0.44323325, -0.97511554), vec2(0.53742981, -0.47373420),
+  vec2(-0.26496911, -0.41893023), vec2(0.79197514, 0.19090188),
+  vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
+  vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790)
+);
+
 float calcShadow(vec4 sc, vec3 N, vec3 L) {
   vec3 proj = sc.xyz / sc.w;
   proj = proj * 0.5 + 0.5;
@@ -525,13 +537,38 @@ float calcShadow(vec4 sc, vec3 N, vec3 L) {
   float bias = max(0.0014 * (1.0 - dot(N, L)), 0.00045);
   vec2 texel = 1.0 / vec2(textureSize(uShadowMap, 0));
   float sum = 0.0;
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
-      float d = texture(uShadowMap, proj.xy + vec2(x, y) * texel * 1.25).r;
-      sum += (proj.z - bias <= d) ? 1.0 : 0.0;
-    }
+  for (int i = 0; i < 16; i++) {
+    sum += texture(uShadowMap, vec3(proj.xy + POISSON[i] * texel * 2.0, proj.z - bias));
   }
-  return sum / 9.0;
+  return sum / 16.0;
+}
+
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i), b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0)), d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+  float v = 0.0, amp = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += vnoise(p) * amp;
+    p = p * 2.03 + 17.1;
+    amp *= 0.5;
+  }
+  return v;
+}
+
+// Inverse of acesFilm: lets fog/background land exactly on the CSS-matched backdrop after post tonemapping.
+vec3 invAces(vec3 y) {
+  y = clamp(y, 0.0, 0.985);
+  vec3 A = 2.51 - 2.43 * y;
+  vec3 B = 0.03 - 0.59 * y;
+  vec3 C = -0.14 * y;
+  return (-B + sqrt(B * B - 4.0 * A * C)) / (2.0 * A);
 }
 
 vec3 acesFilm(vec3 x) {
@@ -548,16 +585,15 @@ void main() {
     // Soft radial Gaussian contact shadow / ambient occlusion disc
     float r2 = dot(vLocalPos.xz, vLocalPos.xz) * 4.0;
     float falloff = exp(-r2 * 3.8) * smoothstep(1.0, 0.45, r2);
-    vec3 shCol = mix(vec3(0.06, 0.08, 0.12), vec3(0.01, 0.015, 0.025), uNight);
-    fragColor = vec4(shCol, falloff * uAlpha);
+    vec3 shCol = mix(vec3(0.004, 0.005, 0.008), vec3(0.0005, 0.0007, 0.001), uNight);
+    fragColor = vec4(shCol, falloff * uAlpha * 0.85);
     return;
   }
   if (uMatType == 12) {
     // Soft radial emissive light-spill pool (monitor desk glow, 3000K task lamps & cove bounce)
     float r2 = dot(vLocalPos.xz, vLocalPos.xz) * 4.0;
     float falloff = exp(-r2 * 3.6) * smoothstep(1.0, 0.16, r2);
-    vec3 glow = pow(acesFilm(uEmissive), vec3(1.0 / 2.2));
-    fragColor = vec4(glow, falloff * uAlpha * mix(0.58, 1.0, uNight));
+    fragColor = vec4(uEmissive * 0.7, falloff * uAlpha * mix(0.58, 1.0, uNight));
     return;
   }
 
@@ -579,34 +615,22 @@ void main() {
     float distCam = length(vWorldPos.xz - uCamTarget.xz);
     float fleckFade = 1.0 - smoothstep(12.0, 36.0, distCam);
 
-    // Proportional micro-aggregate grain: refined in day, whisper-quiet matte dark titanium in night
-    float c1 = hash21(floor(uv * 24.0));
-    float c2 = hash21(floor(uv * 56.0 + 11.7));
-    float fleckRaw = step(0.88, c1) * 0.036 - step(0.91, c2) * 0.028;
-    float nightAtten = mix(1.0, 0.14, uNight);
-    albedo = clamp(albedo * (1.0 + fleckRaw * 2.2 * fleckFade * nightAtten), 0.012, 0.96);
+    // Polished micro-topping concrete: large trowel clouds + fine aggregate, darker at night
+    float cloud = fbm(uv * 0.21) * 0.62 + fbm(uv * 1.7 + 3.1) * 0.28 + fbm(uv * 9.0) * 0.10;
+    float c1 = hash21(floor(uv * 64.0));
+    float fleck = (step(0.93, c1) * 0.05 - step(0.965, hash21(floor(uv * 41.0 + 7.3))) * 0.06) * fleckFade;
+    albedo = clamp(albedo * (mix(0.84, 1.07, cloud) + fleck * mix(1.0, 0.3, uNight)), 0.008, 0.9);
 
-    // Soft studio radial spotlight vignette around camera focus
-    float vignette = mix(1.04, 0.90, smoothstep(6.0, uFogRange * 0.65, distCam));
-    albedo *= mix(vignette, mix(1.12, 0.78, smoothstep(5.0, uFogRange * 0.55, distCam)), uNight);
-
-    // 2m architectural tile grid (anti-aliased via fwidth)
+    // Saw-cut joints every 2m (hairline) and 10m expansion joints (wider, darker)
     vec2 g2 = abs(fract(uv / 2.0 - 0.5) - 0.5) / max(fwidth(uv / 2.0), vec2(0.0005));
-    float line2 = 1.0 - clamp(min(g2.x, g2.y), 0.0, 1.0);
-
-    // 10m major cleanroom bay grid + subtle architectural node ticks
+    float line2 = 1.0 - clamp(min(g2.x, g2.y) * 1.6, 0.0, 1.0);
     vec2 g10 = abs(fract(uv / 10.0 - 0.5) - 0.5) / max(fwidth(uv / 10.0), vec2(0.0005));
-    float line10 = 1.0 - clamp(min(g10.x, g10.y), 0.0, 1.0);
-    float nodeDot = (1.0 - clamp(length(fract(uv / 10.0 + 0.5) - 0.5) * 44.0, 0.0, 1.0));
-
-    float gridFade = 1.0 - smoothstep(uFogRange * 0.34, uFogRange * 0.88, distCam);
-    vec3 inlayMinor = mix(vec3(0.56, 0.54, 0.51), vec3(0.045, 0.055, 0.075), uNight);
-    vec3 inlayMajor = mix(vec3(0.38, 0.42, 0.49), vec3(0.085, 0.115, 0.165), uNight);
-
-    albedo = mix(albedo, inlayMinor, line2 * mix(0.30, 0.24, uNight) * gridFade);
-    albedo = mix(albedo, inlayMajor, max(line10 * mix(0.46, 0.38, uNight), nodeDot * 0.55) * gridFade);
-    metallic = mix(0.03, 0.52, max(line2 * 0.35, line10 * 0.65) * gridFade);
-    roughness = mix(mix(0.46, 0.54, uNight), 0.26, max(line2 * 0.35, line10 * 0.65) * gridFade);
+    float line10 = 1.0 - clamp(min(g10.x, g10.y) * 0.8, 0.0, 1.0);
+    float gridFade = 1.0 - smoothstep(uFogRange * 0.30, uFogRange * 0.80, distCam);
+    float joint = max(line2 * 0.38, line10 * 0.62) * gridFade;
+    albedo *= 1.0 - joint * 0.55;
+    metallic = 0.0;
+    roughness = clamp(mix(0.30, 0.46, cloud) + joint * 0.4, 0.22, 0.9);
 
     // Golden Hour (晨光) dreamy wide soft-feathered diagonal morning sunbeams (strictly 0 in Night Mode)
     float goldMask = uGolden * smoothstep(0.35, 0.0, uNight);
@@ -620,17 +644,16 @@ void main() {
   } else if (uMatType == 2) {
     // Satin Collectible Figurine Shell (Clawd) with subtle studio rim polish
     metallic = 0.05;
-    roughness = 0.34;
-    float rim = pow(1.0 - max(dot(N, V), 0.0), 3.4);
-    emissive += albedo * rim * mix(0.14, 0.22, uNight);
+    roughness = 0.42 + (vnoise(vLocalPos.xy * 90.0 + vLocalPos.z * 60.0) - 0.5) * 0.06;
+    wrapDiffuse = 0.12;
   } else if (uMatType == 3) {
     // Brushed Anodized Aluminum
-    metallic = 0.86;
-    roughness = 0.24;
+    metallic = 0.9;
+    roughness = 0.28 + (vnoise(vec2(vLocalPos.x * 400.0, vLocalPos.y * 6.0)) - 0.5) * 0.08;
   } else if (uMatType == 4) {
     // Dark Gunmetal Titanium
-    metallic = 0.80;
-    roughness = 0.30;
+    metallic = 0.85;
+    roughness = 0.36 + (vnoise(vLocalPos.xz * 30.0) - 0.5) * 0.08;
   } else if (uMatType == 5) {
     // Smoked Obsidian Eye Screen with Expressive States
     metallic = 0.12;
@@ -715,16 +738,18 @@ void main() {
   } else if (uMatType == 14) {
     // Woven Wool Area Rug & Boucle Upholstery Fabric
     vec2 uv = vWorldPos.xz;
-    float weave = sin(uv.x * 86.0) * sin(uv.y * 86.0) * 0.042;
-    float crossThread = sin((uv.x + uv.y) * 52.0) * 0.020;
-    float tuft = (hash21(floor(uv * 22.0)) - 0.5) * 0.048;
+    float fw = max(fwidth(uv.x), fwidth(uv.y));
+    float weaveFade = 1.0 - smoothstep(0.004, 0.02, fw);
+    float weave = sin(uv.x * 86.0) * sin(uv.y * 86.0) * 0.042 * weaveFade;
+    float crossThread = sin((uv.x + uv.y) * 52.0) * 0.020 * weaveFade;
+    float tuft = (vnoise(uv * 22.0) - 0.5) * 0.06;
     float border = smoothstep(0.41, 0.44, max(abs(vLocalPos.x), abs(vLocalPos.z)));
     albedo = clamp(albedo * (1.0 + weave + crossThread + tuft) * mix(1.0, 0.88, border), 0.015, 0.95);
     metallic = 0.0;
     roughness = 0.90;
     // Soft wool/velvet grazing sheen
-    float sheen = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-    emissive += albedo * sheen * mix(0.10, 0.05, uNight);
+    float sheen = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+    emissive += albedo * sheen * 0.03;
     // Subtle Golden Hour soft diagonal morning sunlight sheen across woven rugs (strictly 0 in Night Mode)
     float rugGold = uGolden * smoothstep(0.35, 0.0, uNight);
     if (rugGold > 0.005) {
@@ -828,25 +853,25 @@ void main() {
     albedo = clamp(albedo * (1.0 + shimmer), 0.01, 0.85);
     // Warm sunlit chlorophyll subsurface translucency (no washed-out silver reflection)
     float backLit = pow(clamp(dot(-L, V), 0.0, 1.0), 2.2) * 0.30 + max(dot(N, L), 0.0) * 0.14;
-    emissive += vec3(0.18, 0.42, 0.08) * backLit * (1.0 - uNight * 0.72);
+    emissive += vec3(0.10, 0.24, 0.04) * backLit * (1.0 - uNight * 0.72);
     metallic = 0.0;
     roughness = 0.70;
   } else if (uMatType == 18) {
     // Pop Mart / Teenage Engineering Soft-Touch Satin Vinyl
     float stipple = hash21(floor(vLocalPos.xy * 180.0 + vLocalPos.z * 115.0)) - 0.5;
     metallic = 0.03;
-    roughness = clamp(0.36 + stipple * 0.05, 0.30, 0.44);
-    wrapDiffuse = 0.28;
-    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8);
-    emissive += mix(albedo, vec3(1.0, 0.96, 0.92), 0.32) * rim * mix(0.20, 0.28, uNight);
+    // Soft-touch PVC: satin micro-texture, faint mold-line low-freq variation, slight subsurface wrap
+    float pvc = vnoise(vLocalPos.xy * 14.0 + vLocalPos.z * 9.0);
+    roughness = clamp(0.48 + stipple * 0.06 + (pvc - 0.5) * 0.08, 0.38, 0.6);
+    albedo *= 0.97 + pvc * 0.05;
+    wrapDiffuse = 0.18;
   } else if (uMatType == 19) {
     // High-Gloss Clearcoat Porcelain Glaze (Dual-Lobe Specular + Crisp Studio Softbox Reflection)
     metallic = 0.02;
     roughness = 0.14;
     clearcoat = 1.0;
     wrapDiffuse = 0.08;
-    float fres = pow(1.0 - max(dot(N, V), 0.0), 3.4);
-    emissive += mix(albedo, vec3(1.0, 0.99, 0.98), 0.62) * fres * mix(0.18, 0.24, uNight);
+    roughness = 0.14 + (vnoise(vLocalPos.xy * 40.0) - 0.5) * 0.04;
   } else if (uMatType == 20) {
     // Translucent Colored Frosted / Faceted Crystal Glass with Rich Prism Dispersion & Specular Sparkle
     metallic = 0.10;
@@ -857,9 +882,9 @@ void main() {
     float glint = pow(max(dot(N, H), 0.0), 96.0);
     vec3 prismDisp = vec3(1.24, 1.08, 1.48) * fres;
     albedo = clamp(albedo * 1.18, vec3(0.03), vec3(0.96));
-    emissive += albedo * (0.34 + 0.44 * backScatter)
-      + mix(albedo, vec3(0.88, 0.98, 1.0), 0.52) * prismDisp * 0.96
-      + vec3(1.45, 1.52, 1.65) * glint * 0.85;
+    emissive += albedo * (0.14 + 0.22 * backScatter)
+      + mix(albedo, vec3(0.88, 0.98, 1.0), 0.52) * prismDisp * 0.35
+      + vec3(1.45, 1.52, 1.65) * glint * 0.6;
   } else if (uMatType == 21) {
     // Warm Champagne Brushed Brass with Crisp Anisotropic Micro-Brush Sheen & Studio Specular Pop
     float brush = sin(vLocalPos.x * 160.0 + vLocalPos.y * 24.0 + vLocalPos.z * 80.0) * 0.5 + 0.5;
@@ -869,7 +894,7 @@ void main() {
     clearcoat = 0.35;
     float sheen = pow(1.0 - max(dot(N, V), 0.0), 2.8) * (0.68 + 0.32 * brush);
     float brassGlint = pow(max(dot(N, H), 0.0), 42.0) * (0.7 + 0.3 * brush);
-    emissive += albedo * vec3(1.18, 0.96, 0.62) * (sheen * mix(0.20, 0.26, uNight) + brassGlint * 0.28);
+    emissive += albedo * vec3(1.18, 0.96, 0.62) * (sheen * 0.04 + brassGlint * 0.12);
   }
 
   float NdotL = max(dot(N, L), 0.0);
@@ -906,7 +931,7 @@ void main() {
   vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
 
   float shadow = calcShadow(vShadowCoord, N, L);
-  float shadowFactor = mix(0.38, 1.0, shadow);
+  float shadowFactor = shadow;
 
   vec3 dayRadiance = mix(vec3(2.55, 2.50, 2.42), vec3(3.15, 2.25, 1.52), uGolden);
   vec3 keyRadiance = mix(dayRadiance, vec3(0.46, 0.56, 0.78), uNight);
@@ -920,7 +945,7 @@ void main() {
   float D2 = a2 / max(3.14159265 * denom2 * denom2, 0.0001);
   vec3 dayRim = mix(vec3(0.85, 0.92, 1.05), vec3(0.95, 0.80, 0.68), uGolden);
   vec3 rimRad = mix(dayRim, vec3(0.30, 0.42, 0.66), uNight);
-  Lo += (kD * albedo * 0.22 + F * D2 * 0.18) * rimRad * NdotL2;
+  Lo += (kD * albedo * 0.10 + F * D2 * 0.10) * rimRad * NdotL2;
 
   float skyUp = N.y * 0.5 + 0.5;
   vec3 daySky = mix(vec3(0.95, 0.96, 0.99), vec3(1.04, 0.88, 0.74), uGolden);
@@ -942,13 +967,13 @@ void main() {
     float ccFres = 0.05 + (1.0 - 0.05) * pow(1.0 - NdotV, 5.0);
     ccIbl = (vec3(2.95, 2.98, 3.05) * softboxCC + vec3(1.65, 1.72, 1.85) * sideBoxCC * 0.65) * (0.30 + 0.70 * ccFres) * clearcoat * mix(1.0, 0.45, uNight);
   }
-  vec3 ambient = ((1.0 - F_ibl) * (1.0 - metallic) * albedo * irradiance + F_ibl * envSpec * (1.0 - roughness * 0.45)) * 0.62 + ccIbl;
+  vec3 ambient = ((1.0 - F_ibl) * (1.0 - metallic) * albedo * irradiance + F_ibl * envSpec * (1.0 - roughness * 0.45)) * 0.55 + ccIbl;
 
-  float groundAO = mix(0.86, 1.0, clamp(vWorldPos.y * 3.2, 0.0, 1.0));
+  float groundAO = mix(0.72, 1.0, clamp(vWorldPos.y * 2.4, 0.0, 1.0));
   if (uMatType == 1) groundAO = 1.0;
 
-  vec3 color = (Lo + ambient) * groundAO + emissive;
-  vec3 mapped = pow(acesFilm(color), vec3(1.0 / 2.2));
+  vec3 mapped = (Lo + ambient) * groundAO + emissive;
+  vec3 bgLin = invAces(pow(uBgColor, vec3(2.2))) / uExposure;
 
   // Seamless studio horizon fog for the infinite cleanroom floor & distant objects
   float horzDist = length(vWorldPos.xz - uCamTarget.xz);
@@ -956,31 +981,180 @@ void main() {
   float fogEnd = uFogRange * 0.96;
   float fogAmt = smoothstep(fogStart, fogEnd, horzDist);
   if (uMatType == 1) {
-    mapped = mix(mapped, uBgColor, fogAmt);
+    mapped = mix(mapped, bgLin, fogAmt);
   } else {
-    mapped = mix(mapped, uBgColor, fogAmt * 0.65);
+    mapped = mix(mapped, bgLin, fogAmt * 0.65);
   }
 
   float outAlpha = uAlpha;
   if (uMatType == 7) {
     float fres = pow(1.0 - abs(dot(N, V)), 3.0);
     outAlpha = clamp(uAlpha + fres * 0.36, 0.0, 0.88);
-    mapped = mix(mapped, vec3(0.95, 0.98, 1.0), fres * 0.42);
+    mapped = mix(mapped, vec3(0.95, 0.98, 1.0) * 0.8, fres * 0.30);
     // Apple-Park delicate frosted privacy manifestation band when uExtra > 0.5
     if (uExtra > 0.5) {
       float band = 1.0 - smoothstep(0.075, 0.095, abs(vLocalPos.y - 0.04));
       float dotPattern = 0.78 + 0.22 * sin(vWorldPos.x * 58.0 + vWorldPos.z * 58.0);
       outAlpha = clamp(outAlpha + band * 0.24 * dotPattern, 0.0, 0.88);
-      mapped = mix(mapped, mix(vec3(0.96, 0.97, 0.99), vec3(0.45, 0.52, 0.62), uNight), band * 0.52 * dotPattern);
+      mapped = mix(mapped, mix(vec3(0.85, 0.87, 0.9), vec3(0.18, 0.23, 0.3), uNight), band * 0.52 * dotPattern);
     }
   } else if (uMatType == 20) {
     float fres = pow(1.0 - abs(dot(N, V)), 2.5);
     if (uAlpha < 0.99) {
       outAlpha = clamp(uAlpha * 0.78 + fres * 0.42, 0.32, 0.96);
     }
-    mapped = mix(mapped, vec3(0.92, 0.97, 1.0), fres * 0.36);
+    mapped = mix(mapped, vec3(0.92, 0.97, 1.0) * 0.8, fres * 0.30);
   }
   fragColor = vec4(mapped, outAlpha);
+}
+`
+
+
+const FS_VS = `#version 300 es
+out vec2 vUv;
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  vUv = p;
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}
+`
+
+// Scalable Ambient Obscurance (McGuire 2012) on the resolved depth buffer. Output: R = AO, G = view depth.
+const SSAO_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uDepth;
+uniform mat4 uInvProj;
+uniform vec2 uRes;
+uniform float uProjScale;
+uniform float uRadius;
+uniform float uIntensity;
+uniform float uBias;
+out vec4 outAO;
+
+vec3 viewPos(vec2 uv) {
+  float d = texture(uDepth, uv).r;
+  vec4 p = uInvProj * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+  return p.xyz / p.w;
+}
+
+void main() {
+  float d0 = texture(uDepth, vUv).r;
+  if (d0 >= 0.99999) { outAO = vec4(1.0, 1e5, 0.0, 1.0); return; }
+  vec3 C = viewPos(vUv);
+  vec2 px = 1.0 / uRes;
+  vec3 r = viewPos(vUv + vec2(px.x, 0.0)) - C, l = C - viewPos(vUv - vec2(px.x, 0.0));
+  vec3 t = viewPos(vUv + vec2(0.0, px.y)) - C, b = C - viewPos(vUv - vec2(0.0, px.y));
+  vec3 n = normalize(cross(abs(r.z) < abs(l.z) ? r : l, abs(t.z) < abs(b.z) ? t : b));
+
+  const int N = 16;
+  float R = uRadius;
+  float R2 = R * R;
+  float ssR = R * uProjScale / -C.z;
+  float rnd = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) * 6.2831853;
+  float sum = 0.0;
+  for (int i = 0; i < N; i++) {
+    float a = (float(i) + 0.5) / float(N);
+    float ang = a * 43.98 + rnd;
+    vec2 off = vec2(cos(ang), sin(ang)) * ssR * a;
+    vec3 v = viewPos(vUv + off * px) - C;
+    float vv = dot(v, v);
+    float vn = dot(v, n);
+    float f = max(R2 - vv, 0.0);
+    sum += f * f * f * max((vn - uBias) / (0.01 + vv), 0.0);
+  }
+  float ao = max(0.0, 1.0 - sum * uIntensity * 5.0 / (float(N) * R2 * R2 * R2));
+  outAO = vec4(ao, -C.z, 0.0, 1.0);
+}
+`
+
+const AO_BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uSrc;
+uniform vec2 uDir;
+out vec4 outAO;
+void main() {
+  vec2 c = texture(uSrc, vUv).rg;
+  float sum = c.r * 0.2;
+  float wsum = 0.2;
+  for (int i = -4; i <= 4; i++) {
+    if (i == 0) continue;
+    vec2 s = texture(uSrc, vUv + uDir * float(i) * 1.5).rg;
+    float w = exp(-float(i * i) * 0.08) * max(0.0, 1.0 - abs(s.g - c.g) / (c.g * 0.04 + 0.02));
+    sum += s.r * w;
+    wsum += w;
+  }
+  outAO = vec4(sum / wsum, c.g, 0.0, 1.0);
+}
+`
+
+const BRIGHT_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uSrc;
+uniform vec2 uTexel;
+uniform float uThreshold;
+out vec4 outColor;
+void main() {
+  vec3 c = texture(uSrc, vUv + uTexel * vec2(-1.0, -1.0)).rgb + texture(uSrc, vUv + uTexel * vec2(1.0, -1.0)).rgb
+         + texture(uSrc, vUv + uTexel * vec2(-1.0, 1.0)).rgb + texture(uSrc, vUv + uTexel * vec2(1.0, 1.0)).rgb;
+  c *= 0.25;
+  float br = max(c.r, max(c.g, c.b));
+  float soft = clamp(br - uThreshold + 0.5, 0.0, 1.0);
+  soft = soft * soft * 0.5;
+  float contrib = max(soft, br - uThreshold) / max(br, 1e-4);
+  outColor = vec4(min(c * contrib, vec3(24.0)), 1.0);
+}
+`
+
+const BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uSrc;
+uniform vec2 uDir;
+out vec4 outColor;
+void main() {
+  vec3 c = texture(uSrc, vUv).rgb * 0.2270270;
+  c += (texture(uSrc, vUv + uDir * 1.3846154).rgb + texture(uSrc, vUv - uDir * 1.3846154).rgb) * 0.3162162;
+  c += (texture(uSrc, vUv + uDir * 3.2307692).rgb + texture(uSrc, vUv - uDir * 3.2307692).rgb) * 0.0702703;
+  outColor = vec4(c, 1.0);
+}
+`
+
+const COMPOSITE_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uScene;
+uniform sampler2D uAO;
+uniform sampler2D uBloomA;
+uniform sampler2D uBloomB;
+uniform float uAOStrength;
+uniform float uBloom;
+uniform float uTime;
+uniform float uNight;
+uniform float uExposure;
+out vec4 fragColor;
+
+vec3 acesFilm(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
+void main() {
+  vec3 c = texture(uScene, vUv).rgb;
+  float ao = texture(uAO, vUv).r;
+  c *= mix(1.0, ao, uAOStrength);
+  c += (texture(uBloomA, vUv).rgb * 0.6 + texture(uBloomB, vUv).rgb * 0.4) * uBloom;
+  vec3 m = acesFilm(c * uExposure);
+  // Gentle photographic grade: a touch less saturation, lifted toe kept neutral
+  float lum = dot(m, vec3(0.2126, 0.7152, 0.0722));
+  m = mix(vec3(lum), m, mix(0.9, 0.96, uNight));
+  m = pow(m, vec3(1.0 / 2.2));
+  vec2 q = vUv - 0.5;
+  m *= 1.0 - dot(q, q) * mix(0.22, 0.38, uNight);
+  float g = fract(sin(dot(gl_FragCoord.xy + fract(uTime) * 61.0, vec2(12.9898, 78.233))) * 43758.5453);
+  m += (g - 0.5) * (1.6 / 255.0);
+  fragColor = vec4(m, 1.0);
 }
 `
 
@@ -1013,8 +1187,8 @@ export function renderInfiniteFloor(renderer, camera, nightBlend = 0, options = 
   const dist = camera?.dist ?? 20
   const floorSize = Math.max(180, dist * 9.5)
   const goldenBlend = options.goldenBlend ?? 0
-  const studioDay = options.dayColor || [0.90, 0.895, 0.875]
-  const goldenDay = options.goldenColor || [0.935, 0.89, 0.825]
+  const studioDay = options.dayColor || [0.80, 0.79, 0.765]
+  const goldenDay = options.goldenColor || [0.84, 0.79, 0.72]
   const dayCol = [
     studioDay[0] * (1 - goldenBlend) + goldenDay[0] * goldenBlend,
     studioDay[1] * (1 - goldenBlend) + goldenDay[1] * goldenBlend,
@@ -1043,9 +1217,11 @@ export function renderInfiniteFloor(renderer, camera, nightBlend = 0, options = 
 export class CleanroomRenderer {
   constructor(canvas) {
     this.canvas = canvas
-    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' })
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' })
     if (!gl) throw new Error('WebGL2 not supported')
+    if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('EXT_color_buffer_float not supported')
     this.gl = gl
+    this._initPost()
 
     this.shadowProg = compileProgram(gl, SHADOW_VS, SHADOW_FS)
     this.mainProg = compileProgram(gl, MAIN_VS, MAIN_FS)
@@ -1067,6 +1243,7 @@ export class CleanroomRenderer {
       uGolden: gl.getUniformLocation(this.mainProg, 'uGolden'),
       uTime: gl.getUniformLocation(this.mainProg, 'uTime'),
       uFogRange: gl.getUniformLocation(this.mainProg, 'uFogRange'),
+      uExposure: gl.getUniformLocation(this.mainProg, 'uExposure'),
       uBaseColor: gl.getUniformLocation(this.mainProg, 'uBaseColor'),
       uEmissive: gl.getUniformLocation(this.mainProg, 'uEmissive'),
       uMatType: gl.getUniformLocation(this.mainProg, 'uMatType'),
@@ -1077,7 +1254,7 @@ export class CleanroomRenderer {
 
     this.meshes = {}
     this._initMeshes()
-    this._initShadowFBO(2048)
+    this._initShadowFBO(4096)
 
     this.opaqueQueue = []
     this.transQueue = []
@@ -1152,10 +1329,12 @@ export class CleanroomRenderer {
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL)
 
     const fbo = gl.createFramebuffer()
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
@@ -1166,6 +1345,179 @@ export class CleanroomRenderer {
 
     this.shadowTex = tex
     this.shadowFBO = fbo
+  }
+
+  _initPost() {
+    const { gl } = this
+    const mk = (fs, names) => {
+      const prog = compileProgram(gl, FS_VS, fs)
+      const loc = {}
+      for (const n of names) loc[n] = gl.getUniformLocation(prog, n)
+      return { prog, loc }
+    }
+    this.post = {
+      ssao: mk(SSAO_FS, ['uDepth', 'uInvProj', 'uRes', 'uProjScale', 'uRadius', 'uIntensity', 'uBias']),
+      aoBlur: mk(AO_BLUR_FS, ['uSrc', 'uDir']),
+      bright: mk(BRIGHT_FS, ['uSrc', 'uTexel', 'uThreshold']),
+      blur: mk(BLUR_FS, ['uSrc', 'uDir']),
+      composite: mk(COMPOSITE_FS, ['uScene', 'uAO', 'uBloomA', 'uBloomB', 'uAOStrength', 'uBloom', 'uTime', 'uNight', 'uExposure']),
+    }
+    this.emptyVao = gl.createVertexArray()
+    this.targets = null
+  }
+
+  _makeTarget(w, h, internal, format, type, filter = this.gl.LINEAR) {
+    const { gl } = this
+    const tex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, null)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    const fbo = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+    const attach = format === gl.DEPTH_COMPONENT ? gl.DEPTH_ATTACHMENT : gl.COLOR_ATTACHMENT0
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex, 0)
+    return { tex, fbo, w, h }
+  }
+
+  _ensureTargets(w, h) {
+    const { gl } = this
+    const t = this.targets
+    if (t && t.w === w && t.h === h) return t
+    if (t) {
+      for (const k of ['scene', 'depth', 'ao', 'aoTmp', 'bA', 'bAt', 'bB', 'bBt']) {
+        gl.deleteTexture(t[k].tex)
+        gl.deleteFramebuffer(t[k].fbo)
+      }
+      gl.deleteFramebuffer(t.msFbo)
+      gl.deleteRenderbuffer(t.msColor)
+      gl.deleteRenderbuffer(t.msDepth)
+    }
+    const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES))
+    const msFbo = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, msFbo)
+    const msColor = gl.createRenderbuffer()
+    gl.bindRenderbuffer(gl.RENDERBUFFER, msColor)
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA16F, w, h)
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, msColor)
+    const msDepth = gl.createRenderbuffer()
+    gl.bindRenderbuffer(gl.RENDERBUFFER, msDepth)
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, w, h)
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, msDepth)
+
+    const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1)
+    const qw = Math.max(1, w >> 2), qh = Math.max(1, h >> 2)
+    const ew = Math.max(1, w >> 3), eh = Math.max(1, h >> 3)
+    this.targets = {
+      w, h, msFbo, msColor, msDepth,
+      scene: this._makeTarget(w, h, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT),
+      depth: this._makeTarget(w, h, gl.DEPTH_COMPONENT24, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, gl.NEAREST),
+      ao: this._makeTarget(hw, hh, gl.RG16F, gl.RG, gl.HALF_FLOAT),
+      aoTmp: this._makeTarget(hw, hh, gl.RG16F, gl.RG, gl.HALF_FLOAT),
+      bA: this._makeTarget(qw, qh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT),
+      bAt: this._makeTarget(qw, qh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT),
+      bB: this._makeTarget(ew, eh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT),
+      bBt: this._makeTarget(ew, eh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT),
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    return this.targets
+  }
+
+  _pass(pass, target, w, h, setup) {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null)
+    gl.viewport(0, 0, w, h)
+    gl.useProgram(pass.prog)
+    setup(pass.loc)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+  }
+
+  _bindTex(unit, tex, loc) {
+    const { gl } = this
+    gl.activeTexture(gl.TEXTURE0 + unit)
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    gl.uniform1i(loc, unit)
+  }
+
+  _postProcess(camera, width, height, time, nightBlend) {
+    const { gl } = this
+    const t = this.targets
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, t.msFbo)
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, t.scene.fbo)
+    gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.LINEAR)
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, t.depth.fbo)
+    gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.DEPTH_BUFFER_BIT, gl.NEAREST)
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null)
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+
+    gl.disable(gl.DEPTH_TEST)
+    gl.disable(gl.BLEND)
+    gl.disable(gl.CULL_FACE)
+    gl.depthMask(false)
+    gl.bindVertexArray(this.emptyVao)
+    const P = this.post
+
+    const invProj = mat4Invert(camera.proj) || mat4Identity()
+    const projScale = t.ao.h / (2 * Math.tan((camera.fovDeg * Math.PI) / 360))
+    const dist = camera.dist ?? 20
+    this._pass(P.ssao, t.ao, t.ao.w, t.ao.h, (l) => {
+      this._bindTex(0, t.depth.tex, l.uDepth)
+      gl.uniformMatrix4fv(l.uInvProj, false, invProj)
+      gl.uniform2f(l.uRes, t.ao.w, t.ao.h)
+      gl.uniform1f(l.uProjScale, projScale)
+      const radius = Math.min(1.2, Math.max(0.22, dist * 0.022))
+      gl.uniform1f(l.uRadius, radius)
+      gl.uniform1f(l.uIntensity, 0.55)
+      gl.uniform1f(l.uBias, radius * 0.12)
+    })
+    this._pass(P.aoBlur, t.aoTmp, t.ao.w, t.ao.h, (l) => {
+      this._bindTex(0, t.ao.tex, l.uSrc)
+      gl.uniform2f(l.uDir, 1 / t.ao.w, 0)
+    })
+    this._pass(P.aoBlur, t.ao, t.ao.w, t.ao.h, (l) => {
+      this._bindTex(0, t.aoTmp.tex, l.uSrc)
+      gl.uniform2f(l.uDir, 0, 1 / t.ao.h)
+    })
+
+    this._pass(P.bright, t.bA, t.bA.w, t.bA.h, (l) => {
+      this._bindTex(0, t.scene.tex, l.uSrc)
+      gl.uniform2f(l.uTexel, 1 / width, 1 / height)
+      gl.uniform1f(l.uThreshold, 1.15)
+    })
+    const blur2 = (src, tmp) => {
+      this._pass(P.blur, tmp, src.w, src.h, (l) => {
+        this._bindTex(0, src.tex, l.uSrc)
+        gl.uniform2f(l.uDir, 1 / src.w, 0)
+      })
+      this._pass(P.blur, src, src.w, src.h, (l) => {
+        this._bindTex(0, tmp.tex, l.uSrc)
+        gl.uniform2f(l.uDir, 0, 1 / src.h)
+      })
+    }
+    blur2(t.bA, t.bAt)
+    this._pass(P.blur, t.bB, t.bB.w, t.bB.h, (l) => {
+      this._bindTex(0, t.bA.tex, l.uSrc)
+      gl.uniform2f(l.uDir, 0.5 / t.bA.w, 0.5 / t.bA.h)
+    })
+    blur2(t.bB, t.bBt)
+    blur2(t.bB, t.bBt)
+
+    this._pass(P.composite, null, width, height, (l) => {
+      this._bindTex(0, t.scene.tex, l.uScene)
+      this._bindTex(1, t.ao.tex, l.uAO)
+      this._bindTex(2, t.bA.tex, l.uBloomA)
+      this._bindTex(3, t.bB.tex, l.uBloomB)
+      gl.uniform1f(l.uAOStrength, 0.75)
+      gl.uniform1f(l.uBloom, 0.32 + nightBlend * 0.25)
+      gl.uniform1f(l.uTime, time)
+      gl.uniform1f(l.uNight, nightBlend)
+      gl.uniform1f(l.uExposure, EXPOSURE)
+    })
+    gl.depthMask(true)
+    gl.enable(gl.DEPTH_TEST)
+    gl.bindVertexArray(null)
   }
 
   resize() {
@@ -1238,15 +1590,17 @@ export class CleanroomRenderer {
       gl.drawElements(gl.TRIANGLES, mesh.count, mesh.indexType || gl.UNSIGNED_SHORT, 0)
     }
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    const targets = this._ensureTargets(width, height)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targets.msFbo)
     gl.viewport(0, 0, width, height)
-    const dayBgR = 0.935 * (1 - g) + 0.960 * g
-    const dayBgG = 0.938 * (1 - g) + 0.922 * g
-    const dayBgB = 0.946 * (1 - g) + 0.870 * g
+    const dayBgR = 0.885 * (1 - g) + 0.915 * g
+    const dayBgG = 0.887 * (1 - g) + 0.875 * g
+    const dayBgB = 0.893 * (1 - g) + 0.825 * g
     const bgR = dayBgR * (1 - nightBlend) + 0.068 * nightBlend
     const bgG = dayBgG * (1 - nightBlend) + 0.078 * nightBlend
     const bgB = dayBgB * (1 - nightBlend) + 0.102 * nightBlend
-    gl.clearColor(bgR, bgG, bgB, 1.0)
+    const bgLin = [bgR, bgG, bgB].map((v) => invAcesScalar(v ** 2.2) / EXPOSURE)
+    gl.clearColor(bgLin[0], bgLin[1], bgLin[2], 1.0)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     const fogRange = Math.max(68, (camera.dist ?? 20) * 3.8)
@@ -1262,6 +1616,7 @@ export class CleanroomRenderer {
     gl.uniform1f(this.mLoc.uGolden, g)
     gl.uniform1f(this.mLoc.uTime, time)
     gl.uniform1f(this.mLoc.uFogRange, fogRange)
+    gl.uniform1f(this.mLoc.uExposure, EXPOSURE)
 
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTex)
@@ -1311,6 +1666,16 @@ export class CleanroomRenderer {
       gl.enable(gl.CULL_FACE)
     }
 
-    gl.bindVertexArray(null)
+    this._postProcess(camera, width, height, time, nightBlend)
   }
+}
+
+const EXPOSURE = 0.82
+
+function invAcesScalar(y) {
+  const v = Math.min(Math.max(y, 0), 0.985)
+  const A = 2.51 - 2.43 * v
+  const B = 0.03 - 0.59 * v
+  const C = -0.14 * v
+  return (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A)
 }

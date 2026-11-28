@@ -8,7 +8,7 @@ import {
   drawWorkshopEnclosure,
   normalizeBotAction,
   resolveCampusFigurineKey,
-} from './animations.js?v=b4b'
+} from './animations.js?v=b5r'
 import {
   EDGE_STATUS_META,
   LOUNGE_BOUNDS,
@@ -35,7 +35,7 @@ import {
   drawWayfindingStele,
   drawWorkshopArchitecture,
 } from './decor.js?v=e5'
-import { exportFigurineGLB } from './geometry.js?v=b4b'
+import { exportFigurineGLB } from './geometry.js?v=b5r'
 import {
   ensureGLBLoaded,
   getGLBDownloadInfo,
@@ -43,7 +43,7 @@ import {
   getGLBModel,
   onGLBLoaded,
   preloadAllGLBs,
-} from './glb_loader.js?v=b4b'
+} from './glb_loader.js?v=b5r'
 import {
   CleanroomRenderer,
   MAT,
@@ -53,7 +53,7 @@ import {
   renderInfiniteFloor,
   screenToGroundRay,
   snapGroupToGrid,
-} from './renderer.js?v=b4b'
+} from './renderer.js?v=b5r'
 
 // ── Application State ──
 const state = {
@@ -586,7 +586,7 @@ function drawStudioScene(renderer, time) {
   // High-key architectural studio floor (responsive to Morning / Studio Day / Night)
   renderInfiniteFloor(renderer, cam, nb, {
     goldenBlend: gb,
-    dayColor: [0.925, 0.920, 0.905],
+    dayColor: [0.80, 0.795, 0.78],
     nightColor: [0.095, 0.108, 0.142],
   })
 

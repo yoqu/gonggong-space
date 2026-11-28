@@ -7,7 +7,7 @@ import {
   mat4RotateZ,
   mat4Scale,
   mat4Translate,
-} from './renderer.js?v=b4b'
+} from './renderer.js?v=b5r'
 
 /**
  * 12 Official Gonggong AgentKind Collectible 3D Figurines
