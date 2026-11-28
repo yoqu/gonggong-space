@@ -7,7 +7,8 @@ import {
   mat4RotateZ,
   mat4Scale,
   mat4Translate,
-} from './renderer.js?v=e5'
+} from './renderer.js?v=c1'
+import { airAt } from './breeze.js?v=c1'
 
 /**
  * Modular Photorealistic Office Decor, Multi-Species Botanicals & Architectural Finishes Library
@@ -107,8 +108,9 @@ export function drawFicusTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
   drawPlanterUplights(renderer, root, 0.49, nightBlend)
 
   // Main trunk + 3-way forked upper limbs + secondary twigs
-  const swayX = Math.sin(time * 1.15 + seed * 1.9) * 0.026
-  const swayZ = Math.cos(time * 0.92 + seed * 2.3) * 0.020
+  const air = airAt(x, z, time)
+  const swayX = air.x + Math.sin(time * 0.9 + seed * 1.9) * 0.004
+  const swayZ = air.z
   renderer.add('cyl', localTRS(root, 0, 0.78, 0, seed * 0.5, 0.095, 0.66, 0.095, 0.04, -0.05), PAL.barkDark, MAT.OAK_WOOD)
   const limbs = [
     { dx: -0.12, dy: 1.12, dz: 0.07, rx: 0.26, rz: 0.42, len: 0.50, r: 0.054 },
@@ -137,9 +139,9 @@ export function drawFicusTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
   clusters.forEach((c, idx) => {
     const jx = (seededNoise(seed, idx * 3) - 0.5) * 0.08
     const jz = (seededNoise(seed, idx * 3 + 1) - 0.5) * 0.08
-    const phase = Math.sin(time * 1.25 + seed + idx * 0.85)
-    const cx = c.x + jx + swayX * (0.7 + idx * 0.08) + phase * 0.012
-    const cz = c.z + jz + swayZ * (0.7 + idx * 0.08)
+    const lift = (c.y - 1.1) * 1.6
+    const cx = c.x + jx + swayX * lift + air.flutter * 0.05 * Math.sin(idx * 1.7)
+    const cz = c.z + jz + swayZ * lift
     renderer.add(
       'foliageCluster',
       localTRS(root, cx, c.y, cz, seed + idx * 0.9, c.sx, c.sy, c.sz),
@@ -158,7 +160,7 @@ export function drawFicusTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
     const ang = seed * 1.3 + (i / (tier === 0 ? 7 : 5)) * Math.PI * 2 + tier * 0.48
     const rad = tier === 0 ? 0.30 : 0.18
     const ly = tier === 0 ? 1.30 + (i % 3) * 0.12 : 1.66 + (i % 2) * 0.10
-    const lSway = Math.sin(time * 1.65 + seed + i * 0.7) * 0.06
+    const lSway = air.flutter * Math.sin(seed + i * 1.3) + air.gust * 0.05
     const lScale = tier === 0 ? 0.54 + (i % 2) * 0.10 : 0.46
     const col = tier === 1 ? PAL.leafShoot : i % 2 === 0 ? PAL.leafOlive : PAL.leafForest
     renderer.add(
@@ -193,6 +195,7 @@ export function drawFicusTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
 export function drawMonsteraPlanter(renderer, x, z, scale = 1.0, time = 0, seed = 0, baseY = 0, nightBlend = 0) {
   const s = scale
   const root = mat4Mul(mat4Translate(x, baseY, z), mat4Scale(s, s, s))
+  const air = airAt(x, z, time)
 
   // Grounded shadow
   renderer.add('plane', localTRS(root, 0, 0.008, 0, 0, 1.32, 1, 1.32), [0, 0, 0], MAT.SHADOW_BLOB, [0, 0, 0], 0.34, 0, false)
@@ -215,7 +218,7 @@ export function drawMonsteraPlanter(renderer, x, z, scale = 1.0, time = 0, seed 
     const idxInTier = upper ? i - 6 : i
     const countInTier = upper ? 4 : 6
     const ang = seed * 1.7 + (idxInTier / countInTier) * Math.PI * 2 + (upper ? 0.52 : 0.1)
-    const breeze = Math.sin(time * 1.35 + seed + i * 0.8) * 0.045
+    const breeze = air.flutter * Math.cos(i * 1.4) + air.gust * 0.06 * Math.cos(ang)
     const stemLen = upper ? 0.62 + (i % 2) * 0.10 : 0.44 + (i % 3) * 0.08
     const stemTilt = upper ? 0.30 : 0.58
     const cx = Math.sin(ang) * stemLen * Math.sin(stemTilt)
@@ -360,7 +363,8 @@ export function drawPocketGardenIsland(renderer, x, z, time = 0, nightBlend = 0,
     [-0.35, -0.78], [0.24, -0.75], [0.28, -0.20],
   ]
   grassSpots.forEach(([gx, gz], idx) => {
-    const breeze = Math.sin(time * 1.7 + idx * 1.1) * 0.06
+    const a = airAt(x + gx, z + gz, time)
+    const breeze = a.flutter * Math.sin(idx * 2.3) + a.gust * 0.07
     for (let b = 0; b < 4; b++) {
       const a = (b / 4) * Math.PI * 2 + idx * 0.7
       renderer.add(
@@ -414,8 +418,9 @@ export function drawOliveTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
   renderer.add('cyl', localTRS(root, 0, 0.495, 0, 0, 0.50, 0.04, 0.50), PAL.soilDark, MAT.TRAVERTINE, [0, 0, 0], 1, 0, false)
   drawPlanterUplights(renderer, root, 0.515, nightBlend)
 
-  const swayX = Math.sin(time * 1.25 + seed * 1.7) * 0.030
-  const swayZ = Math.cos(time * 1.05 + seed * 2.1) * 0.024
+  const air = airAt(x, z, time)
+  const swayX = air.x * 1.2
+  const swayZ = air.z * 1.2
 
   // Twisting 3-stem Mediterranean pale-warm trunk + airy reaching limbs
   const stems = [
@@ -443,10 +448,10 @@ export function drawOliveTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
     { x: 0.26, y: 1.46, z: 0.18, sx: 0.36, sy: 0.22, sz: 0.34, col: PAL.oliveMid },
   ]
   puffs.forEach((c, idx) => {
-    const phase = Math.sin(time * 1.4 + seed + idx * 0.9)
+    const lift = (c.y - 1.2) * 1.5
     renderer.add(
       'foliageCluster',
-      localTRS(root, c.x + swayX + phase * 0.015, c.y, c.z + swayZ, seed + idx * 1.1, c.sx, c.sy, c.sz),
+      localTRS(root, c.x + swayX * lift + air.flutter * 0.04 * Math.sin(idx * 2.1), c.y, c.z + swayZ * lift, seed + idx * 1.1, c.sx, c.sy, c.sz),
       c.col,
       MAT.LEAF_RICH,
       [0, 0, 0],
@@ -461,7 +466,7 @@ export function drawOliveTree(renderer, x, z, scale = 1.0, time = 0, seed = 0, b
     const ang = seed * 1.1 + (i / 14) * Math.PI * 2
     const rad = 0.22 + (i % 3) * 0.14
     const ly = 1.48 + (i % 4) * 0.14
-    const lSway = Math.sin(time * 1.9 + seed + i * 0.6) * 0.07
+    const lSway = air.flutter * 1.3 * Math.sin(seed + i * 0.9) + air.gust * 0.06
     const col = i % 3 === 0 ? PAL.oliveSilver : i % 3 === 1 ? PAL.oliveMid : PAL.oliveDeep
     renderer.add(
       'leafBlade',
@@ -502,7 +507,8 @@ export function drawPlanterTrough(renderer, x, z, len = 2.4, rotY = 0, time = 0,
   const clumpN = Math.max(3, Math.round(w * 1.7))
   for (let c = 0; c < clumpN; c++) {
     const cx = -w * 0.40 + (c / Math.max(1, clumpN - 1)) * w * 0.80
-    const breeze = Math.sin(time * 1.4 + c * 1.1 + x * 0.5) * 0.05
+    const a = airAt(x + cx, z, time)
+    const breeze = a.flutter * Math.sin(c * 1.9) + a.gust * 0.05
 
     renderer.add(
       'foliageCluster',
@@ -583,7 +589,8 @@ export function drawDeskPlant(renderer, x, y, z, scale = 1.0, time = 0) {
   const root = mat4Mul(mat4Translate(x, y, z), mat4Scale(s, s, s))
   renderer.add('ribbedPot', localTRS(root, 0, 0.055, 0, 0.4, 0.115, 0.11, 0.115), PAL.ceramicTerra, MAT.CERAMIC, [0, 0, 0], 1, 0, false)
   renderer.add('cyl', localTRS(root, 0, 0.108, 0, 0, 0.095, 0.014, 0.095), PAL.soilDark, MAT.TRAVERTINE, [0, 0, 0], 1, 0, false)
-  const sway = Math.sin(time * 1.6 + x * 2.0) * 0.03
+  const air = airAt(x, z, time)
+  const sway = air.flutter * 0.5 + air.gust * 0.025
   for (let i = 0; i < 6; i++) {
     const ang = (i / 6) * Math.PI * 2 + 0.2
     renderer.add(
@@ -1196,5 +1203,47 @@ export function drawWorkshopArchitecture(renderer, grp, opts = {}) {
   // Distinct studio prop in back-right corner (safely tucked inside back-right behind desk row)
   if (w >= 4.5) {
     drawWorkshopCornerProp(renderer, cx + w * 0.5 - 0.46, cz - d * 0.5 + 0.48, liftY, variant, nightBlend)
+  }
+}
+
+/**
+ * North curtain wall (the office faces north): floor-to-ceiling glass between slim mullions, top-hung
+ * vents that open for fresh air in office hours and nudge with each gust, and cool skylight spilling
+ * onto the floor in front during the day.
+ */
+export function drawNorthWindowWall(renderer, minX, maxX, z, opts = {}) {
+  const { time = 0, nightBlend: nb = 0, vent = 1, gust = 0 } = opts
+  const H = 3.1
+  const sill = 0.14
+  const head = 2.36
+  const bay = 1.6
+  const n = Math.max(2, Math.ceil((maxX - minX) / bay))
+  const x0 = (minX + maxX) * 0.5 - (n * bay) * 0.5
+  const frame = mix3([0.33, 0.35, 0.39], [0.16, 0.17, 0.2], nb)
+  const glass = mix3([0.8, 0.88, 0.95], [0.1, 0.13, 0.2], nb)
+  const kerb = mix3(PAL.travertineWarm, [0.24, 0.24, 0.26], nb)
+  const width = n * bay
+  const cxAll = x0 + width * 0.5
+
+  renderer.add('sharpBox', TRS(cxAll, sill * 0.5, z, 0, width + 0.1, sill, 0.26), kerb, MAT.TRAVERTINE)
+  for (const y of [sill, head, H]) {
+    renderer.add('sharpBox', TRS(cxAll, y, z, 0, width + 0.1, 0.06, 0.12), frame, MAT.ALUMINUM)
+  }
+  for (let i = 0; i <= n; i++) {
+    renderer.add('sharpBox', TRS(x0 + i * bay, H * 0.5, z, 0, 0.065, H, 0.14), frame, MAT.ALUMINUM)
+  }
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + (i + 0.5) * bay
+    renderer.add('sharpBox', TRS(cx, (sill + head) * 0.5, z, 0, bay - 0.07, head - sill - 0.06, 0.014), glass, MAT.GLASS, [0, 0, 0], 0.2, 0, false)
+    // Every other bay has a top-hung vent; they don't all open the same amount.
+    const ventH = H - head - 0.07
+    const open = i % 2 === 0 ? vent * (0.26 + 0.1 * Math.sin(i * 2.3)) + gust * 0.035 * Math.sin(time * 3.1 + i) : 0
+    const hinge = mat4Mul(mat4Translate(cx, H - 0.035, z), mat4RotateX(open))
+    renderer.add('sharpBox', localTRS(hinge, 0, -ventH * 0.5, 0, 0, bay - 0.09, ventH, 0.016), glass, MAT.GLASS, [0, 0, 0], 0.24, 0, false)
+    renderer.add('sharpBox', localTRS(hinge, 0, -ventH + 0.02, -0.01, 0, bay - 0.09, 0.035, 0.04), frame, MAT.ALUMINUM, [0, 0, 0], 1, 0, false)
+    // Daylight spilling in from each bay; gone at night.
+    if (nb < 0.95) {
+      renderer.add('plane', TRS(cx, 0.004, z + 1.5, 0, bay * 1.35, 1, 3.2), [1, 1, 1], MAT.GLOW_POOL, [0.5, 0.56, 0.64], 0.32 * (1 - nb), 0, false)
+    }
   }
 }

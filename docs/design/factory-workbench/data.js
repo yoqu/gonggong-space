@@ -1,4 +1,4 @@
-import { getLoungeLayout } from './animations.js?v=e5'
+import { getLoungeLayout } from './animations.js?v=c1'
 
 /**
  * Gonggong 3D Factory Workbench — Real Production Data Loader, Infinite Group Layout & Living Lounge State

@@ -1,7 +1,7 @@
-import { drawLoungeFurniture } from './decor.js?v=e5'
-import { AGENT_FIGURINE_META, drawAgentFigurine } from './figurines_agents.js?v=b5r'
-import { ROLE_FIGURINE_META, drawRoleFigurine } from './figurines_roles.js?v=b5r'
-import { ensureGLBLoaded, getGLBModel, resolveGLBMaterial } from './glb_loader.js?v=b5m'
+import { drawLoungeFurniture } from './decor.js?v=c1'
+import { AGENT_FIGURINE_META, drawAgentFigurine } from './figurines_agents.js?v=c1'
+import { ROLE_FIGURINE_META, drawRoleFigurine } from './figurines_roles.js?v=c1'
+import { ensureGLBLoaded, getGLBModel, resolveGLBMaterial } from './glb_loader.js?v=c1'
 import {
   MAT,
   TRS,
@@ -12,7 +12,7 @@ import {
   mat4RotateZ,
   mat4Scale,
   mat4Translate,
-} from './renderer.js?v=b5r'
+} from './renderer.js?v=c1'
 
 export { AGENT_FIGURINE_META, ROLE_FIGURINE_META }
 export const ALL_FIGURINE_META = [...AGENT_FIGURINE_META, ...ROLE_FIGURINE_META]

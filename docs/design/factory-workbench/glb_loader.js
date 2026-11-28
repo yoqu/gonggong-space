@@ -1,4 +1,4 @@
-import { MAT, mat4Identity, mat4Mul } from './renderer.js?v=b5r'
+import { MAT, mat4Identity, mat4Mul } from './renderer.js?v=c1'
 
 /**
  * Zero-Dependency Binary glTF 2.0 (.glb) Parser, PBR Material Mapper & WebGL2 Asset Manager

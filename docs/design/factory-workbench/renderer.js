@@ -9,7 +9,7 @@ import {
   createSphere,
   createTaperedPot,
   createTorus,
-} from './geometry.js?v=b5r'
+} from './geometry.js?v=c1'
 
 /**
  * High-Scale WebGL2 Two-Pass Shadow-Mapped GGX PBR Cleanroom Campus Renderer
@@ -502,6 +502,8 @@ uniform float uGolden;
 uniform float uTime;
 uniform float uFogRange;
 uniform float uExposure;
+uniform vec3 uKeyRadiance;
+uniform float uShadowSoft;
 
 uniform vec3 uBaseColor;
 uniform vec3 uEmissive;
@@ -538,7 +540,7 @@ float calcShadow(vec4 sc, vec3 N, vec3 L) {
   vec2 texel = 1.0 / vec2(textureSize(uShadowMap, 0));
   float sum = 0.0;
   for (int i = 0; i < 16; i++) {
-    sum += texture(uShadowMap, vec3(proj.xy + POISSON[i] * texel * 2.0, proj.z - bias));
+    sum += texture(uShadowMap, vec3(proj.xy + POISSON[i] * texel * uShadowSoft, proj.z - bias));
   }
   return sum / 16.0;
 }
@@ -933,8 +935,7 @@ void main() {
   float shadow = calcShadow(vShadowCoord, N, L);
   float shadowFactor = shadow;
 
-  vec3 dayRadiance = mix(vec3(2.55, 2.50, 2.42), vec3(3.15, 2.25, 1.52), uGolden);
-  vec3 keyRadiance = mix(dayRadiance, vec3(0.46, 0.56, 0.78), uNight);
+  vec3 keyRadiance = mix(uKeyRadiance, vec3(0.46, 0.56, 0.78), uNight);
   vec3 Lo = (kD * albedo * NdotL_diff / 3.14159265 + specular * NdotL) * keyRadiance * shadowFactor;
 
   vec3 L2 = normalize(vec3(-0.65, 0.55, -0.52));
@@ -1241,6 +1242,8 @@ export class CleanroomRenderer {
       uBgColor: gl.getUniformLocation(this.mainProg, 'uBgColor'),
       uNight: gl.getUniformLocation(this.mainProg, 'uNight'),
       uGolden: gl.getUniformLocation(this.mainProg, 'uGolden'),
+      uKeyRadiance: gl.getUniformLocation(this.mainProg, 'uKeyRadiance'),
+      uShadowSoft: gl.getUniformLocation(this.mainProg, 'uShadowSoft'),
       uTime: gl.getUniformLocation(this.mainProg, 'uTime'),
       uFogRange: gl.getUniformLocation(this.mainProg, 'uFogRange'),
       uExposure: gl.getUniformLocation(this.mainProg, 'uExposure'),
@@ -1551,11 +1554,14 @@ export class CleanroomRenderer {
 
     // Raking warm Golden Hour sun angle vs crisp Studio Day overhead key (strictly zeroed in Night Mode!)
     const g = Math.max(0, Math.min(1, goldenBlend || 0)) * Math.max(0, 1.0 - (nightBlend || 0) * 2.5)
-    const lightDir = [
-      0.52 * (1 - g) + 0.86 * g,
-      0.86 * (1 - g) + 0.40 * g,
-      0.44 * (1 - g) + 0.32 * g,
-    ]
+    // `daylight` (set by the floor view from the clock) overrides the fixed studio key.
+    const day = this.daylight
+    const lightDir = day
+      ? day.dir
+      : [0.52 * (1 - g) + 0.86 * g, 0.86 * (1 - g) + 0.40 * g, 0.44 * (1 - g) + 0.32 * g]
+    const keyRadiance = day
+      ? day.radiance
+      : [2.55 + 0.6 * g, 2.5 - 0.25 * g, 2.42 - 0.9 * g]
     const lLen = Math.hypot(...lightDir)
     const lx = lightDir[0] / lLen, ly = lightDir[1] / lLen, lz = lightDir[2] / lLen
 
@@ -1614,6 +1620,8 @@ export class CleanroomRenderer {
     gl.uniform3f(this.mLoc.uBgColor, bgR, bgG, bgB)
     gl.uniform1f(this.mLoc.uNight, nightBlend)
     gl.uniform1f(this.mLoc.uGolden, g)
+    gl.uniform3fv(this.mLoc.uKeyRadiance, keyRadiance)
+    gl.uniform1f(this.mLoc.uShadowSoft, day ? day.shadowSoft : 2.0)
     gl.uniform1f(this.mLoc.uTime, time)
     gl.uniform1f(this.mLoc.uFogRange, fogRange)
     gl.uniform1f(this.mLoc.uExposure, EXPOSURE)

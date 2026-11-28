@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>共工 · 3D 算力工厂总控工作台</title>
-  <link rel="stylesheet" href="./styles.css?v=b5r" />
+  <link rel="stylesheet" href="./styles.css?v=c1" />
 </head>
 <body>
   <div class="shell" id="app-shell">
@@ -108,9 +108,12 @@
             <button type="button" class="seg-btn" data-cam="meso">街区</button>
             <button type="button" class="seg-btn" data-cam="lounge">休闲区</button>
             <div class="sep-v"></div>
-            <button type="button" class="seg-btn" data-light="morning" aria-pressed="false" title="晨光 Golden Hour">晨光</button>
-            <button type="button" class="seg-btn" data-light="day" aria-pressed="true" title="洁净白昼 Studio Day">白昼</button>
-            <button type="button" class="seg-btn" data-light="night" aria-pressed="false" title="夜间氛围 Dusk Glow">夜间</button>
+            <button type="button" class="seg-btn" data-light="live" aria-pressed="true" title="按当前时间模拟成都日照（办公室坐南朝北）">实时</button>
+            <button type="button" class="seg-btn" data-light="morning" aria-pressed="false" title="预览今天 08:18">晨</button>
+            <button type="button" class="seg-btn" data-light="noon" aria-pressed="false" title="预览今天 13:00">午</button>
+            <button type="button" class="seg-btn" data-light="dusk" aria-pressed="false" title="预览今天 17:36">暮</button>
+            <button type="button" class="seg-btn" data-light="night" aria-pressed="false" title="预览今天 21:30">夜</button>
+            <span class="sun-chip" id="sun-chip" aria-live="polite"></span>
           </div>
         </div>
       </header>
@@ -122,23 +125,7 @@
       </div>
 
       <!-- Right Inspector Drawer -->
-      <section class="inspector" id="inspector" hidden>
-        <div class="insp-head">
-          <div class="insp-head-text">
-            <div class="insp-title-row">
-              <span class="insp-title" id="insp-title">Clawd</span>
-              <span class="pill" id="insp-status-pill">施工中</span>
-            </div>
-            <div class="insp-meta" id="insp-meta">归属 · CLI</div>
-          </div>
-          <button type="button" class="icon-close" id="insp-close" title="关闭">✕</button>
-        </div>
-        <div class="insp-body" id="insp-body"></div>
-        <form class="insp-foot" id="insp-form">
-          <input type="text" class="prompt-input" id="insp-input" placeholder="在该话题中追加指令或 Todo…" />
-          <button type="submit" class="act-btn act-btn--primary">发送</button>
-        </form>
-      </section>
+      <section class="inspector run-tab" id="inspector" aria-label="运行详情" hidden></section>
 
       <!-- Interactive Global Minimap Radar -->
       <aside class="minimap-card" id="minimap-card" aria-label="全局无限园区雷达小地图">
@@ -327,6 +314,6 @@
   </div>
 
   <div class="lightbox" id="lightbox" hidden><img id="lightbox-img" alt="预览大图" /></div>
-  <script type="module" src="./app.js?v=b5m"></script>
+  <script type="module" src="./app.js?v=c1"></script>
 </body>
 </html>

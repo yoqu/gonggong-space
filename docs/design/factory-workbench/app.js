@@ -8,7 +8,7 @@ import {
   drawWorkshopEnclosure,
   normalizeBotAction,
   resolveCampusFigurineKey,
-} from './animations.js?v=b5r'
+} from './animations.js?v=c1'
 import {
   EDGE_STATUS_META,
   LOUNGE_BOUNDS,
@@ -23,7 +23,7 @@ import {
   loadWorkbenchSnapshot,
   syncGroupLayout,
   tickChoreography,
-} from './data.js?v=e5'
+} from './data.js?v=c1'
 import {
   drawErgonomicDesk,
   drawFicusTree,
@@ -33,9 +33,13 @@ import {
   drawPlanterTrough,
   drawPocketGardenIsland,
   drawWayfindingStele,
+  drawNorthWindowWall,
   drawWorkshopArchitecture,
-} from './decor.js?v=e5'
-import { exportFigurineGLB } from './geometry.js?v=b5r'
+} from './decor.js?v=c1'
+import { daylightAt, presetDate } from './daylight.js?v=c1'
+import { airAt, setVentilation } from './breeze.js?v=c1'
+import { renderInspector } from './inspector.js?v=c1'
+import { exportFigurineGLB } from './geometry.js?v=c1'
 import {
   ensureGLBLoaded,
   getGLBDownloadInfo,
@@ -43,7 +47,7 @@ import {
   getGLBModel,
   onGLBLoaded,
   preloadAllGLBs,
-} from './glb_loader.js?v=b5m'
+} from './glb_loader.js?v=c1'
 import {
   CleanroomRenderer,
   MAT,
@@ -53,7 +57,7 @@ import {
   renderInfiniteFloor,
   screenToGroundRay,
   snapGroupToGrid,
-} from './renderer.js?v=b5r'
+} from './renderer.js?v=c1'
 
 // ── Application State ──
 const state = {
@@ -63,7 +67,8 @@ const state = {
   ownerFilter: 'all',
   view: 'floor', // floor | studio | blueprints
   navMode: 'pan', // pan | orbit
-  lighting: 'day', // morning | day | night
+  lighting: 'live', // live | morning | noon | dusk | night (previews on today's date)
+  daylight: null,
   night: false,
   nightBlend: 0,
   goldenBlend: 0,
@@ -100,10 +105,12 @@ const state = {
   lastEventText: '',
 }
 
-// ── Critically Damped Spring Camera (engine-dev) ──
+// Level 45° bird's-eye: yaw 0 keeps the floor grid square to the screen, north (−Z) at the top.
+const TOP_PITCH = Math.PI / 4
+
 const cam = new SpringCamera({
-  yaw: 0.46,
-  pitch: 0.68,
+  yaw: 0,
+  pitch: TOP_PITCH,
   dist: 21.0,
   target: [1.5, 0.2, 0.5],
   smoothTime: 0.14,
@@ -138,24 +145,24 @@ function setCameraPreset(preset) {
   if (preset === 'macro') {
     const ext = computeCampusExtents()
     cam.setLimits({ minDist: 4.8, maxDist: 86.0 })
-    cam.flyTo([ext.cx + 1.8, 0.2, ext.cz + 0.3], {
-      yaw: 0.28,
-      pitch: 0.78,
+    cam.flyTo([ext.cx, 0.2, ext.cz], {
+      yaw: 0,
+      pitch: TOP_PITCH,
       dist: Math.min(76, Math.max(35.0, ext.span * 1.32)),
     })
   } else if (preset === 'meso') {
     const ext = computeCampusExtents()
     cam.setLimits({ minDist: 4.8, maxDist: 76.0 })
     cam.flyTo([ext.cx * 0.72, 0.25, ext.cz * 0.72], {
-      yaw: 0.44,
-      pitch: 0.66,
+      yaw: 0,
+      pitch: TOP_PITCH,
       dist: 20.5,
     })
   } else if (preset === 'lounge') {
     cam.setLimits({ minDist: 4.8, maxDist: 76.0 })
     cam.flyTo([LOUNGE_BOUNDS.cx, 0.3, LOUNGE_BOUNDS.cz], {
-      yaw: 0.46,
-      pitch: 0.56,
+      yaw: 0,
+      pitch: TOP_PITCH,
       dist: 10.6,
     })
   } else if (preset === 'studio') {
@@ -180,7 +187,8 @@ function focusInstance(inst) {
   if (state.view === 'floor') {
     cam.flyTo([inst.pos[0], 0.42, inst.pos[1]], {
       dist: Math.min(cam.goalDist, 10.5),
-      pitch: 0.56,
+      yaw: 0,
+      pitch: TOP_PITCH,
     })
   }
   renderUI()
@@ -190,7 +198,8 @@ function focusGroup(grp) {
   if (state.view !== 'floor') switchView('floor')
   cam.flyTo([grp.cx, 0.35, grp.cz], {
     dist: Math.max(11.0, Math.min(18.0, Math.max(grp.w, grp.d) * 2.05)),
-    pitch: 0.64,
+    yaw: 0,
+    pitch: TOP_PITCH,
   })
 }
 
@@ -383,6 +392,15 @@ function drawCampusScene(renderer, time) {
 
   // 2. Dynamic Courtyard Greenery Islands & Walkway Planter Troughs
   drawCampusCourtyardDecor(renderer, time)
+
+  // North glazing: the office faces north, windows run along the far (−Z) edge of the floor.
+  const ext = computeCampusExtents()
+  drawNorthWindowWall(renderer, ext.minX - 2.5, ext.maxX + 2.5, ext.minZ - 0.9, {
+    time,
+    nightBlend: state.nightBlend,
+    vent: state.daylight?.vent ?? 1,
+    gust: airAt(ext.cx, ext.minZ, time).gust,
+  })
 
   // 3. Living Cleanroom Lounge Environment (Woven Rug, Bouclé Sofas, Espresso Bar, Ficus Trees & Sliding Door)
   drawLoungeEnvironment(renderer, {
@@ -1167,15 +1185,27 @@ function renderTeamSelect() {
   `
 }
 
-function formatTokens(n) {
-  if (!n) return '0'
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-  return `${Math.round(n / 1000)}k`
+let sunChipText = ''
+function syncDaylightTheme() {
+  const d = state.daylight
+  const nb = d ? d.nightBlend : 0
+  const gb = d ? d.goldenBlend : 0
+  state.night = nb > 0.5
+  const theme = state.night ? 'dark' : gb > 0.5 ? 'morning' : 'light'
+  if (document.documentElement.dataset.theme !== theme) document.documentElement.dataset.theme = theme
+  if (!d) return
+  const at = presetDate(state.lighting)
+  const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  const sun = d.elevation > 0 ? ` · 太阳高度 ${Math.round(d.elevation)}°` : ''
+  const text = `${hm} · ${d.phase}${sun}`
+  if (text !== sunChipText) {
+    sunChipText = text
+    document.getElementById('sun-chip').textContent = text
+  }
 }
 
 function renderUI() {
-  state.night = state.lighting === 'night'
-  document.documentElement.dataset.theme = state.lighting === 'night' ? 'dark' : state.lighting === 'morning' ? 'morning' : 'light'
+  syncDaylightTheme()
 
   document.querySelectorAll('[data-view-btn]').forEach((b) => {
     const on = b.dataset.viewBtn === state.view
@@ -1307,7 +1337,7 @@ function renderUI() {
     })
   })
 
-  // Right Inspector Drawer
+  // Right Inspector Drawer = the system's run tab (inspector.js)
   const sel = state.instances.find((x) => x.id === state.selectedInstanceId)
   const inspector = document.getElementById('inspector')
   const showInspector = state.view === 'floor' && Boolean(sel)
@@ -1315,109 +1345,19 @@ function renderUI() {
   minimapCard.classList.toggle('shifted-left', showInspector)
 
   if (showInspector && sel) {
-    const owner = state.ownersMap[sel.ownerId] || { name: '团队成员', short: '@成员', machine: 'Build Node' }
-    const siblings = state.instances.filter((x) => x.botId === sel.botId)
-    const doneCount = sel.todos.filter((t) => t.st === 2).length
-    const meta = EDGE_STATUS_META[sel.status] || EDGE_STATUS_META.typing
-
-    document.getElementById('insp-title').textContent = sel.botName
-    const statusPill = document.getElementById('insp-status-pill')
-    statusPill.className = `pill pill--${meta.tone}`
-    statusPill.textContent = meta.label
-
-    document.getElementById('insp-meta').innerHTML = `
-      归属：${owner.name} · ${sel.cli} · ${sel.model || sel.agentKind}
-      ${sel.cliOutdated ? ' <span class="pill pill--cli-warn">Daemon 待升级</span>' : ''}
-    `
-
-    document.getElementById('insp-body').innerHTML = `
-      ${renderEdgeCaseCard(sel)}
-
-      <div>
-        <div class="sec-label">
-          <span>所在群聊与实时工序</span>
-          <span>${sel.syncMode === 'force' ? '强制同步' : '分区分支'} · 发起人 ${sel.originUser}</span>
-        </div>
-        <div class="code-box" style="margin:0">
-          <b>${sel.groupName}</b> › ${sel.taskTitle}<br/>
-          仓库：${sel.repo}<br/>
-          当前步骤：${sel.step}
-        </div>
-      </div>
-
-      <div class="stat-grid">
-        <div class="stat-box">
-          <span style="color:var(--label-secondary)">上下文窗口水位</span>
-          <b>${sel.ctx}% · ${formatTokens(sel.ctxUsed)} / ${formatTokens(sel.ctxSize)}</b>
-          <div class="ctx-meter"><div class="ctx-fill" style="width:${sel.ctx}%;background:${sel.ctx > 75 ? 'var(--amber-fill)' : 'var(--accent)'}"></div></div>
-        </div>
-        <div class="stat-box">
-          <span style="color:var(--label-secondary)">并发实例 / 权限档位</span>
-          <b>${siblings.length} / ${Math.max(sel.concurrency, siblings.length)} 槽 · ${sel.tier}</b>
-          <div style="font-size:10px;color:var(--label-secondary);margin-top:2px">${sel.roundTable ? '多人圆桌协同' : '独立工位'} · 改 ${sel.filesChanged} 文件</div>
-        </div>
-      </div>
-
-      <div>
-        <div class="sec-label">
-          <span>Todo 工序清单 (${doneCount}/${sel.todos.length})</span>
-          <button type="button" class="mini-btn" id="btn-insp-step" style="flex:none;padding:2px 7px">推进 +1</button>
-        </div>
-        <div class="todo-list">
-          ${sel.todos
-            .map(
-              (td) => `
-            <div class="todo-row ${td.st === 2 ? 'todo-row--done' : td.st === 1 ? 'todo-row--active' : ''}">
-              <span>${td.st === 2 ? '✓' : td.st === 1 ? '▶' : '○'}</span>
-              <span>${td.text}</span>
-            </div>`,
-            )
-            .join('')}
-        </div>
-      </div>
-
-      ${
-        sel.subagents && sel.subagents.length > 0
-          ? `
-        <div>
-          <div class="sec-label">委派 Subagents & Tasks (${sel.subagents.length})</div>
-          <div class="sibling-chips">
-            ${sel.subagents
-              .map(
-                (sa) => `
-              <div class="todo-row">
-                <span>◎</span>
-                <span><b>${sa.name}</b> · ${sa.task}</span>
-              </div>`,
-              )
-              .join('')}
-          </div>
-        </div>`
-          : ''
-      }
-
-      ${
-        siblings.length > 1
-          ? `
-        <div>
-          <div class="sec-label">该 Bot 跨群并行实体 (${siblings.length} 处同步施工 · 零连线)</div>
-          <div class="sibling-chips">
-            ${siblings
-              .map(
-                (sib, idx) => `
-              <button type="button" class="sibling-btn" data-sib-id="${sib.id}" aria-current="${sib.id === sel.id}">
-                <span>#${idx + 1} · ${sib.groupName} › ${sib.taskTitle}</span>
-                <span>${sib.id === sel.id ? '当前' : '切镜 →'}</span>
-              </button>`,
-              )
-              .join('')}
-          </div>
-        </div>`
-          : ''
-      }
-    `
-
-    wireInspectorActions(sel)
+    renderInspector(inspector, sel, {
+      owner: state.ownersMap[sel.ownerId] || { name: '团队成员', machine: 'Build Node' },
+      siblings: state.instances.filter((x) => x.botId === sel.botId),
+      onChange: renderUI,
+      onClose: () => {
+        state.selectedInstanceId = null
+        renderUI()
+      },
+      onFocusSibling: (id) => {
+        const target = state.instances.find((x) => x.id === id)
+        if (target) focusInstance(target)
+      },
+    })
   }
 
   // Studio controls & 25-Figurine Catalog
@@ -1490,122 +1430,6 @@ function renderStudioUI() {
   }
 }
 
-function renderEdgeCaseCard(sel) {
-  if (sel.status === 'approval') {
-    return `
-      <div class="edge-card edge-card--approval">
-        <h3>⚠ 待审批执行命令 (${sel.approvalReason || 'not_allowed'})</h3>
-        <div class="code-box">${sel.approvalCmd || sel.step}</div>
-        <div style="display:flex;gap:6px">
-          <button type="button" class="act-btn act-btn--primary" id="btn-approve">批准执行</button>
-          <button type="button" class="act-btn" id="btn-reject">拒绝</button>
-        </div>
-      </div>`
-  }
-  if (sel.status === 'question') {
-    const opts = sel.questionOptions || ['按推荐方案执行', '保持现有实现']
-    return `
-      <div class="edge-card edge-card--question">
-        <h3>❓ Bot 提问等待主人决策</h3>
-        <p>${sel.questionText || '请确认该模块的实现方案：'}</p>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          ${opts.map((o, i) => `<button type="button" class="act-btn act-btn--purple" data-answer-opt="${i}" style="justify-content:flex-start;text-align:left;white-space:normal">${i + 1}. ${o}</button>`).join('')}
-        </div>
-      </div>`
-  }
-  if (sel.status === 'auth_expired') {
-    return `
-      <div class="edge-card edge-card--error">
-        <h3>🔑 凭据已过期 (Auth Expired)</h3>
-        <div class="code-box">${sel.authDetail || 'Authentication required (category: auth)'}</div>
-        <button type="button" class="act-btn act-btn--danger" id="btn-reauth">重新授权并恢复任务</button>
-      </div>`
-  }
-  if (sel.status === 'rate_limit') {
-    return `
-      <div class="edge-card edge-card--error">
-        <h3>⏱ 模型限流中断 (HTTP 429)</h3>
-        <div class="code-box">${sel.rateLimitDetail || '专属号窗口已满，等待重置'}</div>
-        <button type="button" class="act-btn act-btn--danger" id="btn-reauth">切换备用模型并续跑</button>
-      </div>`
-  }
-  if (sel.status === 'workspace_confirm') {
-    return `
-      <div class="edge-card edge-card--workspace">
-        <h3>📁 等待确认本地工作区</h3>
-        <div class="code-box">${sel.workspacePath || '~/workspace/gonggong (branch: main)'}</div>
-        <button type="button" class="act-btn act-btn--teal" id="btn-confirm-ws">确认挂载工作区</button>
-      </div>`
-  }
-  if (sel.status === 'force_conflict') {
-    const files = (sel.conflictFiles || ['crates/gonggong/src/sync.rs']).join('\n')
-    return `
-      <div class="edge-card edge-card--error">
-        <h3>⚡ 强制同步三方合并冲突</h3>
-        <div class="code-box">${files}</div>
-        <button type="button" class="act-btn act-btn--danger" id="btn-resolve-conflict">采用三方自动合并并续跑</button>
-      </div>`
-  }
-  if (sel.status === 'forbidden') {
-    return `
-      <div class="edge-card edge-card--error">
-        <h3>🚫 触发权限受限 (triggerScope: self)</h3>
-        <div class="code-box">${sel.step}</div>
-        <button type="button" class="act-btn act-btn--danger" id="btn-reauth">以主人身份授权运行</button>
-      </div>`
-  }
-  return ''
-}
-
-function wireInspectorActions(sel) {
-  const resumeBot = (stepText) => {
-    sel.status = 'typing'
-    sel.step = stepText
-    sel.celebrateUntil = performance.now() / 1000 + 1.4
-    const activeTodo = sel.todos.find((t) => t.st === 1)
-    if (activeTodo) {
-      activeTodo.st = 2
-      const nextTodo = sel.todos.find((t) => t.st === 0)
-      if (nextTodo) nextTodo.st = 1
-    }
-    renderUI()
-  }
-
-  document.getElementById('btn-approve')?.addEventListener('click', () => resumeBot('bash · 审批通过，继续执行脚本…'))
-  document.getElementById('btn-reject')?.addEventListener('click', () => {
-    sel.status = 'thinking'
-    sel.step = 'think · 命令已拒绝，正在重新规划安全方案'
-    renderUI()
-  })
-  document.querySelectorAll('[data-answer-opt]').forEach((b) => {
-    b.addEventListener('click', () => resumeBot(`edit · 已采纳「${b.textContent}」`))
-  })
-  document.getElementById('btn-reauth')?.addEventListener('click', () => resumeBot('bash · 恢复会话成功，继续执行…'))
-  document.getElementById('btn-confirm-ws')?.addEventListener('click', () => resumeBot('read · 工作区已挂载，开始扫描代码'))
-  document.getElementById('btn-resolve-conflict')?.addEventListener('click', () => resumeBot('bash · 冲突已合并，运行测试验证'))
-
-  document.getElementById('btn-insp-step')?.addEventListener('click', () => {
-    const curIdx = sel.todos.findIndex((t) => t.st === 1)
-    if (curIdx >= 0) {
-      sel.todos[curIdx].st = 2
-      if (sel.todos[curIdx + 1]) sel.todos[curIdx + 1].st = 1
-      else sel.celebrateUntil = performance.now() / 1000 + 1.6
-    } else {
-      const pend = sel.todos.find((t) => t.st === 0)
-      if (pend) pend.st = 1
-    }
-    sel.ctx = Math.min(96, sel.ctx + 6)
-    renderUI()
-  })
-
-  document.getElementById('inspector').querySelectorAll('[data-sib-id]').forEach((b) => {
-    b.addEventListener('click', () => {
-      const target = state.instances.find((x) => x.id === b.dataset.sibId)
-      if (target) focusInstance(target)
-    })
-  })
-}
-
 function switchView(v) {
   const prev = state.view
   state.view = v
@@ -1633,12 +1457,6 @@ document.getElementById('btn-collapse-sb').addEventListener('click', () => docum
 document.querySelectorAll('[data-light]').forEach((b) => {
   b.addEventListener('click', () => {
     state.lighting = b.dataset.light
-    state.night = state.lighting === 'night'
-    if (state.lighting === 'night') {
-      state.goldenBlend = 0
-    } else if (state.lighting === 'morning') {
-      state.nightBlend = 0
-    }
     renderUI()
   })
 })
@@ -1790,25 +1608,6 @@ document.getElementById('alert-jump').addEventListener('click', () => {
   const next = alerts[(curIdx + 1) % alerts.length]
   if (state.view !== 'floor') switchView('floor')
   focusInstance(next)
-})
-
-document.getElementById('insp-close').addEventListener('click', () => {
-  state.selectedInstanceId = null
-  renderUI()
-})
-
-document.getElementById('insp-form').addEventListener('submit', (e) => {
-  e.preventDefault()
-  const inp = document.getElementById('insp-input')
-  const val = inp.value.trim()
-  if (!val) return
-  const sel = state.instances.find((x) => x.id === state.selectedInstanceId)
-  if (sel) {
-    sel.step = `run · ${val}`
-    sel.todos.push({ text: val, st: 0 })
-    inp.value = ''
-    renderUI()
-  }
 })
 
 // Studio controls, sub-mode switcher, PBR finish switcher & 25-Figurine GLB export
@@ -2176,12 +1975,20 @@ function frame(nowMs) {
   const dt = Math.min(0.05, Math.max(0.001, now - prevTime))
   prevTime = now
 
-  const nightTarget = state.lighting === 'night' ? 1 : 0
-  const goldenTarget = state.lighting === 'morning' ? 1 : 0
-  state.nightBlend += (nightTarget - state.nightBlend) * (1 - Math.exp(-dt * 6.0))
-  state.goldenBlend += (goldenTarget - state.goldenBlend) * (1 - Math.exp(-dt * 6.0))
-  if (state.lighting === 'night' && state.goldenBlend < 0.02) state.goldenBlend = 0
-  if (state.lighting !== 'night' && state.nightBlend < 0.02) state.nightBlend = 0
+  const sky = daylightAt(presetDate(state.lighting))
+  const ease = 1 - Math.exp(-dt * 4.0)
+  const prev = state.daylight || sky
+  state.daylight = {
+    ...sky,
+    dir: prev.dir.map((v, i) => v + (sky.dir[i] - v) * ease),
+    radiance: prev.radiance.map((v, i) => v + (sky.radiance[i] - v) * ease),
+    shadowSoft: prev.shadowSoft + (sky.shadowSoft - prev.shadowSoft) * ease,
+    vent: prev.vent + (sky.vent - prev.vent) * ease,
+  }
+  state.nightBlend += (sky.nightBlend - state.nightBlend) * ease
+  state.goldenBlend += (sky.goldenBlend - state.goldenBlend) * ease
+  setVentilation(state.daylight.vent)
+  syncDaylightTheme()
   state.studioExplode += (state.studioTargetExplode - state.studioExplode) * (1 - Math.exp(-dt * 7.0))
 
   // Smoothly spring-animate Lounge sliding door
@@ -2201,6 +2008,7 @@ function frame(nowMs) {
     cam.update(dt, cssW, cssH)
 
     renderer.beginFrame()
+    renderer.daylight = state.view === 'floor' ? state.daylight : null
     if (state.view === 'floor') {
       drawCampusScene(renderer, now)
       renderer.render(cam, state.nightBlend, now, Math.min(34, Math.max(15, cam.dist * 0.9)), state.goldenBlend)
