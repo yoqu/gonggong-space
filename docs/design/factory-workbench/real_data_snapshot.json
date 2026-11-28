@@ -1,0 +1,935 @@
+{
+  "schemaVersion": "1.0",
+  "capturedAt": "2026-11-28T10:04:29+08:00",
+  "source": "production_read_only_sanitized",
+  "notes": [
+    "All aggregate metrics are exact read-only production distributions captured on 2026-11-28 (Saturday morning off-peak snapshot + 7d/14d/30d rolling windows).",
+    "All names, identifiers, paths, commands, and task texts in `dataset` are sanitized/anonymized and modeled after real production workday peak patterns (peak 5-min windows see 11-16 runs across 4-9 groups, 5-8 bots, and 5-8 concurrent threads).",
+    "Note on RunStatus in production: failed/errored runs terminate with status `interrupted` (with error details in `step` / `stepI18n`), while transient live states include `running`, `queued`, `awaiting_approval`, `awaiting_answer`, and `offline_wait`."
+  ],
+  "aggregates": {
+    "teams": {
+      "total": 6,
+      "active": 6,
+      "primaryTeam": {
+        "members": 33,
+        "groups": 78,
+        "dms": 58,
+        "bots": 62,
+        "sections": 4
+      },
+      "otherTeams": [
+        { "members": 2, "groups": 1, "dms": 6, "bots": 10, "sections": 0 },
+        { "members": 3, "groups": 1, "dms": 2, "bots": 2, "sections": 0 },
+        { "members": 1, "groups": 0, "dms": 0, "bots": 0, "sections": 0 },
+        { "members": 1, "groups": 0, "dms": 0, "bots": 0, "sections": 0 },
+        { "members": 1, "groups": 0, "dms": 0, "bots": 0, "sections": 0 }
+      ]
+    },
+    "teamSections": {
+      "total": 4,
+      "nestedCount": 1,
+      "groupsFiledInSections": 42,
+      "sections": [
+        { "name": "需求迭代开发", "isNested": false, "groupCount": 16 },
+        { "name": "团队协作", "isNested": false, "groupCount": 12 },
+        { "name": "共工空间", "isNested": false, "groupCount": 2 },
+        { "name": "归档", "isNested": true, "groupCount": 12 }
+      ]
+    },
+    "users": {
+      "total": 40,
+      "active": 40,
+      "botOwners": 28,
+      "machineOwners": 28
+    },
+    "groups": {
+      "total": 193,
+      "activeNotArchived": 148,
+      "archived": 45,
+      "byKind": { "group": 80, "dm": 66, "works": 2 },
+      "byVisibilityForGroups": { "private": 79, "public": 1 },
+      "byMode": { "partition": 148, "force": 0 },
+      "protectBaseCount": 124,
+      "withRepoCount": 38,
+      "extraReposCount": 3,
+      "botRepliesInThread": { "true": 23, "inherit": 125 },
+      "activityRatio": {
+        "activeLast24h": 30,
+        "activeLast7d": 62,
+        "activeLast30d": 126,
+        "idleOver7d": 86,
+        "active7dPct": 41.9
+      },
+      "busyGroupConcurrency7d": {
+        "topGroupRuns7d": 547,
+        "topGroupDistinctThreads7d": 81,
+        "topGroupOverlappingThreads7d": 47,
+        "peak5MinWindow": {
+          "runsStarted": 16,
+          "activeGroups": 7,
+          "activeBots": 8,
+          "activeThreads": 8
+        }
+      }
+    },
+    "bots": {
+      "totalActive": 74,
+      "deleted": 8,
+      "byAgentKind": {
+        "codex": 35,
+        "claude": 28,
+        "antigravity": 5,
+        "codebuddy": 4,
+        "gemini": 1,
+        "pi": 1
+      },
+      "byBinding": { "bound": 74, "pending_bind": 0, "pending_confirm": 0 },
+      "byTier": { "workspace": 56, "full": 18, "read-only": 0 },
+      "byConcurrency": { "2": 72, "4": 1, "5": 1 },
+      "byTriggerScope": { "all": 61, "self": 9, "list": 4 },
+      "aiReviewEnabled": 28,
+      "byAvatarRole": {
+        "role-gong": 18,
+        "role-agent": 16,
+        "role-braces": 8,
+        "role-loop": 7,
+        "role-abacus": 5,
+        "role-no": 5,
+        "role-hammock": 3,
+        "role-blank": 3,
+        "role-invert": 2,
+        "role-steps": 2,
+        "role-compass": 2,
+        "role-spring": 1,
+        "role-sentry": 1,
+        "none": 1
+      },
+      "botsPerOwnerDist": { "1": 14, "2": 10, "3": 2, "5": 1, "29": 1 },
+      "presenceOffPeakSnapshot": { "online": 6, "offline": 68, "running": 0, "agent_missing": 0, "pending_bind": 0 },
+      "multiGroupConcurrency7d": {
+        "botsWithOverlappingRuns": 15,
+        "topBot": {
+          "agentKind": "claude",
+          "concurrency": 4,
+          "tier": "full",
+          "overlapPairs7d": 1785,
+          "crossGroupOverlaps": 1517,
+          "crossThreadOverlaps": 268
+        }
+      }
+    },
+    "machines": {
+      "totalActive": 32,
+      "online5mOffPeak": 3,
+      "online1hOffPeak": 10,
+      "byOs": { "macos": 26, "windows": 5, "linux": 1 },
+      "latestDaemonVersion": "0.4.35",
+      "upToDateCount": 10,
+      "outdatedCount": 22,
+      "legacyV03Count": 3,
+      "workspaceStates": {
+        "ready": 388,
+        "unbound": 15,
+        "confirm": 3,
+        "cloning": 1,
+        "pending": 1,
+        "failed": 1
+      }
+    },
+    "runs": {
+      "totalAllTime": 9604,
+      "last24h": 429,
+      "last7d": 2104,
+      "byStatusAllTime": { "completed": 8554, "interrupted": 1023, "forbidden": 16, "expired": 11 },
+      "byStatus7d": { "completed": 1870, "interrupted": 225, "forbidden": 7, "expired": 2 },
+      "inThread7d": 1390,
+      "inThreadPct7d": 66.1,
+      "withPlan7d": 18,
+      "withDelegation7d": 333,
+      "withDelegationPct7d": 15.8,
+      "withHandoffs7d": 96,
+      "withContinuation7d": 163,
+      "withHopGt17d": 143,
+      "duration7dSec": { "p50": 114.5, "p90": 961.4, "max": 10601.8 },
+      "filesChanged7d": { "runsWithChanges": 542, "avgWhenChanged": 44.7, "max": 1947 },
+      "transientStatusEvents14d": {
+        "awaiting_answer": 923,
+        "awaiting_approval": 696
+      },
+      "interruptedCategories7d": {
+        "user_stopped": 97,
+        "rate_limit": 74,
+        "other_error": 15,
+        "model_unsupported": 10,
+        "auth": 9,
+        "internal_error": 9,
+        "other_interrupted": 6,
+        "daemon_restart": 5
+      },
+      "approvals7d": {
+        "total": 308,
+        "byStatus": { "approved": 278, "rejected": 26, "void": 3, "expired": 1 },
+        "byToolKind": { "execute": 303, "other": 3, "read": 1, "edit": 1 },
+        "byReason": { "not_allowed": 292, "unparsed": 14, "write": 1, "high_risk": 1 }
+      },
+      "questionSets7d": {
+        "total": 587,
+        "byStatus": { "answered": 467, "void": 113, "expired": 7 }
+      },
+      "contextUsage": {
+        "sessionsTracked": 293,
+        "pct": { "min": 0.0, "p25": 5.2, "p50": 10.5, "p75": 20.8, "p90": 37.2, "max": 92.3 },
+        "commonWindowSizes": [1000000, 828400, 475000, 200000, 1048576, 258400]
+      },
+      "topModels7d": [
+        "default",
+        "gemini-4-neon",
+        "opus",
+        "claude-opus-5-5",
+        "gpt-6-astra",
+        "gpt-6.2-sol",
+        "gpt-6-luna",
+        "gpt-6.1-terra",
+        "claude-sonnet-4-5-20250929"
+      ]
+    }
+  },
+  "dataset": {
+    "simulationProfile": "workday_peak_sanitized",
+    "teams": [
+      {
+        "id": "team-1",
+        "name": "研发效能团队",
+        "memberCount": 33,
+        "sections": [
+          { "id": "sec-iter", "name": "需求迭代开发", "parentId": null, "position": 0 },
+          { "id": "sec-collab", "name": "团队协作", "parentId": null, "position": 1 },
+          { "id": "sec-gg", "name": "共工空间", "parentId": null, "position": 2 },
+          { "id": "sec-archive", "name": "归档", "parentId": "sec-iter", "position": 3 }
+        ]
+      }
+    ],
+    "owners": [
+      { "id": "u-1", "name": "陈工", "initials": "CG", "role": "sysadmin", "botCount": 6, "machineOs": "macos" },
+      { "id": "u-2", "name": "林工", "initials": "LG", "role": "member", "botCount": 3, "machineOs": "macos" },
+      { "id": "u-3", "name": "苏工", "initials": "SG", "role": "member", "botCount": 2, "machineOs": "macos" },
+      { "id": "u-4", "name": "周工", "initials": "ZG", "role": "member", "botCount": 2, "machineOs": "windows" },
+      { "id": "u-5", "name": "郑工", "initials": "ZH", "role": "member", "botCount": 2, "machineOs": "macos" },
+      { "id": "u-6", "name": "吴工", "initials": "WG", "role": "member", "botCount": 2, "machineOs": "linux" },
+      { "id": "u-7", "name": "赵工", "initials": "ZA", "role": "member", "botCount": 1, "machineOs": "macos" },
+      { "id": "u-8", "name": "王工", "initials": "WA", "role": "member", "botCount": 1, "machineOs": "windows" }
+    ],
+    "groups": [
+      {
+        "id": "grp-core-api",
+        "teamId": "team-1",
+        "sectionId": "sec-iter",
+        "name": "交易结算与会员中台",
+        "kind": "group",
+        "visibility": "private",
+        "mode": "partition",
+        "protectBase": true,
+        "botRepliesInThread": true,
+        "repos": [
+          { "name": "acme-settlement-server", "baseBranch": "main", "isPrimary": true },
+          { "name": "acme-member-common", "baseBranch": "main", "isPrimary": false }
+        ],
+        "memberCount": 13,
+        "botIds": ["bot-c1", "bot-x1", "bot-a1", "bot-c2", "bot-x2"],
+        "active": true,
+        "runs7d": 547,
+        "threads": [
+          { "threadRootId": "th-101", "title": "V4 商圈商品列表统计与卡片数量差异排查", "activeRunCount": 2 },
+          { "threadRootId": "th-102", "title": "满返表单统一报错校验与单测补齐", "activeRunCount": 1 },
+          { "threadRootId": "th-103", "title": "兑换券上架 userMatchConfig 匹配规则诊断", "activeRunCount": 1 }
+        ]
+      },
+      {
+        "id": "grp-gonggong",
+        "teamId": "team-1",
+        "sectionId": "sec-gg",
+        "name": "共工空间-研发主群",
+        "kind": "group",
+        "visibility": "public",
+        "mode": "partition",
+        "protectBase": true,
+        "botRepliesInThread": true,
+        "repos": [
+          { "name": "gonggong-space", "baseBranch": "main", "isPrimary": true }
+        ],
+        "memberCount": 23,
+        "botIds": ["bot-c1", "bot-x3", "bot-a2", "bot-g1"],
+        "active": true,
+        "runs7d": 239,
+        "threads": [
+          { "threadRootId": "th-201", "title": "3D 工厂工作台状态映射与并发视图优化", "activeRunCount": 2 },
+          { "threadRootId": "th-202", "title": "Daemon 断线重连与离线排队状态恢复", "activeRunCount": 1 }
+        ]
+      },
+      {
+        "id": "grp-ops-triage",
+        "teamId": "team-1",
+        "sectionId": "sec-collab",
+        "name": "线上工单与数据巡检",
+        "kind": "group",
+        "visibility": "private",
+        "mode": "partition",
+        "protectBase": false,
+        "botRepliesInThread": true,
+        "repos": [],
+        "memberCount": 8,
+        "botIds": ["bot-c1", "bot-x4", "bot-cb1"],
+        "active": true,
+        "runs7d": 155,
+        "threads": [
+          { "threadRootId": "th-301", "title": "多倍奖励补录活动发放数据交叉核对", "activeRunCount": 1 },
+          { "threadRootId": "th-302", "title": "飞书文档 FAQ 自动同步脚本执行", "activeRunCount": 1 }
+        ]
+      },
+      {
+        "id": "grp-frontend-ui",
+        "teamId": "team-1",
+        "sectionId": "sec-iter",
+        "name": "前端组件库与设计还原",
+        "kind": "group",
+        "visibility": "private",
+        "mode": "partition",
+        "protectBase": true,
+        "botRepliesInThread": true,
+        "repos": [
+          { "name": "acme-design-web", "baseBranch": "main", "isPrimary": true }
+        ],
+        "memberCount": 6,
+        "botIds": ["bot-x1", "bot-c3", "bot-p1"],
+        "active": true,
+        "runs7d": 152,
+        "threads": [
+          { "threadRootId": "th-401", "title": "移动端活动页响应式适配与暗色主题检查", "activeRunCount": 1 }
+        ]
+      },
+      {
+        "id": "grp-dm-power",
+        "teamId": "team-1",
+        "sectionId": null,
+        "name": "架构助手 · 私聊",
+        "kind": "dm",
+        "visibility": "private",
+        "mode": "partition",
+        "protectBase": true,
+        "botRepliesInThread": true,
+        "repos": [
+          { "name": "gonggong-space", "baseBranch": "main", "isPrimary": true }
+        ],
+        "memberCount": 1,
+        "botIds": ["bot-c1", "bot-x5"],
+        "active": true,
+        "runs7d": 193,
+        "threads": [
+          { "threadRootId": "th-501", "title": "性能火焰图分析与索引优化建议", "activeRunCount": 1 }
+        ]
+      },
+      {
+        "id": "grp-idle-qa",
+        "teamId": "team-1",
+        "sectionId": "sec-collab",
+        "name": "测试环境与发布值班",
+        "kind": "group",
+        "visibility": "private",
+        "mode": "partition",
+        "protectBase": true,
+        "botRepliesInThread": false,
+        "repos": [
+          { "name": "acme-qa-scripts", "baseBranch": "main", "isPrimary": true }
+        ],
+        "memberCount": 9,
+        "botIds": ["bot-x6", "bot-cb2"],
+        "active": false,
+        "runs7d": 4,
+        "threads": []
+      },
+      {
+        "id": "grp-idle-archive",
+        "teamId": "team-1",
+        "sectionId": "sec-archive",
+        "name": "Q3 支付网关重构（已结项）",
+        "kind": "group",
+        "visibility": "private",
+        "mode": "partition",
+        "protectBase": true,
+        "botRepliesInThread": false,
+        "repos": [],
+        "memberCount": 5,
+        "botIds": ["bot-x7"],
+        "active": false,
+        "runs7d": 0,
+        "threads": []
+      }
+    ],
+    "bots": [
+      {
+        "id": "bot-c1",
+        "name": "Claude-主力架构师",
+        "agentKind": "claude",
+        "avatar": "role-gong",
+        "ownerId": "u-1",
+        "ownerName": "陈工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "full",
+        "concurrency": 4,
+        "activeRunCount": 3,
+        "triggerScope": "all",
+        "aiReview": true,
+        "model": "claude-opus-5-5",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "workbench",
+        "note": "Real-world power bot pattern: concurrency=4 running simultaneously across 3 groups/threads"
+      },
+      {
+        "id": "bot-x1",
+        "name": "Codex-结算后端",
+        "agentKind": "codex",
+        "avatar": "role-braces",
+        "ownerId": "u-2",
+        "ownerName": "林工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 2,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "gpt-6-astra",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-a1",
+        "name": "AGY-全栈探索",
+        "agentKind": "antigravity",
+        "avatar": "role-agent",
+        "ownerId": "u-1",
+        "ownerName": "陈工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "full",
+        "concurrency": 2,
+        "activeRunCount": 1,
+        "triggerScope": "all",
+        "aiReview": true,
+        "model": "gemini-4-neon",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-x3",
+        "name": "Codex-共工前端",
+        "agentKind": "codex",
+        "avatar": "role-loop",
+        "ownerId": "u-3",
+        "ownerName": "苏工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 1,
+        "triggerScope": "all",
+        "aiReview": true,
+        "model": "gpt-6.2-sol",
+        "daemonVersion": "0.4.34",
+        "versionWarning": true,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-a2",
+        "name": "AGY-3D工坊",
+        "agentKind": "antigravity",
+        "avatar": "role-compass",
+        "ownerId": "u-1",
+        "ownerName": "陈工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "full",
+        "concurrency": 2,
+        "activeRunCount": 1,
+        "triggerScope": "all",
+        "aiReview": true,
+        "model": "gemini-4-neon",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-x4",
+        "name": "Codex-数据核对",
+        "agentKind": "codex",
+        "avatar": "role-abacus",
+        "ownerId": "u-4",
+        "ownerName": "周工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 1,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "gpt-6-luna",
+        "daemonVersion": "0.4.28",
+        "versionWarning": true,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-cb1",
+        "name": "CodeBuddy-文档同步",
+        "agentKind": "codebuddy",
+        "avatar": "role-steps",
+        "ownerId": "u-5",
+        "ownerName": "郑工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 1,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "default",
+        "daemonVersion": "0.4.30",
+        "versionWarning": true,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-c3",
+        "name": "Claude-样式审查",
+        "agentKind": "claude",
+        "avatar": "role-invert",
+        "ownerId": "u-6",
+        "ownerName": "吴工",
+        "presence": "running",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 1,
+        "triggerScope": "list",
+        "aiReview": true,
+        "model": "claude-sonnet-4-5-20250929",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "workbench"
+      },
+      {
+        "id": "bot-c2",
+        "name": "Claude-评审员",
+        "agentKind": "claude",
+        "avatar": "role-sentry",
+        "ownerId": "u-2",
+        "ownerName": "林工",
+        "presence": "online",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "all",
+        "aiReview": true,
+        "model": "opus",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "lounge"
+      },
+      {
+        "id": "bot-x2",
+        "name": "Codex-单测助手",
+        "agentKind": "codex",
+        "avatar": "role-gong",
+        "ownerId": "u-3",
+        "ownerName": "苏工",
+        "presence": "online",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "gpt-6.1-terra",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "lounge"
+      },
+      {
+        "id": "bot-g1",
+        "name": "Gemini-文档研究",
+        "agentKind": "gemini",
+        "avatar": "role-hammock",
+        "ownerId": "u-1",
+        "ownerName": "陈工",
+        "presence": "online",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "gemini-4-neon",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "lounge"
+      },
+      {
+        "id": "bot-p1",
+        "name": "Pi-轻量脚本",
+        "agentKind": "pi",
+        "avatar": "role-spring",
+        "ownerId": "u-6",
+        "ownerName": "吴工",
+        "presence": "online",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "self",
+        "aiReview": false,
+        "model": "default",
+        "daemonVersion": "0.4.32",
+        "versionWarning": true,
+        "zone": "lounge"
+      },
+      {
+        "id": "bot-x5",
+        "name": "Codex-私人研究",
+        "agentKind": "codex",
+        "avatar": "role-no",
+        "ownerId": "u-1",
+        "ownerName": "陈工",
+        "presence": "online",
+        "binding": "bound",
+        "tier": "full",
+        "concurrency": 5,
+        "activeRunCount": 0,
+        "triggerScope": "self",
+        "aiReview": true,
+        "model": "gpt-6.1-sol",
+        "daemonVersion": "0.4.35",
+        "versionWarning": false,
+        "zone": "lounge"
+      },
+      {
+        "id": "bot-x6",
+        "name": "Codex-值班机",
+        "agentKind": "codex",
+        "avatar": "role-blank",
+        "ownerId": "u-7",
+        "ownerName": "赵工",
+        "presence": "offline",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "default",
+        "daemonVersion": "0.4.10",
+        "versionWarning": true,
+        "zone": "hidden_pool"
+      },
+      {
+        "id": "bot-cb2",
+        "name": "CodeBuddy-老版本",
+        "agentKind": "codebuddy",
+        "avatar": "role-agent",
+        "ownerId": "u-8",
+        "ownerName": "王工",
+        "presence": "agent_missing",
+        "binding": "bound",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "all",
+        "aiReview": false,
+        "model": "default",
+        "daemonVersion": "0.3.8",
+        "versionWarning": true,
+        "zone": "hidden_pool"
+      },
+      {
+        "id": "bot-x7",
+        "name": "Codex-待绑定新机",
+        "agentKind": "codex",
+        "avatar": "role-gong",
+        "ownerId": "u-5",
+        "ownerName": "郑工",
+        "presence": "pending_bind",
+        "binding": "pending_bind",
+        "tier": "workspace",
+        "concurrency": 2,
+        "activeRunCount": 0,
+        "triggerScope": "self",
+        "aiReview": false,
+        "model": null,
+        "daemonVersion": null,
+        "versionWarning": false,
+        "zone": "hidden_pool"
+      }
+    ],
+    "runs": [
+      {
+        "id": "run-101",
+        "groupId": "grp-core-api",
+        "threadRootId": "th-101",
+        "botId": "bot-c1",
+        "originUser": "林工",
+        "status": "running",
+        "step": "edit_file",
+        "hop": 1,
+        "filesChanged": 6,
+        "durationSec": 142,
+        "contextUsage": { "used": 214000, "size": 1000000, "pct": 21.4 },
+        "plan": [
+          { "status": "completed", "content": "查找会员等级信息卡片的实现代码" },
+          { "status": "completed", "content": "分析商品列表查询逻辑（V4筛选）" },
+          { "status": "in_progress", "content": "对比卡片数量统计与实际列表查询的差异" },
+          { "status": "pending", "content": "补齐边界单元测试并验证" },
+          { "status": "pending", "content": "生成最终诊断报告" }
+        ],
+        "delegation": {
+          "subagents": {
+            "sa-01": "completed",
+            "sa-02": "running"
+          },
+          "tasks": {
+            "tk-01": "completed",
+            "tk-02": "completed",
+            "tk-03": "running"
+          }
+        }
+      },
+      {
+        "id": "run-102",
+        "groupId": "grp-gonggong",
+        "threadRootId": "th-201",
+        "botId": "bot-c1",
+        "originUser": "陈工",
+        "status": "running",
+        "step": "read_file",
+        "hop": 2,
+        "filesChanged": 12,
+        "durationSec": 85,
+        "contextUsage": { "used": 372000, "size": 1000000, "pct": 37.2 },
+        "plan": [
+          { "status": "completed", "content": "梳理 3D 工坊工位与线程并发映射关系" },
+          { "status": "in_progress", "content": "对齐真实线上 Bot 并发数与异常状态样式" },
+          { "status": "pending", "content": "自检渲染帧率并输出回归报告" }
+        ],
+        "delegation": {
+          "tasks": { "tk-11": "completed" }
+        },
+        "note": "Same bot-c1 running concurrently in a second group"
+      },
+      {
+        "id": "run-103",
+        "groupId": "grp-dm-power",
+        "threadRootId": "th-501",
+        "botId": "bot-c1",
+        "originUser": "陈工",
+        "status": "awaiting_answer",
+        "step": "等待回答问题",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 64,
+        "contextUsage": { "used": 89000, "size": 1000000, "pct": 8.9 },
+        "question": {
+          "prompt": "慢查询集中在 runs 表的 created_at 与 status 组合过滤，请选择优先优化方案：",
+          "options": ["新增复合部分索引（零停机 CONCURRENTLY）", "先调整查询窗口为 7 天再观察"]
+        },
+        "note": "Same bot-c1 running a 3rd concurrent slot in DM"
+      },
+      {
+        "id": "run-104",
+        "groupId": "grp-core-api",
+        "threadRootId": "th-102",
+        "botId": "bot-x1",
+        "originUser": "苏工",
+        "status": "awaiting_approval",
+        "step": "等待审批：python3 scripts/verify_form_rules.py",
+        "hop": 1,
+        "filesChanged": 4,
+        "durationSec": 198,
+        "contextUsage": { "used": 148000, "size": 475000, "pct": 31.2 },
+        "approval": {
+          "toolKind": "execute",
+          "reason": "not_allowed",
+          "title": "python3 scripts/verify_form_rules.py --env staging",
+          "detail": "$ cd /workspace/acme-settlement-server && python3 scripts/verify_form_rules.py --env staging",
+          "hasAiReview": false
+        },
+        "plan": [
+          { "status": "completed", "content": "检查目标仓库改动与满返表单校验" },
+          { "status": "completed", "content": "按表单顺序实现统一报错校验" },
+          { "status": "in_progress", "content": "执行格式化、类型检查和定向验证" },
+          { "status": "pending", "content": "复核差异并整理交付说明" }
+        ]
+      },
+      {
+        "id": "run-105",
+        "groupId": "grp-frontend-ui",
+        "threadRootId": "th-401",
+        "botId": "bot-x1",
+        "originUser": "吴工",
+        "status": "queued",
+        "step": "排队等待工位（并发 2/2）",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 18,
+        "contextUsage": { "used": 42000, "size": 475000, "pct": 8.8 }
+      },
+      {
+        "id": "run-106",
+        "groupId": "grp-core-api",
+        "threadRootId": "th-103",
+        "botId": "bot-a1",
+        "originUser": "周工",
+        "status": "running",
+        "step": "run_command",
+        "hop": 1,
+        "filesChanged": 2,
+        "durationSec": 310,
+        "contextUsage": { "used": 862000, "size": 1000000, "pct": 86.2 },
+        "plan": [
+          { "status": "completed", "content": "连接测试库并验证只读权限" },
+          { "status": "completed", "content": "查询兑换券上架 userMatchConfig 配置" },
+          { "status": "in_progress", "content": "对比两类测试账号的徽章与标签匹配差异" },
+          { "status": "pending", "content": "输出排查结论与修复建议" }
+        ],
+        "delegation": {
+          "subagents": { "sa-10": "completed", "sa-11": "completed", "sa-12": "running" },
+          "tasks": { "tk-21": "completed", "tk-22": "failed", "tk-23": "completed" }
+        },
+        "note": "High context usage (86.2%) + multi-subagent delegation"
+      },
+      {
+        "id": "run-107",
+        "groupId": "grp-gonggong",
+        "threadRootId": "th-201",
+        "botId": "bot-a2",
+        "originUser": "陈工",
+        "status": "running",
+        "step": "edit_file",
+        "hop": 1,
+        "filesChanged": 9,
+        "durationSec": 225,
+        "contextUsage": { "used": 185000, "size": 1048576, "pct": 17.6 }
+      },
+      {
+        "id": "run-108",
+        "groupId": "grp-gonggong",
+        "threadRootId": "th-202",
+        "botId": "bot-x3",
+        "originUser": "苏工",
+        "status": "interrupted",
+        "errorKind": "rate_limit",
+        "step": "运行出错：API Error: Request rejected (429) · 您的专属号当前窗口已满，请等待窗口重置后再继续。",
+        "hop": 1,
+        "filesChanged": 3,
+        "durationSec": 47,
+        "contextUsage": { "used": 124000, "size": 828400, "pct": 15.0 }
+      },
+      {
+        "id": "run-109",
+        "groupId": "grp-ops-triage",
+        "threadRootId": "th-301",
+        "botId": "bot-x4",
+        "originUser": "周工",
+        "status": "running",
+        "step": "query_readonly",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 95,
+        "contextUsage": { "used": 64000, "size": 475000, "pct": 13.5 },
+        "plan": [
+          { "status": "completed", "content": "读取项目与查询规范" },
+          { "status": "completed", "content": "确认多倍奖励判定逻辑" },
+          { "status": "in_progress", "content": "查询补录活动与发放数据" },
+          { "status": "pending", "content": "交叉核对并给出结论" }
+        ]
+      },
+      {
+        "id": "run-110",
+        "groupId": "grp-ops-triage",
+        "threadRootId": "th-302",
+        "botId": "bot-cb1",
+        "originUser": "郑工",
+        "status": "awaiting_approval",
+        "step": "等待审批：lark-cli docs +fetch",
+        "hop": 1,
+        "filesChanged": 1,
+        "durationSec": 52,
+        "contextUsage": { "used": 28000, "size": 200000, "pct": 14.0 },
+        "approval": {
+          "toolKind": "execute",
+          "reason": "not_allowed",
+          "title": "lark-cli docs +fetch --api-version v2 --as user --doc <doc-token>",
+          "detail": "$ lark-cli docs +fetch --api-version v2 --as user --doc <sanitized-wiki-token> --format md",
+          "hasAiReview": false
+        }
+      },
+      {
+        "id": "run-111",
+        "groupId": "grp-frontend-ui",
+        "threadRootId": "th-401",
+        "botId": "bot-c3",
+        "originUser": "吴工",
+        "status": "interrupted",
+        "errorKind": "auth",
+        "step": "运行出错：无法建立 agent 会话：Authentication required ({\"category\":\"auth\"})",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 4,
+        "contextUsage": { "used": 0, "size": 200000, "pct": 0.0 }
+      },
+      {
+        "id": "run-112",
+        "groupId": "grp-idle-qa",
+        "threadRootId": null,
+        "botId": "bot-x6",
+        "originUser": "赵工",
+        "status": "offline_wait",
+        "step": "等待宿主机上线（上次心跳 2 小时前）",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 0,
+        "contextUsage": { "used": 18000, "size": 258400, "pct": 7.0 }
+      },
+      {
+        "id": "run-113",
+        "groupId": "grp-core-api",
+        "threadRootId": "th-101",
+        "botId": "bot-c2",
+        "originUser": "林工",
+        "status": "completed",
+        "step": "completed",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 112,
+        "contextUsage": { "used": 95000, "size": 1000000, "pct": 9.5 },
+        "handoffs": [
+          { "botId": "bot-c1", "task": "根因已定位到缓存过滤条件，请修改并补齐回归单测", "report": true }
+        ]
+      },
+      {
+        "id": "run-114",
+        "groupId": "grp-frontend-ui",
+        "threadRootId": null,
+        "botId": "bot-p1",
+        "originUser": "郑工",
+        "status": "forbidden",
+        "step": "该 Bot 仅允许主人触发，未启动运行",
+        "hop": 1,
+        "filesChanged": 0,
+        "durationSec": 0,
+        "contextUsage": { "used": 0, "size": 200000, "pct": 0.0 }
+      }
+    ]
+  }
+}

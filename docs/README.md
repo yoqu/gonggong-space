@@ -12,6 +12,7 @@
 - `docs/发版手册.md` — 部署与发版步骤（内部细节在 GitLab tools/gonggong-ops）
 - `docs/原型UI-AI 对话 agent系统界面设计方案/*.dc.html` — 界面原型（界面以原型为准）
 - `docs/design/pane/` — Pane 设计系统（`tokens.json` 与 `tokens.css` 由测试锁定）
+- `docs/design/factory-workbench/` — 3D 指挥工坊原型工作台与 25 款 Blender 精修手办 `.glb` 资产（含 `blender_refine.py` 建模与 BVH 校验管线）
 - `docs/brand/` — logo 使用规范（`logo/README.md`）、吉祥物与 Bot 角色形象
 - `docs/release-notes/`、`docs/promo/`、`docs/community/` — 版本说明、推广物料、社群（已排除在搜索外）
 

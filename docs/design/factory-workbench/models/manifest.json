@@ -1,0 +1,2301 @@
+{
+  "generator": "Blender 5.2.1 LTS",
+  "round": "b4b",
+  "count": 25,
+  "coordinateSystem": "glTF 2.0 Y-up, grounded flush at Y=0, front facing +Z",
+  "nodeContract": [
+    "Body",
+    "Arm_L",
+    "Arm_R",
+    "Leg_L",
+    "Leg_R",
+    "Accessory"
+  ],
+  "materialPrefixes": [
+    "Mat_Vinyl",
+    "Mat_Ceramic",
+    "Mat_Crystal",
+    "Mat_Brass",
+    "Mat_Aluminum",
+    "Mat_Titanium",
+    "Mat_Obsidian",
+    "Mat_Emissive"
+  ],
+  "figurines": {
+    "claude": {
+      "key": "claude",
+      "file": "claude.glb",
+      "bytes": 100616,
+      "triangles": 5548,
+      "vertices": 2852,
+      "height": 1.095,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1568,
+          "vertices": 812,
+          "pivot": [
+            0.0,
+            0.67,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 752,
+          "vertices": 382,
+          "pivot": [
+            -0.545,
+            0.65,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 752,
+          "vertices": 382,
+          "pivot": [
+            0.545,
+            0.65,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 808,
+          "vertices": 416,
+          "pivot": [
+            -0.225,
+            0.35,
+            -0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 808,
+          "vertices": 416,
+          "pivot": [
+            0.225,
+            0.35,
+            -0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 860,
+          "vertices": 444,
+          "pivot": [
+            0.0,
+            0.74,
+            -0.318
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Brass_brass",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_led",
+        "Mat_Obsidian_eye",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_ti",
+        "Mat_Vinyl_claude_shell"
+      ],
+      "connectivity": {
+        "totalParts": 39,
+        "connectedParts": 39,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "codex": {
+      "key": "codex",
+      "file": "codex.glb",
+      "bytes": 135736,
+      "triangles": 7272,
+      "vertices": 3686,
+      "height": 0.9509,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 4400,
+          "vertices": 2224,
+          "pivot": [
+            0.0,
+            0.6,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 836,
+          "vertices": 424,
+          "pivot": [
+            -0.365,
+            0.55,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 836,
+          "vertices": 424,
+          "pivot": [
+            0.365,
+            0.55,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.165,
+            0.34,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.165,
+            0.34,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 560,
+          "vertices": 282,
+          "pivot": [
+            0.0,
+            0.61,
+            -0.188
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Ceramic_codex_face",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_codex_cursor",
+        "Mat_Obsidian_eye",
+        "Mat_Titanium_sole",
+        "Mat_Titanium_ti",
+        "Mat_Vinyl_blush",
+        "Mat_Vinyl_codex_boots",
+        "Mat_Vinyl_codex_cloud"
+      ],
+      "connectivity": {
+        "totalParts": 26,
+        "connectedParts": 26,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "gemini": {
+      "key": "gemini",
+      "file": "gemini.glb",
+      "bytes": 85636,
+      "triangles": 4468,
+      "vertices": 2292,
+      "height": 1.0583,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1572,
+          "vertices": 814,
+          "pivot": [
+            0.0,
+            0.64,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            -0.255,
+            0.56,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            0.255,
+            0.56,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.14,
+            0.36,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.14,
+            0.36,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 208,
+          "vertices": 106,
+          "pivot": [
+            0.36,
+            0.96,
+            0.06
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Ceramic_gemini_blush",
+        "Mat_Ceramic_gemini_face",
+        "Mat_Ceramic_gemini_limbs",
+        "Mat_Ceramic_gemini_rim",
+        "Mat_Crystal_gemini_star",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_gemini_core",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole"
+      ],
+      "connectivity": {
+        "totalParts": 29,
+        "connectedParts": 28,
+        "allowedFloatingCount": 1,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "codebuddy": {
+      "key": "codebuddy",
+      "file": "codebuddy.glb",
+      "bytes": 84912,
+      "triangles": 4528,
+      "vertices": 2310,
+      "height": 1.0703,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1732,
+          "vertices": 882,
+          "pivot": [
+            0.0,
+            0.6,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            -0.34,
+            0.54,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            0.34,
+            0.54,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.15,
+            0.29,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.15,
+            0.29,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 108,
+          "vertices": 56,
+          "pivot": [
+            0.0,
+            0.54,
+            -0.205
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Emissive_cb_eye",
+        "Mat_Obsidian_cb_visor",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_sole",
+        "Mat_Titanium_ti",
+        "Mat_Vinyl_cb_cloak",
+        "Mat_Vinyl_cb_hood"
+      ],
+      "connectivity": {
+        "totalParts": 24,
+        "connectedParts": 24,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "pi": {
+      "key": "pi",
+      "file": "pi.glb",
+      "bytes": 71560,
+      "triangles": 3772,
+      "vertices": 1936,
+      "height": 0.993,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1164,
+          "vertices": 604,
+          "pivot": [
+            -0.04,
+            0.64,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 940,
+          "vertices": 478,
+          "pivot": [
+            -0.425,
+            0.74,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 940,
+          "vertices": 478,
+          "pivot": [
+            0.345,
+            0.74,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 216,
+          "vertices": 112,
+          "pivot": [
+            -0.26,
+            0.4,
+            -0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 216,
+          "vertices": 112,
+          "pivot": [
+            0.02,
+            0.38,
+            -0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 296,
+          "vertices": 152,
+          "pivot": [
+            0.28,
+            0.2,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Brass_brass",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_led",
+        "Mat_Obsidian_eye",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_ti",
+        "Mat_Vinyl_pi_sec",
+        "Mat_Vinyl_pi_shell"
+      ],
+      "connectivity": {
+        "totalParts": 25,
+        "connectedParts": 23,
+        "allowedFloatingCount": 2,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "deepseek": {
+      "key": "deepseek",
+      "file": "deepseek.glb",
+      "bytes": 116472,
+      "triangles": 5948,
+      "vertices": 3056,
+      "height": 1.1114,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 3804,
+          "vertices": 1960,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 272,
+          "vertices": 140,
+          "pivot": [
+            -0.265,
+            0.52,
+            0.06
+          ]
+        },
+        "Arm_R": {
+          "triangles": 272,
+          "vertices": 140,
+          "pivot": [
+            0.265,
+            0.52,
+            0.06
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.135,
+            0.28,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.135,
+            0.28,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 960,
+          "vertices": 484,
+          "pivot": [
+            0.0,
+            0.98,
+            0.06
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Ceramic_ds_belly",
+        "Mat_Ceramic_ds_blush",
+        "Mat_Ceramic_ds_tail",
+        "Mat_Ceramic_ds_whale",
+        "Mat_Crystal_ds_bubble",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole"
+      ],
+      "connectivity": {
+        "totalParts": 27,
+        "connectedParts": 25,
+        "allowedFloatingCount": 2,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "antigravity": {
+      "key": "antigravity",
+      "file": "antigravity.glb",
+      "bytes": 123416,
+      "triangles": 6480,
+      "vertices": 3308,
+      "height": 1.083,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 4216,
+          "vertices": 2160,
+          "pivot": [
+            0.0,
+            0.62,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 352,
+          "vertices": 182,
+          "pivot": [
+            -0.365,
+            0.6,
+            0.03
+          ]
+        },
+        "Arm_R": {
+          "triangles": 352,
+          "vertices": 182,
+          "pivot": [
+            0.365,
+            0.6,
+            0.03
+          ]
+        },
+        "Leg_L": {
+          "triangles": 616,
+          "vertices": 312,
+          "pivot": [
+            0.0,
+            0.04,
+            -0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 944,
+          "vertices": 472,
+          "pivot": [
+            0.0,
+            0.14,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Ceramic_ag_apex",
+        "Mat_Ceramic_ag_arch",
+        "Mat_Ceramic_ag_face",
+        "Mat_Crystal_ag_ring",
+        "Mat_Emissive_ag_glow",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_ti"
+      ],
+      "connectivity": {
+        "totalParts": 21,
+        "connectedParts": 17,
+        "allowedFloatingCount": 4,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "opencode": {
+      "key": "opencode",
+      "file": "opencode.glb",
+      "bytes": 83816,
+      "triangles": 4436,
+      "vertices": 2276,
+      "height": 0.945,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1728,
+          "vertices": 892,
+          "pivot": [
+            0.0,
+            0.6,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 940,
+          "vertices": 478,
+          "pivot": [
+            -0.395,
+            0.58,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 940,
+          "vertices": 478,
+          "pivot": [
+            0.395,
+            0.58,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.17,
+            0.29,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.17,
+            0.29,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 188,
+          "vertices": 96,
+          "pivot": [
+            -0.285,
+            0.88,
+            0.218
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_oc_halo",
+        "Mat_Emissive_oc_orange",
+        "Mat_Obsidian_eye",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_sole",
+        "Mat_Titanium_ti",
+        "Mat_Vinyl_oc_back",
+        "Mat_Vinyl_oc_frame"
+      ],
+      "connectivity": {
+        "totalParts": 29,
+        "connectedParts": 29,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "qwen": {
+      "key": "qwen",
+      "file": "qwen.glb",
+      "bytes": 88908,
+      "triangles": 4576,
+      "vertices": 2350,
+      "height": 1.0302,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1952,
+          "vertices": 1008,
+          "pivot": [
+            0.0,
+            0.62,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 940,
+          "vertices": 478,
+          "pivot": [
+            -0.38,
+            0.56,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 940,
+          "vertices": 478,
+          "pivot": [
+            0.38,
+            0.56,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.16,
+            0.29,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.16,
+            0.29,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 104,
+          "vertices": 54,
+          "pivot": [
+            0.0,
+            0.96,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Ceramic_qwen_face",
+        "Mat_Ceramic_qwen_main",
+        "Mat_Ceramic_qwen_mid",
+        "Mat_Ceramic_qwen_sec",
+        "Mat_Crystal_qwen_jewel",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_sole"
+      ],
+      "connectivity": {
+        "totalParts": 31,
+        "connectedParts": 31,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "kimi": {
+      "key": "kimi",
+      "file": "kimi.glb",
+      "bytes": 90324,
+      "triangles": 4900,
+      "vertices": 2496,
+      "height": 1.0485,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1348,
+          "vertices": 690,
+          "pivot": [
+            0.0,
+            0.6,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            -0.355,
+            0.56,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            0.355,
+            0.56,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.16,
+            0.29,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.16,
+            0.29,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 864,
+          "vertices": 434,
+          "pivot": [
+            0.36,
+            0.95,
+            0.06
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_kimi_k",
+        "Mat_Ceramic_kimi_main",
+        "Mat_Ceramic_kimi_moon",
+        "Mat_Ceramic_kimi_sec",
+        "Mat_Emissive_kimi_eye",
+        "Mat_Emissive_kimi_ring",
+        "Mat_Obsidian_kimi_visor",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_sole"
+      ],
+      "connectivity": {
+        "totalParts": 24,
+        "connectedParts": 22,
+        "allowedFloatingCount": 2,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "goose": {
+      "key": "goose",
+      "file": "goose.glb",
+      "bytes": 111660,
+      "triangles": 5636,
+      "vertices": 2946,
+      "height": 1.0402,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 2800,
+          "vertices": 1454,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 1004,
+          "vertices": 532,
+          "pivot": [
+            -0.245,
+            0.5,
+            -0.04
+          ]
+        },
+        "Arm_R": {
+          "triangles": 1004,
+          "vertices": 532,
+          "pivot": [
+            0.245,
+            0.5,
+            -0.04
+          ]
+        },
+        "Leg_L": {
+          "triangles": 296,
+          "vertices": 152,
+          "pivot": [
+            -0.14,
+            0.28,
+            -0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 296,
+          "vertices": 152,
+          "pivot": [
+            0.14,
+            0.28,
+            -0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 236,
+          "vertices": 124,
+          "pivot": [
+            0.0,
+            0.66,
+            0.184
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_brass",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Vinyl_goose_charcoal",
+        "Mat_Vinyl_goose_orange",
+        "Mat_Vinyl_goose_white"
+      ],
+      "connectivity": {
+        "totalParts": 20,
+        "connectedParts": 20,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "copilot": {
+      "key": "copilot",
+      "file": "copilot.glb",
+      "bytes": 117828,
+      "triangles": 6364,
+      "vertices": 3244,
+      "height": 1.028,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 2800,
+          "vertices": 1424,
+          "pivot": [
+            0.0,
+            0.62,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            -0.325,
+            0.44,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 1024,
+          "vertices": 520,
+          "pivot": [
+            0.325,
+            0.44,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            -0.165,
+            0.3,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 320,
+          "vertices": 166,
+          "pivot": [
+            0.165,
+            0.3,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 876,
+          "vertices": 448,
+          "pivot": [
+            0.0,
+            0.82,
+            0.278
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Ceramic_cop_lens",
+        "Mat_Emissive_cop_cyan",
+        "Mat_Obsidian_cop_visor",
+        "Mat_Titanium_pin",
+        "Mat_Titanium_sole",
+        "Mat_Titanium_ti",
+        "Mat_Vinyl_cop_boots",
+        "Mat_Vinyl_cop_helmet"
+      ],
+      "connectivity": {
+        "totalParts": 31,
+        "connectedParts": 31,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "agent"
+    },
+    "role-gong": {
+      "key": "role-gong",
+      "file": "role-gong.glb",
+      "bytes": 85936,
+      "triangles": 4728,
+      "vertices": 2434,
+      "height": 1.0592,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 2296,
+          "vertices": 1184,
+          "pivot": [
+            0.0,
+            0.52,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.28,
+            0.42,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.28,
+            0.42,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 492,
+          "vertices": 252,
+          "pivot": [
+            -0.145,
+            0.29,
+            -0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 492,
+          "vertices": 252,
+          "pivot": [
+            0.145,
+            0.29,
+            -0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 104,
+          "vertices": 54,
+          "pivot": [
+            0.0,
+            0.97,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_brass",
+        "Mat_Ceramic_blush",
+        "Mat_Ceramic_porcelain",
+        "Mat_Crystal_gong_jade_gem",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Vinyl_gong_cobalt",
+        "Mat_Vinyl_gong_jade",
+        "Mat_Vinyl_gong_pillar"
+      ],
+      "connectivity": {
+        "totalParts": 35,
+        "connectedParts": 34,
+        "allowedFloatingCount": 1,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-hammock": {
+      "key": "role-hammock",
+      "file": "role-hammock.glb",
+      "bytes": 141612,
+      "triangles": 7508,
+      "vertices": 3860,
+      "height": 0.9638,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 4696,
+          "vertices": 2414,
+          "pivot": [
+            0.0,
+            0.54,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.2,
+            0.47,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.2,
+            0.47,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 452,
+          "vertices": 230,
+          "pivot": [
+            0.25,
+            0.89,
+            0.02
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_brass",
+        "Mat_Ceramic_ham_head",
+        "Mat_Ceramic_white",
+        "Mat_Crystal_ham_halo",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_ham_indigo",
+        "Mat_Vinyl_ham_linen",
+        "Mat_Vinyl_ham_wood"
+      ],
+      "connectivity": {
+        "totalParts": 42,
+        "connectedParts": 39,
+        "allowedFloatingCount": 3,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-braces": {
+      "key": "role-braces",
+      "file": "role-braces.glb",
+      "bytes": 94036,
+      "triangles": 4912,
+      "vertices": 2540,
+      "height": 0.801,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1192,
+          "vertices": 620,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.255,
+            0.5,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.255,
+            0.5,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.155,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.155,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 1360,
+          "vertices": 704,
+          "pivot": [
+            0.0,
+            0.56,
+            0.01
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_br_steel",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Titanium_br_dark",
+        "Mat_Vinyl_br_core"
+      ],
+      "connectivity": {
+        "totalParts": 42,
+        "connectedParts": 42,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-focus": {
+      "key": "role-focus",
+      "file": "role-focus.glb",
+      "bytes": 129088,
+      "triangles": 6732,
+      "vertices": 3468,
+      "height": 0.873,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1496,
+          "vertices": 776,
+          "pivot": [
+            0.0,
+            0.54,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.215,
+            0.44,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.215,
+            0.44,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 2876,
+          "vertices": 1476,
+          "pivot": [
+            0.0,
+            0.72,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_brass",
+        "Mat_Ceramic_foc_head",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_fg_coral",
+        "Mat_Emissive_fg_gold",
+        "Mat_Emissive_fg_orange",
+        "Mat_Emissive_foc_ring",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_foc_pri",
+        "Mat_Vinyl_foc_sec"
+      ],
+      "connectivity": {
+        "totalParts": 39,
+        "connectedParts": 39,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-steps": {
+      "key": "role-steps",
+      "file": "role-steps.glb",
+      "bytes": 83456,
+      "triangles": 4368,
+      "vertices": 2254,
+      "height": 0.8719,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1444,
+          "vertices": 744,
+          "pivot": [
+            0.0,
+            0.54,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.2,
+            0.54,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.2,
+            0.54,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.155,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.155,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 564,
+          "vertices": 294,
+          "pivot": [
+            0.0,
+            0.34,
+            0.06
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Ceramic_st_head",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_ci_green",
+        "Mat_Emissive_ci_red",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_st_pri",
+        "Mat_Vinyl_st_sec"
+      ],
+      "connectivity": {
+        "totalParts": 35,
+        "connectedParts": 35,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-blank": {
+      "key": "role-blank",
+      "file": "role-blank.glb",
+      "bytes": 85496,
+      "triangles": 4416,
+      "vertices": 2280,
+      "height": 0.903,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1192,
+          "vertices": 616,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.195,
+            0.5,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.195,
+            0.5,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.135,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.135,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 864,
+          "vertices": 448,
+          "pivot": [
+            0.0,
+            0.58,
+            0.04
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_bl_rosegold",
+        "Mat_Ceramic_bl_dot",
+        "Mat_Ceramic_bl_por",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Vinyl_bl_pri",
+        "Mat_Vinyl_bl_sec"
+      ],
+      "connectivity": {
+        "totalParts": 36,
+        "connectedParts": 32,
+        "allowedFloatingCount": 4,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-no": {
+      "key": "role-no",
+      "file": "role-no.glb",
+      "bytes": 97108,
+      "triangles": 5052,
+      "vertices": 2600,
+      "height": 0.9028,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 2152,
+          "vertices": 1104,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.2,
+            0.48,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.2,
+            0.48,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 540,
+          "vertices": 280,
+          "pivot": [
+            0.0,
+            0.43,
+            0.158
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_brass",
+        "Mat_Ceramic_no_sheet",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_no_green",
+        "Mat_Emissive_no_red",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_no_amber",
+        "Mat_Vinyl_no_gray",
+        "Mat_Vinyl_no_orange"
+      ],
+      "connectivity": {
+        "totalParts": 37,
+        "connectedParts": 37,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-abacus": {
+      "key": "role-abacus",
+      "file": "role-abacus.glb",
+      "bytes": 125072,
+      "triangles": 6528,
+      "vertices": 3354,
+      "height": 1.008,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 2788,
+          "vertices": 1420,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.19,
+            0.46,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.19,
+            0.46,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 1380,
+          "vertices": 718,
+          "pivot": [
+            0.0,
+            0.895,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_ab_brass",
+        "Mat_Ceramic_ab_head",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_ab_coral",
+        "Mat_Vinyl_ab_jade",
+        "Mat_Vinyl_ab_pri",
+        "Mat_Vinyl_ab_sec",
+        "Mat_Vinyl_ab_walnut"
+      ],
+      "connectivity": {
+        "totalParts": 47,
+        "connectedParts": 47,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-invert": {
+      "key": "role-invert",
+      "file": "role-invert.glb",
+      "bytes": 89228,
+      "triangles": 4640,
+      "vertices": 2408,
+      "height": 0.8162,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1448,
+          "vertices": 748,
+          "pivot": [
+            -0.02,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.2,
+            0.46,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.2,
+            0.46,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 832,
+          "vertices": 444,
+          "pivot": [
+            0.33,
+            0.53,
+            0.06
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Brass_brass",
+        "Mat_Ceramic_inv_head",
+        "Mat_Crystal_inv_glass",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_inv_sand",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_inv_pri",
+        "Mat_Vinyl_inv_sec"
+      ],
+      "connectivity": {
+        "totalParts": 35,
+        "connectedParts": 35,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-sentry": {
+      "key": "role-sentry",
+      "file": "role-sentry.glb",
+      "bytes": 75164,
+      "triangles": 3904,
+      "vertices": 2006,
+      "height": 1.012,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1300,
+          "vertices": 664,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.2,
+            0.45,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.2,
+            0.45,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.155,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.155,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 244,
+          "vertices": 126,
+          "pivot": [
+            0.0,
+            0.92,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_alu",
+        "Mat_Ceramic_sen_helmet",
+        "Mat_Emissive_sen_beacon",
+        "Mat_Emissive_sen_mint",
+        "Mat_Obsidian_sen_visor",
+        "Mat_Titanium_sen_dark",
+        "Mat_Vinyl_sen_pri"
+      ],
+      "connectivity": {
+        "totalParts": 27,
+        "connectedParts": 27,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-spring": {
+      "key": "role-spring",
+      "file": "role-spring.glb",
+      "bytes": 108244,
+      "triangles": 5748,
+      "vertices": 2960,
+      "height": 0.93,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 3088,
+          "vertices": 1590,
+          "pivot": [
+            0.0,
+            0.68,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.195,
+            0.67,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.195,
+            0.67,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 300,
+          "vertices": 154,
+          "pivot": [
+            0.115,
+            0.855,
+            0.19
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_sp_coil",
+        "Mat_Ceramic_sp_head",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_sp_bandaid",
+        "Mat_Vinyl_sp_pad",
+        "Mat_Vinyl_sp_pri",
+        "Mat_Vinyl_sp_sec"
+      ],
+      "connectivity": {
+        "totalParts": 33,
+        "connectedParts": 33,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-compass": {
+      "key": "role-compass",
+      "file": "role-compass.glb",
+      "bytes": 106760,
+      "triangles": 5528,
+      "vertices": 2844,
+      "height": 1.0678,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1660,
+          "vertices": 856,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.205,
+            0.46,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.205,
+            0.46,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.15,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 1508,
+          "vertices": 772,
+          "pivot": [
+            0.0,
+            0.905,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Aluminum_cp_south",
+        "Mat_Brass_cp_brass",
+        "Mat_Ceramic_cp_cream",
+        "Mat_Ceramic_cp_north",
+        "Mat_Emissive_catchlight",
+        "Mat_Obsidian_cp_dial",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_cp_pri",
+        "Mat_Vinyl_cp_sec"
+      ],
+      "connectivity": {
+        "totalParts": 41,
+        "connectedParts": 41,
+        "allowedFloatingCount": 0,
+        "defectCount": 0
+      },
+      "category": "role"
+    },
+    "role-loop": {
+      "key": "role-loop",
+      "file": "role-loop.glb",
+      "bytes": 82432,
+      "triangles": 4224,
+      "vertices": 2178,
+      "height": 0.91,
+      "minY": 0.0,
+      "nodes": [
+        "Body",
+        "Arm_L",
+        "Arm_R",
+        "Leg_L",
+        "Leg_R",
+        "Accessory"
+      ],
+      "nodeDetails": {
+        "Body": {
+          "triangles": 1144,
+          "vertices": 594,
+          "pivot": [
+            0.0,
+            0.56,
+            -0.0
+          ]
+        },
+        "Arm_L": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            -0.19,
+            0.46,
+            0.0
+          ]
+        },
+        "Arm_R": {
+          "triangles": 672,
+          "vertices": 346,
+          "pivot": [
+            0.19,
+            0.46,
+            0.0
+          ]
+        },
+        "Leg_L": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            -0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Leg_R": {
+          "triangles": 508,
+          "vertices": 262,
+          "pivot": [
+            0.145,
+            0.25,
+            0.0
+          ]
+        },
+        "Accessory": {
+          "triangles": 720,
+          "vertices": 368,
+          "pivot": [
+            0.0,
+            0.6,
+            -0.0
+          ]
+        }
+      },
+      "materials": [
+        "Mat_Ceramic_lp_blush",
+        "Mat_Ceramic_lp_ivory",
+        "Mat_Crystal_lp_halo",
+        "Mat_Emissive_catchlight",
+        "Mat_Emissive_lp_heart",
+        "Mat_Obsidian_eye",
+        "Mat_Obsidian_mouth",
+        "Mat_Titanium_sole",
+        "Mat_Vinyl_lp_pri",
+        "Mat_Vinyl_lp_sec"
+      ],
+      "connectivity": {
+        "totalParts": 34,
+        "connectedParts": 29,
+        "allowedFloatingCount": 5,
+        "defectCount": 0
+      },
+      "category": "role"
+    }
+  }
+}

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>共工 · 3D 算力工厂总控工作台</title>
+  <link rel="stylesheet" href="./styles.css?v=b4b" />
+</head>
+<body>
+  <div class="shell" id="app-shell">
+    <!-- Left NavRail -->
+    <nav class="rail" aria-label="主导航">
+      <div class="brand-mark" title="共工 Gonggong">共</div>
+      <button type="button" class="rail-btn" id="btn-collapse-sb" title="展开/收起侧栏">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></svg>
+      </button>
+      <button type="button" class="rail-btn" data-view-btn="floor" aria-selected="true" title="3D 无限园区总控">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L3 7l9 5 9-5-9-5z"/><path d="M3 17l9 5 9-5"/><path d="M3 12l9 5 9-5"/></svg>
+        <span class="rail-badge" id="rail-alert-badge">2</span>
+      </button>
+      <button type="button" class="rail-btn" data-view-btn="studio" aria-selected="false" title="25 款手办陈列馆与材质精修台">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M9 9v3M15 9v3M7 16v4M11 16v4M13 16v4M17 16v4"/></svg>
+      </button>
+      <button type="button" class="rail-btn" data-view-btn="blueprints" aria-selected="false" title="平面蓝图与 Tripo 管线">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      </button>
+      <div class="rail-spacer"></div>
+    </nav>
+
+    <!-- Left Sidebar: Team -> Owner Filter -> Active Groups & Threads + Living Lounge Summary -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <div class="sb-top-row">
+          <div class="select-wrap">
+            <select class="team-select" id="team-select" aria-label="切换团队">
+              <option value="all">全部团队</option>
+            </select>
+            <svg class="select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5L6 7.5L9 4.5"/></svg>
+          </div>
+        </div>
+        <div class="owner-filter-row" id="owner-filters">
+          <button type="button" class="filter-chip" data-owner="all" aria-pressed="true">全团队</button>
+        </div>
+      </div>
+
+      <div class="sb-scroll" id="sb-tree"></div>
+
+      <!-- Living Lounge + Hidden Idle Pool Card -->
+      <div class="sb-lounge-card" id="sb-lounge-card">
+        <div class="sb-lounge-head">
+          <span class="sb-lounge-title">
+            <span class="dot dot--lounge"></span>
+            休闲茶歇区
+          </span>
+          <span class="pill pill--lounge" id="sb-lounge-pill">休闲中 12 · 候场隐藏 +0</span>
+        </div>
+        <div class="sb-lounge-sub" id="sb-lounge-sub">满员 12 席动态轮换 · 出工自动从候场池补位</div>
+        <div class="sb-lounge-actions">
+          <button type="button" class="mini-btn" id="btn-focus-lounge">定位休闲区</button>
+          <button type="button" class="mini-btn mini-btn--accent" id="btn-sb-dispatch">调度出工 →</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main 3D Stage -->
+    <main class="main" id="main-stage">
+      <canvas id="gl-canvas" class="gl-canvas"></canvas>
+      <div id="labels-layer" class="labels-layer"></div>
+      <div id="hover-tooltip" class="hover-tooltip" hidden></div>
+
+      <!-- Top Pane Liquid-Glass HUD -->
+      <header class="hud-top">
+        <div class="hud-left-cluster">
+          <div class="glass-bar" role="tablist">
+            <button type="button" class="seg-btn" data-view-btn="floor" aria-pressed="true">总控园区</button>
+            <button type="button" class="seg-btn" data-view-btn="studio" aria-pressed="false">手办陈列馆 (25)</button>
+            <button type="button" class="seg-btn" data-view-btn="blueprints" aria-pressed="false">设定图与 Tripo</button>
+          </div>
+
+          <div class="glass-bar" id="studio-submode-bar" hidden aria-label="手办陈列馆视图模式">
+            <button type="button" class="seg-btn" data-studio-mode="hero" aria-pressed="true">单款 360° 精修台</button>
+            <button type="button" class="seg-btn" data-studio-mode="shelf" aria-pressed="false">全员 25 款陈列展架</button>
+          </div>
+
+          <div class="glass-bar telemetry" id="hud-telemetry">
+            <div class="metric"><span class="metric-lbl">总 Bot</span><span class="metric-val" id="m-total">0</span></div>
+            <div class="sep-v"></div>
+            <div class="metric"><span class="metric-lbl">施工</span><span class="metric-val metric-val--accent" id="m-active">0</span></div>
+            <div class="sep-v"></div>
+            <div class="metric"><span class="metric-lbl">休闲/候场</span><span class="metric-val" id="m-idle">12 / +0</span></div>
+            <div class="sep-v"></div>
+            <div class="metric"><span class="metric-lbl">群工坊</span><span class="metric-val" id="m-groups">0</span></div>
+            <button type="button" class="alert-jump" id="alert-jump" hidden>
+              <span class="dot dot--approval"></span>
+              <span id="alert-jump-text">待处理 0 项 · 定位</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="hud-right-cluster">
+          <div class="glass-bar" aria-label="交互模式" id="nav-mode-bar">
+            <button type="button" class="seg-btn" data-nav-mode="pan" aria-pressed="true" title="左键拖拽平移画面，右键/Alt旋转视角">平移</button>
+            <button type="button" class="seg-btn" data-nav-mode="orbit" aria-pressed="false" title="左键拖拽旋转视角，右键/Shift平移画面">旋转</button>
+          </div>
+
+          <div class="glass-bar" aria-label="视角预设">
+            <button type="button" class="seg-btn" data-cam="macro">全局</button>
+            <button type="button" class="seg-btn" data-cam="meso">街区</button>
+            <button type="button" class="seg-btn" data-cam="lounge">休闲区</button>
+            <div class="sep-v"></div>
+            <button type="button" class="seg-btn" data-light="morning" aria-pressed="false" title="晨光 Golden Hour">晨光</button>
+            <button type="button" class="seg-btn" data-light="day" aria-pressed="true" title="洁净白昼 Studio Day">白昼</button>
+            <button type="button" class="seg-btn" data-light="night" aria-pressed="false" title="夜间氛围 Dusk Glow">夜间</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dragging Feedback Toast -->
+      <div class="drag-toast" id="drag-toast" hidden>
+        <span class="dot dot--accent"></span>
+        <span id="drag-toast-text">拖拽群聊工坊中 · 自动吸附 0.5m 网格</span>
+      </div>
+
+      <!-- Right Inspector Drawer -->
+      <section class="inspector" id="inspector" hidden>
+        <div class="insp-head">
+          <div class="insp-head-text">
+            <div class="insp-title-row">
+              <span class="insp-title" id="insp-title">Clawd</span>
+              <span class="pill" id="insp-status-pill">施工中</span>
+            </div>
+            <div class="insp-meta" id="insp-meta">归属 · CLI</div>
+          </div>
+          <button type="button" class="icon-close" id="insp-close" title="关闭">✕</button>
+        </div>
+        <div class="insp-body" id="insp-body"></div>
+        <form class="insp-foot" id="insp-form">
+          <input type="text" class="prompt-input" id="insp-input" placeholder="在该话题中追加指令或 Todo…" />
+          <button type="submit" class="act-btn act-btn--primary">发送</button>
+        </form>
+      </section>
+
+      <!-- Interactive Global Minimap Radar -->
+      <aside class="minimap-card" id="minimap-card" aria-label="全局无限园区雷达小地图">
+        <div class="minimap-head">
+          <span class="minimap-title">园区雷达</span>
+          <span class="minimap-stats" id="minimap-stats">无限平面</span>
+        </div>
+        <canvas id="minimap-canvas" class="minimap-canvas" width="204" height="148"></canvas>
+        <div class="minimap-legend">
+          <span><i class="lg-dot lg-dot--lounge"></i>休闲</span>
+          <span><i class="lg-dot lg-dot--run"></i>施工</span>
+          <span><i class="lg-dot lg-dot--warn"></i>待审/问</span>
+          <span><i class="lg-dot lg-dot--err"></i>异常</span>
+        </div>
+      </aside>
+
+      <!-- Studio Mode Left Catalog Selector (12 Official Agents + 13 Role Personas) -->
+      <aside class="studio-catalog" id="studio-catalog" hidden aria-label="25 款手办图鉴">
+        <div class="studio-cat-head">
+          <div class="insp-title">25 款共工潮玩手办</div>
+          <div class="insp-meta" id="studio-cat-meta">12 款官方 Agent · 13 款角色人格</div>
+        </div>
+        <div class="studio-cat-scroll" id="studio-cat-list"></div>
+      </aside>
+
+      <!-- Studio Mode Right Panel -->
+      <section class="studio-panel" id="studio-panel" hidden>
+        <div class="studio-hero-head">
+          <div class="insp-title-row">
+            <span class="insp-title" id="studio-fig-title">Claude Code (Clawd)</span>
+            <span class="pill pill--running" id="studio-fig-badge">Agent</span>
+          </div>
+          <div class="insp-meta" id="studio-fig-meta">Anthropic · 哑光潮玩 Vinyl · 四足分离微倒角</div>
+          <div class="studio-glb-row" id="studio-glb-row">
+            <span class="pill pill--glb" id="studio-glb-badge">加载 Blender GLB…</span>
+            <span class="glb-tri-count" id="studio-glb-tris">等待网格上传</span>
+          </div>
+        </div>
+        <div>
+          <div class="sec-label">
+            <span>PBR 材质套壳切换</span>
+            <span id="studio-finish-hint">原厂精选</span>
+          </div>
+          <div class="finish-grid">
+            <button type="button" class="seg-btn" data-finish="default" aria-pressed="true">默认精选</button>
+            <button type="button" class="seg-btn" data-finish="vinyl" aria-pressed="false">哑光 Vinyl</button>
+            <button type="button" class="seg-btn" data-finish="ceramic" aria-pressed="false">釉面 Ceramic</button>
+            <button type="button" class="seg-btn" data-finish="crystal" aria-pressed="false">晶透 Crystal</button>
+            <button type="button" class="seg-btn" data-finish="metal" aria-pressed="false">阳极钛金 Metal</button>
+          </div>
+        </div>
+        <div>
+          <div class="sec-label">动作状态测试 (Animation Clips)</div>
+          <div class="clip-grid">
+            <button type="button" class="seg-btn" data-clip="idle" aria-pressed="true">Idle 待命呼吸</button>
+            <button type="button" class="seg-btn" data-clip="walk" aria-pressed="false">Walk 小跑巡检</button>
+            <button type="button" class="seg-btn" data-clip="typing" aria-pressed="false">Work 编码施工</button>
+            <button type="button" class="seg-btn" data-clip="approval" aria-pressed="false">Raise 举牌待审</button>
+            <button type="button" class="seg-btn" data-clip="question" aria-pressed="false">Question 提问</button>
+            <button type="button" class="seg-btn" data-clip="done" aria-pressed="false">Done 雀跃庆祝</button>
+            <button type="button" class="seg-btn" data-clip="error" aria-pressed="false">Error 故障告警</button>
+            <button type="button" class="seg-btn" data-clip="sip_coffee" aria-pressed="false">Sip Coffee 茶歇</button>
+          </div>
+        </div>
+        <div>
+          <div class="sec-label">
+            <span>涂装色卡微调</span>
+            <button type="button" class="link-mini" id="btn-reset-tint">还原原厂色</button>
+          </div>
+          <div class="swatch-row">
+            <button type="button" class="swatch swatch--origin" data-swatch="" aria-checked="true" title="原厂配色">原</button>
+            <button type="button" class="swatch" style="background:#d97757" data-swatch="#d97757" aria-checked="false"></button>
+            <button type="button" class="swatch" style="background:#5c8eff" data-swatch="#5c8eff" aria-checked="false"></button>
+            <button type="button" class="swatch" style="background:#2ea99d" data-swatch="#2ea99d" aria-checked="false"></button>
+            <button type="button" class="swatch" style="background:#6d5bd0" data-swatch="#6d5bd0" aria-checked="false"></button>
+            <button type="button" class="swatch" style="background:#d4a259" data-swatch="#d4a259" aria-checked="false"></button>
+            <button type="button" class="swatch" style="background:#343844" data-swatch="#343844" aria-checked="false"></button>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="act-btn" id="btn-explode" style="flex:1;justify-content:center">爆炸拆解视图</button>
+          <button type="button" class="act-btn act-btn--primary" id="btn-export-glb" style="flex:1.25;justify-content:center">导出当前手办 .glb</button>
+        </div>
+      </section>
+
+      <!-- Slim Bottom Pill Bar for All-25 Museum Display Shelf -->
+      <div class="shelf-bottom-bar" id="studio-shelf-bar" hidden>
+        <div class="glass-bar shelf-bar-inner">
+          <span class="shelf-hint">点击任意手办进入 360° 精修台</span>
+          <div class="sep-v"></div>
+          <button type="button" class="seg-btn" data-finish="default" aria-pressed="true">原厂精选</button>
+          <button type="button" class="seg-btn" data-finish="vinyl" aria-pressed="false">哑光 Vinyl</button>
+          <button type="button" class="seg-btn" data-finish="ceramic" aria-pressed="false">釉面 Ceramic</button>
+          <button type="button" class="seg-btn" data-finish="crystal" aria-pressed="false">晶透 Crystal</button>
+          <button type="button" class="seg-btn" data-finish="metal" aria-pressed="false">阳极钛金</button>
+        </div>
+      </div>
+
+      <!-- Bottom Director Bar -->
+      <footer class="hud-bottom" id="hud-bottom">
+        <div class="glass-bar director-bar">
+          <button type="button" class="act-btn act-btn--primary" id="act-add-group">+ 新增群聊</button>
+          <button type="button" class="act-btn" id="act-dispatch-lounge">▶ 调度休闲 Bot 出工</button>
+          <button type="button" class="act-btn" id="act-complete-return">✓ 完成任务回休闲区</button>
+          <button type="button" class="act-btn" id="act-dup-bot">⧉ 跨群并发复制</button>
+          <button type="button" class="act-btn act-btn--amber" id="act-cycle-edge">⚡ 模拟异常/审批</button>
+        </div>
+        <div class="glass-bar cam-hint" id="lod-indicator">左键平移 · 右键旋转 · 滚轮缩放 · 拖拽工坊可重排</div>
+      </footer>
+
+      <!-- Blueprints Tab -->
+      <section class="blueprints-view" id="blueprints-view" hidden>
+        <div class="bp-container">
+          <div class="bp-grid-hero">
+            <article class="bp-card">
+              <img src="./assets/05_v3_scalable_multitask_campus_1795827827701.jpg" data-zoom-src="./assets/05_v3_scalable_multitask_campus_1795827827701.jpg" alt="大规模多群多话题园区参考图" />
+              <div class="bp-caption">
+                <div>
+                  <strong>01 · 无限扩展群聊工坊 + 活性休闲区（12席动态候场补位）</strong>
+                  <span>已移除待命方阵；同名 Bot 跨群直接以独立实体并行施工，零光纤连线</span>
+                </div>
+                <a class="act-btn" href="./assets/05_v3_scalable_multitask_campus_1795827827701.jpg" download>下载原图</a>
+              </div>
+            </article>
+            <article class="bp-card">
+              <img src="./assets/04_v2_team_campus_masterplan_final_1795826794390.jpg" data-zoom-src="./assets/04_v2_team_campus_masterplan_final_1795826794390.jpg" alt="群聊工坊话题圆桌与休闲区特写" />
+              <div class="bp-caption">
+                <div>
+                  <strong>02 · 工坊内部微距：REPO CORE + 话题圆桌围坐 + 悬浮 Todo 板 + 茶歇区</strong>
+                  <span>支持在无限地面上自由拖拽重排任意群聊工坊，并附带全局雷达小地图</span>
+                </div>
+                <a class="act-btn" href="./assets/04_v2_team_campus_masterplan_final_1795826794390.jpg" download>下载原图</a>
+              </div>
+            </article>
+          </div>
+
+          <div class="bp-grid-tripo">
+            <article class="bp-card">
+              <img src="./assets/03_clawd_figurine_turnaround_sheet_1795769874396.jpg" data-zoom-src="./assets/03_clawd_figurine_turnaround_sheet_1795769874396.jpg" alt="Clawd 三视图" />
+              <div class="bp-caption">
+                <div><strong>03 · Claude Code (Clawd) 微缩手办正/侧/背设定集</strong><span>保留四足短腿与背部星芒铭牌</span></div>
+                <a class="act-btn" href="./assets/03_clawd_figurine_turnaround_sheet_1795769874396.jpg" download>下载设定图</a>
+              </div>
+            </article>
+            <article class="bp-card">
+              <img src="./assets/02b_clawd_tripo_4leg_front.png" data-zoom-src="./assets/02b_clawd_tripo_4leg_front.png" alt="Tripo 正面" />
+              <div class="bp-caption">
+                <div><strong>Tripo 正视图 (Front)</strong><span>1:1 正交无透视</span></div>
+                <a class="act-btn" href="./assets/02b_clawd_tripo_4leg_front.png" download>下载 PNG</a>
+              </div>
+            </article>
+            <article class="bp-card">
+              <img src="./assets/02c_clawd_tripo_4leg_back.png" data-zoom-src="./assets/02c_clawd_tripo_4leg_back.png" alt="Tripo 背面" />
+              <div class="bp-caption">
+                <div><strong>Tripo 背视图 (Back)</strong><span>星芒 + 铭牌 + Type-C</span></div>
+                <a class="act-btn" href="./assets/02c_clawd_tripo_4leg_back.png" download>下载 PNG</a>
+              </div>
+            </article>
+          </div>
+
+          <div class="mcp-card">
+            <div>
+              <strong style="font-size:13.5px;display:block;margin-bottom:6px">Tripo MCP + Blender 5.2.1 本机精修流水线配置</strong>
+              <p style="margin:0 0 10px;color:var(--label-secondary);font-size:12px">
+                填入 <code>TRIPO_API_KEY</code> 后即可将正/背双视图自动生成 PBR 网格并送入本机 Blender 5.2.1 精修：
+              </p>
+              <button type="button" class="act-btn act-btn--primary" id="btn-copy-mcp">复制 mcp.json 配置</button>
+            </div>
+            <pre id="mcp-json">{
+  "mcpServers": {
+    "tripo-mcp": {
+      "command": "/Users/yoqu/.local/bin/uvx",
+      "args": ["tripo-mcp"],
+      "env": { "TRIPO_API_KEY": "tsk_在此填入你的密钥" }
+    },
+    "blender": {
+      "command": "/Users/yoqu/.local/bin/uvx",
+      "args": ["blender-mcp"]
+    }
+  }
+}</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="lightbox" id="lightbox" hidden><img id="lightbox-img" alt="预览大图" /></div>
+  <script type="module" src="./app.js?v=b4b"></script>
+</body>
+</html>
