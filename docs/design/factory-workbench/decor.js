@@ -7,8 +7,8 @@ import {
   mat4RotateZ,
   mat4Scale,
   mat4Translate,
-} from './renderer.js?v=c1'
-import { airAt } from './breeze.js?v=c1'
+} from './renderer.js?v=c2'
+import { airAt } from './breeze.js?v=c2'
 
 /**
  * Modular Photorealistic Office Decor, Multi-Species Botanicals & Architectural Finishes Library
@@ -1206,44 +1206,3 @@ export function drawWorkshopArchitecture(renderer, grp, opts = {}) {
   }
 }
 
-/**
- * North curtain wall (the office faces north): floor-to-ceiling glass between slim mullions, top-hung
- * vents that open for fresh air in office hours and nudge with each gust, and cool skylight spilling
- * onto the floor in front during the day.
- */
-export function drawNorthWindowWall(renderer, minX, maxX, z, opts = {}) {
-  const { time = 0, nightBlend: nb = 0, vent = 1, gust = 0 } = opts
-  const H = 3.1
-  const sill = 0.14
-  const head = 2.36
-  const bay = 1.6
-  const n = Math.max(2, Math.ceil((maxX - minX) / bay))
-  const x0 = (minX + maxX) * 0.5 - (n * bay) * 0.5
-  const frame = mix3([0.33, 0.35, 0.39], [0.16, 0.17, 0.2], nb)
-  const glass = mix3([0.8, 0.88, 0.95], [0.1, 0.13, 0.2], nb)
-  const kerb = mix3(PAL.travertineWarm, [0.24, 0.24, 0.26], nb)
-  const width = n * bay
-  const cxAll = x0 + width * 0.5
-
-  renderer.add('sharpBox', TRS(cxAll, sill * 0.5, z, 0, width + 0.1, sill, 0.26), kerb, MAT.TRAVERTINE)
-  for (const y of [sill, head, H]) {
-    renderer.add('sharpBox', TRS(cxAll, y, z, 0, width + 0.1, 0.06, 0.12), frame, MAT.ALUMINUM)
-  }
-  for (let i = 0; i <= n; i++) {
-    renderer.add('sharpBox', TRS(x0 + i * bay, H * 0.5, z, 0, 0.065, H, 0.14), frame, MAT.ALUMINUM)
-  }
-  for (let i = 0; i < n; i++) {
-    const cx = x0 + (i + 0.5) * bay
-    renderer.add('sharpBox', TRS(cx, (sill + head) * 0.5, z, 0, bay - 0.07, head - sill - 0.06, 0.014), glass, MAT.GLASS, [0, 0, 0], 0.2, 0, false)
-    // Every other bay has a top-hung vent; they don't all open the same amount.
-    const ventH = H - head - 0.07
-    const open = i % 2 === 0 ? vent * (0.26 + 0.1 * Math.sin(i * 2.3)) + gust * 0.035 * Math.sin(time * 3.1 + i) : 0
-    const hinge = mat4Mul(mat4Translate(cx, H - 0.035, z), mat4RotateX(open))
-    renderer.add('sharpBox', localTRS(hinge, 0, -ventH * 0.5, 0, 0, bay - 0.09, ventH, 0.016), glass, MAT.GLASS, [0, 0, 0], 0.24, 0, false)
-    renderer.add('sharpBox', localTRS(hinge, 0, -ventH + 0.02, -0.01, 0, bay - 0.09, 0.035, 0.04), frame, MAT.ALUMINUM, [0, 0, 0], 1, 0, false)
-    // Daylight spilling in from each bay; gone at night.
-    if (nb < 0.95) {
-      renderer.add('plane', TRS(cx, 0.004, z + 1.5, 0, bay * 1.35, 1, 3.2), [1, 1, 1], MAT.GLOW_POOL, [0.5, 0.56, 0.64], 0.32 * (1 - nb), 0, false)
-    }
-  }
-}

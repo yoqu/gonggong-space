@@ -8,7 +8,7 @@ import {
   drawWorkshopEnclosure,
   normalizeBotAction,
   resolveCampusFigurineKey,
-} from './animations.js?v=c1'
+} from './animations.js?v=c2'
 import {
   EDGE_STATUS_META,
   LOUNGE_BOUNDS,
@@ -23,7 +23,7 @@ import {
   loadWorkbenchSnapshot,
   syncGroupLayout,
   tickChoreography,
-} from './data.js?v=c1'
+} from './data.js?v=c2'
 import {
   drawErgonomicDesk,
   drawFicusTree,
@@ -33,13 +33,12 @@ import {
   drawPlanterTrough,
   drawPocketGardenIsland,
   drawWayfindingStele,
-  drawNorthWindowWall,
   drawWorkshopArchitecture,
-} from './decor.js?v=c1'
-import { daylightAt, presetDate } from './daylight.js?v=c1'
-import { airAt, setVentilation } from './breeze.js?v=c1'
-import { renderInspector } from './inspector.js?v=c1'
-import { exportFigurineGLB } from './geometry.js?v=c1'
+} from './decor.js?v=c2'
+import { daylightAt, presetDate } from './daylight.js?v=c2'
+import { setVentilation } from './breeze.js?v=c2'
+import { renderInspector } from './inspector.js?v=c2'
+import { exportFigurineGLB } from './geometry.js?v=c2'
 import {
   ensureGLBLoaded,
   getGLBDownloadInfo,
@@ -47,7 +46,7 @@ import {
   getGLBModel,
   onGLBLoaded,
   preloadAllGLBs,
-} from './glb_loader.js?v=c1'
+} from './glb_loader.js?v=c2'
 import {
   CleanroomRenderer,
   MAT,
@@ -57,7 +56,7 @@ import {
   renderInfiniteFloor,
   screenToGroundRay,
   snapGroupToGrid,
-} from './renderer.js?v=c1'
+} from './renderer.js?v=c2'
 
 // ── Application State ──
 const state = {
@@ -393,14 +392,6 @@ function drawCampusScene(renderer, time) {
   // 2. Dynamic Courtyard Greenery Islands & Walkway Planter Troughs
   drawCampusCourtyardDecor(renderer, time)
 
-  // North glazing: the office faces north, windows run along the far (−Z) edge of the floor.
-  const ext = computeCampusExtents()
-  drawNorthWindowWall(renderer, ext.minX - 2.5, ext.maxX + 2.5, ext.minZ - 0.9, {
-    time,
-    nightBlend: state.nightBlend,
-    vent: state.daylight?.vent ?? 1,
-    gust: airAt(ext.cx, ext.minZ, time).gust,
-  })
 
   // 3. Living Cleanroom Lounge Environment (Woven Rug, Bouclé Sofas, Espresso Bar, Ficus Trees & Sliding Door)
   drawLoungeEnvironment(renderer, {
@@ -1817,7 +1808,6 @@ function syncSemanticZoomLabels(cssW, cssH) {
 
     const totalTodos = gInsts.reduce((acc, s) => acc + s.todos.length, 0)
     const doneTodos = gInsts.reduce((acc, s) => acc + s.todos.filter((t) => t.st === 2).length, 0)
-    const lead = gInsts.find((s) => EDGE_STATUS_META[s.status]?.isAlert) || gInsts[0]
     const dotCls = errN > 0 ? 'error' : warnN > 0 ? 'approval' : 'running'
 
     el.innerHTML = `
@@ -1827,7 +1817,7 @@ function syncSemanticZoomLabels(cssW, cssH) {
         <span>${grp.name}</span>
         <span class="pill pill--${errN > 0 ? 'error' : warnN > 0 ? 'approval' : 'running'}">${gInsts.length}施工${errN ? ` · ${errN}异常` : warnN ? ` · ${warnN}待处理` : ''}</span>
       </div>
-      ${lead ? `<div class="zb-sub">Todo ${doneTodos}/${totalTodos} · ${lead.step}</div>` : ''}
+      <div class="zb-progress"><i style="width:${totalTodos ? Math.round((doneTodos / totalTodos) * 100) : 0}%"></i></div>
     `
 
     el.onpointerdown = (e) => {
@@ -1865,39 +1855,81 @@ function syncSemanticZoomLabels(cssW, cssH) {
     if (lod === 'macro' && !meta.isAlert && !isSel) continue
 
     const p = projectWorldToScreen([inst.pos[0], 1.06, inst.pos[1]], cam.vp, cssW, cssH)
-    const estHW = lod === 'micro' ? 92 : 68
+    const estHW = lod === 'micro' ? 48 : 22
     const pOp = p ? edgeOpacity(p.x, estHW) : 0
     if (!p || pOp <= 0.05 || p.y < 60 || p.y > cssH - 60) continue
     if (hitsMinimap(p.x, p.y, 72)) continue
 
-    const estH = lod === 'micro' ? 36 : 22
+    const estH = 30
     const ny = isSel ? p.y : placeWithoutOverlap(p.x, p.y, estHW, estH, meta.isAlert ? 2 : 1)
     if (ny === null) continue
 
     const el = getBadge(`st-${inst.id}`, 'station-tag')
     const toneCls = meta.isAlert ? `station-tag--${meta.tone}` : ''
     el.className = `station-tag ${toneCls} ${isSel ? 'station-tag--selected' : ''}`
-    el.style.display = 'flex'
+    el.style.display = 'inline-flex'
     el.style.opacity = pOp.toFixed(2)
     el.style.left = `${p.x}px`
     el.style.top = `${ny}px`
     el.onclick = () => focusInstance(inst)
 
-    const owner = state.ownersMap[inst.ownerId]
     const doneN = inst.todos.filter((t) => t.st === 2).length
-
-    if (lod === 'micro') {
-      const segs = inst.todos
-        .map((t) => `<span class="todo-seg ${t.st === 2 ? 'todo-seg--done' : t.st === 1 ? 'todo-seg--active' : ''}"></span>`)
-        .join('')
-      el.innerHTML = `
-        <div style="font-weight:600">${meta.isAlert ? `[${meta.short}] ` : ''}${owner ? owner.short : ''} · ${inst.botName}</div>
-        <div class="todo-bar-mini">${segs} <span>${doneN}/${inst.todos.length} · ${inst.step.split(' · ')[0]} · ${inst.ctx}%</span></div>
-      `
-    } else {
-      el.innerHTML = `<div style="font-weight:600">${meta.isAlert ? `${meta.short} · ` : ''}${inst.botName} (${doneN}/${inst.todos.length})</div>`
+    const word = meta.isAlert ? meta.short : lod === 'micro' ? shortBotName(inst.botName) : ''
+    const sig = `${activityGlyph(inst)}|${doneN}/${inst.todos.length}|${word}`
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig
+      el.title = `${inst.botName} · ${meta.label} · ${doneN}/${inst.todos.length}`
+      el.innerHTML = `${glyphRing(activityGlyph(inst), doneN, inst.todos.length)}${word ? `<span class="chip-word">${word}</span>` : ''}`
     }
   }
+}
+
+// One animated glyph says what a bot is doing; the ring around it is its plan progress.
+function activityGlyph(inst) {
+  const byStatus = {
+    approval: 'shield',
+    question: 'ask',
+    workspace_confirm: 'folder',
+    auth_expired: 'alert',
+    rate_limit: 'alert',
+    force_conflict: 'alert',
+    forbidden: 'alert',
+    error: 'alert',
+    done: 'check',
+    thinking: 'think',
+    reading: 'read',
+    subagent_swarm: 'swarm',
+  }
+  if (byStatus[inst.status]) return byStatus[inst.status]
+  const verb = String(inst.step || '').split(/[ ·]/)[0].toLowerCase()
+  if (/^(run|bash|run_command|exec|shell)/.test(verb)) return 'term'
+  if (/^(read|read_file|search|grep|glob|fetch|list)/.test(verb)) return 'read'
+  if (/^think/.test(verb)) return 'think'
+  return 'type'
+}
+
+const GLYPHS = {
+  type: '<span class="g g-type"><i></i><i></i><i></i></span>',
+  term: '<span class="g g-term">›<i></i></span>',
+  read: '<span class="g g-read"></span>',
+  think: '<span class="g g-think"><i></i><i></i><i></i></span>',
+  swarm: '<span class="g g-swarm"><i></i><i></i></span>',
+  shield: '<span class="g g-pulse">!</span>',
+  ask: '<span class="g g-ask">?</span>',
+  folder: '<span class="g g-pulse">⌂</span>',
+  alert: '<span class="g g-alert">!</span>',
+  check: '<span class="g g-check">✓</span>',
+}
+
+function glyphRing(kind, done, total) {
+  const c = 2 * Math.PI * 11
+  const p = total ? done / total : 0
+  return `<span class="chip-ring"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" class="ring-track"/><circle cx="13" cy="13" r="11" class="ring-fill" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - p)).toFixed(1)}"/></svg>${GLYPHS[kind]}</span>`
+}
+
+function shortBotName(name) {
+  const tail = String(name).split('-').pop()
+  return tail.length > 6 ? `${tail.slice(0, 6)}…` : tail
 }
 
 const SHELF_SHORT_NAMES = {

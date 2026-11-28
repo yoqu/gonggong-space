@@ -9,7 +9,7 @@ import {
   createSphere,
   createTaperedPot,
   createTorus,
-} from './geometry.js?v=c1'
+} from './geometry.js?v=c2'
 
 /**
  * High-Scale WebGL2 Two-Pass Shadow-Mapped GGX PBR Cleanroom Campus Renderer

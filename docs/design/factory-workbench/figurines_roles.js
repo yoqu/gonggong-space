@@ -7,7 +7,7 @@ import {
   mat4RotateZ,
   mat4Scale,
   mat4Translate,
-} from './renderer.js?v=c1'
+} from './renderer.js?v=c2'
 
 /**
  * 13 Official Gonggong Built-in Bot Role / Persona Collectible Figurines
